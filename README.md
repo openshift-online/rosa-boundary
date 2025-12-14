@@ -1,12 +1,12 @@
 # ROSA Boundary Container
 
-Multi-architecture container based on Fedora 43 for working with AWS and OpenShift clusters. Designed for AWS Fargate with SSM Agent support.
+Multi-architecture container based on Fedora 43 for working with AWS and OpenShift clusters. Designed for AWS Fargate with ECS Exec support.
 
 ## Features
 
 - **AWS CLI**: Both Fedora RPM and official AWS CLI v2 with alternatives support
 - **OpenShift CLI**: Versions 4.14 through 4.20 from stable channels
-- **AWS SSM Agent**: For remote session management in Fargate
+- **ECS Exec Ready**: Designed for AWS Fargate with ECS Exec support
 - **Multi-architecture**: Supports both x86_64 (amd64) and ARM64 (aarch64)
 
 ## Building
@@ -78,21 +78,21 @@ podman run --rm --entrypoint /bin/bash rosa-boundary:latest -c "aws --version &&
 
 ### Fargate Deployment
 
-This container is designed to run as an AWS Fargate task with SSM Agent for remote access:
+This container is designed to run as an AWS Fargate task with ECS Exec for remote access:
 
 1. Push to your container registry
-2. Create Fargate task definition using this image
-3. Configure SSM permissions in task IAM role
-4. Connect via AWS Systems Manager Session Manager
+2. Create Fargate task definition using this image (platform version 1.4.0+)
+3. Enable ECS Exec on the task definition
+4. Configure SSM permissions in task IAM role
+5. Connect via `aws ecs execute-command`
 
-The container uses `sleep infinity` as the entrypoint, allowing the SSM agent to facilitate remote connections.
+The container uses `sleep infinity` as the entrypoint. ECS Exec automatically handles SSM agent setup - no manual installation needed.
 
 ## Image Details
 
 - **Base**: Fedora 43
 - **AWS CLI**: v2.32.16+ (official), v2.27.0 (Fedora RPM)
 - **OpenShift CLI**: 4.14.x, 4.15.x, 4.16.x, 4.17.x, 4.18.x, 4.19.x, 4.20.x
-- **SSM Agent**: v3.3.3270.0+
 
 ## Architecture Support
 

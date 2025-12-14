@@ -17,11 +17,9 @@ RUN dnf install -y \
 RUN case "${TARGETARCH}" in \
       amd64) \
         echo "x86_64" > /tmp/aws_cli_arch && \
-        echo "amd64" > /tmp/ssm_arch && \
         echo "" > /tmp/oc_suffix ;; \
       arm64) \
         echo "aarch64" > /tmp/aws_cli_arch && \
-        echo "arm64" > /tmp/ssm_arch && \
         echo "-arm64" > /tmp/oc_suffix ;; \
     esac
 
@@ -57,13 +55,8 @@ RUN alternatives --install /usr/local/bin/oc oc /opt/openshift/4.14/oc 14 && \
     alternatives --install /usr/local/bin/oc oc /opt/openshift/4.19/oc 19 && \
     alternatives --install /usr/local/bin/oc oc /opt/openshift/4.20/oc 100
 
-# Install AWS SSM Agent
-RUN SSM_ARCH=$(cat /tmp/ssm_arch) && \
-    dnf install -y "https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_${SSM_ARCH}/amazon-ssm-agent.rpm" && \
-    dnf clean all
-
 # Cleanup temporary files
-RUN rm -f /tmp/aws_cli_arch /tmp/ssm_arch /tmp/oc_suffix
+RUN rm -f /tmp/aws_cli_arch /tmp/oc_suffix
 
 # Set entrypoint for Fargate
 ENTRYPOINT ["sleep", "infinity"]

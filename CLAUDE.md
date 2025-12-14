@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-Multi-architecture container for AWS Fargate that provides tools for managing AWS and OpenShift (ROSA) clusters. The container runs with `sleep infinity` entrypoint and is accessed via AWS Systems Manager Session Manager.
+Multi-architecture container for AWS Fargate that provides tools for managing AWS and OpenShift (ROSA) clusters. The container runs with `sleep infinity` entrypoint and is accessed via ECS Exec.
 
 ## Building
 
@@ -29,10 +29,10 @@ make clean
 
 The Containerfile uses `TARGETARCH` build argument (automatically set by podman/buildx) to handle architecture-specific differences:
 
-- **x86_64 (amd64)**: Uses `linux_amd64` for SSM Agent, `x86_64` for AWS CLI
-- **ARM64 (aarch64)**: Uses `linux_arm64` for SSM Agent, `aarch64` for AWS CLI, `-arm64` suffix for OpenShift downloads
+- **x86_64 (amd64)**: Uses `x86_64` for AWS CLI, no suffix for OpenShift downloads
+- **ARM64 (aarch64)**: Uses `aarch64` for AWS CLI, `-arm64` suffix for OpenShift downloads
 
-Architecture variables are stored in temp files (`/tmp/aws_cli_arch`, `/tmp/ssm_arch`, `/tmp/oc_suffix`) during build and consumed by subsequent RUN commands.
+Architecture variables are stored in temp files (`/tmp/aws_cli_arch`, `/tmp/oc_suffix`) during build and consumed by subsequent RUN commands.
 
 ### Tool Installation via Alternatives System
 
@@ -51,9 +51,6 @@ The container uses Linux alternatives system to manage multiple versions:
 
 - **AWS CLI**: `https://awscli.amazonaws.com/awscli-exe-linux-{arch}.zip`
 - **OpenShift CLI**: `https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-{version}/openshift-client-linux{suffix}.tar.gz`
-- **SSM Agent**: `https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_{arch}/amazon-ssm-agent.rpm`
-
-Note: SSM Agent URLs must use `linux_amd64`/`linux_arm64` (not `linux_x86_64`/`linux_aarch64`).
 
 ## Testing Containers Locally
 

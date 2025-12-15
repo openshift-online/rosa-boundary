@@ -2,8 +2,6 @@
 # Fedora 43 with AWS CLI, OpenShift CLI, and AWS SSM Agent for Fargate
 FROM fedora:43
 
-ARG TARGETARCH=x86_64
-
 # Install base packages including Fedora's AWS CLI
 RUN dnf install -y \
     awscli2 \
@@ -13,15 +11,14 @@ RUN dnf install -y \
     gzip \
     && dnf clean all
 
-# Set up architecture-specific variables
-RUN case "${TARGETARCH}" in \
-      amd64) \
-        echo "x86_64" > /tmp/aws_cli_arch && \
-        echo "" > /tmp/oc_suffix ;; \
-      arm64) \
-        echo "aarch64" > /tmp/aws_cli_arch && \
-        echo "-arm64" > /tmp/oc_suffix ;; \
-    esac
+# Set up architecture-specific variables using uname
+RUN ARCH=$(uname -m) && \
+    echo "${ARCH}" > /tmp/aws_cli_arch && \
+    if [ "${ARCH}" = "aarch64" ]; then \
+      echo "-arm64" > /tmp/oc_suffix; \
+    else \
+      echo "" > /tmp/oc_suffix; \
+    fi
 
 # Register Fedora's AWS CLI with alternatives
 RUN alternatives --install /usr/local/bin/aws aws /usr/bin/aws 10 --family fedora

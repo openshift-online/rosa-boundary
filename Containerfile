@@ -55,6 +55,10 @@ RUN alternatives --install /usr/local/bin/oc oc /opt/openshift/4.14/oc 14 && \
 # Cleanup temporary files
 RUN rm -f /tmp/aws_cli_arch /tmp/oc_suffix
 
+# Create SRE user for SSM/ECS Exec connections
+# Home directory will be mounted as EFS via task definition
+RUN useradd -m -s /bin/bash sre
+
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh

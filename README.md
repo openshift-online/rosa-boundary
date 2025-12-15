@@ -41,6 +41,7 @@ The easiest way to select tool versions is via environment variables at containe
 |----------|--------|---------|-------------|
 | `OC_VERSION` | `4.14`, `4.15`, `4.16`, `4.17`, `4.18`, `4.19`, `4.20` | `4.20` | OpenShift CLI version |
 | `AWS_CLI` | `fedora`, `official` | `official` | AWS CLI source |
+| `S3_AUDIT_ESCROW` | S3 URI (e.g., `s3://bucket/path/`) | _(none)_ | S3 destination for /home/sre sync on exit |
 
 **Examples:**
 ```bash
@@ -56,6 +57,25 @@ podman run -e OC_VERSION=4.17 -e AWS_CLI=fedora rosa-boundary:latest
 # With a custom command
 podman run -e OC_VERSION=4.19 rosa-boundary:latest /bin/bash
 ```
+
+## SRE User and Audit Escrow
+
+The container includes a non-root `sre` user (uid=1000) designed for SSM/ECS Exec connections. The `/home/sre` directory is intended to be mounted as EFS via Fargate task definition.
+
+### Automatic S3 Sync on Exit
+
+When the container receives termination signals (SIGTERM, SIGINT, SIGHUP) or exits normally, the entrypoint automatically syncs `/home/sre` to S3 if `S3_AUDIT_ESCROW` is set:
+
+```bash
+# Container will sync /home/sre to S3 on exit
+podman run -e S3_AUDIT_ESCROW=s3://my-bucket/incident-123/ rosa-boundary:latest
+```
+
+**Features:**
+- Automatic sync on container exit or termination signals
+- Graceful failure - warns but doesn't block exit if sync fails
+- Only syncs if `S3_AUDIT_ESCROW` is defined (no sync if unset)
+- Useful for preserving investigation artifacts after ephemeral container use
 
 ## Tool Management
 
@@ -115,12 +135,17 @@ This container is designed to run as an AWS Fargate task with ECS Exec for remot
 
 1. Push to your container registry
 2. Create Fargate task definition using this image (platform version 1.4.0+)
-3. Set environment variables `OC_VERSION` and/or `AWS_CLI` if you need specific versions
-4. Enable ECS Exec on the task definition
-5. Configure SSM permissions in task IAM role
-6. Connect via `aws ecs execute-command`
+3. Configure EFS volume mount for `/home/sre` (recommended for persistent storage)
+4. Set environment variables in task definition:
+   - `OC_VERSION` and/or `AWS_CLI` if you need specific versions
+   - `S3_AUDIT_ESCROW` for automatic backup on container termination (e.g., `s3://bucket/incident-123/`)
+5. Enable ECS Exec on the task definition
+6. Configure IAM role permissions:
+   - SSM permissions for ECS Exec
+   - S3 write permissions if using `S3_AUDIT_ESCROW`
+7. Connect via `aws ecs execute-command --user sre` to connect as the sre user
 
-The container runs `sleep infinity` by default. The entrypoint script switches tool versions based on environment variables before executing the command. ECS Exec automatically handles SSM agent setup - no manual installation needed.
+The container runs `sleep infinity` by default. The entrypoint script switches tool versions based on environment variables before executing the command. On termination, it syncs `/home/sre` to S3 if configured. ECS Exec automatically handles SSM agent setup - no manual installation needed.
 
 ## Image Details
 

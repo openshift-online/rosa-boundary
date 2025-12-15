@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-Multi-architecture container for AWS Fargate that provides tools for managing AWS and OpenShift (ROSA) clusters. The container runs with an entrypoint script that supports dynamic version selection via environment variables, defaulting to `sleep infinity`, and is accessed via ECS Exec.
+Multi-architecture container for AWS Fargate that provides tools for managing AWS and OpenShift (ROSA) clusters. Designed for ephemeral SRE use with ECS Exec access as the `sre` user. The entrypoint script supports dynamic version selection via environment variables, signal handling for graceful shutdown with S3 backup, and defaults to `sleep infinity`.
 
 ## Building
 
@@ -59,13 +59,44 @@ The container includes an entrypoint script (`/usr/local/bin/entrypoint.sh`) tha
 **Environment Variables**:
 - `OC_VERSION`: Select OpenShift CLI version (4.14-4.20, default: 4.20)
 - `AWS_CLI`: Select AWS CLI source (`fedora` or `official`, default: official)
+- `S3_AUDIT_ESCROW`: S3 URI for syncing /home/sre on exit (optional, e.g., `s3://bucket/incident-123/`)
 
 **Entrypoint Behavior**:
-1. Checks `OC_VERSION` and uses `alternatives --set` to switch to that version if provided
-2. Checks `AWS_CLI` and uses `alternatives --set` to switch to fedora/official if provided
-3. Executes the command via `exec` (defaults to `sleep infinity`)
+1. Sets up signal traps for SIGTERM, SIGINT, SIGHUP
+2. Checks `OC_VERSION` and uses `alternatives --set` to switch to that version if provided
+3. Checks `AWS_CLI` and uses `alternatives --set` to switch to fedora/official if provided
+4. Runs the command in background (defaults to `sleep infinity`)
+5. Waits for command to complete or signal to arrive
+6. On exit/signal: syncs /home/sre to S3 if `S3_AUDIT_ESCROW` is set
 
 The entrypoint is located at `entrypoint.sh` in the repository root and copied to `/usr/local/bin/entrypoint.sh` during build.
+
+### SRE User and Audit Escrow
+
+**SRE User Creation**:
+- Created in Containerfile:60 with `useradd -m -s /bin/bash sre`
+- User ID: 1000 (standard first user ID)
+- Home directory: `/home/sre`
+- Intended to be mounted as EFS via Fargate task definition for persistent storage
+
+**Signal Handling and S3 Sync**:
+The entrypoint implements signal trapping for graceful shutdown with automatic S3 backup:
+
+1. **Signals Trapped**: SIGTERM, SIGINT, SIGHUP
+2. **Sync Trigger**: On receiving any trapped signal or normal exit
+3. **Environment Variable**: `S3_AUDIT_ESCROW` - S3 URI for backup destination
+4. **Behavior**:
+   - If `S3_AUDIT_ESCROW` is set, runs `aws s3 sync /home/sre <destination>`
+   - If unset, no sync occurs (silent)
+   - Sync failures warn but don't block container exit
+
+**Technical Implementation**:
+- Command runs in background with `&` and PID captured
+- Script uses `wait` to wait for child process (allows trap handling)
+- Cannot use `exec` because it replaces the shell and traps won't fire
+- `cleanup()` function handles signals: syncs to S3, kills child, exits
+
+This allows ephemeral containers to preserve investigation artifacts (logs, configs, scripts) when terminated.
 
 ## Testing Containers Locally
 
@@ -87,6 +118,13 @@ podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client
 
 # Check alternatives configuration (advanced)
 podman run --rm rosa-boundary:latest sh -c "alternatives --display aws && alternatives --display oc"
+
+# Test SRE user exists
+podman run --rm rosa-boundary:latest id sre
+
+# Test S3 sync on exit (will warn without credentials)
+podman run --rm -e S3_AUDIT_ESCROW=s3://test-bucket/test/ \
+  rosa-boundary:latest sh -c "echo 'test' > /home/sre/test.txt && exit"
 ```
 
 ## Adding New OpenShift Versions

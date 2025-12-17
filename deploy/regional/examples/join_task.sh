@@ -18,12 +18,13 @@ if [ -z "$TASK_ID" ]; then
 fi
 
 # AWS configuration
-PROFILE="${AWS_PROFILE:-scuppett-dev}"
+PROFILE="${AWS_PROFILE:-default}"
 REGION="${AWS_REGION:-us-east-2}"
 
-# Get cluster name from Terraform outputs
+# Get cluster name from AWS directly (Terraform state not available)
 cd "$(dirname "$0")/.."
-CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+CLUSTER_NAME=$(aws --profile "$PROFILE" --region "$REGION" ecs list-clusters \
+  --query 'clusterArns[?contains(@, `rosa-boundary`)]' --output text | awk -F'/' '{print $NF}')
 
 echo "Connecting to task..."
 echo "  Task ID: $TASK_ID"
@@ -55,9 +56,12 @@ echo ""
 # Connect via ECS Exec using script command for proper PTY handling
 # The script command creates a pseudo-terminal, then su switches to sre user
 # This enables full terminal features (colors, cursor movement) for tools like Claude Code
+#
+# Set TERM explicitly to xterm-256color for full color support
+# Export environment from init process to preserve AWS/ECS context
 AWS_PROFILE="$PROFILE" AWS_REGION="$REGION" aws ecs execute-command \
   --cluster "$CLUSTER_NAME" \
   --task "$TASK_ID" \
   --container rosa-boundary \
   --interactive \
-  --command "/bin/sh -c 'cd /home/sre && export \$(cat /proc/1/environ | tr \\\\0 \\\\n) && script -q /dev/null -c \"su - sre\"'"
+  --command "/bin/sh -c 'export TERM=xterm-256color && cd /home/sre && export \$(cat /proc/1/environ | tr \\\\0 \\\\n) && exec script -q -c \"su - sre\"'"

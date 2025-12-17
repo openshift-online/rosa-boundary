@@ -27,7 +27,7 @@ if ! echo "4.14 4.15 4.16 4.17 4.18 4.19 4.20" | grep -qw "$OC_VERSION"; then
 fi
 
 # AWS configuration
-PROFILE="${AWS_PROFILE:-scuppett-dev}"
+PROFILE="${AWS_PROFILE:-default}"
 REGION="${AWS_REGION:-us-east-2}"
 
 # Save script directory before changing directories
@@ -41,13 +41,26 @@ echo "  AWS Profile: $PROFILE"
 echo "  AWS Region: $REGION"
 echo ""
 
-# Get infrastructure details from Terraform outputs
+# Get infrastructure details from AWS directly (Terraform state not available)
 cd "$(dirname "$0")/.."
-EFS_ID=$(terraform output -raw efs_filesystem_id)
-BASE_TASK_DEF=$(terraform output -raw task_definition_family)
-TASK_ROLE_ARN=$(terraform output -raw task_role_arn)
-EXECUTION_ROLE_ARN=$(terraform output -raw execution_role_arn)
-BUCKET_NAME=$(terraform output -raw bucket_name)
+
+EFS_ID=$(aws --profile "$PROFILE" --region "$REGION" efs describe-file-systems \
+  --query 'FileSystems[?Tags[?Key==`Name` && contains(Value, `rosa-boundary-dev-sre-home`)]].FileSystemId' \
+  --output text)
+
+BASE_TASK_DEF="rosa-boundary-dev"
+
+TASK_ROLE_ARN=$(aws --profile "$PROFILE" --region "$REGION" iam get-role \
+  --role-name rosa-boundary-dev-task-role \
+  --query 'Role.Arn' --output text)
+
+EXECUTION_ROLE_ARN=$(aws --profile "$PROFILE" --region "$REGION" iam get-role \
+  --role-name rosa-boundary-dev-execution-role \
+  --query 'Role.Arn' --output text)
+
+BUCKET_NAME=$(aws --profile "$PROFILE" --region "$REGION" s3api list-buckets \
+  --query 'Buckets[?contains(Name, `rosa-boundary-dev`)].Name' \
+  --output text | head -1)
 
 echo "Infrastructure:"
 echo "  EFS: $EFS_ID"

@@ -20,13 +20,17 @@ if [ -z "$TASK_ID" ]; then
 fi
 
 # AWS configuration
-PROFILE="${AWS_PROFILE:-scuppett-dev}"
+PROFILE="${AWS_PROFILE:-default}"
 REGION="${AWS_REGION:-us-east-2}"
 
-# Get cluster name from Terraform outputs
+# Get cluster name from AWS directly (Terraform state not available)
 cd "$(dirname "$0")/.."
-CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
-BUCKET_NAME=$(terraform output -raw bucket_name)
+CLUSTER_NAME=$(aws --profile "$PROFILE" --region "$REGION" ecs list-clusters \
+  --query 'clusterArns[?contains(@, `rosa-boundary`)]' --output text | awk -F'/' '{print $NF}')
+
+BUCKET_NAME=$(aws --profile "$PROFILE" --region "$REGION" s3api list-buckets \
+  --query 'Buckets[?contains(Name, `rosa-boundary-dev`)].Name' \
+  --output text | head -1)
 
 echo "Stopping task..."
 echo "  Task ID: $TASK_ID"

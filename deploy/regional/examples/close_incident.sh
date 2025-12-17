@@ -18,7 +18,7 @@ if [ -z "$TASK_FAMILY" ] || [ -z "$ACCESS_POINT_ID" ]; then
 fi
 
 # AWS configuration
-PROFILE="${AWS_PROFILE:-scuppett-dev}"
+PROFILE="${AWS_PROFILE:-default}"
 REGION="${AWS_REGION:-us-east-2}"
 
 echo "Closing incident..."
@@ -28,9 +28,10 @@ echo "  AWS Profile: $PROFILE"
 echo "  AWS Region: $REGION"
 echo ""
 
-# Get cluster name from Terraform outputs
+# Get cluster name from AWS directly (Terraform state not available)
 cd "$(dirname "$0")/.."
-CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
+CLUSTER_NAME=$(aws --profile "$PROFILE" --region "$REGION" ecs list-clusters \
+  --query 'clusterArns[?contains(@, `rosa-boundary`)]' --output text | awk -F'/' '{print $NF}')
 
 # Extract incident details from access point tags instead of parsing task family
 ACCESS_POINT_INFO=$(aws efs describe-access-points \

@@ -17,7 +17,7 @@ if [ -z "$TASK_FAMILY" ]; then
 fi
 
 # AWS configuration
-PROFILE="${AWS_PROFILE:-scuppett-dev}"
+PROFILE="${AWS_PROFILE:-default}"
 REGION="${AWS_REGION:-us-east-2}"
 
 echo "Launching Fargate task..."
@@ -26,11 +26,23 @@ echo "  AWS Profile: $PROFILE"
 echo "  AWS Region: $REGION"
 echo ""
 
-# Get infrastructure details from Terraform outputs
+# Get infrastructure details from AWS directly (Terraform state not available)
 cd "$(dirname "$0")/.."
-CLUSTER_NAME=$(terraform output -raw ecs_cluster_name)
-SECURITY_GROUP=$(terraform output -raw security_group_id)
-SUBNET_IDS=$(terraform output -json subnet_ids | jq -r 'join(",")')
+
+CLUSTER_NAME=$(aws --profile "$PROFILE" --region "$REGION" ecs list-clusters \
+  --query 'clusterArns[?contains(@, `rosa-boundary`)]' --output text | awk -F'/' '{print $NF}')
+
+SECURITY_GROUP=$(aws --profile "$PROFILE" --region "$REGION" ec2 describe-security-groups \
+  --filters "Name=tag:Project,Values=rosa-boundary" "Name=tag:Stage,Values=dev" \
+  --query 'SecurityGroups[?contains(GroupName, `fargate`)].GroupId' --output text)
+
+# Get EFS filesystem ID, then query mount targets for subnet IDs
+EFS_ID=$(aws --profile "$PROFILE" --region "$REGION" efs describe-file-systems \
+  --query 'FileSystems[?Tags[?Key==`Name` && contains(Value, `rosa-boundary-dev-sre-home`)]].FileSystemId' \
+  --output text)
+
+SUBNET_IDS=$(aws --profile "$PROFILE" --region "$REGION" efs describe-mount-targets \
+  --file-system-id "$EFS_ID" --query 'MountTargets[].SubnetId' --output text | tr '\t' ',')
 
 echo "Infrastructure:"
 echo "  ECS Cluster: $CLUSTER_NAME"

@@ -76,17 +76,17 @@ podman push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/rosa-boundary:latest
 terraform apply
 ```
 
-### 3. Incident Lifecycle Management
+### 3. Investigation Lifecycle Management
 
-The `examples/` directory contains scripts for the complete incident lifecycle:
+The `examples/` directory contains scripts for the complete investigation lifecycle:
 
 ```bash
 cd examples/
 
-# Create incident workspace (EFS access point + task definition)
-./create_incident.sh rosa-prod-abc INC-12345 4.18
+# Create investigation workspace (EFS access point + task definition)
+./create_investigation.sh rosa-prod-abc INV-12345 4.18
 
-# Launch a Fargate task for the incident
+# Launch a Fargate task for the investigation
 ./launch_task.sh rosa-boundary-dev-rosa-prod-abc-INC-12345-TIMESTAMP
 
 # Connect to the running task
@@ -95,11 +95,11 @@ cd examples/
 # Stop the task (triggers S3 sync)
 ./stop_task.sh <task-id>
 
-# Close incident (cleanup task definition + access point)
-./close_incident.sh rosa-boundary-dev-rosa-prod-abc-INC-12345-TIMESTAMP fsap-xxx
+# Close investigation (cleanup task definition + access point)
+./close_investigation.sh rosa-boundary-dev-rosa-prod-abc-INV-12345-TIMESTAMP fsap-xxx
 ```
 
-See [Incident Lifecycle](#incident-lifecycle) below for detailed examples.
+See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examples.
 
 ## Variables
 
@@ -134,41 +134,41 @@ See [Incident Lifecycle](#incident-lifecycle) below for detailed examples.
 | `efs_security_group_id` | EFS security group ID |
 | `cloudwatch_log_group` | CloudWatch log group name |
 
-## Incident Lifecycle
+## Investigation Lifecycle
 
-The infrastructure uses a per-incident isolation model with EFS access points and dedicated task definitions.
+The infrastructure uses a per-investigation isolation model with EFS access points and dedicated task definitions.
 
 ### Workflow Overview
 
 ```
-1. create_incident.sh  → Creates EFS access point + task definition with locked OC version
-2. launch_task.sh      → Launches Fargate task for the incident
+1. create_investigation.sh  → Creates EFS access point + task definition with locked OC version
+2. launch_task.sh           → Launches Fargate task for the investigation
 3. join_task.sh        → Connects to running task via ECS Exec
 4. stop_task.sh        → Stops task (triggers S3 sync to unique path)
-5. close_incident.sh   → Cleanup: deletes task definition + access point
+5. close_investigation.sh   → Cleanup: deletes task definition + access point
 ```
 
 ### Path Structure
 
-- **EFS**: `/$cluster_id/$incident_number/` → Mounted to `/home/sre` in container
-- **S3**: `s3://bucket/$cluster_id/$incident_number/$date/$task_id/`
+- **EFS**: `/$cluster_id/$investigation_id/` → Mounted to `/home/sre` in container
+- **S3**: `s3://bucket/$cluster_id/$investigation_id/$date/$task_id/`
 
 **Example:**
-- EFS: `/rosa-prod-abc/INC-12345/` (shared across all tasks for this incident)
+- EFS: `/rosa-prod-abc/INV-12345/` (shared across all tasks for this investigation)
 - S3: `s3://bucket/rosa-prod-abc/INC-12345/20251215/d0910f05.../` (unique per task)
 
-### Step 1: Create Incident Workspace
+### Step 1: Create Investigation Workspace
 
 ```bash
 cd examples/
 
-# Syntax: ./create_incident.sh <cluster-id> <incident-number> [oc-version]
-./create_incident.sh rosa-prod-abc INC-12345 4.18
+# Syntax: ./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
+./create_investigation.sh rosa-prod-abc INV-12345 4.18
 ```
 
 **Output:**
-- EFS Access Point: `fsap-xxx` with path `/$cluster_id/$incident_number/`
-- Task Definition: `rosa-boundary-dev-$cluster_id-$incident_number-TIMESTAMP`
+- EFS Access Point: `fsap-xxx` with path `/$cluster_id/$investigation_id/`
+- Task Definition: `rosa-boundary-dev-$cluster_id-$investigation_id-TIMESTAMP`
 - OC Version: Locked to specified version in task definition
 
 **Save the output values** (task family name and access point ID) for later steps.
@@ -176,13 +176,13 @@ cd examples/
 ### Step 2: Launch Task
 
 ```bash
-# Use task family name from create_incident.sh output
+# Use task family name from create_investigation.sh output
 ./launch_task.sh rosa-boundary-dev-rosa-prod-abc-INC-12345-20251215-171625
 ```
 
 **Automatic configuration:**
-- Mounts incident-specific EFS path to `/home/sre`
-- Sets environment variables: `CLUSTER_ID`, `INCIDENT_NUMBER`, `OC_VERSION`, `S3_AUDIT_BUCKET`
+- Mounts investigation-specific EFS path to `/home/sre`
+- Sets environment variables: `CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET`
 - Enables ECS Exec for interactive access
 
 ### Step 3: Connect to Task
@@ -197,9 +197,9 @@ cd examples/
 whoami                    # sre
 pwd                       # /home/sre
 claude --version          # 2.0.69
-oc version --client       # 4.18.x (locked to incident)
+oc version --client       # 4.18.x (locked to investigation)
 echo $CLUSTER_ID          # rosa-prod-abc
-echo $INCIDENT_NUMBER     # INC-12345
+echo $INVESTIGATION_ID    # INV-12345
 
 # Do your investigation work
 # All files in /home/sre persist to EFS
@@ -213,7 +213,7 @@ echo $INCIDENT_NUMBER     # INC-12345
 
 **What happens:**
 1. Container receives SIGTERM signal
-2. Entrypoint auto-generates S3 path: `s3://bucket/$cluster/$incident/$date/$taskid/`
+2. Entrypoint auto-generates S3 path: `s3://bucket/$cluster/$investigation/$date/$taskid/`
 3. Syncs `/home/sre` to S3 with WORM compliance
 4. Container exits gracefully
 
@@ -222,11 +222,11 @@ echo $INCIDENT_NUMBER     # INC-12345
 s3://641875867446-rosa-boundary-dev-us-east-2/rosa-prod-abc/INC-12345/20251215/d0910f05.../
 ```
 
-### Step 5: Close Incident (Cleanup)
+### Step 5: Close Investigation (Cleanup)
 
 ```bash
-# Use task family and access point ID from create_incident.sh output
-./close_incident.sh rosa-boundary-dev-rosa-prod-abc-INC-12345-TIMESTAMP fsap-xxx
+# Use task family and access point ID from create_investigation.sh output
+./close_investigation.sh rosa-boundary-dev-rosa-prod-abc-INV-12345-TIMESTAMP fsap-xxx
 ```
 
 **Cleanup actions:**
@@ -265,7 +265,7 @@ SSM session logs capture real-time terminal activity, while container audit sync
 | Location | Content | When Captured |
 |----------|---------|---------------|
 | `/ecs/.../ssm-sessions` (CloudWatch) | Terminal I/O transcript | Real-time streaming during session |
-| `$cluster/$incident/$date/$taskid/` (S3) | `/home/sre` directory | On container exit |
+| `$cluster/$investigation/$date/$taskid/` (S3) | `/home/sre` directory | On container exit |
 
 ### Viewing Session Logs
 
@@ -301,8 +301,8 @@ Session logs contain complete terminal output including any credentials or sensi
 ### Automatically Set (by lifecycle scripts)
 
 - `CLUSTER_ID` - ROSA cluster identifier
-- `INCIDENT_NUMBER` - Incident tracking number
-- `OC_VERSION` - OpenShift CLI version (locked per incident)
+- `INVESTIGATION_ID` - Investigation tracking ID
+- `OC_VERSION` - OpenShift CLI version (locked per investigation)
 - `S3_AUDIT_BUCKET` - S3 bucket name for audit logs
 - `CLAUDE_CODE_USE_BEDROCK=1` - Enable Claude Code via Bedrock
 

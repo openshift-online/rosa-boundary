@@ -59,7 +59,7 @@ The container includes an entrypoint script (`/usr/local/bin/entrypoint.sh`) tha
 **Environment Variables**:
 - `OC_VERSION`: Select OpenShift CLI version (4.14-4.20, default: 4.20)
 - `AWS_CLI`: Select AWS CLI source (`fedora` or `official`, default: official)
-- `S3_AUDIT_ESCROW`: S3 URI for syncing /home/sre on exit (optional, e.g., `s3://bucket/incident-123/`)
+- `S3_AUDIT_ESCROW`: S3 URI for syncing /home/sre on exit (optional, e.g., `s3://bucket/investigation-123/`)
 
 **Entrypoint Behavior**:
 1. Sets up signal traps for SIGTERM, SIGINT, SIGHUP
@@ -226,24 +226,24 @@ deploy/regional/
   efs.tf               - EFS filesystem with mount targets
   ecs.tf               - ECS cluster, task definition, security groups
   examples/            - Lifecycle management scripts
-    create_incident.sh - Create access point + task definition
+    create_investigation.sh - Create access point + task definition
     launch_task.sh     - Launch Fargate task
     join_task.sh       - Connect via ECS Exec
     stop_task.sh       - Stop task (triggers S3 sync)
-    close_incident.sh  - Cleanup access point + task definition
+    close_investigation.sh  - Cleanup access point + task definition
     build-task-def.jq  - jq script for task definition transformation
   get-vpc-info.sh      - Helper to discover VPC/subnets
   .gitignore           - Excludes tfvars, state, .terraform/
 ```
 
-### Per-Incident Isolation Model
+### Per-Investigation Isolation Model
 
-Each incident gets:
-- **Unique EFS access point**: `/$cluster_id/$incident_number/` → mounted to `/home/sre`
-- **Unique task definition**: `rosa-boundary-dev-$cluster_id-$incident_number-TIMESTAMP`
-  - Locks OC version at incident creation
-  - Pre-configured with CLUSTER_ID, INCIDENT_NUMBER, S3_AUDIT_BUCKET env vars
-- **Unique S3 paths per task**: `s3://bucket/$cluster_id/$incident_number/$date/$task_id/`
+Each investigation gets:
+- **Unique EFS access point**: `/$cluster_id/$investigation_id/` → mounted to `/home/sre`
+- **Unique task definition**: `rosa-boundary-dev-$cluster_id-$investigation_id-TIMESTAMP`
+  - Locks OC version at investigation creation
+  - Pre-configured with CLUSTER_ID, INVESTIGATION_ID, S3_AUDIT_BUCKET env vars
+- **Unique S3 paths per task**: `s3://bucket/$cluster_id/$investigation_id/$date/$task_id/`
 
 **EFS Access Point Limit**: 10,000 per filesystem (as of Feb 2025)
 
@@ -251,14 +251,14 @@ Each incident gets:
 
 Entrypoint logic (lines 5-27):
 - If `S3_AUDIT_ESCROW` is set → use it
-- Else if `S3_AUDIT_BUCKET` + `CLUSTER_ID` + `INCIDENT_NUMBER` are set:
+- Else if `S3_AUDIT_BUCKET` + `CLUSTER_ID` + `INVESTIGATION_ID` are set:
   - Auto-detect `TASK_ID` from ECS metadata
   - Generate date: `$(date +%Y%m%d)`
-  - Build path: `s3://$bucket/$cluster/$incident/$date/$taskid/`
+  - Build path: `s3://$bucket/$cluster/$investigation/$date/$taskid/`
 
 ### Lifecycle Script Workflow
 
-1. **create_incident.sh** `<cluster-id> <incident-number> [oc-version]`
+1. **create_investigation.sh** `<cluster-id> <investigation-id> [oc-version]`
    - Creates EFS access point with tags
    - Clones base task definition
    - Adds environment variables
@@ -278,7 +278,7 @@ Entrypoint logic (lines 5-27):
    - Entrypoint syncs to auto-generated S3 path
    - Shows expected S3 location
 
-5. **close_incident.sh** `<task-family> <access-point-id>`
+5. **close_investigation.sh** `<task-family> <access-point-id>`
    - Checks for running tasks
    - Deregisters all task definition revisions
    - Deletes EFS access point (prompts for confirmation)
@@ -287,4 +287,4 @@ Entrypoint logic (lines 5-27):
 
 - `deploy/regional/terraform.tfvars.example` - Template configuration
 - `deploy/regional/README.md` - Complete deployment documentation
-- `deploy/regional/examples/*.sh` - Incident lifecycle scripts
+- `deploy/regional/examples/*.sh` - Investigation lifecycle scripts

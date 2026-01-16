@@ -4,16 +4,16 @@ set -e
 # Function to sync home directory to S3 on exit
 sync_to_s3() {
   # Build S3 path automatically if structured variables are provided
-  if [ -z "${S3_AUDIT_ESCROW}" ] && [ -n "${S3_AUDIT_BUCKET}" ] && [ -n "${CLUSTER_ID}" ] && [ -n "${INCIDENT_NUMBER}" ]; then
+  if [ -z "${S3_AUDIT_ESCROW}" ] && [ -n "${S3_AUDIT_BUCKET}" ] && [ -n "${CLUSTER_ID}" ] && [ -n "${INVESTIGATION_ID}" ]; then
     # Auto-detect task ID from ECS metadata
     if [ -n "${ECS_CONTAINER_METADATA_URI_V4}" ]; then
       TASK_ARN=$(curl -s "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null | grep -o '"TaskARN":"[^"]*"' | cut -d'"' -f4)
       TASK_ID=$(echo "$TASK_ARN" | awk -F'/' '{print $NF}')
     fi
 
-    # Build S3 path: s3://bucket/$cluster/$incident/$date/$taskid/
+    # Build S3 path: s3://bucket/$cluster/$investigation/$date/$taskid/
     DATE=$(date +%Y%m%d)
-    S3_AUDIT_ESCROW="s3://${S3_AUDIT_BUCKET}/${CLUSTER_ID}/${INCIDENT_NUMBER}/${DATE}/${TASK_ID}/"
+    S3_AUDIT_ESCROW="s3://${S3_AUDIT_BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/${DATE}/${TASK_ID}/"
     echo "Auto-generated S3 audit path: ${S3_AUDIT_ESCROW}"
   fi
 
@@ -94,9 +94,9 @@ if [ "${CLAUDE_CODE_USE_BEDROCK:-1}" = "1" ]; then
 fi
 
 # Warn if S3 audit is not configured
-if [ -z "${S3_AUDIT_ESCROW}" ] && { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INCIDENT_NUMBER}" ]; }; then
+if [ -z "${S3_AUDIT_ESCROW}" ] && { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INVESTIGATION_ID}" ]; }; then
   echo "Warning: S3 audit not configured. /home/sre will not be backed up on exit." >&2
-  echo "  Set either S3_AUDIT_ESCROW or (S3_AUDIT_BUCKET + CLUSTER_ID + INCIDENT_NUMBER)" >&2
+  echo "  Set either S3_AUDIT_ESCROW or (S3_AUDIT_BUCKET + CLUSTER_ID + INVESTIGATION_ID)" >&2
 fi
 
 # Run the command in the background and wait for it

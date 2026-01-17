@@ -12,7 +12,7 @@ if [ -z "$TASK_ID" ]; then
   echo ""
   echo "Example:"
   echo "  $0 394399c601f94548bedb65d5a90f30c6"
-  echo "  $0 394399c601f94548bedb65d5a90f30c6 \"Incident resolved\""
+  echo "  $0 394399c601f94548bedb65d5a90f30c6 \"Investigation resolved\""
   echo ""
   echo "List running tasks:"
   echo "  aws ecs list-tasks --cluster rosa-boundary-dev --desired-status RUNNING"
@@ -66,7 +66,7 @@ TASK_DEF_INFO=$(aws ecs describe-task-definition \
   --output json)
 
 CLUSTER_ID=$(echo "$TASK_DEF_INFO" | jq -r '.[] | select(.name=="CLUSTER_ID") | .value' 2>/dev/null || echo "unknown")
-INCIDENT_NUMBER=$(echo "$TASK_DEF_INFO" | jq -r '.[] | select(.name=="INCIDENT_NUMBER") | .value' 2>/dev/null || echo "unknown")
+INVESTIGATION_ID=$(echo "$TASK_DEF_INFO" | jq -r '.[] | select(.name=="INVESTIGATION_ID") | .value' 2>/dev/null || echo "unknown")
 
 # Stop the task
 aws ecs stop-task \
@@ -87,16 +87,16 @@ echo "  2. Sync /home/sre to S3"
 echo "  3. Exit gracefully"
 echo ""
 
-if [ "$CLUSTER_ID" != "unknown" ] && [ "$INCIDENT_NUMBER" != "unknown" ]; then
+if [ "$CLUSTER_ID" != "unknown" ] && [ "$INVESTIGATION_ID" != "unknown" ]; then
   DATE=$(date +%Y%m%d)
-  S3_PATH="s3://$BUCKET_NAME/$CLUSTER_ID/$INCIDENT_NUMBER/$DATE/$TASK_ID/"
+  S3_PATH="s3://$BUCKET_NAME/$CLUSTER_ID/$INVESTIGATION_ID/$DATE/$TASK_ID/"
   echo "Expected S3 sync destination:"
   echo "  $S3_PATH"
   echo ""
   echo "Verify sync completed (after ~30 seconds):"
   echo "  aws s3 ls \"$S3_PATH\" --recursive"
 else
-  echo "Note: Could not determine S3 path (missing CLUSTER_ID or INCIDENT_NUMBER env vars)"
+  echo "Note: Could not determine S3 path (missing CLUSTER_ID or INVESTIGATION_ID env vars)"
 fi
 
 echo ""

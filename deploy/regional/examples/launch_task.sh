@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Script to launch a Fargate task for an incident
+# Script to launch a Fargate task for an investigation
 # Usage: ./launch_task.sh <task-family-name>
 
 TASK_FAMILY="${1}"
@@ -10,9 +10,9 @@ if [ -z "$TASK_FAMILY" ]; then
   echo "Usage: $0 <task-family-name>"
   echo ""
   echo "Example:"
-  echo "  $0 rosa-boundary-dev-rosa-prod-abc-INC-12345"
+  echo "  $0 rosa-boundary-dev-rosa-prod-abc-INV-12345"
   echo ""
-  echo "Get the task family name from create_incident.sh output"
+  echo "Get the task family name from create_investigation.sh output"
   exit 1
 fi
 

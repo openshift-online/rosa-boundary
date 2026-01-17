@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# Script to close an incident by deleting task definition and EFS access point
-# Usage: ./close_incident.sh <task-family-name> <access-point-id>
+# Script to close an investigation by deleting task definition and EFS access point
+# Usage: ./close_investigation.sh <task-family-name> <access-point-id>
 
 TASK_FAMILY="${1}"
 ACCESS_POINT_ID="${2}"
@@ -11,9 +11,9 @@ if [ -z "$TASK_FAMILY" ] || [ -z "$ACCESS_POINT_ID" ]; then
   echo "Usage: $0 <task-family-name> <access-point-id>"
   echo ""
   echo "Example:"
-  echo "  $0 rosa-boundary-dev-rosa-prod-abc-INC-12345 fsap-0123456789abcdef"
+  echo "  $0 rosa-boundary-dev-rosa-prod-abc-INV-12345 fsap-0123456789abcdef"
   echo ""
-  echo "Get these from create_incident.sh output"
+  echo "Get these from create_investigation.sh output"
   exit 1
 fi
 
@@ -21,7 +21,7 @@ fi
 PROFILE="${AWS_PROFILE:-default}"
 REGION="${AWS_REGION:-us-east-2}"
 
-echo "Closing incident..."
+echo "Closing investigation..."
 echo "  Task Family: $TASK_FAMILY"
 echo "  Access Point: $ACCESS_POINT_ID"
 echo "  AWS Profile: $PROFILE"
@@ -33,7 +33,7 @@ cd "$(dirname "$0")/.."
 CLUSTER_NAME=$(aws --profile "$PROFILE" --region "$REGION" ecs list-clusters \
   --query 'clusterArns[?contains(@, `rosa-boundary`)]' --output text | awk -F'/' '{print $NF}')
 
-# Extract incident details from access point tags instead of parsing task family
+# Extract investigation details from access point tags instead of parsing task family
 ACCESS_POINT_INFO=$(aws efs describe-access-points \
   --profile "$PROFILE" \
   --region "$REGION" \
@@ -42,12 +42,12 @@ ACCESS_POINT_INFO=$(aws efs describe-access-points \
   --output json 2>/dev/null)
 
 CLUSTER_ID=$(echo "$ACCESS_POINT_INFO" | jq -r '.Tags[]? | select(.Key=="ClusterID") | .Value' 2>/dev/null || echo "unknown")
-INCIDENT_NUMBER=$(echo "$ACCESS_POINT_INFO" | jq -r '.Tags[]? | select(.Key=="IncidentNumber") | .Value' 2>/dev/null || echo "unknown")
+INVESTIGATION_ID=$(echo "$ACCESS_POINT_INFO" | jq -r '.Tags[]? | select(.Key=="InvestigationId") | .Value' 2>/dev/null || echo "unknown")
 EFS_PATH=$(echo "$ACCESS_POINT_INFO" | jq -r '.RootDirectory.Path' 2>/dev/null || echo "unknown")
 
-echo "Incident Details:"
+echo "Investigation Details:"
 echo "  Cluster ID: $CLUSTER_ID"
-echo "  Incident Number: $INCIDENT_NUMBER"
+echo "  Investigation ID: $INVESTIGATION_ID"
 echo "  EFS Path: $EFS_PATH"
 echo ""
 
@@ -64,7 +64,7 @@ RUNNING_TASKS=$(aws ecs list-tasks \
 
 if [ -n "$RUNNING_TASKS" ]; then
   echo ""
-  echo "ERROR: Found running tasks for this incident:"
+  echo "ERROR: Found running tasks for this investigation:"
   for task_arn in $RUNNING_TASKS; do
     TASK_ID=$(echo "$task_arn" | awk -F'/' '{print $NF}')
     echo "  - $TASK_ID"
@@ -113,7 +113,7 @@ fi
 echo "[3/3] Deleting EFS access point..."
 
 # Confirm deletion
-read -p "Delete access point $ACCESS_POINT_ID and EFS data for $INCIDENT_NUMBER? (yes/no): " CONFIRM
+read -p "Delete access point $ACCESS_POINT_ID and EFS data for $INVESTIGATION_ID? (yes/no): " CONFIRM
 
 if [ "$CONFIRM" != "yes" ]; then
   echo "Aborted. Task definitions have been deregistered but access point remains."
@@ -129,16 +129,16 @@ echo "  ✓ Access point deleted"
 
 echo ""
 echo "=========================================="
-echo "✓ Incident closed successfully!"
+echo "✓ Investigation closed successfully!"
 echo "=========================================="
 echo ""
 echo "Cleaned up:"
 echo "  ✓ Task definition family: $TASK_FAMILY (all revisions)"
 echo "  ✓ EFS access point: $ACCESS_POINT_ID"
 echo ""
-echo "Note: EFS data at /$CLUSTER_ID/$INCIDENT_NUMBER is preserved on the filesystem."
+echo "Note: EFS data at /$CLUSTER_ID/$INVESTIGATION_ID is preserved on the filesystem."
 echo "The directory will remain but is no longer accessible via this access point."
 echo ""
 echo "To completely remove EFS data (manual action required):"
 echo "  1. Mount the EFS filesystem to an EC2 instance"
-echo "  2. Delete the directory: rm -rf /$CLUSTER_ID/$INCIDENT_NUMBER"
+echo "  2. Delete the directory: rm -rf /$CLUSTER_ID/$INVESTIGATION_ID"

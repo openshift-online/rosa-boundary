@@ -72,7 +72,7 @@ When the container receives termination signals (SIGTERM, SIGINT, SIGHUP) or exi
 
 ```bash
 # Container will sync /home/sre to S3 on exit
-podman run -e S3_AUDIT_ESCROW=s3://my-bucket/incident-123/ rosa-boundary:latest
+podman run -e S3_AUDIT_ESCROW=s3://my-bucket/investigation-123/ rosa-boundary:latest
 ```
 
 **Features:**
@@ -225,13 +225,13 @@ vi terraform.tfvars
 terraform init
 terraform apply
 
-# Use lifecycle scripts for incident management
+# Use lifecycle scripts for investigation management
 cd examples/
-./create_incident.sh <cluster-id> <incident-number> [oc-version]
+./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
 ./launch_task.sh <task-family>
 ./join_task.sh <task-id>
 ./stop_task.sh <task-id>
-./close_incident.sh <task-family> <access-point-id>
+./close_investigation.sh <task-family> <access-point-id>
 ```
 
 See [`deploy/regional/README.md`](deploy/regional/README.md) for complete documentation.
@@ -242,7 +242,7 @@ For manual deployment without Terraform:
 
 1. Push container image to ECR or container registry
 2. Create ECS cluster with Container Insights
-3. Create EFS filesystem with access points per incident
+3. Create EFS filesystem with access points per investigation
 4. Create IAM roles with Bedrock, S3, and ECS Exec permissions
 5. Create task definition with EFS mount and environment variables
 6. Launch tasks with `--enable-execute-command`

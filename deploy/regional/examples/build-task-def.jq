@@ -1,9 +1,9 @@
-# jq script to build incident-specific task definition
+# jq script to build investigation-specific task definition
 # Usage: BASE_TASK_JSON | jq -f build-task-def.jq --arg ...
 
 .containerDefinitions[0].environment += [
   {name: "CLUSTER_ID", value: $cluster_id},
-  {name: "INCIDENT_NUMBER", value: $incident},
+  {name: "INVESTIGATION_ID", value: $investigation},
   {name: "OC_VERSION", value: $oc_version},
   {name: "S3_AUDIT_BUCKET", value: $bucket}
 ] |

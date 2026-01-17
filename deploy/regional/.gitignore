@@ -33,3 +33,6 @@ terraform.rc
 # Temporary files
 *.tmp
 .DS_Store
+
+# Binary packages
+*.pkg

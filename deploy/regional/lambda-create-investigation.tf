@@ -112,6 +112,20 @@ data "archive_file" "create_investigation_lambda" {
   type        = "zip"
   source_dir  = "${path.module}/../../lambda/create-investigation"
   output_path = "${path.module}/.terraform/lambda/create-investigation.zip"
+
+  excludes = [
+    "test_handler.py",
+    "test-security-fixes.sh",
+    "requirements-test.txt",
+    "README.md",
+    "Makefile",
+    "__pycache__",
+    ".pytest_cache",
+    "htmlcov",
+    ".coverage",
+    "bin",
+    ".venv"
+  ]
 }
 
 # Lambda function

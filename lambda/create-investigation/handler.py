@@ -345,16 +345,6 @@ def get_or_create_user_role(sub: str, aud: str, oidc_provider_arn: str) -> Tuple
         "Version": "2012-10-17",
         "Statement": [
             {
-                "Sid": "ExecuteCommandOnCluster",
-                "Effect": "Allow",
-                "Action": [
-                    "ecs:ExecuteCommand"
-                ],
-                "Resource": [
-                    f"arn:aws:ecs:{region}:{account_id}:cluster/{cluster_name}"
-                ]
-            },
-            {
                 "Sid": "ExecuteCommandOnOwnedTasks",
                 "Effect": "Allow",
                 "Action": [

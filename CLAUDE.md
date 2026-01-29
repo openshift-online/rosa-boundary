@@ -14,6 +14,24 @@ Designed for ephemeral SRE use with ECS Exec access as the `sre` user. The entry
 
 **For complete architecture and integration details**, see [`docs/`](docs/README.md).
 
+## Development Workflow
+
+### Tool Usage Guidelines
+
+**IMPORTANT**: Always use Makefiles and Terraform for builds and deployments:
+- **Container builds**: Use `make` commands (never `podman build` directly)
+- **Lambda builds**: Use `make` commands in `lambda/*/` directories
+- **Infrastructure**: Use `terraform` commands in `deploy/regional/`
+
+### Environment Configuration
+
+**Required variables** without Terraform defaults must be supplied in `.env` at the project root:
+- If a Terraform variable lacks a default value, check `.env` first
+- If missing from `.env`, prompt the user to add it
+- Never hardcode environment-specific values in tool commands
+
+**Example**: `keycloak_issuer_url` has no default in `variables.tf`, so it must be in `.env` as `KEYCLOAK_ISSUER_URL`.
+
 ## Building
 
 ```bash

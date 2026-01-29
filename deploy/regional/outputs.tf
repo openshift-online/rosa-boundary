@@ -88,10 +88,9 @@ output "oidc_provider_arn" {
   value       = aws_iam_openid_connect_provider.keycloak.arn
 }
 
-output "oidc_sre_role_arn" {
-  description = "ARN of the OIDC-federated SRE role"
-  value       = aws_iam_role.oidc_sre.arn
-}
+# NOTE: oidc_sre_role_arn output removed
+# Per-user IAM roles are now created dynamically by Lambda function
+
 output "lambda_function_url" {
   description = "URL for the create-investigation Lambda function"
   value       = aws_lambda_function_url.create_investigation.function_url

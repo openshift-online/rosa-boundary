@@ -107,7 +107,7 @@ fi
 # Extract response fields
 ROLE_ARN=$(echo "$RESPONSE" | jq -r '.role_arn')
 TASK_ARN=$(echo "$RESPONSE" | jq -r '.task_arn')
-CLUSTER=$(echo "$RESPONSE" | jq -r '.cluster')
+CLUSTER=$(echo "$RESPONSE" | jq -r '.cluster_id')
 ACCESS_POINT_ID=$(echo "$RESPONSE" | jq -r '.access_point_id')
 
 if [[ -z "$ROLE_ARN" ]] || [[ "$ROLE_ARN" == "null" ]]; then

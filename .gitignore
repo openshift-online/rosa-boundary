@@ -17,6 +17,9 @@ __pycache__/
 venv/
 *.so
 .Python
+.pytest_cache/
+htmlcov/
+.coverage
 
 # Lambda dependencies (installed at build time)
 lambda/**/boto*

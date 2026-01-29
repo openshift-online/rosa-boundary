@@ -165,6 +165,9 @@ resource "aws_lambda_function_url" "create_investigation" {
     allow_headers     = ["content-type", "authorization"]
     max_age           = 86400
   }
+
+  # Ensure permission exists before creating Function URL
+  depends_on = [aws_lambda_permission.create_investigation_url]
 }
 
 # Allow public invocation via Function URL

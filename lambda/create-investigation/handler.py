@@ -52,9 +52,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         API Gateway response with status code and body
     """
     try:
-        # Debug: log event structure (remove in production)
+        # Debug: log event structure (redact sensitive headers)
         logger.info(f"Event keys: {list(event.keys())}")
-        logger.info(f"Headers: {event.get('headers', {})}")
+        headers_redacted = {k: '***REDACTED***' if k.lower() == 'authorization' else v
+                           for k, v in event.get('headers', {}).items()}
+        logger.info(f"Headers: {headers_redacted}")
 
         # Extract and validate Authorization header
         headers = event.get('headers', {})
@@ -92,6 +94,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not investigation_id or not cluster_id:
             logger.warning("Missing required fields: investigation_id or cluster_id")
             return response(400, {'error': 'Missing required fields: investigation_id, cluster_id'})
+
+        # Validate identifiers for safe characters
+        try:
+            validate_identifier(investigation_id, 'investigation_id')
+            validate_identifier(cluster_id, 'cluster_id')
+        except ValueError as e:
+            logger.warning(f"Invalid input: {str(e)}")
+            return response(400, {'error': str(e)})
 
         # Validate OIDC token
         logger.info("Validating OIDC token")
@@ -164,7 +174,34 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        return response(500, {'error': 'Internal server error', 'details': str(e)})
+        return response(500, {'error': 'Internal server error'})
+
+
+def validate_identifier(identifier: str, field_name: str) -> bool:
+    """
+    Validate that an identifier contains only safe characters.
+
+    Args:
+        identifier: The identifier to validate
+        field_name: Name of the field (for error messages)
+
+    Returns:
+        True if valid, raises ValueError if invalid
+    """
+    import re
+
+    # Check length first
+    if len(identifier) < 1:
+        raise ValueError(f"Invalid {field_name}: cannot be empty")
+
+    if len(identifier) > 64:
+        raise ValueError(f"Invalid {field_name}: must be 64 characters or less")
+
+    # Allow alphanumeric, hyphens, and underscores only
+    if not re.match(r'^[a-zA-Z0-9_-]+$', identifier):
+        raise ValueError(f"Invalid {field_name}: must contain only alphanumeric characters, hyphens, and underscores")
+
+    return True
 
 
 def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: str) -> Optional[Dict[str, Any]]:
@@ -352,7 +389,7 @@ def get_or_create_user_role(sub: str, aud: str, oidc_provider_arn: str) -> Tuple
                 ],
                 "Condition": {
                     "StringEquals": {
-                        "aws:ResourceTag/owner_sub": sub
+                        "ecs:ResourceTag/owner_sub": sub
                     }
                 }
             },
@@ -495,8 +532,7 @@ def create_investigation_task(
                 {'key': 'oc_version', 'value': oc_version},
                 {'key': 'access_point_id', 'value': access_point_id},
                 {'key': 'created_at', 'value': datetime.utcnow().isoformat()}
-            ],
-            propagateTags='TASK_DEFINITION'
+            ]
         )
 
         if run_response.get('failures'):
@@ -510,6 +546,23 @@ def create_investigation_task(
 
         task_arn = run_response['tasks'][0]['taskArn']
         logger.info(f"Launched ECS task: {task_arn}")
+
+        # Apply tags explicitly using TagResource API
+        # (tags in run_task don't always apply immediately for IAM evaluation)
+        logger.info(f"Applying tags to task: {task_arn}")
+        ecs.tag_resource(
+            resourceArn=task_arn,
+            tags=[
+                {'key': 'owner_sub', 'value': owner_sub},
+                {'key': 'owner_username', 'value': owner_username},
+                {'key': 'investigation_id', 'value': investigation_id},
+                {'key': 'cluster_id', 'value': cluster_id},
+                {'key': 'oc_version', 'value': oc_version},
+                {'key': 'access_point_id', 'value': access_point_id},
+                {'key': 'created_at', 'value': datetime.utcnow().isoformat()}
+            ]
+        )
+        logger.info("Tags applied successfully")
 
         return {
             'taskArn': task_arn,

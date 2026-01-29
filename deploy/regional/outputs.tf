@@ -92,17 +92,6 @@ output "oidc_sre_role_arn" {
   description = "ARN of the OIDC-federated SRE role"
   value       = aws_iam_role.oidc_sre.arn
 }
-
-output "saml_provider_arn" {
-  description = "ARN of the Keycloak SAML provider"
-  value       = aws_iam_saml_provider.keycloak.arn
-}
-
-output "saml_sre_role_arn" {
-  description = "ARN of the SAML-federated SRE role"
-  value       = aws_iam_role.saml_sre.arn
-}
-
 output "lambda_function_url" {
   description = "URL for the create-investigation Lambda function"
   value       = aws_lambda_function_url.create_investigation.function_url

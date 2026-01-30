@@ -341,9 +341,51 @@ def get_or_create_user_role(sub: str, aud: str, oidc_provider_arn: str) -> Tuple
     region = os.environ.get('AWS_REGION', 'us-east-2')  # Lambda sets this automatically
     cluster_name = os.environ.get('ECS_CLUSTER', '*')
 
+    # IAM Policy Design: Two-Statement Structure for ECS Exec Isolation
+    #
+    # ecs:ExecuteCommand requires permissions on BOTH the cluster AND the task.
+    # This is AWS's design for layered access control.
+    #
+    # Statement 1 (ExecuteCommandOnCluster):
+    #   - Grants permission on the cluster resource
+    #   - No condition - all users with this role can pass the cluster check
+    #   - This alone grants NO task access
+    #   - Think of it as: "badge to enter the building"
+    #
+    # Statement 2 (ExecuteCommandOnOwnedTasks):
+    #   - Grants permission on task resources with tag-based condition
+    #   - Condition MUST match: ecs:ResourceTag/owner_sub == user's OIDC sub
+    #   - Only grants access to tasks explicitly tagged with matching owner_sub
+    #   - Denies access to: tasks with different owner_sub, untagged tasks, all other tasks
+    #   - Think of it as: "key to your specific office"
+    #
+    # Why both are required:
+    #   - Cluster permission alone: cannot exec into any tasks (tested)
+    #   - Task permission alone: fails cluster authorization check (tested)
+    #   - Both together: can only exec into tasks with matching owner_sub tag
+    #
+    # Security properties:
+    #   - Users CANNOT access tasks tagged to other users
+    #   - Users CANNOT access untagged tasks (missing tag fails condition)
+    #   - Users CANNOT bypass isolation by launching untagged tasks
+    #   - Provides strong isolation via IAM-enforced resource tagging
+    #
+    # See tools/test-tag-isolation.sh for comprehensive test proving this works.
     policy_document = {
         "Version": "2012-10-17",
         "Statement": [
+            {
+                "Sid": "ExecuteCommandOnCluster",
+                "Effect": "Allow",
+                "Action": [
+                    "ecs:ExecuteCommand"
+                ],
+                "Resource": [
+                    f"arn:aws:ecs:{region}:{account_id}:cluster/{cluster_name}"
+                ]
+                # No condition - required prerequisite for all ECS exec operations
+                # This alone does NOT grant access to any tasks
+            },
             {
                 "Sid": "ExecuteCommandOnOwnedTasks",
                 "Effect": "Allow",
@@ -356,6 +398,8 @@ def get_or_create_user_role(sub: str, aud: str, oidc_provider_arn: str) -> Tuple
                         "ecs:ResourceTag/owner_sub": sub
                     }
                 }
+                # Tag-based isolation: only tasks with matching owner_sub tag
+                # This is where actual access control happens
             },
             {
                 "Sid": "DescribeAndListECS",
@@ -376,12 +420,9 @@ def get_or_create_user_role(sub: str, aud: str, oidc_provider_arn: str) -> Tuple
                 "Resource": [
                     "arn:aws:ecs:*:*:task/*",
                     "arn:aws:ssm:*:*:document/AWS-StartInteractiveCommand"
-                ],
-                "Condition": {
-                    "StringEquals": {
-                        "ecs:ResourceTag/owner_sub": sub
-                    }
-                }
+                ]
+                # No tag condition here - access control is enforced by ecs:ExecuteCommand
+                # The SSM API doesn't have access to ECS resource tags
             },
             {
                 "Sid": "KMSForECSExec",

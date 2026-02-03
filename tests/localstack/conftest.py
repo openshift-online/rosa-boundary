@@ -183,16 +183,29 @@ def ssm_client(localstack_available, boto_config):
 @pytest.fixture
 def test_vpc(ssm_client):
     """Get VPC and subnet IDs created by init-aws.sh"""
-    vpc_id = ssm_client.get_parameter(Name='/test/vpc-id')['Parameter']['Value']
-    subnet1_id = ssm_client.get_parameter(Name='/test/subnet-1-id')['Parameter']['Value']
-    subnet2_id = ssm_client.get_parameter(Name='/test/subnet-2-id')['Parameter']['Value']
-    sg_id = ssm_client.get_parameter(Name='/test/security-group-id')['Parameter']['Value']
+    import time
 
-    return {
-        'vpc_id': vpc_id,
-        'subnet_ids': [subnet1_id, subnet2_id],
-        'security_group_id': sg_id
-    }
+    # Wait for init-aws.sh to complete (runs async in LocalStack ready.d/)
+    max_retries = 12
+    retry_delay = 5
+
+    for attempt in range(max_retries):
+        try:
+            vpc_id = ssm_client.get_parameter(Name='/test/vpc-id')['Parameter']['Value']
+            subnet1_id = ssm_client.get_parameter(Name='/test/subnet-1-id')['Parameter']['Value']
+            subnet2_id = ssm_client.get_parameter(Name='/test/subnet-2-id')['Parameter']['Value']
+            sg_id = ssm_client.get_parameter(Name='/test/security-group-id')['Parameter']['Value']
+
+            return {
+                'vpc_id': vpc_id,
+                'subnet_ids': [subnet1_id, subnet2_id],
+                'security_group_id': sg_id
+            }
+        except ssm_client.exceptions.ParameterNotFound:
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                raise
 
 
 @pytest.fixture

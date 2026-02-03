@@ -662,3 +662,28 @@ curl http://localhost:4566/_localstack/health | jq
 ```
 
 See `tests/localstack/README.md` for complete documentation.
+
+### GitHub Actions CI
+
+**Location**: `.github/workflows/localstack-tests.yml`
+
+Automated testing on PRs and main branch pushes. Runs integration tests and Lambda unit tests.
+
+**Required GitHub Secret**:
+- `LOCALSTACK_AUTH_TOKEN` - LocalStack Pro license token
+- Add in repo Settings → Secrets and variables → Actions
+
+**Workflow jobs**:
+1. **localstack-tests** - Integration tests (~3-5 min)
+   - Starts LocalStack Pro with podman-compose
+   - Runs fast tests (skips slow ECS task launches)
+   - Publishes test results and coverage
+
+2. **lambda-unit-tests** - Lambda unit tests (~1-2 min)
+   - Runs moto-based unit tests
+   - Uploads coverage to Codecov
+
+**Triggers**:
+- Pull requests to main or feature/* branches
+- Pushes to main branch
+- Only when lambda/, deploy/regional/, or tests/localstack/ changes

@@ -155,3 +155,10 @@ deploy: package ## Build and deploy Lambda function to AWS
 	echo "Waiting for update to complete..."; \
 	aws lambda wait function-updated --function-name "$$FUNCTION_NAME"; \
 	echo "✅ Lambda function is ready"
+
+test-localstack: install-test-deps ## Run Lambda tests against LocalStack
+	@echo "Ensure LocalStack is running: make localstack-up (from project root)"
+	PYTHONPATH=. $(PYTEST) ../../tests/localstack/integration/test_lambda_handler.py -v
+
+test-e2e-localstack: install-test-deps ## Run full E2E test against LocalStack
+	PYTHONPATH=. $(PYTEST) ../../tests/localstack/integration/test_full_workflow.py -v

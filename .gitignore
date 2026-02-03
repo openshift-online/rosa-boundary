@@ -53,6 +53,10 @@ keys/
 # Environment configuration
 .env
 
+# LocalStack testing
+tests/localstack/.env
+tests/localstack/volume/
+
 # Temporary files
 *.tmp
 *.backup
@@ -64,3 +68,4 @@ keys/
 *.swp
 *.swo
 *~
+tests/localstack/terraform/localstack.tfvars

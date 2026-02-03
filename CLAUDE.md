@@ -562,3 +562,103 @@ The complete system integrates three components:
 3. User runs `boundary connect -target-id <id> -exec ecs-exec.sh`
 4. Script calls `aws ecs execute-command` to start SSM session
 5. Session logged in Boundary (metadata), CloudWatch (I/O), and S3 (artifacts)
+
+## LocalStack Integration Testing
+
+**Location**: `tests/localstack/`
+
+Comprehensive integration testing for AWS services using LocalStack Pro. Tests infrastructure components locally before production deployment.
+
+### Running Tests
+
+```bash
+# Start LocalStack (macOS: requires podman-compose via Homebrew)
+make localstack-up
+
+# Run fast tests (skip slow ECS task launches, ~2-3 min)
+make test-localstack-fast
+
+# Run full test suite (~5-7 min)
+make test-localstack
+
+# Stop LocalStack
+make localstack-down
+```
+
+### Prerequisites
+
+**macOS**:
+- LocalStack Pro token in `tests/localstack/.env`
+- Podman machine running: `podman machine list`
+- Install: `brew install podman-compose`
+- Python deps in venv: `uv venv && source .venv/bin/activate && uv pip install pytest boto3 requests`
+
+**Linux**:
+- Podman socket: `systemctl --user enable --now podman.socket`
+- Install: `uv pip install --system podman-compose pytest boto3 requests`
+
+### Architecture
+
+**Services tested**: S3, IAM, Lambda, KMS, EFS, ECS, SSM, CloudWatch Logs
+
+**Key components**:
+- `compose.yml` - LocalStack Pro (latest) + mock OIDC server
+- `init-aws.sh` - Bootstraps VPC/subnets/security groups on startup
+- `conftest.py` - pytest fixtures for all AWS service clients
+- `oidc/mock_jwks.py` - Flask server providing test JWT tokens
+- 29 integration tests across 8 test files
+
+**Test organization**:
+- `test_s3_audit.py` - S3 versioning, Object Lock, lifecycle
+- `test_iam_roles.py` - Role creation, tag-based policies
+- `test_kms_keys.py` - KMS key management
+- `test_efs_access_points.py` - EFS filesystem and access points
+- `test_ecs_tasks.py` - ECS cluster, task definitions, tagging
+- `test_tag_isolation.py` - Tag-based authorization model
+- `test_lambda_handler.py` - Lambda with OIDC authentication
+- `test_full_workflow.py` - End-to-end investigation creation
+
+### Important Notes
+
+**macOS compatibility**: Uses `local` executors instead of `docker`/`podman` executors to avoid socket mounting issues. Tests validate AWS API compliance, not container execution.
+
+**Service names**: LocalStack uses `efs` not `elasticfilesystem`, `ssm` not `systems-manager`.
+
+**Version requirement**: LocalStack Pro ≥ 4.4.0 (license requirement). Use `latest` tag in compose.yml.
+
+**Test markers**:
+- `@pytest.mark.integration` - All tests (requires LocalStack running)
+- `@pytest.mark.slow` - ECS task launches (>30s)
+- `@pytest.mark.e2e` - End-to-end workflows
+
+### Adding New Tests
+
+1. Create test file in `integration/` following `test_*.py` naming
+2. Use fixtures from `conftest.py` for AWS clients
+3. Include cleanup (delete created resources)
+4. Mark with appropriate pytest markers
+5. Run locally with LocalStack before committing
+
+### Troubleshooting
+
+**LocalStack won't start** (macOS):
+```bash
+podman machine list  # Should show "Currently running"
+podman machine start  # If not running
+```
+
+**Service not available**:
+```bash
+curl http://localhost:4566/_localstack/health | jq '.services'
+# Verify service names match those in compose.yml SERVICES env var
+```
+
+**Tests skip**:
+```bash
+# Check LocalStack is running
+make localstack-up
+# Verify health check passes
+curl http://localhost:4566/_localstack/health | jq
+```
+
+See `tests/localstack/README.md` for complete documentation.

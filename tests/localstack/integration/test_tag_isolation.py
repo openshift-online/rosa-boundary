@@ -3,6 +3,7 @@
 import pytest
 import json
 from datetime import datetime
+from .test_helpers import get_policy_document
 
 
 @pytest.mark.integration
@@ -93,8 +94,8 @@ def test_tag_based_iam_policy_evaluation(iam_client):
     policy1_doc = iam_client.get_role_policy(RoleName=role1_name, PolicyName='TagBasedAccess')
     policy2_doc = iam_client.get_role_policy(RoleName=role2_name, PolicyName='TagBasedAccess')
 
-    p1 = json.loads(policy1_doc['PolicyDocument'])
-    p2 = json.loads(policy2_doc['PolicyDocument'])
+    p1 = get_policy_document(policy1_doc['PolicyDocument'])
+    p2 = get_policy_document(policy2_doc['PolicyDocument'])
 
     assert p1['Statement'][0]['Condition']['StringEquals']['ecs:ResourceTag/owner_sub'] == user1_sub
     assert p2['Statement'][0]['Condition']['StringEquals']['ecs:ResourceTag/owner_sub'] == user2_sub
@@ -206,8 +207,11 @@ def test_multiple_tasks_different_owners(ecs_client, test_vpc, iam_client):
     assert tags1_dict['investigation_id'] != tags2_dict['investigation_id']
 
     # Cleanup
-    ecs_client.stop_task(cluster=cluster_name, task=task1_arn, reason='Test complete')
-    ecs_client.stop_task(cluster=cluster_name, task=task2_arn, reason='Test complete')
+    try:
+        ecs_client.stop_task(cluster=cluster_name, task=task1_arn, reason='Test complete')
+        ecs_client.stop_task(cluster=cluster_name, task=task2_arn, reason='Test complete')
+    except Exception:
+        pass  # LocalStack limitation with local executor
     ecs_client.deregister_task_definition(taskDefinition=task_def_arn)
     iam_client.delete_role(RoleName=role_name)
     ecs_client.delete_cluster(cluster=cluster_name)
@@ -278,7 +282,7 @@ def test_cross_user_task_access_prevention(iam_client):
         PolicyName='StrictTagBasedAccess'
     )
 
-    policy_doc = json.loads(retrieved_policy['PolicyDocument'])
+    policy_doc = get_policy_document(retrieved_policy['PolicyDocument'])
     deny_statement = [s for s in policy_doc['Statement'] if s['Effect'] == 'Deny'][0]
 
     assert deny_statement['Condition']['StringNotEquals']['ecs:ResourceTag/owner_sub'] == user_a_sub

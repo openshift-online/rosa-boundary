@@ -65,7 +65,9 @@ jobs:
       - name: Run integration tests
         run: |
           cd tests/localstack
-          pytest integration/ -v -m "not slow" --tb=short --junit-xml=test-results.xml
+          # Skip Lambda tests - LocalStack local executor can't fully execute Lambda functions
+          # Lambda unit tests run in separate job with moto
+          pytest integration/ -v -m "not slow" --ignore=integration/test_lambda_handler.py --tb=short --junit-xml=test-results.xml
         continue-on-error: false
 
       - name: Show LocalStack logs on failure

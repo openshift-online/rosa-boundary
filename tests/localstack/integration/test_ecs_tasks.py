@@ -177,8 +177,11 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client):
     assert tag_dict['owner_sub'] == owner_sub
     assert tag_dict['investigation_id'] == 'inv-456'
 
-    # Stop task
-    ecs_client.stop_task(cluster=cluster_name, task=task_arn, reason='Test complete')
+    # Stop task (LocalStack with local executor may not support this)
+    try:
+        ecs_client.stop_task(cluster=cluster_name, task=task_arn, reason='Test complete')
+    except Exception:
+        pass  # LocalStack limitation with local executor
 
     # Cleanup
     ecs_client.deregister_task_definition(taskDefinition=task_def_arn)
@@ -268,7 +271,10 @@ def test_describe_tasks_with_tag_filter(ecs_client, test_vpc, iam_client):
     assert tag_dict.get('owner_sub') == owner_sub
 
     # Cleanup
-    ecs_client.stop_task(cluster=cluster_name, task=task_arn, reason='Test complete')
+    try:
+        ecs_client.stop_task(cluster=cluster_name, task=task_arn, reason='Test complete')
+    except Exception:
+        pass  # LocalStack limitation with local executor
     ecs_client.deregister_task_definition(taskDefinition=task_def_arn)
     iam_client.delete_role(RoleName=role_name)
     ecs_client.delete_cluster(cluster=cluster_name)

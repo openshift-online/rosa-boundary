@@ -1,6 +1,7 @@
 """Test EFS filesystem and access point management"""
 
 import pytest
+import time
 from datetime import datetime
 
 
@@ -23,9 +24,8 @@ def test_create_efs_filesystem(efs_client):
     assert response['Encrypted'] is True
     assert response['PerformanceMode'] == 'generalPurpose'
 
-    # Wait for filesystem to become available
-    waiter = efs_client.get_waiter('file_system_available')
-    waiter.wait(FileSystemId=filesystem_id)
+    # LocalStack doesn't support EFS waiters, so just wait a bit
+    time.sleep(2)
 
     # Verify filesystem exists
     filesystems = efs_client.describe_file_systems(FileSystemId=filesystem_id)

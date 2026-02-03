@@ -3,6 +3,7 @@
 import pytest
 import json
 from datetime import datetime
+from .test_helpers import get_policy_document
 
 
 @pytest.mark.integration
@@ -113,7 +114,7 @@ def test_create_task_role_with_tag_policy(iam_client):
         PolicyName='TagBasedECSExec'
     )
 
-    policy = json.loads(policy_doc['PolicyDocument'])
+    policy = get_policy_document(policy_doc['PolicyDocument'])
     assert policy['Statement'][0]['Condition']['StringEquals']['ecs:ResourceTag/owner_sub'] == owner_sub
 
     # Cleanup
@@ -182,7 +183,7 @@ def test_role_with_web_identity_trust(iam_client, mock_oidc_issuer):
 
     # Verify trust policy
     role = iam_client.get_role(RoleName=role_name)
-    retrieved_policy = json.loads(role['Role']['AssumeRolePolicyDocument'])
+    retrieved_policy = get_policy_document(role['Role']['AssumeRolePolicyDocument'])
     assert retrieved_policy['Statement'][0]['Action'] == 'sts:AssumeRoleWithWebIdentity'
 
     # Cleanup

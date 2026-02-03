@@ -41,7 +41,9 @@ def localstack_available():
 def mock_oidc_available():
     """Check if mock OIDC server is running"""
     try:
-        response = requests.get(f'{MOCK_OIDC_URL}/../health', timeout=5)
+        # Mock OIDC server has /health endpoint at root
+        base_url = MOCK_OIDC_URL.rsplit('/realms', 1)[0]
+        response = requests.get(f'{base_url}/health', timeout=5)
         response.raise_for_status()
         return True
     except (requests.ConnectionError, requests.Timeout):
@@ -196,9 +198,12 @@ def test_vpc(ssm_client):
 @pytest.fixture
 def test_efs(efs_client):
     """Create EFS filesystem for testing"""
+    # Use unique creation token to avoid conflicts
+    creation_token = f'test-efs-{int(time.time() * 1000)}'
+
     # Create filesystem
     response = efs_client.create_file_system(
-        CreationToken=f'test-efs-{int(time.time())}',
+        CreationToken=creation_token,
         PerformanceMode='generalPurpose',
         Encrypted=True,
         Tags=[
@@ -209,9 +214,8 @@ def test_efs(efs_client):
 
     filesystem_id = response['FileSystemId']
 
-    # Wait for filesystem to become available
-    waiter = efs_client.get_waiter('file_system_available')
-    waiter.wait(FileSystemId=filesystem_id)
+    # LocalStack doesn't support EFS waiters, so just wait a bit
+    time.sleep(2)
 
     yield filesystem_id
 
@@ -240,20 +244,57 @@ def mock_oidc_issuer():
 
 
 @pytest.fixture
-def test_token_generator(mock_oidc_available):
+def test_token_generator(mock_oidc_available, mock_oidc_issuer):
     """
     Fixture that provides token generation function.
-    Imports from mock_jwks module.
+    Creates JWT tokens directly without importing mock_jwks.
     """
     import sys
-    import importlib.util
+    from datetime import datetime, timedelta
 
-    # Load mock_jwks module
-    spec = importlib.util.spec_from_file_location(
-        "mock_jwks",
-        "/Users/jjaggars/code/rosa-boundary/tests/localstack/oidc/mock_jwks.py"
-    )
-    mock_jwks = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mock_jwks)
+    # Temporarily remove lambda directory from path to avoid importing Linux binaries
+    lambda_dir = '/Users/jjaggars/code/rosa-boundary/lambda/create-investigation'
+    original_path = sys.path.copy()
+    sys.path = [p for p in sys.path if not p.startswith(lambda_dir)]
 
-    return mock_jwks.create_test_token
+    try:
+        import jwt
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.backends import default_backend
+    finally:
+        sys.path = original_path
+
+    # Load private key
+    keys_path = '/Users/jjaggars/code/rosa-boundary/tests/localstack/oidc/test_keys'
+    with open(f'{keys_path}/private.pem', 'rb') as f:
+        private_key = serialization.load_pem_private_key(
+            f.read(),
+            password=None,
+            backend=default_backend()
+        )
+
+    def create_test_token(sub='test-user', groups=None, email='test@example.com',
+                         exp_minutes=60, extra_claims=None):
+        """Create a test JWT token"""
+        if groups is None:
+            groups = ['sre-team']
+
+        now = datetime.utcnow()
+
+        claims = {
+            'iss': mock_oidc_issuer,
+            'sub': sub,
+            'aud': 'aws-sre-access',
+            'exp': int((now + timedelta(minutes=exp_minutes)).timestamp()),
+            'iat': int(now.timestamp()),
+            'email': email,
+            'email_verified': True,
+            'groups': groups,
+        }
+
+        if extra_claims:
+            claims.update(extra_claims)
+
+        return jwt.encode(claims, private_key, algorithm='RS256', headers={'kid': 'test-key-1'})
+
+    return create_test_token

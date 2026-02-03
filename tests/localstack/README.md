@@ -88,6 +88,9 @@ make test-localstack
 # Run fast tests only (skip slow ECS task launches)
 make test-localstack-fast
 
+# Run without Lambda tests (skip if LocalStack local executor fails)
+pytest tests/localstack/integration/ -v -m "not slow" --ignore=tests/localstack/integration/test_lambda_handler.py
+
 # View logs
 make localstack-logs
 
@@ -181,11 +184,17 @@ Tests verify IAM policy conditions without executing tasks:
 
 ### Lambda Testing
 
-Lambda tests may have limited functionality in LocalStack:
+Lambda tests have limited functionality with LocalStack's local executor:
 
-- Basic invocation and payload validation works
-- IAM/ECS/EFS operations within Lambda may fail
-- Tests verify token validation logic primarily
+- Lambda function deployment may fail with local executor
+- IAM/ECS/EFS operations within Lambda require docker/podman executor
+- **Recommendation**: Skip Lambda integration tests in LocalStack
+- Lambda unit tests run separately with moto (faster, more reliable)
+
+**To skip Lambda tests**:
+```bash
+pytest integration/ --ignore=integration/test_lambda_handler.py
+```
 
 ## Terraform Testing
 

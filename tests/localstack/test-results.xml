@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="9" failures="7" skipped="0" tests="26" time="6.576" timestamp="2026-02-03T11:52:53.223597-05:00" hostname="jjaggars-mac"><testcase classname="integration.test_ecs_tasks" name="test_create_ecs_cluster" time="0.172" /><testcase classname="integration.test_ecs_tasks" name="test_register_task_definition_with_efs" time="0.077"><error message="failed on setup with &quot;ValueError: Waiter does not exist: file_system_available&quot;">conftest.py:213: in test_efs
+    waiter = efs_client.get_waiter('file_system_available')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1316: in get_waiter
+    raise ValueError(f"Waiter does not exist: {waiter_name}")
+E   ValueError: Waiter does not exist: file_system_available</error></testcase><testcase classname="integration.test_ecs_tasks" name="test_describe_tasks_with_tag_filter" time="2.761"><failure message="botocore.exceptions.ClientError: An error occurred (InternalError) when calling the StopTask operation (reached max retries: 3): exception while calling ecs.StopTask: Docker not available">integration/test_ecs_tasks.py:271: in test_describe_tasks_with_tag_filter
+    ecs_client.stop_task(cluster=cluster_name, task=task_arn, reason='Test complete')
+.venv/lib/python3.14/site-packages/botocore/client.py:602: in _api_call
+    return self._make_api_call(operation_name, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/context.py:123: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1078: in _make_api_call
+    raise error_class(parsed_response, operation_name)
+E   botocore.exceptions.ClientError: An error occurred (InternalError) when calling the StopTask operation (reached max retries: 3): exception while calling ecs.StopTask: Docker not available</failure></testcase><testcase classname="integration.test_efs_access_points" name="test_create_efs_filesystem" time="0.006"><failure message="ValueError: Waiter does not exist: file_system_available">integration/test_efs_access_points.py:27: in test_create_efs_filesystem
+    waiter = efs_client.get_waiter('file_system_available')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1316: in get_waiter
+    raise ValueError(f"Waiter does not exist: {waiter_name}")
+E   ValueError: Waiter does not exist: file_system_available</failure></testcase><testcase classname="integration.test_efs_access_points" name="test_create_access_point_with_posix_user" time="0.005"><error message="failed on setup with &quot;ValueError: Waiter does not exist: file_system_available&quot;">conftest.py:213: in test_efs
+    waiter = efs_client.get_waiter('file_system_available')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1316: in get_waiter
+    raise ValueError(f"Waiter does not exist: {waiter_name}")
+E   ValueError: Waiter does not exist: file_system_available</error></testcase><testcase classname="integration.test_efs_access_points" name="test_access_point_lifecycle" time="0.006"><error message="failed on setup with &quot;botocore.errorfactory.FileSystemAlreadyExists: An error occurred (FileSystemAlreadyExists) when calling the CreateFileSystem operation: File system with test-efs-1770137576 already exists.&quot;">conftest.py:200: in test_efs
+    response = efs_client.create_file_system(
+.venv/lib/python3.14/site-packages/botocore/client.py:602: in _api_call
+    return self._make_api_call(operation_name, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/context.py:123: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1078: in _make_api_call
+    raise error_class(parsed_response, operation_name)
+E   botocore.errorfactory.FileSystemAlreadyExists: An error occurred (FileSystemAlreadyExists) when calling the CreateFileSystem operation: File system with test-efs-1770137576 already exists.</error></testcase><testcase classname="integration.test_efs_access_points" name="test_multiple_access_points_per_filesystem" time="0.006"><error message="failed on setup with &quot;botocore.errorfactory.FileSystemAlreadyExists: An error occurred (FileSystemAlreadyExists) when calling the CreateFileSystem operation: File system with test-efs-1770137576 already exists.&quot;">conftest.py:200: in test_efs
+    response = efs_client.create_file_system(
+.venv/lib/python3.14/site-packages/botocore/client.py:602: in _api_call
+    return self._make_api_call(operation_name, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/context.py:123: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1078: in _make_api_call
+    raise error_class(parsed_response, operation_name)
+E   botocore.errorfactory.FileSystemAlreadyExists: An error occurred (FileSystemAlreadyExists) when calling the CreateFileSystem operation: File system with test-efs-1770137576 already exists.</error></testcase><testcase classname="integration.test_full_workflow" name="test_idempotent_role_creation" time="0.014" /><testcase classname="integration.test_full_workflow" name="test_efs_access_point_cleanup_on_failure" time="0.005"><error message="failed on setup with &quot;botocore.errorfactory.FileSystemAlreadyExists: An error occurred (FileSystemAlreadyExists) when calling the CreateFileSystem operation: File system with test-efs-1770137576 already exists.&quot;">conftest.py:200: in test_efs
+    response = efs_client.create_file_system(
+.venv/lib/python3.14/site-packages/botocore/client.py:602: in _api_call
+    return self._make_api_call(operation_name, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/context.py:123: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1078: in _make_api_call
+    raise error_class(parsed_response, operation_name)
+E   botocore.errorfactory.FileSystemAlreadyExists: An error occurred (FileSystemAlreadyExists) when calling the CreateFileSystem operation: File system with test-efs-1770137576 already exists.</error></testcase><testcase classname="integration.test_iam_roles" name="test_create_execution_role" time="0.016" /><testcase classname="integration.test_iam_roles" name="test_create_task_role_with_tag_policy" time="0.012"><failure message="TypeError: the JSON object must be str, bytes or bytearray, not dict">integration/test_iam_roles.py:116: in test_create_task_role_with_tag_policy
+    policy = json.loads(policy_doc['PolicyDocument'])
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:345: in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+E   TypeError: the JSON object must be str, bytes or bytearray, not dict</failure></testcase><testcase classname="integration.test_iam_roles" name="test_create_oidc_provider" time="0.011" /><testcase classname="integration.test_iam_roles" name="test_role_with_web_identity_trust" time="0.008"><failure message="TypeError: the JSON object must be str, bytes or bytearray, not dict">integration/test_iam_roles.py:185: in test_role_with_web_identity_trust
+    retrieved_policy = json.loads(role['Role']['AssumeRolePolicyDocument'])
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:345: in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+E   TypeError: the JSON object must be str, bytes or bytearray, not dict</failure></testcase><testcase classname="integration.test_kms_keys" name="test_create_kms_key_for_ecs_exec" time="0.052" /><testcase classname="integration.test_kms_keys" name="test_kms_key_tags" time="0.014" /><testcase classname="integration.test_lambda_handler" name="test_lambda_with_valid_token" time="0.010"><error message="failed on setup with &quot;requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health&quot;">conftest.py:45: in mock_oidc_available
+    response.raise_for_status()
+.venv/lib/python3.14/site-packages/requests/models.py:1026: in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+E   requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health</error></testcase><testcase classname="integration.test_lambda_handler" name="test_lambda_with_expired_token" time="0.000"><error message="failed on setup with &quot;requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health&quot;">conftest.py:45: in mock_oidc_available
+    response.raise_for_status()
+.venv/lib/python3.14/site-packages/requests/models.py:1026: in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+E   requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health</error></testcase><testcase classname="integration.test_lambda_handler" name="test_lambda_missing_group" time="0.000"><error message="failed on setup with &quot;requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health&quot;">conftest.py:45: in mock_oidc_available
+    response.raise_for_status()
+.venv/lib/python3.14/site-packages/requests/models.py:1026: in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+E   requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health</error></testcase><testcase classname="integration.test_lambda_handler" name="test_lambda_input_validation" time="0.000"><error message="failed on setup with &quot;requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health&quot;">conftest.py:45: in mock_oidc_available
+    response.raise_for_status()
+.venv/lib/python3.14/site-packages/requests/models.py:1026: in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+E   requests.exceptions.HTTPError: 404 Client Error: NOT FOUND for url: http://localhost:8080/realms/health</error></testcase><testcase classname="integration.test_s3_audit" name="test_create_bucket_with_versioning" time="0.021" /><testcase classname="integration.test_s3_audit" name="test_bucket_object_lock" time="0.012" /><testcase classname="integration.test_s3_audit" name="test_bucket_lifecycle_policy" time="0.012" /><testcase classname="integration.test_s3_audit" name="test_s3_sync_behavior" time="0.023" /><testcase classname="integration.test_tag_isolation" name="test_tag_based_iam_policy_evaluation" time="0.017"><failure message="TypeError: the JSON object must be str, bytes or bytearray, not dict">integration/test_tag_isolation.py:96: in test_tag_based_iam_policy_evaluation
+    p1 = json.loads(policy1_doc['PolicyDocument'])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:345: in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+E   TypeError: the JSON object must be str, bytes or bytearray, not dict</failure></testcase><testcase classname="integration.test_tag_isolation" name="test_multiple_tasks_different_owners" time="3.129"><failure message="botocore.exceptions.ClientError: An error occurred (InternalError) when calling the StopTask operation (reached max retries: 3): exception while calling ecs.StopTask: Docker not available">integration/test_tag_isolation.py:209: in test_multiple_tasks_different_owners
+    ecs_client.stop_task(cluster=cluster_name, task=task1_arn, reason='Test complete')
+.venv/lib/python3.14/site-packages/botocore/client.py:602: in _api_call
+    return self._make_api_call(operation_name, kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/context.py:123: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.14/site-packages/botocore/client.py:1078: in _make_api_call
+    raise error_class(parsed_response, operation_name)
+E   botocore.exceptions.ClientError: An error occurred (InternalError) when calling the StopTask operation (reached max retries: 3): exception while calling ecs.StopTask: Docker not available</failure></testcase><testcase classname="integration.test_tag_isolation" name="test_cross_user_task_access_prevention" time="0.013"><failure message="TypeError: the JSON object must be str, bytes or bytearray, not dict">integration/test_tag_isolation.py:281: in test_cross_user_task_access_prevention
+    policy_doc = json.loads(retrieved_policy['PolicyDocument'])
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.2_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/json/__init__.py:345: in loads
+    raise TypeError(f'the JSON object must be str, bytes or bytearray, '
+E   TypeError: the JSON object must be str, bytes or bytearray, not dict</failure></testcase></testsuite></testsuites>

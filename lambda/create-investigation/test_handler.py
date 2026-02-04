@@ -350,9 +350,13 @@ class TestLambdaHandler:
         body = json.loads(response['body'])
         assert 'Invalid JSON' in body['error']
 
-    @patch.dict('os.environ', {}, clear=True)
+    @patch.dict('os.environ', {'AWS_DEFAULT_REGION': 'us-east-2'}, clear=True)
     def test_missing_environment_variables(self):
-        """Test that missing env vars returns 500."""
+        """Test that missing env vars returns 500.
+
+        Note: AWS_DEFAULT_REGION is preserved because boto3 clients are
+        initialized at module level and require a region.
+        """
         import importlib
         importlib.reload(handler)
 

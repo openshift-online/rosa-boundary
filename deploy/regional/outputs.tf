@@ -82,3 +82,31 @@ output "ssm_session_log_group" {
   description = "CloudWatch log group for SSM session logs"
   value       = aws_cloudwatch_log_group.ssm_sessions.name
 }
+
+output "oidc_provider_arn" {
+  description = "ARN of the Keycloak OIDC provider"
+  value       = aws_iam_openid_connect_provider.keycloak.arn
+}
+
+# NOTE: oidc_sre_role_arn output removed
+# Per-user IAM roles are now created dynamically by Lambda function
+
+output "lambda_function_url" {
+  description = "URL for the create-investigation Lambda function"
+  value       = aws_lambda_function_url.create_investigation.function_url
+}
+
+output "lambda_function_name" {
+  description = "Name of the create-investigation Lambda function"
+  value       = aws_lambda_function.create_investigation.function_name
+}
+
+output "lambda_function_arn" {
+  description = "ARN of the create-investigation Lambda function"
+  value       = aws_lambda_function.create_investigation.arn
+}
+
+output "lambda_role_arn" {
+  description = "ARN of the create-investigation Lambda execution role"
+  value       = aws_iam_role.create_investigation_lambda.arn
+}

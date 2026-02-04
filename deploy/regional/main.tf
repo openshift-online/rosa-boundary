@@ -18,9 +18,9 @@ locals {
   bucket_name = "${data.aws_caller_identity.current.account_id}-${var.project}-${var.stage}-${data.aws_region.current.name}"
 
   common_tags = merge(var.tags, {
-    Project     = var.project
-    Stage       = var.stage
-    Region      = data.aws_region.current.name
-    ManagedBy   = "Terraform"
+    Project   = var.project
+    Stage     = var.stage
+    Region    = data.aws_region.current.name
+    ManagedBy = "Terraform"
   })
 }

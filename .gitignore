@@ -1,0 +1,71 @@
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
+tfplan
+tfplan-*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+*.so
+.Python
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Lambda dependencies (installed at build time)
+lambda/**/boto*
+lambda/**/certifi*
+lambda/**/cffi*
+lambda/**/charset_normalizer*
+lambda/**/cryptography*
+lambda/**/dateutil*
+lambda/**/idna*
+lambda/**/jmespath*
+lambda/**/jwt*
+lambda/**/pycparser*
+lambda/**/python_dateutil*
+lambda/**/PyJWT*
+lambda/**/requests*
+lambda/**/s3transfer*
+lambda/**/six*
+lambda/**/urllib3*
+lambda/**/*.dist-info
+lambda/**/package/
+
+# Keys and credentials
+keys/
+*.pem
+*.key
+*.crt
+
+# Logs
+*.log
+
+# Environment configuration
+.env
+
+# LocalStack testing
+tests/localstack/.env
+tests/localstack/volume/
+
+# Temporary files
+*.tmp
+*.backup
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+tests/localstack/terraform/localstack.tfvars

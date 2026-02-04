@@ -1,0 +1,136 @@
+name: LocalStack Integration Tests
+
+on:
+  pull_request:
+    branches: [main, feature/*]
+    paths:
+      - 'lambda/**'
+      - 'deploy/regional/**'
+      - 'tests/localstack/**'
+      - '.github/workflows/localstack-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lambda/**'
+      - 'deploy/regional/**'
+      - 'tests/localstack/**'
+
+env:
+  AWS_DEFAULT_REGION: us-east-2
+  LOCALSTACK_ENDPOINT: http://localhost:4566
+
+jobs:
+  localstack-tests:
+    name: LocalStack Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Install podman-compose
+        run: |
+          uv pip install --system podman-compose
+
+      - name: Install test dependencies
+        run: |
+          uv pip install --system pytest boto3 requests
+
+      - name: Configure LocalStack environment
+        run: |
+          cd tests/localstack
+          echo "LOCALSTACK_AUTH_TOKEN=${{ secrets.LOCALSTACK_AUTH_TOKEN }}" > .env
+
+      - name: Start LocalStack
+        run: |
+          cd tests/localstack
+          podman-compose up -d
+
+          echo "Waiting for LocalStack to be ready..."
+          timeout 120 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "\"ecs\""; do sleep 5; done'
+
+          echo "LocalStack is ready!"
+          curl -s http://localhost:4566/_localstack/health | jq '.services | to_entries | map(select(.value == "available" or .value == "running")) | length' || echo "LocalStack health check complete"
+
+      - name: Run integration tests
+        run: |
+          cd tests/localstack
+          # Skip Lambda tests - LocalStack local executor can't fully execute Lambda functions
+          # Lambda unit tests run in separate job with moto
+          pytest integration/ -v -m "not slow" --ignore=integration/test_lambda_handler.py --tb=short --junit-xml=test-results.xml
+        continue-on-error: false
+
+      - name: Show LocalStack logs on failure
+        if: failure()
+        run: |
+          cd tests/localstack
+          echo "=== LocalStack Logs ==="
+          podman logs localstack_localstack_1 --tail 100
+          echo ""
+          echo "=== Mock OIDC Logs ==="
+          podman logs localstack_mock-oidc_1 --tail 50
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: tests/localstack/test-results.xml
+          check_name: LocalStack Integration Test Results
+
+      - name: Stop LocalStack
+        if: always()
+        run: |
+          cd tests/localstack
+          podman-compose down -v
+
+  lambda-unit-tests:
+    name: Lambda Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: Run Lambda unit tests
+        run: |
+          cd lambda/create-investigation
+          uv venv
+          source .venv/bin/activate
+          uv pip install -r requirements.txt -r requirements-test.txt
+          pytest test_handler.py -v --cov=handler --cov-report=xml --junit-xml=test-results.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: lambda/create-investigation/coverage.xml
+          flags: lambda-unit-tests
+          name: lambda-coverage
+        continue-on-error: true
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: lambda/create-investigation/test-results.xml
+          check_name: Lambda Unit Test Results

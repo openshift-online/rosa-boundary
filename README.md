@@ -10,6 +10,58 @@ Multi-architecture container based on Fedora 43 for working with AWS and OpenShi
 - **Dynamic Version Selection**: Switch tool versions via environment variables at runtime
 - **ECS Exec Ready**: Designed for AWS Fargate with ECS Exec support
 - **Multi-architecture**: Supports both x86_64 (amd64) and ARM64 (aarch64)
+- **OIDC Authentication**: Keycloak integration with Lambda-based authorization
+- **Tag-Based Isolation**: Per-user IAM roles with task-level access control
+
+## Quick Start
+
+### 1. Configure Environment
+
+Copy the example environment file and update with your values:
+
+```bash
+cp .env.example .env
+# Edit .env with your AWS account ID and Keycloak URL
+```
+
+The `.env` file is gitignored and contains:
+- AWS account ID
+- Keycloak server URL and realm
+- OIDC client ID
+
+Authentication scripts automatically load `.env` if present.
+
+### 2. Deploy Infrastructure
+
+See [Fargate Deployment](#fargate-deployment) section below for Terraform deployment steps.
+
+## Repository Structure
+
+```
+rosa-boundary/
+├── .env.example           # Environment configuration template (copy to .env)
+├── Containerfile          # Multi-arch container build
+├── entrypoint.sh          # Runtime initialization and signal handling
+├── skel/                  # Skeleton files for container users
+│   └── sre/.claude/       # Claude Code configuration templates
+├── deploy/
+│   ├── regional/          # Terraform: ECS, EFS, S3, Lambda, OIDC
+│   │   ├── *.tf          # Infrastructure definitions
+│   │   ├── examples/     # Manual lifecycle scripts
+│   │   └── README.md     # Deployment guide
+│   └── keycloak/         # Terraform: Keycloak realm and clients
+├── lambda/
+│   └── create-investigation/  # Lambda function for OIDC-authenticated creation
+│       ├── handler.py    # Group auth, role creation, task tagging
+│       └── Makefile      # Build Lambda package
+├── tools/
+│   ├── sre-auth/         # OIDC authentication scripts
+│   │   ├── get-oidc-token.sh    # Keycloak PKCE flow
+│   │   ├── assume-role.sh       # AWS role assumption
+│   │   └── README.md            # Auth documentation
+│   └── create-investigation-lambda.sh  # End-to-end creation wrapper
+└── docs/                 # Architecture and implementation docs
+```
 
 ## Building
 
@@ -190,6 +242,46 @@ Configuration files in `/home/sre/.claude/` are preserved across container resta
 - **Subsequent runs**: Existing configuration preserved (no overwrite)
 - **Customize**: Edit `/home/sre/.claude/CLAUDE.md` to add cluster-specific context
 
+## Authentication Tools
+
+The `tools/sre-auth/` directory contains OIDC authentication scripts for AWS federation:
+
+### get-oidc-token.sh
+
+Obtains OIDC ID token from Keycloak via browser-based PKCE flow:
+
+```bash
+# Get token (uses cache if < 4 minutes old)
+TOKEN=$(./tools/sre-auth/get-oidc-token.sh)
+
+# Force fresh authentication
+TOKEN=$(./tools/sre-auth/get-oidc-token.sh --force)
+```
+
+**Features**:
+- Browser-based authentication with Keycloak
+- 4-minute token caching (avoids repeated popups)
+- PKCE for secure public client flow
+
+### assume-role.sh
+
+Assumes AWS IAM role using OIDC web identity:
+
+```bash
+# Assume role created by Lambda
+eval $(./tools/sre-auth/assume-role.sh --role arn:aws:iam::123456789012:role/rosa-boundary-user-abc123)
+
+# Verify identity
+aws sts get-caller-identity
+```
+
+**Features**:
+- Uses get-oidc-token.sh internally
+- Returns bash export statements for credentials
+- Credentials valid for 1 hour
+
+See [`tools/sre-auth/README.md`](tools/sre-auth/README.md) for detailed documentation.
+
 ## Usage
 
 ### Running locally
@@ -206,31 +298,59 @@ podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client
 
 ### Fargate Deployment
 
-This container is designed to run as an AWS Fargate task with ECS Exec for remote access.
+This container is designed to run as an AWS Fargate task with ECS Exec for remote access. Two deployment approaches are supported:
 
-#### Automated Deployment (Recommended)
+#### Lambda-Based Investigation Creation (Recommended)
 
-Use the Terraform configuration in `deploy/regional/` for complete infrastructure setup:
+OIDC-authenticated Lambda function that creates per-user IAM roles with tag-based authorization:
 
 ```bash
 cd deploy/regional/
 
-# Copy example configuration
-cp terraform.tfvars.example terraform.tfvars
-
-# Edit with your VPC, subnets, and container image
-vi terraform.tfvars
-
-# Deploy infrastructure
+# Deploy infrastructure (includes Lambda function)
 terraform init
 terraform apply
 
-# Use lifecycle scripts for investigation management
-cd examples/
+# Create investigation with OIDC authentication
+cd ../tools/
+./create-investigation-lambda.sh rosa-boundary-dev inv-12345
+
+# Script will:
+# 1. Authenticate via Keycloak (browser popup)
+# 2. Call Lambda to create investigation (role + task)
+# 3. Assume OIDC role with tag-based permissions
+# 4. Wait for task to be running
+# 5. Provide ECS Exec connection command
+```
+
+**Features**:
+- Group-based authorization (requires `sre-team` membership)
+- Per-user IAM roles with tag-based task isolation
+- Automatic role creation on first use
+- Token caching (4 minutes) to avoid repeated browser authentication
+
+See [`tools/sre-auth/README.md`](tools/sre-auth/README.md) for authentication details and [`docs/LAMBDA_AUTH_SUMMARY.md`](docs/LAMBDA_AUTH_SUMMARY.md) for architecture.
+
+#### Manual Lifecycle Scripts
+
+Lower-level scripts for manual investigation management:
+
+```bash
+cd deploy/regional/examples/
+
+# Create investigation (access point + task definition)
 ./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
+
+# Launch task
 ./launch_task.sh <task-family>
+
+# Connect to task
 ./join_task.sh <task-id>
+
+# Stop task (triggers S3 sync)
 ./stop_task.sh <task-id>
+
+# Cleanup investigation
 ./close_investigation.sh <task-family> <access-point-id>
 ```
 

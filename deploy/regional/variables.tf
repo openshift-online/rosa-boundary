@@ -84,3 +84,26 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "keycloak_issuer_url" {
+  description = "Keycloak OIDC issuer URL (e.g., https://keycloak.example.com/realms/sre-ops)"
+  type        = string
+}
+
+variable "keycloak_thumbprint" {
+  description = "SHA1 thumbprint of Keycloak TLS certificate"
+  type        = string
+  sensitive   = true
+}
+
+variable "oidc_client_id" {
+  description = "Keycloak client ID for AWS integration"
+  type        = string
+  default     = "aws-sre-access"
+}
+
+variable "oidc_session_duration" {
+  description = "Max session duration for OIDC role (seconds)"
+  type        = number
+  default     = 3600 # 1 hour
+}

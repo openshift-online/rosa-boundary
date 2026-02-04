@@ -1,0 +1,39 @@
+services:
+  localstack:
+    image: localstack/localstack-pro:latest
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+    environment:
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
+      - SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm
+      # Use local executor instead of docker/podman for macOS compatibility
+      - LAMBDA_EXECUTOR=local
+      - ECS_EXECUTOR=local
+      - DEBUG=1
+      - AWS_DEFAULT_REGION=us-east-2
+      - PERSISTENCE=1
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
+      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mock-oidc:
+    build:
+      context: ./oidc
+      dockerfile: Containerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - ISSUER_URL=http://mock-oidc:8080/realms/sre-ops
+      - CLIENT_ID=aws-sre-access
+    volumes:
+      - "./oidc/test_keys:/keys:ro"
+
+networks:
+  default:
+    name: rosa-boundary-test

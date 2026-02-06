@@ -60,7 +60,12 @@ rosa-boundary/
 │   │   ├── assume-role.sh       # AWS role assumption
 │   │   └── README.md            # Auth documentation
 │   └── create-investigation-lambda.sh  # End-to-end creation wrapper
-└── docs/                 # Architecture and implementation docs
+├── tests/
+│   └── localstack/       # LocalStack integration tests
+│       ├── compose.yml   # LocalStack Pro + mock OIDC
+│       └── integration/  # AWS service tests
+├── docs/                 # Architecture and implementation docs
+└── .github/workflows/    # CI/CD automation
 ```
 
 ## Building
@@ -382,3 +387,43 @@ The container runs `sleep infinity` by default. On termination, it syncs `/home/
 The manifest list automatically selects the appropriate image for your platform:
 - `linux/amd64` - x86_64 architecture
 - `linux/arm64` - ARM64/aarch64 architecture (Graviton)
+
+## Testing
+
+### LocalStack Integration Tests
+
+Test AWS functionality locally before production deployment:
+
+```bash
+# Start LocalStack (requires LocalStack Pro token)
+make localstack-up
+
+# Run fast tests (~2-3 min)
+make test-localstack-fast
+
+# Run full test suite (~5-7 min)
+make test-localstack
+
+# Stop LocalStack
+make localstack-down
+```
+
+See [`tests/localstack/README.md`](tests/localstack/README.md) for complete documentation.
+
+### Lambda Unit Tests
+
+```bash
+cd lambda/create-investigation/
+make test
+```
+
+## CI/CD
+
+GitHub Actions workflow runs on PRs and pushes to main:
+
+- **LocalStack Integration Tests** - AWS service validation
+- **Lambda Unit Tests** - Handler function validation with moto
+
+**Required GitHub Secret**: `LOCALSTACK_AUTH_TOKEN` (LocalStack Pro license)
+
+See [`.github/workflows/localstack-tests.yml`](.github/workflows/localstack-tests.yml).

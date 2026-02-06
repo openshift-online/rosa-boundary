@@ -1,23 +1,23 @@
-# Incident Workflow with Boundary Integration
+# Investigation Workflow with Boundary Integration
 
 ## Overview
 
-This runbook describes the complete incident lifecycle with Boundary integration, from creation through access to closure. It extends the existing lifecycle scripts in `deploy/regional/examples/` with Boundary target management.
+This runbook describes the complete investigation lifecycle with Boundary integration, from creation through access to closure. It extends the existing lifecycle scripts in `deploy/regional/examples/` with Boundary target management.
 
 ## Workflow Diagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> IncidentCreated: create_incident.sh
-    IncidentCreated --> TaskLaunched: launch_task.sh
+    [*] --> InvestigationCreated: create_investigation.sh
+    InvestigationCreated --> TaskLaunched: launch_task.sh
     TaskLaunched --> UserConnected: boundary connect
     UserConnected --> Investigation: Work in container
     Investigation --> UserDisconnected: exit
     UserDisconnected --> TaskStopped: stop_task.sh
-    TaskStopped --> IncidentClosed: close_incident.sh
-    IncidentClosed --> [*]
+    TaskStopped --> InvestigationClosed: close_investigation.sh
+    InvestigationClosed --> [*]
 
-    note right of IncidentCreated
+    note right of InvestigationCreated
         - EFS access point created
         - Task definition registered
         - Boundary target created
@@ -40,28 +40,28 @@ stateDiagram-v2
         - Task terminated
     end note
 
-    note right of IncidentClosed
+    note right of InvestigationClosed
         - Boundary target deleted
         - Task definitions deregistered
         - EFS access point deleted
     end note
 ```
 
-## Phase 1: Create Incident
+## Phase 1: Create Investigation
 
-**Script**: `deploy/regional/examples/create_incident.sh`
+**Script**: `deploy/regional/examples/create_investigation.sh`
 
 ### Usage
 
 ```bash
-./create_incident.sh <cluster-id> <incident-number> [oc-version]
+./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
 ```
 
 ### Example
 
 ```bash
 cd deploy/regional/examples
-./create_incident.sh rosa-prod-01 456 4.20
+./create_investigation.sh rosa-prod-01 456 4.20
 ```
 
 ### What It Does
@@ -72,7 +72,7 @@ cd deploy/regional/examples
    POSIX: uid=1000, gid=1000
    Tags:
      - cluster-id: rosa-prod-01
-     - incident-number: 456
+     - investigation-id: 456
    ```
 
 2. **Registers Task Definition**
@@ -80,7 +80,7 @@ cd deploy/regional/examples
    Family: rosa-boundary-dev-rosa-prod-01-456-20260103T150000
    Environment Variables:
      - CLUSTER_ID=rosa-prod-01
-     - INCIDENT_NUMBER=456
+     - INVESTIGATION_ID=456
      - OC_VERSION=4.20
      - S3_AUDIT_BUCKET=xxx-rosa-boundary-dev-us-east-2
    ```
@@ -89,8 +89,8 @@ cd deploy/regional/examples
    ```bash
    boundary targets create tcp \
      -scope-id "$PROJECT_SCOPE_ID" \
-     -name "rosa-prod-01-incident-456" \
-     -description "Incident 456 for ROSA cluster rosa-prod-01" \
+     -name "rosa-prod-01-investigation-456" \
+     -description "Investigation 456 for ROSA cluster rosa-prod-01" \
      -default-port 9999 \
      -address localhost \
      -session-max-seconds 28800 \
@@ -213,7 +213,7 @@ Starting session with SessionId: user-abc123...
 
 ## Phase 4: Investigation Work
 
-User performs incident investigation in the container:
+User performs investigation work in the container:
 
 ```bash
 # Set up OpenShift context
@@ -225,8 +225,8 @@ oc get pods --all-namespaces | grep -i error
 oc logs -n problematic-namespace pod-name
 
 # Save findings
-cat > ~/incident-456-findings.md << 'EOF'
-# Incident 456 Investigation
+cat > ~/investigation-456-findings.md << 'EOF'
+# Investigation 456 Findings
 
 ## Problem
 High CPU on worker nodes...
@@ -269,7 +269,7 @@ Connection to boundary closed.
    ```
    s3://bucket/rosa-prod-01/456/20260103/task123/
    ├── .bash_history
-   ├── incident-456-findings.md
+   ├── investigation-456-findings.md
    ├── app-deployment.yaml
    └── .claude/...
    ```
@@ -302,20 +302,20 @@ Connection to boundary closed.
 3. Task transitions to STOPPED
 4. Displays expected S3 audit location
 
-## Phase 7: Close Incident
+## Phase 7: Close Investigation
 
-**Script**: `deploy/regional/examples/close_incident.sh`
+**Script**: `deploy/regional/examples/close_investigation.sh`
 
 ### Usage
 
 ```bash
-./close_incident.sh <task-family> <access-point-id> <boundary-target-id>
+./close_investigation.sh <task-family> <access-point-id> <boundary-target-id>
 ```
 
 ### Example
 
 ```bash
-./close_incident.sh \
+./close_investigation.sh \
   rosa-boundary-dev-rosa-prod-01-456-20260103T150000 \
   fsap-0a1b2c3d4e5f \
   ttcp_abc123xyz
@@ -355,21 +355,21 @@ Deregistered 1 revision(s).
 Delete access point fsap-0a1b2c3d4e5f? This does NOT delete data. (yes/no): yes
 Access point deleted successfully.
 
-Incident 456 closed. Audit data:
+Investigation 456 closed. Audit data:
   S3: s3://bucket/rosa-prod-01/456/20260103/task123/
   EFS: /rosa-prod-01/456/ (filesystem retained)
 ```
 
 ## Complete Example
 
-End-to-end incident workflow:
+End-to-end investigation workflow:
 
 ```bash
-# === Administrator: Create incident ===
+# === Administrator: Create investigation ===
 cd deploy/regional/examples
 
 # Create infrastructure
-OUTPUT=$(./create_incident.sh rosa-prod-01 789 4.20)
+OUTPUT=$(./create_investigation.sh rosa-prod-01 789 4.20)
 ACCESS_POINT_ID=$(echo "$OUTPUT" | grep "Access Point" | awk '{print $NF}')
 TASK_FAMILY=$(echo "$OUTPUT" | grep "Task Definition" | awk '{print $NF}')
 TARGET_ID=$(echo "$OUTPUT" | grep "Boundary Target" | awk '{print $NF}')
@@ -377,7 +377,7 @@ TARGET_ID=$(echo "$OUTPUT" | grep "Boundary Target" | awk '{print $NF}')
 # Launch task
 TASK_ARN=$(./launch_task.sh "$TASK_FAMILY" | grep "Task ARN" | awk '{print $NF}')
 
-echo "Incident 789 ready. Target ID: $TARGET_ID"
+echo "Investigation 789 ready. Target ID: $TARGET_ID"
 
 # === User: Connect and investigate ===
 boundary authenticate oidc
@@ -387,20 +387,20 @@ boundary authenticate oidc
 
 exit
 
-# === Administrator: Close incident ===
+# === Administrator: Close investigation ===
 ./stop_task.sh "$TASK_ARN" "Investigation complete"
-./close_incident.sh "$TASK_FAMILY" "$ACCESS_POINT_ID" "$TARGET_ID"
+./close_investigation.sh "$TASK_FAMILY" "$ACCESS_POINT_ID" "$TARGET_ID"
 ```
 
-## Parallel Incidents
+## Parallel Investigations
 
-Multiple incidents can run simultaneously:
+Multiple investigations can run simultaneously:
 
 ```bash
-# Create 3 incidents for the same cluster
-./create_incident.sh rosa-prod-01 801 4.18
-./create_incident.sh rosa-prod-01 802 4.19
-./create_incident.sh rosa-prod-01 803 4.20
+# Create 3 investigations for the same cluster
+./create_investigation.sh rosa-prod-01 801 4.18
+./create_investigation.sh rosa-prod-01 802 4.19
+./create_investigation.sh rosa-prod-01 803 4.20
 
 # Each gets:
 # - Separate EFS path: /rosa-prod-01/801/, /rosa-prod-01/802/, /rosa-prod-01/803/
@@ -416,7 +416,7 @@ Multiple incidents can run simultaneously:
 
 ```yaml
 # GitHub Actions example
-name: Create Incident
+name: Create Investigation
 
 on:
   issues:
@@ -424,15 +424,15 @@ on:
 
 jobs:
   create:
-    if: github.event.label.name == 'needs-incident'
+    if: github.event.label.name == 'needs-investigation'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Create incident
+      - name: Create investigation
         run: |
-          INCIDENT_NUM="${{ github.event.issue.number }}"
+          INVESTIGATION_NUM="${{ github.event.issue.number }}"
           CLUSTER_ID="rosa-prod-01"
-          ./deploy/regional/examples/create_incident.sh "$CLUSTER_ID" "$INCIDENT_NUM"
+          ./deploy/regional/examples/create_investigation.sh "$CLUSTER_ID" "$INVESTIGATION_NUM"
       - name: Comment on issue
         uses: actions/github-script@v6
         with:
@@ -441,7 +441,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'Incident container created. Target ID: ...'
+              body: 'Investigation container created. Target ID: ...'
             })
 ```
 
@@ -449,7 +449,7 @@ jobs:
 
 ```bash
 # Cron job to clean up old stopped tasks
-0 2 * * * /path/to/cleanup-old-incidents.sh 7  # 7 days
+0 2 * * * /path/to/cleanup-old-investigations.sh 7  # 7 days
 ```
 
 ## Next Steps

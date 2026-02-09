@@ -47,7 +47,6 @@ rosa-boundary/
 ├── deploy/
 │   ├── regional/          # Terraform: ECS, EFS, S3, Lambda, OIDC
 │   │   ├── *.tf          # Infrastructure definitions
-│   │   ├── examples/     # Manual lifecycle scripts
 │   │   └── README.md     # Deployment guide
 │   └── keycloak/         # Terraform: Keycloak realm and clients
 ├── lambda/
@@ -334,32 +333,7 @@ cd ../tools/
 - Automatic role creation on first use
 - Token caching (4 minutes) to avoid repeated browser authentication
 
-See [`tools/sre-auth/README.md`](tools/sre-auth/README.md) for authentication details and [`docs/LAMBDA_AUTH_SUMMARY.md`](docs/LAMBDA_AUTH_SUMMARY.md) for architecture.
-
-#### Manual Lifecycle Scripts
-
-Lower-level scripts for manual investigation management:
-
-```bash
-cd deploy/regional/examples/
-
-# Create investigation (access point + task definition)
-./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
-
-# Launch task
-./launch_task.sh <task-family>
-
-# Connect to task
-./join_task.sh <task-id>
-
-# Stop task (triggers S3 sync)
-./stop_task.sh <task-id>
-
-# Cleanup investigation
-./close_investigation.sh <task-family> <access-point-id>
-```
-
-See [`deploy/regional/README.md`](deploy/regional/README.md) for complete documentation.
+See [`tools/sre-auth/README.md`](tools/sre-auth/README.md) for authentication details and [`deploy/regional/README.md`](deploy/regional/README.md) for infrastructure documentation.
 
 #### Manual Deployment
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This runbook describes the complete investigation lifecycle using Lambda-based OIDC authentication, from creation through access to closure. It extends the existing lifecycle scripts in `deploy/regional/examples/` with automated IAM role management and tag-based isolation.
+This runbook describes the complete investigation lifecycle using Lambda-based OIDC authentication, from creation through access to closure. It provides automated IAM role management and tag-based isolation.
 
 ## Workflow Diagram
 
@@ -13,8 +13,8 @@ stateDiagram-v2
     TaskRunning --> UserConnected: aws ecs execute-command
     UserConnected --> Investigation: Work in container
     Investigation --> UserDisconnected: exit
-    UserDisconnected --> TaskStopped: stop_task.sh
-    TaskStopped --> InvestigationClosed: close_investigation.sh
+    UserDisconnected --> TaskStopped: aws ecs stop-task
+    TaskStopped --> InvestigationClosed: Manual cleanup
     InvestigationClosed --> [*]
 
     note right of InvestigationCreated
@@ -271,59 +271,75 @@ Exiting session with sessionId: user-abc123.
 
 ## Phase 5: Stop Task
 
-**Script**: `deploy/regional/examples/stop_task.sh`
-
 ### Usage
 
 ```bash
-./stop_task.sh <task-id> [reason]
+aws ecs stop-task \
+  --cluster <cluster-name> \
+  --task <task-id> \
+  --reason "Investigation complete"
 ```
 
 ### Example
 
 ```bash
-cd deploy/regional/examples
-./stop_task.sh a1b2c3d4 "Investigation complete"
+aws ecs stop-task \
+  --cluster rosa-boundary-dev \
+  --task a1b2c3d4e5f6 \
+  --reason "Investigation complete"
 ```
 
 ### What It Does
 
 1. Sends SIGTERM to task
-2. Entrypoint cleanup runs (S3 sync)
+2. Entrypoint cleanup runs (S3 sync to auto-generated path)
 3. Task transitions to STOPPED
-4. Displays expected S3 audit location
+4. Check CloudWatch Logs for S3 sync confirmation
 
 ## Phase 6: Close Investigation
 
-**Script**: `deploy/regional/examples/close_investigation.sh`
+Cleanup requires manual deletion of resources.
 
 ### Usage
 
 ```bash
-./close_investigation.sh <task-family> <access-point-id>
+# 1. Stop all running tasks
+aws ecs list-tasks --cluster <cluster-name> --family <task-family>
+aws ecs stop-task --cluster <cluster-name> --task <task-id>
+
+# 2. Deregister task definition revisions
+aws ecs list-task-definitions --family-prefix <task-family>
+aws ecs deregister-task-definition --task-definition <task-definition-arn>
+
+# 3. Delete EFS access point
+aws efs delete-access-point --access-point-id <fsap-id>
 ```
 
 ### Example
 
 ```bash
-./close_investigation.sh \
-  rosa-boundary-dev-rosa-prod-01-456-20260103T150000 \
-  fsap-0a1b2c3d4e5f
+# List and stop tasks
+aws ecs list-tasks --cluster rosa-boundary-dev \
+  --family rosa-boundary-dev-rosa-prod-01-456-20260103T150000
+
+aws ecs stop-task --cluster rosa-boundary-dev --task a1b2c3d4
+
+# Deregister task definitions
+aws ecs list-task-definitions \
+  --family-prefix rosa-boundary-dev-rosa-prod-01-456-20260103T150000
+
+aws ecs deregister-task-definition \
+  --task-definition rosa-boundary-dev-rosa-prod-01-456-20260103T150000:1
+
+# Delete access point
+aws efs delete-access-point --access-point-id fsap-0a1b2c3d4e5f
 ```
 
-### What It Does
+### Notes
 
-1. **Checks for running tasks**
-   - Prevents deletion if tasks still active
-   - Lists running tasks for the family
-
-2. **Deregisters task definitions**
-   - All revisions for the family
-   - Prevents future launches
-
-3. **Deletes EFS access point** (with confirmation)
-   - Prompts: "Delete access point? This does NOT delete data. (yes/no)"
-   - EFS data remains in filesystem at `/rosa-prod-01/456/`
+- EFS data remains in filesystem at `/$cluster_id/$investigation_id/`
+- S3 data is retained per WORM policy
+- Task definitions can be deregistered but not deleted
 
 ### Output
 
@@ -371,15 +387,14 @@ cd tools/
 exit
 
 # === User: Close investigation ===
-cd ../deploy/regional/examples
-
 # Stop the task (triggers S3 sync)
-./stop_task.sh a1b2c3d4e5f6 "Investigation complete"
+aws ecs stop-task \
+  --cluster rosa-boundary-dev \
+  --task a1b2c3d4e5f6 \
+  --reason "Investigation complete"
 
-# Close investigation (from create-investigation-lambda.sh output)
-./close_investigation.sh \
-  rosa-boundary-dev-rosa-prod-01-789-20260103T150000 \
-  fsap-0a1b2c3d4e5f
+# Manual cleanup (if needed)
+# See Phase 6 above for deregistering task definitions and deleting access points
 ```
 
 ## Parallel Investigations

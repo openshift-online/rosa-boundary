@@ -115,7 +115,6 @@ data "archive_file" "create_investigation_lambda" {
 
   excludes = [
     "test_handler.py",
-    "test-security-fixes.sh",
     "requirements-test.txt",
     "README.md",
     "Makefile",

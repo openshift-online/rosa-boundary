@@ -254,13 +254,6 @@ deploy/regional/
   kms.tf               - KMS key for ECS Exec encryption
   oidc.tf              - OIDC identity provider for Keycloak
   lambda-create-investigation.tf  - Lambda function for investigation creation
-  examples/            - Manual lifecycle management scripts
-    create_investigation.sh - Create access point + task definition
-    launch_task.sh     - Launch Fargate task
-    join_task.sh       - Connect via ECS Exec
-    stop_task.sh       - Stop task (triggers S3 sync)
-    close_investigation.sh  - Cleanup access point + task definition
-    build-task-def.jq  - jq script for task definition transformation
   get-vpc-info.sh      - Helper to discover VPC/subnets
   .gitignore           - Excludes tfvars, state, .terraform/
 ```
@@ -417,11 +410,7 @@ Terraform configuration for Keycloak realm and OIDC clients on ROSA cluster:
 - `PREREQUISITES.md` - Setup requirements
 - `QUICKSTART.md` - Deployment guide
 
-### Investigation Creation Workflows
-
-Two approaches are available for creating investigations:
-
-#### Lambda-Based (Recommended)
+### Investigation Creation Workflow
 
 **Workflow**: OIDC authentication → Lambda authorization → Automatic role + task creation
 
@@ -445,48 +434,10 @@ tools/create-investigation-lambda.sh <cluster-id> <investigation-id> [oc-version
 - Token caching (4 minutes, reduces browser popups)
 - Automatic role management (no manual IAM operations)
 
-#### Manual Lifecycle Scripts
-
-**Workflow**: Direct AWS API calls → Manual task management
-
-Located in `deploy/regional/examples/`:
-
-1. **create_investigation.sh** `<cluster-id> <investigation-id> [oc-version]`
-   - Creates EFS access point with tags
-   - Clones base task definition
-   - Adds environment variables
-   - Registers new task definition family
-   - Returns task family name + access point ID
-
-2. **launch_task.sh** `<task-family>`
-   - Launches Fargate task with ECS Exec enabled
-   - Waits for RUNNING state
-   - Returns task ID
-
-3. **join_task.sh** `<task-id>`
-   - Connects via ECS Exec as sre user
-
-4. **stop_task.sh** `<task-id> [reason]`
-   - Sends SIGTERM to task
-   - Entrypoint syncs to auto-generated S3 path
-   - Shows expected S3 location
-
-5. **close_investigation.sh** `<task-family> <access-point-id>`
-   - Checks for running tasks
-   - Deregisters all task definition revisions
-   - Deletes EFS access point (prompts for confirmation)
-
-**Use Cases**:
-- Testing infrastructure without OIDC
-- Debugging task definition issues
-- Administrative operations
-- CI/CD automation with service roles
-
 ### Key Files for Deployment
 
 - `deploy/regional/terraform.tfvars.example` - Template configuration
 - `deploy/regional/README.md` - Complete deployment documentation
-- `deploy/regional/examples/*.sh` - Manual lifecycle scripts
 - `lambda/create-investigation/handler.py` - Lambda authorization logic
 - `tools/sre-auth/` - OIDC authentication scripts
 - `tools/create-investigation-lambda.sh` - End-to-end creation wrapper

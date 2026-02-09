@@ -370,7 +370,7 @@ def get_or_create_user_role(sub: str, aud: str, oidc_provider_arn: str) -> Tuple
     #   - Users CANNOT bypass isolation by launching untagged tasks
     #   - Provides strong isolation via IAM-enforced resource tagging
     #
-    # See tools/test-tag-isolation.sh for comprehensive test proving this works.
+    # See tests/localstack/integration/test_tag_isolation.py for comprehensive tests.
     policy_document = {
         "Version": "2012-10-17",
         "Statement": [

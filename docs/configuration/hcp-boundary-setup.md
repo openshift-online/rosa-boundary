@@ -368,7 +368,7 @@ boundary targets create tcp \
   -format json
 ```
 
-This can be integrated into `deploy/regional/examples/create_incident.sh`.
+This can be automated as part of the investigation creation workflow.
 
 ## Deleting Targets
 
@@ -397,7 +397,7 @@ boundary targets delete -id ttcp_<target-id>
 - ❌ Dynamic credential brokering to ECS
 
 **Workarounds:**
-- Manual target creation (scripted via create_incident.sh)
+- Manual target creation (can be automated)
 - -exec flag for ECS Exec wrapper
 - User IAM credentials for AWS API calls
 - CloudWatch Logs for session recording

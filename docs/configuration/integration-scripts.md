@@ -184,72 +184,52 @@ boundary connect \
 ./boundary-ecs-connect.sh ttcp_1234567890
 ```
 
-## Extending Lifecycle Scripts
+## Automating Boundary Integration
 
-### Update create_incident.sh
+Boundary target lifecycle can be automated alongside investigation creation:
 
-Add Boundary target creation after task definition registration:
+### Create Boundary Target
+
+After investigation infrastructure is created, register a Boundary target:
 
 ```bash
-# In deploy/regional/examples/create_incident.sh
-# After task definition is registered...
-
 # Create Boundary target
 BOUNDARY_TARGET_ID=$(boundary targets create tcp \
   -scope-id "$BOUNDARY_PROJECT_SCOPE" \
-  -name "${CLUSTER_ID}-incident-${INCIDENT_NUMBER}" \
-  -description "Incident ${INCIDENT_NUMBER} for ROSA cluster ${CLUSTER_ID}" \
+  -name "${CLUSTER_ID}-investigation-${INVESTIGATION_ID}" \
+  -description "Investigation ${INVESTIGATION_ID} for ROSA cluster ${CLUSTER_ID}" \
   -default-port 9999 \
   -address localhost \
   -session-max-seconds 28800 \
   -attr "ecs_cluster=rosa-boundary-${STAGE}" \
   -attr "cluster_id=${CLUSTER_ID}" \
-  -attr "incident_number=${INCIDENT_NUMBER}" \
+  -attr "investigation_id=${INVESTIGATION_ID}" \
   -format json | jq -r '.item.id')
 
 echo "Boundary Target ID: $BOUNDARY_TARGET_ID"
-
-# Store for later cleanup
-echo "$BOUNDARY_TARGET_ID" > "/tmp/incident-${INCIDENT_NUMBER}-boundary-target.txt"
 ```
 
-### Update launch_task.sh
+### Update Target with Task ARN
 
-Add task ARN to Boundary target after task launches:
+After task is launched and reaches RUNNING state:
 
 ```bash
-# In deploy/regional/examples/launch_task.sh
-# After task is RUNNING...
-
 # Update Boundary target with task ARN
-if [[ -f "/tmp/incident-${INCIDENT_NUMBER}-boundary-target.txt" ]]; then
-  BOUNDARY_TARGET_ID=$(cat "/tmp/incident-${INCIDENT_NUMBER}-boundary-target.txt")
+boundary targets update \
+  -id "$BOUNDARY_TARGET_ID" \
+  -attr "ecs_task_arn=${TASK_ARN}"
 
-  boundary targets update \
-    -id "$BOUNDARY_TARGET_ID" \
-    -attr "ecs_task_arn=${TASK_ARN}"
-
-  echo "Updated Boundary target with task ARN: ${TASK_ARN}"
-fi
+echo "Updated Boundary target with task ARN: ${TASK_ARN}"
 ```
 
-### Update close_incident.sh
+### Delete Boundary Target
 
-Add Boundary target cleanup:
+During investigation cleanup:
 
 ```bash
-# In deploy/regional/examples/close_incident.sh
-# Before deregistering task definitions...
-
 # Delete Boundary target
-if [[ -f "/tmp/incident-${INCIDENT_NUMBER}-boundary-target.txt" ]]; then
-  BOUNDARY_TARGET_ID=$(cat "/tmp/incident-${INCIDENT_NUMBER}-boundary-target.txt")
-
-  boundary targets delete -id "$BOUNDARY_TARGET_ID"
-  echo "Deleted Boundary target: $BOUNDARY_TARGET_ID"
-
-  rm "/tmp/incident-${INCIDENT_NUMBER}-boundary-target.txt"
-fi
+boundary targets delete -id "$BOUNDARY_TARGET_ID"
+echo "Deleted Boundary target: $BOUNDARY_TARGET_ID"
 ```
 
 ## Installation

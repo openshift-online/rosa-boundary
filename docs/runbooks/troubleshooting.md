@@ -260,8 +260,11 @@ Error: Could not connect to the target. Ensure that SSM Agent is running and the
 
 2. Verify task was launched with `--enable-execute-command`:
    ```bash
-   # Check in launch_task.sh output
-   grep "enable-execute-command" deploy/regional/examples/launch_task.sh
+   # Check task configuration
+   aws ecs describe-tasks \
+     --cluster rosa-boundary-dev \
+     --tasks <task-id> \
+     --query 'tasks[0].enableExecuteCommand'
    ```
 
 3. Check SSM plugin version:

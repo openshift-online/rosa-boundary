@@ -308,26 +308,21 @@ graph TB
     end
 
     subgraph scripts["Integration Scripts"]
-        CREATE[create_incident.sh]
-        LAUNCH[launch_task.sh]
-        JOIN[join_task.sh]
+        LAMBDA[Lambda: create-investigation]
         EXEC[ecs-exec.sh]
-        STOP[stop_task.sh]
-        CLOSE[close_incident.sh]
+        CLI[AWS CLI]
     end
 
     TF -->|provisions| ECS_RT
     KC_CR -->|configures| KC_RT
     BD_TF -->|configures| BD_RT
 
-    CREATE -->|creates| ECS_RT
-    CREATE -->|creates target| BD_RT
-    LAUNCH -->|starts task| ECS_RT
-    JOIN -->|uses| EXEC
+    LAMBDA -->|creates role + task| ECS_RT
+    LAMBDA -->|can create target| BD_RT
     EXEC -->|authorizes via| BD_RT
     EXEC -->|connects to| ECS_RT
-    STOP -->|terminates| ECS_RT
-    CLOSE -->|deletes target| BD_RT
+    CLI -->|terminates task| ECS_RT
+    CLI -->|cleanup resources| ECS_RT
 
     style config fill:#e8f5e9
     style runtime fill:#fff3e0

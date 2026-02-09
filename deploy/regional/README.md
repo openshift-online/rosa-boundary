@@ -78,28 +78,26 @@ terraform apply
 
 ### 3. Investigation Lifecycle Management
 
-The `examples/` directory contains scripts for the complete investigation lifecycle:
+Use the Lambda-based OIDC workflow for investigation creation:
 
 ```bash
-cd examples/
+cd ../../tools/
 
-# Create investigation workspace (EFS access point + task definition)
-./create_investigation.sh rosa-prod-abc INV-12345 4.18
+# Create investigation with OIDC authentication
+./create-investigation-lambda.sh <cluster-id> <investigation-id> [oc-version]
 
-# Launch a Fargate task for the investigation
-./launch_task.sh rosa-boundary-dev-rosa-prod-abc-INC-12345-TIMESTAMP
+# Example
+./create-investigation-lambda.sh rosa-prod-abc inv-12345 4.18
 
-# Connect to the running task
-./join_task.sh <task-id>
-
-# Stop the task (triggers S3 sync)
-./stop_task.sh <task-id>
-
-# Close investigation (cleanup task definition + access point)
-./close_investigation.sh rosa-boundary-dev-rosa-prod-abc-INV-12345-TIMESTAMP fsap-xxx
+# The script will:
+# 1. Authenticate via Keycloak (browser popup)
+# 2. Call Lambda to create investigation
+# 3. Assume role with tag-based permissions
+# 4. Wait for task to be running
+# 5. Display connection command
 ```
 
-See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examples.
+See [`tools/sre-auth/README.md`](../../tools/sre-auth/README.md) for authentication details and [Investigation Lifecycle](#investigation-lifecycle) below for architecture.
 
 ## Variables
 
@@ -138,16 +136,6 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 
 The infrastructure uses a per-investigation isolation model with EFS access points and dedicated task definitions.
 
-### Workflow Overview
-
-```
-1. create_investigation.sh  → Creates EFS access point + task definition with locked OC version
-2. launch_task.sh           → Launches Fargate task for the investigation
-3. join_task.sh        → Connects to running task via ECS Exec
-4. stop_task.sh        → Stops task (triggers S3 sync to unique path)
-5. close_investigation.sh   → Cleanup: deletes task definition + access point
-```
-
 ### Path Structure
 
 - **EFS**: `/$cluster_id/$investigation_id/` → Mounted to `/home/sre` in container
@@ -155,41 +143,28 @@ The infrastructure uses a per-investigation isolation model with EFS access poin
 
 **Example:**
 - EFS: `/rosa-prod-abc/INV-12345/` (shared across all tasks for this investigation)
-- S3: `s3://bucket/rosa-prod-abc/INC-12345/20251215/d0910f05.../` (unique per task)
+- S3: `s3://bucket/rosa-prod-abc/INV-12345/20251215/d0910f05.../` (unique per task)
 
-### Step 1: Create Investigation Workspace
+### Lambda-Based Workflow
 
-```bash
-cd examples/
+The recommended workflow uses OIDC authentication and Lambda for investigation creation:
 
-# Syntax: ./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
-./create_investigation.sh rosa-prod-abc INV-12345 4.18
-```
+1. **Authenticate**: User authenticates via Keycloak (browser PKCE flow)
+2. **Create Investigation**: Lambda validates token, creates IAM role, EFS access point, and task
+3. **Assume Role**: Script assumes returned role with tag-based permissions
+4. **Connect**: User connects to running task via ECS Exec
 
-**Output:**
-- EFS Access Point: `fsap-xxx` with path `/$cluster_id/$investigation_id/`
-- Task Definition: `rosa-boundary-dev-$cluster_id-$investigation_id-TIMESTAMP`
-- OC Version: Locked to specified version in task definition
+See [`tools/create-investigation-lambda.sh`](../../tools/create-investigation-lambda.sh) for the end-to-end script.
 
-**Save the output values** (task family name and access point ID) for later steps.
+### Connecting to Running Tasks
 
-### Step 2: Launch Task
+Use `tools/join-investigation.sh` to connect to existing tasks:
 
 ```bash
-# Use task family name from create_investigation.sh output
-./launch_task.sh rosa-boundary-dev-rosa-prod-abc-INC-12345-20251215-171625
-```
+cd ../../tools/
 
-**Automatic configuration:**
-- Mounts investigation-specific EFS path to `/home/sre`
-- Sets environment variables: `CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET`
-- Enables ECS Exec for interactive access
-
-### Step 3: Connect to Task
-
-```bash
-# Use task ID from launch_task.sh output
-./join_task.sh d0910f05129944e3a3b03f4b453bf18c
+# Join by task ID
+./join-investigation.sh <task-id>
 ```
 
 **Inside the container (as sre user):**
@@ -205,36 +180,48 @@ echo $INVESTIGATION_ID    # INV-12345
 # All files in /home/sre persist to EFS
 ```
 
-### Step 4: Stop Task (Triggers S3 Sync)
-
-```bash
-./stop_task.sh d0910f05129944e3a3b03f4b453bf18c "Investigation complete"
-```
-
-**What happens:**
-1. Container receives SIGTERM signal
-2. Entrypoint auto-generates S3 path: `s3://bucket/$cluster/$investigation/$date/$taskid/`
-3. Syncs `/home/sre` to S3 with WORM compliance
-4. Container exits gracefully
+**What happens during investigation:**
+1. All files in `/home/sre` persist to EFS
+2. Isolated workspace per investigation
+3. OC version locked to investigation specification
 
 **S3 Path Example:**
 ```
 s3://641875867446-rosa-boundary-dev-us-east-2/rosa-prod-abc/INC-12345/20251215/d0910f05.../
 ```
 
-### Step 5: Close Investigation (Cleanup)
+### Stopping Tasks
+
+Tasks can be stopped with the AWS CLI:
 
 ```bash
-# Use task family and access point ID from create_investigation.sh output
-./close_investigation.sh rosa-boundary-dev-rosa-prod-abc-INV-12345-TIMESTAMP fsap-xxx
+# Stop task (triggers S3 sync via entrypoint signal handler)
+aws ecs stop-task \
+  --cluster rosa-boundary-dev \
+  --task <task-id> \
+  --reason "Investigation complete"
 ```
 
-**Cleanup actions:**
-1. Checks for running tasks (must stop all first)
-2. Deregisters all task definition revisions
-3. Deletes EFS access point (prompts for confirmation)
+The container's entrypoint script traps SIGTERM and syncs `/home/sre` to S3 before exit.
 
-**Note:** EFS data remains on the filesystem but is no longer accessible. S3 data is retained per WORM policy.
+### Cleanup
+
+Investigation cleanup requires manual deletion of resources:
+
+```bash
+# 1. List and stop any running tasks
+aws ecs list-tasks --cluster rosa-boundary-dev --family <task-family>
+aws ecs stop-task --cluster rosa-boundary-dev --task <task-id>
+
+# 2. Deregister task definition revisions
+aws ecs list-task-definitions --family-prefix <task-family>
+aws ecs deregister-task-definition --task-definition <task-definition-arn>
+
+# 3. Delete EFS access point
+aws efs delete-access-point --access-point-id <fsap-id>
+```
+
+**Note:** EFS data remains on the filesystem. S3 data is retained per WORM policy.
 
 ---
 
@@ -298,7 +285,7 @@ Session logs contain complete terminal output including any credentials or sensi
 
 ## Environment Variables
 
-### Automatically Set (by lifecycle scripts)
+### Automatically Set (by Lambda or task definition)
 
 - `CLUSTER_ID` - ROSA cluster identifier
 - `INVESTIGATION_ID` - Investigation tracking ID
@@ -358,16 +345,7 @@ Used by the container at runtime:
 
 ## Connecting to Running Tasks
 
-### Via join_task.sh (Recommended)
-
-```bash
-cd examples/
-./join_task.sh <task-id>
-```
-
-Automatically connects as the `sre` user via ECS Exec.
-
-### Manual Connection
+### Direct Connection
 
 ```bash
 # List running tasks

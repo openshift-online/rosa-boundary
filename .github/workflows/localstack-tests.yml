@@ -46,6 +46,15 @@ jobs:
         run: |
           uv pip install --system pytest boto3 requests
 
+      - name: Setup Podman socket for LocalStack
+        run: |
+          # Start podman socket for rootless containers
+          systemctl --user start podman.socket
+          # Create docker.sock symlink for LocalStack compatibility
+          sudo mkdir -p /var/run
+          sudo ln -sf /run/user/$(id -u)/podman/podman.sock /var/run/docker.sock
+          sudo chmod 666 /var/run/docker.sock
+
       - name: Configure LocalStack environment
         run: |
           cd tests/localstack
@@ -55,7 +64,7 @@ jobs:
         run: |
           cd tests/localstack
           # Use CI compose file with Docker executor for Lambda support
-          podman-compose -f compose.ci.yml up -d
+          podman-compose -f compose.ci.yml --env-file .env up -d
 
           echo "Waiting for LocalStack to be ready..."
           # Increased timeout to 180s for slower CI environments

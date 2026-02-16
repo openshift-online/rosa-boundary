@@ -86,14 +86,23 @@ The container includes an entrypoint script (`/usr/local/bin/entrypoint.sh`) tha
 - `OC_VERSION`: Select OpenShift CLI version (4.14-4.20, default: 4.20)
 - `AWS_CLI`: Select AWS CLI source (`fedora` or `official`, default: official)
 - `S3_AUDIT_ESCROW`: S3 URI for syncing /home/sre on exit (optional, e.g., `s3://bucket/investigation-123/`)
+- `TASK_TIMEOUT`: Task timeout in seconds (0 = no timeout, default: 3600) - **enforced by periodic reaper Lambda at AWS layer, not modifiable from within container**
 
 **Entrypoint Behavior**:
 1. Sets up signal traps for SIGTERM, SIGINT, SIGHUP
-2. Checks `OC_VERSION` and uses `alternatives --set` to switch to that version if provided
-3. Checks `AWS_CLI` and uses `alternatives --set` to switch to fedora/official if provided
-4. Runs the command in background (defaults to `sleep infinity`)
-5. Waits for command to complete or signal to arrive
-6. On exit/signal: syncs /home/sre to S3 if `S3_AUDIT_ESCROW` is set
+2. Displays task timeout message if configured (informational only - enforced externally)
+3. Checks `OC_VERSION` and uses `alternatives --set` to switch to that version if provided
+4. Checks `AWS_CLI` and uses `alternatives --set` to switch to fedora/official if provided
+5. Runs the command in background (defaults to `sleep infinity`)
+6. Waits for command to complete or signal to arrive
+7. On exit/signal: syncs /home/sre to S3 if `S3_AUDIT_ESCROW` is set
+
+**Task Timeout Enforcement**:
+- Timeout is enforced via **periodic reaper Lambda**, not within the container
+- Lambda computes a `deadline` tag (created_at + task_timeout) when launching tasks
+- Reaper Lambda runs every 15 minutes (configurable), checks all RUNNING tasks, stops expired ones
+- Deadline tag stored as ISO 8601 timestamp in ECS task tags
+- Users **cannot bypass** the timeout from within the container (enforced at AWS API layer, tags not modifiable from container)
 
 The entrypoint is located at `entrypoint.sh` in the repository root and copied to `/usr/local/bin/entrypoint.sh` during build.
 
@@ -221,7 +230,12 @@ podman run --rm rosa-boundary:latest sh -c 'echo "CLAUDE_CODE_USE_BEDROCK=$CLAUD
 
 # Test Claude Code with Bedrock disabled
 podman run --rm -e CLAUDE_CODE_USE_BEDROCK=0 rosa-boundary:latest sh -c 'echo $CLAUDE_CODE_USE_BEDROCK'
+
+# Test task timeout display (informational only - actual enforcement is via EventBridge Scheduler)
+podman run --rm -e TASK_TIMEOUT=3600 rosa-boundary:latest echo "Timeout message displayed"
 ```
+
+**Note**: Task timeout enforcement happens at the ECS/EventBridge layer, not within the container. Local podman tests will not enforce the timeout.
 
 ## Adding New OpenShift Versions
 
@@ -284,6 +298,12 @@ The Lambda function provides OIDC-authenticated investigation creation with auto
 - `create_investigation_task()` - ECS task launch with owner tags
 - `lambda_handler()` - Main entry point with error handling
 
+**Request Body Parameters**:
+- `cluster_id` (required) - Cluster identifier
+- `investigation_id` (required) - Investigation identifier
+- `oc_version` (optional, default: 4.20) - OpenShift CLI version
+- `task_timeout` (optional, default: 3600) - Task timeout in seconds (0 = no timeout)
+
 **IAM Policy Created** (per-user role):
 ```python
 # ExecuteCommandOnCluster - Allow ecs:ExecuteCommand on cluster (no tag condition)
@@ -306,6 +326,48 @@ make clean build  # Builds dependencies in Lambda container
 
 **Deployment**:
 Lambda function is deployed via Terraform in `deploy/regional/lambda-create-investigation.tf`
+
+### Task Deadline Enforcement (Reaper Lambda)
+
+**Location**: `lambda/reap-tasks/`
+
+The reaper Lambda provides tamper-proof task timeout enforcement via periodic checks of task deadline tags:
+
+**Architecture**:
+1. **Periodic Trigger**: EventBridge rule invokes Lambda every 15 minutes (configurable via `reaper_schedule_minutes`)
+2. **Task Discovery**: Lists all RUNNING tasks in the ECS cluster
+3. **Deadline Check**: Parses `deadline` tag (ISO 8601 format) and compares to current time
+4. **Task Termination**: Calls `ecs:StopTask` for tasks where `now > deadline`
+5. **Graceful Handling**: Per-task error handling, invalid deadline formats skipped
+
+**Handler Functions** (`handler.py`):
+- `lambda_handler()` - Main entry point, returns summary `{checked, stopped, skipped, errors}`
+- `list_running_tasks()` - Paginated wrapper around `ecs.list_tasks(desiredStatus='RUNNING')`
+
+**Deadline Tag Flow**:
+1. Create-investigation Lambda computes: `deadline = created_at + task_timeout`
+2. Deadline stored as ISO 8601 string in task tags: `{'key': 'deadline', 'value': '2026-02-16T12:34:56'}`
+3. Reaper parses deadline: `datetime.fromisoformat(deadline_str)`
+4. If `now > deadline`: calls `ecs.stop_task(reason='Task deadline exceeded (deadline: {deadline_str})')`
+
+**Security Properties**:
+- **Tamper-proof**: Task tags only modifiable via ECS API (requires IAM permissions not available in container)
+- **Deterministic**: Deadline computed at task creation, immutable after launch
+- **Fail-safe**: Tasks without deadline tag are skipped (optional enforcement)
+- **Resilient**: Per-task error handling ensures one failure doesn't stop reaper run
+
+**Terraform Configuration**:
+- `deploy/regional/lambda-reap-tasks.tf` - Lambda function, IAM role, EventBridge rule
+- `deploy/regional/variables.tf` - `reaper_schedule_minutes` variable (default: 15, range: 1-1440)
+
+**IAM Permissions Required**:
+- `ecs:ListTasks` (conditioned on cluster ARN)
+- `ecs:DescribeTasks` (conditioned on cluster ARN)
+- `ecs:StopTask` (scoped to `task/{cluster}/*`)
+
+**Unit Tests**: `lambda/reap-tasks/test_handler.py` (uses `unittest.mock` for boto3 clients)
+
+**Integration Tests**: `tests/localstack/integration/test_task_timeout.py` (validates deadline computation, reaper logic)
 
 ### Per-Investigation Isolation Model
 
@@ -444,6 +506,7 @@ tools/create-investigation-lambda.sh <cluster-id> <investigation-id> [oc-version
 - Tag-based task isolation (users can only access own tasks)
 - Token caching (4 minutes, reduces browser popups)
 - Automatic role management (no manual IAM operations)
+- **Task timeout enforcement** via periodic reaper Lambda (cannot be bypassed from container)
 
 #### Manual Lifecycle Scripts
 
@@ -481,6 +544,9 @@ Located in `deploy/regional/examples/`:
 - Debugging task definition issues
 - Administrative operations
 - CI/CD automation with service roles
+
+**Limitations**:
+- **No automatic timeout enforcement** - TASK_TIMEOUT environment variable is set but not enforced (use Lambda path for timeout enforcement)
 
 ### Key Files for Deployment
 

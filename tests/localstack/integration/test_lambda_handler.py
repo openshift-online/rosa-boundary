@@ -171,7 +171,8 @@ def test_lambda_with_valid_token(deployed_lambda, lambda_client, test_token_gene
         'body': json.dumps({
             'cluster_id': 'rosa-dev',
             'investigation_id': 'inv-test-123',
-            'oc_version': '4.20'
+            'oc_version': '4.20',
+            'task_timeout': 7200
         })
     }
 

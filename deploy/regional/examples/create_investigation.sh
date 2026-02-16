@@ -2,20 +2,24 @@
 set -e
 
 # Script to create an investigation workspace with EFS access point and task definition
-# Usage: ./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
+# Usage: ./create_investigation.sh <cluster-id> <investigation-id> [oc-version] [task-timeout]
 
 CLUSTER_ID="${1}"
 INVESTIGATION_ID="${2}"
 OC_VERSION="${3:-4.20}"  # Default to 4.20
+TASK_TIMEOUT="${4:-3600}"  # Default to 3600 seconds (1 hour)
 
 if [ -z "$CLUSTER_ID" ] || [ -z "$INVESTIGATION_ID" ]; then
-  echo "Usage: $0 <cluster-id> <investigation-id> [oc-version]"
+  echo "Usage: $0 <cluster-id> <investigation-id> [oc-version] [task-timeout]"
   echo ""
   echo "Example:"
   echo "  $0 rosa-prod-abc INV-12345"
   echo "  $0 rosa-prod-abc INV-12345 4.18"
+  echo "  $0 rosa-prod-abc INV-12345 4.18 7200  # 2 hour timeout"
+  echo "  $0 rosa-prod-abc INV-12345 4.18 0     # No timeout"
   echo ""
   echo "Available OC versions: 4.14, 4.15, 4.16, 4.17, 4.18, 4.19, 4.20"
+  echo "Task timeout: 0 = no timeout, >0 = timeout in seconds"
   exit 1
 fi
 
@@ -37,6 +41,7 @@ echo "Creating investigation workspace..."
 echo "  Cluster ID: $CLUSTER_ID"
 echo "  Investigation: $INVESTIGATION_ID"
 echo "  OC Version: $OC_VERSION"
+echo "  Task Timeout: $TASK_TIMEOUT seconds"
 echo "  AWS Profile: $PROFILE"
 echo "  AWS Region: $REGION"
 echo ""
@@ -117,7 +122,8 @@ TASK_DEF_JSON=$(echo "$BASE_TASK_JSON" | jq -f "$SCRIPT_DIR/build-task-def.jq" \
   --arg cluster_id "$CLUSTER_ID" \
   --arg investigation "$INVESTIGATION_ID" \
   --arg oc_version "$OC_VERSION" \
-  --arg bucket "$BUCKET_NAME")
+  --arg bucket "$BUCKET_NAME" \
+  --arg task_timeout "$TASK_TIMEOUT")
 
 # Save task definition to temp file and register
 TEMP_FILE=$(mktemp)

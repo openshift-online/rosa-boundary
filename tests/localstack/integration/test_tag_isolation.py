@@ -108,11 +108,12 @@ def test_tag_based_iam_policy_evaluation(iam_client):
 
 
 @pytest.mark.integration
-def test_multiple_tasks_different_owners(ecs_client, test_vpc, iam_client):
+def test_multiple_tasks_different_owners(ecs_client, test_vpc, iam_client, ecs_cleanup):
     """Test task tagging for multiple users (authorization boundary)"""
     # Create cluster
     cluster_name = f'test-cluster-{int(datetime.now().timestamp())}'
     ecs_client.create_cluster(clusterName=cluster_name)
+    ecs_cleanup.register_cluster(cluster_name)
 
     # Create role
     role_name = f'test-role-{int(datetime.now().timestamp())}'
@@ -132,6 +133,7 @@ def test_multiple_tasks_different_owners(ecs_client, test_vpc, iam_client):
         AssumeRolePolicyDocument=json.dumps(trust_policy)
     )
     role_arn = role_response['Role']['Arn']
+    ecs_cleanup.register_role(role_name)
 
     # Register task definition
     family_name = f'test-task-{int(datetime.now().timestamp())}'
@@ -153,6 +155,7 @@ def test_multiple_tasks_different_owners(ecs_client, test_vpc, iam_client):
     )
 
     task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']
+    ecs_cleanup.register_task_definition(task_def_arn)
 
     # Run tasks for different users
     user1_sub = 'user-001'
@@ -194,6 +197,8 @@ def test_multiple_tasks_different_owners(ecs_client, test_vpc, iam_client):
 
     task1_arn = task1_response['tasks'][0]['taskArn']
     task2_arn = task2_response['tasks'][0]['taskArn']
+    ecs_cleanup.register_task(cluster_name, task1_arn)
+    ecs_cleanup.register_task(cluster_name, task2_arn)
 
     # Verify tags are different
     tags1 = ecs_client.list_tags_for_resource(resourceArn=task1_arn)
@@ -205,16 +210,6 @@ def test_multiple_tasks_different_owners(ecs_client, test_vpc, iam_client):
     assert tags1_dict['owner_sub'] == user1_sub
     assert tags2_dict['owner_sub'] == user2_sub
     assert tags1_dict['investigation_id'] != tags2_dict['investigation_id']
-
-    # Cleanup
-    try:
-        ecs_client.stop_task(cluster=cluster_name, task=task1_arn, reason='Test complete')
-        ecs_client.stop_task(cluster=cluster_name, task=task2_arn, reason='Test complete')
-    except Exception:
-        pass  # LocalStack limitation with local executor
-    ecs_client.deregister_task_definition(taskDefinition=task_def_arn)
-    iam_client.delete_role(RoleName=role_name)
-    ecs_client.delete_cluster(cluster=cluster_name)
 
 
 @pytest.mark.integration

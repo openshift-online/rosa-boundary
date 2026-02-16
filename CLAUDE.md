@@ -112,6 +112,7 @@ Architecture values are written to temp files (`/tmp/aws_cli_arch`, `/tmp/oc_suf
 | `S3_AUDIT_BUCKET` | — | Bucket for auto-generated S3 path |
 | `CLUSTER_ID` | — | Cluster ID for auto-generated S3 path |
 | `INVESTIGATION_ID` | — | Investigation ID for auto-generated S3 path |
+| `TASK_TIMEOUT` | 3600 | Timeout in seconds (0 = no timeout); **enforced by reaper Lambda, not modifiable from container** |
 | `CLAUDE_CODE_USE_BEDROCK` | `1` | Enable Claude Code Bedrock mode |
 | `AWS_REGION` | auto-detected | Bedrock region (ECS metadata → fallback `us-east-1`) |
 | `ANTHROPIC_MODEL` | — | Override Claude model ID |
@@ -150,10 +151,13 @@ rosa-boundary/
 │       ├── examples/          # Manual lifecycle scripts (create, launch, join, stop, close)
 │       └── README.md          # Complete deployment documentation
 ├── lambda/
-│   └── create-investigation/  # OIDC-authenticated investigation creation
-│       ├── handler.py         # validate_oidc_token, get_or_create_user_role, create_investigation_task
-│       ├── test_handler.py    # moto-based unit tests
-│       └── Makefile           # Builds deps inside Lambda container
+│   ├── create-investigation/  # OIDC-authenticated investigation creation
+│   │   ├── handler.py         # validate_oidc_token, get_or_create_user_role, create_investigation_task
+│   │   ├── test_handler.py    # moto-based unit tests
+│   │   └── Makefile           # Builds deps inside Lambda container
+│   └── reap-tasks/            # Periodic task timeout enforcement
+│       ├── handler.py         # lambda_handler, list_running_tasks
+│       └── test_handler.py    # unittest.mock-based unit tests
 ├── tools/
 │   ├── create-investigation-lambda.sh  # End-to-end: OIDC → Lambda → assume role → wait for task
 │   ├── join-investigation.sh           # Connect to running investigation via ECS Exec
@@ -165,7 +169,7 @@ rosa-boundary/
 ├── tests/localstack/
 │   ├── compose.yml            # LocalStack Pro + mock OIDC (local/macOS, local executor)
 │   ├── compose.ci.yml         # LocalStack Pro + mock OIDC (CI, Docker executor for Lambda)
-│   ├── integration/           # 28 tests across 8 test files
+│   ├── integration/           # 29 tests across 9 test files
 │   ├── oidc/mock_jwks.py      # Flask mock OIDC server
 │   └── README.md              # Full test documentation
 └── docs/
@@ -174,6 +178,36 @@ rosa-boundary/
     ├── configuration/keycloak-realm-setup.md
     └── runbooks/              # investigation-workflow, troubleshooting, user-access-guide
 ```
+
+## Reaper Lambda (Task Timeout Enforcement)
+
+**Location**: `lambda/reap-tasks/`
+
+The reaper Lambda provides tamper-proof task timeout enforcement via periodic checks of task deadline tags:
+
+**Architecture**:
+1. **Periodic Trigger**: EventBridge rule invokes Lambda every 15 minutes (configurable via `reaper_schedule_minutes`)
+2. **Task Discovery**: Lists all RUNNING tasks in the ECS cluster
+3. **Deadline Check**: Parses `deadline` tag (ISO 8601 format) and compares to current time
+4. **Task Termination**: Calls `ecs:StopTask` for tasks where `now > deadline`
+5. **Graceful Handling**: Per-task error handling; invalid deadline formats are skipped
+
+**Deadline Tag Flow**:
+1. Create-investigation Lambda computes: `deadline = created_at + task_timeout`
+2. Deadline stored as ISO 8601 string in task tags: `{'key': 'deadline', 'value': '2026-02-16T12:34:56'}`
+3. Reaper parses deadline: `datetime.fromisoformat(deadline_str)`
+4. If `now > deadline`: calls `ecs.stop_task(reason='Task deadline exceeded (deadline: {deadline_str})')`
+
+**Security Properties**:
+- **Tamper-proof**: Task tags only modifiable via ECS API (requires IAM permissions not available in container)
+- **Deterministic**: Deadline computed at task creation, immutable after launch
+- **Fail-safe**: Tasks without deadline tag are skipped (optional enforcement)
+
+**Terraform**: `deploy/regional/lambda-reap-tasks.tf`; `reaper_schedule_minutes` variable (default: 15, range: 1-1440)
+
+**IAM Permissions Required**: `ecs:ListTasks`, `ecs:DescribeTasks` (conditioned on cluster ARN), `ecs:StopTask` (scoped to `task/{cluster}/*`)
+
+**Tests**: `make test-lambda-reap-tasks` (unit), `tests/localstack/integration/test_task_timeout.py` (integration)
 
 ## Investigation Isolation Model
 
@@ -184,7 +218,21 @@ Each investigation gets:
 
 **EFS Access Point Limit**: 10,000 per filesystem.
 
-Two creation workflows: **Lambda-based** (recommended, OIDC-authenticated, `sre-team` group checked, per-user IAM roles tagged to `owner_sub`) via `tools/create-investigation-lambda.sh`, and **manual lifecycle scripts** via `deploy/regional/examples/`. See [`docs/runbooks/investigation-workflow.md`](docs/runbooks/investigation-workflow.md).
+Two creation workflows: **Lambda-based** (recommended, OIDC-authenticated, `sre-team` group checked, per-user IAM roles scoped to `username` tag) via `tools/create-investigation-lambda.sh`, and **manual lifecycle scripts** via `deploy/regional/examples/`. See [`docs/runbooks/investigation-workflow.md`](docs/runbooks/investigation-workflow.md).
+
+**IAM Policy Created** (per-user role):
+```python
+# ExecuteCommandOnCluster - Allow ecs:ExecuteCommand on cluster (no tag condition)
+# ExecuteCommandOnOwnedTasks - Allow ecs:ExecuteCommand on tasks with matching username tag
+# DescribeAndListECS - Allow task describe/list operations
+# SSMSessionForECSExec - Allow ssm:StartSession with tag condition
+# KMSForECSExec - Allow KMS operations for encrypted sessions
+```
+
+**Tag-Based Authorization**:
+- Tasks tagged with `oidc_sub` (OIDC `sub` claim) and `username` (ABAC key)
+- Roles can only exec into tasks with matching `username` tag
+- Cross-user task access prevented at IAM policy level
 
 ## Keycloak on OpenShift
 
@@ -203,7 +251,7 @@ For realm and OIDC client configuration, see [`docs/configuration/keycloak-realm
 
 ## LocalStack Integration Testing
 
-28 integration tests in `tests/localstack/integration/` cover S3, IAM, Lambda, KMS, EFS, ECS, SSM, and CloudWatch Logs.
+29 integration tests in `tests/localstack/integration/` cover S3, IAM, Lambda, KMS, EFS, ECS, SSM, and CloudWatch Logs.
 
 ### Running Tests
 

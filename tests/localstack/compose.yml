@@ -6,7 +6,7 @@ services:
       - "4510-4559:4510-4559"
     environment:
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
-      - SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm
+      - SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm,events
       # Use local executor instead of docker/podman for macOS compatibility
       - LAMBDA_EXECUTOR=local
       - ECS_EXECUTOR=local

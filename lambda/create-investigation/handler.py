@@ -10,7 +10,7 @@ import json
 import hashlib
 import logging
 from typing import Dict, Any, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import boto3
 import jwt
@@ -90,10 +90,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         investigation_id = body.get('investigation_id')
         cluster_id = body.get('cluster_id')
         oc_version = body.get('oc_version', '4.20')
+        task_timeout = body.get('task_timeout', int(os.environ.get('TASK_TIMEOUT_DEFAULT', '3600')))
 
         if not investigation_id or not cluster_id:
             logger.warning("Missing required fields: investigation_id or cluster_id")
             return response(400, {'error': 'Missing required fields: investigation_id, cluster_id'})
+
+        # Validate task_timeout
+        try:
+            task_timeout = int(task_timeout)
+            if task_timeout < 0:
+                raise ValueError("Task timeout cannot be negative")
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Invalid task_timeout: {task_timeout}")
+            return response(400, {'error': f'Invalid task_timeout: must be a non-negative integer'})
 
         # Validate identifiers for safe characters
         try:
@@ -154,7 +164,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             subnets=SUBNETS,
             security_group=SECURITY_GROUP,
             efs_filesystem_id=EFS_FILESYSTEM_ID,
-            oc_version=oc_version
+            oc_version=oc_version,
+            task_timeout=task_timeout
         )
 
         logger.info(f"Investigation task created successfully: {task_info['taskArn']}")
@@ -169,7 +180,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'investigation_id': investigation_id,
             'cluster_id': cluster_id,
             'owner': username,
-            'oc_version': oc_version
+            'oc_version': oc_version,
+            'task_timeout': task_timeout
         })
 
     except Exception as e:
@@ -466,7 +478,8 @@ def create_investigation_task(
     subnets: list,
     security_group: str,
     efs_filesystem_id: str,
-    oc_version: str
+    oc_version: str,
+    task_timeout: int = 3600
 ) -> Dict[str, Any]:
     """
     Create EFS access point and launch ECS task for investigation.
@@ -482,6 +495,7 @@ def create_investigation_task(
         security_group: Security group ID
         efs_filesystem_id: EFS filesystem ID
         oc_version: OpenShift CLI version
+        task_timeout: Task timeout in seconds (0 = no timeout, default: 3600)
 
     Returns:
         Dictionary with task ARN and access point ID
@@ -527,8 +541,27 @@ def create_investigation_task(
         {'name': 'OC_VERSION', 'value': oc_version},
         {'name': 'CLUSTER_ID', 'value': cluster_id},
         {'name': 'INVESTIGATION_ID', 'value': investigation_id},
-        {'name': 'S3_AUDIT_BUCKET', 'value': os.environ.get('S3_AUDIT_BUCKET', '')}
+        {'name': 'S3_AUDIT_BUCKET', 'value': os.environ.get('S3_AUDIT_BUCKET', '')},
+        {'name': 'TASK_TIMEOUT', 'value': str(task_timeout)}
     ]
+
+    # Build task tags (used for both run_task and tag_resource)
+    created_at = datetime.utcnow()
+    task_tags = [
+        {'key': 'owner_sub', 'value': owner_sub},
+        {'key': 'owner_username', 'value': owner_username},
+        {'key': 'investigation_id', 'value': investigation_id},
+        {'key': 'cluster_id', 'value': cluster_id},
+        {'key': 'oc_version', 'value': oc_version},
+        {'key': 'access_point_id', 'value': access_point_id},
+        {'key': 'task_timeout', 'value': str(task_timeout)},
+        {'key': 'created_at', 'value': created_at.isoformat()}
+    ]
+
+    # Add deadline tag if timeout is enabled
+    if task_timeout > 0:
+        deadline = created_at + timedelta(seconds=task_timeout)
+        task_tags.append({'key': 'deadline', 'value': deadline.isoformat()})
 
     # Launch ECS task
     task_arn = None
@@ -556,15 +589,7 @@ def create_investigation_task(
                     }
                 ]
             },
-            tags=[
-                {'key': 'owner_sub', 'value': owner_sub},
-                {'key': 'owner_username', 'value': owner_username},
-                {'key': 'investigation_id', 'value': investigation_id},
-                {'key': 'cluster_id', 'value': cluster_id},
-                {'key': 'oc_version', 'value': oc_version},
-                {'key': 'access_point_id', 'value': access_point_id},
-                {'key': 'created_at', 'value': datetime.utcnow().isoformat()}
-            ]
+            tags=task_tags
         )
 
         if run_response.get('failures'):
@@ -585,15 +610,7 @@ def create_investigation_task(
         try:
             ecs.tag_resource(
                 resourceArn=task_arn,
-                tags=[
-                    {'key': 'owner_sub', 'value': owner_sub},
-                    {'key': 'owner_username', 'value': owner_username},
-                    {'key': 'investigation_id', 'value': investigation_id},
-                    {'key': 'cluster_id', 'value': cluster_id},
-                    {'key': 'oc_version', 'value': oc_version},
-                    {'key': 'access_point_id', 'value': access_point_id},
-                    {'key': 'created_at', 'value': datetime.utcnow().isoformat()}
-                ]
+                tags=task_tags
             )
             logger.info("Tags applied successfully")
         except ClientError as tag_error:

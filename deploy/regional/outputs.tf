@@ -110,3 +110,13 @@ output "lambda_role_arn" {
   description = "ARN of the create-investigation Lambda execution role"
   value       = aws_iam_role.create_investigation_lambda.arn
 }
+
+output "reaper_lambda_function_name" {
+  description = "Name of the reap-tasks Lambda function"
+  value       = aws_lambda_function.reap_tasks.function_name
+}
+
+output "reaper_lambda_function_arn" {
+  description = "ARN of the reap-tasks Lambda function"
+  value       = aws_lambda_function.reap_tasks.arn
+}

@@ -5,7 +5,8 @@
   {name: "CLUSTER_ID", value: $cluster_id},
   {name: "INVESTIGATION_ID", value: $investigation},
   {name: "OC_VERSION", value: $oc_version},
-  {name: "S3_AUDIT_BUCKET", value: $bucket}
+  {name: "S3_AUDIT_BUCKET", value: $bucket},
+  {name: "TASK_TIMEOUT", value: $task_timeout}
 ] |
 
 {

@@ -141,21 +141,22 @@ resource "aws_lambda_function" "create_investigation" {
 
   environment {
     variables = {
-      KEYCLOAK_URL       = regex("^(https://[^/]+)", var.keycloak_issuer_url)[0]
-      KEYCLOAK_REALM     = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
-      KEYCLOAK_CLIENT_ID = var.oidc_client_id
-      OIDC_PROVIDER_ARN  = aws_iam_openid_connect_provider.keycloak.arn
-      ECS_CLUSTER        = aws_ecs_cluster.main.name
-      TASK_DEFINITION    = aws_ecs_task_definition.rosa_boundary.family
-      TASK_ROLE_ARN      = aws_iam_role.task.arn
-      EXECUTION_ROLE_ARN = aws_iam_role.execution.arn
-      SUBNETS            = join(",", var.subnet_ids)
-      SECURITY_GROUP     = aws_security_group.fargate.id
-      EFS_FILESYSTEM_ID  = aws_efs_file_system.sre_home.id
-      S3_AUDIT_BUCKET    = aws_s3_bucket.audit.id
-      AWS_ACCOUNT_ID     = data.aws_caller_identity.current.account_id
-      PROJECT_NAME       = var.project
-      REQUIRED_GROUP     = "sre-team"
+      KEYCLOAK_URL         = regex("^(https://[^/]+)", var.keycloak_issuer_url)[0]
+      KEYCLOAK_REALM       = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
+      KEYCLOAK_CLIENT_ID   = var.oidc_client_id
+      OIDC_PROVIDER_ARN    = aws_iam_openid_connect_provider.keycloak.arn
+      ECS_CLUSTER          = aws_ecs_cluster.main.name
+      TASK_DEFINITION      = aws_ecs_task_definition.rosa_boundary.family
+      TASK_ROLE_ARN        = aws_iam_role.task.arn
+      EXECUTION_ROLE_ARN   = aws_iam_role.execution.arn
+      SUBNETS              = join(",", var.subnet_ids)
+      SECURITY_GROUP       = aws_security_group.fargate.id
+      EFS_FILESYSTEM_ID    = aws_efs_file_system.sre_home.id
+      S3_AUDIT_BUCKET      = aws_s3_bucket.audit.id
+      AWS_ACCOUNT_ID       = data.aws_caller_identity.current.account_id
+      PROJECT_NAME         = var.project
+      REQUIRED_GROUP       = "sre-team"
+      TASK_TIMEOUT_DEFAULT = tostring(var.task_timeout_default)
     }
   }
 

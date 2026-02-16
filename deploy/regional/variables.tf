@@ -107,3 +107,25 @@ variable "oidc_session_duration" {
   type        = number
   default     = 3600 # 1 hour
 }
+
+variable "task_timeout_default" {
+  description = "Default task timeout in seconds (0 = no timeout)"
+  type        = number
+  default     = 3600
+
+  validation {
+    condition     = var.task_timeout_default >= 0 && var.task_timeout_default <= 86400
+    error_message = "Task timeout must be between 0 and 86400 seconds (24 hours)"
+  }
+}
+
+variable "reaper_schedule_minutes" {
+  description = "How often the task reaper Lambda runs (in minutes)"
+  type        = number
+  default     = 15
+
+  validation {
+    condition     = var.reaper_schedule_minutes >= 1 && var.reaper_schedule_minutes <= 1440
+    error_message = "Reaper schedule must be between 1 and 1440 minutes (24 hours)"
+  }
+}

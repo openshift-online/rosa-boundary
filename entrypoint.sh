@@ -99,6 +99,11 @@ if [ -z "${S3_AUDIT_ESCROW}" ] && { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUST
   echo "  Set either S3_AUDIT_ESCROW or (S3_AUDIT_BUCKET + CLUSTER_ID + INVESTIGATION_ID)" >&2
 fi
 
+# Display task timeout if configured (informational only - enforced by periodic reaper Lambda)
+if [ -n "${TASK_TIMEOUT}" ] && [ "${TASK_TIMEOUT}" != "0" ]; then
+  echo "Task will be automatically stopped after ${TASK_TIMEOUT} seconds (enforced by periodic reaper)"
+fi
+
 # Run the command in the background and wait for it
 # This allows the shell to remain and handle signals
 # Running as sre user (set via USER directive in Containerfile)

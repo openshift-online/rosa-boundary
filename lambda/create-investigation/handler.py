@@ -531,6 +531,7 @@ def create_investigation_task(
     ]
 
     # Launch ECS task
+    task_arn = None
     try:
         logger.info(f"Launching ECS task in cluster: {cluster}")
         run_response = ecs.run_task(
@@ -581,19 +582,32 @@ def create_investigation_task(
         # Apply tags explicitly using TagResource API
         # (tags in run_task don't always apply immediately for IAM evaluation)
         logger.info(f"Applying tags to task: {task_arn}")
-        ecs.tag_resource(
-            resourceArn=task_arn,
-            tags=[
-                {'key': 'owner_sub', 'value': owner_sub},
-                {'key': 'owner_username', 'value': owner_username},
-                {'key': 'investigation_id', 'value': investigation_id},
-                {'key': 'cluster_id', 'value': cluster_id},
-                {'key': 'oc_version', 'value': oc_version},
-                {'key': 'access_point_id', 'value': access_point_id},
-                {'key': 'created_at', 'value': datetime.utcnow().isoformat()}
-            ]
-        )
-        logger.info("Tags applied successfully")
+        try:
+            ecs.tag_resource(
+                resourceArn=task_arn,
+                tags=[
+                    {'key': 'owner_sub', 'value': owner_sub},
+                    {'key': 'owner_username', 'value': owner_username},
+                    {'key': 'investigation_id', 'value': investigation_id},
+                    {'key': 'cluster_id', 'value': cluster_id},
+                    {'key': 'oc_version', 'value': oc_version},
+                    {'key': 'access_point_id', 'value': access_point_id},
+                    {'key': 'created_at', 'value': datetime.utcnow().isoformat()}
+                ]
+            )
+            logger.info("Tags applied successfully")
+        except ClientError as tag_error:
+            logger.error(f"Failed to tag task: {str(tag_error)}")
+            # Stop task and clean up
+            try:
+                ecs.stop_task(cluster=cluster, task=task_arn, reason='Tagging failed')
+            except Exception:
+                pass
+            try:
+                efs.delete_access_point(AccessPointId=access_point_id)
+            except Exception:
+                pass
+            raise
 
         return {
             'taskArn': task_arn,
@@ -602,6 +616,12 @@ def create_investigation_task(
 
     except ClientError as e:
         logger.error(f"Failed to launch ECS task: {str(e)}")
+        # Stop task if it was created
+        if task_arn:
+            try:
+                ecs.stop_task(cluster=cluster, task=task_arn, reason='Launch failed')
+            except Exception:
+                pass
         # Clean up access point
         try:
             efs.delete_access_point(AccessPointId=access_point_id)

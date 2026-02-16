@@ -82,9 +82,10 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
   }
 
   container_definitions = jsonencode([{
-    name      = "rosa-boundary"
-    image     = var.container_image
-    essential = true
+    name         = "rosa-boundary"
+    image        = var.container_image
+    essential    = true
+    stopTimeout  = 120
 
     environment = [
       {

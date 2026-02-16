@@ -2,16 +2,35 @@
 set -e
 
 # Script to close an investigation by deleting task definition and EFS access point
-# Usage: ./close_investigation.sh <task-family-name> <access-point-id>
+# Usage: ./close_investigation.sh [--force] <task-family-name> <access-point-id>
+
+# Parse flags
+FORCE=false
+while [[ "$1" == --* ]]; do
+  case "$1" in
+    --force)
+      FORCE=true
+      shift
+      ;;
+    *)
+      echo "Unknown flag: $1"
+      exit 1
+      ;;
+  esac
+done
 
 TASK_FAMILY="${1}"
 ACCESS_POINT_ID="${2}"
 
 if [ -z "$TASK_FAMILY" ] || [ -z "$ACCESS_POINT_ID" ]; then
-  echo "Usage: $0 <task-family-name> <access-point-id>"
+  echo "Usage: $0 [--force] <task-family-name> <access-point-id>"
+  echo ""
+  echo "Flags:"
+  echo "  --force    Stop all running tasks before cleanup"
   echo ""
   echo "Example:"
   echo "  $0 rosa-boundary-dev-rosa-prod-abc-INV-12345 fsap-0123456789abcdef"
+  echo "  $0 --force rosa-boundary-dev-rosa-prod-abc-INV-12345 fsap-0123456789abcdef"
   echo ""
   echo "Get these from create_investigation.sh output"
   exit 1
@@ -63,19 +82,48 @@ RUNNING_TASKS=$(aws ecs list-tasks \
   --output text)
 
 if [ -n "$RUNNING_TASKS" ]; then
-  echo ""
-  echo "ERROR: Found running tasks for this investigation:"
-  for task_arn in $RUNNING_TASKS; do
-    TASK_ID=$(echo "$task_arn" | awk -F'/' '{print $NF}')
-    echo "  - $TASK_ID"
-  done
-  echo ""
-  echo "Stop all tasks first:"
-  for task_arn in $RUNNING_TASKS; do
-    TASK_ID=$(echo "$task_arn" | awk -F'/' '{print $NF}')
-    echo "  ./stop_task.sh $TASK_ID"
-  done
-  exit 1
+  if [ "$FORCE" = true ]; then
+    echo ""
+    echo "Found running tasks, stopping them (--force enabled):"
+    for task_arn in $RUNNING_TASKS; do
+      TASK_ID=$(echo "$task_arn" | awk -F'/' '{print $NF}')
+      echo "  Stopping: $TASK_ID"
+      aws ecs stop-task \
+        --profile "$PROFILE" \
+        --region "$REGION" \
+        --cluster "$CLUSTER_NAME" \
+        --task "$task_arn" \
+        --reason "Investigation cleanup (forced)" \
+        --query 'task.taskArn' \
+        --output text >/dev/null
+    done
+
+    echo "  Waiting for tasks to stop..."
+    aws ecs wait tasks-stopped \
+      --profile "$PROFILE" \
+      --region "$REGION" \
+      --cluster "$CLUSTER_NAME" \
+      --tasks $RUNNING_TASKS
+
+    echo "  ✓ All tasks stopped"
+  else
+    echo ""
+    echo "ERROR: Found running tasks for this investigation:"
+    for task_arn in $RUNNING_TASKS; do
+      TASK_ID=$(echo "$task_arn" | awk -F'/' '{print $NF}')
+      echo "  - $TASK_ID"
+    done
+    echo ""
+    echo "Stop all tasks first:"
+    for task_arn in $RUNNING_TASKS; do
+      TASK_ID=$(echo "$task_arn" | awk -F'/' '{print $NF}')
+      echo "  ./stop_task.sh $TASK_ID"
+    done
+    echo ""
+    echo "Or use --force to automatically stop all tasks:"
+    echo "  $0 --force $TASK_FAMILY $ACCESS_POINT_ID"
+    exit 1
+  fi
 fi
 
 echo "  ✓ No active tasks found"

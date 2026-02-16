@@ -2,17 +2,35 @@
 set -e
 
 # Script to stop a Fargate task (triggers S3 sync)
-# Usage: ./stop_task.sh <task-id> [reason]
+# Usage: ./stop_task.sh [--wait] <task-id> [reason]
+
+# Parse flags
+WAIT=false
+while [[ "$1" == --* ]]; do
+  case "$1" in
+    --wait)
+      WAIT=true
+      shift
+      ;;
+    *)
+      echo "Unknown flag: $1"
+      exit 1
+      ;;
+  esac
+done
 
 TASK_ID="${1}"
 REASON="${2:-Investigation complete}"
 
 if [ -z "$TASK_ID" ]; then
-  echo "Usage: $0 <task-id> [reason]"
+  echo "Usage: $0 [--wait] <task-id> [reason]"
+  echo ""
+  echo "Flags:"
+  echo "  --wait    Wait for task to reach STOPPED state"
   echo ""
   echo "Example:"
   echo "  $0 394399c601f94548bedb65d5a90f30c6"
-  echo "  $0 394399c601f94548bedb65d5a90f30c6 \"Investigation resolved\""
+  echo "  $0 --wait 394399c601f94548bedb65d5a90f30c6 \"Investigation resolved\""
   echo ""
   echo "List running tasks:"
   echo "  aws ecs list-tasks --cluster rosa-boundary-dev --desired-status RUNNING"
@@ -81,6 +99,18 @@ aws ecs stop-task \
 echo ""
 echo "✓ Task stop initiated"
 echo ""
+
+if [ "$WAIT" = true ]; then
+  echo "Waiting for task to stop..."
+  aws ecs wait tasks-stopped \
+    --profile "$PROFILE" \
+    --region "$REGION" \
+    --cluster "$CLUSTER_NAME" \
+    --tasks "$TASK_ID"
+  echo "✓ Task stopped"
+  echo ""
+fi
+
 echo "The container's entrypoint will:"
 echo "  1. Receive SIGTERM signal"
 echo "  2. Sync /home/sre to S3"
@@ -99,6 +129,8 @@ else
   echo "Note: Could not determine S3 path (missing CLUSTER_ID or INVESTIGATION_ID env vars)"
 fi
 
-echo ""
-echo "Monitor task stopping:"
-echo "  aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $TASK_ID --query 'tasks[0].{status:lastStatus,stoppedReason:stoppedReason}'"
+if [ "$WAIT" = false ]; then
+  echo ""
+  echo "Monitor task stopping:"
+  echo "  aws ecs describe-tasks --cluster $CLUSTER_NAME --tasks $TASK_ID --query 'tasks[0].{status:lastStatus,stoppedReason:stoppedReason}'"
+fi

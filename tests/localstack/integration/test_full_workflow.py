@@ -9,7 +9,7 @@ from datetime import datetime
 @pytest.mark.e2e
 @pytest.mark.slow
 def test_complete_investigation_creation(
-    ecs_client, efs_client, iam_client, test_vpc, test_efs
+    ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup
 ):
     """Test complete investigation creation workflow (simulating Lambda logic)"""
     cluster_id = 'rosa-dev'
@@ -35,6 +35,7 @@ def test_complete_investigation_creation(
         Description=f'Tag-based access for OIDC user {owner_sub}'
     )
     role_arn = role_response['Role']['Arn']
+    ecs_cleanup.register_role(role_name, ['TagBasedECSExec'])
 
     # Attach tag-based policy
     tag_policy = {
@@ -81,10 +82,12 @@ def test_complete_investigation_creation(
     )
 
     access_point_id = access_point_response['AccessPointId']
+    ecs_cleanup.register_access_point(access_point_id)
 
     # Step 3: Create ECS cluster
     cluster_name = f'test-cluster-{int(datetime.now().timestamp())}'
     ecs_client.create_cluster(clusterName=cluster_name)
+    ecs_cleanup.register_cluster(cluster_name)
 
     # Step 4: Register task definition
     task_family = f'{cluster_id}-{investigation_id}-{int(datetime.now().timestamp())}'
@@ -131,6 +134,7 @@ def test_complete_investigation_creation(
     )
 
     task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']
+    ecs_cleanup.register_task_definition(task_def_arn)
 
     # Step 5: Launch ECS task
     run_response = ecs_client.run_task(
@@ -154,6 +158,7 @@ def test_complete_investigation_creation(
 
     assert len(run_response['tasks']) == 1
     task_arn = run_response['tasks'][0]['taskArn']
+    ecs_cleanup.register_task(cluster_name, task_arn)
 
     # Step 6: Verify complete workflow
     # Verify role exists
@@ -176,14 +181,6 @@ def test_complete_investigation_creation(
     assert len(volumes) == 1
     assert volumes[0]['efsVolumeConfiguration']['fileSystemId'] == test_efs
     assert volumes[0]['efsVolumeConfiguration']['authorizationConfig']['accessPointId'] == access_point_id
-
-    # Cleanup
-    ecs_client.stop_task(cluster=cluster_name, task=task_arn, reason='E2E test complete')
-    ecs_client.deregister_task_definition(taskDefinition=task_def_arn)
-    efs_client.delete_access_point(AccessPointId=access_point_id)
-    iam_client.delete_role_policy(RoleName=role_name, PolicyName='TagBasedECSExec')
-    iam_client.delete_role(RoleName=role_name)
-    ecs_client.delete_cluster(cluster=cluster_name)
 
 
 @pytest.mark.integration

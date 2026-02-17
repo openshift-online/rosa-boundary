@@ -20,33 +20,11 @@ env:
   LOCALSTACK_ENDPOINT: http://localhost:4566
 
 jobs:
-  check-fork:
-    name: Check if Fork PR
-    runs-on: ubuntu-latest
-    outputs:
-      is-fork: ${{ steps.check.outputs.is-fork }}
-    steps:
-      - name: Check if PR is from fork
-        id: check
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
-              echo "is-fork=true" >> $GITHUB_OUTPUT
-              echo "::notice::LocalStack tests skipped on fork PRs (no access to secrets). Tests will run when merged or pushed to upstream."
-            else
-              echo "is-fork=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "is-fork=false" >> $GITHUB_OUTPUT
-          fi
-
   localstack-tests:
     name: LocalStack Integration Tests
+    # Run full test suite for upstream PRs and pushes to main
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    needs: check-fork
-    # Skip LocalStack tests on fork PRs (no access to LOCALSTACK_AUTH_TOKEN secret)
-    # These tests will run when maintainers push to upstream or after merge to main
-    if: needs.check-fork.outputs.is-fork != 'true'
 
     steps:
       - name: Checkout code
@@ -126,6 +104,18 @@ jobs:
         run: |
           cd tests/localstack
           podman-compose -f compose.ci.yml down -v
+
+  localstack-tests-fork:
+    name: LocalStack Integration Tests
+    # Run minimal success job for fork PRs (no access to secrets)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip tests for fork PR
+        run: |
+          echo "::notice::Skipping LocalStack tests for fork PR (no access to secrets)"
+          echo "Tests will run when maintainers push to upstream or after merge to main"
 
   lambda-unit-tests:
     name: Lambda Unit Tests

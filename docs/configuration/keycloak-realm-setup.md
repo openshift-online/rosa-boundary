@@ -1,21 +1,20 @@
-# Keycloak Realm Setup for Boundary Integration
+# Keycloak Realm Setup
 
 ## Overview
 
-Configure a Keycloak realm for HCP Boundary OIDC authentication using the `KeycloakRealmImport` custom resource. RHBK v26 does not support declarative client/user/group CRs - all configuration must be provided as a complete realm JSON export.
+Configure a Keycloak realm for AWS Lambda OIDC authentication using the `KeycloakRealmImport` custom resource. RHBK v26 does not support declarative client/user/group CRs - all configuration must be provided as a complete realm JSON export.
 
 ## Prerequisites
 
 - Keycloak instance deployed (see `deploy/keycloak/`)
 - Keycloak admin credentials
-- HCP Boundary cluster URL
 
 ## Realm Structure
 
 ```
 rosa-boundary (realm)
 ├── Clients
-│   └── hcp-boundary (OIDC client)
+│   └── aws-sre-access (OIDC client)
 │       ├── Redirect URIs
 │       ├── Protocol Mappers
 │       └── Client Secret
@@ -49,26 +48,22 @@ spec:
     displayName: "ROSA Boundary Access"
     loginTheme: "keycloak"
 
-    # OIDC Client for HCP Boundary
+    # OIDC Client for AWS SRE Access
     clients:
-      - clientId: hcp-boundary
-        name: "HCP Boundary"
+      - clientId: aws-sre-access
+        name: "AWS SRE Access"
         enabled: true
         protocol: openid-connect
-        publicClient: false
+        publicClient: true
         standardFlowEnabled: true
         directAccessGrantsEnabled: false
         serviceAccountsEnabled: false
         implicitFlowEnabled: false
 
-        # Generate secret via: openssl rand -hex 32
-        secret: "REPLACE-WITH-GENERATED-SECRET"
-
-        # Redirect URIs for Boundary callback
+        # Redirect URIs for PKCE flow
         redirectUris:
-          - "https://<your-boundary-cluster>.boundary.hashicorp.cloud/v1/auth-methods/oidc:authenticate:callback"
-          - "http://localhost:*/v1/auth-methods/oidc:authenticate:callback"
-          - "http://127.0.0.1:*/v1/auth-methods/oidc:authenticate:callback"
+          - "http://localhost:8400/callback"
+          - "http://127.0.0.1:8400/callback"
 
         webOrigins:
           - "+"
@@ -127,7 +122,7 @@ spec:
             protocolMapper: oidc-audience-mapper
             consentRequired: false
             config:
-              included.client.audience: "hcp-boundary"
+              included.client.audience: "aws-sre-access"
               id.token.claim: "true"
               access.token.claim: "true"
 
@@ -160,13 +155,13 @@ spec:
     # Realm roles (optional, can also use groups)
     roles:
       realm:
-        - name: boundary-admin
-          description: "Boundary administrator with full access"
+        - name: sre-admin
+          description: "SRE administrator with full access"
           composite: false
           clientRole: false
 
-        - name: boundary-user
-          description: "Boundary standard user"
+        - name: sre-user
+          description: "SRE standard user"
           composite: false
           clientRole: false
 
@@ -185,21 +180,7 @@ spec:
 
 ## Deploying the Realm
 
-### 1. Generate Client Secret
-
-```bash
-# Generate a secure client secret
-CLIENT_SECRET=$(openssl rand -hex 32)
-echo "Client Secret: $CLIENT_SECRET"
-echo "Save this for Boundary configuration!"
-```
-
-### 2. Update realm-import-boundary.yaml
-
-Replace `REPLACE-WITH-GENERATED-SECRET` with the generated secret.
-Replace `<your-boundary-cluster>` with your actual HCP Boundary cluster ID.
-
-### 3. Add to Kustomize
+### 1. Add to Kustomize
 
 Edit `deploy/keycloak/components/keycloak/kustomization.yaml`:
 
@@ -212,13 +193,13 @@ resources:
   - realm-import-boundary.yaml  # Add this line
 ```
 
-### 4. Apply the configuration
+### 2. Apply the configuration
 
 ```bash
 oc apply -k deploy/keycloak/overlays/dev
 ```
 
-### 5. Verify realm import
+### 3. Verify realm import
 
 ```bash
 # Check import status
@@ -242,7 +223,7 @@ curl -sk -H "Authorization: Bearer $TOKEN" \
 
 # Verify client exists
 curl -sk -H "Authorization: Bearer $TOKEN" \
-  "$KEYCLOAK_URL/admin/realms/rosa-boundary/clients" | jq '.[] | select(.clientId=="hcp-boundary")'
+  "$KEYCLOAK_URL/admin/realms/rosa-boundary/clients" | jq '.[] | select(.clientId=="aws-sre-access")'
 ```
 
 ## Creating Users and Group Assignments
@@ -307,28 +288,20 @@ Boundary uses these endpoints automatically when configured with the `issuer` UR
 
 ## Testing OIDC Configuration
 
-### Test token issuance
+### Test token issuance with PKCE
+
+Use the `tools/sre-auth/get-oidc-token.sh` script to test PKCE authentication:
 
 ```bash
-# Get client secret from realm-import-boundary.yaml
-CLIENT_ID="hcp-boundary"
-CLIENT_SECRET="<from-yaml>"
-
-KEYCLOAK_URL="https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')"
-
-# Test authorization code flow (requires browser)
-echo "Open this URL in browser:"
-echo "${KEYCLOAK_URL}/realms/rosa-boundary/protocol/openid-connect/auth?client_id=${CLIENT_ID}&redirect_uri=http://localhost:8080/callback&response_type=code&scope=openid%20profile%20email%20groups"
-
-# After redirect, exchange code for token (replace CODE)
-curl -sk -X POST \
-  "${KEYCLOAK_URL}/realms/rosa-boundary/protocol/openid-connect/token" \
-  -d "grant_type=authorization_code" \
-  -d "client_id=${CLIENT_ID}" \
-  -d "client_secret=${CLIENT_SECRET}" \
-  -d "code=CODE" \
-  -d "redirect_uri=http://localhost:8080/callback" | jq '.'
+cd tools/sre-auth
+./get-oidc-token.sh
 ```
+
+This will:
+1. Start local callback server on port 8400
+2. Open browser for authentication
+3. Exchange code for token using PKCE
+4. Return ID token to stdout
 
 ### Validate ID token claims
 
@@ -340,7 +313,7 @@ echo "$ID_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '.'
 # {
 #   "iss": "https://<keycloak>/realms/rosa-boundary",
 #   "sub": "<user-uuid>",
-#   "aud": "hcp-boundary",
+#   "aud": "aws-sre-access",
 #   "email": "user@example.com",
 #   "name": "Jane Doe",
 #   "groups": ["sre-operators"]
@@ -377,11 +350,10 @@ This export can be used as the base for your `KeycloakRealmImport` CR.
 
 ## Security Best Practices
 
-1. **Client Secret Management**:
-   - Generate cryptographically secure secrets (`openssl rand -hex 32`)
-   - Store in AWS Secrets Manager or SSM Parameter Store
-   - Use ExternalSecret to inject into KeycloakRealmImport
-   - Rotate periodically (requires updating Boundary config)
+1. **PKCE Flow**:
+   - Public client with PKCE protects against authorization code interception
+   - Code verifier generated client-side, code challenge sent to authorization endpoint
+   - No client secret needed (eliminates secret storage concerns)
 
 2. **Token Lifespans**:
    - Access token: 3600s (1 hour)
@@ -400,5 +372,5 @@ This export can be used as the base for your `KeycloakRealmImport` CR.
 
 ## Next Steps
 
-- [HCP Boundary Setup](hcp-boundary-setup.md) - Configure Boundary to use this realm
 - [AWS IAM Policies](aws-iam-policies.md) - Set up AWS permissions for users
+- [User Access Guide](../runbooks/user-access-guide.md) - End-user authentication workflow

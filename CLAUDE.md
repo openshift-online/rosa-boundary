@@ -4,10 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-Multi-architecture container for AWS Fargate that provides tools for managing AWS and OpenShift (ROSA) clusters. Part of a **zero-trust access pattern** that combines:
+Multi-architecture container for AWS Fargate that provides tools for managing AWS and OpenShift (ROSA) clusters. Part of an **access control pattern** that combines:
 
 - **Identity**: Keycloak (Red Hat build) for OIDC authentication
-- **Access Control**: HCP Boundary for authorization and session management
 - **Infrastructure**: ECS Fargate with SSM for ephemeral SRE containers
 
 Designed for ephemeral SRE use with ECS Exec access as the `sre` user. The entrypoint script supports dynamic version selection via environment variables, signal handling for graceful shutdown with S3 backup, and defaults to `sleep infinity`.
@@ -539,29 +538,7 @@ oc get route keycloak -n keycloak -o jsonpath='{.spec.host}'
 - **ExternalSecrets**: DB credentials from AWS SSM Parameter Store (`/keycloak/db/*`)
 - **ClusterSecretStore**: Uses external-secrets-operator IAM role (IRSA)
 - **Edge TLS**: OpenShift Router terminates TLS, Keycloak serves HTTP
-- **OIDC Provider**: Configured for AWS Lambda and HCP Boundary integration
-
-## Zero-Trust Access Pattern
-
-The complete system integrates three components:
-
-1. **Keycloak** (OpenShift) - OIDC authentication, user/group management
-2. **HCP Boundary** (SaaS) - Authorization enforcement, session management, audit logging
-3. **ECS Fargate** (AWS) - Ephemeral containers with SSM access
-
-**Key integration points:**
-- Keycloak realm: `rosa-boundary` with OIDC client `hcp-boundary`
-- Boundary auth method: OIDC with Keycloak issuer, managed groups for RBAC
-- Boundary targets: Per-investigation TCP targets using `-exec` wrapper for ECS Exec
-- AWS IAM: Policies for ECS ExecuteCommand, SSM StartSession, KMS Decrypt
-- Integration script: `ecs-exec.sh` wraps `aws ecs execute-command` via Boundary `-exec` flag
-
-**Workflow**:
-1. User authenticates to Boundary via Keycloak OIDC
-2. Boundary checks group membership and grants access to targets
-3. User runs `boundary connect -target-id <id> -exec ecs-exec.sh`
-4. Script calls `aws ecs execute-command` to start SSM session
-5. Session logged in Boundary (metadata), CloudWatch (I/O), and S3 (artifacts)
+- **OIDC Provider**: Configured for AWS Lambda integration
 
 ## LocalStack Integration Testing
 

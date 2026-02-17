@@ -2,155 +2,124 @@
 
 ## Overview
 
-This guide provides step-by-step instructions for SRE users to access incident containers via HCP Boundary and Keycloak OIDC authentication.
+This guide provides step-by-step instructions for SRE users to create investigations and access containers using Keycloak OIDC authentication and AWS ECS Exec.
 
 ## Prerequisites
 
-Before you can access incident containers, you need:
+Before you can access investigation containers, you need:
 
-1. ✅ Keycloak account with group membership (sre-operators or sre-admins)
-2. ✅ AWS IAM user or federated identity with ECS Exec permissions
-3. ✅ Boundary CLI installed on your workstation
-4. ✅ AWS CLI installed and configured
-5. ✅ Integration scripts installed
+1. ✅ Keycloak account with `sre-team` group membership
+2. ✅ AWS CLI installed and configured
+3. ✅ Authentication scripts from `tools/sre-auth/`
+4. ✅ Lambda function URL from your administrator
 
 ## One-Time Setup
 
-### 1. Install Boundary CLI
+### 1. Install AWS CLI
 
 **macOS:**
 ```bash
-brew tap hashicorp/tap
-brew install hashicorp/tap/boundary
+brew install awscli
 ```
 
 **Linux:**
 ```bash
-wget https://releases.hashicorp.com/boundary/0.15.0/boundary_0.15.0_linux_amd64.zip
-unzip boundary_0.15.0_linux_amd64.zip
-sudo mv boundary /usr/local/bin/
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
 ```
 
 **Verify installation:**
 ```bash
-boundary version
+aws --version
 ```
 
-### 2. Configure Boundary
-
-Create `~/.boundary/config.hcl`:
-
-```hcl
-addr = "https://<your-cluster>.boundary.hashicorp.cloud"
-```
-
-Or set environment variable:
-```bash
-export BOUNDARY_ADDR="https://<your-cluster>.boundary.hashicorp.cloud"
-```
-
-### 3. Install Integration Scripts
+### 2. Install Authentication Scripts
 
 ```bash
-# Create scripts directory
-mkdir -p ~/.boundary
+# Clone the repository or download scripts
+git clone https://github.com/cuppett/rosa-boundary.git
+cd rosa-boundary/tools/sre-auth
 
-# Download scripts
-curl -o ~/.boundary/ecs-exec.sh \
-  https://raw.githubusercontent.com/cuppett/rosa-boundary/main/deploy/boundary/scripts/ecs-exec.sh
-
-curl -o ~/.boundary/boundary-ecs-connect.sh \
-  https://raw.githubusercontent.com/cuppett/rosa-boundary/main/deploy/boundary/scripts/boundary-ecs-connect.sh
+# Or download individually
+mkdir -p ~/rosa-boundary-tools
+cd ~/rosa-boundary-tools
+curl -O <repo-url>/tools/sre-auth/get-oidc-token.sh
+curl -O <repo-url>/tools/sre-auth/assume-role.sh
 
 # Make executable
-chmod +x ~/.boundary/*.sh
+chmod +x *.sh
 ```
 
-### 4. Configure AWS Credentials
+### 3. Configure Environment
 
-**Option A: AWS CLI Profile**
-```bash
-aws configure --profile rosa-boundary
-# Enter Access Key ID, Secret Access Key, Region (us-east-2)
-```
+Create `~/.sre-auth/config` or set environment variables:
 
-**Option B: AWS SSO**
 ```bash
-aws configure sso
-# Follow prompts to set up SSO profile
-```
-
-**Verify credentials:**
-```bash
-aws sts get-caller-identity --profile rosa-boundary
+export KEYCLOAK_ISSUER_URL="https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com/realms/rosa-boundary"
+export OIDC_CLIENT_ID="aws-sre-access"
+export AWS_REGION="us-east-2"
 ```
 
 ## Daily Usage
 
-### Step 1: Authenticate to Boundary
+### Step 1: Create Investigation
+
+Use the Lambda-based creation script:
 
 ```bash
-# Authenticate via Keycloak OIDC
-boundary authenticate oidc
+cd tools/sre-auth
 
-# This will:
-# 1. Open your browser to Keycloak
-# 2. Prompt for username/password
-# 3. Redirect back to Boundary
-# 4. Store session token in ~/.boundary/token
+# Create investigation for cluster rosa-prod-01, investigation inv-123, OC version 4.20
+./create-investigation-lambda.sh rosa-prod-01 inv-123 4.20
 ```
 
-**Alternative: Specify auth method ID**
-```bash
-boundary authenticate oidc -auth-method-id amoidc_<id>
-```
+This will:
+1. Get OIDC token from Keycloak (opens browser)
+2. Invoke Lambda function with token
+3. Lambda validates group membership
+4. Lambda creates IAM role and ECS task
+5. Script assumes the returned role
+6. Script waits for task to reach RUNNING state
+7. Displays ECS Exec connection command
 
-### Step 2: List Available Incidents
+### Step 2: Connect to Investigation Container
 
-```bash
-# List all targets you have access to
-boundary targets list -scope-id <project-scope-id>
-
-# Filter by incident number
-boundary targets list -scope-id <project-scope-id> -filter '"123" in "/item/name"'
-
-# Get target details
-boundary targets read -id ttcp_<target-id>
-```
-
-### Step 3: Connect to Incident Container
-
-**Method A: Using boundary-ecs-connect.sh (Recommended)**
+After the investigation is created, use the provided command:
 
 ```bash
-# Simple connection using target ID
-~/.boundary/boundary-ecs-connect.sh ttcp_<target-id>
+# Example output from create-investigation-lambda.sh:
+#
+# Task is now RUNNING!
+# To connect, run:
+# aws ecs execute-command \
+#   --cluster rosa-boundary-dev \
+#   --task arn:aws:ecs:us-east-2:123456789012:task/rosa-boundary-dev/abc123... \
+#   --container rosa-boundary \
+#   --interactive \
+#   --command "/bin/bash"
 ```
 
-**Method B: Manual connection**
+Or use the manual scripts in `deploy/regional/examples/`:
 
 ```bash
-# Get target metadata
-CLUSTER=$(boundary targets read -id ttcp_<target-id> -format json | jq -r '.item.attributes.ecs_cluster')
-TASK_ARN=$(boundary targets read -id ttcp_<target-id> -format json | jq -r '.item.attributes.ecs_task_arn')
+cd deploy/regional/examples
 
-# Connect with -exec
-boundary connect \
-  -target-id ttcp_<target-id> \
-  -exec ~/.boundary/ecs-exec.sh -- \
-  "$CLUSTER" \
-  "$TASK_ARN" \
-  rosa-boundary
+# Get task ID from create-investigation-lambda.sh output
+TASK_ID="abc123def456"
+
+# Connect
+./join_task.sh $TASK_ID
 ```
 
-### Step 4: Work in the Container
+### Step 3: Work in the Container
 
 Once connected, you're in an interactive shell as the `sre` user:
 
 ```bash
 # Check environment
 echo $CLUSTER_ID
-echo $INCIDENT_NUMBER
+echo $INVESTIGATION_ID
 echo $OC_VERSION
 
 # Your home directory is persistent (EFS)
@@ -167,7 +136,7 @@ aws sts get-caller-identity
 claude
 ```
 
-### Step 5: Exit Cleanly
+### Step 4: Exit Cleanly
 
 ```bash
 # Exit shell
@@ -178,29 +147,7 @@ exit
 
 The container's entrypoint will automatically sync `/home/sre` to S3 on exit.
 
-## Session Management
-
-### View active sessions
-
-```bash
-# List your active sessions
-boundary sessions list -scope-id <project-scope-id>
-
-# Get session details
-boundary sessions read -id s_<session-id>
-```
-
-### Cancel a session
-
-```bash
-# Cancel your own session
-boundary sessions cancel -id s_<session-id>
-
-# Admins can cancel any session
-boundary sessions cancel -id s_<session-id>
-```
-
-## Working with Multiple Incidents
+## Working with Multiple Investigations
 
 ### Terminal multiplexing
 
@@ -210,64 +157,57 @@ Use tmux or screen to manage multiple connections:
 # Start tmux
 tmux
 
-# Create windows for each incident
+# Create windows for each investigation
 Ctrl-B C  # New window
-~/.boundary/boundary-ecs-connect.sh ttcp_incident1
+aws ecs execute-command --cluster rosa-boundary-dev --task <task1-arn> ...
 
 Ctrl-B C  # Another window
-~/.boundary/boundary-ecs-connect.sh ttcp_incident2
+aws ecs execute-command --cluster rosa-boundary-dev --task <task2-arn> ...
 
 # Switch between windows
 Ctrl-B N  # Next window
 Ctrl-B P  # Previous window
 ```
 
-### Session naming
-
-Add aliases for common incidents:
+### List your investigations
 
 ```bash
-# In ~/.bashrc
-alias incident123='~/.boundary/boundary-ecs-connect.sh ttcp_abc123xyz'
-alias incident124='~/.boundary/boundary-ecs-connect.sh ttcp_def456uvw'
+# List tasks tagged with your OIDC sub claim
+aws ecs list-tasks --cluster rosa-boundary-dev
+
+# Describe tasks to see details
+aws ecs describe-tasks \
+  --cluster rosa-boundary-dev \
+  --tasks <task-arn> \
+  --query 'tasks[0].{taskArn:taskArn,lastStatus:lastStatus,tags:tags}'
 ```
 
 ## Troubleshooting
 
-### "Authentication failed"
+### "Authentication failed" in OIDC flow
 
-1. Check Boundary session is valid:
+1. Check Keycloak is accessible:
    ```bash
-   boundary authenticate oidc
+   curl -I https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com/realms/rosa-boundary/.well-known/openid-configuration
    ```
 
-2. Verify Keycloak credentials work:
+2. Verify your credentials:
    - Visit: https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com
    - Log in with your credentials
 
 3. Check group membership:
-   - In Keycloak admin console
-   - Verify you're in `sre-operators` or `sre-admins` group
+   - In Keycloak admin console or ask administrator
+   - Verify you're in `sre-team` group
 
-### "Permission denied" or "Not authorized"
+### "AccessDenied" from Lambda
 
-1. Verify Boundary grants:
-   ```bash
-   boundary targets read -id ttcp_<target-id>
-   ```
-
-   If you get "not found", you don't have access to this target.
-
-2. Contact your Boundary administrator to verify role assignments
+1. Verify group membership - Lambda requires `sre-team` group
+2. Check Lambda function URL is correct
+3. Verify OIDC token is valid (try `./get-oidc-token.sh --force`)
 
 ### "Task not found" or "Task not running"
 
-1. Verify task ARN in target metadata:
-   ```bash
-   boundary targets read -id ttcp_<target-id> -format json | jq '.item.attributes'
-   ```
-
-2. Check if task is still running:
+1. Check if task is still running:
    ```bash
    aws ecs describe-tasks \
      --cluster rosa-boundary-dev \
@@ -275,23 +215,39 @@ alias incident124='~/.boundary/boundary-ecs-connect.sh ttcp_def456uvw'
      --query 'tasks[0].lastStatus'
    ```
 
-3. If task stopped, contact incident owner to launch new task
+2. If task stopped, create new investigation with `create-investigation-lambda.sh`
 
-### "WebIdentityErr: failed to retrieve credentials"
+### "AccessDenied" when executing ECS Exec
 
-Your AWS credentials expired. Refresh them:
+Your IAM role can only access tasks tagged with your OIDC `sub` claim. Verify:
 
 ```bash
-# For AWS CLI profiles
-aws sso login --profile rosa-boundary
+# Check task tags
+aws ecs describe-tasks \
+  --cluster rosa-boundary-dev \
+  --tasks <task-arn> \
+  --query 'tasks[0].tags'
 
-# For IAM users with MFA
-aws sts get-session-token --serial-number arn:aws:iam::xxx:mfa/username
+# Check assumed role
+aws sts get-caller-identity
 ```
+
+If the `owner_sub` tag doesn't match your role's permissions, you don't own this task.
 
 ### "ECS Exec is not enabled for this task"
 
-The task was launched without `--enable-execute-command`. This should not happen with properly created incidents. Contact the administrator.
+The task was launched without `--enable-execute-command`. This should not happen with properly created investigations via Lambda. Contact the administrator.
+
+### Token cache issues
+
+```bash
+# Force fresh OIDC token
+cd tools/sre-auth
+./get-oidc-token.sh --force
+
+# Clear token cache manually
+rm -f ~/.sre-auth/id-token.cache
+```
 
 ## Security Best Practices
 
@@ -299,17 +255,18 @@ The task was launched without `--enable-execute-command`. This should not happen
 2. **Exit sessions** when done (triggers audit sync to S3)
 3. **Rotate passwords** in Keycloak regularly
 4. **Enable MFA** in Keycloak for your account
-5. **Review session logs** in Boundary console periodically
-6. **Never share credentials** or session tokens
+5. **Review CloudWatch Logs** periodically (`/ecs/rosa-boundary-*/ssm-sessions`)
+6. **Never share credentials** or OIDC tokens
+7. **Use tag-based isolation** - you can only access your own tasks
 
 ## Getting Help
 
-- **Boundary authentication issues**: Contact Boundary administrators
 - **Keycloak login issues**: Contact identity team
-- **AWS permission issues**: Contact AWS administrators
+- **Lambda invocation issues**: Contact AWS administrators
+- **AWS permission issues**: Check IAM role policies for tag-based access
 - **Container/tool issues**: Check container documentation in `/CLAUDE.md`
 
 ## Next Steps
 
-- [Incident Workflow](incident-workflow.md) - Full incident lifecycle from admin perspective
+- [Investigation Workflow](investigation-workflow.md) - Full investigation lifecycle from admin perspective
 - [Troubleshooting](troubleshooting.md) - Detailed troubleshooting guide

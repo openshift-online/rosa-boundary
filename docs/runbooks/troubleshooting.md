@@ -2,34 +2,30 @@
 
 ## Overview
 
-This guide provides solutions to common issues when using the Keycloak + HCP Boundary + AWS ECS Fargate zero-trust access system.
+This guide provides solutions to common issues when using the Keycloak + AWS Lambda + ECS Fargate access system.
 
 ## Troubleshooting Decision Tree
 
 ```mermaid
 flowchart TD
-    Start[Connection Failed] --> Auth{Can you<br/>authenticate to<br/>Boundary?}
+    Start[Connection Failed] --> Auth{Can you get<br/>OIDC token from<br/>Keycloak?}
 
     Auth -->|No| KC{Can you log in<br/>to Keycloak?}
-    Auth -->|Yes| List{Can you list<br/>targets in<br/>Boundary?}
+    Auth -->|Yes| Lambda{Can you invoke<br/>Lambda function?}
 
     KC -->|No| KC_Fix[Fix Keycloak Login]
-    KC -->|Yes| OIDC_Fix[Fix OIDC Integration]
+    KC -->|Yes| OIDC_Fix[Fix OIDC Client Config]
 
-    List -->|No| RBAC_Fix[Fix Boundary Grants]
-    List -->|Yes| Connect{Does boundary<br/>connect work?}
+    Lambda -->|No| Lambda_Fix[Fix Lambda Auth/Permissions]
+    Lambda -->|Yes| AWS{Can you run<br/>aws ecs execute-command?}
 
-    Connect -->|No| AWS{Can you run<br/>aws ecs execute-command<br/>directly?}
-    Connect -->|Yes| Success[Connection Works!]
-
-    AWS -->|No| IAM_Fix[Fix AWS IAM Permissions]
-    AWS -->|Yes| Script_Fix[Fix ecs-exec.sh Script]
+    AWS -->|No| IAM_Fix[Fix IAM Role/Permissions]
+    AWS -->|Yes| Success[Connection Works!]
 
     KC_Fix --> End[Issue Resolved]
     OIDC_Fix --> End
-    RBAC_Fix --> End
+    Lambda_Fix --> End
     IAM_Fix --> End
-    Script_Fix --> End
     Success --> End
 ```
 
@@ -80,18 +76,10 @@ flowchart TD
    oc describe keycloakrealmimport boundary-realm -n keycloak
    ```
 
-2. Verify realm exists:
+2. Verify realm exists via API:
    ```bash
-   # Via API
-   ADMIN_TOKEN=$(curl -sk -X POST \
-     "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" \
-     -d "client_id=admin-cli" \
-     -d "username=$ADMIN_USER" \
-     -d "password=$ADMIN_PASS" \
-     -d "grant_type=password" | jq -r '.access_token')
-
-   curl -sk -H "Authorization: Bearer $ADMIN_TOKEN" \
-     "$KEYCLOAK_URL/admin/realms/rosa-boundary"
+   KEYCLOAK_URL="https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')"
+   curl -I "$KEYCLOAK_URL/realms/rosa-boundary/.well-known/openid-configuration"
    ```
 
 3. Reapply RealmImport:
@@ -100,589 +88,517 @@ flowchart TD
    oc apply -k deploy/keycloak/overlays/dev
    ```
 
-### 2. Boundary OIDC Issues
-
-#### "auth_time is beyond max_age"
+#### "User not found in group"
 
 **Symptoms:**
-```
-Error: id_token failed verification: auth_time is beyond max_age (30): expired auth_time
-```
-
-**Root Cause**: Default `max_age` of 30 seconds is too short
-
-**Solution:**
-
-```bash
-# Update auth method with longer max_age
-boundary auth-methods update oidc \
-  -id amoidc_<id> \
-  -max-age 3600
-
-# Or via Terraform
-max_age = 3600  # 1 hour
-```
-
-#### "Invalid signature"
-
-**Symptoms:**
-```
-Error: id_token failed verification: invalid signature
-```
+- Can log in to Keycloak but Lambda denies access
+- Lambda returns "User is not a member of sre-team group"
 
 **Solutions:**
 
-1. Check Boundary can reach Keycloak JWKS endpoint:
+1. Check user's group membership in Keycloak admin console
+2. Verify groups claim in ID token:
    ```bash
-   curl -sk "https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com/realms/rosa-boundary/protocol/openid-connect/certs"
+   cd tools/sre-auth
+   TOKEN=$(./get-oidc-token.sh)
+   echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq '.groups'
    ```
 
-2. Verify signing algorithm:
-   ```bash
-   # Should be RS256
-   boundary auth-methods read -id amoidc_<id> | grep signing_algorithms
-   ```
+3. Add user to `sre-team` group in Keycloak
 
-3. Check for clock skew:
-   ```bash
-   # Boundary and Keycloak clocks must be within ~5 minutes
-   date -u
-   oc exec keycloak-0 -n keycloak -- date -u
-   ```
+### 2. OIDC Token Issues
 
-#### "groups claim not found"
+#### "Token signature verification failed"
 
 **Symptoms:**
-- User authenticates successfully
-- No managed group memberships
-- Cannot access targets
+- Lambda rejects OIDC token
+- Error: "Invalid token signature"
 
 **Solutions:**
 
-1. Verify groups mapper in Keycloak client:
+1. Check JWKS endpoint is accessible:
    ```bash
-   # Check protocol mappers
-   curl -sk -H "Authorization: Bearer $ADMIN_TOKEN" \
-     "$KEYCLOAK_URL/admin/realms/rosa-boundary/clients/<client-uuid>/protocol-mappers/models" | \
-     jq '.[] | select(.name=="groups")'
+   curl "$KEYCLOAK_ISSUER_URL/protocol/openid-connect/certs"
    ```
 
-2. Verify user group membership:
-   - Log into Keycloak admin console
-   - Users → <username> → Groups tab
-   - Ensure user is in at least one group
-
-3. Test ID token contains groups:
+2. Verify issuer URL matches:
    ```bash
-   # Decode ID token after authentication
-   echo "$ID_TOKEN" | cut -d. -f2 | base64 -d | jq '.groups'
-   # Should show array: ["sre-operators"]
+   # Check token issuer claim
+   TOKEN=$(tools/sre-auth/get-oidc-token.sh)
+   echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq '.iss'
    ```
 
-### 3. Boundary Authorization Issues
+3. Regenerate token:
+   ```bash
+   cd tools/sre-auth
+   ./get-oidc-token.sh --force
+   ```
 
-#### "Permission denied"
+#### "Token expired"
 
 **Symptoms:**
-```
-Error: permission denied
-```
+- "Token has expired" error from Lambda
+- Old cached token
 
 **Solutions:**
 
-1. Check managed group memberships:
+1. Clear token cache:
    ```bash
-   boundary accounts list -auth-method-id amoidc_<id>
-   boundary managed-groups list -auth-method-id amoidc_<id> -filter '"<user-id>" in "/member_ids"'
+   rm -f ~/.sre-auth/id-token.cache
    ```
 
-2. Verify role grants:
+2. Get fresh token:
    ```bash
-   boundary roles list -scope-id <scope-id>
-   boundary roles read -id r_<role-id>
+   cd tools/sre-auth
+   ./get-oidc-token.sh --force
    ```
 
-3. Check target permissions:
-   ```bash
-   boundary targets read -id ttcp_<target-id>
-   # If you see the target, authorization should work
-   ```
+### 3. Lambda Function Issues
 
-4. Verify grant strings include required actions:
-   ```
-   Grant: ids=*;type=target;actions=authorize-session
-   ```
-
-#### "Target not found"
+#### "AccessDenied" when invoking Lambda
 
 **Symptoms:**
-```
-Error: target with id ttcp_xxx not found
-```
+- Cannot invoke Lambda function URL
+- HTTP 403 Forbidden
 
 **Solutions:**
 
-1. List all accessible targets:
+1. Verify Lambda function URL:
    ```bash
-   boundary targets list -scope-id <project-scope>
+   aws lambda get-function-url-config \
+     --function-name rosa-boundary-dev-create-investigation
    ```
 
-2. Check if target exists (admin only):
-   ```bash
-   boundary targets read -id ttcp_xxx -scope-id <project-scope>
-   ```
+2. Check OIDC token is valid and has correct audience
+3. Verify Lambda auth type is `AWS_IAM_OIDC`
 
-3. Verify you're using correct scope ID
-
-### 4. AWS ECS Exec Issues
-
-#### "TargetNotConnectedException"
+#### "User is not a member of required group"
 
 **Symptoms:**
-```
-Error: Could not connect to the target. Ensure that SSM Agent is running and the target is reachable.
-```
-
-**Root Causes:**
-1. Task not running
-2. ECS Exec not enabled on task
-3. SSM plugin version mismatch
+- Lambda returns 403 with group membership error
+- User authenticated but not authorized
 
 **Solutions:**
 
-1. Check task status:
+1. Verify you're in `sre-team` group (see "User not found in group" above)
+2. Check Lambda code for required group name
+3. Contact administrator to add you to the group
+
+#### "Lambda timeout" or "No response"
+
+**Symptoms:**
+- Long delay then timeout error
+- No response from Lambda
+
+**Solutions:**
+
+1. Check Lambda logs:
+   ```bash
+   aws logs tail /aws/lambda/rosa-boundary-dev-create-investigation --follow
+   ```
+
+2. Verify Lambda has network access to ECS/IAM/EFS APIs
+3. Check Lambda execution role permissions
+
+### 4. AWS IAM Role Issues
+
+#### "AccessDenied" when assuming role
+
+**Symptoms:**
+- `aws sts assume-role-with-web-identity` fails
+- Cannot assume returned IAM role
+
+**Solutions:**
+
+1. Verify OIDC provider trust relationship:
+   ```bash
+   aws iam get-role --role-name rosa-boundary-dev-user-<sub>
+   ```
+
+2. Check OIDC provider exists:
+   ```bash
+   aws iam list-open-id-connect-providers
+   aws iam get-open-id-connect-provider --open-id-connect-provider-arn <arn>
+   ```
+
+3. Verify thumbprint matches Keycloak certificate
+
+#### "AccessDenied" when executing ECS command
+
+**Symptoms:**
+- Role assumed successfully but ECS Exec fails
+- "User is not authorized to perform: ecs:ExecuteCommand"
+
+**Solutions:**
+
+1. Check task tags match your owner_sub:
    ```bash
    aws ecs describe-tasks \
      --cluster rosa-boundary-dev \
      --tasks <task-arn> \
-     --query 'tasks[0].[lastStatus,enableExecuteCommand]'
+     --query 'tasks[0].tags'
    ```
 
-2. Verify task was launched with `--enable-execute-command`:
-   ```bash
-   # Check in launch_task.sh output
-   grep "enable-execute-command" deploy/regional/examples/launch_task.sh
-   ```
-
-3. Check SSM plugin version:
-   ```bash
-   session-manager-plugin --version
-   # Should be >= 1.2.0
-   ```
-
-4. Update session-manager-plugin:
-   ```bash
-   # macOS
-   brew install --cask session-manager-plugin
-
-   # Linux
-   curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
-   sudo dpkg -i session-manager-plugin.deb
-   ```
-
-#### "AccessDeniedException"
-
-**Symptoms:**
-```
-An error occurred (AccessDeniedException) when calling the ExecuteCommand operation: User: arn:aws:iam::xxx:user/jane is not authorized to perform: ecs:ExecuteCommand on resource: arn:aws:ecs:...
-```
-
-**Solutions:**
-
-1. Verify IAM permissions:
-   ```bash
-   aws iam list-attached-user-policies --user-name jane
-   aws iam list-groups-for-user --user-name jane
-   ```
-
-2. Test policy simulation:
-   ```bash
-   aws iam simulate-principal-policy \
-     --policy-source-arn "arn:aws:iam::xxx:user/jane" \
-     --action-names ecs:ExecuteCommand \
-     --resource-arns "arn:aws:ecs:us-east-2:xxx:task/rosa-boundary-dev/abc123"
-   ```
-
-3. Verify you're using the correct AWS profile:
-   ```bash
-   aws sts get-caller-identity
-   ```
-
-#### "KMS.AccessDeniedException"
-
-**Symptoms:**
-```
-Error: kms:GenerateDataKey denied for key arn:aws:kms:...
-```
-
-**Solutions:**
-
-1. Check KMS key policy:
-   ```bash
-   aws kms get-key-policy \
-     --key-id alias/rosa-boundary-dev-exec-session \
-     --policy-name default
-   ```
-
-2. Verify IAM KMS permissions:
-   ```bash
-   # Check your IAM policies include KMS permissions
-   aws iam get-user-policy \
-     --user-name jane \
-     --policy-name BoundaryKMSDecryptExecSessions
-   ```
-
-3. Test KMS access:
-   ```bash
-   aws kms describe-key \
-     --key-id alias/rosa-boundary-dev-exec-session
-   ```
-
-### 5. CloudWatch Logs Issues
-
-#### "Session logs not appearing"
-
-**Symptoms:**
-- ECS Exec works
-- No logs in CloudWatch `/ecs/rosa-boundary-dev/ssm-sessions`
-
-**Solutions:**
-
-1. Verify log group exists:
-   ```bash
-   aws logs describe-log-groups \
-     --log-group-name-prefix "/ecs/rosa-boundary"
-   ```
-
-2. Check ECS Exec configuration in task definition:
-   ```bash
-   aws ecs describe-task-definition \
-     --task-definition <family> \
-     --query 'taskDefinition.containerDefinitions[0].logConfiguration'
-   ```
-
-3. Verify task role has CloudWatch permissions:
+2. Verify IAM role policy has tag-based condition:
    ```bash
    aws iam get-role-policy \
-     --role-name rosa-boundary-dev-task-role \
-     --policy-name ECSExecCloudWatchLogs
+     --role-name rosa-boundary-dev-user-<sub> \
+     --policy-name ExecuteCommandOnOwnedTasks
    ```
 
-#### "Access denied reading logs"
+3. Ensure you're using the correct role (check `aws sts get-caller-identity`)
+
+### 5. ECS Task Issues
+
+#### "Task not found"
 
 **Symptoms:**
-```
-Error: User is not authorized to perform: logs:GetLogEvents
-```
-
-**Solution:**
-
-Attach CloudWatch Logs read policy (see [AWS IAM Policies](../configuration/aws-iam-policies.md#iam-policy-cloudwatch-logs-optional)).
-
-### 6. S3 Audit Sync Issues
-
-#### "S3 sync failed on exit"
-
-**Symptoms:**
-- Container exit logs show `aws s3 sync` error
-- Audit artifacts not in S3
+- Task ARN returned by Lambda doesn't exist
+- `aws ecs describe-tasks` returns empty
 
 **Solutions:**
 
-1. Check task role S3 permissions:
+1. Verify task ARN is correct
+2. Check task didn't fail to start:
    ```bash
-   aws iam get-role-policy \
-     --role-name rosa-boundary-dev-task-role \
-     --policy-name ECSTaskS3Access
+   aws ecs describe-tasks \
+     --cluster rosa-boundary-dev \
+     --tasks <task-arn> \
+     --query 'tasks[0].{lastStatus:lastStatus,stopCode:stopCode,stoppedReason:stoppedReason}'
    ```
 
-2. Verify S3 bucket exists:
+3. Check CloudWatch logs for task startup errors:
    ```bash
-   aws s3 ls | grep rosa-boundary
+   aws logs tail /ecs/rosa-boundary-dev --follow
    ```
 
-3. Check S3_AUDIT_ESCROW or auto-generation variables:
+#### "Task stopped unexpectedly"
+
+**Symptoms:**
+- Task was running but now stopped
+- Connection dropped mid-session
+
+**Solutions:**
+
+1. Check stop reason:
    ```bash
-   # In container (if accessible)
-   echo $S3_AUDIT_ESCROW
-   echo $S3_AUDIT_BUCKET
-   echo $CLUSTER_ID
-   echo $INCIDENT_NUMBER
+   aws ecs describe-tasks \
+     --cluster rosa-boundary-dev \
+     --tasks <task-arn> \
+     --query 'tasks[0].{stopCode:stopCode,stoppedReason:stoppedReason,exitCode:containers[0].exitCode}'
    ```
 
-4. Manually sync for testing:
+2. Check CloudWatch logs for errors
+3. Verify EFS mount succeeded
+4. Check for resource limits (CPU/memory)
+
+#### "ECS Exec not enabled"
+
+**Symptoms:**
+- "Execute command failed: enable-execute-command is not enabled"
+
+**Solutions:**
+
+1. Verify task was launched with `--enable-execute-command`:
    ```bash
-   oc exec keycloak-db-1 -n keycloak -- \
-     aws s3 sync /home/sre/ s3://bucket/test/ --dryrun
+   aws ecs describe-tasks \
+     --cluster rosa-boundary-dev \
+     --tasks <task-arn> \
+     --query 'tasks[0].enableExecuteCommand'
    ```
+
+2. If false, this is a Lambda bug - contact administrator
+3. As workaround, use manual scripts to launch task:
+   ```bash
+   cd deploy/regional/examples
+   ./launch_task.sh <task-family>
+   ```
+
+### 6. Network and Connectivity Issues
+
+#### "Cannot reach Keycloak"
+
+**Symptoms:**
+- Timeout connecting to Keycloak
+- DNS resolution fails
+
+**Solutions:**
+
+1. Check Keycloak route:
+   ```bash
+   oc get route keycloak -n keycloak
+   curl -I https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')
+   ```
+
+2. Verify DNS resolves:
+   ```bash
+   nslookup keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com
+   ```
+
+3. Check OpenShift cluster is accessible:
+   ```bash
+   oc whoami
+   oc cluster-info
+   ```
+
+#### "SSM session failed to start"
+
+**Symptoms:**
+- ECS Exec authorized but SSM connection fails
+- "Failed to start session" error
+
+**Solutions:**
+
+1. Verify SSM agent is running in container:
+   ```bash
+   aws logs tail /ecs/rosa-boundary-dev --follow
+   # Look for "Successfully registered with SSM"
+   ```
+
+2. Check KMS key permissions:
+   ```bash
+   aws kms describe-key --key-id <key-id>
+   ```
+
+3. Verify task has SSM IAM permissions
 
 ## Diagnostic Commands
 
 ### Keycloak Diagnostics
 
 ```bash
-# Check Keycloak pod status
+# Get Keycloak status
 oc get pods -n keycloak
+oc get keycloak -n keycloak
 
-# View Keycloak logs
-oc logs -n keycloak keycloak-0 --tail=50
+# Check database
+oc get cluster -n keycloak
+oc exec keycloak-db-1 -n keycloak -- psql -U postgres -l
 
-# Check database connectivity
-oc exec keycloak-0 -n keycloak -- \
-  curl -s http://keycloak-db-rw.keycloak.svc:5432
-
-# Verify OIDC discovery
-curl -sk "https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')/realms/rosa-boundary/.well-known/openid-configuration" | jq '.'
+# Test OIDC endpoints
+KEYCLOAK_URL="https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')"
+curl "$KEYCLOAK_URL/realms/rosa-boundary/.well-known/openid-configuration"
+curl "$KEYCLOAK_URL/realms/rosa-boundary/protocol/openid-connect/certs"
 ```
 
-### Boundary Diagnostics
+### Lambda Diagnostics
 
 ```bash
-# Check authentication status
-boundary authenticate oidc -auth-method-id amoidc_<id>
+# Get Lambda configuration
+aws lambda get-function-configuration \
+  --function-name rosa-boundary-dev-create-investigation
 
-# List accounts
-boundary accounts list -auth-method-id amoidc_<id>
+# Get Lambda URL
+aws lambda get-function-url-config \
+  --function-name rosa-boundary-dev-create-investigation
 
-# Check managed group memberships
-boundary managed-groups list -auth-method-id amoidc_<id>
+# Check Lambda logs
+aws logs tail /aws/lambda/rosa-boundary-dev-create-investigation --follow
 
-# Verify target access
-boundary targets list -scope-id <project-scope>
-boundary targets read -id ttcp_<target-id>
-
-# View session history
-boundary sessions list -scope-id <project-scope>
+# Test Lambda invocation (requires valid token)
+curl -X POST "<lambda-url>" \
+  -H "Authorization: Bearer $(tools/sre-auth/get-oidc-token.sh)" \
+  -H "Content-Type: application/json" \
+  -d '{"cluster_id":"test","investigation_id":"test","oc_version":"4.20"}'
 ```
 
-### AWS Diagnostics
+### IAM Diagnostics
 
 ```bash
-# Verify AWS credentials
-aws sts get-caller-identity
+# List OIDC providers
+aws iam list-open-id-connect-providers
 
-# Check ECS cluster
-aws ecs describe-clusters --clusters rosa-boundary-dev
+# Get provider details
+aws iam get-open-id-connect-provider \
+  --open-id-connect-provider-arn <arn>
 
-# List running tasks
-aws ecs list-tasks \
-  --cluster rosa-boundary-dev \
-  --desired-status RUNNING
+# Get role details
+aws iam get-role --role-name rosa-boundary-dev-user-<sub>
 
-# Check task details
+# List role policies
+aws iam list-role-policies --role-name rosa-boundary-dev-user-<sub>
+
+# Get policy document
+aws iam get-role-policy \
+  --role-name rosa-boundary-dev-user-<sub> \
+  --policy-name ExecuteCommandOnOwnedTasks
+```
+
+### ECS Diagnostics
+
+```bash
+# List tasks
+aws ecs list-tasks --cluster rosa-boundary-dev
+
+# Describe task
 aws ecs describe-tasks \
   --cluster rosa-boundary-dev \
   --tasks <task-arn>
+
+# Get task logs
+aws logs tail /ecs/rosa-boundary-dev --follow
+
+# Check SSM session logs
+aws logs tail /ecs/rosa-boundary-dev/ssm-sessions --follow
 
 # Test ECS Exec directly
 aws ecs execute-command \
   --cluster rosa-boundary-dev \
   --task <task-arn> \
   --container rosa-boundary \
-  --command "/bin/echo test" \
-  --interactive
-
-# Check SSM session logs
-aws logs tail /ecs/rosa-boundary-dev/ssm-sessions --follow
-```
-
-### Network Diagnostics
-
-```bash
-# Test Keycloak reachability
-curl -sk https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com/health
-
-# Test HCP Boundary reachability
-curl -sk https://<cluster>.boundary.hashicorp.cloud/health
-
-# Test AWS API reachability
-aws sts get-caller-identity --region us-east-2
+  --interactive \
+  --command "/bin/bash"
 ```
 
 ## Error Messages and Solutions
 
-### "Client 'hcp-boundary' not found in realm"
+### "invalid_grant: Code not valid"
 
-**Cause**: RealmImport not applied or client configuration error
+**Cause:** PKCE authorization code already used or expired
 
 **Solution:**
 ```bash
-oc get keycloakrealmimport boundary-realm -n keycloak
-oc describe keycloakrealmimport boundary-realm -n keycloak
-
-# If failed, check logs
-oc logs -n keycloak deployment/rhbk-operator | grep -i realm
+cd tools/sre-auth
+./get-oidc-token.sh --force
 ```
 
-### "Callback URL not allowed"
+### "Unauthorized: Invalid token"
 
-**Cause**: Redirect URI mismatch between Keycloak client and Boundary
+**Cause:** Token signature invalid or issuer mismatch
 
 **Solution:**
+1. Verify `KEYCLOAK_ISSUER_URL` is correct
+2. Check JWKS endpoint is accessible
+3. Regenerate token
 
-1. Verify Boundary callback URL:
+### "Task definition not found"
+
+**Cause:** Lambda failed to create task definition or it was deleted
+
+**Solution:**
+1. Check Lambda logs for errors
+2. List task definitions:
    ```bash
-   boundary auth-methods read -id amoidc_<id> | grep callback_url
+   aws ecs list-task-definitions --family-prefix rosa-boundary-dev
    ```
+3. Re-run investigation creation
 
-2. Verify Keycloak client redirect URIs include the callback:
+### "EFS mount failed"
+
+**Cause:** EFS access point doesn't exist or network issue
+
+**Solution:**
+1. Verify access point exists:
    ```bash
-   # Should include: https://<boundary>.boundary.hashicorp.cloud/v1/auth-methods/oidc:authenticate:callback
+   aws efs describe-access-points \
+     --file-system-id <fs-id>
    ```
-
-3. Update KeycloakRealmImport to include correct URLs
-
-### "Task stopped unexpectedly"
-
-**Cause**: Task crashed, OOM, or health check failure
-
-**Solutions:**
-
-1. Check task stopped reason:
-   ```bash
-   aws ecs describe-tasks \
-     --cluster rosa-boundary-dev \
-     --tasks <task-arn> \
-     --query 'tasks[0].stopCode'
-   ```
-
-2. View container logs:
-   ```bash
-   aws logs tail /ecs/rosa-boundary-dev --follow
-   ```
-
-3. Check for OOM events:
-   ```bash
-   aws ecs describe-tasks \
-     --cluster rosa-boundary-dev \
-     --tasks <task-arn> \
-     --query 'tasks[0].containers[0].reason'
-   ```
-
-### "ExternalSecret not syncing"
-
-**Cause**: IAM permissions, SSM parameters missing, or SecretStore misconfigured
-
-**Solutions:**
-
-1. Check ExternalSecret status:
-   ```bash
-   oc get externalsecret keycloak-db-app -n keycloak
-   oc describe externalsecret keycloak-db-app -n keycloak
-   ```
-
-2. Verify ClusterSecretStore is ready:
-   ```bash
-   oc get clustersecretstore aws-ssm-keycloak
-   ```
-
-3. Check SSM parameters exist:
-   ```bash
-   aws ssm get-parameter --name /keycloak/db/username --region us-east-2
-   aws ssm get-parameter --name /keycloak/db/password --region us-east-2 --with-decryption
-   ```
-
-4. Verify IAM role permissions:
-   ```bash
-   # Check the external-secrets operator ServiceAccount
-   oc get sa external-secrets-operator-controller-manager \
-     -n external-secrets-operator \
-     -o jsonpath='{.metadata.annotations.eks\.amazonaws\.com/role-arn}'
-
-   # Verify role has SSM and KMS permissions
-   aws iam get-role-policy \
-     --role-name dev-keycloak \
-     --policy-name AllAllParameters
-   ```
+2. Check security groups allow NFS (port 2049)
+3. Verify subnets have EFS mount targets
 
 ## Logs Collection
 
-For support requests, collect these logs:
+### Collect full diagnostic bundle
 
 ```bash
 #!/bin/bash
-# collect-logs.sh
+BUNDLE_DIR="rosa-boundary-diagnostics-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BUNDLE_DIR"
 
-OUTPUT_DIR="boundary-debug-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$OUTPUT_DIR"
+# Keycloak logs
+oc logs -n keycloak keycloak-0 > "$BUNDLE_DIR/keycloak.log"
+oc get keycloak -n keycloak -o yaml > "$BUNDLE_DIR/keycloak-cr.yaml"
 
-# Keycloak
-oc logs -n keycloak keycloak-0 > "$OUTPUT_DIR/keycloak.log"
-oc get keycloak keycloak -n keycloak -o yaml > "$OUTPUT_DIR/keycloak-cr.yaml"
-oc get keycloakrealmimport -n keycloak -o yaml > "$OUTPUT_DIR/realm-import.yaml"
+# Lambda logs (last 1 hour)
+aws logs filter-log-events \
+  --log-group-name /aws/lambda/rosa-boundary-dev-create-investigation \
+  --start-time $(($(date +%s) * 1000 - 3600000)) \
+  > "$BUNDLE_DIR/lambda-logs.json"
 
-# Boundary (metadata only, no sensitive data)
-boundary auth-methods read -id amoidc_<id> > "$OUTPUT_DIR/boundary-auth-method.txt"
-boundary targets list -scope-id <scope> > "$OUTPUT_DIR/boundary-targets.txt"
-boundary sessions list -scope-id <scope> > "$OUTPUT_DIR/boundary-sessions.txt"
+# ECS logs
+aws logs tail /ecs/rosa-boundary-dev --since 1h \
+  > "$BUNDLE_DIR/ecs-task-logs.txt"
 
-# AWS
+# Task details
 aws ecs describe-tasks \
   --cluster rosa-boundary-dev \
-  --tasks <task-arn> > "$OUTPUT_DIR/ecs-task.json"
+  --tasks <task-arn> \
+  > "$BUNDLE_DIR/ecs-task-details.json"
 
-aws logs tail /ecs/rosa-boundary-dev/ssm-sessions \
-  --since 1h > "$OUTPUT_DIR/ssm-sessions.log"
-
-# Environment
-boundary version > "$OUTPUT_DIR/versions.txt"
-aws --version >> "$OUTPUT_DIR/versions.txt"
-oc version >> "$OUTPUT_DIR/versions.txt"
-
-tar czf "$OUTPUT_DIR.tar.gz" "$OUTPUT_DIR"
-echo "Logs collected in $OUTPUT_DIR.tar.gz"
+tar -czf "$BUNDLE_DIR.tar.gz" "$BUNDLE_DIR"
+echo "Diagnostic bundle: $BUNDLE_DIR.tar.gz"
 ```
 
 ## Performance Issues
 
-### Slow Keycloak login
+### "Slow OIDC authentication"
 
-1. Check PostgreSQL performance:
-   ```bash
-   oc exec keycloak-db-1 -n keycloak -- \
-     psql -U postgres -d keycloak -c "SELECT * FROM pg_stat_activity WHERE state = 'active';"
-   ```
+**Causes:**
+- Network latency to Keycloak
+- Keycloak database performance
 
-2. Consider scaling CNPG:
-   ```bash
-   oc patch cluster keycloak-db -n keycloak --type merge -p '{"spec":{"instances":3}}'
-   ```
+**Solutions:**
+1. Check Keycloak pod CPU/memory
+2. Scale PostgreSQL if needed
+3. Use token caching (automatic in get-oidc-token.sh)
 
-### Slow Boundary authentication
+### "Slow Lambda invocation"
 
-1. Check HCP Boundary status page: https://status.hashicorp.com
-2. Test Keycloak JWKS endpoint latency
-3. Verify network path to HCP (no proxies blocking)
+**Causes:**
+- Lambda cold start
+- Network latency
+- IAM API throttling
 
-### Slow ECS Exec connection
+**Solutions:**
+1. Check Lambda duration in CloudWatch metrics
+2. Increase Lambda memory if needed
+3. Use provisioned concurrency for critical times
 
-1. Check SSM service status
-2. Verify ECS task health
-3. Test network latency to AWS region
+### "Slow ECS Exec connection"
+
+**Causes:**
+- SSM agent startup delay
+- Network latency
+- KMS key throttling
+
+**Solutions:**
+1. Wait 10-15 seconds after task reaches RUNNING
+2. Check CloudWatch metrics for SSM latency
+3. Use keep-alive script for long sessions
 
 ## Escalation Paths
 
-| Issue Type | Contact | SLA |
-|------------|---------|-----|
-| Keycloak auth | Identity Team | 1 hour |
-| Boundary access | Security Team | 2 hours |
-| AWS infrastructure | Cloud Team | 1 hour |
-| Container tools | Platform Team | 4 hours |
+### Keycloak Issues
+1. Check Keycloak operator logs
+2. Review RHBK documentation
+3. Contact OpenShift support
+
+### Lambda Issues
+1. Check CloudWatch Logs
+2. Review Lambda execution role
+3. Contact AWS support
+
+### IAM/Permission Issues
+1. Verify OIDC provider configuration
+2. Review IAM role policies
+3. Contact AWS administrators
+
+### ECS/Container Issues
+1. Check task definition
+2. Review CloudWatch Logs
+3. Test container locally with podman
 
 ## Known Limitations
 
-1. **No dynamic ECS discovery**: Targets must be created manually per-incident
-2. **No session recording**: Only metadata logged in Boundary (full session logs in CloudWatch)
-3. **No credential brokering**: Users must have AWS IAM credentials
-4. **Max 10,000 incidents**: EFS access point limit per filesystem
-5. **Single region**: Current deployment in us-east-2 only
-
-For architectural limitations, see [Session Flow](../architecture/session-flow.md#comparison-traditional-vs--exec-integration).
+1. **EFS Access Point Limit**: Maximum 10,000 access points per filesystem
+2. **Token Cache Duration**: OIDC tokens cached for 4 minutes
+3. **IAM Role Limit**: Soft limit of 1000 roles per account (one per user)
+4. **Task Definition Limit**: 1,000,000 revisions per family (shouldn't be reached)
+5. **SSM Session Limit**: 25 concurrent sessions per instance (Fargate tasks)
 
 ## Additional Resources
 
-- [User Access Guide](user-access-guide.md) - End-user instructions
-- [Incident Workflow](incident-workflow.md) - Full incident lifecycle
-- [Boundary Documentation](https://developer.hashicorp.com/boundary/docs)
-- [Keycloak Documentation](https://www.keycloak.org/documentation)
-- [AWS ECS Exec](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-exec.html)
+- [Keycloak Realm Setup](../configuration/keycloak-realm-setup.md) - OIDC client configuration
+- [AWS IAM Policies](../configuration/aws-iam-policies.md) - IAM role policies
+- [User Access Guide](user-access-guide.md) - End-user workflow
+- [Investigation Workflow](investigation-workflow.md) - Admin workflow

@@ -22,47 +22,33 @@ env:
 jobs:
   localstack-tests:
     name: LocalStack Integration Tests
+    # Run full test suite for upstream PRs and pushes to main
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Check if PR is from fork
-        id: fork-check
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ] && \
-             [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
-            echo "is-fork=true" >> $GITHUB_OUTPUT
-            echo "::notice::Skipping LocalStack tests — fork PRs don't have access to secrets"
-          else
-            echo "is-fork=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Set up Python
-        if: steps.fork-check.outputs.is-fork != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install uv
-        if: steps.fork-check.outputs.is-fork != 'true'
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
       - name: Install podman-compose
-        if: steps.fork-check.outputs.is-fork != 'true'
         run: |
           uv pip install --system podman-compose
 
       - name: Install test dependencies
-        if: steps.fork-check.outputs.is-fork != 'true'
         run: |
           uv pip install --system pytest boto3 requests
 
       - name: Setup Podman socket for LocalStack
-        if: steps.fork-check.outputs.is-fork != 'true'
         run: |
           # Start podman socket for rootless containers
           systemctl --user start podman.socket
@@ -72,13 +58,11 @@ jobs:
           sudo chmod 666 /var/run/docker.sock
 
       - name: Configure LocalStack environment
-        if: steps.fork-check.outputs.is-fork != 'true'
         run: |
           cd tests/localstack
           echo "LOCALSTACK_AUTH_TOKEN=${{ secrets.LOCALSTACK_AUTH_TOKEN }}" > .env
 
       - name: Start LocalStack
-        if: steps.fork-check.outputs.is-fork != 'true'
         run: |
           cd tests/localstack
           # Use CI compose file with Docker executor for Lambda support
@@ -92,7 +76,6 @@ jobs:
           curl -s http://localhost:4566/_localstack/health | jq '.services | to_entries | map(select(.value == "available" or .value == "running")) | length' || echo "LocalStack health check complete"
 
       - name: Run integration tests
-        if: steps.fork-check.outputs.is-fork != 'true'
         run: |
           cd tests/localstack
           # Run all integration tests including Lambda (Docker executor enabled in CI)
@@ -100,7 +83,7 @@ jobs:
         continue-on-error: false
 
       - name: Show LocalStack logs on failure
-        if: failure() && steps.fork-check.outputs.is-fork != 'true'
+        if: failure()
         run: |
           cd tests/localstack
           echo "=== LocalStack Logs ==="
@@ -111,16 +94,28 @@ jobs:
 
       - name: Publish test results
         uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always() && steps.fork-check.outputs.is-fork != 'true'
+        if: always()
         with:
           files: tests/localstack/test-results.xml
           check_name: LocalStack Integration Test Results
 
       - name: Stop LocalStack
-        if: always() && steps.fork-check.outputs.is-fork != 'true'
+        if: always()
         run: |
           cd tests/localstack
           podman-compose -f compose.ci.yml down -v
+
+  localstack-tests-fork:
+    name: LocalStack Integration Tests
+    # Run minimal success job for fork PRs (no access to secrets)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip tests for fork PR
+        run: |
+          echo "::notice::Skipping LocalStack tests for fork PR (no access to secrets)"
+          echo "Tests will run when maintainers push to upstream or after merge to main"
 
   lambda-unit-tests:
     name: Lambda Unit Tests

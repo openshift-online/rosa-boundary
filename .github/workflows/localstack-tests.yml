@@ -93,7 +93,7 @@ jobs:
           podman logs --tail 50 localstack_mock-oidc_1 || echo "Failed to get OIDC logs"
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action/composite@v2
         if: always()
         with:
           files: tests/localstack/test-results.xml
@@ -153,7 +153,7 @@ jobs:
         continue-on-error: true
 
       - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@v2
+        uses: EnricoMi/publish-unit-test-result-action/composite@v2
         if: always()
         with:
           files: lambda/create-investigation/test-results.xml

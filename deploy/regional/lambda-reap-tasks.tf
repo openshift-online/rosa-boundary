@@ -43,8 +43,7 @@ resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
       {
         Effect = "Allow"
         Action = [
-          "ecs:ListTasks",
-          "ecs:DescribeTasks"
+          "ecs:ListTasks"
         ]
         Resource = "*"
         Condition = {
@@ -56,9 +55,21 @@ resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
       {
         Effect = "Allow"
         Action = [
+          "ecs:DescribeTasks"
+        ]
+        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "ecs:StopTask"
         ]
         Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Condition = {
+          "ForAnyValue:StringLike" = {
+            "ecs:ResourceTag/deadline" = "*"
+          }
+        }
       }
     ]
   })

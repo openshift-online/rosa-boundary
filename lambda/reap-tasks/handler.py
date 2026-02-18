@@ -83,12 +83,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     task_arn = task['taskArn']
                     task_id = task_arn.split('/')[-1]
 
-                    # Extract deadline tag
+                    # Extract deadline, owner_sub, and owner_username tags
                     deadline_str = None
+                    owner_sub = None
+                    owner_username = None
                     for tag in task.get('tags', []):
                         if tag['key'] == 'deadline':
                             deadline_str = tag['value']
-                            break
+                        elif tag['key'] == 'owner_sub':
+                            owner_sub = tag['value']
+                        elif tag['key'] == 'owner_username':
+                            owner_username = tag['value']
 
                     # Skip tasks without deadline tag
                     if not deadline_str:
@@ -106,7 +111,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                         # Check if deadline has passed
                         if now > deadline:
-                            logger.info(f"Task {task_id} deadline exceeded: {deadline_str}")
+                            logger.info(f"Task {task_id} deadline exceeded: {deadline_str} (owner: {owner_sub})")
 
                             try:
                                 ecs.stop_task(
@@ -115,7 +120,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                     reason=f'Task deadline exceeded (deadline: {deadline_str})'
                                 )
                                 stopped += 1
-                                logger.info(f"Stopped task {task_id}")
+                                logger.info(f"Stopped task {task_id} (owner: {owner_sub})")
 
                             except ClientError as e:
                                 logger.error(f"Failed to stop task {task_id}: {str(e)}")
@@ -135,7 +140,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Unexpected error during task reaping: {str(e)}", exc_info=True)
         return {
-            'error': str(e),
+            'error': 'Unexpected error during task reaping',
             'checked': checked,
             'stopped': stopped,
             'skipped': skipped,

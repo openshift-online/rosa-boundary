@@ -83,6 +83,21 @@ test-localstack-fast: ## Run LocalStack tests without slow tests (faster)
 	fi
 	pytest tests/localstack/integration/ -v -m "not slow" --tb=short
 
+# Lambda unit testing
+.PHONY: test-lambda test-lambda-reap-tasks test-lambda-create-investigation
+
+test-lambda: test-lambda-reap-tasks test-lambda-create-investigation ## Run all Lambda unit tests
+
+test-lambda-reap-tasks: ## Run reap-tasks Lambda unit tests
+	@echo "Running reap-tasks unit tests..."
+	cd lambda/reap-tasks && uv run --with boto3 python -m unittest test_handler -v
+
+test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
+	@echo "Running create-investigation unit tests..."
+	cd lambda/create-investigation && \
+		uv run --with-requirements requirements.txt --with-requirements requirements-test.txt \
+		pytest test_handler.py -v
+
 staticcheck: ## Run staticcheck before commits
 	@echo "Running staticcheck..."
 	@if command -v staticcheck > /dev/null 2>&1; then \
@@ -108,6 +123,11 @@ help:
 	@echo "  make localstack-logs       - View LocalStack logs"
 	@echo "  make test-localstack       - Run all LocalStack integration tests"
 	@echo "  make test-localstack-fast  - Run LocalStack tests (skip slow tests)"
+	@echo ""
+	@echo "Lambda Unit Testing Targets:"
+	@echo "  make test-lambda                      - Run all Lambda unit tests"
+	@echo "  make test-lambda-reap-tasks           - Run reap-tasks unit tests"
+	@echo "  make test-lambda-create-investigation - Run create-investigation unit tests"
 	@echo ""
 	@echo "Code Quality Targets:"
 	@echo "  make staticcheck  - Run staticcheck before commits"

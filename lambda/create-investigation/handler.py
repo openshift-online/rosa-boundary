@@ -99,11 +99,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Validate task_timeout
         try:
             task_timeout = int(task_timeout)
-            if task_timeout < 0:
-                raise ValueError("Task timeout cannot be negative")
+            if task_timeout < 0 or task_timeout > 86400:
+                raise ValueError("Task timeout out of range")
         except (ValueError, TypeError) as e:
             logger.warning(f"Invalid task_timeout: {task_timeout}")
-            return response(400, {'error': f'Invalid task_timeout: must be a non-negative integer'})
+            return response(400, {'error': 'task_timeout must be an integer between 0 and 86400'})
 
         # Validate identifiers for safe characters
         try:

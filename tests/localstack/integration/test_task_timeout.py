@@ -7,6 +7,7 @@ and stops tasks that have exceeded their deadline tag.
 import pytest
 import json
 import time
+import os
 from datetime import datetime, timedelta
 
 
@@ -116,8 +117,7 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
 
     # Import and invoke reaper handler directly
     import sys
-    import os
-    LAMBDA_DIR = '/Users/jjaggars/code/rosa-boundary/lambda/reap-tasks'
+    LAMBDA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks'))
     sys.path.insert(0, LAMBDA_DIR)
 
     try:
@@ -200,8 +200,7 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
 
     # Import and invoke reaper handler directly
     import sys
-    import os
-    LAMBDA_DIR = '/Users/jjaggars/code/rosa-boundary/lambda/reap-tasks'
+    LAMBDA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks'))
     sys.path.insert(0, LAMBDA_DIR)
 
     try:

@@ -144,7 +144,7 @@ flowchart LR
 
 **Outputs:**
 - IAM role ARN (per-user, tag-based permissions)
-- ECS task ARN (tagged with owner_sub)
+- ECS task ARN (tagged with username)
 - Temporary AWS credentials via assume-role-with-web-identity
 
 ### Layer 3: Execution (AWS ECS/SSM)
@@ -187,7 +187,7 @@ Every step requires valid credentials/tokens:
 - Lambda validates OIDC token signature and claims
 - Lambda checks sre-team group membership
 - AWS validates IAM credentials for ECS Exec API
-- IAM policy validates task owner_sub tag matches role
+- IAM policy validates task username tag matches role
 - SSM validates session encryption keys
 - Container enforces `sre` user permissions
 
@@ -269,7 +269,7 @@ Investigation inv-123 for cluster rosa-prod-01
 │   ├── Environment: INVESTIGATION_ID=inv-123
 │   └── Environment: OC_VERSION=4.20
 ├── IAM Role: rosa-boundary-dev-user-abc123def456 (per OIDC sub claim)
-│   ├── Tag-based policy: only access tasks with owner_sub=abc123def456
+│   ├── Tag-based policy: only access tasks with username=sre-user
 │   └── Created/reused by Lambda function
 └── S3 Audit Path: s3://bucket/rosa-prod-01/inv-123/20260103/{task-id}/
 ```

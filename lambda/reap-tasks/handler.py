@@ -83,16 +83,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     task_arn = task['taskArn']
                     task_id = task_arn.split('/')[-1]
 
-                    # Extract deadline, owner_sub, and owner_username tags
+                    # Extract deadline, oidc_sub, and username tags
                     deadline_str = None
-                    owner_sub = None
+                    oidc_sub = None
                     owner_username = None
                     for tag in task.get('tags', []):
                         if tag['key'] == 'deadline':
                             deadline_str = tag['value']
-                        elif tag['key'] == 'owner_sub':
-                            owner_sub = tag['value']
-                        elif tag['key'] == 'owner_username':
+                        elif tag['key'] == 'oidc_sub':
+                            oidc_sub = tag['value']
+                        elif tag['key'] == 'username':
                             owner_username = tag['value']
 
                     # Skip tasks without deadline tag
@@ -111,7 +111,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                         # Check if deadline has passed
                         if now > deadline:
-                            logger.info(f"Task {task_id} deadline exceeded: {deadline_str} (owner: {owner_sub})")
+                            logger.info(f"Task {task_id} deadline exceeded: {deadline_str} (owner: {owner_username} / {oidc_sub})")
 
                             try:
                                 ecs.stop_task(
@@ -120,7 +120,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                     reason=f'Task deadline exceeded (deadline: {deadline_str})'
                                 )
                                 stopped += 1
-                                logger.info(f"Stopped task {task_id} (owner: {owner_sub})")
+                                logger.info(f"Stopped task {task_id} (owner: {owner_username} / {oidc_sub})")
 
                             except ClientError as e:
                                 logger.error(f"Failed to stop task {task_id}: {str(e)}")

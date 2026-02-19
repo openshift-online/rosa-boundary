@@ -150,7 +150,8 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
     ecs_cleanup.register_task_definition(task_def_arn)
 
     # Run task with tags
-    owner_sub = 'test-user-456'
+    oidc_sub = 'test-user-456'
+    username = 'testuser456'
     run_response = ecs_client.run_task(
         cluster=cluster_name,
         taskDefinition=task_def_arn,
@@ -163,7 +164,8 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
             }
         },
         tags=[
-            {'key': 'owner_sub', 'value': owner_sub},
+            {'key': 'oidc_sub', 'value': oidc_sub},
+            {'key': 'username', 'value': username},
             {'key': 'investigation_id', 'value': 'inv-456'},
             {'key': 'cluster_id', 'value': 'rosa-dev'}
         ],
@@ -178,7 +180,8 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
     tags_response = ecs_client.list_tags_for_resource(resourceArn=task_arn)
     tag_dict = {t['key']: t['value'] for t in tags_response['tags']}
 
-    assert tag_dict['owner_sub'] == owner_sub
+    assert tag_dict['oidc_sub'] == oidc_sub
+    assert tag_dict['username'] == username
     assert tag_dict['investigation_id'] == 'inv-456'
 
 
@@ -233,7 +236,8 @@ def test_describe_tasks_with_tag_filter(ecs_client, test_vpc, iam_client, ecs_cl
     ecs_cleanup.register_task_definition(task_def_arn)
 
     # Run task with specific owner tag
-    owner_sub = 'user-789'
+    oidc_sub = 'user-789'
+    username = 'user789'
     run_response = ecs_client.run_task(
         cluster=cluster_name,
         taskDefinition=task_def_arn,
@@ -246,7 +250,8 @@ def test_describe_tasks_with_tag_filter(ecs_client, test_vpc, iam_client, ecs_cl
             }
         },
         tags=[
-            {'key': 'owner_sub', 'value': owner_sub}
+            {'key': 'oidc_sub', 'value': oidc_sub},
+            {'key': 'username', 'value': username}
         ]
     )
 
@@ -265,4 +270,5 @@ def test_describe_tasks_with_tag_filter(ecs_client, test_vpc, iam_client, ecs_cl
 
     # Verify tag exists
     tag_dict = {t['key']: t['value'] for t in task.get('tags', [])}
-    assert tag_dict.get('owner_sub') == owner_sub
+    assert tag_dict.get('oidc_sub') == oidc_sub
+    assert tag_dict.get('username') == username

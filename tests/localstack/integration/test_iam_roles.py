@@ -55,7 +55,7 @@ def test_create_execution_role(iam_client):
 def test_create_task_role_with_tag_policy(iam_client):
     """Test ECS task role with tag-based authorization policy"""
     role_name = f'test-task-role-{int(datetime.now().timestamp())}'
-    owner_sub = 'test-user-123'
+    username = 'test-user-123'
 
     # Create role
     trust_policy = {
@@ -85,7 +85,7 @@ def test_create_task_role_with_tag_policy(iam_client):
                 'Resource': 'arn:aws:ecs:*:*:task/*',
                 'Condition': {
                     'StringEquals': {
-                        'ecs:ResourceTag/owner_sub': owner_sub
+                        'ecs:ResourceTag/username': username
                     }
                 }
             },
@@ -115,7 +115,7 @@ def test_create_task_role_with_tag_policy(iam_client):
     )
 
     policy = get_policy_document(policy_doc['PolicyDocument'])
-    assert policy['Statement'][0]['Condition']['StringEquals']['ecs:ResourceTag/owner_sub'] == owner_sub
+    assert policy['Statement'][0]['Condition']['StringEquals']['ecs:ResourceTag/username'] == username
 
     # Cleanup
     iam_client.delete_role_policy(RoleName=role_name, PolicyName='TagBasedECSExec')

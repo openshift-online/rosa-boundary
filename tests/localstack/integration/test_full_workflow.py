@@ -14,10 +14,11 @@ def test_complete_investigation_creation(
     """Test complete investigation creation workflow (simulating Lambda logic)"""
     cluster_id = 'rosa-dev'
     investigation_id = f'inv-e2e-{int(datetime.now().timestamp())}'
-    owner_sub = 'test-user-e2e-123'
+    oidc_sub = 'test-user-e2e-123'
+    username = 'sre-e2e-user'
 
     # Step 1: Create/get IAM role for user
-    role_name = f'rosa-boundary-user-{owner_sub.replace("/", "-")}'
+    role_name = f'rosa-boundary-user-{oidc_sub.replace("/", "-")}'
     trust_policy = {
         'Version': '2012-10-17',
         'Statement': [
@@ -32,7 +33,7 @@ def test_complete_investigation_creation(
     role_response = iam_client.create_role(
         RoleName=role_name,
         AssumeRolePolicyDocument=json.dumps(trust_policy),
-        Description=f'Tag-based access for OIDC user {owner_sub}'
+        Description=f'Tag-based access for OIDC user {username}'
     )
     role_arn = role_response['Role']['Arn']
     ecs_cleanup.register_role(role_name, ['TagBasedECSExec'])
@@ -48,7 +49,7 @@ def test_complete_investigation_creation(
                 'Resource': 'arn:aws:ecs:*:*:task/*',
                 'Condition': {
                     'StringEquals': {
-                        'ecs:ResourceTag/owner_sub': owner_sub
+                        'ecs:ResourceTag/username': username
                     }
                 }
             }
@@ -77,7 +78,8 @@ def test_complete_investigation_creation(
             {'Key': 'Name', 'Value': f'{cluster_id}-{investigation_id}'},
             {'Key': 'ClusterID', 'Value': cluster_id},
             {'Key': 'InvestigationID', 'Value': investigation_id},
-            {'Key': 'OwnerSub', 'Value': owner_sub}
+            {'Key': 'oidc_sub', 'Value': oidc_sub},
+            {'Key': 'username', 'Value': username}
         ]
     )
 
@@ -149,7 +151,8 @@ def test_complete_investigation_creation(
             }
         },
         tags=[
-            {'key': 'owner_sub', 'value': owner_sub},
+            {'key': 'oidc_sub', 'value': oidc_sub},
+            {'key': 'username', 'value': username},
             {'key': 'investigation_id', 'value': investigation_id},
             {'key': 'cluster_id', 'value': cluster_id}
         ],
@@ -172,7 +175,8 @@ def test_complete_investigation_creation(
     # Verify task has correct tags
     tags = ecs_client.list_tags_for_resource(resourceArn=task_arn)
     tag_dict = {t['key']: t['value'] for t in tags['tags']}
-    assert tag_dict['owner_sub'] == owner_sub
+    assert tag_dict['oidc_sub'] == oidc_sub
+    assert tag_dict['username'] == username
     assert tag_dict['investigation_id'] == investigation_id
 
     # Verify task definition has EFS mount
@@ -187,8 +191,8 @@ def test_complete_investigation_creation(
 @pytest.mark.e2e
 def test_idempotent_role_creation(iam_client):
     """Test idempotent IAM role creation (same user gets same role)"""
-    owner_sub = 'test-user-idempotent-456'
-    role_name = f'rosa-boundary-user-{owner_sub.replace("/", "-")}'
+    oidc_sub = 'test-user-idempotent-456'
+    role_name = f'rosa-boundary-user-{oidc_sub.replace("/", "-")}'
 
     trust_policy = {
         'Version': '2012-10-17',

@@ -232,7 +232,7 @@ aws ecs describe-tasks \
 aws sts get-caller-identity
 ```
 
-If the `owner_sub` tag doesn't match your role's permissions, you don't own this task.
+If the `username` tag doesn't match your role's permissions, you don't own this task.
 
 ### "ECS Exec is not enabled for this task"
 

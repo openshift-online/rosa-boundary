@@ -59,8 +59,8 @@ class TestReaperLambda(unittest.TestCase):
                 'taskArn': task_arn,
                 'tags': [
                     {'key': 'deadline', 'value': past_deadline},
-                    {'key': 'owner_sub', 'value': 'test-user-123'},
-                    {'key': 'owner_username', 'value': 'testuser'},
+                    {'key': 'oidc_sub', 'value': 'test-user-123'},
+                    {'key': 'username', 'value': 'testuser'},
                     {'key': 'investigation_id', 'value': 'inv-123'}
                 ]
             }]

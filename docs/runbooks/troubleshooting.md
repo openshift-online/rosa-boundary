@@ -231,7 +231,7 @@ flowchart TD
 
 **Solutions:**
 
-1. Check task tags match your owner_sub:
+1. Check task tags match your username:
    ```bash
    aws ecs describe-tasks \
      --cluster rosa-boundary-dev \

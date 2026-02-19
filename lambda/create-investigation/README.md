@@ -167,7 +167,7 @@ Users can only execute commands on tasks they own (tag-based authorization):
       "Resource": "*",
       "Condition": {
         "StringEquals": {
-          "ecs:ResourceTag/owner_sub": "auth0|abc123..."
+          "ecs:ResourceTag/username": "auth0|abc123..."
         }
       }
     },
@@ -191,7 +191,7 @@ Users can only execute commands on tasks they own (tag-based authorization):
       ],
       "Condition": {
         "StringEquals": {
-          "aws:ResourceTag/owner_sub": "auth0|abc123..."
+          "aws:ResourceTag/username": "auth0|abc123..."
         }
       }
     }
@@ -215,8 +215,8 @@ Access points are created at:
 - `Name`: `{cluster_id}-{investigation_id}`
 - `ClusterID`: Cluster identifier
 - `InvestigationID`: Investigation identifier
-- `OwnerSub`: OIDC subject claim
-- `OwnerUsername`: User's preferred username
+- `oidc_sub`: OIDC subject claim
+- `username`: User's preferred username
 - `ManagedBy`: `rosa-boundary-lambda`
 
 ## ECS Task Configuration
@@ -225,8 +225,8 @@ Access points are created at:
 
 All tasks are tagged with:
 
-- `owner_sub`: OIDC subject claim (used for authorization)
-- `owner_username`: Human-readable username
+- `oidc_sub`: OIDC subject claim (audit)
+- `username`: Human-readable username (ABAC key)
 - `investigation_id`: Investigation identifier
 - `cluster_id`: ROSA cluster identifier
 - `oc_version`: OpenShift CLI version

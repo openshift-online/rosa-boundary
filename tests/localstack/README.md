@@ -182,7 +182,7 @@ This approach tests infrastructure components without requiring containers to ru
 Tests verify IAM policy conditions without executing tasks:
 
 - Create roles with tag-based policies
-- Run tasks with different owner_sub tags
+- Run tasks with different username tags
 - Verify IAM policy evaluation logic
 - Test cross-user access prevention
 

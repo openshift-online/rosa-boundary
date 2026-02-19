@@ -40,7 +40,8 @@ def test_create_access_point_with_posix_user(test_efs, efs_client):
     """Test EFS access point creation with POSIX user configuration"""
     cluster_id = 'rosa-dev'
     investigation_id = f'inv-{int(datetime.now().timestamp())}'
-    owner_sub = 'test-user-123'
+    oidc_sub = 'test-user-123'
+    username = 'testuser123'
 
     response = efs_client.create_access_point(
         FileSystemId=test_efs,
@@ -60,7 +61,8 @@ def test_create_access_point_with_posix_user(test_efs, efs_client):
             {'Key': 'Name', 'Value': f'{cluster_id}-{investigation_id}'},
             {'Key': 'ClusterID', 'Value': cluster_id},
             {'Key': 'InvestigationID', 'Value': investigation_id},
-            {'Key': 'OwnerSub', 'Value': owner_sub}
+            {'Key': 'oidc_sub', 'Value': oidc_sub},
+            {'Key': 'username', 'Value': username}
         ]
     )
 
@@ -80,7 +82,8 @@ def test_create_access_point_with_posix_user(test_efs, efs_client):
     tag_dict = {t['Key']: t['Value'] for t in ap['Tags']}
     assert tag_dict['ClusterID'] == cluster_id
     assert tag_dict['InvestigationID'] == investigation_id
-    assert tag_dict['OwnerSub'] == owner_sub
+    assert tag_dict['oidc_sub'] == oidc_sub
+    assert tag_dict['username'] == username
 
     # Cleanup
     efs_client.delete_access_point(AccessPointId=access_point_id)

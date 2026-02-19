@@ -45,7 +45,7 @@ def test_no_deadline_tag_when_timeout_zero():
 
     # Simulate Lambda logic
     task_tags = [
-        {'key': 'owner_sub', 'value': 'test-user'},
+        {'key': 'oidc_sub', 'value': 'test-user'},
         {'key': 'created_at', 'value': created_at.isoformat()}
     ]
 

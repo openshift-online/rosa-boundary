@@ -78,7 +78,7 @@ cd tools/
    Role Name: rosa-boundary-user-{hash-of-sub}
    Policies:
      - ExecuteCommandOnCluster (ecs:ExecuteCommand on cluster)
-     - ExecuteCommandOnOwnedTasks (ecs:ExecuteCommand on tasks with matching owner_sub tag)
+     - ExecuteCommandOnOwnedTasks (ecs:ExecuteCommand on tasks with matching username tag)
      - DescribeAndListECS (ecs:DescribeTasks, ecs:ListTasks)
      - SSMSessionForECSExec (ssm:StartSession with tag condition)
      - KMSForECSExec (kms:Decrypt for encrypted sessions)
@@ -106,7 +106,8 @@ cd tools/
 6. **Lambda Launches ECS Task**
    ```
    Tags:
-     - owner_sub: {oidc-sub-claim}
+     - oidc_sub: {oidc-sub-claim}
+     - username: {preferred-username}
      - cluster_id: rosa-prod-01
      - investigation_id: 456
    ```
@@ -114,7 +115,7 @@ cd tools/
 7. **Script Assumes IAM Role**
    - Calls `assume-role.sh` with returned role ARN
    - Exports AWS credentials to environment
-   - Role permissions scoped to tasks with matching `owner_sub` tag
+   - Role permissions scoped to tasks with matching `username` tag
 
 ### Output
 
@@ -185,12 +186,12 @@ sequenceDiagram
     L->>L: Check sre-team membership
     L->>L: Create/get IAM role (per user)
     L->>L: Create EFS access point
-    L->>L: Launch ECS task (with owner_sub tag)
+    L->>L: Launch ECS task (with username tag)
     L->>U: Return role ARN + task ARN
     U->>STS: AssumeRoleWithWebIdentity
     STS->>U: Temporary credentials
     U->>ECS: execute-command (with tag-scoped permissions)
-    ECS->>ECS: Verify owner_sub tag matches
+    ECS->>ECS: Verify username tag matches
     ECS->>C: Start SSM session
     C->>U: Interactive shell
 ```
@@ -397,7 +398,7 @@ Multiple investigations can run simultaneously:
 # - Separate task definition family
 # - Tag-based isolation (users can only access own tasks)
 
-# Users can only connect to tasks they created (owner_sub tag enforcement)
+# Users can only connect to tasks they created (username tag enforcement)
 ```
 
 ## Tag-Based Authorization Model
@@ -405,7 +406,7 @@ Multiple investigations can run simultaneously:
 **How it works**:
 
 1. **Per-User IAM Roles**: Each user gets a unique role based on their OIDC `sub` claim
-2. **Task Tagging**: Tasks are tagged with `owner_sub` at launch
+2. **Task Tagging**: Tasks are tagged with `username` at launch
 3. **Policy Enforcement**: IAM policies restrict `ecs:ExecuteCommand` to tasks with matching tag
 
 **Example IAM Policy** (in user's role):
@@ -416,7 +417,7 @@ Multiple investigations can run simultaneously:
   "Resource": "arn:aws:ecs:*:*:task/*",
   "Condition": {
     "StringEquals": {
-      "ecs:ResourceTag/owner_sub": "${aws:userid}"
+      "ecs:ResourceTag/username": "${aws:userid}"
     }
   }
 }
@@ -485,7 +486,7 @@ tools/sre-auth/get-oidc-token.sh --force
 
 **Symptom**: `AccessDeniedException` when running `aws ecs execute-command`
 
-**Cause**: IAM role doesn't have permission (likely `owner_sub` tag mismatch)
+**Cause**: IAM role doesn't have permission (likely `username` tag mismatch)
 
 **Solution**:
 1. Verify you're using credentials from the investigation creation

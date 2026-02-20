@@ -20,6 +20,7 @@ ARGUMENTS:
 
 ENVIRONMENT VARIABLES:
     LAMBDA_URL          Lambda function URL (optional, will fetch from Terraform)
+    SRE_ROLE_ARN        Shared SRE role ARN (optional, overrides Lambda response role_arn)
 
 EXAMPLES:
     # Create investigation with default OC version and timeout
@@ -115,22 +116,32 @@ if echo "$RESPONSE" | jq -e '.error' >/dev/null 2>&1; then
 fi
 
 # Extract response fields
-ROLE_ARN=$(echo "$RESPONSE" | jq -r '.role_arn')
+LAMBDA_ROLE_ARN=$(echo "$RESPONSE" | jq -r '.role_arn')
 TASK_ARN=$(echo "$RESPONSE" | jq -r '.task_arn')
 CLUSTER=$(echo "$RESPONSE" | jq -r '.cluster_id')
 ACCESS_POINT_ID=$(echo "$RESPONSE" | jq -r '.access_point_id')
 
-if [[ -z "$ROLE_ARN" ]] || [[ "$ROLE_ARN" == "null" ]]; then
+if [[ -z "$TASK_ARN" ]] || [[ "$TASK_ARN" == "null" ]]; then
     echo "❌ Error: Invalid response from Lambda" >&2
     echo "$RESPONSE" | jq '.' >&2
+    exit 1
+fi
+
+# Use SRE_ROLE_ARN env var if set, otherwise use role_arn from Lambda response
+ROLE_ARN="${SRE_ROLE_ARN:-$LAMBDA_ROLE_ARN}"
+
+if [[ -z "$ROLE_ARN" ]] || [[ "$ROLE_ARN" == "null" ]]; then
+    echo "❌ Error: No role ARN available (set SRE_ROLE_ARN or ensure Lambda returns role_arn)" >&2
     exit 1
 fi
 
 echo "✅ Investigation created successfully!" >&2
 echo "" >&2
 
-# Step 3: Assume role with OIDC
-echo "=== Step 3: Assuming IAM Role ===" >&2
+# Step 3: Assume shared SRE role with OIDC session tags
+# Session tags from the JWT https://aws.amazon.com/tags claim propagate automatically,
+# enabling ABAC isolation (ecs:ResourceTag/username == ${aws:PrincipalTag/username}).
+echo "=== Step 3: Assuming Shared SRE Role ===" >&2
 echo "Role: $ROLE_ARN" >&2
 echo "" >&2
 

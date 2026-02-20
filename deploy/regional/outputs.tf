@@ -88,8 +88,10 @@ output "oidc_provider_arn" {
   value       = aws_iam_openid_connect_provider.keycloak.arn
 }
 
-# NOTE: oidc_sre_role_arn output removed
-# Per-user IAM roles are now created dynamically by Lambda function
+output "sre_shared_role_arn" {
+  description = "ARN of the shared SRE IAM role (ABAC, assumed via OIDC session tags)"
+  value       = aws_iam_role.sre_shared.arn
+}
 
 output "lambda_function_url" {
   description = "URL for the create-investigation Lambda function"

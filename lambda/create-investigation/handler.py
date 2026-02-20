@@ -1,15 +1,16 @@
 """
 AWS Lambda handler for creating investigation tasks with OIDC authentication.
 
-This Lambda validates Keycloak OIDC tokens, manages per-user IAM roles with
-tag-based authorization, creates EFS access points, and launches ECS tasks.
+This Lambda validates Keycloak OIDC tokens, verifies group membership, creates
+EFS access points, and launches ECS tasks. Authorization uses a shared IAM role
+with ABAC (Attribute-Based Access Control) via OIDC session tags — no per-user
+role management required.
 """
 
 import os
 import json
-import hashlib
 import logging
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
 import boto3
@@ -23,7 +24,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # AWS clients
-iam = boto3.client('iam')
 ecs = boto3.client('ecs')
 efs = boto3.client('efs')
 
@@ -37,6 +37,7 @@ TASK_DEFINITION = os.environ.get('TASK_DEFINITION')
 SUBNETS = os.environ.get('SUBNETS', '').split(',')
 SECURITY_GROUP = os.environ.get('SECURITY_GROUP')
 EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
+SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUP = os.environ.get('REQUIRED_GROUP', 'sre-team')
 
 
@@ -71,8 +72,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Validate environment configuration
         missing_vars = []
         for var_name in ['KEYCLOAK_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID',
-                         'OIDC_PROVIDER_ARN', 'ECS_CLUSTER', 'TASK_DEFINITION',
-                         'SUBNETS', 'SECURITY_GROUP', 'EFS_FILESYSTEM_ID']:
+                         'ECS_CLUSTER', 'TASK_DEFINITION',
+                         'SUBNETS', 'SECURITY_GROUP', 'EFS_FILESYSTEM_ID', 'SHARED_ROLE_ARN']:
             if not globals()[var_name] or (var_name == 'SUBNETS' and not SUBNETS[0]):
                 missing_vars.append(var_name)
 
@@ -139,26 +140,19 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"User {username} authorized with group {REQUIRED_GROUP}")
 
-        # Get or create user role
-        logger.info(f"Getting or creating IAM role for user {username}")
-        role_arn, role_created = get_or_create_user_role(
-            user_sub,
-            KEYCLOAK_CLIENT_ID,
-            OIDC_PROVIDER_ARN
-        )
-
-        if role_created:
-            logger.info(f"Created new IAM role: {role_arn}")
-        else:
-            logger.info(f"Using existing IAM role: {role_arn}")
+        # Use shared ABAC role — session tags from the OIDC token (https://aws.amazon.com/tags
+        # claim) propagate automatically during AssumeRoleWithWebIdentity and are matched
+        # against ecs:ResourceTag/username in the role's permissions policy.
+        role_arn = SHARED_ROLE_ARN
+        logger.info(f"Using shared SRE role: {role_arn}")
 
         # Create investigation task
         logger.info(f"Creating investigation task: {investigation_id} for cluster {cluster_id}")
         task_info = create_investigation_task(
             cluster=ECS_CLUSTER,
             task_def=TASK_DEFINITION,
-            owner_sub=user_sub,
-            owner_username=username,
+            oidc_sub=user_sub,
+            username=username,
             investigation_id=investigation_id,
             cluster_id=cluster_id,
             subnets=SUBNETS,
@@ -174,7 +168,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return response(200, {
             'message': 'Investigation task created successfully',
             'role_arn': role_arn,
-            'role_created': role_created,
             'task_arn': task_info['taskArn'],
             'access_point_id': task_info['accessPointId'],
             'investigation_id': investigation_id,
@@ -273,206 +266,11 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
         return None
 
 
-def get_or_create_user_role(sub: str, aud: str, oidc_provider_arn: str) -> Tuple[str, bool]:
-    """
-    Get or create IAM role for user with tag-based ECS Exec permissions.
-
-    Args:
-        sub: OIDC subject claim (unique user identifier)
-        aud: OIDC audience claim (client_id)
-        oidc_provider_arn: ARN of the OIDC identity provider
-
-    Returns:
-        Tuple of (role_arn, was_created)
-    """
-    # Generate deterministic role name from subject hash
-    sub_hash = hashlib.sha256(sub.encode()).hexdigest()[:8]
-    role_name = f"rosa-boundary-user-{sub_hash}"
-
-    # Check if role exists
-    try:
-        logger.info(f"Checking for existing role: {role_name}")
-        get_response = iam.get_role(RoleName=role_name)
-        role_arn = get_response['Role']['Arn']
-        logger.info(f"Found existing role: {role_arn}")
-        return role_arn, False
-
-    except ClientError as e:
-        if e.response['Error']['Code'] != 'NoSuchEntity':
-            raise
-
-        logger.info(f"Role does not exist, creating: {role_name}")
-
-    # Create trust policy for OIDC provider
-    # Extract provider domain from ARN (everything after 'oidc-provider/')
-    # Example: arn:aws:iam::123:oidc-provider/keycloak.example.com/realms/sre-ops
-    # Results in: keycloak.example.com/realms/sre-ops
-    oidc_provider_domain = oidc_provider_arn.split('oidc-provider/')[-1]
-
-    trust_policy = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Effect": "Allow",
-                "Principal": {
-                    "Federated": oidc_provider_arn
-                },
-                "Action": "sts:AssumeRoleWithWebIdentity",
-                "Condition": {
-                    "StringEquals": {
-                        f"{oidc_provider_domain}:sub": sub,
-                        f"{oidc_provider_domain}:aud": aud
-                    }
-                }
-            }
-        ]
-    }
-
-    # Create role
-    try:
-        create_response = iam.create_role(
-            RoleName=role_name,
-            AssumeRolePolicyDocument=json.dumps(trust_policy),
-            Description=f"ROSA Boundary user role for OIDC sub: {sub}",
-            Tags=[
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'OIDCSubject', 'Value': sub},
-                {'Key': 'OIDCAudience', 'Value': aud}
-            ]
-        )
-        role_arn = create_response['Role']['Arn']
-        logger.info(f"Created role: {role_arn}")
-
-    except ClientError as e:
-        logger.error(f"Failed to create role: {str(e)}")
-        raise
-
-    # Create inline policy with tag-based permissions
-    # Get account ID and region from environment
-    account_id = os.environ.get('AWS_ACCOUNT_ID', '*')
-    region = os.environ.get('AWS_REGION', 'us-east-2')  # Lambda sets this automatically
-    cluster_name = os.environ.get('ECS_CLUSTER', '*')
-
-    # IAM Policy Design: Two-Statement Structure for ECS Exec Isolation
-    #
-    # ecs:ExecuteCommand requires permissions on BOTH the cluster AND the task.
-    # This is AWS's design for layered access control.
-    #
-    # Statement 1 (ExecuteCommandOnCluster):
-    #   - Grants permission on the cluster resource
-    #   - No condition - all users with this role can pass the cluster check
-    #   - This alone grants NO task access
-    #   - Think of it as: "badge to enter the building"
-    #
-    # Statement 2 (ExecuteCommandOnOwnedTasks):
-    #   - Grants permission on task resources with tag-based condition
-    #   - Condition MUST match: ecs:ResourceTag/owner_sub == user's OIDC sub
-    #   - Only grants access to tasks explicitly tagged with matching owner_sub
-    #   - Denies access to: tasks with different owner_sub, untagged tasks, all other tasks
-    #   - Think of it as: "key to your specific office"
-    #
-    # Why both are required:
-    #   - Cluster permission alone: cannot exec into any tasks (tested)
-    #   - Task permission alone: fails cluster authorization check (tested)
-    #   - Both together: can only exec into tasks with matching owner_sub tag
-    #
-    # Security properties:
-    #   - Users CANNOT access tasks tagged to other users
-    #   - Users CANNOT access untagged tasks (missing tag fails condition)
-    #   - Users CANNOT bypass isolation by launching untagged tasks
-    #   - Provides strong isolation via IAM-enforced resource tagging
-    #
-    # See tools/test-tag-isolation.sh for comprehensive test proving this works.
-    policy_document = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "ExecuteCommandOnCluster",
-                "Effect": "Allow",
-                "Action": [
-                    "ecs:ExecuteCommand"
-                ],
-                "Resource": [
-                    f"arn:aws:ecs:{region}:{account_id}:cluster/{cluster_name}"
-                ]
-                # No condition - required prerequisite for all ECS exec operations
-                # This alone does NOT grant access to any tasks
-            },
-            {
-                "Sid": "ExecuteCommandOnOwnedTasks",
-                "Effect": "Allow",
-                "Action": [
-                    "ecs:ExecuteCommand"
-                ],
-                "Resource": "*",
-                "Condition": {
-                    "StringEquals": {
-                        "ecs:ResourceTag/owner_sub": sub
-                    }
-                }
-                # Tag-based isolation: only tasks with matching owner_sub tag
-                # This is where actual access control happens
-            },
-            {
-                "Sid": "DescribeAndListECS",
-                "Effect": "Allow",
-                "Action": [
-                    "ecs:DescribeTasks",
-                    "ecs:ListTasks",
-                    "ecs:DescribeTaskDefinition"
-                ],
-                "Resource": "*"
-            },
-            {
-                "Sid": "SSMSessionForECSExec",
-                "Effect": "Allow",
-                "Action": [
-                    "ssm:StartSession"
-                ],
-                "Resource": [
-                    "arn:aws:ecs:*:*:task/*",
-                    "arn:aws:ssm:*:*:document/AWS-StartInteractiveCommand"
-                ]
-                # No tag condition here - access control is enforced by ecs:ExecuteCommand
-                # The SSM API doesn't have access to ECS resource tags
-            },
-            {
-                "Sid": "KMSForECSExec",
-                "Effect": "Allow",
-                "Action": [
-                    "kms:Decrypt",
-                    "kms:GenerateDataKey"
-                ],
-                "Resource": "*"
-            }
-        ]
-    }
-
-    try:
-        iam.put_role_policy(
-            RoleName=role_name,
-            PolicyName='ECSExecTagBasedPolicy',
-            PolicyDocument=json.dumps(policy_document)
-        )
-        logger.info(f"Attached inline policy to role: {role_name}")
-
-    except ClientError as e:
-        logger.error(f"Failed to attach policy to role: {str(e)}")
-        # Try to delete the role since it's incomplete
-        try:
-            iam.delete_role(RoleName=role_name)
-        except Exception:
-            pass
-        raise
-
-    return role_arn, True
-
-
 def create_investigation_task(
     cluster: str,
     task_def: str,
-    owner_sub: str,
-    owner_username: str,
+    oidc_sub: str,
+    username: str,
     investigation_id: str,
     cluster_id: str,
     subnets: list,
@@ -487,8 +285,8 @@ def create_investigation_task(
     Args:
         cluster: ECS cluster name
         task_def: ECS task definition name/ARN
-        owner_sub: OIDC subject (user identifier)
-        owner_username: User's preferred username
+        oidc_sub: OIDC subject claim (UUID, stored for audit purposes)
+        username: User's preferred username (used as task tag for ABAC)
         investigation_id: Investigation identifier
         cluster_id: ROSA cluster identifier
         subnets: List of subnet IDs
@@ -523,8 +321,8 @@ def create_investigation_task(
                 {'Key': 'Name', 'Value': f"{cluster_id}-{investigation_id}"},
                 {'Key': 'ClusterID', 'Value': cluster_id},
                 {'Key': 'InvestigationID', 'Value': investigation_id},
-                {'Key': 'OwnerSub', 'Value': owner_sub},
-                {'Key': 'OwnerUsername', 'Value': owner_username},
+                {'Key': 'oidc_sub', 'Value': oidc_sub},
+                {'Key': 'username', 'Value': username},
                 {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
             ]
         )
@@ -546,10 +344,13 @@ def create_investigation_task(
     ]
 
     # Build task tags (used for both run_task and tag_resource)
+    # The 'username' tag is the ABAC key: the shared SRE role policy conditions on
+    # ecs:ResourceTag/username == ${aws:PrincipalTag/username} to enforce per-user isolation.
+    # The 'oidc_sub' tag stores the immutable OIDC subject UUID for audit purposes.
     created_at = datetime.utcnow()
     task_tags = [
-        {'key': 'owner_sub', 'value': owner_sub},
-        {'key': 'owner_username', 'value': owner_username},
+        {'key': 'oidc_sub', 'value': oidc_sub},
+        {'key': 'username', 'value': username},
         {'key': 'investigation_id', 'value': investigation_id},
         {'key': 'cluster_id', 'value': cluster_id},
         {'key': 'oc_version', 'value': oc_version},

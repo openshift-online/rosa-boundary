@@ -10,22 +10,28 @@ FORCE_REFRESH=false
 
 usage() {
     cat <<EOF >&2
-Usage: $0 --role <role-arn> [--force]
+Usage: $0 [--role <role-arn>] [--force]
 
 Assume AWS IAM role using OIDC web identity federation.
 Uses get-oidc-token.sh to obtain Keycloak ID token.
 
 OPTIONS:
-    --role ARN      AWS role ARN to assume (required)
+    --role ARN      AWS role ARN to assume (optional if SRE_ROLE_ARN is set)
     --force         Force fresh OIDC authentication (ignore token cache)
     -h, --help      Show this help message
 
+ENVIRONMENT VARIABLES:
+    SRE_ROLE_ARN    Shared SRE role ARN (fallback when --role is not provided)
+
 EXAMPLES:
-    # Assume role and export credentials
-    eval \$($0 --role arn:aws:iam::123456789012:role/rosa-boundary-user-abc123)
+    # Assume shared role via env var
+    eval \$(SRE_ROLE_ARN=arn:aws:iam::123456789012:role/rosa-boundary-dev-sre-shared $0)
+
+    # Assume specific role
+    eval \$($0 --role arn:aws:iam::123456789012:role/rosa-boundary-dev-sre-shared)
 
     # Force fresh authentication
-    eval \$($0 --role arn:aws:iam::123456789012:role/rosa-boundary-user-abc123 --force)
+    eval \$($0 --force)
 
 OUTPUT:
     Bash export statements for AWS credentials (stdout)
@@ -55,7 +61,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$ROLE_ARN" ]]; then
-    echo "Error: --role is required" >&2
+    ROLE_ARN="${SRE_ROLE_ARN:-}"
+fi
+
+if [[ -z "$ROLE_ARN" ]]; then
+    echo "Error: role ARN required via --role or SRE_ROLE_ARN environment variable" >&2
     usage
 fi
 

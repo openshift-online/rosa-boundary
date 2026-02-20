@@ -32,39 +32,6 @@ resource "aws_iam_role_policy_attachment" "create_investigation_lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Lambda permissions for IAM role management
-resource "aws_iam_role_policy" "create_investigation_lambda_iam" {
-  name = "iam-role-management"
-  role = aws_iam_role.create_investigation_lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:GetRole",
-          "iam:CreateRole",
-          "iam:PutRolePolicy",
-          "iam:TagRole",
-          "iam:AttachRolePolicy"
-        ]
-        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project}-user-*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:PassRole"
-        ]
-        Resource = [
-          aws_iam_role.task.arn,
-          aws_iam_role.execution.arn
-        ]
-      }
-    ]
-  })
-}
-
 # Lambda permissions for ECS task operations
 resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
   name = "ecs-task-management"
@@ -152,6 +119,7 @@ resource "aws_lambda_function" "create_investigation" {
       SUBNETS              = join(",", var.subnet_ids)
       SECURITY_GROUP       = aws_security_group.fargate.id
       EFS_FILESYSTEM_ID    = aws_efs_file_system.sre_home.id
+      SHARED_ROLE_ARN      = aws_iam_role.sre_shared.arn
       S3_AUDIT_BUCKET      = aws_s3_bucket.audit.id
       AWS_ACCOUNT_ID       = data.aws_caller_identity.current.account_id
       PROJECT_NAME         = var.project

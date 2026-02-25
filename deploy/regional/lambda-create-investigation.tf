@@ -48,6 +48,14 @@ resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
           "ecs:TagResource"
         ]
         Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["iam:PassRole"]
+        Resource = [
+          aws_iam_role.task.arn,
+          aws_iam_role.execution.arn,
+        ]
       }
     ]
   })
@@ -139,13 +147,13 @@ resource "aws_lambda_function" "create_investigation" {
 # Lambda Function URL (simpler than API Gateway)
 resource "aws_lambda_function_url" "create_investigation" {
   function_name      = aws_lambda_function.create_investigation.function_name
-  authorization_type = "NONE" # We validate OIDC token in the function
+  authorization_type = "AWS_IAM" # SigV4 enforced; OIDC token validated inside the function
 
   cors {
     allow_credentials = false
     allow_origins     = ["*"] # Allow localhost for testing; restrict in production
     allow_methods     = ["POST"]
-    allow_headers     = ["content-type", "authorization"]
+    allow_headers     = ["content-type", "x-oidc-token"] # SigV4 handles Authorization; OIDC token in custom header
     max_age           = 86400
   }
 
@@ -153,11 +161,11 @@ resource "aws_lambda_function_url" "create_investigation" {
   depends_on = [aws_lambda_permission.create_investigation_url]
 }
 
-# Allow public invocation via Function URL
+# Allow lambda-invoker role to call the Function URL via SigV4
 resource "aws_lambda_permission" "create_investigation_url" {
   statement_id           = "AllowFunctionURLInvoke"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.create_investigation.function_name
-  principal              = "*"
-  function_url_auth_type = "NONE"
+  principal              = aws_iam_role.lambda_invoker.arn
+  function_url_auth_type = "AWS_IAM"
 }

@@ -10,13 +10,15 @@ import (
 
 // Config holds all configuration values for the CLI.
 type Config struct {
-	LambdaURL     string `mapstructure:"lambda_url"`
-	KeycloakURL   string `mapstructure:"keycloak_url"`
-	KeycloakRealm string `mapstructure:"keycloak_realm"`
-	OIDCClientID  string `mapstructure:"oidc_client_id"`
-	AWSRegion     string `mapstructure:"aws_region"`
-	ClusterName   string `mapstructure:"cluster_name"`
-	SRERoleARN    string `mapstructure:"sre_role_arn"`
+	LambdaURL          string `mapstructure:"lambda_url"`
+	LambdaFunctionName string `mapstructure:"lambda_function_name"`
+	KeycloakURL        string `mapstructure:"keycloak_url"`
+	KeycloakRealm      string `mapstructure:"keycloak_realm"`
+	OIDCClientID       string `mapstructure:"oidc_client_id"`
+	AWSRegion          string `mapstructure:"aws_region"`
+	ClusterName        string `mapstructure:"cluster_name"`
+	SRERoleARN         string `mapstructure:"sre_role_arn"`
+	InvokerRoleARN     string `mapstructure:"invoker_role_arn"`
 }
 
 // Load reads configuration from file, env vars, and applies defaults.
@@ -49,11 +51,13 @@ func Load() error {
 
 	// Legacy env var aliases (without prefix) for backward compat
 	bindEnvAlias("lambda_url", "LAMBDA_URL")
+	bindEnvAlias("lambda_function_name", "LAMBDA_FUNCTION_NAME")
 	bindEnvAlias("keycloak_url", "KEYCLOAK_URL")
 	bindEnvAlias("keycloak_realm", "KEYCLOAK_REALM")
 	bindEnvAlias("oidc_client_id", "OIDC_CLIENT_ID")
 	bindEnvAlias("aws_region", "AWS_REGION")
 	bindEnvAlias("sre_role_arn", "SRE_ROLE_ARN")
+	bindEnvAlias("invoker_role_arn", "INVOKER_ROLE_ARN")
 
 	return nil
 }

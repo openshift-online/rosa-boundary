@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/spf13/cobra"
 
 	"github.com/openshift/rosa-boundary/internal/auth"
@@ -15,26 +16,33 @@ import (
 )
 
 var startTaskCmd = &cobra.Command{
-	Use:   "start-task <cluster-id> <investigation-id>",
+	Use:   "start-task",
 	Short: "Create an investigation and start an ECS task",
 	Long: `Authenticate with Keycloak, call the create-investigation Lambda,
 assume the returned SRE role, and wait for the task to reach RUNNING state.
 
+The cluster defaults to the configured cluster_name. If --investigation-id is
+omitted, a random three-word name is generated (e.g. "swift-dance-party").
+
 Prints connection info and the join-task command upon completion.`,
-	Args: cobra.ExactArgs(2),
+	Args: cobra.NoArgs,
 	RunE: runStartTask,
 }
 
 var (
-	startOCVersion    string
-	startTaskTimeout  int
-	startConnect      bool
-	startNoWait       bool
-	startForceLogin   bool
-	startOutputFormat string
+	startClusterID       string
+	startInvestigationID string
+	startOCVersion       string
+	startTaskTimeout     int
+	startConnect         bool
+	startNoWait          bool
+	startForceLogin      bool
+	startOutputFormat    string
 )
 
 func init() {
+	startTaskCmd.Flags().StringVar(&startClusterID, "cluster-id", "", "Cluster ID (defaults to configured cluster_name)")
+	startTaskCmd.Flags().StringVar(&startInvestigationID, "investigation-id", "", "Investigation ID (auto-generated if omitted)")
 	startTaskCmd.Flags().StringVar(&startOCVersion, "oc-version", "4.20", "OpenShift CLI version to use")
 	startTaskCmd.Flags().IntVar(&startTaskTimeout, "task-timeout", 3600, "Task timeout in seconds (0 = no timeout)")
 	startTaskCmd.Flags().BoolVar(&startConnect, "connect", false, "Automatically join the task after it is RUNNING")
@@ -45,12 +53,27 @@ func init() {
 }
 
 func runStartTask(cmd *cobra.Command, args []string) error {
-	clusterID := args[0]
-	investigationID := args[1]
-
-	cfg, err := getConfig(true, true)
+	cfg, err := getConfig(false, true)
 	if err != nil {
 		return err
+	}
+
+	clusterID := startClusterID
+	if clusterID == "" {
+		clusterID = cfg.ClusterName
+	}
+
+	investigationID := startInvestigationID
+	if investigationID == "" {
+		investigationID = petname.Generate(3, "-")
+		output.Status("Generated investigation ID: %s", investigationID)
+	}
+
+	if cfg.InvokerRoleARN == "" {
+		return fmt.Errorf("invoker role ARN is required; set --invoker-role-arn, ROSA_BOUNDARY_INVOKER_ROLE_ARN, or INVOKER_ROLE_ARN")
+	}
+	if cfg.LambdaFunctionName == "" {
+		return fmt.Errorf("lambda function name is required; set --lambda-function-name, ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME, or LAMBDA_FUNCTION_NAME")
 	}
 
 	// Step 1: Get OIDC token
@@ -66,15 +89,26 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	}
 	output.Status("OIDC token obtained")
 
-	// Step 2: Call Lambda
-	output.Status("\n=== Step 2: Creating Investigation via Lambda ===")
+	// Step 2: Assume Lambda Invoker role
+	output.Status("\n=== Step 2: Assuming Lambda Invoker Role ===")
+	output.Status("Role: %s", cfg.InvokerRoleARN)
+
+	invokerCreds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), cfg.AWSRegion, cfg.InvokerRoleARN, idToken, "rosa-boundary-invoker")
+	if err != nil {
+		return fmt.Errorf("lambda invoker role assumption failed: %w", err)
+	}
+	output.Status("Invoker role assumed")
+
+	// Step 3: Call Lambda (SigV4-signed)
+	output.Status("\n=== Step 3: Creating Investigation via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)
 	output.Status("Investigation:  %s", investigationID)
 	output.Status("OC Version:     %s", startOCVersion)
 	output.Status("Task Timeout:   %d seconds", startTaskTimeout)
 
-	lambdaClient := lambda.New(cfg.LambdaURL)
-	lambdaResp, err := lambdaClient.CreateInvestigation(idToken, lambda.InvestigationRequest{
+	invokerCredProvider := awsclient.StaticCredentialsProvider(invokerCreds)
+	lambdaClient := lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, invokerCredProvider)
+	lambdaResp, err := lambdaClient.CreateInvestigation(cmd.Context(), idToken, lambda.InvestigationRequest{
 		ClusterID:       clusterID,
 		InvestigationID: investigationID,
 		OCVersion:       startOCVersion,
@@ -97,8 +131,8 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 
 	output.Status("Investigation created: task %s", taskID)
 
-	// Step 3: Assume SRE role
-	output.Status("\n=== Step 3: Assuming Shared SRE Role ===")
+	// Step 4: Assume SRE role
+	output.Status("\n=== Step 4: Assuming Shared SRE Role ===")
 	output.Status("Role: %s", roleARN)
 
 	sessionName := "rosa-boundary-sre"
@@ -122,9 +156,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 
 	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, credProvider)
 
-	// Step 4: Wait for RUNNING (unless --no-wait)
+	// Step 5: Wait for RUNNING (unless --no-wait)
 	if !startNoWait {
-		output.Status("\n=== Step 4: Waiting for Task to be RUNNING ===")
+		output.Status("\n=== Step 5: Waiting for Task to be RUNNING ===")
 		output.Status("Task: %s", taskID)
 		if err := ecsClient.WaitForRunning(cmd.Context(), taskID); err != nil {
 			output.Status("Warning: task may not be running yet: %v", err)
@@ -152,9 +186,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		printStartSummary(clusterName, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion)
 	}
 
-	// Step 5: Auto-connect if requested
+	// Step 6: Auto-connect if requested
 	if startConnect && !startNoWait {
-		output.Status("\n=== Step 5: Connecting to Task ===")
+		output.Status("\n=== Step 6: Connecting to Task ===")
 		return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, taskID, "rosa-boundary", "/bin/bash", false)
 	}
 

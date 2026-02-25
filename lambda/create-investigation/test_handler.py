@@ -58,7 +58,7 @@ class TestInputValidation:
 
 
 class TestHeaderRedaction:
-    """Test that Authorization headers are redacted in logs."""
+    """Test that sensitive headers are redacted in logs."""
 
     @patch('handler.logger')
     def test_authorization_header_redacted(self, mock_logger):
@@ -91,6 +91,32 @@ class TestHeaderRedaction:
                 "Token should not appear in logs"
             assert 'REDACTED' in call or 'authorization' not in call.lower(), \
                 "Authorization should be redacted"
+
+    @patch('handler.logger')
+    def test_x_oidc_token_header_redacted(self, mock_logger):
+        """Test that X-OIDC-Token header is redacted in event logging."""
+        event = {
+            'headers': {
+                'x-oidc-token': 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...',
+                'content-type': 'application/json'
+            },
+            'body': json.dumps({
+                'cluster_id': 'test-cluster',
+                'investigation_id': 'inv-123'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token', return_value=None):
+            handler.lambda_handler(event, context)
+
+        calls = [str(call) for call in mock_logger.info.call_args_list]
+        headers_logged = [call for call in calls if 'Headers:' in call]
+
+        assert len(headers_logged) > 0, "Headers should be logged"
+        for call in headers_logged:
+            assert 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9' not in call, \
+                "OIDC token should not appear in logs"
 
     @patch('handler.logger')
     def test_other_headers_not_redacted(self, mock_logger):
@@ -205,8 +231,8 @@ class TestErrorSanitization:
 class TestLambdaHandler:
     """Test the main Lambda handler function."""
 
-    def test_missing_authorization_header(self):
-        """Test that missing Authorization header returns 401."""
+    def test_missing_oidc_token(self):
+        """Test that missing OIDC token in all supported headers returns 401."""
         event = {
             'headers': {},
             'body': json.dumps({'cluster_id': 'test', 'investigation_id': 'inv-123'})
@@ -217,10 +243,111 @@ class TestLambdaHandler:
 
         assert response['statusCode'] == 401
         body = json.loads(response['body'])
-        assert 'Authorization' in body['error']
+        assert 'OIDC token' in body['error']
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+    })
+    def test_x_oidc_token_header_accepted(self):
+        """Test that X-OIDC-Token header is accepted (SigV4 flow)."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'x-oidc-token': 'test-token'},
+            'body': json.dumps({'cluster_id': 'test', 'investigation_id': 'inv-123'})
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token', return_value=None):
+            response = handler.lambda_handler(event, context)
+
+        # 401 from OIDC validation (not from missing token), meaning token was extracted
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'Invalid or expired token' in body['error']
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+    })
+    def test_authorization_bearer_fallback_accepted(self):
+        """Test that Authorization: Bearer fallback is still accepted for backward compat."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer test-token'},
+            'body': json.dumps({'cluster_id': 'test', 'investigation_id': 'inv-123'})
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token', return_value=None):
+            response = handler.lambda_handler(event, context)
+
+        # 401 from OIDC validation (not from missing token), meaning token was extracted
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'Invalid or expired token' in body['error']
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+    })
+    def test_x_oidc_token_takes_precedence_over_authorization(self):
+        """Test that X-OIDC-Token is preferred over Authorization: Bearer."""
+        import importlib
+        importlib.reload(handler)
+
+        captured_tokens = []
+
+        def capture_token(token, *args, **kwargs):
+            captured_tokens.append(token)
+            return None
+
+        event = {
+            'headers': {
+                'x-oidc-token': 'oidc-header-token',
+                'authorization': 'Bearer bearer-token'
+            },
+            'body': json.dumps({'cluster_id': 'test', 'investigation_id': 'inv-123'})
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token', side_effect=capture_token):
+            handler.lambda_handler(event, context)
+
+        assert len(captured_tokens) == 1
+        assert captured_tokens[0] == 'oidc-header-token', \
+            "X-OIDC-Token should be preferred over Authorization: Bearer"
 
     def test_invalid_authorization_format(self):
-        """Test that non-Bearer token format returns 401."""
+        """Test that non-Bearer Authorization and no X-OIDC-Token returns 401."""
         event = {
             'headers': {'authorization': 'Basic dXNlcjpwYXNz'},
             'body': json.dumps({'cluster_id': 'test', 'investigation_id': 'inv-123'})
@@ -231,7 +358,7 @@ class TestLambdaHandler:
 
         assert response['statusCode'] == 401
         body = json.loads(response['body'])
-        assert 'Authorization' in body['error']
+        assert 'OIDC token' in body['error']
 
     @patch.dict('os.environ', {
         'KEYCLOAK_URL': 'https://keycloak.test',

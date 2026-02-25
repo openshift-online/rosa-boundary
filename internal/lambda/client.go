@@ -1,13 +1,13 @@
 package lambda
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
-	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awslambda "github.com/aws/aws-sdk-go-v2/service/lambda"
 )
 
 // InvestigationRequest is the payload sent to the create-investigation Lambda.
@@ -36,59 +36,83 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-// Client is an HTTP client for the create-investigation Lambda function URL.
+// lambdaEventPayload mimics the API Gateway / function URL event format that the
+// Lambda handler expects, so the same handler works for both function URL and direct
+// SDK invocation.
+type lambdaEventPayload struct {
+	Headers map[string]string `json:"headers"`
+	Body    string            `json:"body"`
+}
+
+// lambdaAPIResponse is the object returned by the Lambda handler (statusCode + body).
+type lambdaAPIResponse struct {
+	StatusCode int    `json:"statusCode"`
+	Body       string `json:"body"`
+}
+
+// Client invokes the create-investigation Lambda function directly via the SDK.
 type Client struct {
-	lambdaURL string
-	http      *http.Client
+	functionName string
+	sdk          *awslambda.Client
 }
 
-// New returns a new Lambda Client.
-func New(lambdaURL string) *Client {
-	return &Client{
-		lambdaURL: strings.TrimRight(lambdaURL, "/"),
-		http: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}
+// New returns a Lambda Client that invokes the function directly (bypasses function URL).
+// Using sdk invocation avoids SCP restrictions that target lambda:InvokeFunctionUrl.
+func New(functionName, region string, credentials aws.CredentialsProvider) *Client {
+	sdk := awslambda.New(awslambda.Options{
+		Region:      region,
+		Credentials: credentials,
+	})
+	return &Client{functionName: functionName, sdk: sdk}
 }
 
-// CreateInvestigation calls the Lambda to create an investigation task.
-func (c *Client) CreateInvestigation(idToken string, req InvestigationRequest) (*InvestigationResponse, error) {
-	body, err := json.Marshal(req)
+// CreateInvestigation invokes the Lambda function to create an investigation task.
+// The OIDC token is passed in the event headers so the handler can validate it.
+func (c *Client) CreateInvestigation(ctx context.Context, idToken string, req InvestigationRequest) (*InvestigationResponse, error) {
+	bodyBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("cannot marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequest(http.MethodPost, c.lambdaURL, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("cannot create request: %w", err)
+	event := lambdaEventPayload{
+		Headers: map[string]string{"x-oidc-token": idToken},
+		Body:    string(bodyBytes),
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+idToken)
-
-	resp, err := c.http.Do(httpReq)
+	payload, err := json.Marshal(event)
 	if err != nil {
-		return nil, fmt.Errorf("lambda request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	rawBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("cannot read Lambda response: %w", err)
+		return nil, fmt.Errorf("cannot marshal Lambda event: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		// Try to parse error message
+	out, err := c.sdk.Invoke(ctx, &awslambda.InvokeInput{
+		FunctionName: aws.String(c.functionName),
+		Payload:      payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("lambda invocation failed: %w", err)
+	}
+
+	// Check for function-level error (unhandled exception in the Lambda runtime).
+	if out.FunctionError != nil {
+		return nil, fmt.Errorf("lambda function error (%s): %s", *out.FunctionError, string(out.Payload))
+	}
+
+	// The handler always returns an API Gateway-style response: {statusCode, headers, body}.
+	var apiResp lambdaAPIResponse
+	if err := json.Unmarshal(out.Payload, &apiResp); err != nil {
+		return nil, fmt.Errorf("cannot decode Lambda response: %w", err)
+	}
+
+	if apiResp.StatusCode != http.StatusOK {
 		var errResp errorResponse
-		if jsonErr := json.Unmarshal(rawBody, &errResp); jsonErr == nil && errResp.Error != "" {
-			return nil, fmt.Errorf("lambda returned %d: %s", resp.StatusCode, errResp.Error)
+		if jsonErr := json.Unmarshal([]byte(apiResp.Body), &errResp); jsonErr == nil && errResp.Error != "" {
+			return nil, fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, errResp.Error)
 		}
-		return nil, fmt.Errorf("lambda returned HTTP %d: %s", resp.StatusCode, string(rawBody))
+		return nil, fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, apiResp.Body)
 	}
 
 	var result InvestigationResponse
-	if err := json.Unmarshal(rawBody, &result); err != nil {
-		return nil, fmt.Errorf("cannot decode Lambda response: %w", err)
+	if err := json.Unmarshal([]byte(apiResp.Body), &result); err != nil {
+		return nil, fmt.Errorf("cannot decode Lambda response body: %w", err)
 	}
 
 	if result.TaskARN == "" {

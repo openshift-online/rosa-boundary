@@ -122,3 +122,8 @@ output "reaper_lambda_function_arn" {
   description = "ARN of the reap-tasks Lambda function"
   value       = aws_lambda_function.reap_tasks.arn
 }
+
+output "lambda_invoker_role_arn" {
+  description = "ARN of the IAM role SREs assume to invoke the Lambda function URL via SigV4"
+  value       = aws_iam_role.lambda_invoker.arn
+}

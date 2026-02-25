@@ -55,19 +55,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         # Debug: log event structure (redact sensitive headers)
         logger.info(f"Event keys: {list(event.keys())}")
-        headers_redacted = {k: '***REDACTED***' if k.lower() == 'authorization' else v
+        headers_redacted = {k: '***REDACTED***' if k.lower() in ('authorization', 'x-oidc-token') else v
                            for k, v in event.get('headers', {}).items()}
         logger.info(f"Headers: {headers_redacted}")
 
-        # Extract and validate Authorization header
+        # Extract OIDC token: prefer X-OIDC-Token header (SigV4 flow); fall back to
+        # Authorization: Bearer for backward compatibility during migration.
         headers = event.get('headers', {})
-        auth_header = headers.get('Authorization') or headers.get('authorization')
+        oidc_token = headers.get('x-oidc-token')
+        if not oidc_token:
+            auth_header = headers.get('authorization') or headers.get('Authorization')
+            if auth_header and auth_header.startswith('Bearer '):
+                oidc_token = auth_header.split(' ', 1)[1]
+        if not oidc_token:
+            logger.warning("Missing OIDC token: no x-oidc-token header or Authorization: Bearer")
+            return response(401, {'error': 'Missing OIDC token. Provide X-OIDC-Token header.'})
 
-        if not auth_header or not auth_header.startswith('Bearer '):
-            logger.warning("Missing or invalid Authorization header")
-            return response(401, {'error': 'Missing or invalid Authorization header'})
-
-        token = auth_header.split(' ', 1)[1]
+        token = oidc_token
 
         # Validate environment configuration
         missing_vars = []

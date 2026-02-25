@@ -46,6 +46,8 @@ func init() {
 	rootCmd.PersistentFlags().String("region", "", "AWS region (default: us-east-2)")
 	rootCmd.PersistentFlags().String("cluster", "", "ECS cluster name (default: rosa-boundary-dev)")
 	rootCmd.PersistentFlags().String("role-arn", "", "SRE role ARN (overrides Lambda response)")
+	rootCmd.PersistentFlags().String("invoker-role-arn", "", "Lambda invoker role ARN for direct SDK invocation")
+	rootCmd.PersistentFlags().String("lambda-function-name", "", "Lambda function name or ARN for direct invocation")
 
 	// Bind flags to viper keys
 	_ = viper.BindPFlag("lambda_url", rootCmd.PersistentFlags().Lookup("lambda-url"))
@@ -55,6 +57,8 @@ func init() {
 	_ = viper.BindPFlag("aws_region", rootCmd.PersistentFlags().Lookup("region"))
 	_ = viper.BindPFlag("cluster_name", rootCmd.PersistentFlags().Lookup("cluster"))
 	_ = viper.BindPFlag("sre_role_arn", rootCmd.PersistentFlags().Lookup("role-arn"))
+	_ = viper.BindPFlag("invoker_role_arn", rootCmd.PersistentFlags().Lookup("invoker-role-arn"))
+	_ = viper.BindPFlag("lambda_function_name", rootCmd.PersistentFlags().Lookup("lambda-function-name"))
 }
 
 func initConfig() {

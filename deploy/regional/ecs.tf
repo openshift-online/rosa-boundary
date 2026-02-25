@@ -55,6 +55,17 @@ resource "aws_security_group" "fargate" {
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-fargate-sg"
   })
+
+  lifecycle {
+    precondition {
+      condition = alltrue([
+        for rt in data.aws_route_table.subnet : anytrue([
+          for route in rt.routes : route.cidr_block == "0.0.0.0/0"
+        ])
+      ])
+      error_message = "All subnets in subnet_ids must have a default route (0.0.0.0/0) to a NAT gateway or internet gateway for Fargate tasks to reach ECR. Verify route table associations for each subnet."
+    }
+  }
 }
 
 # ECS Task Definition

@@ -57,6 +57,9 @@ keys/
 tests/localstack/.env
 tests/localstack/volume/
 
+# Go CLI build output
+bin/
+
 # Temporary files
 *.tmp
 *.backup

@@ -7,7 +7,13 @@ FULL_IMAGE := $(IMAGE_NAME):$(TAG)
 AMD64_IMAGE := $(IMAGE_NAME):$(TAG)-amd64
 ARM64_IMAGE := $(IMAGE_NAME):$(TAG)-arm64
 
-.PHONY: all build build-amd64 build-arm64 manifest clean help
+# Go CLI
+CLI_BIN := bin/rosa-boundary
+CLI_VERSION ?= dev
+CLI_LDFLAGS := -ldflags "-X github.com/openshift/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
+
+.PHONY: all build build-amd64 build-arm64 manifest clean help \
+        build-cli install-cli test-cli fmt lint
 
 # Default target: build both architectures and create manifest
 all: build manifest
@@ -107,6 +113,45 @@ staticcheck: ## Run staticcheck before commits
 		exit 1; \
 	fi
 
+# Go CLI targets
+build-cli: ## Build the rosa-boundary Go CLI binary
+	@echo "Building rosa-boundary CLI..."
+	@mkdir -p bin
+	go build $(CLI_LDFLAGS) -o $(CLI_BIN) ./cmd/rosa-boundary/
+
+install-cli: build-cli ## Install the rosa-boundary CLI to /usr/local/bin
+	@echo "Installing rosa-boundary to /usr/local/bin..."
+	install -m 755 $(CLI_BIN) /usr/local/bin/rosa-boundary
+
+test-cli: ## Run Go unit tests for the CLI
+	@echo "Running CLI unit tests..."
+	go test ./...
+
+fmt: ## Format Go and shell code
+	@echo "Formatting Go code..."
+	gofmt -w .
+	@echo "Formatting shell scripts..."
+	@if command -v shfmt > /dev/null 2>&1; then \
+		shfmt -w -i 4 tools/ deploy/regional/examples/; \
+	else \
+		echo "shfmt not installed, skipping shell formatting"; \
+	fi
+
+lint: ## Lint Go code and shell scripts
+	@echo "Linting Go code..."
+	@if command -v golangci-lint > /dev/null 2>&1; then \
+		golangci-lint run ./...; \
+	else \
+		echo "golangci-lint not installed, running go vet instead"; \
+		go vet ./...; \
+	fi
+	@echo "Linting shell scripts..."
+	@if command -v shellcheck > /dev/null 2>&1; then \
+		shellcheck tools/*.sh tools/sre-auth/*.sh deploy/regional/examples/*.sh entrypoint.sh 2>/dev/null || true; \
+	else \
+		echo "shellcheck not installed, skipping shell linting"; \
+	fi
+
 # Show help
 help:
 	@echo "ROSA Boundary Container Build Targets:"
@@ -116,6 +161,11 @@ help:
 	@echo "  make build-arm64  - Build only ARM64 variant"
 	@echo "  make manifest     - Create multi-arch manifest list"
 	@echo "  make clean        - Remove all images and manifests"
+	@echo ""
+	@echo "Go CLI Targets:"
+	@echo "  make build-cli    - Build the rosa-boundary CLI binary (./bin/rosa-boundary)"
+	@echo "  make install-cli  - Install CLI to /usr/local/bin"
+	@echo "  make test-cli     - Run CLI unit tests"
 	@echo ""
 	@echo "LocalStack Testing Targets:"
 	@echo "  make localstack-up         - Start LocalStack Pro with all services"
@@ -130,7 +180,9 @@ help:
 	@echo "  make test-lambda-create-investigation - Run create-investigation unit tests"
 	@echo ""
 	@echo "Code Quality Targets:"
-	@echo "  make staticcheck  - Run staticcheck before commits"
+	@echo "  make fmt          - Format Go code (gofmt) and shell scripts (shfmt)"
+	@echo "  make lint         - Lint Go (golangci-lint/go vet) and shell (shellcheck)"
+	@echo "  make staticcheck  - Run staticcheck static analysis"
 	@echo ""
 	@echo "  make help         - Show this help message"
 	@echo ""
@@ -138,3 +190,5 @@ help:
 	@echo "  Image name: $(FULL_IMAGE)"
 	@echo "  AMD64 tag:  $(AMD64_IMAGE)"
 	@echo "  ARM64 tag:  $(ARM64_IMAGE)"
+	@echo "  CLI binary: $(CLI_BIN)"
+	@echo "  CLI version: $(CLI_VERSION)"

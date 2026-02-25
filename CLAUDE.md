@@ -59,7 +59,7 @@ The `rosa-boundary` Go CLI (`cmd/rosa-boundary/`) replaces the former shell scri
 
 ```bash
 make build-cli      # Build Go CLI to ./bin/rosa-boundary
-make install-cli    # Install CLI to /usr/local/bin
+make install-cli    # Install CLI to GOBIN (~/go/bin)
 make test-cli       # Run Go unit tests
 make fmt            # Format Go + shell code
 make lint           # Lint Go + shell code

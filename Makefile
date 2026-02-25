@@ -119,9 +119,9 @@ build-cli: ## Build the rosa-boundary Go CLI binary
 	@mkdir -p bin
 	go build $(CLI_LDFLAGS) -o $(CLI_BIN) ./cmd/rosa-boundary/
 
-install-cli: build-cli ## Install the rosa-boundary CLI to /usr/local/bin
-	@echo "Installing rosa-boundary to /usr/local/bin..."
-	install -m 755 $(CLI_BIN) /usr/local/bin/rosa-boundary
+install-cli: ## Install the rosa-boundary CLI to GOBIN
+	@echo "Installing rosa-boundary to GOBIN..."
+	go install $(CLI_LDFLAGS) ./cmd/rosa-boundary/
 
 test-cli: ## Run Go unit tests for the CLI
 	@echo "Running CLI unit tests..."
@@ -164,7 +164,7 @@ help:
 	@echo ""
 	@echo "Go CLI Targets:"
 	@echo "  make build-cli    - Build the rosa-boundary CLI binary (./bin/rosa-boundary)"
-	@echo "  make install-cli  - Install CLI to /usr/local/bin"
+	@echo "  make install-cli  - Install CLI to GOBIN (~/go/bin)"
 	@echo "  make test-cli     - Run CLI unit tests"
 	@echo ""
 	@echo "LocalStack Testing Targets:"

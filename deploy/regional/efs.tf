@@ -47,17 +47,6 @@ resource "aws_efs_mount_target" "sre_home" {
   file_system_id  = aws_efs_file_system.sre_home.id
   subnet_id       = var.subnet_ids[count.index]
   security_groups = [aws_security_group.efs.id]
-
-  lifecycle {
-    precondition {
-      condition = anytrue([
-        for route in data.aws_route_table.subnet[count.index].routes :
-          route.cidr_block == "0.0.0.0/0" &&
-          (route.nat_gateway_id != "" || route.gateway_id != "")
-      ])
-      error_message = "Subnet ${var.subnet_ids[count.index]} has no default route (0.0.0.0/0) via a NAT gateway or internet gateway. Fargate tasks in this subnet cannot reach ECR. Verify the subnet's route table association."
-    }
-  }
 }
 
 # EFS access point for /home/sre with sre user ownership

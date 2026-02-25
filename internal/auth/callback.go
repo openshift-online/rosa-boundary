@@ -61,7 +61,7 @@ func startCallbackServer(ctx context.Context, expectedState string) (string, err
 	})
 
 	server := &http.Server{
-		Addr:              "localhost:" + callbackPort,
+		Addr:              "127.0.0.1:" + callbackPort,
 		Handler:           mux,
 		ReadHeaderTimeout: 10 * time.Second,
 	}

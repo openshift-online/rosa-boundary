@@ -31,6 +31,19 @@ func init() {
 }
 
 func runListTasks(cmd *cobra.Command, args []string) error {
+	desiredStatus := strings.ToUpper(listStatus)
+	switch desiredStatus {
+	case "RUNNING", "STOPPED", "ALL":
+	default:
+		return fmt.Errorf("invalid --status %q: must be RUNNING, STOPPED, or all", listStatus)
+	}
+
+	switch listOutputFormat {
+	case "text", "json":
+	default:
+		return fmt.Errorf("invalid --output %q: must be text or json", listOutputFormat)
+	}
+
 	cfg, err := getConfig(false, false)
 	if err != nil {
 		return err
@@ -44,16 +57,24 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	clusterName := cfg.ClusterName
 	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
 
-	desiredStatus := strings.ToUpper(listStatus)
-	if desiredStatus == "ALL" {
-		desiredStatus = ""
-	}
-
 	debugf("Listing tasks in cluster %s with status %q", clusterName, desiredStatus)
 
-	tasks, err := ecsClient.ListRunningTasks(cmd.Context(), desiredStatus)
-	if err != nil {
-		return fmt.Errorf("cannot list tasks: %w", err)
+	var tasks []awsclient.TaskSummary
+	if desiredStatus == "ALL" {
+		running, err := ecsClient.ListRunningTasks(cmd.Context(), "RUNNING")
+		if err != nil {
+			return fmt.Errorf("cannot list tasks: %w", err)
+		}
+		stopped, err := ecsClient.ListRunningTasks(cmd.Context(), "STOPPED")
+		if err != nil {
+			return fmt.Errorf("cannot list tasks: %w", err)
+		}
+		tasks = append(running, stopped...)
+	} else {
+		tasks, err = ecsClient.ListRunningTasks(cmd.Context(), desiredStatus)
+		if err != nil {
+			return fmt.Errorf("cannot list tasks: %w", err)
+		}
 	}
 
 	if listOutputFormat == "json" {

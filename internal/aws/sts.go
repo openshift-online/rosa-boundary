@@ -22,7 +22,7 @@ func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, se
 	// Use anonymous credentials since AssumeRoleWithWebIdentity doesn't require them.
 	client := sts.New(sts.Options{
 		Region:      region,
-		Credentials: aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider("", "", "")),
+		Credentials: aws.AnonymousCredentials{},
 	})
 
 	out, err := client.AssumeRoleWithWebIdentity(ctx, &sts.AssumeRoleWithWebIdentityInput{

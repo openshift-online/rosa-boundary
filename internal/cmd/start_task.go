@@ -53,6 +53,12 @@ func init() {
 }
 
 func runStartTask(cmd *cobra.Command, args []string) error {
+	switch startOutputFormat {
+	case "text", "json":
+	default:
+		return fmt.Errorf("invalid --output %q: must be text or json", startOutputFormat)
+	}
+
 	cfg, err := getConfig(false, true)
 	if err != nil {
 		return err
@@ -225,6 +231,9 @@ func sanitizeSessionName(name string) string {
 	s := b.String()
 	if len(s) > 64 {
 		s = s[:64]
+	}
+	for len(s) < 2 {
+		s += "-"
 	}
 	return s
 }

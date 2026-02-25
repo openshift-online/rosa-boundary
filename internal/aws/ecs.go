@@ -84,10 +84,6 @@ func (c *ECSClient) WaitForStopped(ctx context.Context, taskID string) error {
 
 // ListRunningTasks returns all tasks with the given desired status.
 func (c *ECSClient) ListRunningTasks(ctx context.Context, desiredStatus string) ([]TaskSummary, error) {
-	if desiredStatus == "" {
-		desiredStatus = "RUNNING"
-	}
-
 	var taskARNs []string
 	paginator := ecs.NewListTasksPaginator(c.client, &ecs.ListTasksInput{
 		Cluster:       aws.String(c.cluster),

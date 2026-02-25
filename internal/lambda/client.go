@@ -50,6 +50,14 @@ type lambdaAPIResponse struct {
 	Body       string `json:"body"`
 }
 
+// truncate returns s truncated to n bytes with "..." appended if longer.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}
+
 // Client invokes the create-investigation Lambda function directly via the SDK.
 type Client struct {
 	functionName string
@@ -93,7 +101,7 @@ func (c *Client) CreateInvestigation(ctx context.Context, idToken string, req In
 
 	// Check for function-level error (unhandled exception in the Lambda runtime).
 	if out.FunctionError != nil {
-		return nil, fmt.Errorf("lambda function error (%s): %s", *out.FunctionError, string(out.Payload))
+		return nil, fmt.Errorf("lambda function error (%s): %s", *out.FunctionError, truncate(string(out.Payload), 200))
 	}
 
 	// The handler always returns an API Gateway-style response: {statusCode, headers, body}.
@@ -107,7 +115,7 @@ func (c *Client) CreateInvestigation(ctx context.Context, idToken string, req In
 		if jsonErr := json.Unmarshal([]byte(apiResp.Body), &errResp); jsonErr == nil && errResp.Error != "" {
 			return nil, fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, errResp.Error)
 		}
-		return nil, fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, apiResp.Body)
+		return nil, fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, truncate(apiResp.Body, 200))
 	}
 
 	var result InvestigationResponse

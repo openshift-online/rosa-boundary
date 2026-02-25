@@ -118,15 +118,31 @@ func Get() (*Config, error) {
 	return &cfg, nil
 }
 
-// WriteConfigFile writes ordered key-value pairs to a YAML config file.
-// Entries is a slice of [2]string{key, value} pairs written in order.
+// ConfigEntry represents a configuration key-value pair with an optional comment.
+type ConfigEntry struct {
+	Key     string
+	Value   string
+	Comment string // Written as a YAML comment above the key
+}
+
+// WriteConfigFile writes configuration entries to a YAML config file.
+// Each entry may include a comment that is written above the key.
 // Empty values are omitted.
-func WriteConfigFile(path string, entries [][2]string) error {
+func WriteConfigFile(path string, entries []ConfigEntry) error {
 	var sb strings.Builder
-	for _, kv := range entries {
-		if kv[1] != "" {
-			fmt.Fprintf(&sb, "%s: %s\n", kv[0], kv[1])
+	for i, e := range entries {
+		if e.Value == "" {
+			continue
 		}
+		if e.Comment != "" {
+			if i > 0 {
+				sb.WriteString("\n")
+			}
+			for _, line := range strings.Split(e.Comment, "\n") {
+				fmt.Fprintf(&sb, "# %s\n", line)
+			}
+		}
+		fmt.Fprintf(&sb, "%s: %s\n", e.Key, e.Value)
 	}
 	if err := os.WriteFile(path, []byte(sb.String()), 0o600); err != nil {
 		return fmt.Errorf("cannot write config file: %w", err)

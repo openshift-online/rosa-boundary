@@ -19,9 +19,29 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 ### Prerequisites
 
 - Go 1.23+ (to build the CLI from source)
-- [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) (required for ECS Exec)
 - Terraform (infrastructure deployment)
 - Keycloak with OIDC configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
+- [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) — required for `join-task` and `start-task --connect`
+
+The `session-manager-plugin` is an AWS-provided binary that handles the WebSocket session protocol used by ECS Exec. The `rosa-boundary` CLI calls the ECS `ExecuteCommand` API to obtain session credentials, then hands off to this plugin to establish the interactive session. It must be installed separately on each machine running the CLI.
+
+**macOS:**
+```bash
+brew install --cask session-manager-plugin
+```
+
+**Linux (x86_64):**
+```bash
+curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm" -o /tmp/session-manager-plugin.rpm
+sudo yum install -y /tmp/session-manager-plugin.rpm
+```
+
+**Verify:**
+```bash
+session-manager-plugin --version
+```
+
+See the [AWS documentation](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) for other platforms and package managers.
 
 ### Deploy Infrastructure
 

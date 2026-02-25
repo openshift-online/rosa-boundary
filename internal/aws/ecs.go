@@ -43,6 +43,9 @@ type ExecuteCommandSession struct {
 	SessionID  string
 	StreamURL  string
 	TokenValue string
+	// Target is the ECS Exec target string required by session-manager-plugin:
+	// "ecs:<cluster>_<taskId>_<containerRuntimeId>"
+	Target string
 	// Raw JSON for passing to session-manager-plugin
 	RawSession json.RawMessage
 }
@@ -157,6 +160,22 @@ func (c *ECSClient) ExecuteCommand(ctx context.Context, taskID, container, comma
 		return nil, fmt.Errorf("ExecuteCommand returned nil session")
 	}
 
+	// Get the container RuntimeId so we can build the Target for session-manager-plugin.
+	// The plugin requires: "ecs:<cluster>_<taskId>_<containerRuntimeId>"
+	var target string
+	descOut, descErr := c.client.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+		Cluster: aws.String(c.cluster),
+		Tasks:   []string{taskID},
+	})
+	if descErr == nil && len(descOut.Tasks) > 0 {
+		for _, cont := range descOut.Tasks[0].Containers {
+			if aws.ToString(cont.Name) == container && cont.RuntimeId != nil {
+				target = fmt.Sprintf("ecs:%s_%s_%s", c.cluster, taskID, aws.ToString(cont.RuntimeId))
+				break
+			}
+		}
+	}
+
 	// Build the session JSON exactly as the session-manager-plugin expects it.
 	sessionPayload := map[string]string{
 		"sessionId":  aws.ToString(out.Session.SessionId),
@@ -172,6 +191,7 @@ func (c *ECSClient) ExecuteCommand(ctx context.Context, taskID, container, comma
 		SessionID:  aws.ToString(out.Session.SessionId),
 		StreamURL:  aws.ToString(out.Session.StreamUrl),
 		TokenValue: aws.ToString(out.Session.TokenValue),
+		Target:     target,
 		RawSession: rawSession,
 	}, nil
 }

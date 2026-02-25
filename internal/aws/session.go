@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -25,20 +26,24 @@ func StartSessionManagerPlugin(region string, session *ExecuteCommandSession) er
 	// The plugin expects the session JSON, region, and a "StartSession" operation type,
 	// then an empty JSON object for "parameters", then the endpoint.
 	// Format: session-manager-plugin <session-json> <region> StartSession <profile> <params-json> <endpoint>
-	// When called from ECS Exec context, the AWS CLI passes it like this:
-	//   session-manager-plugin '{"sessionId":"...","streamUrl":"...","tokenValue":"..."}' us-east-2 StartSession '' '{}' https://ssm.us-east-2.amazonaws.com
+	// For ECS Exec, the parameters must include "Target": "ecs:<cluster>_<taskId>_<runtimeId>"
+	// without which the plugin panics on a nil interface conversion.
 
 	ssmEndpoint := fmt.Sprintf("https://ssm.%s.amazonaws.com", region)
 
-	// Prepare the target JSON (ECS Exec uses a different "Target" format internally,
-	// but the plugin itself only needs the session JSON).
+	paramsJSON := "{}"
+	if session.Target != "" {
+		params, _ := json.Marshal(map[string]string{"Target": session.Target})
+		paramsJSON = string(params)
+	}
+
 	args := []string{
 		pluginPath,
 		string(session.RawSession),
 		region,
 		"StartSession",
 		"",
-		"{}",
+		paramsJSON,
 		ssmEndpoint,
 	}
 
@@ -60,12 +65,18 @@ func RunSessionManagerPlugin(region string, session *ExecuteCommandSession) erro
 
 	ssmEndpoint := fmt.Sprintf("https://ssm.%s.amazonaws.com", region)
 
+	paramsJSON := "{}"
+	if session.Target != "" {
+		params, _ := json.Marshal(map[string]string{"Target": session.Target})
+		paramsJSON = string(params)
+	}
+
 	cmd := exec.Command(pluginPath,
 		string(session.RawSession),
 		region,
 		"StartSession",
 		"",
-		"{}",
+		paramsJSON,
 		ssmEndpoint,
 	)
 	cmd.Stdin = os.Stdin

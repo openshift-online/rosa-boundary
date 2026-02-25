@@ -1,9 +1,10 @@
-# ROSA Boundary Container
+# ROSA Boundary
 
-Multi-architecture container based on Fedora 43 for working with AWS and OpenShift clusters. Designed for AWS Fargate with ECS Exec support.
+Multi-architecture container and CLI for managing ephemeral SRE investigations on AWS Fargate with OIDC-authenticated access control.
 
 ## Features
 
+- **Go CLI**: `rosa-boundary` — authenticate, start, join, list, and stop investigations
 - **AWS CLI**: Both Fedora RPM and official AWS CLI v2 with alternatives support
 - **OpenShift CLI**: Versions 4.14 through 4.20 from stable channels
 - **Claude Code**: AI-powered CLI assistant with Amazon Bedrock integration
@@ -11,29 +12,93 @@ Multi-architecture container based on Fedora 43 for working with AWS and OpenShi
 - **ECS Exec Ready**: Designed for AWS Fargate with ECS Exec support
 - **Multi-architecture**: Supports both x86_64 (amd64) and ARM64 (aarch64)
 - **OIDC Authentication**: Keycloak integration with Lambda-based authorization
-- **Tag-Based Isolation**: Per-user IAM roles with task-level access control
+- **Tag-Based Isolation**: Shared SRE role with task-level ABAC access control
 
-## Quick Start
+## Getting Started
 
-### 1. Configure Environment
+### Prerequisites
 
-Copy the example environment file and update with your values:
+- Go 1.23+ (to build the CLI from source)
+- [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) (required for ECS Exec)
+- Terraform (infrastructure deployment)
+- Keycloak with OIDC configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
+
+### Deploy Infrastructure
+
+1. Copy the example environment file and fill in values:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Required Terraform variables (no defaults):
+
+   | Variable | Description |
+   |---|---|
+   | `container_image` | Container image URI |
+   | `vpc_id` | VPC for Fargate tasks |
+   | `subnet_ids` | 2+ subnets in the same VPC |
+   | `keycloak_issuer_url` | OIDC issuer URL (e.g., `https://keycloak.example.com/realms/sre-ops`) |
+   | `keycloak_thumbprint` | SHA1 thumbprint of the Keycloak TLS certificate |
+
+3. Deploy:
+
+   ```bash
+   cd deploy/regional && terraform init && terraform apply
+   ```
+
+See [`deploy/regional/README.md`](deploy/regional/README.md) for the complete deployment guide.
+
+### OIDC Identity Requirements
+
+Keycloak must issue tokens with these claims:
+
+| Claim | Purpose |
+|---|---|
+| `sub` | Stored as `oidc_sub` tag (audit trail) |
+| `preferred_username` | Used as `username` tag (ABAC key) |
+| `email` | Logged |
+| `groups` | Must contain `sre-team` |
+| `aud` | Must match `aws-sre-access` |
+| `https://aws.amazon.com/tags` | Session tags with `principal_tags.username` for ABAC |
+
+Required Keycloak mappers:
+- Groups (flat names), email, audience (`aws-sre-access`)
+- AWS session tags: map `preferred_username` → `principal_tags.username`
+
+Client settings: public client, standard flow + PKCE, redirect URI `http://localhost:8400/callback`.
+
+See [`docs/configuration/keycloak-realm-setup.md`](docs/configuration/keycloak-realm-setup.md) for step-by-step setup.
+
+### Install and Use the CLI
 
 ```bash
-cp .env.example .env
-# Edit .env with your AWS account ID and Keycloak URL
+make build-cli && make install-cli
 ```
 
-The `.env` file is gitignored and contains:
-- AWS account ID
-- Keycloak server URL and realm
-- OIDC client ID
+Create `~/.rosa-boundary/config.yaml` with the values specific to your deployment:
 
-Authentication scripts automatically load `.env` if present.
+```yaml
+keycloak_url: https://keycloak.example.com
+lambda_function_name: rosa-boundary-dev-create-investigation
+invoker_role_arn: arn:aws:iam::123456789012:role/rosa-boundary-dev-lambda-invoker
+```
 
-### 2. Deploy Infrastructure
+Core workflow:
 
-See [Fargate Deployment](#fargate-deployment) section below for Terraform deployment steps.
+```bash
+# Start an investigation (authenticates, creates task, waits for RUNNING)
+rosa-boundary start-task --cluster-id my-cluster --connect
+
+# List running tasks
+rosa-boundary list-tasks
+
+# Connect to an existing task
+rosa-boundary join-task <task-id>
+
+# Stop a task (triggers S3 sync)
+rosa-boundary stop-task <task-id>
+```
 
 ## Repository Structure
 
@@ -42,24 +107,27 @@ rosa-boundary/
 ├── .env.example           # Environment configuration template (copy to .env)
 ├── Containerfile          # Multi-arch container build
 ├── entrypoint.sh          # Runtime initialization and signal handling
-├── skel/                  # Skeleton files for container users
-│   └── sre/.claude/       # Claude Code configuration templates
+├── skel/sre/.claude/      # Skeleton Claude Code config for container users
+├── cmd/rosa-boundary/     # CLI entrypoint
+├── internal/
+│   ├── auth/              # PKCE/OIDC authentication
+│   ├── aws/               # ECS and STS clients
+│   ├── cmd/               # Cobra subcommands
+│   ├── config/            # Viper-based configuration
+│   ├── lambda/            # Lambda invocation client
+│   └── output/            # Text/JSON output helpers
 ├── deploy/
 │   ├── regional/          # Terraform: ECS, EFS, S3, Lambda, OIDC
 │   │   ├── *.tf          # Infrastructure definitions
 │   │   ├── examples/     # Manual lifecycle scripts
 │   │   └── README.md     # Deployment guide
-│   └── keycloak/         # Terraform: Keycloak realm and clients
+│   └── keycloak/         # Kustomize: Keycloak realm and clients
 ├── lambda/
-│   └── create-investigation/  # Lambda function for OIDC-authenticated creation
-│       ├── handler.py    # Group auth, role creation, task tagging
-│       └── Makefile      # Build Lambda package
-├── tools/
-│   ├── sre-auth/         # OIDC authentication scripts
-│   │   ├── get-oidc-token.sh    # Keycloak PKCE flow
-│   │   ├── assume-role.sh       # AWS role assumption
-│   │   └── README.md            # Auth documentation
-│   └── create-investigation-lambda.sh  # End-to-end creation wrapper
+│   ├── create-investigation/  # OIDC-authenticated investigation creation
+│   │   ├── handler.py    # Group auth, role creation, task tagging
+│   │   └── Makefile      # Build Lambda package
+│   └── reap-tasks/            # Periodic task timeout enforcement
+│       └── handler.py    # Deadline-based task termination
 ├── tests/
 │   └── localstack/       # LocalStack integration tests
 │       ├── compose.yml   # LocalStack Pro + mock OIDC
@@ -68,27 +136,90 @@ rosa-boundary/
 └── .github/workflows/    # CI/CD automation
 ```
 
+## CLI Reference
+
+### Subcommands
+
+| Command | Description |
+|---|---|
+| `login` | Authenticate with Keycloak and cache the OIDC token |
+| `start-task` | Create an investigation and start an ECS task |
+| `join-task <task-id>` | Connect to a running ECS task via ECS Exec |
+| `list-tasks` | List ECS tasks in the cluster |
+| `stop-task <task-id>` | Stop a running ECS task |
+| `version` | Print the rosa-boundary version |
+
+### Notable Flags
+
+**`start-task`**:
+- `--cluster-id` — cluster ID (defaults to `cluster_name` from config)
+- `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
+- `--oc-version` — OpenShift CLI version (default: `4.20`)
+- `--task-timeout` — seconds before reaper kills the task (default: `3600`)
+- `--connect` — automatically join the task after it reaches RUNNING
+- `--no-wait` — return immediately without waiting for RUNNING
+- `--force-login` — force fresh OIDC authentication
+- `--output text|json`
+
+**`join-task`**: `--container` (default: `rosa-boundary`), `--command` (default: `/bin/bash`), `--no-wait`
+
+**`list-tasks`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
+
+**`stop-task`**: `--reason`, `--wait`
+
+**`login`**: `--force`
+
+### Global Flags
+
+```
+--verbose, -v           Enable verbose/debug output
+--keycloak-url          Keycloak base URL
+--realm                 Keycloak realm (default: sre-ops)
+--client-id             OIDC client ID (default: aws-sre-access)
+--region                AWS region (default: us-east-2)
+--cluster               ECS cluster name (default: rosa-boundary-dev)
+--lambda-function-name  Lambda function name or ARN
+--invoker-role-arn      Lambda invoker role ARN
+--role-arn              SRE role ARN (overrides Lambda response)
+--lambda-url            Lambda function URL (HTTP mode)
+```
+
+### Configuration Precedence
+
+Flags > environment variables (`ROSA_BOUNDARY_*`) > `~/.rosa-boundary/config.yaml` > defaults
+
+Environment variable examples: `ROSA_BOUNDARY_KEYCLOAK_URL`, `ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME`, `ROSA_BOUNDARY_INVOKER_ROLE_ARN`.
+
 ## Building
 
-### Build all architectures and create manifest
+### Container
+
 ```bash
+# Build both architectures and create manifest
 make all
+
+# Build single architecture
+make build-amd64
+make build-arm64
+
+# Create manifest list from existing builds
+make manifest
+
+# Remove all images and manifests
+make clean
 ```
 
-### Build specific architecture
-```bash
-make build-amd64   # Build x86_64 only
-make build-arm64   # Build ARM64 only
-```
+### CLI
 
-### Create manifest list
 ```bash
-make manifest      # Combines both architectures
-```
+# Build the rosa-boundary binary to ./bin/
+make build-cli
 
-### Clean up
-```bash
-make clean         # Remove all images and manifests
+# Install to /usr/local/bin
+make install-cli
+
+# Run Go unit tests
+make test-cli
 ```
 
 ## Environment Variables
@@ -247,46 +378,6 @@ Configuration files in `/home/sre/.claude/` are preserved across container resta
 - **Subsequent runs**: Existing configuration preserved (no overwrite)
 - **Customize**: Edit `/home/sre/.claude/CLAUDE.md` to add cluster-specific context
 
-## Authentication Tools
-
-The `tools/sre-auth/` directory contains OIDC authentication scripts for AWS federation:
-
-### get-oidc-token.sh
-
-Obtains OIDC ID token from Keycloak via browser-based PKCE flow:
-
-```bash
-# Get token (uses cache if < 4 minutes old)
-TOKEN=$(./tools/sre-auth/get-oidc-token.sh)
-
-# Force fresh authentication
-TOKEN=$(./tools/sre-auth/get-oidc-token.sh --force)
-```
-
-**Features**:
-- Browser-based authentication with Keycloak
-- 4-minute token caching (avoids repeated popups)
-- PKCE for secure public client flow
-
-### assume-role.sh
-
-Assumes AWS IAM role using OIDC web identity:
-
-```bash
-# Assume role created by Lambda
-eval $(./tools/sre-auth/assume-role.sh --role arn:aws:iam::123456789012:role/rosa-boundary-user-abc123)
-
-# Verify identity
-aws sts get-caller-identity
-```
-
-**Features**:
-- Uses get-oidc-token.sh internally
-- Returns bash export statements for credentials
-- Credentials valid for 1 hour
-
-See [`tools/sre-auth/README.md`](tools/sre-auth/README.md) for detailed documentation.
-
 ## Usage
 
 ### Running locally
@@ -300,79 +391,6 @@ podman run -it -e OC_VERSION=4.18 -e AWS_CLI=fedora rosa-boundary:latest /bin/ba
 # Check tool versions
 podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client"
 ```
-
-### Fargate Deployment
-
-This container is designed to run as an AWS Fargate task with ECS Exec for remote access. Two deployment approaches are supported:
-
-#### Lambda-Based Investigation Creation (Recommended)
-
-OIDC-authenticated Lambda function that creates per-user IAM roles with tag-based authorization:
-
-```bash
-cd deploy/regional/
-
-# Deploy infrastructure (includes Lambda function)
-terraform init
-terraform apply
-
-# Create investigation with OIDC authentication
-cd ../tools/
-./create-investigation-lambda.sh rosa-boundary-dev inv-12345
-
-# Script will:
-# 1. Authenticate via Keycloak (browser popup)
-# 2. Call Lambda to create investigation (role + task)
-# 3. Assume OIDC role with tag-based permissions
-# 4. Wait for task to be running
-# 5. Provide ECS Exec connection command
-```
-
-**Features**:
-- Group-based authorization (requires `sre-team` membership)
-- Per-user IAM roles with tag-based task isolation
-- Automatic role creation on first use
-- Token caching (4 minutes) to avoid repeated browser authentication
-
-See [`tools/sre-auth/README.md`](tools/sre-auth/README.md) for authentication details and [`docs/LAMBDA_AUTH_SUMMARY.md`](docs/LAMBDA_AUTH_SUMMARY.md) for architecture.
-
-#### Manual Lifecycle Scripts
-
-Lower-level scripts for manual investigation management:
-
-```bash
-cd deploy/regional/examples/
-
-# Create investigation (access point + task definition)
-./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
-
-# Launch task
-./launch_task.sh <task-family>
-
-# Connect to task
-./join_task.sh <task-id>
-
-# Stop task (triggers S3 sync)
-./stop_task.sh <task-id>
-
-# Cleanup investigation
-./close_investigation.sh <task-family> <access-point-id>
-```
-
-See [`deploy/regional/README.md`](deploy/regional/README.md) for complete documentation.
-
-#### Manual Deployment
-
-For manual deployment without Terraform:
-
-1. Push container image to ECR or container registry
-2. Create ECS cluster with Container Insights
-3. Create EFS filesystem with access points per investigation
-4. Create IAM roles with Bedrock, S3, and ECS Exec permissions
-5. Create task definition with EFS mount and environment variables
-6. Launch tasks with `--enable-execute-command`
-
-The container runs `sleep infinity` by default. On termination, it syncs `/home/sre` to S3 if configured.
 
 ## Image Details
 

@@ -1,3 +1,63 @@
+# IAM role for S3 cross-account audit log replication
+resource "aws_iam_role" "s3_replication" {
+  count = var.audit_replication_bucket_arn != "" ? 1 : 0
+  name  = "${var.project}-${var.stage}-s3-replication-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = {
+        Service = "s3.amazonaws.com"
+      }
+    }]
+  })
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy" "s3_replication" {
+  count = var.audit_replication_bucket_arn != "" ? 1 : 0
+  name  = "s3-replication-policy"
+  role  = aws_iam_role.s3_replication[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetReplicationConfiguration",
+          "s3:ListBucket"
+        ]
+        Resource = aws_s3_bucket.audit.arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObjectVersionForReplication",
+          "s3:GetObjectVersionAcl",
+          "s3:GetObjectVersionTagging",
+          "s3:GetObjectRetention",
+          "s3:GetObjectLegalHold"
+        ]
+        Resource = "${aws_s3_bucket.audit.arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ReplicateObject",
+          "s3:ReplicateDelete",
+          "s3:ReplicateTags",
+          "s3:ObjectOwnerOverrideToBucketOwner"
+        ]
+        Resource = "${var.audit_replication_bucket_arn}/*"
+      }
+    ]
+  })
+}
+
 # ECS Task Execution Role
 # Used by ECS to pull images, write logs, and access Secrets Manager
 resource "aws_iam_role" "execution" {

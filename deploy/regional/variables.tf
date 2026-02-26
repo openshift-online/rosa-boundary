@@ -34,7 +34,7 @@ variable "container_image" {
 variable "container_cpu" {
   description = "CPU units for the Fargate task (256, 512, 1024, 2048, 4096)"
   type        = number
-  default     = 512
+  default     = 1024
 
   validation {
     condition     = contains([256, 512, 1024, 2048, 4096], var.container_cpu)
@@ -45,12 +45,18 @@ variable "container_cpu" {
 variable "container_memory" {
   description = "Memory (MB) for the Fargate task"
   type        = number
-  default     = 1024
+  default     = 2048
 
   validation {
     condition     = var.container_memory >= 512 && var.container_memory <= 30720
     error_message = "Memory must be between 512 MB and 30720 MB (30 GB)"
   }
+}
+
+variable "kube_proxy_port" {
+  description = "Port the kube-proxy sidecar listens on (localhost only)"
+  type        = number
+  default     = 8001
 }
 
 variable "vpc_id" {
@@ -116,6 +122,23 @@ variable "task_timeout_default" {
   validation {
     condition     = var.task_timeout_default >= 0 && var.task_timeout_default <= 86400
     error_message = "Task timeout must be between 0 and 86400 seconds (24 hours)"
+  }
+}
+
+variable "audit_replication_bucket_arn" {
+  description = "ARN of the destination S3 bucket in the audit account for cross-account replication. If empty, replication is disabled."
+  type        = string
+  default     = ""
+}
+
+variable "audit_replication_account_id" {
+  description = "AWS account ID of the audit account that owns the replication destination bucket. Required when audit_replication_bucket_arn is set."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.audit_replication_bucket_arn == "" || var.audit_replication_account_id != ""
+    error_message = "audit_replication_account_id is required when audit_replication_bucket_arn is set."
   }
 }
 

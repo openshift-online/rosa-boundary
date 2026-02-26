@@ -123,6 +123,11 @@ output "reaper_lambda_function_arn" {
   value       = aws_lambda_function.reap_tasks.arn
 }
 
+output "audit_replication_role_arn" {
+  description = "ARN of the S3 replication IAM role. The audit account destination bucket policy must grant this role s3:ReplicateObject, s3:ReplicateDelete, s3:ReplicateTags, and s3:ObjectOwnerOverrideToBucketOwner on the destination bucket."
+  value       = var.audit_replication_bucket_arn != "" ? aws_iam_role.s3_replication[0].arn : null
+}
+
 output "lambda_invoker_role_arn" {
   description = "ARN of the IAM role SREs assume to invoke the Lambda function URL via SigV4"
   value       = aws_iam_role.lambda_invoker.arn

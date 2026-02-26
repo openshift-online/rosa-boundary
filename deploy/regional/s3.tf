@@ -51,6 +51,46 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "audit" {
   }
 }
 
+# Cross-account replication to audit account
+# The destination bucket must be configured separately in the audit account with:
+#   - Versioning enabled
+#   - Object Lock enabled (COMPLIANCE mode, same or longer retention period)
+#   - A bucket policy granting the replication role (output: audit_replication_role_arn)
+#     permissions to replicate objects into it
+resource "aws_s3_bucket_replication_configuration" "audit" {
+  count  = var.audit_replication_bucket_arn != "" ? 1 : 0
+  bucket = aws_s3_bucket.audit.id
+  role   = aws_iam_role.s3_replication[0].arn
+
+  rule {
+    id     = "replicate-to-audit-account"
+    status = "Enabled"
+
+    delete_marker_replication {
+      status = "Enabled"
+    }
+
+    source_selection_criteria {
+      replica_modifications {
+        status = "Enabled"
+      }
+    }
+
+    destination {
+      bucket        = var.audit_replication_bucket_arn
+      storage_class = "STANDARD"
+
+      # Transfer object ownership to the destination account
+      access_control_translation {
+        owner = "Destination"
+      }
+      account = var.audit_replication_account_id
+    }
+  }
+
+  depends_on = [aws_s3_bucket_versioning.audit]
+}
+
 # Lifecycle policy to manage old versions
 resource "aws_s3_bucket_lifecycle_configuration" "audit" {
   bucket = aws_s3_bucket.audit.id

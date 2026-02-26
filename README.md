@@ -235,7 +235,7 @@ make clean
 # Build the rosa-boundary binary to ./bin/
 make build-cli
 
-# Install to /usr/local/bin
+# Install to $GOBIN
 make install-cli
 
 # Run Go unit tests

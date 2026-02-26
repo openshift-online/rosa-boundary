@@ -1,12 +1,13 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds all configuration values for the CLI.
@@ -127,24 +128,52 @@ type ConfigEntry struct {
 
 // WriteConfigFile writes configuration entries to a YAML config file.
 // Each entry may include a comment that is written above the key.
+// Values are properly quoted/escaped by the YAML encoder.
 // Empty values are omitted.
 func WriteConfigFile(path string, entries []ConfigEntry) error {
-	var sb strings.Builder
-	for i, e := range entries {
+	doc := &yaml.Node{Kind: yaml.DocumentNode}
+	mapping := &yaml.Node{Kind: yaml.MappingNode}
+	doc.Content = append(doc.Content, mapping)
+
+	wroteEntry := false
+	for _, e := range entries {
 		if e.Value == "" {
 			continue
 		}
-		if e.Comment != "" {
-			if i > 0 {
-				sb.WriteString("\n")
-			}
-			for _, line := range strings.Split(e.Comment, "\n") {
-				fmt.Fprintf(&sb, "# %s\n", line)
-			}
+
+		keyNode := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: e.Key,
 		}
-		fmt.Fprintf(&sb, "%s: %s\n", e.Key, e.Value)
+		if e.Comment != "" {
+			comment := e.Comment
+			if wroteEntry {
+				// Add a blank line before this comment block by prefixing with newline
+				comment = "\n" + comment
+			}
+			keyNode.HeadComment = comment
+		}
+
+		valNode := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: e.Value,
+		}
+
+		mapping.Content = append(mapping.Content, keyNode, valNode)
+		wroteEntry = true
 	}
-	if err := os.WriteFile(path, []byte(sb.String()), 0o600); err != nil {
+
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(doc); err != nil {
+		return fmt.Errorf("cannot encode config: %w", err)
+	}
+	if err := enc.Close(); err != nil {
+		return fmt.Errorf("cannot encode config: %w", err)
+	}
+
+	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("cannot write config file: %w", err)
 	}
 	return nil

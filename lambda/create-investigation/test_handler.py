@@ -639,6 +639,27 @@ class TestSkipTask:
             'groups': ['sre-team']
         }
 
+    BASE_TASK_DEF = {
+        'taskDefinition': {
+            'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-dev:1',
+            'family': 'rosa-boundary-dev',
+            'taskRoleArn': 'arn:aws:iam::123:role/task-role',
+            'executionRoleArn': 'arn:aws:iam::123:role/exec-role',
+            'networkMode': 'awsvpc',
+            'containerDefinitions': [{'name': 'rosa-boundary', 'environment': []}],
+            'volumes': [],
+            'requiresCompatibilities': ['FARGATE'],
+            'cpu': '256',
+            'memory': '512',
+        }
+    }
+
+    REGISTERED_TASK_DEF = {
+        'taskDefinition': {
+            'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-dev-test-cluster-test-inv-20260101T000000:1'
+        }
+    }
+
     @patch.dict('os.environ', ENV_VARS)
     def test_skip_task_default_false(self):
         """Test that skip_task defaults to False (backward compat)."""
@@ -656,6 +677,8 @@ class TestSkipTask:
                 with patch('handler.efs') as mock_efs:
                     with patch('handler.ecs') as mock_ecs:
                         mock_efs.create_access_point.return_value = mock_ap
+                        mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+                        mock_ecs.register_task_definition.return_value = self.REGISTERED_TASK_DEF
                         mock_ecs.run_task.return_value = mock_task
                         mock_ecs.tag_resource.return_value = {}
 
@@ -665,6 +688,7 @@ class TestSkipTask:
         body = json.loads(response['body'])
         assert body['message'] == 'Investigation task created successfully'
         assert body['task_arn'] != ''
+        assert body['task_definition_arn'] != ''
 
     @patch.dict('os.environ', ENV_VARS)
     def test_skip_task_creates_access_point_only(self):
@@ -685,8 +709,9 @@ class TestSkipTask:
 
                         response = handler.lambda_handler(event, context)
 
-                        # ECS task should NOT be launched
+                        # ECS task should NOT be launched and no task def registered
                         mock_ecs.run_task.assert_not_called()
+                        mock_ecs.register_task_definition.assert_not_called()
 
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
@@ -779,6 +804,278 @@ class TestSkipTask:
             result = handler.find_existing_access_point('fs-123', 'test-cluster', 'test-inv')
 
         assert result is None
+
+
+class TestPerInvestigationTaskDef:
+    """Test per-investigation task definition registration."""
+
+    ENV_VARS = {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'rosa-boundary-dev',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUP': 'sre-team',
+        'S3_AUDIT_BUCKET': 'my-audit-bucket',
+    }
+
+    BASE_TASK_DEF = {
+        'taskDefinition': {
+            'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-dev:1',
+            'family': 'rosa-boundary-dev',
+            'taskRoleArn': 'arn:aws:iam::123:role/task-role',
+            'executionRoleArn': 'arn:aws:iam::123:role/exec-role',
+            'networkMode': 'awsvpc',
+            'containerDefinitions': [{
+                'name': 'rosa-boundary',
+                'environment': [
+                    {'name': 'CLAUDE_CODE_USE_BEDROCK', 'value': '1'},
+                    {'name': 'TASK_TIMEOUT', 'value': '3600'},
+                ]
+            }],
+            'volumes': [],
+            'requiresCompatibilities': ['FARGATE'],
+            'cpu': '256',
+            'memory': '512',
+        }
+    }
+
+    def _make_registered_td(self, family_suffix):
+        return {
+            'taskDefinition': {
+                'taskDefinitionArn': f'arn:aws:ecs:us-east-1:123:task-definition/{family_suffix}:1'
+            }
+        }
+
+    def test_run_task_uses_per_investigation_task_def_arn(self):
+        """Test that run_task is called with the registered per-investigation task def ARN."""
+        per_inv_arn = 'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-dev-c1-inv1-20260101T000000:1'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+                mock_ecs.register_task_definition.return_value = {
+                    'taskDefinition': {'taskDefinitionArn': per_inv_arn}
+                }
+                mock_ecs.run_task.return_value = {
+                    'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/abc'}],
+                    'failures': []
+                }
+                mock_ecs.tag_resource.return_value = {}
+                mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+
+                result = handler.create_investigation_task(
+                    cluster='test-cluster',
+                    task_def='rosa-boundary-dev',
+                    oidc_sub='sub-123',
+                    username='sre-user',
+                    investigation_id='inv1',
+                    cluster_id='c1',
+                    subnets=['subnet-1'],
+                    security_group='sg-123',
+                    efs_filesystem_id='fs-123',
+                    oc_version='4.20',
+                    task_timeout=3600
+                )
+
+        # run_task must use the per-investigation ARN, not the base family name
+        call_kwargs = mock_ecs.run_task.call_args[1]
+        assert call_kwargs['taskDefinition'] == per_inv_arn
+        assert result['taskDefinitionArn'] == per_inv_arn
+
+    def test_volume_config_contains_per_investigation_access_point_id(self):
+        """Test that register_task_definition is called with the per-investigation access point ID."""
+        access_point_id = 'fsap-per-inv-123'
+
+        with patch('handler.ecs') as mock_ecs:
+            mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+            mock_ecs.register_task_definition.return_value = {
+                'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+            }
+
+            handler.register_investigation_task_definition(
+                task_def='rosa-boundary-dev',
+                cluster_id='cluster1',
+                investigation_id='inv1',
+                access_point_id=access_point_id,
+                efs_filesystem_id='fs-123',
+                oc_version='4.20',
+                task_timeout=3600,
+                s3_audit_bucket='my-bucket'
+            )
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        volumes = call_kwargs['volumes']
+        assert len(volumes) == 1
+        assert volumes[0]['name'] == 'sre-home'
+        efs_config = volumes[0]['efsVolumeConfiguration']
+        assert efs_config['authorizationConfig']['accessPointId'] == access_point_id
+        assert efs_config['fileSystemId'] == 'fs-123'
+        assert efs_config['transitEncryption'] == 'ENABLED'
+        assert efs_config['authorizationConfig']['iam'] == 'ENABLED'
+
+    def test_family_name_matches_expected_pattern(self):
+        """Test that the registered task definition family name matches the expected pattern."""
+        import re
+
+        with patch('handler.ecs') as mock_ecs:
+            mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+            mock_ecs.register_task_definition.return_value = {
+                'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+            }
+
+            handler.register_investigation_task_definition(
+                task_def='rosa-boundary-dev',
+                cluster_id='my-cluster',
+                investigation_id='my-inv',
+                access_point_id='fsap-123',
+                efs_filesystem_id='fs-123',
+                oc_version='4.20',
+                task_timeout=3600,
+                s3_audit_bucket='bucket'
+            )
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        family = call_kwargs['family']
+        # Pattern: {base_family}-{cluster_id}-{investigation_id}-{timestamp}
+        pattern = r'^rosa-boundary-dev-my-cluster-my-inv-\d{8}T\d{6}$'
+        assert re.match(pattern, family), f"Family name '{family}' does not match expected pattern"
+
+    def test_env_vars_baked_into_task_definition(self):
+        """Test that investigation-specific env vars are baked into the task definition."""
+        with patch('handler.ecs') as mock_ecs:
+            mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+            mock_ecs.register_task_definition.return_value = {
+                'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+            }
+
+            handler.register_investigation_task_definition(
+                task_def='rosa-boundary-dev',
+                cluster_id='cluster1',
+                investigation_id='inv1',
+                access_point_id='fsap-123',
+                efs_filesystem_id='fs-123',
+                oc_version='4.18',
+                task_timeout=7200,
+                s3_audit_bucket='my-bucket'
+            )
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        container_defs = call_kwargs['containerDefinitions']
+        assert len(container_defs) == 1
+        env = {e['name']: e['value'] for e in container_defs[0]['environment']}
+        assert env['CLUSTER_ID'] == 'cluster1'
+        assert env['INVESTIGATION_ID'] == 'inv1'
+        assert env['OC_VERSION'] == '4.18'
+        assert env['S3_AUDIT_BUCKET'] == 'my-bucket'
+        assert env['TASK_TIMEOUT'] == '7200'
+        # Base env vars preserved
+        assert env['CLAUDE_CODE_USE_BEDROCK'] == '1'
+
+    @patch.dict('os.environ', ENV_VARS)
+    def test_skip_task_does_not_register_task_definition(self):
+        """Test that skip_task=True does not call register_task_definition."""
+        import importlib
+        importlib.reload(handler)
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+
+                handler.create_investigation_task(
+                    cluster='test-cluster',
+                    task_def='rosa-boundary-dev',
+                    oidc_sub='sub-123',
+                    username='sre-user',
+                    investigation_id='inv1',
+                    cluster_id='c1',
+                    subnets=['subnet-1'],
+                    security_group='sg-123',
+                    efs_filesystem_id='fs-123',
+                    oc_version='4.20',
+                    task_timeout=3600,
+                    skip_task=True
+                )
+
+                mock_ecs.register_task_definition.assert_not_called()
+                mock_ecs.run_task.assert_not_called()
+
+    @patch.dict('os.environ', ENV_VARS)
+    def test_registration_failure_cleans_up_newly_created_access_point(self):
+        """Test that task def registration failure deletes a newly created access point."""
+        import importlib
+        importlib.reload(handler)
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+                mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
+
+                with pytest.raises(Exception, match="Registration failed"):
+                    handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-123',
+                        efs_filesystem_id='fs-123',
+                        oc_version='4.20',
+                        task_timeout=3600
+                    )
+
+                # Newly created access point should be cleaned up
+                mock_efs.delete_access_point.assert_called_once_with(AccessPointId='fsap-new')
+
+    @patch.dict('os.environ', ENV_VARS)
+    def test_registration_failure_does_not_delete_reused_access_point(self):
+        """Test that task def registration failure does not delete a reused access point."""
+        import importlib
+        importlib.reload(handler)
+
+        existing_ap = {'AccessPointId': 'fsap-existing', 'LifeCycleState': 'available'}
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                mock_efs.get_paginator.return_value.paginate.return_value = [
+                    {'AccessPoints': [{
+                        'AccessPointId': 'fsap-existing',
+                        'LifeCycleState': 'available',
+                        'Tags': [
+                            {'Key': 'ClusterID', 'Value': 'c1'},
+                            {'Key': 'InvestigationID', 'Value': 'inv1'}
+                        ]
+                    }]}
+                ]
+                mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
+
+                with pytest.raises(Exception, match="Registration failed"):
+                    handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-123',
+                        efs_filesystem_id='fs-123',
+                        oc_version='4.20',
+                        task_timeout=3600
+                    )
+
+                # Reused access point should NOT be deleted
+                mock_efs.delete_access_point.assert_not_called()
 
 
 if __name__ == '__main__':

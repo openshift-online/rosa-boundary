@@ -45,6 +45,8 @@ resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
         Action = [
           "ecs:RunTask",
           "ecs:DescribeTaskDefinition",
+          "ecs:RegisterTaskDefinition",
+          "ecs:DeregisterTaskDefinition",
           "ecs:TagResource"
         ]
         Resource = "*"

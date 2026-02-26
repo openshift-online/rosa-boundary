@@ -181,6 +181,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'role_arn': role_arn,
             'task_arn': task_info['taskArn'],
             'access_point_id': task_info['accessPointId'],
+            'task_definition_arn': task_info.get('taskDefinitionArn', ''),
             'investigation_id': investigation_id,
             'cluster_id': cluster_id,
             'owner': username,
@@ -303,6 +304,87 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
     return None
 
 
+def register_investigation_task_definition(
+    task_def: str,
+    cluster_id: str,
+    investigation_id: str,
+    access_point_id: str,
+    efs_filesystem_id: str,
+    oc_version: str,
+    task_timeout: int,
+    s3_audit_bucket: str
+) -> str:
+    """
+    Register a per-investigation ECS task definition with the per-investigation EFS access point.
+
+    Fetches the base task definition, overrides the volume config with the per-investigation
+    access point, and bakes investigation-specific environment variables into the container
+    definition. Returns the registered task definition ARN.
+
+    Args:
+        task_def: Base task definition family name
+        cluster_id: Cluster identifier
+        investigation_id: Investigation identifier
+        access_point_id: Per-investigation EFS access point ID
+        efs_filesystem_id: EFS filesystem ID
+        oc_version: OpenShift CLI version
+        task_timeout: Task timeout in seconds
+        s3_audit_bucket: S3 bucket name for audit logs
+
+    Returns:
+        ARN of the registered per-investigation task definition
+    """
+    base_td = ecs.describe_task_definition(taskDefinition=task_def)['taskDefinition']
+
+    timestamp = datetime.utcnow().strftime('%Y%m%dT%H%M%S')
+    family = f"{base_td['family']}-{cluster_id}-{investigation_id}-{timestamp}"
+
+    volumes = [{
+        'name': 'sre-home',
+        'efsVolumeConfiguration': {
+            'fileSystemId': efs_filesystem_id,
+            'transitEncryption': 'ENABLED',
+            'authorizationConfig': {
+                'accessPointId': access_point_id,
+                'iam': 'ENABLED'
+            }
+        }
+    }]
+
+    env_overrides = {
+        'CLUSTER_ID': cluster_id,
+        'INVESTIGATION_ID': investigation_id,
+        'OC_VERSION': oc_version,
+        'S3_AUDIT_BUCKET': s3_audit_bucket,
+        'TASK_TIMEOUT': str(task_timeout),
+    }
+
+    container_defs = []
+    for cd in base_td.get('containerDefinitions', []):
+        new_cd = dict(cd)
+        existing_env = {e['name']: e['value'] for e in new_cd.get('environment', [])}
+        existing_env.update(env_overrides)
+        new_cd['environment'] = [{'name': k, 'value': v} for k, v in existing_env.items()]
+        container_defs.append(new_cd)
+
+    register_kwargs = {
+        'family': family,
+        'taskRoleArn': base_td['taskRoleArn'],
+        'executionRoleArn': base_td['executionRoleArn'],
+        'networkMode': base_td['networkMode'],
+        'containerDefinitions': container_defs,
+        'volumes': volumes,
+        'requiresCompatibilities': base_td.get('requiresCompatibilities', ['FARGATE']),
+        'cpu': base_td['cpu'],
+        'memory': base_td['memory'],
+    }
+
+    reg_response = ecs.register_task_definition(**register_kwargs)
+    task_def_arn = reg_response['taskDefinition']['taskDefinitionArn']
+    logger.info(f"Registered per-investigation task definition: {task_def_arn}")
+    return task_def_arn
+
+
 def create_investigation_task(
     cluster: str,
     task_def: str,
@@ -340,6 +422,7 @@ def create_investigation_task(
     access_point_path = f"/{cluster_id}/{investigation_id}"
 
     existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
+    ap_newly_created = False
     if existing_ap:
         access_point_id = existing_ap['AccessPointId']
         logger.info(f"Reusing existing EFS access point: {access_point_id}")
@@ -371,6 +454,7 @@ def create_investigation_task(
             )
 
             access_point_id = ap_response['AccessPointId']
+            ap_newly_created = True
             logger.info(f"Created EFS access point: {access_point_id}")
 
         except ClientError as e:
@@ -384,14 +468,29 @@ def create_investigation_task(
             'accessPointId': access_point_id
         }
 
-    # Prepare task environment variables
-    environment = [
-        {'name': 'OC_VERSION', 'value': oc_version},
-        {'name': 'CLUSTER_ID', 'value': cluster_id},
-        {'name': 'INVESTIGATION_ID', 'value': investigation_id},
-        {'name': 'S3_AUDIT_BUCKET', 'value': os.environ.get('S3_AUDIT_BUCKET', '')},
-        {'name': 'TASK_TIMEOUT', 'value': str(task_timeout)}
-    ]
+    # Register a per-investigation task definition with the correct EFS access point baked in.
+    # This ensures each investigation gets its own isolated EFS directory rather than all
+    # Lambda-launched tasks sharing the static access point from the base task definition.
+    investigation_task_def_arn = None
+    try:
+        investigation_task_def_arn = register_investigation_task_definition(
+            task_def=task_def,
+            cluster_id=cluster_id,
+            investigation_id=investigation_id,
+            access_point_id=access_point_id,
+            efs_filesystem_id=efs_filesystem_id,
+            oc_version=oc_version,
+            task_timeout=task_timeout,
+            s3_audit_bucket=os.environ.get('S3_AUDIT_BUCKET', '')
+        )
+    except Exception as e:
+        logger.error(f"Failed to register investigation task definition: {str(e)}")
+        if ap_newly_created:
+            try:
+                efs.delete_access_point(AccessPointId=access_point_id)
+            except Exception:
+                pass
+        raise
 
     # Build task tags (used for both run_task and tag_resource)
     # The 'username' tag is the ABAC key: the shared SRE role policy conditions on
@@ -414,13 +513,13 @@ def create_investigation_task(
         deadline = created_at + timedelta(seconds=task_timeout)
         task_tags.append({'key': 'deadline', 'value': deadline.isoformat()})
 
-    # Launch ECS task
+    # Launch ECS task using the per-investigation task definition
     task_arn = None
     try:
         logger.info(f"Launching ECS task in cluster: {cluster}")
         run_response = ecs.run_task(
             cluster=cluster,
-            taskDefinition=task_def,
+            taskDefinition=investigation_task_def_arn,
             launchType='FARGATE',
             platformVersion='LATEST',
             enableExecuteCommand=True,
@@ -432,20 +531,15 @@ def create_investigation_task(
                     'assignPublicIp': 'DISABLED'
                 }
             },
-            overrides={
-                'containerOverrides': [
-                    {
-                        'name': 'rosa-boundary',
-                        'environment': environment
-                    }
-                ]
-            },
             tags=task_tags
         )
 
         if run_response.get('failures'):
             logger.error(f"Task launch failures: {run_response['failures']}")
-            # Clean up access point
+            try:
+                ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
+            except Exception:
+                pass
             try:
                 efs.delete_access_point(AccessPointId=access_point_id)
             except Exception:
@@ -468,6 +562,10 @@ def create_investigation_task(
             logger.error(f"Failed to tag task: {str(tag_error)}")
             # Stop task and clean up
             try:
+                ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
+            except Exception:
+                pass
+            try:
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Tagging failed')
             except Exception:
                 pass
@@ -479,11 +577,17 @@ def create_investigation_task(
 
         return {
             'taskArn': task_arn,
-            'accessPointId': access_point_id
+            'accessPointId': access_point_id,
+            'taskDefinitionArn': investigation_task_def_arn
         }
 
     except ClientError as e:
         logger.error(f"Failed to launch ECS task: {str(e)}")
+        if investigation_task_def_arn:
+            try:
+                ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
+            except Exception:
+                pass
         # Stop task if it was created
         if task_arn:
             try:

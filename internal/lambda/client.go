@@ -21,15 +21,16 @@ type InvestigationRequest struct {
 
 // InvestigationResponse is the JSON response from a successful Lambda invocation.
 type InvestigationResponse struct {
-	Message         string `json:"message"`
-	RoleARN         string `json:"role_arn"`
-	TaskARN         string `json:"task_arn"`
-	AccessPointID   string `json:"access_point_id"`
-	InvestigationID string `json:"investigation_id"`
-	ClusterID       string `json:"cluster_id"`
-	Owner           string `json:"owner"`
-	OCVersion       string `json:"oc_version"`
-	TaskTimeout     int    `json:"task_timeout"`
+	Message           string `json:"message"`
+	RoleARN           string `json:"role_arn"`
+	TaskARN           string `json:"task_arn"`
+	AccessPointID     string `json:"access_point_id"`
+	InvestigationID   string `json:"investigation_id"`
+	ClusterID         string `json:"cluster_id"`
+	Owner             string `json:"owner"`
+	OCVersion         string `json:"oc_version"`
+	TaskTimeout       int    `json:"task_timeout"`
+	TaskDefinitionArn string `json:"task_definition_arn,omitempty"`
 }
 
 // errorResponse is returned by the Lambda on error.

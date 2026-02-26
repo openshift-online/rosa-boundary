@@ -26,6 +26,7 @@ logger.setLevel(logging.INFO)
 # AWS clients
 ecs = boto3.client('ecs')
 efs = boto3.client('efs')
+sts = boto3.client('sts')
 
 # Environment variables
 KEYCLOAK_URL = os.environ.get('KEYCLOAK_URL')
@@ -312,14 +313,17 @@ def register_investigation_task_definition(
     efs_filesystem_id: str,
     oc_version: str,
     task_timeout: int,
-    s3_audit_bucket: str
+    s3_audit_bucket: str,
+    aws_region: str,
+    aws_account_id: str
 ) -> str:
     """
     Register a per-investigation ECS task definition with the per-investigation EFS access point.
 
     Fetches the base task definition, overrides the volume config with the per-investigation
-    access point, and bakes investigation-specific environment variables into the container
-    definition. Returns the registered task definition ARN.
+    access point, and bakes investigation-specific environment variables into the SRE container.
+    Injects the cluster kubeconfig Secrets Manager reference into the kube-proxy sidecar.
+    Returns the registered task definition ARN.
 
     Args:
         task_def: Base task definition family name
@@ -330,6 +334,8 @@ def register_investigation_task_definition(
         oc_version: OpenShift CLI version
         task_timeout: Task timeout in seconds
         s3_audit_bucket: S3 bucket name for audit logs
+        aws_region: AWS region for Secrets Manager ARN construction
+        aws_account_id: AWS account ID for Secrets Manager ARN construction
 
     Returns:
         ARN of the registered per-investigation task definition
@@ -339,17 +345,22 @@ def register_investigation_task_definition(
     timestamp = datetime.utcnow().strftime('%Y%m%dT%H%M%S')
     family = f"{base_td['family']}-{cluster_id}-{investigation_id}-{timestamp}"
 
-    volumes = [{
-        'name': 'sre-home',
-        'efsVolumeConfiguration': {
-            'fileSystemId': efs_filesystem_id,
-            'transitEncryption': 'ENABLED',
-            'authorizationConfig': {
-                'accessPointId': access_point_id,
-                'iam': 'ENABLED'
+    volumes = [
+        {
+            'name': 'sre-home',
+            'efsVolumeConfiguration': {
+                'fileSystemId': efs_filesystem_id,
+                'transitEncryption': 'ENABLED',
+                'authorizationConfig': {
+                    'accessPointId': access_point_id,
+                    'iam': 'ENABLED'
+                }
             }
+        },
+        {
+            'name': 'proxy-tmp'  # ephemeral bind mount, no EFS config
         }
-    }]
+    ]
 
     env_overrides = {
         'CLUSTER_ID': cluster_id,
@@ -359,12 +370,28 @@ def register_investigation_task_definition(
         'TASK_TIMEOUT': str(task_timeout),
     }
 
+    # Partial ARN (no random suffix) — ECS accepts partial ARNs for Secrets Manager valueFrom
+    kubeconfig_secret_arn = (
+        f'arn:aws:secretsmanager:{aws_region}:{aws_account_id}:'
+        f'secret:rosa-boundary/clusters/{cluster_id}/kubeconfig'
+    )
+
     container_defs = []
     for cd in base_td.get('containerDefinitions', []):
         new_cd = dict(cd)
-        existing_env = {e['name']: e['value'] for e in new_cd.get('environment', [])}
-        existing_env.update(env_overrides)
-        new_cd['environment'] = [{'name': k, 'value': v} for k, v in existing_env.items()]
+        if new_cd['name'] == 'rosa-boundary':
+            # Apply investigation-specific env vars to the SRE container
+            existing_env = {e['name']: e['value'] for e in new_cd.get('environment', [])}
+            existing_env.update(env_overrides)
+            new_cd['environment'] = [{'name': k, 'value': v} for k, v in existing_env.items()]
+        elif new_cd['name'] == 'kube-proxy':
+            # Inject cluster kubeconfig secret reference into the proxy sidecar
+            existing_secrets = list(new_cd.get('secrets', []))
+            existing_secrets.append({
+                'name': 'KUBECONFIG_DATA',
+                'valueFrom': kubeconfig_secret_arn
+            })
+            new_cd['secrets'] = existing_secrets
         container_defs.append(new_cd)
 
     register_kwargs = {
@@ -468,6 +495,10 @@ def create_investigation_task(
             'accessPointId': access_point_id
         }
 
+    # Derive AWS region and account ID for Secrets Manager ARN construction in the task def.
+    aws_region = os.environ.get('AWS_REGION', 'us-east-1')
+    aws_account_id = sts.get_caller_identity()['Account']
+
     # Register a per-investigation task definition with the correct EFS access point baked in.
     # This ensures each investigation gets its own isolated EFS directory rather than all
     # Lambda-launched tasks sharing the static access point from the base task definition.
@@ -481,7 +512,9 @@ def create_investigation_task(
             efs_filesystem_id=efs_filesystem_id,
             oc_version=oc_version,
             task_timeout=task_timeout,
-            s3_audit_bucket=os.environ.get('S3_AUDIT_BUCKET', '')
+            s3_audit_bucket=os.environ.get('S3_AUDIT_BUCKET', ''),
+            aws_region=aws_region,
+            aws_account_id=aws_account_id
         )
     except Exception as e:
         logger.error(f"Failed to register investigation task definition: {str(e)}")

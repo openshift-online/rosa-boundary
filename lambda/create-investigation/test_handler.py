@@ -646,7 +646,18 @@ class TestSkipTask:
             'taskRoleArn': 'arn:aws:iam::123:role/task-role',
             'executionRoleArn': 'arn:aws:iam::123:role/exec-role',
             'networkMode': 'awsvpc',
-            'containerDefinitions': [{'name': 'rosa-boundary', 'environment': []}],
+            'containerDefinitions': [
+                {
+                    'name': 'rosa-boundary',
+                    'environment': [],
+                    'dependsOn': [{'containerName': 'kube-proxy', 'condition': 'HEALTHY'}]
+                },
+                {
+                    'name': 'kube-proxy',
+                    'essential': True,
+                    'readonlyRootFilesystem': True
+                }
+            ],
             'volumes': [],
             'requiresCompatibilities': ['FARGATE'],
             'cpu': '256',
@@ -676,13 +687,15 @@ class TestSkipTask:
             with patch('handler.find_existing_access_point', return_value=None):
                 with patch('handler.efs') as mock_efs:
                     with patch('handler.ecs') as mock_ecs:
-                        mock_efs.create_access_point.return_value = mock_ap
-                        mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
-                        mock_ecs.register_task_definition.return_value = self.REGISTERED_TASK_DEF
-                        mock_ecs.run_task.return_value = mock_task
-                        mock_ecs.tag_resource.return_value = {}
+                        with patch('handler.sts') as mock_sts:
+                            mock_efs.create_access_point.return_value = mock_ap
+                            mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+                            mock_ecs.register_task_definition.return_value = self.REGISTERED_TASK_DEF
+                            mock_ecs.run_task.return_value = mock_task
+                            mock_ecs.tag_resource.return_value = {}
+                            mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
 
-                        response = handler.lambda_handler(event, context)
+                            response = handler.lambda_handler(event, context)
 
         assert response['statusCode'] == 200
         body = json.loads(response['body'])
@@ -822,6 +835,7 @@ class TestPerInvestigationTaskDef:
         'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
         'REQUIRED_GROUP': 'sre-team',
         'S3_AUDIT_BUCKET': 'my-audit-bucket',
+        'AWS_REGION': 'us-east-1',
     }
 
     BASE_TASK_DEF = {
@@ -831,13 +845,22 @@ class TestPerInvestigationTaskDef:
             'taskRoleArn': 'arn:aws:iam::123:role/task-role',
             'executionRoleArn': 'arn:aws:iam::123:role/exec-role',
             'networkMode': 'awsvpc',
-            'containerDefinitions': [{
-                'name': 'rosa-boundary',
-                'environment': [
-                    {'name': 'CLAUDE_CODE_USE_BEDROCK', 'value': '1'},
-                    {'name': 'TASK_TIMEOUT', 'value': '3600'},
-                ]
-            }],
+            'containerDefinitions': [
+                {
+                    'name': 'rosa-boundary',
+                    'environment': [
+                        {'name': 'CLAUDE_CODE_USE_BEDROCK', 'value': '1'},
+                        {'name': 'TASK_TIMEOUT', 'value': '3600'},
+                    ],
+                    'dependsOn': [{'containerName': 'kube-proxy', 'condition': 'HEALTHY'}]
+                },
+                {
+                    'name': 'kube-proxy',
+                    'essential': True,
+                    'readonlyRootFilesystem': True,
+                    'environment': [{'name': 'HOME', 'value': '/tmp'}]
+                }
+            ],
             'volumes': [],
             'requiresCompatibilities': ['FARGATE'],
             'cpu': '256',
@@ -858,31 +881,33 @@ class TestPerInvestigationTaskDef:
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
-                mock_ecs.register_task_definition.return_value = {
-                    'taskDefinition': {'taskDefinitionArn': per_inv_arn}
-                }
-                mock_ecs.run_task.return_value = {
-                    'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/abc'}],
-                    'failures': []
-                }
-                mock_ecs.tag_resource.return_value = {}
-                mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
-                mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+                with patch('handler.sts') as mock_sts:
+                    mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+                    mock_ecs.register_task_definition.return_value = {
+                        'taskDefinition': {'taskDefinitionArn': per_inv_arn}
+                    }
+                    mock_ecs.run_task.return_value = {
+                        'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/abc'}],
+                        'failures': []
+                    }
+                    mock_ecs.tag_resource.return_value = {}
+                    mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                    mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
 
-                result = handler.create_investigation_task(
-                    cluster='test-cluster',
-                    task_def='rosa-boundary-dev',
-                    oidc_sub='sub-123',
-                    username='sre-user',
-                    investigation_id='inv1',
-                    cluster_id='c1',
-                    subnets=['subnet-1'],
-                    security_group='sg-123',
-                    efs_filesystem_id='fs-123',
-                    oc_version='4.20',
-                    task_timeout=3600
-                )
+                    result = handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-123',
+                        efs_filesystem_id='fs-123',
+                        oc_version='4.20',
+                        task_timeout=3600
+                    )
 
         # run_task must use the per-investigation ARN, not the base family name
         call_kwargs = mock_ecs.run_task.call_args[1]
@@ -907,18 +932,22 @@ class TestPerInvestigationTaskDef:
                 efs_filesystem_id='fs-123',
                 oc_version='4.20',
                 task_timeout=3600,
-                s3_audit_bucket='my-bucket'
+                s3_audit_bucket='my-bucket',
+                aws_region='us-east-1',
+                aws_account_id='123456789012'
             )
 
         call_kwargs = mock_ecs.register_task_definition.call_args[1]
         volumes = call_kwargs['volumes']
-        assert len(volumes) == 1
-        assert volumes[0]['name'] == 'sre-home'
-        efs_config = volumes[0]['efsVolumeConfiguration']
+        assert len(volumes) == 2
+        sre_vol = next(v for v in volumes if v['name'] == 'sre-home')
+        proxy_vol = next(v for v in volumes if v['name'] == 'proxy-tmp')
+        efs_config = sre_vol['efsVolumeConfiguration']
         assert efs_config['authorizationConfig']['accessPointId'] == access_point_id
         assert efs_config['fileSystemId'] == 'fs-123'
         assert efs_config['transitEncryption'] == 'ENABLED'
         assert efs_config['authorizationConfig']['iam'] == 'ENABLED'
+        assert 'efsVolumeConfiguration' not in proxy_vol
 
     def test_family_name_matches_expected_pattern(self):
         """Test that the registered task definition family name matches the expected pattern."""
@@ -938,7 +967,9 @@ class TestPerInvestigationTaskDef:
                 efs_filesystem_id='fs-123',
                 oc_version='4.20',
                 task_timeout=3600,
-                s3_audit_bucket='bucket'
+                s3_audit_bucket='bucket',
+                aws_region='us-east-1',
+                aws_account_id='123456789012'
             )
 
         call_kwargs = mock_ecs.register_task_definition.call_args[1]
@@ -948,7 +979,7 @@ class TestPerInvestigationTaskDef:
         assert re.match(pattern, family), f"Family name '{family}' does not match expected pattern"
 
     def test_env_vars_baked_into_task_definition(self):
-        """Test that investigation-specific env vars are baked into the task definition."""
+        """Test that investigation-specific env vars are baked into the SRE container only."""
         with patch('handler.ecs') as mock_ecs:
             mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
             mock_ecs.register_task_definition.return_value = {
@@ -963,13 +994,16 @@ class TestPerInvestigationTaskDef:
                 efs_filesystem_id='fs-123',
                 oc_version='4.18',
                 task_timeout=7200,
-                s3_audit_bucket='my-bucket'
+                s3_audit_bucket='my-bucket',
+                aws_region='us-east-1',
+                aws_account_id='123456789012'
             )
 
         call_kwargs = mock_ecs.register_task_definition.call_args[1]
         container_defs = call_kwargs['containerDefinitions']
-        assert len(container_defs) == 1
-        env = {e['name']: e['value'] for e in container_defs[0]['environment']}
+        assert len(container_defs) == 2
+        sre_cd = next(cd for cd in container_defs if cd['name'] == 'rosa-boundary')
+        env = {e['name']: e['value'] for e in sre_cd['environment']}
         assert env['CLUSTER_ID'] == 'cluster1'
         assert env['INVESTIGATION_ID'] == 'inv1'
         assert env['OC_VERSION'] == '4.18'
@@ -1015,27 +1049,29 @@ class TestPerInvestigationTaskDef:
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
-                mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
-                mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
+                with patch('handler.sts') as mock_sts:
+                    mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                    mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+                    mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
 
-                with pytest.raises(Exception, match="Registration failed"):
-                    handler.create_investigation_task(
-                        cluster='test-cluster',
-                        task_def='rosa-boundary-dev',
-                        oidc_sub='sub-123',
-                        username='sre-user',
-                        investigation_id='inv1',
-                        cluster_id='c1',
-                        subnets=['subnet-1'],
-                        security_group='sg-123',
-                        efs_filesystem_id='fs-123',
-                        oc_version='4.20',
-                        task_timeout=3600
-                    )
+                    with pytest.raises(Exception, match="Registration failed"):
+                        handler.create_investigation_task(
+                            cluster='test-cluster',
+                            task_def='rosa-boundary-dev',
+                            oidc_sub='sub-123',
+                            username='sre-user',
+                            investigation_id='inv1',
+                            cluster_id='c1',
+                            subnets=['subnet-1'],
+                            security_group='sg-123',
+                            efs_filesystem_id='fs-123',
+                            oc_version='4.20',
+                            task_timeout=3600
+                        )
 
-                # Newly created access point should be cleaned up
-                mock_efs.delete_access_point.assert_called_once_with(AccessPointId='fsap-new')
+                    # Newly created access point should be cleaned up
+                    mock_efs.delete_access_point.assert_called_once_with(AccessPointId='fsap-new')
 
     @patch.dict('os.environ', ENV_VARS)
     def test_registration_failure_does_not_delete_reused_access_point(self):
@@ -1047,35 +1083,180 @@ class TestPerInvestigationTaskDef:
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                mock_efs.get_paginator.return_value.paginate.return_value = [
-                    {'AccessPoints': [{
-                        'AccessPointId': 'fsap-existing',
-                        'LifeCycleState': 'available',
-                        'Tags': [
-                            {'Key': 'ClusterID', 'Value': 'c1'},
-                            {'Key': 'InvestigationID', 'Value': 'inv1'}
-                        ]
-                    }]}
-                ]
-                mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
+                with patch('handler.sts') as mock_sts:
+                    mock_efs.get_paginator.return_value.paginate.return_value = [
+                        {'AccessPoints': [{
+                            'AccessPointId': 'fsap-existing',
+                            'LifeCycleState': 'available',
+                            'Tags': [
+                                {'Key': 'ClusterID', 'Value': 'c1'},
+                                {'Key': 'InvestigationID', 'Value': 'inv1'}
+                            ]
+                        }]}
+                    ]
+                    mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
 
-                with pytest.raises(Exception, match="Registration failed"):
-                    handler.create_investigation_task(
-                        cluster='test-cluster',
-                        task_def='rosa-boundary-dev',
-                        oidc_sub='sub-123',
-                        username='sre-user',
-                        investigation_id='inv1',
-                        cluster_id='c1',
-                        subnets=['subnet-1'],
-                        security_group='sg-123',
-                        efs_filesystem_id='fs-123',
-                        oc_version='4.20',
-                        task_timeout=3600
-                    )
+                    with pytest.raises(Exception, match="Registration failed"):
+                        handler.create_investigation_task(
+                            cluster='test-cluster',
+                            task_def='rosa-boundary-dev',
+                            oidc_sub='sub-123',
+                            username='sre-user',
+                            investigation_id='inv1',
+                            cluster_id='c1',
+                            subnets=['subnet-1'],
+                            security_group='sg-123',
+                            efs_filesystem_id='fs-123',
+                            oc_version='4.20',
+                            task_timeout=3600
+                        )
 
-                # Reused access point should NOT be deleted
-                mock_efs.delete_access_point.assert_not_called()
+                    # Reused access point should NOT be deleted
+                    mock_efs.delete_access_point.assert_not_called()
+
+
+class TestKubeProxySidecar:
+    """Test kube-proxy sidecar integration in per-investigation task definitions."""
+
+    BASE_TASK_DEF = {
+        'taskDefinition': {
+            'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123456789012:task-definition/rosa-boundary-dev:1',
+            'family': 'rosa-boundary-dev',
+            'taskRoleArn': 'arn:aws:iam::123456789012:role/task-role',
+            'executionRoleArn': 'arn:aws:iam::123456789012:role/exec-role',
+            'networkMode': 'awsvpc',
+            'containerDefinitions': [
+                {
+                    'name': 'rosa-boundary',
+                    'environment': [
+                        {'name': 'CLAUDE_CODE_USE_BEDROCK', 'value': '1'},
+                        {'name': 'TASK_TIMEOUT', 'value': '3600'},
+                        {'name': 'KUBE_PROXY_PORT', 'value': '8001'},
+                    ],
+                    'dependsOn': [{'containerName': 'kube-proxy', 'condition': 'HEALTHY'}]
+                },
+                {
+                    'name': 'kube-proxy',
+                    'essential': True,
+                    'readonlyRootFilesystem': True,
+                    'environment': [{'name': 'HOME', 'value': '/tmp'}],
+                    'mountPoints': [
+                        {'sourceVolume': 'proxy-tmp', 'containerPath': '/tmp', 'readOnly': False}
+                    ]
+                }
+            ],
+            'volumes': [],
+            'requiresCompatibilities': ['FARGATE'],
+            'cpu': '1024',
+            'memory': '2048',
+        }
+    }
+
+    def _call_register(self, mock_ecs, cluster_id='my-cluster', aws_account_id='123456789012'):
+        mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+        mock_ecs.register_task_definition.return_value = {
+            'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+        }
+        handler.register_investigation_task_definition(
+            task_def='rosa-boundary-dev',
+            cluster_id=cluster_id,
+            investigation_id='inv1',
+            access_point_id='fsap-123',
+            efs_filesystem_id='fs-123',
+            oc_version='4.20',
+            task_timeout=3600,
+            s3_audit_bucket='my-bucket',
+            aws_region='us-east-1',
+            aws_account_id=aws_account_id
+        )
+
+    def test_kube_proxy_gets_secrets_manager_reference(self):
+        """Test that the kube-proxy container receives a KUBECONFIG_DATA secret reference."""
+        with patch('handler.ecs') as mock_ecs:
+            self._call_register(mock_ecs, cluster_id='my-cluster', aws_account_id='123456789012')
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        container_defs = call_kwargs['containerDefinitions']
+        proxy_cd = next(cd for cd in container_defs if cd['name'] == 'kube-proxy')
+        secrets = {s['name']: s['valueFrom'] for s in proxy_cd.get('secrets', [])}
+        assert 'KUBECONFIG_DATA' in secrets
+        assert 'rosa-boundary/clusters/my-cluster/kubeconfig' in secrets['KUBECONFIG_DATA']
+
+    def test_secrets_manager_arn_includes_region_and_account(self):
+        """Test that the Secrets Manager ARN contains the correct region and account."""
+        with patch('handler.ecs') as mock_ecs:
+            self._call_register(mock_ecs, cluster_id='test-cluster', aws_account_id='999888777666')
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        container_defs = call_kwargs['containerDefinitions']
+        proxy_cd = next(cd for cd in container_defs if cd['name'] == 'kube-proxy')
+        kubeconfig_arn = next(
+            s['valueFrom'] for s in proxy_cd.get('secrets', []) if s['name'] == 'KUBECONFIG_DATA'
+        )
+        assert 'us-east-1' in kubeconfig_arn
+        assert '999888777666' in kubeconfig_arn
+        assert 'test-cluster' in kubeconfig_arn
+        assert kubeconfig_arn.startswith('arn:aws:secretsmanager:')
+
+    def test_rosa_boundary_does_not_get_kubeconfig_secret(self):
+        """Test that the SRE container does not receive the kubeconfig secret reference."""
+        with patch('handler.ecs') as mock_ecs:
+            self._call_register(mock_ecs)
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        container_defs = call_kwargs['containerDefinitions']
+        sre_cd = next(cd for cd in container_defs if cd['name'] == 'rosa-boundary')
+        secret_names = [s['name'] for s in sre_cd.get('secrets', [])]
+        assert 'KUBECONFIG_DATA' not in secret_names
+
+    def test_proxy_tmp_volume_in_registered_task_def(self):
+        """Test that the proxy-tmp bind-mount volume is included in the registered task def."""
+        with patch('handler.ecs') as mock_ecs:
+            self._call_register(mock_ecs)
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        volumes = call_kwargs['volumes']
+        volume_names = [v['name'] for v in volumes]
+        assert 'proxy-tmp' in volume_names
+        proxy_vol = next(v for v in volumes if v['name'] == 'proxy-tmp')
+        assert 'efsVolumeConfiguration' not in proxy_vol
+
+    def test_rosa_boundary_depend_on_preserved(self):
+        """Test that dependsOn from the base task def is preserved on the SRE container."""
+        with patch('handler.ecs') as mock_ecs:
+            self._call_register(mock_ecs)
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        container_defs = call_kwargs['containerDefinitions']
+        sre_cd = next(cd for cd in container_defs if cd['name'] == 'rosa-boundary')
+        depend_on = sre_cd.get('dependsOn', [])
+        assert len(depend_on) == 1
+        assert depend_on[0]['containerName'] == 'kube-proxy'
+        assert depend_on[0]['condition'] == 'HEALTHY'
+
+    def test_kube_proxy_readonly_root_filesystem_preserved(self):
+        """Test that readonlyRootFilesystem is preserved on the kube-proxy container."""
+        with patch('handler.ecs') as mock_ecs:
+            self._call_register(mock_ecs)
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        container_defs = call_kwargs['containerDefinitions']
+        proxy_cd = next(cd for cd in container_defs if cd['name'] == 'kube-proxy')
+        assert proxy_cd.get('readonlyRootFilesystem') is True
+
+    def test_rosa_boundary_env_not_applied_to_kube_proxy(self):
+        """Test that investigation env vars are not applied to the kube-proxy container."""
+        with patch('handler.ecs') as mock_ecs:
+            self._call_register(mock_ecs, cluster_id='cluster1')
+
+        call_kwargs = mock_ecs.register_task_definition.call_args[1]
+        container_defs = call_kwargs['containerDefinitions']
+        proxy_cd = next(cd for cd in container_defs if cd['name'] == 'kube-proxy')
+        proxy_env = {e['name']: e['value'] for e in proxy_cd.get('environment', [])}
+        assert 'CLUSTER_ID' not in proxy_env
+        assert 'INVESTIGATION_ID' not in proxy_env
+        assert 'OC_VERSION' not in proxy_env
 
 
 if __name__ == '__main__':

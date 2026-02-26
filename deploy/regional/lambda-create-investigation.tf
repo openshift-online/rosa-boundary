@@ -92,8 +92,11 @@ data "archive_file" "create_investigation_lambda" {
 
   excludes = [
     "test_handler.py",
+    "conftest.py",
+    "pytest.ini",
     "test-security-fixes.sh",
-    "requirements-test.txt",
+    "pyproject.toml",
+    "uv.lock",
     "README.md",
     "Makefile",
     "__pycache__",

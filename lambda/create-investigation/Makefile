@@ -1,37 +1,17 @@
-.PHONY: clean deps build test test-unit test-coverage help deploy package install-test-deps venv clean-venv
+.PHONY: clean deps deps-local build test test-unit test-coverage help deploy package validate test-local test-localstack test-e2e-localstack
 
 # Variables
 CONTAINER_RUNTIME ?= podman
 LAMBDA_RUNTIME = public.ecr.aws/lambda/python:3.11
 FUNCTION_DIR = $(shell pwd)
-REQUIREMENTS = requirements.txt
-REQUIREMENTS_TEST = requirements-test.txt
 TERRAFORM_DIR = ../../deploy/regional
 ZIP_FILE = /tmp/lambda-create-investigation.zip
-VENV = .venv
-PYTHON = $(VENV)/bin/python
-PIP = $(VENV)/bin/pip
-PYTEST = $(VENV)/bin/pytest
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
 	@echo ''
 	@echo 'Available targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-
-venv: ## Create Python virtual environment
-	@if [ ! -d "$(VENV)" ]; then \
-		echo "Creating virtual environment..."; \
-		uv venv $(VENV); \
-		echo "Virtual environment created at $(VENV)"; \
-	else \
-		echo "Virtual environment already exists at $(VENV)"; \
-	fi
-
-clean-venv: ## Remove virtual environment
-	@echo "Removing virtual environment..."
-	rm -rf $(VENV)
-	@echo "Virtual environment removed"
 
 clean: ## Remove build artifacts and dependencies
 	@echo "Cleaning build artifacts..."
@@ -64,17 +44,19 @@ clean: ## Remove build artifacts and dependencies
 deps: clean ## Install Lambda dependencies using container runtime (Linux-compatible)
 	@echo "Installing Lambda dependencies using AWS Lambda container image (x86_64)..."
 	@echo "Using container runtime: $(CONTAINER_RUNTIME)"
+	uv export --frozen --no-dev --no-emit-project -o /tmp/requirements-lock.txt
 	$(CONTAINER_RUNTIME) run --rm \
 		--platform linux/amd64 \
 		--entrypoint "" \
 		-v "$(FUNCTION_DIR)":/var/task:Z \
+		-v /tmp/requirements-lock.txt:/tmp/requirements-lock.txt:ro \
 		$(LAMBDA_RUNTIME) \
-		pip install -t /var/task -r /var/task/$(REQUIREMENTS) --no-cache-dir
+		pip install -t /var/task -r /tmp/requirements-lock.txt --no-cache-dir
 	@echo "Dependencies installed"
 
 deps-local: clean ## Install dependencies locally using uv (for local testing only - not Lambda compatible on macOS)
 	@echo "Installing dependencies locally with uv (not Lambda-compatible)..."
-	uv pip install --system -t . -r $(REQUIREMENTS)
+	uv export --frozen --no-dev --no-emit-project | uv pip install --system -t . -r -
 	@echo "Local dependencies installed"
 
 build: deps ## Build Lambda deployment package (install deps + verify)
@@ -86,20 +68,13 @@ build: deps ## Build Lambda deployment package (install deps + verify)
 	@echo "Files in package:"
 	@ls -lh | grep -E "handler|jwt|crypto|requests" | awk '{print "  " $$9 " (" $$5 ")"}'
 
-install-test-deps: venv ## Install test dependencies in virtual environment
-	@echo "Installing test dependencies with uv..."
-	@uv pip install -r $(REQUIREMENTS_TEST)
-	@echo "Installing runtime dependencies for testing..."
-	@uv pip install -r $(REQUIREMENTS)
-	@echo "Test dependencies installed"
-
-test-unit: install-test-deps ## Run unit tests with pytest
+test-unit: ## Run unit tests with pytest
 	@echo "Running unit tests..."
-	PYTHONPATH=. $(PYTEST) test_handler.py -v
+	uv run pytest test_handler.py -v
 
-test-coverage: install-test-deps ## Run unit tests with coverage report
+test-coverage: ## Run unit tests with coverage report
 	@echo "Running unit tests with coverage..."
-	PYTHONPATH=. $(PYTEST) test_handler.py -v --cov=handler --cov-report=term-missing --cov-report=html
+	uv run pytest test_handler.py -v --cov=handler --cov-report=term-missing --cov-report=html
 	@echo ""
 	@echo "HTML coverage report generated in htmlcov/index.html"
 
@@ -125,7 +100,6 @@ package: build ## Create Lambda deployment zip package
 		-x "README.md" \
 		-x "*.md" \
 		-x "test_*.py" \
-		-x "*requirements-test.txt" \
 		-x ".venv/*" \
 		-x ".pytest_cache/*" \
 		-x "htmlcov/*" \
@@ -149,16 +123,16 @@ deploy: package ## Build and deploy Lambda function to AWS
 		--function-name "$$FUNCTION_NAME" \
 		--zip-file fileb://$(ZIP_FILE) \
 		--output json > /tmp/lambda-update-result.json; \
-	echo "✅ Lambda function updated successfully"; \
+	echo "Lambda function updated successfully"; \
 	echo "Last Modified: $$(jq -r '.LastModified' /tmp/lambda-update-result.json)"; \
 	echo "Code Size: $$(jq -r '.CodeSize' /tmp/lambda-update-result.json) bytes"; \
 	echo "Waiting for update to complete..."; \
 	aws lambda wait function-updated --function-name "$$FUNCTION_NAME"; \
-	echo "✅ Lambda function is ready"
+	echo "Lambda function is ready"
 
-test-localstack: install-test-deps ## Run Lambda tests against LocalStack
+test-localstack: ## Run Lambda tests against LocalStack
 	@echo "Ensure LocalStack is running: make localstack-up (from project root)"
-	PYTHONPATH=. $(PYTEST) ../../tests/localstack/integration/test_lambda_handler.py -v
+	uv run pytest ../../tests/localstack/integration/test_lambda_handler.py -v
 
-test-e2e-localstack: install-test-deps ## Run full E2E test against LocalStack
-	PYTHONPATH=. $(PYTEST) ../../tests/localstack/integration/test_full_workflow.py -v
+test-e2e-localstack: ## Run full E2E test against LocalStack
+	uv run pytest ../../tests/localstack/integration/test_full_workflow.py -v

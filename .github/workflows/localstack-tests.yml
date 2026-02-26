@@ -138,10 +138,8 @@ jobs:
       - name: Run Lambda unit tests
         run: |
           cd lambda/create-investigation
-          uv venv
-          source .venv/bin/activate
-          uv pip install -r requirements.txt -r requirements-test.txt
-          pytest test_handler.py -v --cov=handler --cov-report=xml --junit-xml=test-results.xml
+          uv sync
+          uv run pytest test_handler.py -v --cov=handler --cov-report=xml --junit-xml=test-results.xml
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

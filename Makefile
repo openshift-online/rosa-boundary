@@ -100,9 +100,7 @@ test-lambda-reap-tasks: ## Run reap-tasks Lambda unit tests
 
 test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	@echo "Running create-investigation unit tests..."
-	cd lambda/create-investigation && \
-		uv run --with-requirements requirements.txt --with-requirements requirements-test.txt \
-		pytest test_handler.py -v
+	cd lambda/create-investigation && uv run pytest test_handler.py -v
 
 staticcheck: ## Run staticcheck before commits
 	@echo "Running staticcheck..."

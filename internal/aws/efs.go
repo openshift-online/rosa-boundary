@@ -71,6 +71,46 @@ func (c *EFSClient) FindAccessPointByTags(ctx context.Context, clusterID, invest
 	return nil, nil
 }
 
+// ListInvestigations returns all EFS access points on the filesystem that have
+// both ClusterID and InvestigationID tags (i.e. were created by rosa-boundary).
+// If clusterID is non-empty, only access points matching that cluster are returned.
+func (c *EFSClient) ListInvestigations(ctx context.Context, clusterID string) ([]AccessPointSummary, error) {
+	var results []AccessPointSummary
+	paginator := efs.NewDescribeAccessPointsPaginator(c.client, &efs.DescribeAccessPointsInput{
+		FileSystemId: aws.String(c.filesystemID),
+	})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("DescribeAccessPoints failed: %w", err)
+		}
+		for _, ap := range page.AccessPoints {
+			tags := make(map[string]string)
+			for _, tag := range ap.Tags {
+				tags[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
+			}
+			if tags["ClusterID"] == "" || tags["InvestigationID"] == "" {
+				continue
+			}
+			if clusterID != "" && tags["ClusterID"] != clusterID {
+				continue
+			}
+			rootPath := ""
+			if ap.RootDirectory != nil {
+				rootPath = aws.ToString(ap.RootDirectory.Path)
+			}
+			results = append(results, AccessPointSummary{
+				AccessPointID:  aws.ToString(ap.AccessPointId),
+				FileSystemID:   aws.ToString(ap.FileSystemId),
+				Path:           rootPath,
+				LifeCycleState: string(ap.LifeCycleState),
+				Tags:           tags,
+			})
+		}
+	}
+	return results, nil
+}
+
 // DeleteAccessPoint deletes an EFS access point by ID.
 func (c *EFSClient) DeleteAccessPoint(ctx context.Context, accessPointID string) error {
 	_, err := c.client.DeleteAccessPoint(ctx, &efs.DeleteAccessPointInput{

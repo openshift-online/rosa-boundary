@@ -119,6 +119,23 @@ variable "task_timeout_default" {
   }
 }
 
+variable "audit_replication_bucket_arn" {
+  description = "ARN of the destination S3 bucket in the audit account for cross-account replication. If empty, replication is disabled."
+  type        = string
+  default     = ""
+}
+
+variable "audit_replication_account_id" {
+  description = "AWS account ID of the audit account that owns the replication destination bucket. Required when audit_replication_bucket_arn is set."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.audit_replication_bucket_arn == "" || var.audit_replication_account_id != ""
+    error_message = "audit_replication_account_id is required when audit_replication_bucket_arn is set."
+  }
+}
+
 variable "reaper_schedule_minutes" {
   description = "How often the task reaper Lambda runs (in minutes)"
   type        = number

@@ -1,12 +1,13 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds all configuration values for the CLI.
@@ -118,17 +119,61 @@ func Get() (*Config, error) {
 	return &cfg, nil
 }
 
-// WriteConfigFile writes ordered key-value pairs to a YAML config file.
-// Entries is a slice of [2]string{key, value} pairs written in order.
+// ConfigEntry represents a configuration key-value pair with an optional comment.
+type ConfigEntry struct {
+	Key     string
+	Value   string
+	Comment string // Written as a YAML comment above the key
+}
+
+// WriteConfigFile writes configuration entries to a YAML config file.
+// Each entry may include a comment that is written above the key.
+// Values are properly quoted/escaped by the YAML encoder.
 // Empty values are omitted.
-func WriteConfigFile(path string, entries [][2]string) error {
-	var sb strings.Builder
-	for _, kv := range entries {
-		if kv[1] != "" {
-			fmt.Fprintf(&sb, "%s: %s\n", kv[0], kv[1])
+func WriteConfigFile(path string, entries []ConfigEntry) error {
+	doc := &yaml.Node{Kind: yaml.DocumentNode}
+	mapping := &yaml.Node{Kind: yaml.MappingNode}
+	doc.Content = append(doc.Content, mapping)
+
+	wroteEntry := false
+	for _, e := range entries {
+		if e.Value == "" {
+			continue
 		}
+
+		keyNode := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: e.Key,
+		}
+		if e.Comment != "" {
+			comment := e.Comment
+			if wroteEntry {
+				// Add a blank line before this comment block by prefixing with newline
+				comment = "\n" + comment
+			}
+			keyNode.HeadComment = comment
+		}
+
+		valNode := &yaml.Node{
+			Kind:  yaml.ScalarNode,
+			Value: e.Value,
+		}
+
+		mapping.Content = append(mapping.Content, keyNode, valNode)
+		wroteEntry = true
 	}
-	if err := os.WriteFile(path, []byte(sb.String()), 0o600); err != nil {
+
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(doc); err != nil {
+		return fmt.Errorf("cannot encode config: %w", err)
+	}
+	if err := enc.Close(); err != nil {
+		return fmt.Errorf("cannot encode config: %w", err)
+	}
+
+	if err := os.WriteFile(path, buf.Bytes(), 0o600); err != nil {
 		return fmt.Errorf("cannot write config file: %w", err)
 	}
 	return nil

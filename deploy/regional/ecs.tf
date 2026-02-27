@@ -81,42 +81,108 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
     }
   }
 
-  container_definitions = jsonencode([{
-    name        = "rosa-boundary"
-    image       = var.container_image
-    essential   = true
-    stopTimeout = 120
+  # Ephemeral bind mount for kube-proxy working directory (no EFS config)
+  volume {
+    name = "proxy-tmp"
+  }
 
-    environment = [
-      {
-        name  = "CLAUDE_CODE_USE_BEDROCK"
-        value = "1"
-      },
-      {
-        name  = "TASK_TIMEOUT"
-        value = tostring(var.task_timeout_default)
+  container_definitions = jsonencode([
+    {
+      name        = "rosa-boundary"
+      image       = var.container_image
+      essential   = true
+      stopTimeout = 120
+
+      dependsOn = [
+        {
+          containerName = "kube-proxy"
+          condition     = "HEALTHY"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "CLAUDE_CODE_USE_BEDROCK"
+          value = "1"
+        },
+        {
+          name  = "TASK_TIMEOUT"
+          value = tostring(var.task_timeout_default)
+        },
+        {
+          name  = "KUBE_PROXY_PORT"
+          value = tostring(var.kube_proxy_port)
+        }
+      ]
+
+      mountPoints = [{
+        sourceVolume  = "sre-home"
+        containerPath = "/home/sre"
+        readOnly      = false
+      }]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.rosa_boundary.name
+          "awslogs-region"        = data.aws_region.current.name
+          "awslogs-stream-prefix" = "rosa-boundary"
+        }
       }
-    ]
 
-    mountPoints = [{
-      sourceVolume  = "sre-home"
-      containerPath = "/home/sre"
-      readOnly      = false
-    }]
+      linuxParameters = {
+        initProcessEnabled = true
+      }
+    },
+    {
+      name      = "kube-proxy"
+      image     = var.container_image
+      essential = true
 
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-group"         = aws_cloudwatch_log_group.rosa_boundary.name
-        "awslogs-region"        = data.aws_region.current.name
-        "awslogs-stream-prefix" = "rosa-boundary"
+      command = [
+        "sh", "-c",
+        "printf '%s' \"$KUBECONFIG_DATA\" > /tmp/kubeconfig && exec oc proxy --address=127.0.0.1 --port=${var.kube_proxy_port} --kubeconfig=/tmp/kubeconfig"
+      ]
+
+      environment = [
+        {
+          name  = "HOME"
+          value = "/tmp"
+        }
+      ]
+
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -sf http://127.0.0.1:${var.kube_proxy_port}/version || exit 1"]
+        interval    = 10
+        timeout     = 5
+        retries     = 3
+        startPeriod = 30
+      }
+
+      mountPoints = [
+        {
+          sourceVolume  = "proxy-tmp"
+          containerPath = "/tmp"
+          readOnly      = false
+        }
+      ]
+
+      readonlyRootFilesystem = true
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.rosa_boundary.name
+          "awslogs-region"        = data.aws_region.current.name
+          "awslogs-stream-prefix" = "kube-proxy"
+        }
+      }
+
+      linuxParameters = {
+        initProcessEnabled = true
       }
     }
-
-    linuxParameters = {
-      initProcessEnabled = true
-    }
-  }])
+  ])
 
   tags = local.common_tags
 }

@@ -63,6 +63,26 @@ if [ -n "${AWS_CLI}" ]; then
     esac
 fi
 
+# Configure kubectl/oc to use the kube-proxy sidecar
+if [ -n "${KUBE_PROXY_PORT}" ]; then
+    mkdir -p /home/sre/.kube
+    cat >/home/sre/.kube/config <<KUBECONFIG
+apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: http://localhost:${KUBE_PROXY_PORT}
+  name: investigation
+contexts:
+- context:
+    cluster: investigation
+  name: investigation
+current-context: investigation
+KUBECONFIG
+    chown sre:sre /home/sre/.kube /home/sre/.kube/config
+    echo "Configured oc/kubectl to use proxy at localhost:${KUBE_PROXY_PORT}"
+fi
+
 # Copy skeleton Claude Code config to /home/sre if not already present
 # /home/sre is EFS-mounted, so only copy if .claude doesn't exist
 if [ ! -d /home/sre/.claude ] && [ -d /etc/skel-sre/.claude ]; then

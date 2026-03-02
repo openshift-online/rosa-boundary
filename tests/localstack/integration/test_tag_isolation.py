@@ -283,8 +283,12 @@ def test_tasks_tagged_with_username_as_abac_key(ecs_client, test_vpc, iam_client
     ecs_cleanup.register_task(cluster_name, task2_arn)
 
     # Verify 'username' is the ABAC key and 'oidc_sub' is present for audit
-    tags1 = {t['key']: t['value'] for t in ecs_client.list_tags_for_resource(resourceArn=task1_arn)['tags']}
-    tags2 = {t['key']: t['value'] for t in ecs_client.list_tags_for_resource(resourceArn=task2_arn)['tags']}
+    # Use describe_tasks with include=['TAGS'] instead of list_tags_for_resource
+    # because LocalStack's list_tags_for_resource is unreliable for ECS tasks.
+    desc1 = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task1_arn], include=['TAGS'])
+    desc2 = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task2_arn], include=['TAGS'])
+    tags1 = {t['key']: t['value'] for t in desc1['tasks'][0].get('tags', [])}
+    tags2 = {t['key']: t['value'] for t in desc2['tasks'][0].get('tags', [])}
 
     assert 'username' in tags1, "Task must have 'username' tag for ABAC"
     assert 'username' in tags2, "Task must have 'username' tag for ABAC"

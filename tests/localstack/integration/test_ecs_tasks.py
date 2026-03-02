@@ -176,9 +176,9 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
     task_arn = run_response['tasks'][0]['taskArn']
     ecs_cleanup.register_task(cluster_name, task_arn)
 
-    # Verify tags via list-tags-for-resource
-    tags_response = ecs_client.list_tags_for_resource(resourceArn=task_arn)
-    tag_dict = {t['key']: t['value'] for t in tags_response['tags']}
+    # Verify tags via describe_tasks (more reliable than list_tags_for_resource in LocalStack)
+    desc_response = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn], include=['TAGS'])
+    tag_dict = {t['key']: t['value'] for t in desc_response['tasks'][0].get('tags', [])}
 
     assert tag_dict['oidc_sub'] == oidc_sub
     assert tag_dict['username'] == username

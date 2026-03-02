@@ -172,9 +172,9 @@ def test_complete_investigation_creation(
     access_points = efs_client.describe_access_points(AccessPointId=access_point_id)
     assert len(access_points['AccessPoints']) == 1
 
-    # Verify task has correct tags
-    tags = ecs_client.list_tags_for_resource(resourceArn=task_arn)
-    tag_dict = {t['key']: t['value'] for t in tags['tags']}
+    # Verify task has correct tags (use describe_tasks, more reliable than list_tags_for_resource in LocalStack)
+    desc = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn], include=['TAGS'])
+    tag_dict = {t['key']: t['value'] for t in desc['tasks'][0].get('tags', [])}
     assert tag_dict['oidc_sub'] == oidc_sub
     assert tag_dict['username'] == username
     assert tag_dict['investigation_id'] == investigation_id

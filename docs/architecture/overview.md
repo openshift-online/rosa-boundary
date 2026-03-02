@@ -31,18 +31,18 @@ flowchart TB
         EventBridge["EventBridge<br/>Schedule"]
     end
 
-    CLI -->|1. OIDC Login (PKCE)| KC
+    CLI -->|"1. OIDC Login (PKCE)"| KC
     KC -.->|stores| KCDB
     KC -->|2. ID Token| CLI
     CLI -->|3. AssumeRoleWithWebIdentity| InvokerRole
-    CLI -->|4. Invoke Lambda (AWS SDK/SigV4)| Lambda
+    CLI -->|"4. Invoke Lambda (AWS SDK/SigV4)"| Lambda
     Lambda -->|5. Validate token via JWKS| KC
     Lambda -->|6. Create EFS AP + launch task| ECS
     Lambda -->|7. Return shared role ARN + task ARN| CLI
-    CLI -->|8. AssumeRoleWithWebIdentity (session tags from JWT)| IAM
+    CLI -->|"8. AssumeRoleWithWebIdentity (session tags from JWT)"| IAM
     CLI -->|9. ecs:ExecuteCommand| ECS
     ECS -->|10. SSM Session| SSM
-    SSM -->|11. Shell (syscall.Exec → session-manager-plugin)| Fargate
+    SSM -->|"11. Shell (syscall.Exec → session-manager-plugin)"| Fargate
     Fargate -.->|persist| EFS
     Fargate -.->|audit| S3
     SSM -.->|logs| CW
@@ -161,13 +161,13 @@ The CLI uses a two-step role assumption before invoking Lambda. The invoker role
 flowchart LR
     U[User + Token] -->|1. AssumeRoleWithWebIdentity| InvokerRole[Invoker Role]
     InvokerRole -->|2. Temporary credentials| U
-    U -->|3. Invoke Lambda via SDK (SigV4)| Lambda[Lambda Function]
+    U -->|"3. Invoke Lambda via SDK (SigV4)"| Lambda[Lambda Function]
     Lambda -->|4. Validate token via JWKS| KC[Keycloak JWKS]
     KC -->|5. Public key| Lambda
     Lambda -->|6. Check sre-team membership| Lambda
     Lambda -->|7. Create EFS AP + task def + launch task| ECS[ECS]
     Lambda -->|8. Return shared role ARN + task ARN| U
-    U -->|9. AssumeRoleWithWebIdentity (session tags from JWT)| SRERole[Shared ABAC SRE Role]
+    U -->|"9. AssumeRoleWithWebIdentity (session tags from JWT)"| SRERole[Shared ABAC SRE Role]
     SRERole -->|10. Credentials with session tags| U
 ```
 
@@ -182,11 +182,11 @@ flowchart LR
 flowchart LR
     U[User + ABAC Credentials] -->|1. ecs:ExecuteCommand| ECS[ECS API]
     ECS -->|2. Check IAM: cluster permission| IAM[IAM]
-    ECS -->|3. ABAC: ecs:ResourceTag/username == aws:PrincipalTag/username| IAM
+    ECS -->|"3. ABAC: ecs:ResourceTag/username == aws:PrincipalTag/username"| IAM
     IAM -->|4. Authorize| ECS
     ECS -->|5. Start SSM session| SSM[SSM]
     SSM -->|6. WebSocket to container| Fargate[Container]
-    Fargate -->|7. syscall.Exec → session-manager-plugin| U
+    Fargate -->|"7. syscall.Exec → session-manager-plugin"| U
 ```
 
 The CLI replaces its own process with `session-manager-plugin` via `syscall.Exec`, providing a seamless terminal handoff with no intermediate wrapper process.
@@ -290,8 +290,8 @@ flowchart TB
         SSM["SSM API<br/>(regional endpoint)"]
     end
 
-    User -->|HTTPS (PKCE)| Route
-    User -->|AWS SDK (SigV4)| Lambda
+    User -->|"HTTPS (PKCE)"| Route
+    User -->|"AWS SDK (SigV4)"| Lambda
     User -->|AWS API| SSM
     Route -->|HTTP| KC
     KC -->|TCP 5432| KCDB

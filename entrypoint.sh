@@ -89,13 +89,17 @@ KUBECONFIG
     echo "Configured oc/kubectl to use proxy at localhost:${KUBE_PROXY_PORT}"
 fi
 
-# Copy skeleton config to /home/sre if not already present
-# /home/sre is EFS-mounted, so only copy missing files on first run
-if [ -d /etc/skel-sre ]; then
-    # Copy all skel files that don't already exist in /home/sre
-    # -n = no clobber (don't overwrite existing files)
-    cp -rn /etc/skel-sre/. /home/sre/
-    chown -R sre:sre /home/sre
+# Copy skeleton config to /home/sre on first run only
+# /home/sre is EFS-mounted, so use a sentinel to avoid repeated chown -R
+# which can be slow on volumes with accumulated investigation data
+if [ ! -f /home/sre/.skel-initialized ]; then
+    if [ -d /etc/skel-sre ]; then
+        # -n = no clobber (don't overwrite existing files)
+        cp -rn /etc/skel-sre/. /home/sre/
+        chown -R sre:sre /home/sre
+        touch /home/sre/.skel-initialized
+        chown sre:sre /home/sre/.skel-initialized
+    fi
 fi
 
 # Set Bedrock defaults if CLAUDE_CODE_USE_BEDROCK is enabled

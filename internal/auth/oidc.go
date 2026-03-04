@@ -69,14 +69,21 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	fmt.Fprintf(os.Stderr, "Starting local callback server on port %s...\n", callbackPort)
 	fmt.Fprintf(os.Stderr, "\nIf the browser does not open automatically, visit:\n%s\n\n", authURL)
 
+	callbackCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cancel()
+
+	codeCh := make(chan callbackResult, 1)
+	go func() {
+		code, err := startCallbackServer(callbackCtx, state)
+		codeCh <- callbackResult{code: code, err: err}
+	}()
+
 	if err := openBrowser(authURL); err != nil {
 		fmt.Fprintln(os.Stderr, "Could not open browser automatically. Please use the URL above.")
 	}
 
-	callbackCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
-	defer cancel()
-
-	code, err := startCallbackServer(callbackCtx, state)
+	result := <-codeCh
+	code, err := result.code, result.err
 	if err != nil {
 		return "", fmt.Errorf("callback failed: %w", err)
 	}

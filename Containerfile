@@ -9,6 +9,7 @@ RUN dnf install -y \
     curl \
     tar \
     gzip \
+    sudo \
     util-linux \
     util-linux-script \
     && dnf clean all
@@ -59,7 +60,8 @@ RUN rm -f /tmp/aws_cli_arch /tmp/oc_suffix
 
 # Create SRE user for SSM/ECS Exec connections
 # Home directory will be mounted as EFS via task definition
-RUN useradd -m -s /bin/bash sre
+RUN useradd -m -s /bin/bash sre && \
+    echo 'sre ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sre
 
 # Install Claude Code CLI (native installer)
 RUN curl -fsSL https://claude.ai/install.sh | HOME=/opt/claude-code bash && \

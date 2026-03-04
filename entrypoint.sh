@@ -126,7 +126,9 @@ fi
 
 # Run the command in the background and wait for it
 # This allows the shell to remain and handle signals
-# Running as sre user (set via USER directive in Containerfile)
+# Note: entrypoint runs as root for alternatives --set; ECS Exec sessions
+# connect as the sre user via the CLI's default "runuser -u sre -- bash" command
+# which preserves the ECS-injected environment (AWS credentials, region, etc.)
 "${@:-sleep infinity}" &
 CHILD_PID=$!
 wait ${CHILD_PID}

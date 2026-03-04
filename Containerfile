@@ -74,6 +74,9 @@ COPY skel/sre/ /etc/skel-sre/
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Set HOME for runtime so all processes (including ECS Exec) use /home/sre
+ENV HOME=/home/sre
+
 # Set entrypoint for Fargate
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["sleep", "infinity"]

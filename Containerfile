@@ -65,10 +65,8 @@ RUN rm -f /tmp/aws_cli_arch /tmp/oc_suffix
 RUN useradd -m -s /bin/bash sre && \
     echo 'sre ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sre
 
-# Install Claude Code CLI (native installer)
-RUN curl -fsSL https://claude.ai/install.sh | HOME=/opt/claude-code bash && \
-    chmod -R a+rX /opt/claude-code/.local && \
-    ln -s /opt/claude-code/.local/bin/claude /usr/local/bin/claude
+# Install Claude Code CLI to /usr/local (system-wide, independent of HOME)
+RUN curl -fsSL https://claude.ai/install.sh | INSTALL_DIR=/usr/local/lib/claude-code BIN_DIR=/usr/local/bin bash
 
 # Copy skeleton config files to /etc/skel-sre (copied to /home/sre at runtime)
 # /home/sre is EFS-mounted by Fargate, so we copy at container start

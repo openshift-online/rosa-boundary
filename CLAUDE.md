@@ -175,7 +175,7 @@ Architecture values are written to temp files (`/tmp/aws_cli_arch`, `/tmp/oc_suf
 
 ### Claude Code Integration
 
-- Installed via native installer with `HOME=/opt/claude-code`; binary symlinked to `/usr/local/bin/claude`
+- Installed via native installer to `/usr/local/lib/claude-code` with binary in `/usr/local/bin/claude`
 - Auto-updates disabled in `skel/sre/.claude/settings.json`
 - Skeleton config (`skel/sre/.claude/`) is copied to `/etc/skel-sre/` at build time and initialized to `/home/sre/.claude/` at first runtime
 - For Bedrock IAM requirements, see [`docs/configuration/aws-iam-policies.md`](docs/configuration/aws-iam-policies.md)

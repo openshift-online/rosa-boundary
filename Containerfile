@@ -7,6 +7,8 @@ RUN dnf install -y \
     awscli2 \
     unzip \
     curl \
+    git \
+    vim \
     tar \
     gzip \
     sudo \

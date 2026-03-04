@@ -69,6 +69,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	fmt.Fprintf(os.Stderr, "Starting local callback server on port %s...\n", callbackPort)
 	fmt.Fprintf(os.Stderr, "\nIf the browser does not open automatically, visit:\n%s\n\n", authURL)
 
+	// Start the callback server before opening the browser so it is already
+	// listening when the redirect arrives. The goroutine cleans up via the
+	// 120-second context timeout if no callback is received.
 	callbackCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 

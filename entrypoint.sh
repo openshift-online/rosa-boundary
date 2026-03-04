@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Override HOME for root entrypoint so root operations (alternatives, aws s3
+# sync) don't create root-owned files under /home/sre (EFS). ECS Exec sessions
+# inherit the container-level ENV HOME=/home/sre from the Containerfile, not
+# this export, since they start as a separate process.
+export HOME=/root
+
 # Function to sync home directory to S3 on exit
 sync_to_s3() {
     # Build S3 path automatically if structured variables are provided
@@ -83,12 +89,11 @@ KUBECONFIG
     echo "Configured oc/kubectl to use proxy at localhost:${KUBE_PROXY_PORT}"
 fi
 
-# Copy skeleton Claude Code config to /home/sre if not already present
-# /home/sre is EFS-mounted, so only copy if .claude doesn't exist
-if [ ! -d /home/sre/.claude ] && [ -d /etc/skel-sre/.claude ]; then
-    echo "Initializing Claude Code configuration in /home/sre/.claude..."
-    cp -r /etc/skel-sre/.claude /home/sre/.claude
-    chown -R sre:sre /home/sre/.claude
+# Copy skeleton config to /home/sre, running as sre so files are created
+# with correct ownership. cp -rn (no clobber) skips existing files, making
+# this fast and idempotent on subsequent runs without needing chown -R.
+if [ -d /etc/skel-sre ]; then
+    runuser -u sre -- cp -rn /etc/skel-sre/. /home/sre/
 fi
 
 # Set Bedrock defaults if CLAUDE_CODE_USE_BEDROCK is enabled
@@ -126,7 +131,9 @@ fi
 
 # Run the command in the background and wait for it
 # This allows the shell to remain and handle signals
-# Running as sre user (set via USER directive in Containerfile)
+# Note: entrypoint runs as root for alternatives --set; ECS Exec sessions
+# connect as the sre user via the CLI's default "runuser -u sre -- bash" command
+# which preserves the ECS-injected environment (AWS credentials, region, etc.)
 "${@:-sleep infinity}" &
 CHILD_PID=$!
 wait ${CHILD_PID}

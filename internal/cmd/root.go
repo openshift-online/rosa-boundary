@@ -10,6 +10,12 @@ import (
 	"github.com/openshift/rosa-boundary/internal/config"
 )
 
+const (
+	// defaultExecCommand is the ECS Exec command used by join-task and start-task --connect.
+	// Uses runuser to switch from root (SSM Agent) to the sre user with a login shell.
+	defaultExecCommand = "runuser -u sre -- sh -c 'cd ~ && exec bash --login'"
+)
+
 var (
 	// Version is set at build time via -ldflags.
 	Version = "dev"

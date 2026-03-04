@@ -181,7 +181,7 @@ rosa-boundary/
 - `--force-login` — force fresh OIDC authentication
 - `--output text|json`
 
-**`join-task`**: `--container` (default: `rosa-boundary`), `--command` (default: `/bin/bash`), `--no-wait`
+**`join-task`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
 
 **`list-tasks`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
 

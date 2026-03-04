@@ -7,8 +7,11 @@ RUN dnf install -y \
     awscli2 \
     unzip \
     curl \
+    git \
+    vim \
     tar \
     gzip \
+    sudo \
     util-linux \
     util-linux-script \
     && dnf clean all
@@ -59,12 +62,14 @@ RUN rm -f /tmp/aws_cli_arch /tmp/oc_suffix
 
 # Create SRE user for SSM/ECS Exec connections
 # Home directory will be mounted as EFS via task definition
-RUN useradd -m -s /bin/bash sre
+RUN useradd -m -s /bin/bash sre && \
+    echo 'sre ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sre && \
+    chown root:root /etc/sudoers.d/sre && \
+    chmod 0440 /etc/sudoers.d/sre && \
+    visudo -cf /etc/sudoers
 
-# Install Claude Code CLI (native installer)
-RUN curl -fsSL https://claude.ai/install.sh | HOME=/opt/claude-code bash && \
-    chmod -R a+rX /opt/claude-code/.local && \
-    ln -s /opt/claude-code/.local/bin/claude /usr/local/bin/claude
+# Install Claude Code CLI to /usr/local (system-wide, independent of HOME)
+RUN curl -fsSL https://claude.ai/install.sh | INSTALL_DIR=/usr/local/lib/claude-code BIN_DIR=/usr/local/bin bash
 
 # Copy skeleton config files to /etc/skel-sre (copied to /home/sre at runtime)
 # /home/sre is EFS-mounted by Fargate, so we copy at container start
@@ -73,6 +78,10 @@ COPY skel/sre/ /etc/skel-sre/
 # Copy entrypoint script
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Set HOME for ECS Exec sessions (sre user). The entrypoint overrides this
+# to /root for its own process so root operations don't write to /home/sre.
+ENV HOME=/home/sre
 
 # Set entrypoint for Fargate
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

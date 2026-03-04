@@ -19,6 +19,14 @@ import requests
 from jwt import PyJWKClient
 from botocore.exceptions import ClientError
 
+class DuplicateInvestigationError(Exception):
+    """Raised when an investigation already has a running task."""
+    def __init__(self, message: str, existing_tasks: list = None, access_point_id: str = ''):
+        super().__init__(message)
+        self.existing_tasks = existing_tasks or []
+        self.access_point_id = access_point_id
+
+
 # Configure logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -190,6 +198,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'task_timeout': task_timeout
         })
 
+    except DuplicateInvestigationError as e:
+        logger.warning(f"Duplicate investigation: {str(e)}")
+        return response(409, {
+            'error': str(e),
+            'existing_tasks': e.existing_tasks,
+            'access_point_id': e.access_point_id
+        })
+
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return response(500, {'error': 'Internal server error'})
@@ -277,6 +293,32 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
     except Exception as e:
         logger.error(f"Token validation error: {str(e)}", exc_info=True)
         return None
+
+
+def find_running_tasks_for_investigation(cluster: str, investigation_id: str) -> list:
+    """
+    Find RUNNING ECS tasks that already belong to the given investigation.
+
+    Args:
+        cluster: ECS cluster name
+        investigation_id: Investigation identifier to match
+
+    Returns:
+        List of task ARNs that are RUNNING with a matching investigation_id tag
+    """
+    matching = []
+    paginator = ecs.get_paginator('list_tasks')
+    for page in paginator.paginate(cluster=cluster, desiredStatus='RUNNING'):
+        task_arns = page.get('taskArns', [])
+        if not task_arns:
+            continue
+        # Describe in batches (API limit is 100)
+        described = ecs.describe_tasks(cluster=cluster, tasks=task_arns, include=['TAGS'])
+        for task in described.get('tasks', []):
+            tags = {t['key']: t['value'] for t in task.get('tags', [])}
+            if tags.get('investigation_id') == investigation_id:
+                matching.append(task['taskArn'])
+    return matching
 
 
 def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[Dict[str, Any]]:
@@ -494,6 +536,16 @@ def create_investigation_task(
             'taskArn': '',
             'accessPointId': access_point_id
         }
+
+    # Reject if a task is already running for this investigation
+    existing_tasks = find_running_tasks_for_investigation(cluster, investigation_id)
+    if existing_tasks:
+        logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}")
+        raise DuplicateInvestigationError(
+            f"Investigation '{investigation_id}' already has a running task",
+            existing_tasks=existing_tasks,
+            access_point_id=access_point_id
+        )
 
     # Derive AWS region and account ID for Secrets Manager ARN construction in the task def.
     aws_region = os.environ.get('AWS_REGION', 'us-east-1')

@@ -33,7 +33,7 @@ var (
 
 func init() {
 	joinTaskCmd.Flags().StringVar(&joinContainer, "container", "rosa-boundary", "Container name to connect to")
-	joinTaskCmd.Flags().StringVar(&joinCommand, "command", "runuser -u sre -- bash", "Command to run in the container")
+	joinTaskCmd.Flags().StringVar(&joinCommand, "command", "runuser -u sre -- sh -c 'cd ~ && exec bash --login'", "Command to run in the container")
 	joinTaskCmd.Flags().BoolVar(&joinNoWait, "no-wait", false, "Do not wait for RUNNING state before connecting")
 	rootCmd.AddCommand(joinTaskCmd)
 }

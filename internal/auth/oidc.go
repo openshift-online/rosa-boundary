@@ -67,10 +67,10 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	authURL := buildAuthURL(authEndpoint, cfg.ClientID, redirectURI, state, challenge)
 
 	fmt.Fprintf(os.Stderr, "Starting local callback server on port %s...\n", callbackPort)
-	fmt.Fprintln(os.Stderr, "Opening browser for authentication...")
+	fmt.Fprintf(os.Stderr, "\nIf the browser does not open automatically, visit:\n%s\n\n", authURL)
 
 	if err := openBrowser(authURL); err != nil {
-		fmt.Fprintf(os.Stderr, "Could not open browser automatically.\nPlease open the following URL:\n%s\n", authURL)
+		fmt.Fprintln(os.Stderr, "Could not open browser automatically. Please use the URL above.")
 	}
 
 	callbackCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
@@ -182,5 +182,5 @@ func openBrowser(urlStr string) error {
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
-	return cmd.Start()
+	return cmd.Run()
 }

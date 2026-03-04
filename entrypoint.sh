@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Override HOME for root entrypoint so root operations (alternatives, aws s3
+# sync) don't create root-owned files under /home/sre (EFS). ECS Exec sessions
+# inherit the container-level ENV HOME=/home/sre from the Containerfile, not
+# this export, since they start as a separate process.
+export HOME=/root
+
 # Function to sync home directory to S3 on exit
 sync_to_s3() {
     # Build S3 path automatically if structured variables are provided

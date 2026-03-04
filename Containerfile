@@ -79,7 +79,8 @@ COPY skel/sre/ /etc/skel-sre/
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set HOME for runtime so all processes (including ECS Exec) use /home/sre
+# Set HOME for ECS Exec sessions (sre user). The entrypoint overrides this
+# to /root for its own process so root operations don't write to /home/sre.
 ENV HOME=/home/sre
 
 # Set entrypoint for Fargate

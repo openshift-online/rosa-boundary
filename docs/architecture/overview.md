@@ -295,7 +295,7 @@ flowchart TB
     User -->|AWS API| SSM
     Route -->|HTTP| KC
     KC -->|TCP 5432| KCDB
-    Lambda -->|Validate token (JWKS)| Route
+    Lambda -->|"Validate token (JWKS)"| Route
     EventBridge -->|schedule| Reaper
     Reaper -->|ecs:StopTask| Fargate1
     Reaper -->|ecs:StopTask| Fargate2

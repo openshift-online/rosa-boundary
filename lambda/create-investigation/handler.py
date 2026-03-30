@@ -7,6 +7,7 @@ with ABAC (Attribute-Based Access Control) via OIDC session tags — no per-user
 role management required.
 """
 
+import hashlib
 import os
 import json
 import logging
@@ -25,6 +26,22 @@ class DuplicateInvestigationError(Exception):
         super().__init__(message)
         self.existing_tasks = existing_tasks or []
         self.access_point_id = access_point_id
+
+
+def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
+    """
+    Return a deterministic ECS startedBy value for the given investigation.
+
+    Used both when launching a task (run_task startedBy=...) and when querying
+    for existing tasks (list_tasks startedBy=...). Because startedBy is set at
+    task launch time — not asynchronously like tags — filtering by it avoids the
+    tag-propagation race condition and eliminates the need for a cluster-wide
+    describe_tasks scan.
+
+    ECS startedBy is limited to 36 characters.
+    """
+    key = f"{cluster_id}:{investigation_id}"
+    return hashlib.sha256(key.encode()).hexdigest()[:36]
 
 
 # Configure logging
@@ -299,26 +316,23 @@ def find_running_tasks_for_investigation(cluster: str, cluster_id: str, investig
     """
     Find RUNNING ECS tasks that already belong to the given investigation.
 
+    Filters by the deterministic startedBy value set at task launch rather than
+    by tags. This avoids the tag-propagation delay and eliminates the need to
+    describe every running task in the cluster.
+
     Args:
         cluster: ECS cluster name
-        cluster_id: ROSA cluster identifier to match
-        investigation_id: Investigation identifier to match
+        cluster_id: ROSA cluster identifier
+        investigation_id: Investigation identifier
 
     Returns:
-        List of task ARNs that are RUNNING with matching cluster_id and investigation_id tags
+        List of task ARNs that are RUNNING for this investigation
     """
+    started_by = investigation_started_by(cluster_id, investigation_id)
     matching = []
     paginator = ecs.get_paginator('list_tasks')
-    for page in paginator.paginate(cluster=cluster, desiredStatus='RUNNING'):
-        task_arns = page.get('taskArns', [])
-        if not task_arns:
-            continue
-        # Describe in batches (API limit is 100)
-        described = ecs.describe_tasks(cluster=cluster, tasks=task_arns, include=['TAGS'])
-        for task in described.get('tasks', []):
-            tags = {t['key']: t['value'] for t in task.get('tags', [])}
-            if tags.get('cluster_id') == cluster_id and tags.get('investigation_id') == investigation_id:
-                matching.append(task['taskArn'])
+    for page in paginator.paginate(cluster=cluster, desiredStatus='RUNNING', startedBy=started_by):
+        matching.extend(page.get('taskArns', []))
     return matching
 
 
@@ -613,6 +627,7 @@ def create_investigation_task(
             platformVersion='LATEST',
             enableExecuteCommand=True,
             enableECSManagedTags=True,
+            startedBy=investigation_started_by(cluster_id, investigation_id),
             networkConfiguration={
                 'awsvpcConfiguration': {
                     'subnets': subnets,

@@ -236,6 +236,99 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
 
 
 @pytest.mark.integration
+@pytest.mark.skip(
+    reason=(
+        "LocalStack simulate_principal_policy does not evaluate ecs:ResourceTag/* "
+        "context keys supplied via ContextEntries — returns implicitDeny even when "
+        "the deadline tag is present in the context. "
+        "Tracked at https://github.com/localstack/.github/issues/22"
+    )
+)
+def test_reaper_iam_policy_simulation(iam_client):
+    """Use simulate_principal_policy to verify the reaper deadline condition enforces
+    that StopTask is only allowed on tasks tagged with a deadline.
+
+    Currently skipped due to LocalStack not supporting ecs:ResourceTag/* in simulation
+    context (see skip reason above). Re-enable once LocalStack fixes this.
+    """
+    role_name = f'test-reaper-sim-{int(datetime.now().timestamp())}'
+    task_resource_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/*'
+
+    reaper_policy = {
+        'Version': '2012-10-17',
+        'Statement': [
+            {
+                'Sid': 'StopExpiredTasks',
+                'Effect': 'Allow',
+                'Action': 'ecs:StopTask',
+                'Resource': task_resource_arn,
+                'Condition': {
+                    'ForAnyValue:StringLike': {
+                        'ecs:ResourceTag/deadline': '*'
+                    }
+                }
+            }
+        ]
+    }
+
+    trust_policy = {
+        'Version': '2012-10-17',
+        'Statement': [{
+            'Effect': 'Allow',
+            'Principal': {'Service': 'lambda.amazonaws.com'},
+            'Action': 'sts:AssumeRole'
+        }]
+    }
+
+    role_response = iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps(trust_policy)
+    )
+    role_arn = role_response['Role']['Arn']
+    iam_client.put_role_policy(
+        RoleName=role_name,
+        PolicyName='ReaperTaskManagement',
+        PolicyDocument=json.dumps(reaper_policy)
+    )
+
+    task_with_deadline_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/task-with-deadline'
+    task_without_deadline_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/task-no-deadline'
+
+    # Task WITH deadline tag — reaper should be allowed to stop it
+    with_deadline_context = [
+        {
+            'ContextKeyName': 'ecs:ResourceTag/deadline',
+            'ContextKeyValues': ['2026-03-30T12:00:00'],
+            'ContextKeyType': 'string'
+        }
+    ]
+    allowed_result = iam_client.simulate_principal_policy(
+        PolicySourceArn=role_arn,
+        ActionNames=['ecs:StopTask'],
+        ResourceArns=[task_with_deadline_arn],
+        ContextEntries=with_deadline_context
+    )
+    assert allowed_result['EvaluationResults'][0]['EvalDecision'] == 'allowed', (
+        "Reaper must be allowed to stop tasks that have a deadline tag"
+    )
+
+    # Task WITHOUT deadline tag — reaper must NOT be allowed to stop it
+    denied_result = iam_client.simulate_principal_policy(
+        PolicySourceArn=role_arn,
+        ActionNames=['ecs:StopTask'],
+        ResourceArns=[task_without_deadline_arn],
+        ContextEntries=[]  # no deadline resource tag
+    )
+    assert denied_result['EvaluationResults'][0]['EvalDecision'] != 'allowed', (
+        "Reaper must NOT be allowed to stop tasks without a deadline tag"
+    )
+
+    # Cleanup
+    iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
+    iam_client.delete_role(RoleName=role_name)
+
+
+@pytest.mark.integration
 def test_reaper_iam_policy_deadline_condition_structure(iam_client):
     """Test that the reaper Lambda IAM policy restricts StopTask to tasks with a deadline tag.
 

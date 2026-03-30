@@ -58,7 +58,7 @@ REQUIRED_FILES=(
     "tests/localstack/README.md"
     "tests/localstack/oidc/Containerfile"
     "tests/localstack/oidc/mock_jwks.py"
-    "tests/localstack/oidc/requirements.txt"
+    "tests/localstack/oidc/pyproject.toml"
     "tests/localstack/oidc/test_keys/private.pem"
     "tests/localstack/oidc/test_keys/public.pem"
 )

@@ -42,12 +42,12 @@ def test_complete_investigation_creation(
         ]
     }
 
-    role_response = iam_client.create_role(
+    sre_role_response = iam_client.create_role(
         RoleName=role_name,
         AssumeRolePolicyDocument=json.dumps(trust_policy),
         Description='Shared SRE role with ABAC for per-user task isolation'
     )
-    role_arn = role_response['Role']['Arn']
+    sre_role_arn = sre_role_response['Role']['Arn']
     ecs_cleanup.register_role(role_name, ['ECSExecABAC'])
 
     # Attach ABAC policy using dynamic ${aws:PrincipalTag/username} (not hardcoded username)
@@ -79,6 +79,26 @@ def test_complete_investigation_creation(
         PolicyName='ECSExecABAC',
         PolicyDocument=json.dumps(abac_policy)
     )
+
+    # Create a separate ECS task/execution role trusted by ecs-tasks.amazonaws.com.
+    # The SRE role above is for human callers (AssumeRoleWithWebIdentity); ECS tasks
+    # need a distinct role with the ECS service principal in the trust policy.
+    ecs_role_name = f'rosa-boundary-ecs-task-{int(datetime.now().timestamp())}'
+    ecs_trust_policy = {
+        'Version': '2012-10-17',
+        'Statement': [{
+            'Effect': 'Allow',
+            'Principal': {'Service': 'ecs-tasks.amazonaws.com'},
+            'Action': 'sts:AssumeRole'
+        }]
+    }
+    ecs_role_response = iam_client.create_role(
+        RoleName=ecs_role_name,
+        AssumeRolePolicyDocument=json.dumps(ecs_trust_policy),
+        Description='ECS task/execution role for rosa-boundary container'
+    )
+    ecs_role_arn = ecs_role_response['Role']['Arn']
+    ecs_cleanup.register_role(ecs_role_name, [])
 
     # Step 2: Create EFS access point
     access_point_response = efs_client.create_access_point(
@@ -118,8 +138,8 @@ def test_complete_investigation_creation(
         requiresCompatibilities=['FARGATE'],
         cpu='256',
         memory='512',
-        executionRoleArn=role_arn,
-        taskRoleArn=role_arn,
+        executionRoleArn=ecs_role_arn,
+        taskRoleArn=ecs_role_arn,
         containerDefinitions=[
             {
                 'name': 'rosa-boundary',
@@ -182,7 +202,7 @@ def test_complete_investigation_creation(
     ecs_cleanup.register_task(cluster_name, task_arn)
 
     # Step 6: Verify complete workflow
-    # Verify shared role exists with correct ABAC policy (dynamic PrincipalTag, not hardcoded username)
+    # Verify shared SRE role exists with correct ABAC policy (dynamic PrincipalTag, not hardcoded username)
     role = iam_client.get_role(RoleName=role_name)
     assert role['Role']['RoleName'] == role_name
     retrieved_policy = iam_client.get_role_policy(RoleName=role_name, PolicyName='ECSExecABAC')

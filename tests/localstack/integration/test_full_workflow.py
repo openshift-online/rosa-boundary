@@ -11,21 +11,33 @@ from datetime import datetime
 def test_complete_investigation_creation(
     ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup
 ):
-    """Test complete investigation creation workflow (simulating Lambda logic)"""
+    """Test complete investigation creation workflow (simulating Lambda logic).
+
+    Uses the shared ABAC role pattern: a single role with ${aws:PrincipalTag/username}
+    in the condition serves all SREs, with per-user isolation enforced via session tags.
+    """
     cluster_id = 'rosa-dev'
     investigation_id = f'inv-e2e-{int(datetime.now().timestamp())}'
     oidc_sub = 'test-user-e2e-123'
     username = 'sre-e2e-user'
+    oidc_provider_arn = 'arn:aws:iam::123456789012:oidc-provider/keycloak.example.com/realms/sre-ops'
+    oidc_domain = 'keycloak.example.com/realms/sre-ops'
+    oidc_client_id = 'aws-sre-access'
 
-    # Step 1: Create/get IAM role for user
-    role_name = f'rosa-boundary-user-{oidc_sub.replace("/", "-")}'
+    # Step 1: Create shared SRE role (single role for all SREs, ABAC-scoped via session tags)
+    role_name = f'rosa-boundary-sre-shared-{int(datetime.now().timestamp())}'
     trust_policy = {
         'Version': '2012-10-17',
         'Statement': [
             {
                 'Effect': 'Allow',
-                'Principal': {'Service': 'ecs-tasks.amazonaws.com'},
-                'Action': 'sts:AssumeRole'
+                'Principal': {'Federated': oidc_provider_arn},
+                'Action': ['sts:AssumeRoleWithWebIdentity', 'sts:TagSession'],
+                'Condition': {
+                    'StringEquals': {
+                        f'{oidc_domain}:aud': oidc_client_id
+                    }
+                }
             }
         ]
     }
@@ -33,33 +45,39 @@ def test_complete_investigation_creation(
     role_response = iam_client.create_role(
         RoleName=role_name,
         AssumeRolePolicyDocument=json.dumps(trust_policy),
-        Description=f'Tag-based access for OIDC user {username}'
+        Description='Shared SRE role with ABAC for per-user task isolation'
     )
     role_arn = role_response['Role']['Arn']
-    ecs_cleanup.register_role(role_name, ['TagBasedECSExec'])
+    ecs_cleanup.register_role(role_name, ['ECSExecABAC'])
 
-    # Attach tag-based policy
-    tag_policy = {
+    # Attach ABAC policy using dynamic ${aws:PrincipalTag/username} (not hardcoded username)
+    abac_policy = {
         'Version': '2012-10-17',
         'Statement': [
             {
                 'Sid': 'ExecuteCommandOnOwnedTasks',
                 'Effect': 'Allow',
                 'Action': 'ecs:ExecuteCommand',
-                'Resource': 'arn:aws:ecs:*:*:task/*',
+                'Resource': '*',
                 'Condition': {
                     'StringEquals': {
-                        'ecs:ResourceTag/username': username
+                        'ecs:ResourceTag/username': '${aws:PrincipalTag/username}'
                     }
                 }
+            },
+            {
+                'Sid': 'DescribeAndListECS',
+                'Effect': 'Allow',
+                'Action': ['ecs:DescribeTasks', 'ecs:ListTasks', 'ecs:DescribeTaskDefinition'],
+                'Resource': '*'
             }
         ]
     }
 
     iam_client.put_role_policy(
         RoleName=role_name,
-        PolicyName='TagBasedECSExec',
-        PolicyDocument=json.dumps(tag_policy)
+        PolicyName='ECSExecABAC',
+        PolicyDocument=json.dumps(abac_policy)
     )
 
     # Step 2: Create EFS access point
@@ -164,9 +182,18 @@ def test_complete_investigation_creation(
     ecs_cleanup.register_task(cluster_name, task_arn)
 
     # Step 6: Verify complete workflow
-    # Verify role exists
+    # Verify shared role exists with correct ABAC policy (dynamic PrincipalTag, not hardcoded username)
     role = iam_client.get_role(RoleName=role_name)
     assert role['Role']['RoleName'] == role_name
+    retrieved_policy = iam_client.get_role_policy(RoleName=role_name, PolicyName='ECSExecABAC')
+    from .test_helpers import get_policy_document
+    policy_doc = get_policy_document(retrieved_policy['PolicyDocument'])
+    exec_stmts = [s for s in policy_doc['Statement'] if s.get('Sid') == 'ExecuteCommandOnOwnedTasks']
+    assert len(exec_stmts) == 1
+    condition_val = exec_stmts[0]['Condition']['StringEquals']['ecs:ResourceTag/username']
+    assert condition_val == '${aws:PrincipalTag/username}', (
+        f"ABAC policy must use dynamic PrincipalTag, got: {condition_val!r}"
+    )
 
     # Verify access point exists
     access_points = efs_client.describe_access_points(AccessPointId=access_point_id)

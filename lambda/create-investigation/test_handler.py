@@ -819,6 +819,320 @@ class TestSkipTask:
         assert result is None
 
 
+class TestDuplicateInvestigationDetection:
+    """Test that creating an investigation with an already-running task is rejected."""
+
+    ENV_VARS = {
+        'KEYCLOAK_URL': 'https://keycloak.example.com',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'rosa-boundary-dev',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/shared-sre',
+    }
+
+    def test_duplicate_investigation_returns_409(self):
+        """Test that a second task for the same investigation_id returns 409."""
+        existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                # EFS: access point already exists (reused)
+                mock_efs.get_paginator.return_value.paginate.return_value = [
+                    {'AccessPoints': [{
+                        'AccessPointId': 'fsap-existing',
+                        'LifeCycleState': 'available',
+                        'Tags': [
+                            {'Key': 'ClusterID', 'Value': 'c1'},
+                            {'Key': 'InvestigationID', 'Value': 'inv1'}
+                        ]
+                    }]}
+                ]
+
+                # ECS: list_tasks(startedBy=...) returns the existing task directly
+                ecs_paginator = MagicMock()
+                ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
+                mock_ecs.get_paginator.return_value = ecs_paginator
+
+                with pytest.raises(handler.DuplicateInvestigationError) as exc_info:
+                    handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-123',
+                        efs_filesystem_id='fs-123',
+                        oc_version='4.20',
+                        task_timeout=3600
+                    )
+
+                assert existing_task_arn in exc_info.value.existing_tasks
+                assert exc_info.value.access_point_id == 'fsap-existing'
+
+                # Should NOT have called run_task or register_task_definition
+                mock_ecs.run_task.assert_not_called()
+                mock_ecs.register_task_definition.assert_not_called()
+
+    def test_no_duplicate_when_no_running_tasks(self):
+        """Test that create proceeds when no running tasks exist for the investigation."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    # EFS: no existing access point
+                    mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                    mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+
+                    # ECS: no running tasks
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': []}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+
+                    mock_ecs.describe_task_definition.return_value = {
+                        'taskDefinition': {
+                            'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/base:1',
+                            'family': 'rosa-boundary-dev',
+                            'taskRoleArn': 'arn:aws:iam::123:role/task',
+                            'executionRoleArn': 'arn:aws:iam::123:role/exec',
+                            'networkMode': 'awsvpc',
+                            'containerDefinitions': [
+                                {'name': 'rosa-boundary', 'environment': []},
+                                {'name': 'kube-proxy', 'essential': True, 'environment': []}
+                            ],
+                            'volumes': [],
+                            'requiresCompatibilities': ['FARGATE'],
+                            'cpu': '256',
+                            'memory': '512',
+                        }
+                    }
+                    mock_ecs.register_task_definition.return_value = {
+                        'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+                    }
+                    mock_ecs.run_task.return_value = {
+                        'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/new-task'}],
+                        'failures': []
+                    }
+                    mock_ecs.tag_resource.return_value = {}
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+
+                    result = handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-123',
+                        efs_filesystem_id='fs-123',
+                        oc_version='4.20',
+                        task_timeout=3600
+                    )
+
+                    assert result['taskArn'] == 'arn:aws:ecs:us-east-1:123:task/new-task'
+                    mock_ecs.run_task.assert_called_once()
+
+    def test_skip_task_bypasses_duplicate_check(self):
+        """Test that skip_task=True does not check for running tasks."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+
+                result = handler.create_investigation_task(
+                    cluster='test-cluster',
+                    task_def='rosa-boundary-dev',
+                    oidc_sub='sub-123',
+                    username='sre-user',
+                    investigation_id='inv1',
+                    cluster_id='c1',
+                    subnets=['subnet-1'],
+                    security_group='sg-123',
+                    efs_filesystem_id='fs-123',
+                    oc_version='4.20',
+                    task_timeout=3600,
+                    skip_task=True
+                )
+
+                assert result['taskArn'] == ''
+                assert result['accessPointId'] == 'fsap-new'
+                # Should not have checked for running tasks
+                mock_ecs.get_paginator.assert_not_called()
+
+    def test_duplicate_check_fails_closed_on_api_error(self):
+        """Test that an ECS API error during duplicate check prevents task creation (fail-closed)."""
+        from botocore.exceptions import ClientError
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+
+                # ECS list_tasks raises ClientError (e.g. throttling, permissions)
+                ecs_paginator = MagicMock()
+                ecs_paginator.paginate.side_effect = ClientError(
+                    {'Error': {'Code': 'ThrottlingException', 'Message': 'Rate exceeded'}},
+                    'ListTasks'
+                )
+                mock_ecs.get_paginator.return_value = ecs_paginator
+
+                with pytest.raises(ClientError):
+                    handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-123',
+                        efs_filesystem_id='fs-123',
+                        oc_version='4.20',
+                        task_timeout=3600
+                    )
+
+                # Should NOT have created an EFS access point, registered, or run a task
+                mock_efs.create_access_point.assert_not_called()
+                mock_ecs.register_task_definition.assert_not_called()
+                mock_ecs.run_task.assert_not_called()
+
+    @patch.dict('os.environ', ENV_VARS)
+    def test_lambda_handler_returns_409_for_duplicate(self):
+        """Test that lambda_handler returns 409 when investigation already has a running task."""
+        import importlib
+        importlib.reload(handler)
+
+        existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
+
+        with patch('handler.validate_oidc_token') as mock_validate:
+            mock_validate.return_value = {
+                'sub': 'user-uuid',
+                'email': 'sre@redhat.com',
+                'preferred_username': 'sre-user',
+                'groups': ['sre-team']
+            }
+
+            with patch('handler.ecs') as mock_ecs:
+                with patch('handler.efs') as mock_efs:
+                    # EFS: access point exists
+                    mock_efs.get_paginator.return_value.paginate.return_value = [
+                        {'AccessPoints': [{
+                            'AccessPointId': 'fsap-existing',
+                            'LifeCycleState': 'available',
+                            'Tags': [
+                                {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                                {'Key': 'InvestigationID', 'Value': 'inv-123'}
+                            ]
+                        }]}
+                    ]
+
+                    # ECS: list_tasks(startedBy=...) returns the existing task directly
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+
+                    event = {
+                        'headers': {'authorization': 'Bearer valid-token'},
+                        'body': json.dumps({
+                            'cluster_id': 'test-cluster',
+                            'investigation_id': 'inv-123'
+                        })
+                    }
+                    result = handler.lambda_handler(event, None)
+
+        assert result['statusCode'] == 409
+        body = json.loads(result['body'])
+        assert 'already has a running task' in body['error']
+        assert existing_task_arn in body['existing_tasks']
+        assert body['access_point_id'] == 'fsap-existing'
+
+
+class TestInvestigationStartedBy:
+    """Unit tests for the investigation_started_by() helper."""
+
+    def test_deterministic(self):
+        """Same inputs always produce the same startedBy value."""
+        a = handler.investigation_started_by('cluster-1', 'inv-abc')
+        b = handler.investigation_started_by('cluster-1', 'inv-abc')
+        assert a == b
+
+    def test_different_cluster_id_produces_different_value(self):
+        """Different cluster_id with the same investigation_id produces a different startedBy."""
+        a = handler.investigation_started_by('cluster-1', 'inv-abc')
+        b = handler.investigation_started_by('cluster-2', 'inv-abc')
+        assert a != b
+
+    def test_different_investigation_id_produces_different_value(self):
+        """Different investigation_id with the same cluster_id produces a different startedBy."""
+        a = handler.investigation_started_by('cluster-1', 'inv-abc')
+        b = handler.investigation_started_by('cluster-1', 'inv-xyz')
+        assert a != b
+
+    def test_max_length_is_36_chars(self):
+        """startedBy value never exceeds ECS's 36-character limit."""
+        value = handler.investigation_started_by('a-very-long-cluster-id', 'a-very-long-investigation-id')
+        assert len(value) <= 36
+
+    def test_run_task_includes_started_by(self):
+        """run_task is called with startedBy matching investigation_started_by()."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+                    mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': []}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_task_definition.return_value = {
+                        'taskDefinition': {
+                            'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/base:1',
+                            'family': 'rosa-boundary-dev',
+                            'taskRoleArn': 'arn:aws:iam::123:role/task',
+                            'executionRoleArn': 'arn:aws:iam::123:role/exec',
+                            'networkMode': 'awsvpc',
+                            'containerDefinitions': [
+                                {'name': 'rosa-boundary', 'environment': []},
+                                {'name': 'kube-proxy', 'essential': True, 'environment': []}
+                            ],
+                            'volumes': [],
+                            'requiresCompatibilities': ['FARGATE'],
+                            'cpu': '256',
+                            'memory': '512',
+                        }
+                    }
+                    mock_ecs.register_task_definition.return_value = {
+                        'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+                    }
+                    mock_ecs.run_task.return_value = {
+                        'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/new-task'}],
+                        'failures': []
+                    }
+                    mock_ecs.tag_resource.return_value = {}
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+
+                    handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-123',
+                        efs_filesystem_id='fs-123',
+                        oc_version='4.20',
+                        task_timeout=3600
+                    )
+
+                    call_kwargs = mock_ecs.run_task.call_args[1]
+                    expected = handler.investigation_started_by('c1', 'inv1')
+                    assert call_kwargs['startedBy'] == expected
+
+
 class TestPerInvestigationTaskDef:
     """Test per-investigation task definition registration."""
 
@@ -891,6 +1205,10 @@ class TestPerInvestigationTaskDef:
                         'failures': []
                     }
                     mock_ecs.tag_resource.return_value = {}
+                    # Mock ECS list_tasks paginator (no existing tasks)
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': []}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
                     mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
                     mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
                     mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
@@ -1054,6 +1372,10 @@ class TestPerInvestigationTaskDef:
                     mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
                     mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
                     mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # Mock ECS list_tasks paginator (no existing tasks)
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': []}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
 
                     with pytest.raises(Exception, match="Registration failed"):
                         handler.create_investigation_task(
@@ -1096,6 +1418,10 @@ class TestPerInvestigationTaskDef:
                     ]
                     mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
                     mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # Mock ECS list_tasks paginator (no existing tasks)
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': []}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
 
                     with pytest.raises(Exception, match="Registration failed"):
                         handler.create_investigation_task(

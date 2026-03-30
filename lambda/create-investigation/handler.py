@@ -7,6 +7,7 @@ with ABAC (Attribute-Based Access Control) via OIDC session tags — no per-user
 role management required.
 """
 
+import hashlib
 import os
 import json
 import logging
@@ -18,6 +19,30 @@ import jwt
 import requests
 from jwt import PyJWKClient
 from botocore.exceptions import ClientError
+
+class DuplicateInvestigationError(Exception):
+    """Raised when an investigation already has a running task."""
+    def __init__(self, message: str, existing_tasks: list = None, access_point_id: str = ''):
+        super().__init__(message)
+        self.existing_tasks = existing_tasks or []
+        self.access_point_id = access_point_id
+
+
+def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
+    """
+    Return a deterministic ECS startedBy value for the given investigation.
+
+    Used both when launching a task (run_task startedBy=...) and when querying
+    for existing tasks (list_tasks startedBy=...). Because startedBy is set at
+    task launch time — not asynchronously like tags — filtering by it avoids the
+    tag-propagation race condition and eliminates the need for a cluster-wide
+    describe_tasks scan.
+
+    ECS startedBy is limited to 36 characters.
+    """
+    key = f"{cluster_id}:{investigation_id}"
+    return hashlib.sha256(key.encode()).hexdigest()[:36]
+
 
 # Configure logging
 logger = logging.getLogger()
@@ -190,6 +215,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'task_timeout': task_timeout
         })
 
+    except DuplicateInvestigationError as e:
+        logger.warning(f"Duplicate investigation: {str(e)}")
+        return response(409, {
+            'error': str(e),
+            'existing_tasks': e.existing_tasks,
+            'access_point_id': e.access_point_id
+        })
+
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return response(500, {'error': 'Internal server error'})
@@ -277,6 +310,30 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
     except Exception as e:
         logger.error(f"Token validation error: {str(e)}", exc_info=True)
         return None
+
+
+def find_running_tasks_for_investigation(cluster: str, cluster_id: str, investigation_id: str) -> list:
+    """
+    Find RUNNING ECS tasks that already belong to the given investigation.
+
+    Filters by the deterministic startedBy value set at task launch rather than
+    by tags. This avoids the tag-propagation delay and eliminates the need to
+    describe every running task in the cluster.
+
+    Args:
+        cluster: ECS cluster name
+        cluster_id: ROSA cluster identifier
+        investigation_id: Investigation identifier
+
+    Returns:
+        List of task ARNs that are RUNNING for this investigation
+    """
+    started_by = investigation_started_by(cluster_id, investigation_id)
+    matching = []
+    paginator = ecs.get_paginator('list_tasks')
+    for page in paginator.paginate(cluster=cluster, desiredStatus='RUNNING', startedBy=started_by):
+        matching.extend(page.get('taskArns', []))
+    return matching
 
 
 def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[Dict[str, Any]]:
@@ -450,6 +507,19 @@ def create_investigation_task(
 
     existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
     ap_newly_created = False
+
+    # Reject if a task is already running for this investigation. This check runs before any
+    # new EFS access point is created so there is no access point to clean up on rejection.
+    if not skip_task:
+        existing_tasks = find_running_tasks_for_investigation(cluster, cluster_id, investigation_id)
+        if existing_tasks:
+            logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}")
+            raise DuplicateInvestigationError(
+                f"Investigation '{investigation_id}' already has a running task",
+                existing_tasks=existing_tasks,
+                access_point_id=existing_ap['AccessPointId'] if existing_ap else ''
+            )
+
     if existing_ap:
         access_point_id = existing_ap['AccessPointId']
         logger.info(f"Reusing existing EFS access point: {access_point_id}")
@@ -557,6 +627,7 @@ def create_investigation_task(
             platformVersion='LATEST',
             enableExecuteCommand=True,
             enableECSManagedTags=True,
+            startedBy=investigation_started_by(cluster_id, investigation_id),
             networkConfiguration={
                 'awsvpcConfiguration': {
                     'subnets': subnets,

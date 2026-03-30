@@ -295,16 +295,17 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
         return None
 
 
-def find_running_tasks_for_investigation(cluster: str, investigation_id: str) -> list:
+def find_running_tasks_for_investigation(cluster: str, cluster_id: str, investigation_id: str) -> list:
     """
     Find RUNNING ECS tasks that already belong to the given investigation.
 
     Args:
         cluster: ECS cluster name
+        cluster_id: ROSA cluster identifier to match
         investigation_id: Investigation identifier to match
 
     Returns:
-        List of task ARNs that are RUNNING with a matching investigation_id tag
+        List of task ARNs that are RUNNING with matching cluster_id and investigation_id tags
     """
     matching = []
     paginator = ecs.get_paginator('list_tasks')
@@ -316,7 +317,7 @@ def find_running_tasks_for_investigation(cluster: str, investigation_id: str) ->
         described = ecs.describe_tasks(cluster=cluster, tasks=task_arns, include=['TAGS'])
         for task in described.get('tasks', []):
             tags = {t['key']: t['value'] for t in task.get('tags', [])}
-            if tags.get('investigation_id') == investigation_id:
+            if tags.get('cluster_id') == cluster_id and tags.get('investigation_id') == investigation_id:
                 matching.append(task['taskArn'])
     return matching
 
@@ -492,6 +493,19 @@ def create_investigation_task(
 
     existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
     ap_newly_created = False
+
+    # Reject if a task is already running for this investigation. This check runs before any
+    # new EFS access point is created so there is no access point to clean up on rejection.
+    if not skip_task:
+        existing_tasks = find_running_tasks_for_investigation(cluster, cluster_id, investigation_id)
+        if existing_tasks:
+            logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}")
+            raise DuplicateInvestigationError(
+                f"Investigation '{investigation_id}' already has a running task",
+                existing_tasks=existing_tasks,
+                access_point_id=existing_ap['AccessPointId'] if existing_ap else ''
+            )
+
     if existing_ap:
         access_point_id = existing_ap['AccessPointId']
         logger.info(f"Reusing existing EFS access point: {access_point_id}")
@@ -536,16 +550,6 @@ def create_investigation_task(
             'taskArn': '',
             'accessPointId': access_point_id
         }
-
-    # Reject if a task is already running for this investigation
-    existing_tasks = find_running_tasks_for_investigation(cluster, investigation_id)
-    if existing_tasks:
-        logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}")
-        raise DuplicateInvestigationError(
-            f"Investigation '{investigation_id}' already has a running task",
-            existing_tasks=existing_tasks,
-            access_point_id=access_point_id
-        )
 
     # Derive AWS region and account ID for Secrets Manager ARN construction in the task def.
     aws_region = os.environ.get('AWS_REGION', 'us-east-1')

@@ -367,7 +367,7 @@ def test_single_role_serves_multiple_users(iam_client):
         "LocalStack simulate_principal_policy does not evaluate ecs:ResourceTag/* "
         "context keys supplied via ContextEntries — returns implicitDeny even when "
         "aws:PrincipalTag/username matches ecs:ResourceTag/username. "
-        "Tracked at https://github.com/localstack/.github/issues/22"
+        "Tracked at https://github.com/orgs/localstack/discussions/23"
     )
 )
 def test_cross_user_isolation_via_policy_simulation(iam_client):

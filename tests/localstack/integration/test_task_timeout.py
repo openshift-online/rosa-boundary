@@ -241,7 +241,7 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
         "LocalStack simulate_principal_policy does not evaluate ecs:ResourceTag/* "
         "context keys supplied via ContextEntries — returns implicitDeny even when "
         "the deadline tag is present in the context. "
-        "Tracked at https://github.com/localstack/.github/issues/22"
+        "Tracked at https://github.com/orgs/localstack/discussions/23"
     )
 )
 def test_reaper_iam_policy_simulation(iam_client):

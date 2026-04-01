@@ -1585,5 +1585,183 @@ class TestKubeProxySidecar:
         assert 'OC_VERSION' not in proxy_env
 
 
+class TestTaskTagging:
+    """Verify that the correct tags are passed to run_task, tag_resource, and create_access_point.
+
+    The 'username' tag is the ABAC key — the shared SRE role policy conditions on
+    ecs:ResourceTag/username == ${aws:PrincipalTag/username}.  If the tag key is wrong
+    or missing, the ABAC grant is silently broken.  These tests make regressions visible.
+    """
+
+    BASE_TASK_DEF = {
+        'taskDefinition': {
+            'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-dev:1',
+            'family': 'rosa-boundary-dev',
+            'taskRoleArn': 'arn:aws:iam::123:role/task',
+            'executionRoleArn': 'arn:aws:iam::123:role/exec',
+            'networkMode': 'awsvpc',
+            'containerDefinitions': [
+                {'name': 'rosa-boundary', 'environment': []},
+                {'name': 'kube-proxy', 'essential': True, 'environment': []}
+            ],
+            'volumes': [],
+            'requiresCompatibilities': ['FARGATE'],
+            'cpu': '256',
+            'memory': '512',
+        }
+    }
+
+    def _call_create_investigation(self, mock_ecs, mock_efs, mock_sts, **overrides):
+        """Invoke create_investigation_task with sensible defaults."""
+        ecs_paginator = MagicMock()
+        ecs_paginator.paginate.return_value = [{'taskArns': []}]
+        mock_ecs.get_paginator.return_value = ecs_paginator
+        mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+        mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-test'}
+        mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+        mock_ecs.register_task_definition.return_value = {
+            'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+        }
+        mock_ecs.run_task.return_value = {
+            'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/test-task'}],
+            'failures': []
+        }
+        mock_ecs.tag_resource.return_value = {}
+        mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+
+        kwargs = dict(
+            cluster='test-cluster',
+            task_def='rosa-boundary-dev',
+            oidc_sub='sub-abc-123',
+            username='alice',
+            investigation_id='inv-001',
+            cluster_id='rosa-dev',
+            subnets=['subnet-1'],
+            security_group='sg-123',
+            efs_filesystem_id='fs-123',
+            oc_version='4.20',
+            task_timeout=3600,
+        )
+        kwargs.update(overrides)
+        return handler.create_investigation_task(**kwargs)
+
+    def test_run_task_includes_required_abac_tags(self):
+        """run_task must include username (ABAC key) and oidc_sub (audit) tags."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
+
+        call_kwargs = mock_ecs.run_task.call_args[1]
+        tags = {t['key']: t['value'] for t in call_kwargs['tags']}
+
+        assert tags.get('username') == 'alice', (
+            "username tag (ABAC key) must match the preferred_username from the JWT"
+        )
+        assert tags.get('oidc_sub') == 'sub-abc-123', (
+            "oidc_sub tag must store the immutable OIDC subject for audit"
+        )
+
+    def test_run_task_includes_all_metadata_tags(self):
+        """run_task must include investigation_id, cluster_id, oc_version, access_point_id,
+        task_timeout, created_at, and deadline (when timeout > 0)."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
+
+        call_kwargs = mock_ecs.run_task.call_args[1]
+        tags = {t['key']: t['value'] for t in call_kwargs['tags']}
+
+        assert tags.get('investigation_id') == 'inv-001'
+        assert tags.get('cluster_id') == 'rosa-dev'
+        assert tags.get('oc_version') == '4.20'
+        assert tags.get('access_point_id') == 'fsap-test'
+        assert tags.get('task_timeout') == '3600'
+        assert 'created_at' in tags, "created_at tag must be present"
+        assert 'deadline' in tags, "deadline tag must be present when task_timeout > 0"
+        # Verify deadline is parseable ISO 8601
+        from datetime import datetime as dt
+        dt.fromisoformat(tags['deadline'])
+
+    def test_run_task_omits_deadline_when_timeout_is_zero(self):
+        """deadline tag must NOT be set when task_timeout=0 (reaper skips tagless tasks)."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    self._call_create_investigation(
+                        mock_ecs, mock_efs, mock_sts, task_timeout=0
+                    )
+
+        call_kwargs = mock_ecs.run_task.call_args[1]
+        tags = {t['key']: t['value'] for t in call_kwargs['tags']}
+        assert 'deadline' not in tags, "deadline tag must be absent when task_timeout=0"
+
+    def test_tag_resource_receives_same_tags_as_run_task(self):
+        """tag_resource must be called with the same tags as run_task (belt-and-suspenders
+        for IAM evaluation timing — both paths must agree on tag values)."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
+
+        run_task_tags = {t['key']: t['value'] for t in mock_ecs.run_task.call_args[1]['tags']}
+        tag_resource_tags = {t['key']: t['value'] for t in mock_ecs.tag_resource.call_args[1]['tags']}
+
+        assert run_task_tags == tag_resource_tags, (
+            "tag_resource must apply the same tags as run_task so ABAC evaluation is consistent"
+        )
+
+    def test_tag_resource_targets_correct_task_arn(self):
+        """tag_resource must be called with the ARN returned by run_task."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
+
+        expected_arn = 'arn:aws:ecs:us-east-1:123:task/test-task'
+        tag_resource_kwargs = mock_ecs.tag_resource.call_args[1]
+        assert tag_resource_kwargs['resourceArn'] == expected_arn
+
+    def test_efs_access_point_receives_required_tags(self):
+        """create_access_point must tag the access point with ClusterID, InvestigationID,
+        username, oidc_sub, Name, and ManagedBy."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
+
+        call_kwargs = mock_efs.create_access_point.call_args[1]
+        tags = {t['Key']: t['Value'] for t in call_kwargs['Tags']}
+
+        assert tags.get('ClusterID') == 'rosa-dev'
+        assert tags.get('InvestigationID') == 'inv-001'
+        assert tags.get('username') == 'alice'
+        assert tags.get('oidc_sub') == 'sub-abc-123'
+        assert tags.get('ManagedBy') == 'rosa-boundary-lambda'
+        assert 'Name' in tags, "Name tag must be present on EFS access point"
+
+    def test_username_tag_matches_preferred_username_not_sub(self):
+        """The ABAC tag key is 'username' (mapped from preferred_username), NOT 'sub'.
+        Using 'sub' was the old pattern and would break the shared role ABAC condition."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts:
+                    self._call_create_investigation(
+                        mock_ecs, mock_efs, mock_sts,
+                        oidc_sub='uid-999',
+                        username='bob'
+                    )
+
+        call_kwargs = mock_ecs.run_task.call_args[1]
+        tags = {t['key']: t['value'] for t in call_kwargs['tags']}
+
+        assert tags.get('username') == 'bob'
+        assert tags.get('oidc_sub') == 'uid-999'
+        # Legacy tag names that would break the ABAC condition must not appear
+        assert 'sub' not in tags, "Must use 'username' not 'sub' as the ABAC tag key"
+        assert 'owner_sub' not in tags, "Must not use obsolete 'owner_sub' tag"
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

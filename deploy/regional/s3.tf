@@ -62,6 +62,13 @@ resource "aws_s3_bucket_replication_configuration" "audit" {
   bucket = aws_s3_bucket.audit.id
   role   = aws_iam_role.s3_replication[0].arn
 
+  lifecycle {
+    precondition {
+      condition     = var.audit_replication_account_id != ""
+      error_message = "audit_replication_account_id is required when audit_replication_bucket_arn is set."
+    }
+  }
+
   rule {
     id     = "replicate-to-audit-account"
     status = "Enabled"

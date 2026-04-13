@@ -19,9 +19,20 @@ resource "aws_iam_openid_connect_provider" "keycloak" {
 resource "aws_iam_openid_connect_provider" "stage_keycloak" {
   count = var.stage_keycloak_issuer_url != "" ? 1 : 0
 
-  url            = var.stage_keycloak_issuer_url
-  client_id_list = [var.stage_oidc_client_id]
+  url             = var.stage_keycloak_issuer_url
+  client_id_list  = [var.stage_oidc_client_id]
   thumbprint_list = [var.stage_keycloak_thumbprint]
+
+  lifecycle {
+    precondition {
+      condition     = var.stage_oidc_client_id != ""
+      error_message = "stage_oidc_client_id must be set when stage_keycloak_issuer_url is configured."
+    }
+    precondition {
+      condition     = var.stage_keycloak_thumbprint != ""
+      error_message = "stage_keycloak_thumbprint must be set when stage_keycloak_issuer_url is configured."
+    }
+  }
 
   tags = merge(var.tags, {
     Name = "${var.project}-${var.stage}-stage-oidc"

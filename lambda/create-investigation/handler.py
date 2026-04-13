@@ -66,6 +66,8 @@ EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUP = os.environ.get('REQUIRED_GROUP', 'sre-team')
 ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
+STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '')
+STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -159,16 +161,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_email = claims.get('email', 'unknown')
         username = claims.get('preferred_username', user_email)
 
-        # Support both flat groups array (dev Keycloak) and realm_access.roles (EmployeeIDP)
-        groups = claims.get('groups') or claims.get('realm_access', {}).get('roles', [])
+        # Support both flat groups array (dev Keycloak) and realm_access.roles (EmployeeIDP).
+        # Type-guard each level: realm_access may be absent or non-dict in malformed tokens.
+        flat_groups = claims.get('groups')
+        groups = flat_groups if isinstance(flat_groups, list) else []
+        if not groups:
+            realm_access = claims.get('realm_access')
+            realm_roles = realm_access.get('roles', []) if isinstance(realm_access, dict) else []
+            groups = realm_roles if isinstance(realm_roles, list) else []
 
         # Extract ABAC identifier from the https://aws.amazon.com/tags principal_tags.
         # The tag key is configurable (ABAC_TAG_KEY env var) to support both dev
         # (username → preferred_username) and stage (uuid → rhatUUID).
-        aws_tags = claims.get('https://aws.amazon.com/tags', {})
-        principal_tags = aws_tags.get('principal_tags', {})
+        # Guard against non-dict claim shapes that would cause AttributeError at runtime.
+        aws_tags = claims.get('https://aws.amazon.com/tags')
+        if not isinstance(aws_tags, dict):
+            aws_tags = {}
+        principal_tags = aws_tags.get('principal_tags')
+        if not isinstance(principal_tags, dict):
+            principal_tags = {}
         abac_values = principal_tags.get(ABAC_TAG_KEY, [])
-        abac_tag_value = abac_values[0] if abac_values else username
+        if isinstance(abac_values, str):
+            abac_values = [abac_values]
+        elif not isinstance(abac_values, list):
+            abac_values = []
+
+        if abac_values:
+            abac_tag_value = abac_values[0]
+        elif ABAC_TAG_KEY != 'username':
+            # Non-default ABAC key configured but not present in token — fail fast rather
+            # than silently falling back to username, which would produce a task whose ABAC
+            # tag can't be matched by the shared SRE role's PrincipalTag condition.
+            logger.warning(f"ABAC tag key '{ABAC_TAG_KEY}' not found in principal_tags for user {username}")
+            return response(403, {'error': f'Missing required ABAC claim: {ABAC_TAG_KEY}'})
+        else:
+            abac_tag_value = username
 
         logger.info(f"Token validated for user: {username} (sub: {user_sub}, {ABAC_TAG_KEY}: {abac_tag_value})")
 
@@ -268,31 +295,16 @@ def validate_identifier(identifier: str, field_name: str) -> bool:
     return True
 
 
-def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: str) -> Optional[Dict[str, Any]]:
+def _validate_with_jwks(token: str, jwks_url: str, client_id: str) -> Optional[Dict[str, Any]]:
     """
-    Validate OIDC token and extract claims.
+    Validate a JWT against a specific JWKS endpoint and audience.
 
-    Args:
-        token: JWT token string
-        keycloak_url: Keycloak server URL
-        realm: Keycloak realm name
-        client_id: Expected audience claim
-
-    Returns:
-        Decoded token claims or None if validation fails
+    Returns decoded claims on success, None on any validation failure.
     """
     try:
-        # Construct JWKS URL
-        jwks_url = f"{keycloak_url}/realms/{realm}/protocol/openid-connect/certs"
         logger.info(f"Fetching JWKS from: {jwks_url}")
-
-        # Create JWKS client
         jwks_client = PyJWKClient(jwks_url)
-
-        # Get signing key from token
         signing_key = jwks_client.get_signing_key_from_jwt(token)
-
-        # Decode and validate token
         claims = jwt.decode(
             token,
             signing_key.key,
@@ -304,10 +316,8 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
                 "verify_aud": True
             }
         )
-
         logger.info(f"Token validated successfully for subject: {claims.get('sub')}")
         return claims
-
     except jwt.ExpiredSignatureError:
         logger.warning("Token has expired")
         return None
@@ -322,6 +332,47 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
         return None
     except Exception as e:
         logger.error(f"Token validation error: {str(e)}", exc_info=True)
+        return None
+
+
+def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Validate OIDC token and extract claims.
+
+    Routes to the correct issuer by inspecting the unverified 'iss' claim, then
+    validates with full signature/audience verification against that issuer's JWKS.
+    Supports a primary Keycloak issuer and an optional stage OIDC provider
+    (configured via STAGE_KEYCLOAK_ISSUER_URL / STAGE_OIDC_CLIENT_ID env vars).
+
+    Args:
+        token: JWT token string
+        keycloak_url: Primary Keycloak server base URL
+        realm: Primary Keycloak realm name
+        client_id: Primary expected audience claim
+
+    Returns:
+        Decoded token claims or None if validation fails
+    """
+    # Peek at the 'iss' claim without verifying signature to route to the correct issuer.
+    try:
+        unverified = jwt.decode(token, options={"verify_signature": False})
+        token_iss = unverified.get('iss', '')
+    except Exception as e:
+        logger.warning(f"Failed to decode token for issuer detection: {str(e)}")
+        return None
+
+    primary_iss = f"{keycloak_url}/realms/{realm}"
+    primary_jwks_url = f"{primary_iss}/protocol/openid-connect/certs"
+
+    if STAGE_KEYCLOAK_ISSUER_URL and token_iss == STAGE_KEYCLOAK_ISSUER_URL:
+        logger.info(f"Token issuer matches stage OIDC provider: {STAGE_KEYCLOAK_ISSUER_URL}")
+        stage_jwks_url = f"{STAGE_KEYCLOAK_ISSUER_URL}/protocol/openid-connect/certs"
+        return _validate_with_jwks(token, stage_jwks_url, STAGE_OIDC_CLIENT_ID)
+    elif token_iss == primary_iss:
+        return _validate_with_jwks(token, primary_jwks_url, client_id)
+    else:
+        logger.warning(f"Token issuer '{token_iss}' does not match any configured OIDC provider "
+                       f"(primary: '{primary_iss}', stage: '{STAGE_KEYCLOAK_ISSUER_URL or 'not configured'}')")
         return None
 
 

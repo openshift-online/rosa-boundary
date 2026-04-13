@@ -139,9 +139,11 @@ resource "aws_lambda_function" "create_investigation" {
       S3_AUDIT_BUCKET      = aws_s3_bucket.audit.id
       AWS_ACCOUNT_ID       = data.aws_caller_identity.current.account_id
       PROJECT_NAME         = var.project
-      REQUIRED_GROUP       = "sre-team"
-      ABAC_TAG_KEY         = var.abac_tag_key
-      TASK_TIMEOUT_DEFAULT = tostring(var.task_timeout_default)
+      REQUIRED_GROUP             = "sre-team"
+      ABAC_TAG_KEY               = var.abac_tag_key
+      TASK_TIMEOUT_DEFAULT       = tostring(var.task_timeout_default)
+      STAGE_KEYCLOAK_ISSUER_URL  = var.stage_keycloak_issuer_url
+      STAGE_OIDC_CLIENT_ID       = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
     }
   }
 

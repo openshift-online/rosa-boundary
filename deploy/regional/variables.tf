@@ -59,6 +59,12 @@ variable "kube_proxy_port" {
   default     = 8001
 }
 
+variable "enable_kube_proxy" {
+  description = "Include the kube-proxy sidecar in the base task definition. Set to false for testing or environments without a cluster kubeconfig."
+  type        = bool
+  default     = true
+}
+
 variable "vpc_id" {
   description = "VPC ID where Fargate tasks will run"
   type        = string
@@ -114,6 +120,30 @@ variable "oidc_session_duration" {
   default     = 3600 # 1 hour
 }
 
+variable "abac_tag_key" {
+  description = "ECS task tag key used for ABAC isolation (must match the principal_tags key in the OIDC JWT). Use 'username' for dev Keycloak, 'uuid' for Red Hat EmployeeIDP."
+  type        = string
+  default     = "username"
+}
+
+variable "stage_keycloak_issuer_url" {
+  description = "Optional second OIDC provider issuer URL (e.g. Red Hat EmployeeIDP stage). Leave empty to skip."
+  type        = string
+  default     = ""
+}
+
+variable "stage_keycloak_thumbprint" {
+  description = "SHA1 thumbprint of the stage OIDC provider TLS certificate."
+  type        = string
+  default     = ""
+}
+
+variable "stage_oidc_client_id" {
+  description = "Client ID for the stage OIDC provider (audience claim)."
+  type        = string
+  default     = ""
+}
+
 variable "task_timeout_default" {
   description = "Default task timeout in seconds (0 = no timeout)"
   type        = number
@@ -136,10 +166,8 @@ variable "audit_replication_account_id" {
   type        = string
   default     = ""
 
-  validation {
-    condition     = var.audit_replication_bucket_arn == "" || var.audit_replication_account_id != ""
-    error_message = "audit_replication_account_id is required when audit_replication_bucket_arn is set."
-  }
+  # Note: cross-variable validation (checking audit_replication_bucket_arn) is not
+  # supported in Terraform variable blocks; enforced at the resource level instead.
 }
 
 variable "reaper_schedule_minutes" {

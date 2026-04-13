@@ -65,6 +65,7 @@ SECURITY_GROUP = os.environ.get('SECURITY_GROUP')
 EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUP = os.environ.get('REQUIRED_GROUP', 'sre-team')
+ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -157,9 +158,19 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_sub = claims.get('sub')
         user_email = claims.get('email', 'unknown')
         username = claims.get('preferred_username', user_email)
-        groups = claims.get('groups', [])
 
-        logger.info(f"Token validated for user: {username} (sub: {user_sub})")
+        # Support both flat groups array (dev Keycloak) and realm_access.roles (EmployeeIDP)
+        groups = claims.get('groups') or claims.get('realm_access', {}).get('roles', [])
+
+        # Extract ABAC identifier from the https://aws.amazon.com/tags principal_tags.
+        # The tag key is configurable (ABAC_TAG_KEY env var) to support both dev
+        # (username → preferred_username) and stage (uuid → rhatUUID).
+        aws_tags = claims.get('https://aws.amazon.com/tags', {})
+        principal_tags = aws_tags.get('principal_tags', {})
+        abac_values = principal_tags.get(ABAC_TAG_KEY, [])
+        abac_tag_value = abac_values[0] if abac_values else username
+
+        logger.info(f"Token validated for user: {username} (sub: {user_sub}, {ABAC_TAG_KEY}: {abac_tag_value})")
 
         # Check group membership
         if REQUIRED_GROUP not in groups:
@@ -184,6 +195,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             task_def=TASK_DEFINITION,
             oidc_sub=user_sub,
             username=username,
+            abac_tag_key=ABAC_TAG_KEY,
+            abac_tag_value=abac_tag_value,
             investigation_id=investigation_id,
             cluster_id=cluster_id,
             subnets=SUBNETS,
@@ -474,6 +487,8 @@ def create_investigation_task(
     task_def: str,
     oidc_sub: str,
     username: str,
+    abac_tag_key: str,
+    abac_tag_value: str,
     investigation_id: str,
     cluster_id: str,
     subnets: list,
@@ -596,13 +611,14 @@ def create_investigation_task(
         raise
 
     # Build task tags (used for both run_task and tag_resource)
-    # The 'username' tag is the ABAC key: the shared SRE role policy conditions on
-    # ecs:ResourceTag/username == ${aws:PrincipalTag/username} to enforce per-user isolation.
+    # The ABAC tag (key = ABAC_TAG_KEY env var, e.g. 'username' or 'uuid') enforces
+    # per-user isolation: the shared SRE role policy conditions on
+    # ecs:ResourceTag/<key> == ${aws:PrincipalTag/<key>}.
     # The 'oidc_sub' tag stores the immutable OIDC subject UUID for audit purposes.
     created_at = datetime.utcnow()
     task_tags = [
         {'key': 'oidc_sub', 'value': oidc_sub},
-        {'key': 'username', 'value': username},
+        {'key': abac_tag_key, 'value': abac_tag_value},
         {'key': 'investigation_id', 'value': investigation_id},
         {'key': 'cluster_id', 'value': cluster_id},
         {'key': 'oc_version', 'value': oc_version},

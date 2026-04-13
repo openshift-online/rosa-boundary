@@ -12,21 +12,38 @@ resource "aws_iam_role" "lambda_invoker" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Federated = aws_iam_openid_connect_provider.keycloak.arn
-      }
-      Action = [
-        "sts:AssumeRoleWithWebIdentity",
-        "sts:TagSession"
-      ]
-      Condition = {
-        StringEquals = {
-          "${local.oidc_provider_domain}:aud" = var.oidc_client_id
+    Statement = concat(
+      [{
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.keycloak.arn
         }
-      }
-    }]
+        Action = [
+          "sts:AssumeRoleWithWebIdentity",
+          "sts:TagSession"
+        ]
+        Condition = {
+          StringEquals = {
+            "${local.oidc_provider_domain}:aud" = var.oidc_client_id
+          }
+        }
+      }],
+      var.stage_keycloak_issuer_url != "" ? [{
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.stage_keycloak[0].arn
+        }
+        Action = [
+          "sts:AssumeRoleWithWebIdentity",
+          "sts:TagSession"
+        ]
+        Condition = {
+          StringEquals = {
+            "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
+          }
+        }
+      }] : []
+    )
   })
 
   tags = merge(local.common_tags, {

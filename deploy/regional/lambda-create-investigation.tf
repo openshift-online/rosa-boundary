@@ -44,6 +44,9 @@ resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
         Effect = "Allow"
         Action = [
           "ecs:RunTask",
+          "ecs:StopTask",
+          "ecs:ListTasks",
+          "ecs:DescribeTasks",
           "ecs:DescribeTaskDefinition",
           "ecs:RegisterTaskDefinition",
           "ecs:DeregisterTaskDefinition",
@@ -137,6 +140,7 @@ resource "aws_lambda_function" "create_investigation" {
       AWS_ACCOUNT_ID       = data.aws_caller_identity.current.account_id
       PROJECT_NAME         = var.project
       REQUIRED_GROUP       = "sre-team"
+      ABAC_TAG_KEY         = var.abac_tag_key
       TASK_TIMEOUT_DEFAULT = tostring(var.task_timeout_default)
     }
   }

@@ -1,3 +1,4 @@
+# Runs Lambda unit tests + LocalStack integration tests on PRs that touch lambda/ or deploy/regional/
 name: LocalStack Integration Tests
 
 on:

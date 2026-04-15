@@ -13,7 +13,8 @@ CLI_VERSION ?= dev
 CLI_LDFLAGS := -ldflags "-X github.com/openshift/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
 
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
-        build-cli install-cli test-cli fmt lint
+        build-cli install-cli test-cli fmt lint \
+        validate-findings convert-sarif upload-sarif
 
 # Default target: build both architectures and create manifest
 all: build manifest
@@ -150,6 +151,28 @@ lint: ## Lint Go code and shell scripts
 		echo "shellcheck not installed, skipping shell linting"; \
 	fi
 
+# Security findings
+validate-findings: ## Validate adversary-findings.json schema
+	@python3 scripts/findings-to-sarif.py --validate --input adversary-findings.json
+
+convert-sarif: ## Convert adversary-findings.json to SARIF format
+	@python3 scripts/findings-to-sarif.py --input adversary-findings.json --output adversary-findings.sarif
+
+upload-sarif: convert-sarif ## Convert findings to SARIF and upload to GitHub code scanning
+	@if ! command -v gh > /dev/null 2>&1; then \
+		echo "ERROR: gh CLI not installed. Install from https://cli.github.com/"; \
+		exit 1; \
+	fi
+	@echo "Uploading SARIF to GitHub code scanning..."
+	gh api \
+		--method POST \
+		-H "Accept: application/vnd.github+json" \
+		"/repos/{owner}/{repo}/code-scanning/sarifs" \
+		-f "commit_sha=$$(git rev-parse HEAD)" \
+		-f "ref=$$(git symbolic-ref HEAD)" \
+		-f "sarif=$$(gzip -c adversary-findings.sarif | base64)"
+	@echo "SARIF uploaded successfully"
+
 # Show help
 help:
 	@echo "ROSA Boundary Container Build Targets:"
@@ -181,6 +204,11 @@ help:
 	@echo "  make fmt          - Format Go code (gofmt) and shell scripts (shfmt)"
 	@echo "  make lint         - Lint Go (golangci-lint/go vet) and shell (shellcheck)"
 	@echo "  make staticcheck  - Run staticcheck static analysis"
+	@echo ""
+	@echo "Security Findings Targets:"
+	@echo "  make validate-findings  - Validate adversary-findings.json schema"
+	@echo "  make convert-sarif      - Convert findings JSON to SARIF format"
+	@echo "  make upload-sarif       - Convert and upload SARIF to GitHub code scanning"
 	@echo ""
 	@echo "  make help         - Show this help message"
 	@echo ""

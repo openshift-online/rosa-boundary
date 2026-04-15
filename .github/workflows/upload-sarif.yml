@@ -1,0 +1,53 @@
+name: Upload Security Findings
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'adversary-findings.json'
+      - 'scripts/findings-to-sarif.py'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'adversary-findings.json'
+      - 'scripts/findings-to-sarif.py'
+  workflow_dispatch: {}
+
+permissions:
+  security-events: write
+  contents: read
+
+jobs:
+  upload-sarif:
+    name: Convert and Upload SARIF
+    if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Convert findings to SARIF
+        run: python scripts/findings-to-sarif.py --input adversary-findings.json --output adversary-findings.sarif
+
+      - name: Upload SARIF to GitHub
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: adversary-findings.sarif
+          category: rosa-boundary-adversary
+          wait-for-processing: true
+
+  upload-sarif-fork:
+    name: Convert and Upload SARIF
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip for fork PR
+        run: |
+          echo "::notice::Skipping SARIF upload for fork PR (no access to security-events)"

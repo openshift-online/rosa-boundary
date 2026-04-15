@@ -44,14 +44,14 @@ clean: ## Remove build artifacts and dependencies
 deps: clean ## Install Lambda dependencies using container runtime (Linux-compatible)
 	@echo "Installing Lambda dependencies using AWS Lambda container image (x86_64)..."
 	@echo "Using container runtime: $(CONTAINER_RUNTIME)"
-	uv export --frozen --no-dev --no-emit-project -o /tmp/requirements-lock.txt
+	uv export --frozen --no-dev --no-emit-project -o "$(FUNCTION_DIR)/requirements-lock.txt"
 	$(CONTAINER_RUNTIME) run --rm \
 		--platform linux/amd64 \
 		--entrypoint "" \
 		-v "$(FUNCTION_DIR)":/var/task:Z \
-		-v /tmp/requirements-lock.txt:/tmp/requirements-lock.txt:ro \
 		$(LAMBDA_RUNTIME) \
-		pip install -t /var/task -r /tmp/requirements-lock.txt --no-cache-dir
+		pip install -t /var/task -r /var/task/requirements-lock.txt --no-cache-dir
+	rm -f "$(FUNCTION_DIR)/requirements-lock.txt"
 	@echo "Dependencies installed"
 
 deps-local: clean ## Install dependencies locally using uv (for local testing only - not Lambda compatible on macOS)

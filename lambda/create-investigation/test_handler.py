@@ -863,6 +863,8 @@ class TestDuplicateInvestigationDetection:
                         task_def='rosa-boundary-dev',
                         oidc_sub='sub-123',
                         username='sre-user',
+                        abac_tag_key='username',
+                        abac_tag_value='sre-user',
                         investigation_id='inv1',
                         cluster_id='c1',
                         subnets=['subnet-1'],
@@ -925,6 +927,8 @@ class TestDuplicateInvestigationDetection:
                         task_def='rosa-boundary-dev',
                         oidc_sub='sub-123',
                         username='sre-user',
+                        abac_tag_key='username',
+                        abac_tag_value='sre-user',
                         investigation_id='inv1',
                         cluster_id='c1',
                         subnets=['subnet-1'],
@@ -949,6 +953,8 @@ class TestDuplicateInvestigationDetection:
                     task_def='rosa-boundary-dev',
                     oidc_sub='sub-123',
                     username='sre-user',
+                    abac_tag_key='username',
+                    abac_tag_value='sre-user',
                     investigation_id='inv1',
                     cluster_id='c1',
                     subnets=['subnet-1'],
@@ -986,6 +992,8 @@ class TestDuplicateInvestigationDetection:
                         task_def='rosa-boundary-dev',
                         oidc_sub='sub-123',
                         username='sre-user',
+                        abac_tag_key='username',
+                        abac_tag_value='sre-user',
                         investigation_id='inv1',
                         cluster_id='c1',
                         subnets=['subnet-1'],
@@ -1119,6 +1127,8 @@ class TestInvestigationStartedBy:
                         task_def='rosa-boundary-dev',
                         oidc_sub='sub-123',
                         username='sre-user',
+                        abac_tag_key='username',
+                        abac_tag_value='sre-user',
                         investigation_id='inv1',
                         cluster_id='c1',
                         subnets=['subnet-1'],
@@ -1218,6 +1228,8 @@ class TestPerInvestigationTaskDef:
                         task_def='rosa-boundary-dev',
                         oidc_sub='sub-123',
                         username='sre-user',
+                        abac_tag_key='username',
+                        abac_tag_value='sre-user',
                         investigation_id='inv1',
                         cluster_id='c1',
                         subnets=['subnet-1'],
@@ -1346,6 +1358,8 @@ class TestPerInvestigationTaskDef:
                     task_def='rosa-boundary-dev',
                     oidc_sub='sub-123',
                     username='sre-user',
+                    abac_tag_key='username',
+                    abac_tag_value='sre-user',
                     investigation_id='inv1',
                     cluster_id='c1',
                     subnets=['subnet-1'],
@@ -1383,6 +1397,8 @@ class TestPerInvestigationTaskDef:
                             task_def='rosa-boundary-dev',
                             oidc_sub='sub-123',
                             username='sre-user',
+                            abac_tag_key='username',
+                            abac_tag_value='sre-user',
                             investigation_id='inv1',
                             cluster_id='c1',
                             subnets=['subnet-1'],
@@ -1429,6 +1445,8 @@ class TestPerInvestigationTaskDef:
                             task_def='rosa-boundary-dev',
                             oidc_sub='sub-123',
                             username='sre-user',
+                            abac_tag_key='username',
+                            abac_tag_value='sre-user',
                             investigation_id='inv1',
                             cluster_id='c1',
                             subnets=['subnet-1'],
@@ -1634,6 +1652,7 @@ class TestTaskTagging:
             task_def='rosa-boundary-dev',
             oidc_sub='sub-abc-123',
             username='alice',
+            abac_tag_key='username',
             investigation_id='inv-001',
             cluster_id='rosa-dev',
             subnets=['subnet-1'],
@@ -1643,6 +1662,9 @@ class TestTaskTagging:
             task_timeout=3600,
         )
         kwargs.update(overrides)
+        # abac_tag_value defaults to username so ABAC tag matches preferred_username
+        if 'abac_tag_value' not in kwargs:
+            kwargs['abac_tag_value'] = kwargs['username']
         return handler.create_investigation_task(**kwargs)
 
     def test_run_task_includes_required_abac_tags(self):

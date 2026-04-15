@@ -15,10 +15,35 @@ resource "aws_iam_openid_connect_provider" "keycloak" {
   })
 }
 
+# Optional second OIDC provider (e.g. Red Hat EmployeeIDP stage)
+resource "aws_iam_openid_connect_provider" "stage_keycloak" {
+  count = var.stage_keycloak_issuer_url != "" ? 1 : 0
+
+  url             = var.stage_keycloak_issuer_url
+  client_id_list  = [var.stage_oidc_client_id]
+  thumbprint_list = [var.stage_keycloak_thumbprint]
+
+  lifecycle {
+    precondition {
+      condition     = var.stage_oidc_client_id != ""
+      error_message = "stage_oidc_client_id must be set when stage_keycloak_issuer_url is configured."
+    }
+    precondition {
+      condition     = var.stage_keycloak_thumbprint != ""
+      error_message = "stage_keycloak_thumbprint must be set when stage_keycloak_issuer_url is configured."
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.project}-${var.stage}-stage-oidc"
+  })
+}
+
 locals {
   # Extract OIDC provider domain from ARN for use in trust policy conditions.
   # ARN format: arn:aws:iam::<account>:oidc-provider/<domain>
-  oidc_provider_domain = split("oidc-provider/", aws_iam_openid_connect_provider.keycloak.arn)[1]
+  oidc_provider_domain       = split("oidc-provider/", aws_iam_openid_connect_provider.keycloak.arn)[1]
+  stage_oidc_provider_domain = var.stage_keycloak_issuer_url != "" ? split("oidc-provider/", aws_iam_openid_connect_provider.stage_keycloak[0].arn)[1] : ""
 }
 
 # Shared SRE IAM role using ABAC (Attribute-Based Access Control).
@@ -37,23 +62,40 @@ resource "aws_iam_role" "sre_shared" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Federated = aws_iam_openid_connect_provider.keycloak.arn
-      }
-      # sts:TagSession is required for session tags from the JWT
-      # https://aws.amazon.com/tags claim to propagate.
-      Action = [
-        "sts:AssumeRoleWithWebIdentity",
-        "sts:TagSession"
-      ]
-      Condition = {
-        StringEquals = {
-          "${local.oidc_provider_domain}:aud" = var.oidc_client_id
+    Statement = concat(
+      [{
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.keycloak.arn
         }
-      }
-    }]
+        # sts:TagSession is required for session tags from the JWT
+        # https://aws.amazon.com/tags claim to propagate.
+        Action = [
+          "sts:AssumeRoleWithWebIdentity",
+          "sts:TagSession"
+        ]
+        Condition = {
+          StringEquals = {
+            "${local.oidc_provider_domain}:aud" = var.oidc_client_id
+          }
+        }
+      }],
+      var.stage_keycloak_issuer_url != "" ? [{
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.stage_keycloak[0].arn
+        }
+        Action = [
+          "sts:AssumeRoleWithWebIdentity",
+          "sts:TagSession"
+        ]
+        Condition = {
+          StringEquals = {
+            "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
+          }
+        }
+      }] : []
+    )
   })
 
   tags = merge(local.common_tags, {
@@ -107,10 +149,12 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         Resource = "*"
         Condition = {
           StringEquals = {
-            # $${...} escapes Terraform interpolation; produces ${aws:PrincipalTag/username}
+            # $${...} escapes Terraform interpolation; produces ${aws:PrincipalTag/<key>}
             # in the policy JSON. This resolves dynamically per session from the JWT
             # session tag set by the Keycloak https://aws.amazon.com/tags mapper.
-            "ecs:ResourceTag/username" = "$${aws:PrincipalTag/username}"
+            # abac_tag_key must match the principal_tags key in the OIDC JWT
+            # (e.g. "username" for dev Keycloak, "uuid" for Red Hat EmployeeIDP).
+            "ecs:ResourceTag/${var.abac_tag_key}" = "$${aws:PrincipalTag/${var.abac_tag_key}}"
           }
         }
       },

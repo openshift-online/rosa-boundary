@@ -19,7 +19,12 @@ endif
 
 # Source .env and export Terraform variables
 # Terraform reads TF_VAR_<name> environment variables automatically
-export TF_VAR_keycloak_issuer_url := $(shell source $(ENV_FILE) 2>/dev/null && echo $$KEYCLOAK_ISSUER_URL)
+export TF_VAR_keycloak_issuer_url        := $(shell source $(ENV_FILE) 2>/dev/null && echo $$KEYCLOAK_ISSUER_URL)
+export TF_VAR_stage_keycloak_issuer_url  := $(shell source $(ENV_FILE) 2>/dev/null && echo $$STAGE_KEYCLOAK_ISSUER_URL)
+export TF_VAR_stage_oidc_client_id       := $(shell source $(ENV_FILE) 2>/dev/null && echo $$STAGE_OIDC_CLIENT_ID)
+export TF_VAR_stage_keycloak_thumbprint  := $(shell source $(ENV_FILE) 2>/dev/null && echo $$STAGE_KEYCLOAK_THUMBPRINT)
+export TF_VAR_abac_tag_key               := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_abac_tag_key:-username})
+export TF_VAR_enable_kube_proxy          := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_enable_kube_proxy:-true})
 
 .PHONY: help
 help:
@@ -46,7 +51,10 @@ show-env:
 	@echo ""
 	@echo "Terraform Variables:"
 	@source $(ENV_FILE) && \
-	echo "  TF_VAR_keycloak_issuer_url: $$KEYCLOAK_ISSUER_URL"
+	echo "  TF_VAR_keycloak_issuer_url:       $$KEYCLOAK_ISSUER_URL" && \
+	echo "  TF_VAR_stage_keycloak_issuer_url: $$STAGE_KEYCLOAK_ISSUER_URL" && \
+	echo "  TF_VAR_stage_oidc_client_id:      $$STAGE_OIDC_CLIENT_ID" && \
+	echo "  TF_VAR_abac_tag_key:              $${TF_VAR_abac_tag_key:-username}"
 
 .PHONY: init
 init:

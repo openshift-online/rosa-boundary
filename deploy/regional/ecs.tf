@@ -82,23 +82,27 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
   }
 
   # Ephemeral bind mount for kube-proxy working directory (no EFS config)
-  volume {
-    name = "proxy-tmp"
+  dynamic "volume" {
+    for_each = var.enable_kube_proxy ? [1] : []
+    content {
+      name = "proxy-tmp"
+    }
   }
 
-  container_definitions = jsonencode([
+  container_definitions = jsonencode(concat(
+    [
     {
       name        = "rosa-boundary"
       image       = var.container_image
       essential   = true
       stopTimeout = 120
 
-      dependsOn = [
+      dependsOn = var.enable_kube_proxy ? [
         {
           containerName = "kube-proxy"
           condition     = "HEALTHY"
         }
-      ]
+      ] : []
 
       environment = [
         {
@@ -133,7 +137,9 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
       linuxParameters = {
         initProcessEnabled = true
       }
-    },
+    }
+    ],
+    var.enable_kube_proxy ? [
     {
       name      = "kube-proxy"
       image     = var.container_image
@@ -182,7 +188,8 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
         initProcessEnabled = true
       }
     }
-  ])
+    ] : []
+  ))
 
   tags = local.common_tags
 }

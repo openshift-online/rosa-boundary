@@ -127,7 +127,7 @@ variable "abac_tag_key" {
 }
 
 variable "stage_keycloak_issuer_url" {
-  description = "Optional second OIDC provider issuer URL (e.g. Red Hat EmployeeIDP stage). Leave empty to skip."
+  description = "Optional stage OIDC provider issuer URL (e.g. Red Hat EmployeeIDP stage). Leave empty to skip."
   type        = string
   default     = ""
 }
@@ -142,6 +142,39 @@ variable "stage_oidc_client_id" {
   description = "Client ID for the stage OIDC provider (audience claim)."
   type        = string
   default     = ""
+}
+
+variable "prod_keycloak_issuer_url" {
+  description = "Optional production OIDC provider issuer URL (e.g. https://auth.redhat.com/auth/realms/EmployeeIDP). Leave empty to skip."
+  type        = string
+  default     = ""
+}
+
+variable "prod_keycloak_thumbprint" {
+  description = "SHA1 thumbprint of the production OIDC provider TLS certificate."
+  type        = string
+  default     = ""
+}
+
+variable "prod_oidc_client_id" {
+  description = "Client ID for the production OIDC provider (audience claim)."
+  type        = string
+  default     = ""
+}
+
+variable "required_groups" {
+  description = "List of groups allowed to create and join investigation tasks. User must be a member of at least one."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.required_groups) > 0
+    error_message = "At least one required group must be specified."
+  }
+
+  validation {
+    condition     = alltrue([for g in var.required_groups : length(trimspace(g)) > 0])
+    error_message = "All required_groups entries must be non-empty after trimming whitespace."
+  }
 }
 
 variable "task_timeout_default" {

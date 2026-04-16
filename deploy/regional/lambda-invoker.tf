@@ -42,6 +42,21 @@ resource "aws_iam_role" "lambda_invoker" {
             "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
           }
         }
+      }] : [],
+      var.prod_keycloak_issuer_url != "" ? [{
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.prod_keycloak[0].arn
+        }
+        Action = [
+          "sts:AssumeRoleWithWebIdentity",
+          "sts:TagSession"
+        ]
+        Condition = {
+          StringEquals = {
+            "${local.prod_oidc_provider_domain}:aud" = var.prod_oidc_client_id
+          }
+        }
       }] : []
     )
   })

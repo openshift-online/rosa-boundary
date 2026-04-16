@@ -39,11 +39,36 @@ resource "aws_iam_openid_connect_provider" "stage_keycloak" {
   })
 }
 
+# Optional third OIDC provider (e.g. Red Hat EmployeeIDP production)
+resource "aws_iam_openid_connect_provider" "prod_keycloak" {
+  count = var.prod_keycloak_issuer_url != "" ? 1 : 0
+
+  url             = var.prod_keycloak_issuer_url
+  client_id_list  = [var.prod_oidc_client_id]
+  thumbprint_list = [var.prod_keycloak_thumbprint]
+
+  lifecycle {
+    precondition {
+      condition     = var.prod_oidc_client_id != ""
+      error_message = "prod_oidc_client_id must be set when prod_keycloak_issuer_url is configured."
+    }
+    precondition {
+      condition     = var.prod_keycloak_thumbprint != ""
+      error_message = "prod_keycloak_thumbprint must be set when prod_keycloak_issuer_url is configured."
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.project}-${var.stage}-prod-oidc"
+  })
+}
+
 locals {
   # Extract OIDC provider domain from ARN for use in trust policy conditions.
   # ARN format: arn:aws:iam::<account>:oidc-provider/<domain>
   oidc_provider_domain       = split("oidc-provider/", aws_iam_openid_connect_provider.keycloak.arn)[1]
   stage_oidc_provider_domain = var.stage_keycloak_issuer_url != "" ? split("oidc-provider/", aws_iam_openid_connect_provider.stage_keycloak[0].arn)[1] : ""
+  prod_oidc_provider_domain  = var.prod_keycloak_issuer_url != "" ? split("oidc-provider/", aws_iam_openid_connect_provider.prod_keycloak[0].arn)[1] : ""
 }
 
 # Shared SRE IAM role using ABAC (Attribute-Based Access Control).
@@ -92,6 +117,21 @@ resource "aws_iam_role" "sre_shared" {
         Condition = {
           StringEquals = {
             "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
+          }
+        }
+      }] : [],
+      var.prod_keycloak_issuer_url != "" ? [{
+        Effect = "Allow"
+        Principal = {
+          Federated = aws_iam_openid_connect_provider.prod_keycloak[0].arn
+        }
+        Action = [
+          "sts:AssumeRoleWithWebIdentity",
+          "sts:TagSession"
+        ]
+        Condition = {
+          StringEquals = {
+            "${local.prod_oidc_provider_domain}:aud" = var.prod_oidc_client_id
           }
         }
       }] : []

@@ -554,7 +554,7 @@ class TestLambdaHandler:
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
         'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
-        'REQUIRED_GROUP': 'sre-team'
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_missing_group_membership(self):
         """Test that users without required group get 403."""
@@ -575,6 +575,92 @@ class TestLambdaHandler:
                 'sub': 'user-123',
                 'email': 'test@example.com',
                 'groups': ['other-group']
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 403
+        body = json.loads(response['body'])
+        assert 'not authorized' in body['error'].lower()
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team,platform-sre,osd-sre'
+    })
+    def test_multi_group_any_match(self):
+        """Test that membership in any one of multiple required groups grants access."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'test',
+                'investigation_id': 'inv-multi'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.create_investigation_task') as mock_create:
+            mock_validate.return_value = {
+                'sub': 'user-456',
+                'email': 'sre@example.com',
+                'preferred_username': 'sre-user',
+                'groups': ['platform-sre', 'other-group']
+            }
+            mock_create.return_value = {
+                'taskArn': 'arn:aws:ecs:us-east-1:123:task/test/abc123',
+                'accessPointId': 'fsap-123',
+                'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 200
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team,platform-sre,osd-sre'
+    })
+    def test_multi_group_none_match(self):
+        """Test that users not in any required group are rejected."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'test',
+                'investigation_id': 'inv-none'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate:
+            mock_validate.return_value = {
+                'sub': 'user-789',
+                'email': 'dev@example.com',
+                'preferred_username': 'dev-user',
+                'groups': ['developers', 'other-group']
             }
 
             response = handler.lambda_handler(event, context)
@@ -619,7 +705,7 @@ class TestSkipTask:
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
         'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
-        'REQUIRED_GROUP': 'sre-team'
+        'REQUIRED_GROUPS': 'sre-team'
     }
 
     def _make_event(self, extra_body=None):
@@ -1157,7 +1243,7 @@ class TestPerInvestigationTaskDef:
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
         'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
-        'REQUIRED_GROUP': 'sre-team',
+        'REQUIRED_GROUPS': 'sre-team',
         'S3_AUDIT_BUCKET': 'my-audit-bucket',
         'AWS_REGION': 'us-east-1',
     }

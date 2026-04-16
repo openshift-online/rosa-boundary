@@ -64,10 +64,12 @@ SUBNETS = os.environ.get('SUBNETS', '').split(',')
 SECURITY_GROUP = os.environ.get('SECURITY_GROUP')
 EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
-REQUIRED_GROUP = os.environ.get('REQUIRED_GROUP', 'sre-team')
+REQUIRED_GROUPS = [g.strip() for g in os.environ.get('REQUIRED_GROUPS', os.environ.get('REQUIRED_GROUP', 'sre-team')).split(',') if g.strip()]
 ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
 STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '')
 STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
+PROD_KEYCLOAK_ISSUER_URL = os.environ.get('PROD_KEYCLOAK_ISSUER_URL', '')
+PROD_OIDC_CLIENT_ID = os.environ.get('PROD_OIDC_CLIENT_ID', '')
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -199,15 +201,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"Token validated for user: {username} (sub: {user_sub}, {ABAC_TAG_KEY}: {abac_tag_value})")
 
-        # Check group membership
-        if REQUIRED_GROUP not in groups:
-            logger.warning(f"User {username} not in required group {REQUIRED_GROUP}")
+        # Check group membership (user must be in at least one of the required groups)
+        matched_groups = [g for g in REQUIRED_GROUPS if g in groups]
+        if not matched_groups:
+            logger.warning(f"User {username} not in any required group {REQUIRED_GROUPS}")
             return response(403, {
-                'error': f'User not authorized: missing {REQUIRED_GROUP} group membership',
+                'error': f'User not authorized: must be a member of at least one of {REQUIRED_GROUPS}',
                 'groups': groups
             })
 
-        logger.info(f"User {username} authorized with group {REQUIRED_GROUP}")
+        logger.info(f"User {username} authorized via group(s): {matched_groups}")
 
         # Use shared ABAC role — session tags from the OIDC token (https://aws.amazon.com/tags
         # claim) propagate automatically during AssumeRoleWithWebIdentity and are matched
@@ -368,11 +371,16 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
         logger.info(f"Token issuer matches stage OIDC provider: {STAGE_KEYCLOAK_ISSUER_URL}")
         stage_jwks_url = f"{STAGE_KEYCLOAK_ISSUER_URL}/protocol/openid-connect/certs"
         return _validate_with_jwks(token, stage_jwks_url, STAGE_OIDC_CLIENT_ID)
+    elif PROD_KEYCLOAK_ISSUER_URL and token_iss == PROD_KEYCLOAK_ISSUER_URL:
+        logger.info(f"Token issuer matches prod OIDC provider: {PROD_KEYCLOAK_ISSUER_URL}")
+        prod_jwks_url = f"{PROD_KEYCLOAK_ISSUER_URL}/protocol/openid-connect/certs"
+        return _validate_with_jwks(token, prod_jwks_url, PROD_OIDC_CLIENT_ID)
     elif token_iss == primary_iss:
         return _validate_with_jwks(token, primary_jwks_url, client_id)
     else:
         logger.warning(f"Token issuer '{token_iss}' does not match any configured OIDC provider "
-                       f"(primary: '{primary_iss}', stage: '{STAGE_KEYCLOAK_ISSUER_URL or 'not configured'}')")
+                       f"(primary: '{primary_iss}', stage: '{STAGE_KEYCLOAK_ISSUER_URL or 'not configured'}', "
+                       f"prod: '{PROD_KEYCLOAK_ISSUER_URL or 'not configured'}')")
         return None
 
 

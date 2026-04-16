@@ -193,7 +193,8 @@ Architecture values are written to temp files (`/tmp/aws_cli_arch`, `/tmp/oc_suf
 rosa-boundary/
 ├── Containerfile              # Multi-arch container build
 ├── entrypoint.sh              # Runtime init: version selection, S3 sync, Bedrock setup
-├── Makefile                   # Build targets: container, CLI, tests, fmt, lint
+├── Makefile                   # Build targets: container, CLI, tests, fmt, lint, SARIF
+├── adversary-findings.json    # Security findings (source of truth for SARIF)
 ├── go.mod / go.sum            # Go module files
 ├── cmd/rosa-boundary/         # Go CLI entry point (main.go)
 ├── internal/
@@ -223,6 +224,8 @@ rosa-boundary/
 │   └── reap-tasks/            # Periodic task timeout enforcement
 │       ├── handler.py         # lambda_handler, list_running_tasks
 │       └── test_handler.py    # unittest.mock-based unit tests
+├── scripts/
+│   └── findings-to-sarif.py   # Converts adversary-findings.json → SARIF 2.1.0
 ├── tests/localstack/
 │   ├── compose.yml            # LocalStack Pro + mock OIDC (local/macOS, local executor)
 │   ├── compose.ci.yml         # LocalStack Pro + mock OIDC (CI, Docker executor for Lambda)
@@ -351,3 +354,29 @@ See `tests/localstack/README.md` for full documentation including troubleshootin
 1. **localstack-tests** — integration tests using `compose.ci.yml`; runs for upstream PRs and pushes to main
 2. **localstack-tests-fork** — skips with a notice for fork PRs (no access to secrets)
 3. **lambda-unit-tests** — moto-based unit tests with Codecov coverage upload; runs on all triggers
+
+**File**: `.github/workflows/upload-sarif.yml`
+
+**Triggers**: Pushes to `main` or PRs when `adversary-findings.json` or `scripts/findings-to-sarif.py` change. Also supports manual `workflow_dispatch`.
+
+**Jobs**:
+1. **upload-sarif** — converts `adversary-findings.json` to SARIF and uploads to GitHub code scanning via `github/codeql-action/upload-sarif@v3`
+2. **upload-sarif-fork** — skips with a notice for fork PRs (no access to `security-events`)
+
+## Security Findings
+
+The adversary agent (`/adversary`) writes security findings to `adversary-findings.json` at the repo root. A deterministic Python converter (`scripts/findings-to-sarif.py`) transforms findings to SARIF 2.1.0 format for GitHub code scanning.
+
+### Workflow
+
+1. Run the adversary agent to scan for vulnerabilities — it reads/writes `adversary-findings.json`
+2. Convert to SARIF: `make convert-sarif`
+3. Upload to GitHub: `make upload-sarif` (requires `gh` CLI) or push to `main` (GitHub Actions auto-uploads)
+
+### Make Targets
+
+| Target | Description |
+|--------|-------------|
+| `make validate-findings` | Validate `adversary-findings.json` structure |
+| `make convert-sarif` | Convert findings JSON to SARIF format |
+| `make upload-sarif` | Convert and upload SARIF to GitHub code scanning |

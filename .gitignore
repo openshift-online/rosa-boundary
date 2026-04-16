@@ -60,6 +60,9 @@ tests/localstack/volume/
 # Go CLI build output
 bin/
 
+# Generated SARIF (built from adversary-findings.json)
+adversary-findings.sarif
+
 # Temporary files
 *.tmp
 *.backup

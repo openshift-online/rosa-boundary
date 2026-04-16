@@ -159,7 +159,8 @@ class TestErrorSanitization:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     @patch('handler.logger')
     def test_generic_error_response(self, mock_logger):
@@ -199,7 +200,8 @@ class TestErrorSanitization:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_exception_logged_but_not_returned(self):
         """Test that exceptions are logged server-side but not returned to client."""
@@ -255,7 +257,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_x_oidc_token_header_accepted(self):
         """Test that X-OIDC-Token header is accepted (SigV4 flow)."""
@@ -286,7 +289,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_authorization_bearer_fallback_accepted(self):
         """Test that Authorization: Bearer fallback is still accepted for backward compat."""
@@ -317,7 +321,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_x_oidc_token_takes_precedence_over_authorization(self):
         """Test that X-OIDC-Token is preferred over Authorization: Bearer."""
@@ -370,7 +375,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_missing_required_fields(self):
         """Test that missing cluster_id or investigation_id returns 400."""
@@ -400,7 +406,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_invalid_investigation_id(self):
         """Test that invalid investigation_id returns 400."""
@@ -432,7 +439,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_invalid_cluster_id(self):
         """Test that invalid cluster_id returns 400."""
@@ -464,7 +472,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     def test_invalid_json_body(self):
         """Test that invalid JSON returns 400."""
@@ -518,7 +527,8 @@ class TestLambdaHandler:
         'SUBNETS': 'subnet-1,subnet-2',
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
-        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared'
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
     })
     @patch('handler.validate_oidc_token')
     def test_invalid_oidc_token(self, mock_validate):
@@ -918,6 +928,7 @@ class TestDuplicateInvestigationDetection:
         'SECURITY_GROUP': 'sg-123',
         'EFS_FILESYSTEM_ID': 'fs-123',
         'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/shared-sre',
+        'REQUIRED_GROUPS': 'sre-team',
     }
 
     def test_duplicate_investigation_returns_409(self):

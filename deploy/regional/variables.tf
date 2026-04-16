@@ -165,7 +165,6 @@ variable "prod_oidc_client_id" {
 variable "required_groups" {
   description = "List of groups allowed to create and join investigation tasks. User must be a member of at least one."
   type        = list(string)
-  default     = ["sre-team"]
 
   validation {
     condition     = length(var.required_groups) > 0

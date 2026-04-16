@@ -171,6 +171,11 @@ variable "required_groups" {
     condition     = length(var.required_groups) > 0
     error_message = "At least one required group must be specified."
   }
+
+  validation {
+    condition     = alltrue([for g in var.required_groups : length(trimspace(g)) > 0])
+    error_message = "All required_groups entries must be non-empty after trimming whitespace."
+  }
 }
 
 variable "task_timeout_default" {

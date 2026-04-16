@@ -66,9 +66,9 @@ EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUPS = [g.strip() for g in os.environ.get('REQUIRED_GROUPS', os.environ.get('REQUIRED_GROUP', 'sre-team')).split(',') if g.strip()]
 ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
-STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '')
+STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '').rstrip('/')
 STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
-PROD_KEYCLOAK_ISSUER_URL = os.environ.get('PROD_KEYCLOAK_ISSUER_URL', '')
+PROD_KEYCLOAK_ISSUER_URL = os.environ.get('PROD_KEYCLOAK_ISSUER_URL', '').rstrip('/')
 PROD_OIDC_CLIENT_ID = os.environ.get('PROD_OIDC_CLIENT_ID', '')
 
 
@@ -114,6 +114,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         if missing_vars:
             logger.error(f"Missing required environment variables: {missing_vars}")
+            return response(500, {'error': 'Lambda configuration error'})
+
+        if not REQUIRED_GROUPS:
+            logger.error("REQUIRED_GROUPS is empty after parsing — check required_groups Terraform variable")
             return response(500, {'error': 'Lambda configuration error'})
 
         # Parse request body
@@ -359,12 +363,12 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
     # Peek at the 'iss' claim without verifying signature to route to the correct issuer.
     try:
         unverified = jwt.decode(token, options={"verify_signature": False})
-        token_iss = unverified.get('iss', '')
+        token_iss = unverified.get('iss', '').rstrip('/')
     except Exception as e:
         logger.warning(f"Failed to decode token for issuer detection: {str(e)}")
         return None
 
-    primary_iss = f"{keycloak_url}/realms/{realm}"
+    primary_iss = f"{keycloak_url.rstrip('/')}/realms/{realm}"
     primary_jwks_url = f"{primary_iss}/protocol/openid-connect/certs"
 
     if STAGE_KEYCLOAK_ISSUER_URL and token_iss == STAGE_KEYCLOAK_ISSUER_URL:

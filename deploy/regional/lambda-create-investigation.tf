@@ -164,9 +164,9 @@ resource "aws_lambda_function_url" "create_investigation" {
 
   cors {
     allow_credentials = false
-    allow_origins     = ["*"] # Allow localhost for testing; restrict in production
+    allow_origins     = [] # No browser CORS — function is invoked via AWS SDK (SigV4) only
     allow_methods     = ["POST"]
-    allow_headers     = ["content-type", "x-oidc-token"] # SigV4 handles Authorization; OIDC token in custom header
+    allow_headers     = ["content-type", "x-oidc-token"]
     max_age           = 86400
   }
 

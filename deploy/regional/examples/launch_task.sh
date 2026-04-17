@@ -59,7 +59,7 @@ TASK_ARN=$(aws ecs run-task \
     --launch-type FARGATE \
     --platform-version "1.4.0" \
     --enable-execute-command \
-    --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP],assignPublicIp=ENABLED}" \
+    --network-configuration "awsvpcConfiguration={subnets=[$SUBNET_IDS],securityGroups=[$SECURITY_GROUP],assignPublicIp=DISABLED}" \
     --query 'tasks[0].taskArn' \
     --output text)
 

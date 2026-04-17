@@ -1,6 +1,6 @@
 # ROSA Boundary Container
 # Fedora 43 with AWS CLI, OpenShift CLI, and AWS SSM Agent for Fargate
-FROM fedora:43
+FROM fedora:43@sha256:781b7642e8bf256e9cf75d2aa58d86f5cc695fd2df113517614e181a5eee9138
 
 # Install base packages including Fedora's AWS CLI
 RUN dnf install -y \
@@ -62,11 +62,9 @@ RUN rm -f /tmp/aws_cli_arch /tmp/oc_suffix
 
 # Create SRE user for SSM/ECS Exec connections
 # Home directory will be mounted as EFS via task definition
-RUN useradd -m -s /bin/bash sre && \
-    echo 'sre ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sre && \
-    chown root:root /etc/sudoers.d/sre && \
-    chmod 0440 /etc/sudoers.d/sre && \
-    visudo -cf /etc/sudoers
+# No sudo access — the entrypoint runs as root and handles all privileged
+# operations (alternatives, S3 sync) before ECS Exec sessions begin.
+RUN useradd -m -s /bin/bash sre
 
 # Install Claude Code CLI to /usr/local (system-wide, independent of HOME)
 RUN curl -fsSL https://claude.ai/install.sh | INSTALL_DIR=/usr/local/lib/claude-code BIN_DIR=/usr/local/bin bash

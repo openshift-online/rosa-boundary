@@ -137,6 +137,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.warning("Missing required fields: investigation_id or cluster_id")
             return response(400, {'error': 'Missing required fields: investigation_id, cluster_id'})
 
+        # Validate oc_version against the set of versions installed in the container
+        VALID_OC_VERSIONS = {'4.14', '4.15', '4.16', '4.17', '4.18', '4.19', '4.20'}
+        if oc_version not in VALID_OC_VERSIONS:
+            logger.warning(f"Invalid oc_version: {oc_version}")
+            return response(400, {'error': f'Invalid oc_version: must be one of {sorted(VALID_OC_VERSIONS)}'})
+
+
         # Validate task_timeout
         try:
             task_timeout = int(task_timeout)

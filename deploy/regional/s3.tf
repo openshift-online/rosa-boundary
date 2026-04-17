@@ -104,6 +104,9 @@ resource "aws_s3_bucket_replication_configuration" "audit" {
       replica_modifications {
         status = "Enabled"
       }
+      sse_kms_encrypted_objects {
+        status = "Enabled"
+      }
     }
 
     destination {
@@ -115,6 +118,15 @@ resource "aws_s3_bucket_replication_configuration" "audit" {
         owner = "Destination"
       }
       account = var.audit_replication_account_id
+
+      # Encrypt replicas with the destination account's CMK if provided.
+      # Required when replicating SSE-KMS objects cross-account.
+      dynamic "encryption_configuration" {
+        for_each = var.audit_replication_kms_key_arn != "" ? [1] : []
+        content {
+          replica_kms_key_id = var.audit_replication_kms_key_arn
+        }
+      }
     }
   }
 

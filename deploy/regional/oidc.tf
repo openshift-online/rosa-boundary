@@ -226,7 +226,7 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
           "kms:Decrypt",
           "kms:GenerateDataKey"
         ]
-        Resource = "*"
+        Resource = aws_kms_key.exec_session.arn
       }
     ]
   })

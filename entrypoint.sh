@@ -1,12 +1,6 @@
 #!/bin/bash
 set -e
 
-# Override HOME for root entrypoint so root operations (alternatives, aws s3
-# sync) don't create root-owned files under /home/sre (EFS). ECS Exec sessions
-# inherit the container-level ENV HOME=/home/sre from the Containerfile, not
-# this export, since they start as a separate process.
-export HOME=/root
-
 # Function to sync home directory to S3 on exit
 sync_to_s3() {
     # Build S3 path automatically if structured variables are provided
@@ -45,23 +39,28 @@ cleanup() {
 # Trap signals for cleanup
 trap cleanup SIGTERM SIGINT SIGHUP
 
-# Switch OpenShift CLI version if OC_VERSION is set
+# Switch OpenShift CLI version via PATH-based symlink (no root required).
+# $HOME/bin is prepended to PATH in the Containerfile, so it takes priority
+# over the system alternatives default.
 if [ -n "${OC_VERSION}" ]; then
     if [ -x "/opt/openshift/${OC_VERSION}/oc" ]; then
-        alternatives --set oc "/opt/openshift/${OC_VERSION}/oc"
+        mkdir -p "${HOME}/bin"
+        ln -sf "/opt/openshift/${OC_VERSION}/oc" "${HOME}/bin/oc"
     else
         echo "Warning: OC version ${OC_VERSION} not found, using default" >&2
     fi
 fi
 
-# Switch AWS CLI if AWS_CLI is set
+# Switch AWS CLI via PATH-based symlink (no root required).
 if [ -n "${AWS_CLI}" ]; then
     case "${AWS_CLI}" in
     fedora)
-        alternatives --set aws /usr/bin/aws
+        mkdir -p "${HOME}/bin"
+        ln -sf /usr/bin/aws "${HOME}/bin/aws"
         ;;
     official | aws-official)
-        alternatives --set aws /opt/aws-cli-official/v2/current/bin/aws
+        mkdir -p "${HOME}/bin"
+        ln -sf /opt/aws-cli-official/v2/current/bin/aws "${HOME}/bin/aws"
         ;;
     *)
         echo "Warning: Unknown AWS_CLI value '${AWS_CLI}', using default" >&2
@@ -85,15 +84,12 @@ contexts:
   name: investigation
 current-context: investigation
 KUBECONFIG
-    chown sre:sre /home/sre/.kube /home/sre/.kube/config
     echo "Configured oc/kubectl to use proxy at localhost:${KUBE_PROXY_PORT}"
 fi
 
-# Copy skeleton config to /home/sre, running as sre so files are created
-# with correct ownership. cp -rn (no clobber) skips existing files, making
-# this fast and idempotent on subsequent runs without needing chown -R.
+# Copy skeleton config to /home/sre. cp -rn (no clobber) is idempotent.
 if [ -d /etc/skel-sre ]; then
-    runuser -u sre -- cp -rn /etc/skel-sre/. /home/sre/
+    cp -rn /etc/skel-sre/. /home/sre/
 fi
 
 # Set Bedrock defaults if CLAUDE_CODE_USE_BEDROCK is enabled
@@ -131,9 +127,7 @@ fi
 
 # Run the command in the background and wait for it
 # This allows the shell to remain and handle signals
-# Note: entrypoint runs as root for alternatives --set; ECS Exec sessions
-# connect as the sre user via the CLI's default "runuser -u sre -- bash" command
-# which preserves the ECS-injected environment (AWS credentials, region, etc.)
+# Entrypoint and ECS Exec sessions both run as sre (USER directive in Containerfile)
 "${@:-sleep infinity}" &
 CHILD_PID=$!
 wait ${CHILD_PID}

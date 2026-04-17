@@ -77,9 +77,16 @@ COPY skel/sre/ /etc/skel-sre/
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# Set HOME for ECS Exec sessions (sre user). The entrypoint overrides this
-# to /root for its own process so root operations don't write to /home/sre.
+# Set HOME and add /home/sre/bin to PATH for per-user binary overrides.
+# /home/sre/bin is created at runtime by entrypoint.sh when OC_VERSION or
+# AWS_CLI overrides are requested.
 ENV HOME=/home/sre
+ENV PATH="/home/sre/bin:/usr/local/bin:/usr/bin:/bin"
+
+# Run all container processes (including ECS Exec sessions) as the sre user.
+# Version switching uses PATH-based symlinks in $HOME/bin rather than
+# alternatives --set (which requires root).
+USER sre
 
 # Set entrypoint for Fargate
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

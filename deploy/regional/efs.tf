@@ -90,7 +90,7 @@ resource "aws_efs_file_system_policy" "sre_home" {
           Bool = {
             "elasticfilesystem:AccessedViaMountTarget" = "true"
           }
-          StringEquals = {
+          StringLike = {
             "elasticfilesystem:AccessPointArn" = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/*"
           }
         }

@@ -53,6 +53,19 @@ resource "aws_iam_role_policy" "s3_replication" {
           "s3:ObjectOwnerOverrideToBucketOwner"
         ]
         Resource = "${var.audit_replication_bucket_arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+        ]
+        Resource = aws_kms_key.audit_bucket.arn
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
+          }
+        }
       }
     ]
   })
@@ -139,6 +152,33 @@ resource "aws_iam_role_policy" "task_s3" {
         aws_s3_bucket.audit.arn,
         "${aws_s3_bucket.audit.arn}/*"
       ]
+    }]
+  })
+}
+
+# KMS permissions for the ECS task role to use the audit bucket CMK
+# Required since the audit bucket now uses SSE-KMS (not SSE-S3)
+resource "aws_iam_role_policy" "task_audit_kms" {
+  name = "audit-bucket-kms"
+  role = aws_iam_role.task.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*",
+        "kms:DescribeKey",
+      ]
+      Resource = aws_kms_key.audit_bucket.arn
+      Condition = {
+        StringEquals = {
+          "kms:ViaService" = "s3.${data.aws_region.current.name}.amazonaws.com"
+        }
+      }
     }]
   })
 }

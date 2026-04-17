@@ -27,14 +27,6 @@ resource "aws_security_group" "efs" {
     security_groups = [aws_security_group.fargate.id]
   }
 
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-efs-sg"
   })
@@ -70,5 +62,39 @@ resource "aws_efs_access_point" "sre" {
 
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-sre-access-point"
+  })
+}
+
+# EFS filesystem policy — require all mounts to use an access point.
+# This prevents bypassing per-investigation directory isolation by mounting
+# the filesystem root directly (which would require network access + IAM).
+resource "aws_efs_file_system_policy" "sre_home" {
+  file_system_id = aws_efs_file_system.sre_home.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnforceAccessViaAccessPoint"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess",
+        ]
+        Resource = aws_efs_file_system.sre_home.arn
+        Condition = {
+          Bool = {
+            "elasticfilesystem:AccessedViaMountTarget" = "true"
+          }
+          StringLike = {
+            "elasticfilesystem:AccessPointArn" = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/*"
+          }
+        }
+      }
+    ]
   })
 }

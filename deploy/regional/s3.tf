@@ -45,10 +45,33 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "audit" {
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.audit_bucket.arn
     }
     bucket_key_enabled = true
   }
+}
+
+# Enforce TLS-only access to the audit bucket
+resource "aws_s3_bucket_policy" "audit" {
+  bucket = aws_s3_bucket.audit.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyNonTLS"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.audit.arn,
+        "${aws_s3_bucket.audit.arn}/*",
+      ]
+      Condition = {
+        Bool = { "aws:SecureTransport" = "false" }
+      }
+    }]
+  })
 }
 
 # Cross-account replication to audit account

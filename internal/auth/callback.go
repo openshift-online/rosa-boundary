@@ -6,6 +6,7 @@ import (
 	"html"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,22 @@ func writeHTML(w http.ResponseWriter, body string) {
 	_, _ = w.Write([]byte(body))
 }
 
+// sanitizeOAuthParam strips ASCII control characters (< 0x20, including ESC) and
+// caps length to prevent terminal escape injection and log flooding. OAuth error
+// and error_description values are untrusted input from the redirect URL.
+func sanitizeOAuthParam(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, s)
+	if len(s) > 200 {
+		s = s[:200]
+	}
+	return s
+}
+
 // startCallbackServer starts a local HTTP server that handles the OAuth callback.
 // It returns the authorization code and state, or an error.
 // The server shuts down after the first successful callback or after timeout.
@@ -37,8 +54,10 @@ func startCallbackServer(ctx context.Context, expectedState string) (string, err
 
 		if errMsg := q.Get("error"); errMsg != "" {
 			desc := q.Get("error_description")
-			resultCh <- callbackResult{err: fmt.Errorf("auth error: %s: %s", errMsg, desc)}
-			writeHTML(w, "<html><body><h2>Authentication failed</h2><p>"+html.EscapeString(errMsg)+": "+html.EscapeString(desc)+"</p><p>You may close this tab.</p></body></html>")
+			safeMsg := sanitizeOAuthParam(errMsg)
+			safeDesc := sanitizeOAuthParam(desc)
+			resultCh <- callbackResult{err: fmt.Errorf("auth error: %s: %s", safeMsg, safeDesc)}
+			writeHTML(w, "<html><body><h2>Authentication failed</h2><p>"+html.EscapeString(safeMsg)+": "+html.EscapeString(safeDesc)+"</p><p>You may close this tab.</p></body></html>")
 			return
 		}
 

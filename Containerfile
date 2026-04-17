@@ -11,7 +11,6 @@ RUN dnf install -y \
     vim \
     tar \
     gzip \
-    sudo \
     util-linux \
     util-linux-script \
     && dnf clean all

@@ -177,6 +177,12 @@ variable "required_groups" {
   }
 }
 
+variable "valid_oc_versions" {
+  description = "List of valid OpenShift CLI versions installed in the container image. Must be kept in sync with the Containerfile. Used by the Lambda handler to validate oc_version requests."
+  type        = list(string)
+  default     = ["4.14", "4.15", "4.16", "4.17", "4.18", "4.19", "4.20"]
+}
+
 variable "task_timeout_default" {
   description = "Default task timeout in seconds (0 = no timeout)"
   type        = number

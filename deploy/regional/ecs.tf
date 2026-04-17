@@ -96,6 +96,7 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
       image       = var.container_image
       essential   = true
       stopTimeout = 120
+      user        = "1000:1000"
 
       dependsOn = var.enable_kube_proxy ? [
         {

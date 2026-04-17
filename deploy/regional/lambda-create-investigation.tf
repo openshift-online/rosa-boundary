@@ -146,6 +146,7 @@ resource "aws_lambda_function" "create_investigation" {
       STAGE_OIDC_CLIENT_ID       = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
       PROD_KEYCLOAK_ISSUER_URL   = var.prod_keycloak_issuer_url
       PROD_OIDC_CLIENT_ID        = var.prod_keycloak_issuer_url != "" ? var.prod_oidc_client_id : ""
+      VALID_OC_VERSIONS          = join(",", var.valid_oc_versions)
     }
   }
 

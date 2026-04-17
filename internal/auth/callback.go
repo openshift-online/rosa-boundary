@@ -6,7 +6,6 @@ import (
 	"html"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -30,16 +29,17 @@ func writeHTML(w http.ResponseWriter, body string) {
 // caps length to prevent terminal escape injection and log flooding. OAuth error
 // and error_description values are untrusted input from the redirect URL.
 func sanitizeOAuthParam(s string) string {
-	s = strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f {
-			return -1
+	runes := []rune(s)
+	filtered := runes[:0]
+	for _, r := range runes {
+		if r >= 0x20 && r != 0x7f {
+			filtered = append(filtered, r)
 		}
-		return r
-	}, s)
-	if len(s) > 200 {
-		s = s[:200]
 	}
-	return s
+	if len(filtered) > 200 {
+		filtered = filtered[:200]
+	}
+	return string(filtered)
 }
 
 // startCallbackServer starts a local HTTP server that handles the OAuth callback.

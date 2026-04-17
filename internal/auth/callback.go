@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"html"
 	"net"
 	"net/http"
 	"time"
@@ -37,7 +38,7 @@ func startCallbackServer(ctx context.Context, expectedState string) (string, err
 		if errMsg := q.Get("error"); errMsg != "" {
 			desc := q.Get("error_description")
 			resultCh <- callbackResult{err: fmt.Errorf("auth error: %s: %s", errMsg, desc)}
-			writeHTML(w, "<html><body><h2>Authentication failed</h2><p>"+errMsg+": "+desc+"</p><p>You may close this tab.</p></body></html>")
+			writeHTML(w, "<html><body><h2>Authentication failed</h2><p>"+html.EscapeString(errMsg)+": "+html.EscapeString(desc)+"</p><p>You may close this tab.</p></body></html>")
 			return
 		}
 

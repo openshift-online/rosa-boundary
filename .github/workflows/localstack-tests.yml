@@ -20,6 +20,11 @@ env:
   AWS_DEFAULT_REGION: us-east-2
   LOCALSTACK_ENDPOINT: http://localhost:4566
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   localstack-tests:
     name: LocalStack Integration Tests

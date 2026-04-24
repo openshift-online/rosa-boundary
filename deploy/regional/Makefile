@@ -35,10 +35,10 @@ help:
 	@echo "Targets:"
 	@echo "  init          - Initialize Terraform"
 	@echo "  plan          - Show Terraform execution plan"
-	@echo "  apply         - Build Lambda deps, then apply Terraform changes"
+	@echo "  apply         - Build and push Lambda images, then apply Terraform changes"
 	@echo "  destroy       - Destroy all infrastructure"
-	@echo "  build-lambda  - Build Lambda dependencies (required before apply)"
-	@echo "  lambda        - Update Lambda function only"
+	@echo "  push-lambda   - Build and push Lambda container images to ECR"
+	@echo "  lambda        - Update Lambda functions only"
 	@echo "  show-env      - Display environment variables from .env"
 	@echo ""
 	@echo "Environment variables are sourced from $(ENV_FILE)"
@@ -68,13 +68,13 @@ plan:
 	export TF_VAR_keycloak_issuer_url="$$KEYCLOAK_ISSUER_URL" && \
 	terraform plan
 
-.PHONY: build-lambda
-build-lambda: ## Build Lambda dependencies (required before apply)
-	@echo "Building Lambda dependencies..."
-	@cd ../../lambda/create-investigation && make build
+.PHONY: push-lambda
+push-lambda: ## Build and push Lambda container images to ECR
+	@echo "Building and pushing Lambda container images..."
+	@cd ../.. && make push-lambda-images
 
 .PHONY: apply
-apply: build-lambda
+apply: push-lambda
 	@echo "Applying Terraform changes..."
 	@source $(ENV_FILE) && \
 	export TF_VAR_keycloak_issuer_url="$$KEYCLOAK_ISSUER_URL" && \
@@ -93,8 +93,11 @@ destroy:
 	fi
 
 .PHONY: lambda
-lambda: build-lambda  ## Update Lambda function only
-	@echo "Deploying Lambda function..."
+lambda: push-lambda  ## Update Lambda functions only
+	@echo "Deploying Lambda functions..."
 	@source $(ENV_FILE) && \
 	export TF_VAR_keycloak_issuer_url="$$KEYCLOAK_ISSUER_URL" && \
-	terraform apply -target=aws_lambda_function.create_investigation -auto-approve
+	terraform apply \
+		-target=aws_lambda_function.create_investigation \
+		-target=aws_lambda_function.reap_tasks \
+		-auto-approve

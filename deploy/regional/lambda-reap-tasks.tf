@@ -75,23 +75,44 @@ resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
   })
 }
 
-# Archive the Lambda function code (single file, no dependencies)
-data "archive_file" "reap_tasks_lambda" {
-  type        = "zip"
-  source_file = "${path.module}/../../lambda/reap-tasks/handler.py"
-  output_path = "${path.module}/.terraform/lambda/reap-tasks.zip"
+# Lambda permissions to pull container image from ECR
+resource "aws_iam_role_policy" "reap_tasks_lambda_ecr" {
+  name = "ecr-image-pull"
+  role = aws_iam_role.reap_tasks_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:BatchCheckLayerAvailability"
+        ]
+        Resource = aws_ecr_repository.reap_tasks_lambda.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      }
+    ]
+  })
 }
 
 # Lambda function
 resource "aws_lambda_function" "reap_tasks" {
-  filename         = data.archive_file.reap_tasks_lambda.output_path
-  function_name    = "${var.project}-${var.stage}-reap-tasks"
-  role             = aws_iam_role.reap_tasks_lambda.arn
-  handler          = "handler.lambda_handler"
-  source_code_hash = data.archive_file.reap_tasks_lambda.output_base64sha256
-  runtime          = "python3.11"
-  timeout          = 120 # 2 minutes (enough to process large task lists)
-  memory_size      = 128 # Minimal memory needed
+  function_name = "${var.project}-${var.stage}-reap-tasks"
+  role          = aws_iam_role.reap_tasks_lambda.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.reap_tasks_lambda.repository_url}:${var.lambda_image_tag}"
+  timeout       = 120
+  memory_size   = 128
+
+  image_config {
+    command = ["handler.lambda_handler"]
+  }
 
   environment {
     variables = {

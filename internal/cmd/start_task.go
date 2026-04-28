@@ -21,8 +21,8 @@ var startTaskCmd = &cobra.Command{
 	Long: `Authenticate with Keycloak, call the create-investigation Lambda,
 assume the returned SRE role, and wait for the task to reach RUNNING state.
 
-The cluster defaults to the configured cluster_name. If --investigation-id is
-omitted, a random three-word name is generated (e.g. "swift-dance-party").
+If --investigation-id is omitted, a random three-word name is generated
+(e.g. "swift-dance-party").
 
 Prints connection info and the join-task command upon completion.`,
 	Args: cobra.NoArgs,
@@ -41,7 +41,8 @@ var (
 )
 
 func init() {
-	startTaskCmd.Flags().StringVar(&startClusterID, "cluster-id", "", "Cluster ID (defaults to configured cluster_name)")
+	startTaskCmd.Flags().StringVar(&startClusterID, "cluster-id", "", "ROSA cluster ID to investigate")
+	_ = startTaskCmd.MarkFlagRequired("cluster-id")
 	startTaskCmd.Flags().StringVar(&startInvestigationID, "investigation-id", "", "Investigation ID (auto-generated if omitted)")
 	startTaskCmd.Flags().StringVar(&startOCVersion, "oc-version", "4.20", "OpenShift CLI version to use")
 	startTaskCmd.Flags().IntVar(&startTaskTimeout, "task-timeout", 3600, "Task timeout in seconds (0 = no timeout)")
@@ -65,9 +66,6 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	}
 
 	clusterID := startClusterID
-	if clusterID == "" {
-		clusterID = cfg.ClusterName
-	}
 
 	investigationID := startInvestigationID
 	if investigationID == "" {

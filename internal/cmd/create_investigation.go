@@ -22,8 +22,8 @@ creating only the EFS access point without launching an ECS task.
 Use this to pre-create an investigation workspace before starting a task, or to
 re-create a workspace with specific parameters.
 
-The cluster defaults to the configured cluster_name. If --investigation-id is
-omitted, a random three-word name is generated (e.g. "swift-dance-party").`,
+If --investigation-id is omitted, a random three-word name is generated
+(e.g. "swift-dance-party").`,
 	Args: cobra.NoArgs,
 	RunE: runCreateInvestigation,
 }
@@ -36,7 +36,8 @@ var (
 )
 
 func init() {
-	createInvestigationCmd.Flags().StringVar(&createClusterID, "cluster-id", "", "Cluster ID (defaults to configured cluster_name)")
+	createInvestigationCmd.Flags().StringVar(&createClusterID, "cluster-id", "", "ROSA cluster ID to investigate")
+	_ = createInvestigationCmd.MarkFlagRequired("cluster-id")
 	createInvestigationCmd.Flags().StringVar(&createInvestigationID, "investigation-id", "", "Investigation ID (auto-generated if omitted)")
 	createInvestigationCmd.Flags().BoolVar(&createForceLogin, "force-login", false, "Force fresh OIDC authentication")
 	createInvestigationCmd.Flags().StringVar(&createOutputFormat, "output", "text", "Output format: text or json")
@@ -56,9 +57,6 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 	}
 
 	clusterID := createClusterID
-	if clusterID == "" {
-		clusterID = cfg.ClusterName
-	}
 
 	investigationID := createInvestigationID
 	if investigationID == "" {

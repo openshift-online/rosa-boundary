@@ -43,6 +43,11 @@ keycloak_thumbprint = "PASTE_THUMBPRINT_HERE"
 # Users must be a member of at least one group for the Lambda authorizer to permit access
 required_groups = ["ai-sd-sre"]
 
+# Kube-proxy sidecar (disabled by default)
+# Requires a kubeconfig secret in Secrets Manager at:
+#   rosa-boundary/clusters/{cluster_id}/kubeconfig
+# enable_kube_proxy = true
+
 # Optional OIDC overrides (defaults are usually fine)
 # oidc_client_id        = "aws-sre-access"
 # oidc_session_duration = 3600  # 1 hour

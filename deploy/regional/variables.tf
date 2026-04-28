@@ -62,7 +62,7 @@ variable "kube_proxy_port" {
 variable "enable_kube_proxy" {
   description = "Include the kube-proxy sidecar in the base task definition. Set to false for testing or environments without a cluster kubeconfig."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "vpc_id" {

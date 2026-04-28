@@ -17,7 +17,7 @@ type Config struct {
 	KeycloakRealm      string `mapstructure:"keycloak_realm"`
 	OIDCClientID       string `mapstructure:"oidc_client_id"`
 	AWSRegion          string `mapstructure:"aws_region"`
-	ClusterName        string `mapstructure:"cluster_name"`
+	ClusterName        string `mapstructure:"ecs_cluster_name"`
 	SRERoleARN         string `mapstructure:"sre_role_arn"`
 	InvokerRoleARN     string `mapstructure:"invoker_role_arn"`
 	EFSFilesystemID    string `mapstructure:"efs_filesystem_id"`
@@ -66,7 +66,7 @@ func Load() error {
 	viper.SetDefault("keycloak_realm", "sre-ops")
 	viper.SetDefault("oidc_client_id", "aws-sre-access")
 	viper.SetDefault("aws_region", "us-east-2")
-	viper.SetDefault("cluster_name", "rosa-boundary-dev")
+	viper.SetDefault("ecs_cluster_name", "rosa-boundary-dev")
 
 	// Config file
 	configDir, err := ConfigDir()

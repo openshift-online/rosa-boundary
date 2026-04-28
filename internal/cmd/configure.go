@@ -47,7 +47,7 @@ Configuration fields:
   aws_region            AWS region where the infrastructure is deployed.
                         Default: us-east-2.
 
-  cluster_name          Name of the ECS cluster running investigation
+  ecs_cluster_name      Name of the ECS cluster running investigation
                         tasks. Default: rosa-boundary-dev.
 
 All values can also be set via environment variables (ROSA_BOUNDARY_<KEY>),
@@ -145,7 +145,7 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 			Comment: "AWS region where the infrastructure is deployed. Default: us-east-2",
 		},
 		{
-			Key:     "cluster_name",
+			Key:     "ecs_cluster_name",
 			Value:   clusterName,
 			Comment: "Name of the ECS cluster running investigation tasks. Default: rosa-boundary-dev",
 		},

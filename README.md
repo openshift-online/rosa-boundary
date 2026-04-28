@@ -172,7 +172,7 @@ rosa-boundary/
 ### Notable Flags
 
 **`start-task`**:
-- `--cluster-id` — cluster ID (defaults to `cluster_name` from config)
+- `--cluster-id` — ROSA cluster ID to investigate (required)
 - `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
 - `--oc-version` — OpenShift CLI version (default: `4.20`)
 - `--task-timeout` — seconds before reaper kills the task (default: `3600`)
@@ -197,7 +197,7 @@ rosa-boundary/
 --realm                 Keycloak realm (default: sre-ops)
 --client-id             OIDC client ID (default: aws-sre-access)
 --region                AWS region (default: us-east-2)
---cluster               ECS cluster name (default: rosa-boundary-dev)
+--ecs-cluster           ECS cluster name (default: rosa-boundary-dev)
 --lambda-function-name  Lambda function name or ARN
 --invoker-role-arn      Lambda invoker role ARN
 --role-arn              SRE role ARN (overrides Lambda response)

@@ -14,7 +14,7 @@ import (
 var listTasksCmd = &cobra.Command{
 	Use:   "list-tasks",
 	Short: "List ECS tasks in the cluster",
-	Long: `List running (or stopped) ECS tasks in the configured cluster,
+	Long: `List running (or stopped) ECS tasks in the configured ECS cluster,
 including tag metadata such as cluster_id, investigation_id, and username.`,
 	RunE: runListTasks,
 }
@@ -57,7 +57,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	clusterName := cfg.ClusterName
 	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
 
-	debugf("Listing tasks in cluster %s with status %q", clusterName, desiredStatus)
+	debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus)
 
 	var tasks []awsclient.TaskSummary
 	if desiredStatus == "ALL" {

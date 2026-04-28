@@ -61,7 +61,7 @@ func runJoinTask(cmd *cobra.Command, args []string) error {
 	clusterName := cfg.ClusterName
 	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
 
-	output.Status("Cluster: %s", clusterName)
+	output.Status("ECS Cluster: %s", clusterName)
 	output.Status("Task:    %s", taskID)
 
 	return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, taskID, joinContainer, joinCommand, joinNoWait)

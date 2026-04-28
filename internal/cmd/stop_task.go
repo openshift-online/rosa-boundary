@@ -48,7 +48,7 @@ func runStopTask(cmd *cobra.Command, args []string) error {
 
 	output.Status("Stopping task...")
 	output.Status("  Task:    %s", taskID)
-	output.Status("  Cluster: %s", clusterName)
+	output.Status("  ECS Cluster: %s", clusterName)
 	output.Status("  Reason:  %s", stopReason)
 
 	if err := ecsClient.StopTask(cmd.Context(), taskID, stopReason); err != nil {

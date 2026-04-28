@@ -96,7 +96,7 @@ Key config fields:
 | `invoker_role_arn` | `ROSA_BOUNDARY_INVOKER_ROLE_ARN` | `--invoker-role-arn` | Lambda invoker role ARN |
 | `sre_role_arn` | `ROSA_BOUNDARY_SRE_ROLE_ARN` | `--role-arn` | Shared SRE ABAC role ARN |
 | `efs_filesystem_id` | `ROSA_BOUNDARY_EFS_FILESYSTEM_ID` | `--efs-filesystem-id` | EFS filesystem ID (required for `close-investigation`) |
-| `cluster_name` | `ROSA_BOUNDARY_CLUSTER_NAME` | `--cluster` | ECS cluster name |
+| `ecs_cluster_name` | `ROSA_BOUNDARY_ECS_CLUSTER_NAME` | `--ecs-cluster` | ECS cluster name |
 | `aws_region` | `ROSA_BOUNDARY_AWS_REGION` | `--region` | AWS region |
 
 ### Key Design Notes

@@ -215,7 +215,7 @@ func printStartSummary(cluster, investigationID, taskID, ocVersion string, timeo
 	fmt.Fprintf(os.Stderr, "  Your Role:      %s\n", roleARN)
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Connect to task:")
-	fmt.Fprintf(os.Stderr, "  rosa-boundary join-task %s --cluster %s --region %s\n", taskID, cluster, region)
+	fmt.Fprintf(os.Stderr, "  rosa-boundary --cluster %s --region %s join-task %s\n", cluster, region, taskID)
 }
 
 // sanitizeSessionName replaces characters not allowed in STS session names.

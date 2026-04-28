@@ -124,7 +124,7 @@ resource "aws_lambda_function" "create_investigation" {
 
   environment {
     variables = {
-      KEYCLOAK_URL         = regex("^(https://[^/]+)", var.keycloak_issuer_url)[0]
+      KEYCLOAK_URL         = regex("^(.+)/realms/", var.keycloak_issuer_url)[0]
       KEYCLOAK_REALM       = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
       KEYCLOAK_CLIENT_ID   = var.oidc_client_id
       OIDC_PROVIDER_ARN    = aws_iam_openid_connect_provider.keycloak.arn

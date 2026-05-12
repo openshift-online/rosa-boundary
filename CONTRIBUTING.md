@@ -8,25 +8,17 @@ This project uses [prek](https://github.com/j178/prek) to manage pre-commit hook
 
 ### Install prek
 
-Pick one method ([full options](https://github.com/j178/prek#installation)):
+See the [prek installation guide](https://github.com/j178/prek#installation) for all options including Homebrew:
 
 ```bash
-# Standalone installer (Linux/macOS)
-curl --proto '=https' --tlsv1.2 -LsSf https://github.com/j178/prek/releases/latest/download/prek-installer.sh | sh
-
-# Homebrew
 brew install prek
 ```
 
 ### Install leaktk
 
-Pick one method ([full options](https://github.com/leaktk/leaktk/blob/main/docs/install.md)):
+See the [leaktk installation guide](https://github.com/leaktk/leaktk/blob/main/docs/install.md) for all options including Homebrew:
 
 ```bash
-# From source (Go required)
-CGO_ENABLED=0 go install github.com/leaktk/leaktk@latest
-
-# Homebrew (macOS)
 brew install leaktk/tap/leaktk
 ```
 

@@ -20,8 +20,8 @@ Designed for ephemeral SRE use with ECS Exec access as the `sre` user. The entry
 **IMPORTANT**: Always use Makefiles and Terraform for builds and deployments:
 - **Container builds**: Use `make` commands (never `podman build` directly)
 - **Go CLI builds**: Use `make build-cli`, `make test-cli`, etc. (root Makefile)
-- **Lambda builds**: Use root `make test-lambda-*` targets (only `create-investigation` has its own Makefile for bundling deps)
-- **Infrastructure**: Use `make` targets in `deploy/regional/` (`make init`, `make plan`, `make apply`) — never run `terraform` directly. `make apply` automatically builds Lambda deps via `build-lambda` before running Terraform.
+- **Lambda builds**: Use `make build-lambda-images` (root Makefile) to build container images, `make push-lambda-images` to push to ECR
+- **Infrastructure**: Use `make` targets in `deploy/regional/` (`make init`, `make plan`, `make apply`) — never run `terraform` directly. `make apply` automatically builds and pushes Lambda images via `push-lambda` before running Terraform.
 
 ### Environment Configuration
 

@@ -203,6 +203,12 @@ variable "audit_replication_account_id" {
   # supported in Terraform variable blocks; enforced at the resource level instead.
 }
 
+variable "lambda_image_tag" {
+  description = "Image tag for Lambda container images"
+  type        = string
+  default     = "latest"
+}
+
 variable "reaper_schedule_minutes" {
   description = "How often the task reaper Lambda runs (in minutes)"
   type        = number

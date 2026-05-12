@@ -12,9 +12,19 @@ CLI_BIN := bin/rosa-boundary
 CLI_VERSION ?= dev
 CLI_LDFLAGS := -ldflags "-X github.com/openshift/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
 
+# Lambda container images
+CONTAINER_RUNTIME ?= podman
+LAMBDA_CREATE_IMAGE := create-investigation-lambda
+LAMBDA_REAP_IMAGE := reap-tasks-lambda
+LAMBDA_TAG ?= latest
+AWS_ACCOUNT_ID ?= $(shell aws sts get-caller-identity --query Account --output text 2>/dev/null)
+AWS_REGION ?= $(shell aws configure get region 2>/dev/null || echo us-east-2)
+ECR_REGISTRY = $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
         build-cli install-cli test-cli fmt lint \
-        validate-findings convert-sarif upload-sarif
+        validate-findings convert-sarif upload-sarif \
+        build-lambda-images push-lambda-images login-ecr
 
 # Default target: build both architectures and create manifest
 all: build manifest
@@ -102,6 +112,35 @@ test-lambda-reap-tasks: ## Run reap-tasks Lambda unit tests
 test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	@echo "Running create-investigation unit tests..."
 	cd lambda/create-investigation && uv run pytest test_handler.py -v
+
+# Lambda container image targets
+build-lambda-images: ## Build Lambda container images
+	@echo "Building create-investigation Lambda image..."
+	$(CONTAINER_RUNTIME) build --platform linux/amd64 \
+		-t $(LAMBDA_CREATE_IMAGE):$(LAMBDA_TAG) \
+		-f lambda/create-investigation/Containerfile \
+		lambda/create-investigation/
+	@echo "Building reap-tasks Lambda image..."
+	$(CONTAINER_RUNTIME) build --platform linux/amd64 \
+		-t $(LAMBDA_REAP_IMAGE):$(LAMBDA_TAG) \
+		-f lambda/reap-tasks/Containerfile \
+		lambda/reap-tasks/
+
+login-ecr: ## Authenticate container runtime with ECR
+	aws ecr get-login-password --region $(AWS_REGION) | \
+		$(CONTAINER_RUNTIME) login --username AWS --password-stdin $(ECR_REGISTRY)
+
+push-lambda-images: build-lambda-images login-ecr ## Build and push Lambda images to ECR
+	@STAGE=$${TF_VAR_stage:-dev}; \
+	CREATE_REPO=$(ECR_REGISTRY)/rosa-boundary-$$STAGE-create-investigation; \
+	REAP_REPO=$(ECR_REGISTRY)/rosa-boundary-$$STAGE-reap-tasks; \
+	echo "Pushing create-investigation image..."; \
+	$(CONTAINER_RUNTIME) tag $(LAMBDA_CREATE_IMAGE):$(LAMBDA_TAG) $$CREATE_REPO:$(LAMBDA_TAG); \
+	$(CONTAINER_RUNTIME) push $$CREATE_REPO:$(LAMBDA_TAG); \
+	echo "Pushing reap-tasks image..."; \
+	$(CONTAINER_RUNTIME) tag $(LAMBDA_REAP_IMAGE):$(LAMBDA_TAG) $$REAP_REPO:$(LAMBDA_TAG); \
+	$(CONTAINER_RUNTIME) push $$REAP_REPO:$(LAMBDA_TAG); \
+	echo "Lambda images pushed"
 
 staticcheck: ## Run staticcheck before commits
 	@echo "Running staticcheck..."
@@ -195,7 +234,10 @@ help:
 	@echo "  make test-localstack       - Run all LocalStack integration tests"
 	@echo "  make test-localstack-fast  - Run LocalStack tests (skip slow tests)"
 	@echo ""
-	@echo "Lambda Unit Testing Targets:"
+	@echo "Lambda Targets:"
+	@echo "  make build-lambda-images              - Build Lambda container images"
+	@echo "  make push-lambda-images               - Build and push Lambda images to ECR"
+	@echo "  make login-ecr                        - Authenticate with ECR"
 	@echo "  make test-lambda                      - Run all Lambda unit tests"
 	@echo "  make test-lambda-reap-tasks           - Run reap-tasks unit tests"
 	@echo "  make test-lambda-create-investigation - Run create-investigation unit tests"

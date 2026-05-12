@@ -47,10 +47,22 @@ resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
           "ecs:StopTask",
           "ecs:ListTasks",
           "ecs:DescribeTasks",
-          "ecs:DescribeTaskDefinition",
+          "ecs:TagResource"
+        ]
+        Resource = [
+          aws_ecs_cluster.main.arn,
+          "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*",
+          "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-${var.stage}-*",
+        ]
+      },
+      {
+        # RegisterTaskDefinition and DeregisterTaskDefinition do not support
+        # resource-level scoping in IAM and must use *.
+        Effect = "Allow"
+        Action = [
           "ecs:RegisterTaskDefinition",
           "ecs:DeregisterTaskDefinition",
-          "ecs:TagResource"
+          "ecs:DescribeTaskDefinition",
         ]
         Resource = "*"
       },

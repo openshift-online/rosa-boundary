@@ -158,8 +158,8 @@ resource "aws_iam_role_policy" "task_bedrock" {
         "bedrock:ListInferenceProfiles"
       ]
       Resource = [
-        "arn:aws:bedrock:*:*:inference-profile/*",
-        "arn:aws:bedrock:*:*:foundation-model/*"
+        "arn:aws:bedrock:${data.aws_region.current.name}::foundation-model/anthropic.claude-*",
+        "arn:aws:bedrock:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
       ]
     }]
   })

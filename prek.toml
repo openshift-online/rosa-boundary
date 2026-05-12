@@ -1,0 +1,11 @@
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "leaktk"
+name = "leaktk secret scan"
+entry = "leaktk scan --format human --kind GitRepo --options '{\"local\":true,\"staged\":true}' . --leak-exit-code 1"
+language = "system"
+pass_filenames = false
+always_run = true
+stages = ["pre-commit"]

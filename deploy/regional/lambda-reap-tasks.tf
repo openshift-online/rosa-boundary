@@ -29,7 +29,7 @@ resource "aws_iam_role" "reap_tasks_lambda" {
 # Lambda basic execution permissions (CloudWatch Logs)
 resource "aws_iam_role_policy_attachment" "reap_tasks_lambda_basic" {
   role       = aws_iam_role.reap_tasks_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 # Lambda permissions for ECS operations
@@ -57,14 +57,14 @@ resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
         Action = [
           "ecs:DescribeTasks"
         ]
-        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
       },
       {
         Effect = "Allow"
         Action = [
           "ecs:StopTask"
         ]
-        Resource = "arn:aws:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
         Condition = {
           "ForAnyValue:StringLike" = {
             "ecs:ResourceTag/deadline" = "*"

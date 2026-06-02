@@ -12,6 +12,7 @@ terraform {
 # Data sources
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
+data "aws_partition" "current" {}
 
 # Look up route tables for provided subnets to validate outbound connectivity.
 # Uses aws_route_tables (plural) to detect explicit associations per subnet,

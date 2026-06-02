@@ -80,7 +80,7 @@ resource "aws_iam_role" "execution" {
 # Attach AWS managed policy for ECS task execution
 resource "aws_iam_role_policy_attachment" "execution_managed" {
   role       = aws_iam_role.execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 # Additional execution permissions for Secrets Manager
@@ -96,7 +96,7 @@ resource "aws_iam_role_policy" "execution_secrets" {
         "secretsmanager:GetSecretValue",
         "secretsmanager:DescribeSecret"
       ]
-      Resource = "arn:aws:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project}/*"
+      Resource = "arn:${data.aws_partition.current.partition}:secretsmanager:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:secret:${var.project}/*"
     }]
   })
 }
@@ -158,8 +158,8 @@ resource "aws_iam_role_policy" "task_bedrock" {
         "bedrock:ListInferenceProfiles"
       ]
       Resource = [
-        "arn:aws:bedrock:*:*:inference-profile/*",
-        "arn:aws:bedrock:*:*:foundation-model/*"
+        "arn:${data.aws_partition.current.partition}:bedrock:*:*:inference-profile/*",
+        "arn:${data.aws_partition.current.partition}:bedrock:*:*:foundation-model/*"
       ]
     }]
   })

@@ -29,7 +29,7 @@ resource "aws_iam_role" "create_investigation_lambda" {
 # Lambda basic execution permissions (CloudWatch Logs)
 resource "aws_iam_role_policy_attachment" "create_investigation_lambda_basic" {
   role       = aws_iam_role.create_investigation_lambda.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 # Lambda permissions for ECS task operations

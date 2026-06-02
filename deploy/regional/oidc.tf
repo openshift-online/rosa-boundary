@@ -213,8 +213,8 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         Effect = "Allow"
         Action = ["ssm:StartSession"]
         Resource = [
-          "arn:aws:ecs:*:*:task/*",
-          "arn:aws:ssm:*:*:document/AWS-StartInteractiveCommand"
+          "arn:${data.aws_partition.current.partition}:ecs:*:*:task/*",
+          "arn:${data.aws_partition.current.partition}:ssm:*:*:document/AWS-StartInteractiveCommand"
         ]
         # No tag condition — access control is enforced by ecs:ExecuteCommand above.
         # The SSM API does not have access to ECS resource tags.

@@ -178,6 +178,35 @@ class TestReaperLambda(unittest.TestCase):
         # Verify stop_task was called twice
         assert self.mock_ecs.stop_task.call_count == 2
 
+    def test_handle_stop_task_non_client_error_gracefully(self):
+        """Non-ClientError exceptions from stop_task must not abort the reaper run."""
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task1_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/task1'
+        task2_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/task2'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task1_arn, task2_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [
+                {'taskArn': task1_arn, 'tags': [{'key': 'deadline', 'value': past_deadline}]},
+                {'taskArn': task2_arn, 'tags': [{'key': 'deadline', 'value': past_deadline}]},
+            ]
+        }
+
+        # First stop_task raises a generic network error (not a ClientError)
+        self.mock_ecs.stop_task.side_effect = [
+            ConnectionError('Network unreachable'),
+            None,  # second task stops successfully
+        ]
+
+        result = handler.lambda_handler({}, None)
+
+        # Reaper must continue to the second task despite the network error on the first
+        assert result['checked'] == 2
+        assert result['stopped'] == 1
+        assert result['errors'] == 1
+        assert self.mock_ecs.stop_task.call_count == 2
+        assert 'error' not in result  # outer handler must not have aborted
+
     def test_skip_task_with_invalid_deadline_format(self):
         """Test that tasks with invalid deadline format are skipped"""
         task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/abc123'

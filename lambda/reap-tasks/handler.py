@@ -122,7 +122,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                 stopped += 1
                                 logger.info(f"Stopped task {task_id} (owner: {owner_username} / {oidc_sub})")
 
-                            except ClientError as e:
+                            except Exception as e:
                                 logger.error(f"Failed to stop task {task_id}: {str(e)}")
                                 errors += 1
                         else:

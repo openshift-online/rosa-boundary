@@ -15,7 +15,7 @@
 
 <!-- Describe the tests you ran and how to reproduce them. -->
 
-- [ ] Unit tests pass (`make test`)
+- [ ] Unit tests pass (`make test-lambda`, `make test-lambda-create-investigation`, `make test-lambda-reap-tasks`)
 - [ ] Integration tests pass (if applicable)
 - [ ] Manual verification completed
 

@@ -78,6 +78,7 @@ resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
         Effect = "Allow"
         Action = [
           "elasticfilesystem:CreateAccessPoint",
+          "elasticfilesystem:DeleteAccessPoint",
           "elasticfilesystem:DescribeAccessPoints",
           "elasticfilesystem:TagResource"
         ]

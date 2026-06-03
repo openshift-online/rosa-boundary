@@ -66,6 +66,8 @@ EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUPS = [g.strip() for g in os.environ.get('REQUIRED_GROUPS', '').split(',') if g.strip()]
 ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
+_DEFAULT_OC_VERSIONS = '4.14,4.15,4.16,4.17,4.18,4.19,4.20'
+VALID_OC_VERSIONS = set(v.strip() for v in os.environ.get('VALID_OC_VERSIONS', _DEFAULT_OC_VERSIONS).split(',') if v.strip())
 STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '').rstrip('/')
 STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
 PROD_KEYCLOAK_ISSUER_URL = os.environ.get('PROD_KEYCLOAK_ISSUER_URL', '').rstrip('/')
@@ -136,6 +138,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not investigation_id or not cluster_id:
             logger.warning("Missing required fields: investigation_id or cluster_id")
             return response(400, {'error': 'Missing required fields: investigation_id, cluster_id'})
+
+        # Validate oc_version. Type-check first: unhashable types (list, dict) would
+        # raise TypeError on set membership, causing a 500 instead of a 400.
+        # VALID_OC_VERSIONS is configured via env var so container and Lambda stay in sync.
+        if not isinstance(oc_version, str):
+            logger.warning(f"Invalid oc_version type: {type(oc_version).__name__}")
+            return response(400, {'error': 'oc_version must be a string'})
+        if oc_version not in VALID_OC_VERSIONS:
+            logger.warning(f"Invalid oc_version: {oc_version}")
+            return response(400, {'error': f'Invalid oc_version: must be one of {sorted(VALID_OC_VERSIONS)}'})
+
 
         # Validate task_timeout
         try:

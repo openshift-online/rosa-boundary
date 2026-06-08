@@ -389,7 +389,7 @@ podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client
 
 ## Image Details
 
-- **Base**: Fedora 43
+- **Base**: Red Hat UBI9
 - **AWS CLI**: Official AWS CLI v2
 - **OpenShift CLI**: 4.14.x, 4.15.x, 4.16.x, 4.17.x, 4.18.x, 4.19.x, 4.20.x
 - **Claude Code**: 2.0.69 (native installer), auto-updates disabled

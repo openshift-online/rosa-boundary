@@ -1,12 +1,20 @@
 # ROSA Boundary Container
-# Fedora 43 with AWS CLI, OpenShift CLI, and AWS SSM Agent for Fargate
-FROM fedora:43
+# Red Hat UBI9 with AWS CLI, OpenShift CLI, and Claude Code for Fargate
+FROM registry.access.redhat.com/ubi9/ubi
+
+# Red Hat container labels — only override labels where the UBI9 defaults
+# are incorrect for this image. Labels like vendor, distribution-scope,
+# release, and maintainer are inherited correctly from the UBI9 base.
+LABEL com.redhat.component="rosa-boundary" \
+      description="Multi-architecture container providing AWS CLI, OpenShift CLI, and Claude Code for ephemeral ROSA SRE investigations via ECS Fargate." \
+      io.k8s.description="Multi-architecture container providing AWS CLI, OpenShift CLI, and Claude Code for ephemeral ROSA SRE investigations via ECS Fargate." \
+      summary="ROSA SRE investigation container with AWS CLI, OpenShift CLI, and Claude Code" \
+      url="https://github.com/openshift-online/rosa-boundary"
 
 # Install base packages
 RUN dnf install -y \
     alternatives \
     unzip \
-    curl \
     git \
     vim \
     tar \

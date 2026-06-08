@@ -2,9 +2,9 @@
 # Fedora 43 with AWS CLI, OpenShift CLI, and AWS SSM Agent for Fargate
 FROM fedora:43
 
-# Install base packages including Fedora's AWS CLI
+# Install base packages
 RUN dnf install -y \
-    awscli2 \
+    alternatives \
     unzip \
     curl \
     git \
@@ -13,7 +13,6 @@ RUN dnf install -y \
     gzip \
     sudo \
     util-linux \
-    util-linux-script \
     && dnf clean all
 
 # Set up architecture-specific variables using uname
@@ -25,9 +24,6 @@ RUN ARCH=$(uname -m) && \
       echo "" > /tmp/oc_suffix; \
     fi
 
-# Register Fedora's AWS CLI with alternatives
-RUN alternatives --install /usr/local/bin/aws aws /usr/bin/aws 10 --family fedora
-
 # Download and install official AWS CLI
 RUN AWS_CLI_ARCH=$(cat /tmp/aws_cli_arch) && \
     curl -o /tmp/awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_CLI_ARCH}.zip" && \
@@ -35,7 +31,7 @@ RUN AWS_CLI_ARCH=$(cat /tmp/aws_cli_arch) && \
     /tmp/aws/install --install-dir /opt/aws-cli-official --bin-dir /usr/local/bin/aws-cli-bin && \
     rm -rf /tmp/awscliv2.zip /tmp/aws
 
-# Register official AWS CLI with alternatives
+# Register AWS CLI with alternatives
 RUN alternatives --install /usr/local/bin/aws aws /opt/aws-cli-official/v2/current/bin/aws 20 --family aws-official
 
 # Download and install OpenShift CLI versions 4.14-4.20

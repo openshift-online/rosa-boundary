@@ -60,21 +60,6 @@ if [ -n "${OC_VERSION}" ]; then
     fi
 fi
 
-# Switch AWS CLI if AWS_CLI is set
-if [ -n "${AWS_CLI}" ]; then
-    case "${AWS_CLI}" in
-    fedora)
-        alternatives --set aws /usr/bin/aws
-        ;;
-    official | aws-official)
-        alternatives --set aws /opt/aws-cli-official/v2/current/bin/aws
-        ;;
-    *)
-        echo "Warning: Unknown AWS_CLI value '${AWS_CLI}', using default" >&2
-        ;;
-    esac
-fi
-
 # Configure kubectl/oc to use the kube-proxy sidecar
 if [ -n "${KUBE_PROXY_PORT}" ]; then
     mkdir -p /home/sre/.kube

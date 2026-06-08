@@ -12,20 +12,7 @@ This is an ephemeral container for ROSA cluster investigation and AWS infrastruc
 
 ### AWS CLI
 
-Two versions managed via alternatives system:
-- **Official AWS CLI v2** (default): Installed at `/opt/aws-cli-official/v2/current/bin/aws`
-- **Fedora packaged**: Installed at `/usr/bin/aws`
-
-**Switch versions**:
-```bash
-# Use Fedora version
-alternatives --set aws /usr/bin/aws
-
-# Use official version
-alternatives --set aws /opt/aws-cli-official/v2/current/bin/aws
-```
-
-Or set `AWS_CLI=fedora` or `AWS_CLI=official` environment variable at container launch.
+Official AWS CLI v2 installed at `/opt/aws-cli-official/v2/current/bin/aws`, accessible as `aws`.
 
 ### OpenShift CLI (oc)
 

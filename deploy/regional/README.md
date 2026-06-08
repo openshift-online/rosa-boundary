@@ -313,7 +313,6 @@ Session logs contain complete terminal output including any credentials or sensi
 ### Optional Manual Overrides
 
 - `S3_AUDIT_ESCROW` - Override auto-generated S3 path
-- `AWS_CLI` - AWS CLI variant (`fedora` or `official`)
 
 ## S3 Bucket WORM Compliance
 

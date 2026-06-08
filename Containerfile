@@ -1,19 +1,26 @@
 # ROSA Boundary Container
-# Fedora 43 with AWS CLI, OpenShift CLI, and AWS SSM Agent for Fargate
-FROM fedora:43
+# Red Hat UBI9 with AWS CLI, OpenShift CLI, and Claude Code for Fargate
+FROM registry.access.redhat.com/ubi9/ubi
 
-# Install base packages including Fedora's AWS CLI
+# Red Hat container labels — only override labels where the UBI9 defaults
+# are incorrect for this image. Labels like vendor, distribution-scope,
+# release, and maintainer are inherited correctly from the UBI9 base.
+LABEL com.redhat.component="rosa-boundary" \
+      description="Multi-architecture container providing AWS CLI, OpenShift CLI, and Claude Code for ephemeral ROSA SRE investigations via ECS Fargate." \
+      io.k8s.description="Multi-architecture container providing AWS CLI, OpenShift CLI, and Claude Code for ephemeral ROSA SRE investigations via ECS Fargate." \
+      summary="ROSA SRE investigation container with AWS CLI, OpenShift CLI, and Claude Code" \
+      url="https://github.com/openshift-online/rosa-boundary"
+
+# Install base packages
 RUN dnf install -y \
-    awscli2 \
+    alternatives \
     unzip \
-    curl \
     git \
     vim \
     tar \
     gzip \
     sudo \
     util-linux \
-    util-linux-script \
     && dnf clean all
 
 # Set up architecture-specific variables using uname
@@ -25,9 +32,6 @@ RUN ARCH=$(uname -m) && \
       echo "" > /tmp/oc_suffix; \
     fi
 
-# Register Fedora's AWS CLI with alternatives
-RUN alternatives --install /usr/local/bin/aws aws /usr/bin/aws 10 --family fedora
-
 # Download and install official AWS CLI
 RUN AWS_CLI_ARCH=$(cat /tmp/aws_cli_arch) && \
     curl -o /tmp/awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_CLI_ARCH}.zip" && \
@@ -35,7 +39,7 @@ RUN AWS_CLI_ARCH=$(cat /tmp/aws_cli_arch) && \
     /tmp/aws/install --install-dir /opt/aws-cli-official --bin-dir /usr/local/bin/aws-cli-bin && \
     rm -rf /tmp/awscliv2.zip /tmp/aws
 
-# Register official AWS CLI with alternatives
+# Register AWS CLI with alternatives
 RUN alternatives --install /usr/local/bin/aws aws /opt/aws-cli-official/v2/current/bin/aws 20 --family aws-official
 
 # Download and install OpenShift CLI versions 4.14-4.20

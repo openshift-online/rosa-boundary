@@ -5,7 +5,7 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 ## Features
 
 - **Go CLI**: `rosa-boundary` — authenticate, start, join, list, and stop investigations
-- **AWS CLI**: Both Fedora RPM and official AWS CLI v2 with alternatives support
+- **AWS CLI**: Official AWS CLI v2
 - **OpenShift CLI**: Versions 4.14 through 4.20 from stable channels
 - **Claude Code**: AI-powered CLI assistant with Amazon Bedrock integration
 - **Dynamic Version Selection**: Switch tool versions via environment variables at runtime
@@ -249,7 +249,6 @@ The easiest way to select tool versions is via environment variables at containe
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
 | `OC_VERSION` | `4.14`, `4.15`, `4.16`, `4.17`, `4.18`, `4.19`, `4.20` | `4.20` | OpenShift CLI version |
-| `AWS_CLI` | `fedora`, `official` | `official` | AWS CLI source |
 | `S3_AUDIT_ESCROW` | S3 URI (e.g., `s3://bucket/path/`) | _(none)_ | S3 destination for /home/sre sync on exit |
 | `CLAUDE_CODE_USE_BEDROCK` | `0`, `1` | `1` | Enable Claude Code via Amazon Bedrock |
 | `AWS_REGION` | AWS region code | _(auto-detect)_ | AWS region for Bedrock. Auto-detected from ECS metadata; fallback to us-east-1 |
@@ -259,12 +258,6 @@ The easiest way to select tool versions is via environment variables at containe
 ```bash
 # Use OpenShift CLI 4.18
 podman run -e OC_VERSION=4.18 rosa-boundary:latest
-
-# Use Fedora's AWS CLI
-podman run -e AWS_CLI=fedora rosa-boundary:latest
-
-# Use both together
-podman run -e OC_VERSION=4.17 -e AWS_CLI=fedora rosa-boundary:latest
 
 # With a custom command
 podman run -e OC_VERSION=4.19 rosa-boundary:latest /bin/bash
@@ -293,26 +286,8 @@ podman run -e S3_AUDIT_ESCROW=s3://my-bucket/investigation-123/ rosa-boundary:la
 
 The container supports two methods for switching tool versions:
 
-1. **Environment Variables** (recommended): Set `OC_VERSION` or `AWS_CLI` at container startup (see above)
+1. **Environment Variables** (recommended): Set `OC_VERSION` at container startup (see above)
 2. **Alternatives Commands** (advanced): Manually switch versions inside a running container
-
-### AWS CLI Alternatives
-
-The container includes two AWS CLI versions managed with alternatives:
-
-- **fedora** (priority 10): Fedora RPM package
-- **aws-official** (priority 20): Official AWS CLI v2 (default)
-
-```bash
-# View current AWS CLI configuration
-alternatives --display aws
-
-# Switch to Fedora version
-alternatives --set aws /usr/bin/aws
-
-# Switch to official version
-alternatives --set aws /opt/aws-cli-official/v2/current/bin/aws
-```
 
 ### OpenShift CLI Versions
 
@@ -406,7 +381,7 @@ Configuration files in `/home/sre/.claude/` are preserved across container resta
 podman run -it rosa-boundary:latest /bin/bash
 
 # Run with specific versions
-podman run -it -e OC_VERSION=4.18 -e AWS_CLI=fedora rosa-boundary:latest /bin/bash
+podman run -it -e OC_VERSION=4.18 rosa-boundary:latest /bin/bash
 
 # Check tool versions
 podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client"
@@ -414,8 +389,8 @@ podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client
 
 ## Image Details
 
-- **Base**: Fedora 43
-- **AWS CLI**: v2.32.16+ (official), v2.27.0 (Fedora RPM)
+- **Base**: Red Hat UBI9
+- **AWS CLI**: Official AWS CLI v2
 - **OpenShift CLI**: 4.14.x, 4.15.x, 4.16.x, 4.17.x, 4.18.x, 4.19.x, 4.20.x
 - **Claude Code**: 2.0.69 (native installer), auto-updates disabled
 - **Additional tools**: util-linux (includes su for user switching)

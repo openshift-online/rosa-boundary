@@ -115,9 +115,6 @@ podman run -it rosa-boundary:latest /bin/bash
 # Test a specific OC version
 podman run --rm -e OC_VERSION=4.18 rosa-boundary:latest oc version --client
 
-# Test with Fedora AWS CLI
-podman run --rm -e AWS_CLI=fedora rosa-boundary:latest aws --version
-
 # Test S3 sync on exit (warns without credentials)
 podman run --rm -e S3_AUDIT_ESCROW=s3://test-bucket/test/ \
   rosa-boundary:latest sh -c "echo 'test' > /home/sre/test.txt && exit"
@@ -137,8 +134,7 @@ Architecture values are written to temp files (`/tmp/aws_cli_arch`, `/tmp/oc_suf
 ### Tool Installation via Alternatives
 
 **AWS CLI**:
-- Fedora RPM (`/usr/bin/aws`) — priority 10, family `fedora`
-- Official AWS CLI v2 (`/opt/aws-cli-official/v2/current/bin/aws`) — priority 20, family `aws-official` (default)
+- Official AWS CLI v2 (`/opt/aws-cli-official/v2/current/bin/aws`) — registered via alternatives
 
 **OpenShift CLI**:
 - Versions 4.14–4.20 installed to `/opt/openshift/{version}/oc`
@@ -150,11 +146,10 @@ Architecture values are written to temp files (`/tmp/aws_cli_arch`, `/tmp/oc_suf
 
 1. **Traps signals** (SIGTERM, SIGINT, SIGHUP) so `cleanup()` can sync data before exit
 2. **Switches OC version** via `alternatives --set` if `OC_VERSION` is set
-3. **Switches AWS CLI** via `alternatives --set` if `AWS_CLI` is set (`fedora` or `official`)
-4. **Copies skeleton config** from `/etc/skel-sre/.claude/` to `/home/sre/.claude/` on first run only (preserves user customizations on subsequent runs)
-5. **Configures Bedrock**: enables `CLAUDE_CODE_USE_BEDROCK=1`, auto-detects `AWS_REGION` from ECS task metadata, falls back to `us-east-1`
-6. **Runs the command** in background with `&` (cannot use `exec` — it replaces the shell and traps won't fire)
-7. **On exit or signal**: `sync_to_s3()` runs `aws s3 sync /home/sre` to the configured S3 URI
+3. **Copies skeleton config** from `/etc/skel-sre/.claude/` to `/home/sre/.claude/` on first run only (preserves user customizations on subsequent runs)
+4. **Configures Bedrock**: enables `CLAUDE_CODE_USE_BEDROCK=1`, auto-detects `AWS_REGION` from ECS task metadata, falls back to `us-east-1`
+5. **Runs the command** in background with `&` (cannot use `exec` — it replaces the shell and traps won't fire)
+6. **On exit or signal**: `sync_to_s3()` runs `aws s3 sync /home/sre` to the configured S3 URI
 
 **S3 path auto-generation** (`sync_to_s3`): if `S3_AUDIT_ESCROW` is unset but `S3_AUDIT_BUCKET` + `CLUSTER_ID` + `INVESTIGATION_ID` are all set, the path is built automatically: `s3://$bucket/$cluster/$investigation/$date/$taskid/`
 
@@ -163,7 +158,6 @@ Architecture values are written to temp files (`/tmp/aws_cli_arch`, `/tmp/oc_suf
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `OC_VERSION` | 4.20 via alternatives | Select OC CLI version: 4.14–4.20 |
-| `AWS_CLI` | official via alternatives | Select AWS CLI: `fedora` or `official` |
 | `S3_AUDIT_ESCROW` | — | S3 URI for /home/sre sync on exit |
 | `S3_AUDIT_BUCKET` | — | Bucket for auto-generated S3 path |
 | `CLUSTER_ID` | — | Cluster ID for auto-generated S3 path |

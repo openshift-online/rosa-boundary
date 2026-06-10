@@ -1958,7 +1958,7 @@ class TestMinimumTaskTimeout:
         'REQUIRED_GROUPS': 'sre-operators',
     }
 
-    def _call(self, task_timeout, minimum=300):
+    def _call(self, task_timeout, minimum=30):
         env = {**self._REQUIRED_ENV, 'TASK_TIMEOUT_MINIMUM': str(minimum)}
         with patch.dict('os.environ', env):
             handler.TASK_TIMEOUT_MINIMUM = minimum
@@ -1978,24 +1978,24 @@ class TestMinimumTaskTimeout:
 
     def test_below_minimum_is_rejected(self):
         """task_timeout below TASK_TIMEOUT_MINIMUM returns 400."""
-        result = self._call(task_timeout=60, minimum=300)
+        result = self._call(task_timeout=10, minimum=30)
         assert result['statusCode'] == 400
-        assert '300' in result['body']
+        assert '30' in result['body']
 
     def test_zero_rejected_when_minimum_set(self):
         """task_timeout=0 (no deadline) is rejected when minimum > 0."""
-        result = self._call(task_timeout=0, minimum=300)
+        result = self._call(task_timeout=0, minimum=30)
         assert result['statusCode'] == 400
 
     def test_at_minimum_accepted(self):
         """task_timeout equal to minimum passes validation (reaches auth, not 400)."""
-        result = self._call(task_timeout=300, minimum=300)
+        result = self._call(task_timeout=30, minimum=30)
         # Will fail at OIDC validation (401), not timeout validation (400)
         assert result['statusCode'] == 401
 
     def test_above_minimum_accepted(self):
         """task_timeout above minimum passes validation."""
-        result = self._call(task_timeout=3600, minimum=300)
+        result = self._call(task_timeout=3600, minimum=30)
         assert result['statusCode'] == 401
 
     def test_minimum_zero_allows_any_nonnegative(self):

@@ -191,7 +191,7 @@ variable "task_timeout_default" {
 variable "task_timeout_minimum" {
   description = "Minimum task timeout callers may request (seconds). Values below this are rejected by the Lambda. Set to 0 to disable the minimum check."
   type        = number
-  default     = 300
+  default     = 30
 
   validation {
     condition     = var.task_timeout_minimum >= 0 && var.task_timeout_minimum <= 86400

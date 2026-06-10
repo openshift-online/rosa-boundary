@@ -194,6 +194,12 @@ variable "audit_replication_bucket_arn" {
   default     = ""
 }
 
+variable "audit_replication_kms_key_arn" {
+  description = "ARN of the KMS key in the destination audit account to encrypt replicas. Required when audit_replication_bucket_arn is set and the destination bucket uses SSE-KMS."
+  type        = string
+  default     = ""
+}
+
 variable "audit_replication_account_id" {
   description = "AWS account ID of the audit account that owns the replication destination bucket. Required when audit_replication_bucket_arn is set."
   type        = string

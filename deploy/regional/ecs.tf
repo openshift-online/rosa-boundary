@@ -14,7 +14,7 @@ resource "aws_ecs_cluster" "main" {
 
       log_configuration {
         cloud_watch_log_group_name     = aws_cloudwatch_log_group.ssm_sessions.name
-        cloud_watch_encryption_enabled = false
+        cloud_watch_encryption_enabled = true
       }
     }
   }
@@ -34,6 +34,7 @@ resource "aws_cloudwatch_log_group" "rosa_boundary" {
 resource "aws_cloudwatch_log_group" "ssm_sessions" {
   name              = "/ecs/${var.project}-${var.stage}/ssm-sessions"
   retention_in_days = var.retention_days
+  kms_key_id        = aws_kms_key.exec_session.arn
 
   tags = local.common_tags
 }

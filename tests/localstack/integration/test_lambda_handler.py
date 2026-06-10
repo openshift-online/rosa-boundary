@@ -81,35 +81,30 @@ def deployed_lambda(lambda_client, iam_client, logs_client, mock_oidc_issuer):
         PolicyDocument=json.dumps(policy)
     )
 
-    # Create deployment package
+    # Create deployment package by installing deps into a temp directory
+    import subprocess
+    import tempfile
+
+    deps_dir = tempfile.mkdtemp(prefix='lambda-deps-')
+    subprocess.check_call([
+        sys.executable, '-m', 'pip', 'install',
+        '-t', deps_dir, '--quiet',
+        'PyJWT', 'cryptography', 'requests'
+    ])
+
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        # Add handler.py
         handler_path = os.path.join(LAMBDA_DIR, 'handler.py')
         zip_file.write(handler_path, 'handler.py')
 
-        # Add dependencies from Lambda directory
-        # These are installed via `make deps` in the Lambda container
-        required_packages = [
-            'jwt', 'requests', 'urllib3', 'certifi', 'charset_normalizer',
-            'idna', 'PyJWT-2.10.2.dist-info', 'requests-2.33.0.dist-info',
-            'urllib3-2.3.0.dist-info', 'certifi-2026.1.4.dist-info',
-            'charset_normalizer-3.4.4.dist-info', 'idna-3.12.dist-info'
-        ]
+        for root, dirs, files in os.walk(deps_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                arcname = os.path.relpath(file_path, deps_dir)
+                zip_file.write(file_path, arcname)
 
-        for package in required_packages:
-            package_path = os.path.join(LAMBDA_DIR, package)
-            if os.path.exists(package_path):
-                if os.path.isdir(package_path):
-                    # Add directory recursively
-                    for root, dirs, files in os.walk(package_path):
-                        for file in files:
-                            file_path = os.path.join(root, file)
-                            arcname = os.path.relpath(file_path, LAMBDA_DIR)
-                            zip_file.write(file_path, arcname)
-                else:
-                    # Add single file
-                    zip_file.write(package_path, package)
+    import shutil
+    shutil.rmtree(deps_dir)
 
     zip_buffer.seek(0)
     function_code = zip_buffer.read()

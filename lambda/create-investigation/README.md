@@ -474,14 +474,12 @@ The Lambda implements comprehensive error handling:
 
 All errors are logged to CloudWatch with full stack traces.
 
-## CORS Support
+## CORS
 
-The Lambda returns CORS headers for browser-based clients:
+This Lambda is invoked exclusively via the AWS SDK using SigV4 (IAM) authentication.
+Browser-based cross-origin access is not supported. The Function URL CORS configuration
+sets `allow_origins = []` (no CORS), and the handler returns no `Access-Control-Allow-*`
+response headers.
 
-```
-Access-Control-Allow-Origin: *
-Access-Control-Allow-Headers: Content-Type,Authorization
-Access-Control-Allow-Methods: POST,OPTIONS
-```
-
-Add an OPTIONS method handler if using API Gateway with CORS pre-flight.
+If browser-based invocation is required in the future, configure CORS in the Terraform
+Function URL resource and update the Lambda response headers accordingly.

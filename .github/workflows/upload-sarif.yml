@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.14'
 
       - name: Convert findings to SARIF
         run: python scripts/findings-to-sarif.py --input adversary-findings.json --output adversary-findings.sarif

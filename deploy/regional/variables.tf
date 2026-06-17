@@ -188,6 +188,17 @@ variable "task_timeout_default" {
   }
 }
 
+variable "task_timeout_minimum" {
+  description = "Minimum task timeout callers may request (seconds). Values below this are rejected by the Lambda. Set to 0 to disable the minimum check."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.task_timeout_minimum >= 0 && var.task_timeout_minimum <= 86400
+    error_message = "task_timeout_minimum must be between 0 and 86400 seconds"
+  }
+}
+
 variable "audit_replication_bucket_arn" {
   description = "ARN of the destination S3 bucket in the audit account for cross-account replication. If empty, replication is disabled."
   type        = string

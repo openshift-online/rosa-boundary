@@ -66,6 +66,7 @@ EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUPS = [g.strip() for g in os.environ.get('REQUIRED_GROUPS', '').split(',') if g.strip()]
 ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
+TASK_TIMEOUT_MINIMUM = int(os.environ.get('TASK_TIMEOUT_MINIMUM', '30'))
 STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '').rstrip('/')
 STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
 PROD_KEYCLOAK_ISSUER_URL = os.environ.get('PROD_KEYCLOAK_ISSUER_URL', '').rstrip('/')
@@ -142,9 +143,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             task_timeout = int(task_timeout)
             if task_timeout < 0 or task_timeout > 86400:
                 raise ValueError("Task timeout out of range")
+            if TASK_TIMEOUT_MINIMUM > 0 and task_timeout < TASK_TIMEOUT_MINIMUM:
+                raise ValueError(f"task_timeout below minimum ({TASK_TIMEOUT_MINIMUM}s)")
         except (ValueError, TypeError) as e:
-            logger.warning(f"Invalid task_timeout: {task_timeout}")
-            return response(400, {'error': 'task_timeout must be an integer between 0 and 86400'})
+            logger.warning(f"Invalid task_timeout: {task_timeout} — {str(e)}")
+            return response(400, {
+                'error': f'task_timeout must be an integer between {TASK_TIMEOUT_MINIMUM} and 86400'
+            })
 
         # Validate identifiers for safe characters
         try:
@@ -424,6 +429,7 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
     Returns:
         Access point dict or None if not found
     """
+    expected_path = f"/{cluster_id}/{investigation_id}"
     try:
         paginator = efs.get_paginator('describe_access_points')
         for page in paginator.paginate(FileSystemId=efs_filesystem_id):
@@ -431,8 +437,18 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                 if ap.get('LifeCycleState') != 'available':
                     continue
                 tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
-                if tags.get('ClusterID') == cluster_id and tags.get('InvestigationID') == investigation_id:
-                    return ap
+                if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
+                    continue
+                # Verify the root path matches what the tags claim — guards against tag
+                # manipulation redirecting an investigation to a different EFS directory.
+                actual_path = ap.get('RootDirectory', {}).get('Path', '')
+                if actual_path != expected_path:
+                    logger.warning(
+                        f"Access point {ap['AccessPointId']} tags match but path mismatch: "
+                        f"expected {expected_path!r}, got {actual_path!r}; skipping"
+                    )
+                    continue
+                return ap
     except ClientError as e:
         logger.warning(f"Failed to search for existing access points: {str(e)}")
     return None

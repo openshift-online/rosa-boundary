@@ -143,6 +143,7 @@ resource "aws_lambda_function" "create_investigation" {
       REQUIRED_GROUPS            = join(",", var.required_groups)
       ABAC_TAG_KEY               = var.abac_tag_key
       TASK_TIMEOUT_DEFAULT       = tostring(var.task_timeout_default)
+      TASK_TIMEOUT_MINIMUM       = tostring(var.task_timeout_minimum)
       STAGE_KEYCLOAK_ISSUER_URL  = var.stage_keycloak_issuer_url
       STAGE_OIDC_CLIENT_ID       = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
       PROD_KEYCLOAK_ISSUER_URL   = var.prod_keycloak_issuer_url

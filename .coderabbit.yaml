@@ -1,0 +1,93 @@
+# CodeRabbit AI Code Review Configuration
+# https://docs.coderabbit.ai/
+#
+# Inherits org-wide rules from openshift-online/coderabbit including:
+# security scanners, prodsec path_instructions, pre_merge_checks, and linters.
+# This file only adds repo-specific overrides and domain-specific path_instructions.
+
+inheritance: true
+
+reviews:
+  abort_on_close: true
+  auto_review:
+    drafts: false
+    base_branches:
+      - main
+    ignore_title_keywords:
+      - WIP
+      - deps
+      - "Do Not Merge"
+  path_filters:
+    - "!**/*.md"
+    - "!**/*.txt"
+    - "!**/go.sum"
+    - "!**/.gitignore"
+  path_instructions:
+    - path: "cmd/**/*.go"
+      instructions: |
+        - Review CLI interface and user experience (Cobra commands)
+        - Check for proper flag/argument validation
+        - Ensure helpful, actionable error messages for users
+        - Verify config resolution order: flags > env vars > config file > defaults
+    - path: "internal/auth/**/*.go"
+      instructions: |
+        - Review OIDC PKCE flow for security correctness
+        - Ensure token caching does not leak credentials
+        - Verify token expiry and refresh handling
+        - Check that secrets are not logged or exposed in error messages
+    - path: "internal/aws/**/*.go"
+      instructions: |
+        - Review AWS SDK usage for correct error handling and retries
+        - Verify IAM role assumption chains (invoker role -> SRE ABAC role)
+        - Check that session tags are correctly propagated for ABAC enforcement
+        - Ensure ECS Exec and SSM interactions are secure
+    - path: "internal/lambda/**/*.go"
+      instructions: |
+        - Verify Lambda invocation payloads are properly structured
+        - Check error handling for Lambda-specific failure modes (throttling, timeout, payload limits)
+        - Ensure sensitive data is not included in invocation payloads unnecessarily
+    - path: "internal/config/**/*.go"
+      instructions: |
+        - Verify XDG base directory compliance for config and cache paths
+        - Check that viper binding correctly maps env vars and config keys
+        - Ensure no credentials are written to config files
+    - path: "**/*_test.go"
+      instructions: |
+        - Verify mocks/stubs properly simulate AWS service behavior
+        - Do not remove tests; update them to work against changes
+    - path: "lambda/**/*.py"
+      instructions: |
+        - Review Lambda handler for correct event parsing and error responses
+        - Verify OIDC token validation logic (signature, claims, expiry, group membership)
+        - Ensure ECS task creation uses correct tags for ABAC enforcement (username, oidc_sub, deadline)
+        - Verify EFS access point creation with correct POSIX permissions
+        - Check that task timeout deadlines are computed correctly (created_at + task_timeout)
+    - path: "lambda/**/test_*.py"
+      instructions: |
+        - Verify moto/unittest.mock usage correctly simulates AWS services
+        - Check that OIDC validation edge cases are tested (expired tokens, wrong groups, invalid signatures)
+        - Do not remove tests; update them to work against changes
+    - path: "deploy/regional/**/*.tf"
+      instructions: |
+        - Review IAM policies for least privilege (no wildcard actions or resources)
+        - Verify ABAC conditions on ECS task policies (PrincipalTag matching)
+        - Check KMS key policies for correct principal scoping
+        - Ensure security group rules are minimally permissive
+        - Verify EFS access point configurations for correct POSIX UID/GID
+        - Check that Lambda function URLs have proper auth configuration
+    - path: "entrypoint.sh"
+      instructions: |
+        - Review signal handling for correct trap behavior
+        - Verify S3 sync logic handles credentials and path construction safely
+        - Ensure no secrets are logged during startup
+        - Verify the background process pattern correctly preserves trap handling
+    - path: "Containerfile"
+      instructions: |
+        - Verify multi-architecture build logic is correct for both amd64 and arm64
+        - Check that alternatives registration sets correct priorities
+        - Verify final image runs as non-root user (sre)
+    - path: "tests/localstack/**/*.py"
+      instructions: |
+        - Verify LocalStack resource creation matches production AWS behavior
+        - Verify mock OIDC server correctly simulates Keycloak token behavior
+        - Do not remove tests; update them to work against changes

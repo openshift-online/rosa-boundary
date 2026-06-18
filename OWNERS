@@ -1,10 +1,14 @@
 approvers:
-- tiwillia
-- jhjaggars
-- kseiter-rh
-- theautoroboto
+- tiwillia       # Tim Williams
+- jhjaggars      # Jesse Jaggars
+- kseiter-rh     # Kevin Seiter
+- theautoroboto  # Brian Smith
+- clcollins      # Chris Collins
+- xiaoyu74       # Shawn Bai
 reviewers:
-- tiwillia
-- jhjaggars
-- kseiter-rh
-- theautoroboto
+- tiwillia       # Tim Williams
+- jhjaggars      # Jesse Jaggars
+- kseiter-rh     # Kevin Seiter
+- theautoroboto  # Brian Smith
+- clcollins      # Chris Collins
+- xiaoyu74       # Shawn Bai

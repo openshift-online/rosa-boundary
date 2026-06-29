@@ -279,36 +279,12 @@
       "recommendation": "Pin all actions to a specific commit SHA:\n\n- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2\n\nUse a tool like `pin-github-actions` or Dependabot's `Actions` ecosystem to maintain SHA pins automatically."
     },
     {
-      "id": "M14",
-      "title": "GitHub Actions Workflows Use Mutable Action Tags Without SHA Pinning",
-      "severity": "medium",
-      "category": "CI/CD — Unpinned Dependency Version",
-      "file": ".github/workflows/upload-sarif.yml",
-      "line": 28,
-      "end_line": null,
-      "issue": "All GitHub Actions in both workflow files are pinned to mutable semantic version tags (@v6, @v2, @v7, @v4) rather than immutable commit SHAs. Actions used: actions/checkout@v6, actions/setup-python@v6, EnricoMi/publish-unit-test-result-action/composite@v2, codecov/codecov-action@v7, github/codeql-action/upload-sarif@v4. A tag can be force-pushed by the action author or a compromised account to point to malicious code.",
-      "impact": "A supply chain attack on any of these action repositories could inject malicious steps into CI, enabling exfiltration of the LOCALSTACK_AUTH_TOKEN secret, modification of adversary-findings.json before SARIF upload, or compromise of the runner environment.",
-      "recommendation": "Pin all actions to a specific commit SHA:\n\n- uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2\n\nUse a tool like `pin-github-actions` or Dependabot's `Actions` ecosystem to maintain SHA pins automatically."
-    },
-    {
       "id": "M15",
       "title": "Lambda Runtime Python Version Mismatches CI Test Environment",
       "severity": "medium",
       "category": "Application — Configuration Drift",
       "file": "deploy/regional/lambda-create-investigation.tf",
       "line": 122,
-      "end_line": null,
-      "issue": "Both Lambda functions are deployed with runtime = \"python3.11\" but CI runs tests under Python 3.14 (setup-python with python-version: '3.14'). Python 3.14 has breaking changes in type annotation behavior and some stdlib modules, meaning tests pass on 3.14 but could fail or behave differently at runtime on 3.11.",
-      "impact": "Security-relevant behavior differences between Python 3.11 and 3.14 could go undetected in CI. For example, datetime.fromisoformat() in the reaper lambda has subtly different behavior between versions. A bug masked by version differences could produce incorrect deadline parsing and allow tasks to run past their deadline.",
-      "recommendation": "Align CI Python version with Lambda runtime. Set python-version: '3.11' in both workflow jobs, or update the Lambda runtime to python3.12 (the latest supported Lambda runtime as of 2026) and use that in CI."
-    },
-    {
-      "id": "M15",
-      "title": "Lambda Runtime Python Version Mismatches CI Test Environment",
-      "severity": "medium",
-      "category": "Application — Configuration Drift",
-      "file": "deploy/regional/lambda-reap-tasks.tf",
-      "line": 92,
       "end_line": null,
       "issue": "Both Lambda functions are deployed with runtime = \"python3.11\" but CI runs tests under Python 3.14 (setup-python with python-version: '3.14'). Python 3.14 has breaking changes in type annotation behavior and some stdlib modules, meaning tests pass on 3.14 but could fail or behave differently at runtime on 3.11.",
       "impact": "Security-relevant behavior differences between Python 3.11 and 3.14 could go undetected in CI. For example, datetime.fromisoformat() in the reaper lambda has subtly different behavior between versions. A bug masked by version differences could produce incorrect deadline parsing and allow tasks to run past their deadline.",
@@ -322,18 +298,6 @@
       "file": ".github/workflows/localstack-tests.yml",
       "line": 40,
       "end_line": 42,
-      "issue": "Both CI jobs install uv by piping a remote shell script directly to sh: curl -LsSf https://astral.sh/uv/install.sh | sh. The installer is not verified against a checksum or signature before execution. The same pattern repeats in the lambda-unit-tests job.",
-      "impact": "A compromised astral.sh CDN or DNS hijack could inject malicious code that runs with full runner privileges during CI. The runner has access to the LOCALSTACK_AUTH_TOKEN secret and the GitHub Actions token, making this a high-value target for secret exfiltration.",
-      "recommendation": "Use the official setup-uv GitHub Action (astral-sh/setup-uv@v6) which handles verification, or download and verify the installer against a published SHA256 checksum:\n\n- name: Install uv\n  uses: astral-sh/setup-uv@v6\n  with:\n    version: \"0.7.x\""
-    },
-    {
-      "id": "M16",
-      "title": "uv Installer Piped from the Internet in CI Without Integrity Verification",
-      "severity": "medium",
-      "category": "CI/CD — Supply Chain",
-      "file": ".github/workflows/localstack-tests.yml",
-      "line": 135,
-      "end_line": 137,
       "issue": "Both CI jobs install uv by piping a remote shell script directly to sh: curl -LsSf https://astral.sh/uv/install.sh | sh. The installer is not verified against a checksum or signature before execution. The same pattern repeats in the lambda-unit-tests job.",
       "impact": "A compromised astral.sh CDN or DNS hijack could inject malicious code that runs with full runner privileges during CI. The runner has access to the LOCALSTACK_AUTH_TOKEN secret and the GitHub Actions token, making this a high-value target for secret exfiltration.",
       "recommendation": "Use the official setup-uv GitHub Action (astral-sh/setup-uv@v6) which handles verification, or download and verify the installer against a published SHA256 checksum:\n\n- name: Install uv\n  uses: astral-sh/setup-uv@v6\n  with:\n    version: \"0.7.x\""

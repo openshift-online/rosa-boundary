@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "security@rosa-claude-plugins": true
+  }
+}

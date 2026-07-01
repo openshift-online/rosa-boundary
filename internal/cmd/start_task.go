@@ -153,12 +153,12 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	output.Status("Role assumed successfully")
 
 	credProvider := awsclient.StaticCredentialsProvider(creds)
-	clusterName := lambdaResp.ClusterID
-	if clusterName == "" {
-		clusterName = cfg.ClusterName
-	}
 
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, credProvider)
+	// Use the configured ECS cluster name (from --ecs-cluster / config / env),
+	// NOT the ROSA cluster ID from the Lambda response. The Lambda's cluster_id
+	// is the investigation target, not the ECS cluster where tasks run.
+	ecsCluster := cfg.ClusterName
+	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, ecsCluster, credProvider)
 
 	// Step 5: Wait for RUNNING (unless --no-wait)
 	if !startNoWait {
@@ -174,7 +174,8 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	// Print summary
 	if startOutputFormat == "json" {
 		summary := map[string]any{
-			"cluster":          clusterName,
+			"ecs_cluster":      ecsCluster,
+			"cluster_id":       clusterID,
 			"investigation_id": investigationID,
 			"task_id":          taskID,
 			"task_arn":         lambdaResp.TaskARN,
@@ -187,7 +188,7 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		printStartSummary(clusterName, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion)
+		printStartSummary(ecsCluster, clusterID, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion)
 	}
 
 	// Step 6: Auto-connect if requested
@@ -199,12 +200,13 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printStartSummary(cluster, investigationID, taskID, ocVersion string, timeout int, accessPointID, roleARN, region string) {
+func printStartSummary(ecsCluster, clusterID, investigationID, taskID, ocVersion string, timeout int, accessPointID, roleARN, region string) {
 	fmt.Fprintln(os.Stderr, "\n========================================")
 	fmt.Fprintln(os.Stderr, "Investigation Created Successfully!")
 	fmt.Fprintln(os.Stderr, "========================================")
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  ECS Cluster:    %s\n", cluster)
+	fmt.Fprintf(os.Stderr, "  ECS Cluster:    %s\n", ecsCluster)
+	fmt.Fprintf(os.Stderr, "  ROSA Cluster:   %s\n", clusterID)
 	fmt.Fprintf(os.Stderr, "  Investigation:  %s\n", investigationID)
 	fmt.Fprintf(os.Stderr, "  Task:           %s\n", taskID)
 	fmt.Fprintf(os.Stderr, "  OC Version:     %s\n", ocVersion)
@@ -213,7 +215,7 @@ func printStartSummary(cluster, investigationID, taskID, ocVersion string, timeo
 	fmt.Fprintf(os.Stderr, "  Your Role:      %s\n", roleARN)
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Connect to task:")
-	fmt.Fprintf(os.Stderr, "  rosa-boundary --ecs-cluster %s --region %s join-task %s\n", cluster, region, taskID)
+	fmt.Fprintf(os.Stderr, "  rosa-boundary --ecs-cluster %s --region %s join-task %s\n", ecsCluster, region, taskID)
 }
 
 // sanitizeSessionName replaces characters not allowed in STS session names.

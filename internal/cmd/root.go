@@ -45,8 +45,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose/debug output")
-	rootCmd.PersistentFlags().String("keycloak-url", "", "Keycloak base URL")
-	rootCmd.PersistentFlags().String("realm", "", "Keycloak realm (default: sre-ops)")
+	rootCmd.PersistentFlags().String("oidc-issuer-url", "", "OIDC issuer URL")
 	rootCmd.PersistentFlags().String("client-id", "", "OIDC client ID (default: aws-sre-access)")
 	rootCmd.PersistentFlags().String("region", "", "AWS region (default: us-east-2)")
 	rootCmd.PersistentFlags().String("ecs-cluster", "", "ECS cluster name (default: rosa-boundary-dev)")
@@ -56,8 +55,7 @@ func init() {
 	rootCmd.PersistentFlags().String("efs-filesystem-id", "", "EFS filesystem ID for investigation access points")
 
 	// Bind flags to viper keys
-	_ = viper.BindPFlag("keycloak_url", rootCmd.PersistentFlags().Lookup("keycloak-url"))
-	_ = viper.BindPFlag("keycloak_realm", rootCmd.PersistentFlags().Lookup("realm"))
+	_ = viper.BindPFlag("oidc_issuer_url", rootCmd.PersistentFlags().Lookup("oidc-issuer-url"))
 	_ = viper.BindPFlag("oidc_client_id", rootCmd.PersistentFlags().Lookup("client-id"))
 	_ = viper.BindPFlag("aws_region", rootCmd.PersistentFlags().Lookup("region"))
 	_ = viper.BindPFlag("ecs_cluster_name", rootCmd.PersistentFlags().Lookup("ecs-cluster"))
@@ -74,14 +72,14 @@ func initConfig() {
 }
 
 // getConfig is a helper that loads and validates config, printing a useful error if required fields are missing.
-func getConfig(requireKeycloakURL bool) (*config.Config, error) {
+func getConfig(requireOIDCIssuerURL bool) (*config.Config, error) {
 	cfg, err := config.Get()
 	if err != nil {
 		return nil, err
 	}
 
-	if requireKeycloakURL && cfg.KeycloakURL == "" {
-		return nil, fmt.Errorf("keycloak URL is required; set --keycloak-url, ROSA_BOUNDARY_KEYCLOAK_URL, or KEYCLOAK_URL")
+	if requireOIDCIssuerURL && cfg.OIDCIssuerURL == "" {
+		return nil, fmt.Errorf("OIDC issuer URL is required; set --oidc-issuer-url, ROSA_BOUNDARY_OIDC_ISSUER_URL, or OIDC_ISSUER_URL")
 	}
 
 	return cfg, nil

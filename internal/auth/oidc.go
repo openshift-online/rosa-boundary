@@ -17,15 +17,20 @@ import (
 	"time"
 )
 
-// PKCEConfig holds OIDC/Keycloak configuration for the PKCE flow.
+// PKCEConfig holds OIDC configuration for the PKCE flow.
 type PKCEConfig struct {
-	KeycloakURL string
-	Realm       string
+	IssuerURL   string
 	ClientID    string
 	RedirectURI string
 }
 
-// tokenResponse is the JSON structure returned by the Keycloak token endpoint.
+// oidcDiscovery holds the subset of fields from the OIDC discovery document.
+type oidcDiscovery struct {
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+	TokenEndpoint         string `json:"token_endpoint"`
+}
+
+// tokenResponse is the JSON structure returned by the OIDC token endpoint.
 type tokenResponse struct {
 	IDToken     string `json:"id_token"`
 	AccessToken string `json:"access_token"`
@@ -45,6 +50,11 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	fmt.Fprintln(os.Stderr, "No cached token, authenticating...")
 
+	disc, err := fetchDiscovery(ctx, cfg.IssuerURL)
+	if err != nil {
+		return "", fmt.Errorf("OIDC discovery failed: %w", err)
+	}
+
 	verifier, challenge, err := generatePKCE()
 	if err != nil {
 		return "", fmt.Errorf("cannot generate PKCE parameters: %w", err)
@@ -60,11 +70,7 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		redirectURI = "http://localhost:" + callbackPort + "/callback"
 	}
 
-	issuerURL := strings.TrimRight(cfg.KeycloakURL, "/") + "/realms/" + cfg.Realm
-	authEndpoint := issuerURL + "/protocol/openid-connect/auth"
-	tokenEndpoint := issuerURL + "/protocol/openid-connect/token"
-
-	authURL := buildAuthURL(authEndpoint, cfg.ClientID, redirectURI, state, challenge)
+	authURL := buildAuthURL(disc.AuthorizationEndpoint, cfg.ClientID, redirectURI, state, challenge)
 
 	fmt.Fprintf(os.Stderr, "Starting local callback server on port %s...\n", callbackPort)
 	fmt.Fprintf(os.Stderr, "\nIf the browser does not open automatically, visit:\n%s\n\n", authURL)
@@ -93,7 +99,7 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	fmt.Fprintln(os.Stderr, "Authorization code received, exchanging for token...")
 
-	token, err := exchangeCode(tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
+	token, err := exchangeCode(disc.TokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
 	if err != nil {
 		return "", fmt.Errorf("token exchange failed: %w", err)
 	}
@@ -104,6 +110,32 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	fmt.Fprintln(os.Stderr, "ID token obtained successfully")
 	return token, nil
+}
+
+// fetchDiscovery retrieves the OIDC provider metadata from the well-known endpoint.
+func fetchDiscovery(ctx context.Context, issuerURL string) (*oidcDiscovery, error) {
+	discoveryURL := strings.TrimRight(issuerURL, "/") + "/.well-known/openid-configuration"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, discoveryURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("discovery request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("discovery endpoint returned %d", resp.StatusCode)
+	}
+	var d oidcDiscovery
+	if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
+		return nil, fmt.Errorf("cannot decode discovery response: %w", err)
+	}
+	if d.AuthorizationEndpoint == "" || d.TokenEndpoint == "" {
+		return nil, fmt.Errorf("discovery response missing authorization_endpoint or token_endpoint")
+	}
+	return &d, nil
 }
 
 // generatePKCE creates a code verifier and its S256 challenge.
@@ -128,7 +160,7 @@ func generateState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// buildAuthURL constructs the Keycloak authorization URL with PKCE parameters.
+// buildAuthURL constructs the authorization URL with PKCE parameters.
 func buildAuthURL(authEndpoint, clientID, redirectURI, state, challenge string) string {
 	params := url.Values{
 		"client_id":             {clientID},
@@ -142,7 +174,7 @@ func buildAuthURL(authEndpoint, clientID, redirectURI, state, challenge string) 
 	return authEndpoint + "?" + params.Encode()
 }
 
-// exchangeCode calls the Keycloak token endpoint to exchange an authorization code.
+// exchangeCode calls the token endpoint to exchange an authorization code.
 func exchangeCode(tokenEndpoint, clientID, redirectURI, code, verifier string) (string, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},

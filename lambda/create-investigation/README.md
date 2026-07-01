@@ -1,12 +1,12 @@
 # Create Investigation Lambda
 
-AWS Lambda function that validates Keycloak OIDC tokens, manages per-user IAM roles with tag-based authorization, creates EFS access points, and launches ECS Fargate tasks for ROSA cluster investigations.
+AWS Lambda function that validates OIDC tokens (via RHSSO), manages per-user IAM roles with tag-based authorization, creates EFS access points, and launches ECS Fargate tasks for ROSA cluster investigations.
 
 ## Overview
 
 This Lambda implements a secure workflow for creating investigation tasks:
 
-1. **OIDC Authentication**: Validates JWT tokens from Keycloak using JWKS
+1. **OIDC Authentication**: Validates JWT tokens using JWKS (fetched via OIDC discovery)
 2. **Group Authorization**: Verifies user membership in `sre-team` group
 3. **IAM Role Management**: Creates per-user IAM roles with tag-based ECS Exec permissions
 4. **EFS Isolation**: Creates unique access points for each investigation
@@ -18,10 +18,9 @@ This Lambda implements a secure workflow for creating investigation tasks:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `KEYCLOAK_URL` | Keycloak server URL | `https://keycloak.example.com` |
-| `KEYCLOAK_REALM` | Keycloak realm name | `rosa-boundary` |
-| `KEYCLOAK_CLIENT_ID` | Expected OIDC audience claim | `rosa-boundary-api` |
-| `OIDC_PROVIDER_ARN` | ARN of OIDC identity provider in IAM | `arn:aws:iam::123456789012:oidc-provider/keycloak.example.com` |
+| `OIDC_ISSUER_URL` | Full OIDC issuer URL | `https://sso.example.com/auth/realms/sre-ops` |
+| `OIDC_CLIENT_ID` | Expected OIDC audience claim | `aws-sre-access` |
+| `OIDC_PROVIDER_ARN` | ARN of OIDC identity provider in IAM | `arn:aws:iam::123456789012:oidc-provider/sso.example.com` |
 | `ECS_CLUSTER` | ECS cluster name | `rosa-boundary-cluster` |
 | `TASK_DEFINITION` | Base task definition name/ARN | `rosa-boundary-base:1` |
 | `SUBNETS` | Comma-separated subnet IDs | `subnet-abc123,subnet-def456` |
@@ -32,7 +31,7 @@ This Lambda implements a secure workflow for creating investigation tasks:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `REQUIRED_GROUP` | Required Keycloak group for authorization | `sre-team` |
+| `REQUIRED_GROUPS` | Required OIDC group(s) for authorization (comma-separated) | `sre-team` |
 | `S3_AUDIT_BUCKET` | S3 bucket name for audit logs | _(none)_ |
 
 ## API Request Format
@@ -129,7 +128,7 @@ Example: `rosa-boundary-user-a1b2c3d4`
 
 ### Trust Policy
 
-Roles trust the Keycloak OIDC provider with subject and audience matching:
+Roles trust the RHSSO OIDC provider with subject and audience matching:
 
 ```json
 {
@@ -138,13 +137,13 @@ Roles trust the Keycloak OIDC provider with subject and audience matching:
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::123456789012:oidc-provider/keycloak.example.com"
+        "Federated": "arn:aws:iam::123456789012:oidc-provider/sso.example.com/auth/realms/sre-ops"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
         "StringEquals": {
-          "keycloak.example.com:sub": "auth0|abc123...",
-          "keycloak.example.com:aud": "rosa-boundary-api"
+          "sso.example.com/auth/realms/sre-ops:sub": "auth0|abc123...",
+          "sso.example.com/auth/realms/sre-ops:aud": "aws-sre-access"
         }
       }
     }
@@ -259,17 +258,17 @@ s3://{S3_AUDIT_BUCKET}/{cluster_id}/{investigation_id}/{date}/{task_id}/
 
 ### JWKS Discovery
 
-JWKS URL format:
+JWKS URI is fetched dynamically via OIDC discovery:
 
 ```
-{KEYCLOAK_URL}/realms/{KEYCLOAK_REALM}/protocol/openid-connect/certs
+GET {OIDC_ISSUER_URL}/.well-known/openid-configuration → jwks_uri
 ```
 
 ### Token Verification
 
 - **Signature**: Validated using RS256 with JWKS public keys
 - **Expiration**: `exp` claim must be in the future
-- **Audience**: `aud` claim must match `KEYCLOAK_CLIENT_ID`
+- **Audience**: `aud` claim must match `OIDC_CLIENT_ID`
 
 ### Expected Claims
 
@@ -294,10 +293,9 @@ pip install -r requirements.txt
 ### Set Environment Variables
 
 ```bash
-export KEYCLOAK_URL="https://keycloak.example.com"
-export KEYCLOAK_REALM="rosa-boundary"
-export KEYCLOAK_CLIENT_ID="rosa-boundary-api"
-export OIDC_PROVIDER_ARN="arn:aws:iam::123456789012:oidc-provider/keycloak.example.com"
+export OIDC_ISSUER_URL="https://sso.example.com/auth/realms/sre-ops"
+export OIDC_CLIENT_ID="aws-sre-access"
+export OIDC_PROVIDER_ARN="arn:aws:iam::123456789012:oidc-provider/sso.example.com/auth/realms/sre-ops"
 export ECS_CLUSTER="rosa-boundary-cluster"
 export TASK_DEFINITION="rosa-boundary-base:1"
 export SUBNETS="subnet-abc123,subnet-def456"
@@ -316,9 +314,8 @@ from handler import validate_oidc_token
 token = "eyJhbGciOiJSUzI1NiIs..."
 claims = validate_oidc_token(
     token,
-    "https://keycloak.example.com",
-    "rosa-boundary",
-    "rosa-boundary-api"
+    "https://sso.example.com/auth/realms/sre-ops",
+    "aws-sre-access"
 )
 print(json.dumps(claims, indent=2))
 ```

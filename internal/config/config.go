@@ -13,8 +13,7 @@ import (
 // Config holds all configuration values for the CLI.
 type Config struct {
 	LambdaFunctionName string `mapstructure:"lambda_function_name"`
-	KeycloakURL        string `mapstructure:"keycloak_url"`
-	KeycloakRealm      string `mapstructure:"keycloak_realm"`
+	OIDCIssuerURL      string `mapstructure:"oidc_issuer_url"`
 	OIDCClientID       string `mapstructure:"oidc_client_id"`
 	AWSRegion          string `mapstructure:"aws_region"`
 	ClusterName        string `mapstructure:"ecs_cluster_name"`
@@ -63,7 +62,6 @@ func CacheDir() (string, error) {
 // Flag values are not applied here — callers bind pflags to viper before calling Get().
 func Load() error {
 	// Compiled defaults
-	viper.SetDefault("keycloak_realm", "sre-ops")
 	viper.SetDefault("oidc_client_id", "aws-sre-access")
 	viper.SetDefault("aws_region", "us-east-2")
 	viper.SetDefault("ecs_cluster_name", "rosa-boundary-dev")
@@ -88,8 +86,7 @@ func Load() error {
 
 	// Legacy env var aliases (without prefix) for backward compat
 	bindEnvAlias("lambda_function_name", "LAMBDA_FUNCTION_NAME")
-	bindEnvAlias("keycloak_url", "KEYCLOAK_URL")
-	bindEnvAlias("keycloak_realm", "KEYCLOAK_REALM")
+	bindEnvAlias("oidc_issuer_url", "OIDC_ISSUER_URL")
 	bindEnvAlias("oidc_client_id", "OIDC_CLIENT_ID")
 	bindEnvAlias("aws_region", "AWS_REGION")
 	bindEnvAlias("sre_role_arn", "SRE_ROLE_ARN")

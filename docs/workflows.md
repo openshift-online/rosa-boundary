@@ -1,6 +1,6 @@
 # CLI Workflow Flowcharts
 
-This document shows the end-to-end flows for common rosa-boundary CLI operations. All OIDC-authenticated paths require a valid Keycloak token; the two-step role assumption (invoker role → SRE ABAC role) is transparent to the user.
+This document shows the end-to-end flows for common rosa-boundary CLI operations. All OIDC-authenticated paths require a valid OIDC token from RHSSO; the two-step role assumption (invoker role → SRE ABAC role) is transparent to the user.
 
 ```mermaid
 flowchart TD
@@ -11,7 +11,7 @@ flowchart TD
         CI --> AUTH
         ST --> AUTH
 
-        AUTH["OIDC Auth\n(Keycloak PKCE browser flow)"]
+        AUTH["OIDC Auth\n(PKCE browser flow via RHSSO)"]
         AUTH --> INVOKER["Assume Invoker Role\n(STS + OIDC token)"]
         INVOKER --> LAMBDA["Invoke Lambda"]
         LAMBDA --> VALIDATE["Lambda validates token\n& checks sre-team group"]

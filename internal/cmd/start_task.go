@@ -18,7 +18,7 @@ import (
 var startTaskCmd = &cobra.Command{
 	Use:   "start-task",
 	Short: "Create an investigation and start an ECS task",
-	Long: `Authenticate with Keycloak, call the create-investigation Lambda,
+	Long: `Authenticate via OIDC, call the create-investigation Lambda,
 assume the returned SRE role, and wait for the task to reach RUNNING state.
 
 If --investigation-id is omitted, a random three-word name is generated
@@ -81,10 +81,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	}
 
 	// Step 1: Get OIDC token
-	output.Status("=== Step 1: Authenticating with Keycloak ===")
+	output.Status("=== Step 1: Authenticating via OIDC ===")
 	pkce := auth.PKCEConfig{
-		KeycloakURL: cfg.KeycloakURL,
-		Realm:       cfg.KeycloakRealm,
+		IssuerURL: cfg.OIDCIssuerURL,
 		ClientID:    cfg.OIDCClientID,
 	}
 	idToken, err := auth.GetToken(cmd.Context(), pkce, startForceLogin)

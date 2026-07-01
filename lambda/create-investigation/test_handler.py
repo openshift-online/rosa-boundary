@@ -150,9 +150,8 @@ class TestErrorSanitization:
     """Test that error responses don't leak internal details."""
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -191,9 +190,8 @@ class TestErrorSanitization:
             "Internal error details should not leak"
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -248,9 +246,8 @@ class TestLambdaHandler:
         assert 'OIDC token' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -280,9 +277,8 @@ class TestLambdaHandler:
         assert 'Invalid or expired token' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -312,9 +308,8 @@ class TestLambdaHandler:
         assert 'Invalid or expired token' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -366,9 +361,8 @@ class TestLambdaHandler:
         assert 'OIDC token' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -397,9 +391,8 @@ class TestLambdaHandler:
         assert 'Missing required fields' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -430,9 +423,8 @@ class TestLambdaHandler:
         assert 'Invalid investigation_id' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -463,9 +455,8 @@ class TestLambdaHandler:
         assert 'Invalid cluster_id' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -518,9 +509,8 @@ class TestLambdaHandler:
         assert 'configuration error' in body['error'].lower()
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -554,9 +544,8 @@ class TestLambdaHandler:
         assert 'Invalid or expired token' in body['error']
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -594,9 +583,8 @@ class TestLambdaHandler:
         assert 'not authorized' in body['error'].lower()
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -639,9 +627,8 @@ class TestLambdaHandler:
         assert response['statusCode'] == 200
 
     @patch.dict('os.environ', {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -705,9 +692,8 @@ class TestSkipTask:
     """Test skip_task parameter and idempotent access point creation."""
 
     ENV_VARS = {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'test-task',
@@ -920,9 +906,8 @@ class TestDuplicateInvestigationDetection:
     """Test that creating an investigation with an already-running task is rejected."""
 
     ENV_VARS = {
-        'KEYCLOAK_URL': 'https://keycloak.example.com',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.example.com/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'rosa-boundary-dev',
         'SUBNETS': 'subnet-1,subnet-2',
@@ -1247,9 +1232,8 @@ class TestPerInvestigationTaskDef:
     """Test per-investigation task definition registration."""
 
     ENV_VARS = {
-        'KEYCLOAK_URL': 'https://keycloak.test',
-        'KEYCLOAK_REALM': 'test-realm',
-        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_ISSUER_URL': 'https://keycloak.test/realms/test-realm',
+        'OIDC_CLIENT_ID': 'test-client',
         'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'rosa-boundary-dev',
@@ -1946,9 +1930,8 @@ class TestMinimumTaskTimeout:
         }
 
     _REQUIRED_ENV = {
-        'KEYCLOAK_URL': 'https://kc.example.com',
-        'KEYCLOAK_REALM': 'test',
-        'KEYCLOAK_CLIENT_ID': 'aws-sre-access',
+        'OIDC_ISSUER_URL': 'https://kc.example.com/realms/test',
+        'OIDC_CLIENT_ID': 'aws-sre-access',
         'ECS_CLUSTER': 'test-cluster',
         'TASK_DEFINITION': 'rosa-boundary',
         'SUBNETS': 'subnet-1',
@@ -1963,9 +1946,8 @@ class TestMinimumTaskTimeout:
         with patch.dict('os.environ', env):
             handler.TASK_TIMEOUT_MINIMUM = minimum
             # Reload module-level globals that depend on env vars
-            handler.KEYCLOAK_URL = env['KEYCLOAK_URL']
-            handler.KEYCLOAK_REALM = env['KEYCLOAK_REALM']
-            handler.KEYCLOAK_CLIENT_ID = env['KEYCLOAK_CLIENT_ID']
+            handler.OIDC_ISSUER_URL = env['OIDC_ISSUER_URL']
+            handler.OIDC_CLIENT_ID = env['OIDC_CLIENT_ID']
             handler.ECS_CLUSTER = env['ECS_CLUSTER']
             handler.TASK_DEFINITION = env['TASK_DEFINITION']
             handler.SUBNETS = [env['SUBNETS']]

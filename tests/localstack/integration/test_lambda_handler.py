@@ -124,9 +124,9 @@ def deployed_lambda(lambda_client, iam_client, logs_client, mock_oidc_issuer):
         Code={'ZipFile': function_code},
         Environment={
             'Variables': {
-                'KEYCLOAK_ISSUER_URL': mock_oidc_issuer,
-                'KEYCLOAK_AUDIENCE': 'aws-sre-access',
-                'KEYCLOAK_REQUIRED_GROUP': 'sre-team',
+                'OIDC_ISSUER_URL': mock_oidc_issuer,
+                'OIDC_CLIENT_ID': 'aws-sre-access',
+                'REQUIRED_GROUPS': 'sre-team',
                 'BASE_TASK_DEFINITION_FAMILY': 'rosa-boundary-base',
                 'EFS_FILESYSTEM_ID': 'fs-test123',
                 'AWS_REGION': 'us-east-2'

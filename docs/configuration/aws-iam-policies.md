@@ -453,4 +453,3 @@ variable "create_boundary_iam_resources" {
 ## Next Steps
 
 - [User Access Guide](../runbooks/user-access-guide.md) - End-user authentication workflow
-- [Keycloak Realm Setup](keycloak-realm-setup.md) - Configure OIDC client

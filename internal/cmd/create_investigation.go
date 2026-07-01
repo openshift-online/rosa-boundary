@@ -16,7 +16,7 @@ import (
 var createInvestigationCmd = &cobra.Command{
 	Use:   "create-investigation",
 	Short: "Create an investigation workspace (EFS access point) without starting a task",
-	Long: `Authenticate with Keycloak, call the create-investigation Lambda with skip_task=true,
+	Long: `Authenticate via OIDC, call the create-investigation Lambda with skip_task=true,
 creating only the EFS access point without launching an ECS task.
 
 Use this to pre-create an investigation workspace before starting a task, or to
@@ -72,10 +72,9 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 	}
 
 	// Step 1: Get OIDC token
-	output.Status("=== Step 1: Authenticating with Keycloak ===")
+	output.Status("=== Step 1: Authenticating via OIDC ===")
 	pkce := auth.PKCEConfig{
-		KeycloakURL: cfg.KeycloakURL,
-		Realm:       cfg.KeycloakRealm,
+		IssuerURL: cfg.OIDCIssuerURL,
 		ClientID:    cfg.OIDCClientID,
 	}
 	idToken, err := auth.GetToken(cmd.Context(), pkce, createForceLogin)

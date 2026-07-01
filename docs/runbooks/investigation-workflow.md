@@ -18,7 +18,7 @@ stateDiagram-v2
     InvestigationClosed --> [*]
 
     note right of InvestigationCreated
-        - Keycloak OIDC authentication
+        - OIDC authentication (RHSSO)
         - Lambda validates token + group
         - Per-user IAM role created
         - EFS access point created
@@ -63,13 +63,13 @@ cd tools/
 
 ### What It Does
 
-1. **Authenticates with Keycloak**
+1. **Authenticates via OIDC (RHSSO)**
    - Browser popup for OIDC authentication (PKCE flow)
    - Token cached for 4 minutes to reduce popup fatigue
    - Token sent to Lambda in Authorization header
 
 2. **Lambda Validates Request**
-   - Verifies OIDC token signature against Keycloak JWKS
+   - Verifies OIDC token signature (JWKS fetched via OIDC discovery)
    - Checks `sre-team` group membership
    - Extracts user's OIDC `sub` claim
 
@@ -172,7 +172,7 @@ aws ecs execute-command \
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant KC as Keycloak
+    participant KC as RHSSO
     participant L as Lambda
     participant STS as AWS STS
     participant ECS as ECS/SSM
@@ -181,7 +181,7 @@ sequenceDiagram
     U->>KC: Browser OIDC auth (PKCE)
     KC->>U: ID token
     U->>L: POST /create (token + params)
-    L->>KC: Validate token (JWKS)
+    L->>KC: Validate token (OIDC discovery + JWKS)
     KC->>L: Token valid + claims
     L->>L: Check sre-team membership
     L->>L: Create/get IAM role (per user)
@@ -497,9 +497,9 @@ tools/sre-auth/get-oidc-token.sh --force
 
 **Symptom**: `{"error": "Forbidden: User not in sre-team group"}`
 
-**Cause**: User not member of `sre-team` group in Keycloak
+**Cause**: User not member of `sre-team` group in RHSSO
 
-**Solution**: Contact Keycloak admin to add user to group
+**Solution**: Contact the identity team to add user to the `sre-team` group
 
 ## Next Steps
 

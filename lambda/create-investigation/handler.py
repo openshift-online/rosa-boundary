@@ -1,7 +1,7 @@
 """
 AWS Lambda handler for creating investigation tasks with OIDC authentication.
 
-This Lambda validates Keycloak OIDC tokens, verifies group membership, creates
+This Lambda validates OIDC tokens (via RHSSO), verifies group membership, creates
 EFS access points, and launches ECS tasks. Authorization uses a shared IAM role
 with ABAC (Attribute-Based Access Control) via OIDC session tags — no per-user
 role management required.
@@ -54,9 +54,8 @@ efs = boto3.client('efs')
 sts = boto3.client('sts')
 
 # Environment variables
-KEYCLOAK_URL = os.environ.get('KEYCLOAK_URL')
-KEYCLOAK_REALM = os.environ.get('KEYCLOAK_REALM')
-KEYCLOAK_CLIENT_ID = os.environ.get('KEYCLOAK_CLIENT_ID')
+OIDC_ISSUER_URL = os.environ.get('OIDC_ISSUER_URL', '').rstrip('/')
+OIDC_CLIENT_ID = os.environ.get('OIDC_CLIENT_ID')
 OIDC_PROVIDER_ARN = os.environ.get('OIDC_PROVIDER_ARN')
 ECS_CLUSTER = os.environ.get('ECS_CLUSTER')
 TASK_DEFINITION = os.environ.get('TASK_DEFINITION')
@@ -67,9 +66,9 @@ SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUPS = [g.strip() for g in os.environ.get('REQUIRED_GROUPS', '').split(',') if g.strip()]
 ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
 TASK_TIMEOUT_MINIMUM = int(os.environ.get('TASK_TIMEOUT_MINIMUM', '30'))
-STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '').rstrip('/')
+STAGE_OIDC_ISSUER_URL = os.environ.get('STAGE_OIDC_ISSUER_URL', '').rstrip('/')
 STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
-PROD_KEYCLOAK_ISSUER_URL = os.environ.get('PROD_KEYCLOAK_ISSUER_URL', '').rstrip('/')
+PROD_OIDC_ISSUER_URL = os.environ.get('PROD_OIDC_ISSUER_URL', '').rstrip('/')
 PROD_OIDC_CLIENT_ID = os.environ.get('PROD_OIDC_CLIENT_ID', '')
 
 
@@ -107,7 +106,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Validate environment configuration
         missing_vars = []
-        for var_name in ['KEYCLOAK_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID',
+        for var_name in ['OIDC_ISSUER_URL', 'OIDC_CLIENT_ID',
                          'ECS_CLUSTER', 'TASK_DEFINITION',
                          'SUBNETS', 'SECURITY_GROUP', 'EFS_FILESYSTEM_ID', 'SHARED_ROLE_ARN']:
             if not globals()[var_name] or (var_name == 'SUBNETS' and not SUBNETS[0]):
@@ -161,7 +160,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Validate OIDC token
         logger.info("Validating OIDC token")
-        claims = validate_oidc_token(token, KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID)
+        claims = validate_oidc_token(token, OIDC_ISSUER_URL, OIDC_CLIENT_ID)
 
         if not claims:
             logger.warning("Token validation failed")
@@ -172,7 +171,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         user_email = claims.get('email', 'unknown')
         username = claims.get('preferred_username', user_email)
 
-        # Support both flat groups array (dev Keycloak) and realm_access.roles (EmployeeIDP).
+        # Support both flat groups array (RHSSO) and realm_access.roles (EmployeeIDP).
         # Type-guard each level: realm_access may be absent or non-dict in malformed tokens.
         flat_groups = claims.get('groups')
         groups = flat_groups if isinstance(flat_groups, list) else []
@@ -347,19 +346,33 @@ def _validate_with_jwks(token: str, jwks_url: str, client_id: str) -> Optional[D
         return None
 
 
-def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: str) -> Optional[Dict[str, Any]]:
+def _get_jwks_url(issuer_url: str) -> Optional[str]:
+    """Fetch the JWKS URI from the OIDC discovery document."""
+    discovery_url = f"{issuer_url.rstrip('/')}/.well-known/openid-configuration"
+    try:
+        resp = requests.get(discovery_url, timeout=10)
+        resp.raise_for_status()
+        jwks_uri = resp.json().get('jwks_uri')
+        if not jwks_uri:
+            logger.error(f"OIDC discovery at {discovery_url} missing jwks_uri")
+        return jwks_uri
+    except Exception as e:
+        logger.error(f"Failed to fetch OIDC discovery from {discovery_url}: {str(e)}")
+        return None
+
+
+def validate_oidc_token(token: str, issuer_url: str, client_id: str) -> Optional[Dict[str, Any]]:
     """
     Validate OIDC token and extract claims.
 
     Routes to the correct issuer by inspecting the unverified 'iss' claim, then
-    validates with full signature/audience verification against that issuer's JWKS.
-    Supports a primary Keycloak issuer and an optional stage OIDC provider
-    (configured via STAGE_KEYCLOAK_ISSUER_URL / STAGE_OIDC_CLIENT_ID env vars).
+    validates with full signature/audience verification via OIDC discovery (jwks_uri).
+    Supports a primary issuer and optional stage/prod OIDC providers configured via
+    STAGE_OIDC_ISSUER_URL / PROD_OIDC_ISSUER_URL env vars.
 
     Args:
         token: JWT token string
-        keycloak_url: Primary Keycloak server base URL
-        realm: Primary Keycloak realm name
+        issuer_url: Primary OIDC issuer URL
         client_id: Primary expected audience claim
 
     Returns:
@@ -373,23 +386,23 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
         logger.warning(f"Failed to decode token for issuer detection: {str(e)}")
         return None
 
-    primary_iss = f"{keycloak_url.rstrip('/')}/realms/{realm}"
-    primary_jwks_url = f"{primary_iss}/protocol/openid-connect/certs"
+    primary_iss = issuer_url.rstrip('/')
 
-    if STAGE_KEYCLOAK_ISSUER_URL and token_iss == STAGE_KEYCLOAK_ISSUER_URL:
-        logger.info(f"Token issuer matches stage OIDC provider: {STAGE_KEYCLOAK_ISSUER_URL}")
-        stage_jwks_url = f"{STAGE_KEYCLOAK_ISSUER_URL}/protocol/openid-connect/certs"
-        return _validate_with_jwks(token, stage_jwks_url, STAGE_OIDC_CLIENT_ID)
-    elif PROD_KEYCLOAK_ISSUER_URL and token_iss == PROD_KEYCLOAK_ISSUER_URL:
-        logger.info(f"Token issuer matches prod OIDC provider: {PROD_KEYCLOAK_ISSUER_URL}")
-        prod_jwks_url = f"{PROD_KEYCLOAK_ISSUER_URL}/protocol/openid-connect/certs"
-        return _validate_with_jwks(token, prod_jwks_url, PROD_OIDC_CLIENT_ID)
+    if STAGE_OIDC_ISSUER_URL and token_iss == STAGE_OIDC_ISSUER_URL:
+        logger.info(f"Token issuer matches stage OIDC provider: {STAGE_OIDC_ISSUER_URL}")
+        jwks_url = _get_jwks_url(STAGE_OIDC_ISSUER_URL)
+        return _validate_with_jwks(token, jwks_url, STAGE_OIDC_CLIENT_ID) if jwks_url else None
+    elif PROD_OIDC_ISSUER_URL and token_iss == PROD_OIDC_ISSUER_URL:
+        logger.info(f"Token issuer matches prod OIDC provider: {PROD_OIDC_ISSUER_URL}")
+        jwks_url = _get_jwks_url(PROD_OIDC_ISSUER_URL)
+        return _validate_with_jwks(token, jwks_url, PROD_OIDC_CLIENT_ID) if jwks_url else None
     elif token_iss == primary_iss:
-        return _validate_with_jwks(token, primary_jwks_url, client_id)
+        jwks_url = _get_jwks_url(primary_iss)
+        return _validate_with_jwks(token, jwks_url, client_id) if jwks_url else None
     else:
         logger.warning(f"Token issuer '{token_iss}' does not match any configured OIDC provider "
-                       f"(primary: '{primary_iss}', stage: '{STAGE_KEYCLOAK_ISSUER_URL or 'not configured'}', "
-                       f"prod: '{PROD_KEYCLOAK_ISSUER_URL or 'not configured'}')")
+                       f"(primary: '{primary_iss}', stage: '{STAGE_OIDC_ISSUER_URL or 'not configured'}', "
+                       f"prod: '{PROD_OIDC_ISSUER_URL or 'not configured'}')")
         return None
 
 

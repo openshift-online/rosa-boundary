@@ -11,7 +11,7 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 - **Dynamic Version Selection**: Switch tool versions via environment variables at runtime
 - **ECS Exec Ready**: Designed for AWS Fargate with ECS Exec support
 - **Multi-architecture**: Supports both x86_64 (amd64) and ARM64 (aarch64)
-- **OIDC Authentication**: Keycloak integration with Lambda-based authorization
+- **OIDC Authentication**: RHSSO integration with Lambda-based authorization
 - **Tag-Based Isolation**: Shared SRE role with task-level ABAC access control
 
 ## Getting Started
@@ -20,7 +20,7 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 
 - Go 1.23+ (to build the CLI from source)
 - Terraform (infrastructure deployment)
-- Keycloak with OIDC configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
+- RHSSO (or compatible OIDC provider) configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
 - [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) — required for `join-task` and `start-task --connect`
 
 The `session-manager-plugin` is an AWS-provided binary that handles the WebSocket session protocol used by ECS Exec. The `rosa-boundary` CLI calls the ECS `ExecuteCommand` API to obtain session credentials, then hands off to this plugin to establish the interactive session. It must be installed separately on each machine running the CLI.
@@ -58,8 +58,8 @@ See the [AWS documentation](https://docs.aws.amazon.com/systems-manager/latest/u
    | `container_image` | Container image URI |
    | `vpc_id` | VPC for Fargate tasks |
    | `subnet_ids` | 2+ subnets in the same VPC |
-   | `keycloak_issuer_url` | OIDC issuer URL (e.g., `https://keycloak.example.com/realms/sre-ops`) |
-   | `keycloak_thumbprint` | SHA1 thumbprint of the Keycloak TLS certificate |
+   | `oidc_issuer_url` | OIDC issuer URL (e.g., `https://sso.example.com/auth/realms/sre-ops`) |
+   | `oidc_thumbprint` | SHA1 thumbprint of the OIDC provider TLS certificate |
 
 3. Deploy:
 
@@ -71,7 +71,7 @@ See [`deploy/regional/README.md`](deploy/regional/README.md) for the complete de
 
 ### OIDC Identity Requirements
 
-Keycloak must issue tokens with these claims:
+The OIDC provider (RHSSO) must issue tokens with these claims:
 
 | Claim | Purpose |
 |---|---|
@@ -82,13 +82,11 @@ Keycloak must issue tokens with these claims:
 | `aud` | Must match `aws-sre-access` |
 | `https://aws.amazon.com/tags` | Session tags with `principal_tags.username` for ABAC |
 
-Required Keycloak mappers:
+Required OIDC client mappers:
 - Groups (flat names), email, audience (`aws-sre-access`)
 - AWS session tags: map `preferred_username` → `principal_tags.username`
 
 Client settings: public client, standard flow + PKCE, redirect URI `http://localhost:8400/callback`.
-
-See [`docs/configuration/keycloak-realm-setup.md`](docs/configuration/keycloak-realm-setup.md) for step-by-step setup.
 
 ### Install and Use the CLI
 
@@ -96,10 +94,10 @@ See [`docs/configuration/keycloak-realm-setup.md`](docs/configuration/keycloak-r
 make build-cli && make install-cli
 ```
 
-Create `~/.rosa-boundary/config.yaml` with the values specific to your deployment:
+Create `~/.config/rosa-boundary/config.yaml` with the values specific to your deployment:
 
 ```yaml
-keycloak_url: https://keycloak.example.com
+oidc_issuer_url: https://sso.example.com/auth/realms/sre-ops
 lambda_function_name: rosa-boundary-dev-create-investigation
 invoker_role_arn: arn:aws:iam::123456789012:role/rosa-boundary-dev-lambda-invoker
 ```
@@ -141,7 +139,6 @@ rosa-boundary/
 │   │   ├── *.tf          # Infrastructure definitions
 │   │   ├── examples/     # Manual lifecycle scripts
 │   │   └── README.md     # Deployment guide
-│   └── keycloak/         # Kustomize: Keycloak realm and clients
 ├── lambda/
 │   ├── create-investigation/  # OIDC-authenticated investigation creation
 │   │   ├── handler.py    # Group auth, role creation, task tagging
@@ -162,7 +159,7 @@ rosa-boundary/
 
 | Command | Description |
 |---|---|
-| `login` | Authenticate with Keycloak and cache the OIDC token |
+| `login` | Authenticate via OIDC (RHSSO) and cache the token |
 | `start-task` | Create an investigation and start an ECS task |
 | `join-task <task-id>` | Connect to a running ECS task via ECS Exec |
 | `list-tasks` | List ECS tasks in the cluster |
@@ -193,22 +190,20 @@ rosa-boundary/
 
 ```
 --verbose, -v           Enable verbose/debug output
---keycloak-url          Keycloak base URL
---realm                 Keycloak realm (default: sre-ops)
+--oidc-issuer-url       OIDC issuer URL
 --client-id             OIDC client ID (default: aws-sre-access)
 --region                AWS region (default: us-east-2)
 --ecs-cluster           ECS cluster name (default: rosa-boundary-dev)
 --lambda-function-name  Lambda function name or ARN
 --invoker-role-arn      Lambda invoker role ARN
 --role-arn              SRE role ARN (overrides Lambda response)
---lambda-url            Lambda function URL (HTTP mode)
 ```
 
 ### Configuration Precedence
 
-Flags > environment variables (`ROSA_BOUNDARY_*`) > `~/.rosa-boundary/config.yaml` > defaults
+Flags > environment variables (`ROSA_BOUNDARY_*`) > `~/.config/rosa-boundary/config.yaml` > defaults
 
-Environment variable examples: `ROSA_BOUNDARY_KEYCLOAK_URL`, `ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME`, `ROSA_BOUNDARY_INVOKER_ROLE_ARN`.
+Environment variable examples: `ROSA_BOUNDARY_OIDC_ISSUER_URL`, `ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME`, `ROSA_BOUNDARY_INVOKER_ROLE_ARN`.
 
 ## Building
 

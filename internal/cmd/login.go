@@ -11,8 +11,8 @@ import (
 
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Authenticate with Keycloak and cache the OIDC token",
-	Long: `Perform PKCE authentication with Keycloak.
+	Short: "Authenticate via OIDC and cache the token",
+	Long: `Perform PKCE authentication with the configured OIDC provider.
 
 Opens a browser window for login, starts a local callback server on port 8400,
 and caches the resulting ID token for 4 minutes.
@@ -34,14 +34,12 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	debugf("Keycloak URL: %s", cfg.KeycloakURL)
-	debugf("Realm: %s", cfg.KeycloakRealm)
+	debugf("OIDC issuer: %s", cfg.OIDCIssuerURL)
 	debugf("Client ID: %s", cfg.OIDCClientID)
 
 	pkce := auth.PKCEConfig{
-		KeycloakURL: cfg.KeycloakURL,
-		Realm:       cfg.KeycloakRealm,
-		ClientID:    cfg.OIDCClientID,
+		IssuerURL: cfg.OIDCIssuerURL,
+		ClientID:  cfg.OIDCClientID,
 	}
 
 	token, err := auth.GetToken(cmd.Context(), pkce, loginForce)

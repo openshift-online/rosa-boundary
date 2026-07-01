@@ -22,14 +22,12 @@ Current values are shown in brackets. Press Enter to keep them.
 
 Configuration fields:
 
-  keycloak_url          Base URL of your Keycloak instance (e.g.,
-                        https://keycloak.example.com). Used for OIDC
-                        authentication via the browser-based PKCE flow.
+  oidc_issuer_url       Full OIDC issuer URL (e.g.,
+                        https://sso.redhat.com/auth/realms/redhat-external).
+                        Used for PKCE authentication via the browser flow.
 
-  keycloak_realm        Keycloak realm name. Default: sre-ops.
-
-  oidc_client_id        OIDC client ID registered in Keycloak for this
-                        application. Default: aws-sre-access.
+  oidc_client_id        OIDC client ID registered with the provider.
+                        Default: aws-sre-access.
 
   lambda_function_name  Name of the AWS Lambda function that creates
                         investigation tasks. Must match the function
@@ -92,8 +90,7 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(os.Stderr, "Run 'rosa-boundary configure --help' for details on each configuration field.")
 	fmt.Fprintln(os.Stderr)
 
-	keycloakURL := prompt("Keycloak URL (required)", cfg.KeycloakURL, "")
-	keycloakRealm := prompt("Keycloak realm", cfg.KeycloakRealm, "sre-ops")
+	oidcIssuerURL := prompt("OIDC issuer URL (required)", cfg.OIDCIssuerURL, "")
 	oidcClientID := prompt("OIDC client ID", cfg.OIDCClientID, "aws-sre-access")
 	lambdaFunctionName := prompt("Lambda function name (required)", cfg.LambdaFunctionName, "")
 	invokerRoleARN := prompt("Invoker role ARN (required)", cfg.InvokerRoleARN, "")
@@ -110,19 +107,14 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 
 	entries := []config.ConfigEntry{
 		{
-			Key:     "keycloak_url",
-			Value:   keycloakURL,
-			Comment: "Base URL of the Keycloak instance for OIDC authentication.",
-		},
-		{
-			Key:     "keycloak_realm",
-			Value:   keycloakRealm,
-			Comment: "Keycloak realm name. Default: sre-ops",
+			Key:     "oidc_issuer_url",
+			Value:   oidcIssuerURL,
+			Comment: "Full OIDC issuer URL for PKCE authentication.",
 		},
 		{
 			Key:     "oidc_client_id",
 			Value:   oidcClientID,
-			Comment: "OIDC client ID registered in Keycloak. Default: aws-sre-access",
+			Comment: "OIDC client ID. Default: aws-sre-access",
 		},
 		{
 			Key:     "lambda_function_name",

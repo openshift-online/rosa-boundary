@@ -125,10 +125,9 @@ resource "aws_lambda_function" "create_investigation" {
 
   environment {
     variables = {
-      KEYCLOAK_URL         = regex("^(.+)/realms/", var.keycloak_issuer_url)[0]
-      KEYCLOAK_REALM       = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
-      KEYCLOAK_CLIENT_ID   = var.oidc_client_id
-      OIDC_PROVIDER_ARN    = aws_iam_openid_connect_provider.keycloak.arn
+      OIDC_ISSUER_URL      = var.oidc_issuer_url
+      OIDC_CLIENT_ID       = var.oidc_client_id
+      OIDC_PROVIDER_ARN    = aws_iam_openid_connect_provider.primary.arn
       ECS_CLUSTER          = aws_ecs_cluster.main.name
       TASK_DEFINITION      = aws_ecs_task_definition.rosa_boundary.family
       TASK_ROLE_ARN        = aws_iam_role.task.arn
@@ -144,10 +143,10 @@ resource "aws_lambda_function" "create_investigation" {
       ABAC_TAG_KEY               = var.abac_tag_key
       TASK_TIMEOUT_DEFAULT       = tostring(var.task_timeout_default)
       TASK_TIMEOUT_MINIMUM       = tostring(var.task_timeout_minimum)
-      STAGE_KEYCLOAK_ISSUER_URL  = var.stage_keycloak_issuer_url
-      STAGE_OIDC_CLIENT_ID       = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
-      PROD_KEYCLOAK_ISSUER_URL   = var.prod_keycloak_issuer_url
-      PROD_OIDC_CLIENT_ID        = var.prod_keycloak_issuer_url != "" ? var.prod_oidc_client_id : ""
+      STAGE_OIDC_ISSUER_URL      = var.stage_oidc_issuer_url
+      STAGE_OIDC_CLIENT_ID       = var.stage_oidc_issuer_url != "" ? var.stage_oidc_client_id : ""
+      PROD_OIDC_ISSUER_URL       = var.prod_oidc_issuer_url
+      PROD_OIDC_CLIENT_ID        = var.prod_oidc_issuer_url != "" ? var.prod_oidc_client_id : ""
     }
   }
 

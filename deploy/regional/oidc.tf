@@ -1,36 +1,36 @@
-# AWS IAM OIDC Provider for Keycloak
-resource "aws_iam_openid_connect_provider" "keycloak" {
-  url = var.keycloak_issuer_url
+# AWS IAM OIDC Provider for the primary RHSSO/OIDC identity provider
+resource "aws_iam_openid_connect_provider" "primary" {
+  url = var.oidc_issuer_url
 
   client_id_list = [
     var.oidc_client_id
   ]
 
   thumbprint_list = [
-    var.keycloak_thumbprint
+    var.oidc_thumbprint
   ]
 
   tags = merge(var.tags, {
-    Name = "${var.project}-${var.stage}-keycloak-oidc"
+    Name = "${var.project}-${var.stage}-primary-oidc"
   })
 }
 
 # Optional second OIDC provider (e.g. Red Hat EmployeeIDP stage)
-resource "aws_iam_openid_connect_provider" "stage_keycloak" {
-  count = var.stage_keycloak_issuer_url != "" ? 1 : 0
+resource "aws_iam_openid_connect_provider" "stage" {
+  count = var.stage_oidc_issuer_url != "" ? 1 : 0
 
-  url             = var.stage_keycloak_issuer_url
+  url             = var.stage_oidc_issuer_url
   client_id_list  = [var.stage_oidc_client_id]
-  thumbprint_list = [var.stage_keycloak_thumbprint]
+  thumbprint_list = [var.stage_oidc_thumbprint]
 
   lifecycle {
     precondition {
       condition     = var.stage_oidc_client_id != ""
-      error_message = "stage_oidc_client_id must be set when stage_keycloak_issuer_url is configured."
+      error_message = "stage_oidc_client_id must be set when stage_oidc_issuer_url is configured."
     }
     precondition {
-      condition     = var.stage_keycloak_thumbprint != ""
-      error_message = "stage_keycloak_thumbprint must be set when stage_keycloak_issuer_url is configured."
+      condition     = var.stage_oidc_thumbprint != ""
+      error_message = "stage_oidc_thumbprint must be set when stage_oidc_issuer_url is configured."
     }
   }
 
@@ -40,21 +40,21 @@ resource "aws_iam_openid_connect_provider" "stage_keycloak" {
 }
 
 # Optional third OIDC provider (e.g. Red Hat EmployeeIDP production)
-resource "aws_iam_openid_connect_provider" "prod_keycloak" {
-  count = var.prod_keycloak_issuer_url != "" ? 1 : 0
+resource "aws_iam_openid_connect_provider" "prod" {
+  count = var.prod_oidc_issuer_url != "" ? 1 : 0
 
-  url             = var.prod_keycloak_issuer_url
+  url             = var.prod_oidc_issuer_url
   client_id_list  = [var.prod_oidc_client_id]
-  thumbprint_list = [var.prod_keycloak_thumbprint]
+  thumbprint_list = [var.prod_oidc_thumbprint]
 
   lifecycle {
     precondition {
       condition     = var.prod_oidc_client_id != ""
-      error_message = "prod_oidc_client_id must be set when prod_keycloak_issuer_url is configured."
+      error_message = "prod_oidc_client_id must be set when prod_oidc_issuer_url is configured."
     }
     precondition {
-      condition     = var.prod_keycloak_thumbprint != ""
-      error_message = "prod_keycloak_thumbprint must be set when prod_keycloak_issuer_url is configured."
+      condition     = var.prod_oidc_thumbprint != ""
+      error_message = "prod_oidc_thumbprint must be set when prod_oidc_issuer_url is configured."
     }
   }
 
@@ -66,16 +66,16 @@ resource "aws_iam_openid_connect_provider" "prod_keycloak" {
 locals {
   # Extract OIDC provider domain from ARN for use in trust policy conditions.
   # ARN format: arn:aws:iam::<account>:oidc-provider/<domain>
-  oidc_provider_domain       = split("oidc-provider/", aws_iam_openid_connect_provider.keycloak.arn)[1]
-  stage_oidc_provider_domain = var.stage_keycloak_issuer_url != "" ? split("oidc-provider/", aws_iam_openid_connect_provider.stage_keycloak[0].arn)[1] : ""
-  prod_oidc_provider_domain  = var.prod_keycloak_issuer_url != "" ? split("oidc-provider/", aws_iam_openid_connect_provider.prod_keycloak[0].arn)[1] : ""
+  oidc_provider_domain       = split("oidc-provider/", aws_iam_openid_connect_provider.primary.arn)[1]
+  stage_oidc_provider_domain = var.stage_oidc_issuer_url != "" ? split("oidc-provider/", aws_iam_openid_connect_provider.stage[0].arn)[1] : ""
+  prod_oidc_provider_domain  = var.prod_oidc_issuer_url != "" ? split("oidc-provider/", aws_iam_openid_connect_provider.prod[0].arn)[1] : ""
 }
 
 # Shared SRE IAM role using ABAC (Attribute-Based Access Control).
 #
 # Instead of creating one role per user, all SREs assume this single role.
-# Isolation is enforced via session tags: Keycloak adds the user's preferred
-# username to the JWT under the https://aws.amazon.com/tags claim, which AWS
+# Isolation is enforced via session tags: the OIDC provider adds the user's
+# identity to the JWT under the https://aws.amazon.com/tags claim, which AWS
 # STS automatically processes as session tags during AssumeRoleWithWebIdentity.
 #
 # The permissions policy then uses ${aws:PrincipalTag/username} to match against
@@ -91,7 +91,7 @@ resource "aws_iam_role" "sre_shared" {
       [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.keycloak.arn
+          Federated = aws_iam_openid_connect_provider.primary.arn
         }
         # sts:TagSession is required for session tags from the JWT
         # https://aws.amazon.com/tags claim to propagate.
@@ -105,10 +105,10 @@ resource "aws_iam_role" "sre_shared" {
           }
         }
       }],
-      var.stage_keycloak_issuer_url != "" ? [{
+      var.stage_oidc_issuer_url != "" ? [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.stage_keycloak[0].arn
+          Federated = aws_iam_openid_connect_provider.stage[0].arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",
@@ -120,10 +120,10 @@ resource "aws_iam_role" "sre_shared" {
           }
         }
       }] : [],
-      var.prod_keycloak_issuer_url != "" ? [{
+      var.prod_oidc_issuer_url != "" ? [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.prod_keycloak[0].arn
+          Federated = aws_iam_openid_connect_provider.prod[0].arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",
@@ -164,7 +164,7 @@ resource "aws_iam_role" "sre_shared" {
 #   - Users CANNOT access tasks tagged to other users (username mismatch → deny)
 #   - Users CANNOT access untagged tasks (missing tag fails condition)
 #   - Tag values come from the OIDC JWT, not from user-controlled input
-#   - Keycloak mapper misconfiguration → fail-closed (no tag → deny)
+#   - OIDC mapper misconfiguration → fail-closed (no tag → deny)
 resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
   name = "ecs-exec-abac"
   role = aws_iam_role.sre_shared.id
@@ -191,9 +191,8 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
           StringEquals = {
             # $${...} escapes Terraform interpolation; produces ${aws:PrincipalTag/<key>}
             # in the policy JSON. This resolves dynamically per session from the JWT
-            # session tag set by the Keycloak https://aws.amazon.com/tags mapper.
-            # abac_tag_key must match the principal_tags key in the OIDC JWT
-            # (e.g. "username" for dev Keycloak, "uuid" for Red Hat EmployeeIDP).
+            # session tag set by the OIDC provider's https://aws.amazon.com/tags mapper.
+            # abac_tag_key must match the principal_tags key in the OIDC JWT.
             "ecs:ResourceTag/${var.abac_tag_key}" = "$${aws:PrincipalTag/${var.abac_tag_key}}"
           }
         }

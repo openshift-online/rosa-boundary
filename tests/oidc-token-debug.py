@@ -3,17 +3,16 @@
 OIDC token exchange reproducer for rosa-boundary PKCE clients.
 
 This script performs the full PKCE authorization code flow and shows verbose
-output at the token exchange step so the Keycloak admin can diagnose claim
+output at the token exchange step so the identity team can diagnose claim
 mapper errors.
 
 Usage:
-    KEYCLOAK_URL=https://sso.example.com/auth \
-    KEYCLOAK_REALM=MyRealm \
+    OIDC_ISSUER_URL=https://sso.example.com/auth/realms/MyRealm \
     OIDC_CLIENT_ID=my-client-id \
     python3 tests/oidc-token-debug.py
 
-    # Against dev Keycloak (reads from .env):
-    source .env && OIDC_CLIENT_ID=$OIDC_CLIENT_ID python3 tests/oidc-token-debug.py
+    # Against dev RHSSO (reads from .env):
+    source .env && python3 tests/oidc-token-debug.py
 
 Requirements: Python 3.8+ standard library only (no pip installs needed).
 """
@@ -39,16 +38,20 @@ def _require_env(name: str) -> str:
         sys.exit(1)
     return val
 
-KEYCLOAK_URL   = _require_env("KEYCLOAK_URL")
-REALM          = _require_env("KEYCLOAK_REALM")
+ISSUER         = _require_env("OIDC_ISSUER_URL").rstrip("/")
 CLIENT_ID      = _require_env("OIDC_CLIENT_ID")
 REDIRECT_URI   = "http://localhost:8400/callback"
 CALLBACK_PORT  = 8400
 SCOPES         = "openid profile email"
 
-ISSUER         = f"{KEYCLOAK_URL}/realms/{REALM}"
-AUTH_ENDPOINT  = f"{ISSUER}/protocol/openid-connect/auth"
-TOKEN_ENDPOINT = f"{ISSUER}/protocol/openid-connect/token"
+def _discover_endpoints(issuer: str):
+    import json, urllib.request
+    url = f"{issuer}/.well-known/openid-configuration"
+    with urllib.request.urlopen(url) as resp:
+        doc = json.loads(resp.read())
+    return doc["authorization_endpoint"], doc["token_endpoint"]
+
+AUTH_ENDPOINT, TOKEN_ENDPOINT = _discover_endpoints(ISSUER)
 
 
 # ── PKCE helpers ──────────────────────────────────────────────────────────────
@@ -345,7 +348,7 @@ def main():
     ok = validate_claims(id_claims, access_claims)
 
     print("\n" + "━" * 68)
-    print("Done. Share the output above with the Keycloak admin.")
+    print("Done. Share the output above with the identity team.")
     print("━" * 68)
 
     sys.exit(0 if ok else 1)

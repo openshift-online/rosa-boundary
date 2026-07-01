@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Multi-architecture container for AWS Fargate that provides tools for managing AWS and OpenShift (ROSA) clusters. Part of an **access control pattern** that combines:
 
-- **Identity**: Keycloak (Red Hat build) for OIDC authentication
+- **Identity**: Red Hat SSO (RHSSO) for OIDC authentication
 - **Infrastructure**: ECS Fargate with SSM for ephemeral SRE containers
 
 Designed for ephemeral SRE use with ECS Exec access as the `sre` user. The entrypoint script supports dynamic version selection via environment variables, signal handling for graceful shutdown with S3 backup, and defaults to `sleep infinity`.
@@ -30,7 +30,7 @@ Designed for ephemeral SRE use with ECS Exec access as the `sre` user. The entry
 - If missing from `.env`, prompt the user to add it
 - Never hardcode environment-specific values in tool commands
 
-**Example**: `keycloak_issuer_url` has no default in `variables.tf`, so it must be in `.env` as `KEYCLOAK_ISSUER_URL`.
+**Example**: `oidc_issuer_url` has no default in `variables.tf`, so it must be in `.env` as `OIDC_ISSUER_URL`.
 
 ## Building
 
@@ -70,7 +70,7 @@ make staticcheck    # Static analysis
 
 | Command | Description |
 |---------|-------------|
-| `login` | Authenticate via Keycloak OIDC (PKCE browser flow), cache token |
+| `login` | Authenticate via OIDC (PKCE browser flow), cache token |
 | `create-investigation` | Create EFS access point only (no task); OIDC-authenticated via Lambda |
 | `start-task` | Invoke Lambda to create an investigation task (reuses existing access point if present) |
 | `join-task` | Connect to a running investigation via ECS Exec |
@@ -201,11 +201,6 @@ rosa-boundary/
 │   └── output/                # Terminal output helpers
 ├── skel/sre/.claude/          # Skeleton Claude Code config (CLAUDE.md, settings.json)
 ├── deploy/
-│   ├── keycloak/              # Kustomize config for Keycloak (RHBK) on OpenShift
-│   │   ├── base/              # Namespace and base kustomization
-│   │   ├── components/cnpg/   # CloudNativePG PostgreSQL cluster
-│   │   ├── components/keycloak/ # Keycloak CR and OpenShift Route
-│   │   └── overlays/dev/      # ExternalSecrets, ClusterSecretStore, ServiceAccount
 │   └── regional/              # Terraform for AWS Fargate deployment
 │       ├── Makefile           # Wraps terraform commands, sources .env
 │       ├── *.tf               # main, variables, outputs, s3, iam, efs, ecs, kms, oidc, lambda-create-investigation, lambda-invoker, lambda-reap-tasks
@@ -230,7 +225,6 @@ rosa-boundary/
 └── docs/
     ├── architecture/overview.md
     ├── configuration/aws-iam-policies.md
-    ├── configuration/keycloak-realm-setup.md
     └── runbooks/              # investigation-workflow, troubleshooting, user-access-guide
 ```
 
@@ -275,7 +269,7 @@ Each investigation gets:
 
 Two creation workflows: **Lambda-based** (recommended, OIDC-authenticated, `sre-team` group checked) via `rosa-boundary start-task`, and **manual lifecycle scripts** via `deploy/regional/examples/`. See [`docs/runbooks/investigation-workflow.md`](docs/runbooks/investigation-workflow.md).
 
-**Shared ABAC SRE Role**: All SREs assume a single shared role (`sre_role_arn`). Access is scoped at runtime by ABAC conditions — the role can only exec into tasks whose `username` tag matches the caller's `aws:PrincipalTag/username` session tag (propagated from the Keycloak JWT via STS `TagSession`).
+**Shared ABAC SRE Role**: All SREs assume a single shared role (`sre_role_arn`). Access is scoped at runtime by ABAC conditions — the role can only exec into tasks whose `username` tag matches the caller's `aws:PrincipalTag/username` session tag (propagated from the OIDC JWT via STS `TagSession`).
 
 **ABAC Policy on Shared Role**:
 ```python
@@ -288,23 +282,8 @@ Two creation workflows: **Lambda-based** (recommended, OIDC-authenticated, `sre-
 
 **Tag-Based Authorization**:
 - Tasks tagged with `oidc_sub` (OIDC `sub` claim) and `username` (ABAC key)
-- Session tags from Keycloak JWT enforce `${aws:PrincipalTag/username}` ABAC conditions
+- Session tags from OIDC JWT enforce `${aws:PrincipalTag/username}` ABAC conditions
 - Cross-user task access prevented at IAM policy level without per-user roles
-
-## Keycloak on OpenShift
-
-`deploy/keycloak/` is a **Kustomize** configuration (not Terraform) for deploying Keycloak (RHBK operator) on an OpenShift cluster:
-
-- **CloudNativePG** (PostgreSQL 18.1) for Keycloak state
-- **ExternalSecrets** pulls DB credentials from AWS SSM Parameter Store (`/keycloak/db/*`)
-- **Edge TLS**: OpenShift Router terminates TLS; Keycloak serves HTTP
-- Overlay (`overlays/dev/`) adds ClusterSecretStore, ExternalSecret-based service account, and IRSA-based secret access
-
-```bash
-oc apply -k deploy/keycloak/overlays/dev
-```
-
-For realm and OIDC client configuration, see [`docs/configuration/keycloak-realm-setup.md`](docs/configuration/keycloak-realm-setup.md).
 
 ## LocalStack Integration Testing
 

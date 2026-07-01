@@ -97,19 +97,19 @@ variable "tags" {
   default     = {}
 }
 
-variable "keycloak_issuer_url" {
-  description = "Keycloak OIDC issuer URL (e.g., https://keycloak.example.com/realms/sre-ops)"
+variable "oidc_issuer_url" {
+  description = "Primary OIDC issuer URL (e.g., https://sso.redhat.com/auth/realms/redhat-external)"
   type        = string
 }
 
-variable "keycloak_thumbprint" {
-  description = "SHA1 thumbprint of Keycloak TLS certificate"
+variable "oidc_thumbprint" {
+  description = "SHA1 thumbprint of the primary OIDC provider TLS certificate"
   type        = string
   sensitive   = true
 }
 
 variable "oidc_client_id" {
-  description = "Keycloak client ID for AWS integration"
+  description = "OIDC client ID for AWS integration"
   type        = string
   default     = "aws-sre-access"
 }
@@ -121,18 +121,18 @@ variable "oidc_session_duration" {
 }
 
 variable "abac_tag_key" {
-  description = "ECS task tag key used for ABAC isolation (must match the principal_tags key in the OIDC JWT). Use 'username' for dev Keycloak, 'uuid' for Red Hat EmployeeIDP."
+  description = "ECS task tag key used for ABAC isolation (must match the principal_tags key in the OIDC JWT, e.g. 'username' or 'uuid')."
   type        = string
   default     = "username"
 }
 
-variable "stage_keycloak_issuer_url" {
-  description = "Optional stage OIDC provider issuer URL (e.g. Red Hat EmployeeIDP stage). Leave empty to skip."
+variable "stage_oidc_issuer_url" {
+  description = "Optional stage OIDC provider issuer URL. Leave empty to skip."
   type        = string
   default     = ""
 }
 
-variable "stage_keycloak_thumbprint" {
+variable "stage_oidc_thumbprint" {
   description = "SHA1 thumbprint of the stage OIDC provider TLS certificate."
   type        = string
   default     = ""
@@ -144,13 +144,13 @@ variable "stage_oidc_client_id" {
   default     = ""
 }
 
-variable "prod_keycloak_issuer_url" {
-  description = "Optional production OIDC provider issuer URL (e.g. https://auth.redhat.com/auth/realms/EmployeeIDP). Leave empty to skip."
+variable "prod_oidc_issuer_url" {
+  description = "Optional production OIDC provider issuer URL. Leave empty to skip."
   type        = string
   default     = ""
 }
 
-variable "prod_keycloak_thumbprint" {
+variable "prod_oidc_thumbprint" {
   description = "SHA1 thumbprint of the production OIDC provider TLS certificate."
   type        = string
   default     = ""

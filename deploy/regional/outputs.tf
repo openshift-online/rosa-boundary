@@ -84,8 +84,8 @@ output "ssm_session_log_group" {
 }
 
 output "oidc_provider_arn" {
-  description = "ARN of the Keycloak OIDC provider"
-  value       = aws_iam_openid_connect_provider.keycloak.arn
+  description = "ARN of the primary OIDC provider"
+  value       = aws_iam_openid_connect_provider.primary.arn
 }
 
 output "sre_shared_role_arn" {

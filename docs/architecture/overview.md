@@ -12,9 +12,8 @@ flowchart TB
         CLI["rosa-boundary CLI"]
     end
 
-    subgraph Identity["Identity Layer (OpenShift)"]
-        KC["Keycloak (RHBK)<br/>OIDC Provider"]
-        KCDB["PostgreSQL<br/>(CloudNativePG)"]
+    subgraph Identity["Identity Layer (External)"]
+        KC["Red Hat SSO<br/>(RHSSO)"]
     end
 
     subgraph AWS["AWS Infrastructure"]
@@ -32,11 +31,10 @@ flowchart TB
     end
 
     CLI -->|"1. OIDC Login (PKCE)"| KC
-    KC -.->|stores| KCDB
     KC -->|2. ID Token| CLI
     CLI -->|3. AssumeRoleWithWebIdentity| InvokerRole
     CLI -->|"4. Invoke Lambda (AWS SDK/SigV4)"| Lambda
-    Lambda -->|5. Validate token via JWKS| KC
+    Lambda -->|"5. Validate token (OIDC discovery + JWKS)"| KC
     Lambda -->|6. Create EFS AP + launch task| ECS
     Lambda -->|7. Return shared role ARN + task ARN| CLI
     CLI -->|"8. AssumeRoleWithWebIdentity (session tags from JWT)"| IAM
@@ -55,14 +53,12 @@ flowchart TB
 
 ## Components
 
-### Identity Layer (Keycloak on OpenShift)
+### Identity Layer (Red Hat SSO)
 
-**Keycloak (RHBK v26.4.7)**
-- **Purpose**: Identity provider and OIDC authorization server
-- **Deployment**: Red Hat build of Keycloak on OpenShift
-- **Database**: CloudNativePG PostgreSQL 18.1
-- **Namespace**: `keycloak`
-- **Realm**: `sre-ops`
+**Red Hat SSO (RHSSO)**
+- **Purpose**: External identity provider and OIDC authorization server
+- **Deployment**: Existing RHSSO instance (managed externally)
+- **Discovery**: `{issuer}/.well-known/openid-configuration`
 
 **Responsibilities:**
 - User authentication (username/password, MFA)
@@ -70,11 +66,6 @@ flowchart TB
 - OIDC token issuance (ID token, access token)
 - Claims mapping (sub, email, preferred_username, groups)
 - Session tag propagation via `https://aws.amazon.com/tags` claim mapper
-
-**Key Features:**
-- Protocol mappers for custom claims (including AWS session tags)
-- Integration with external identity providers (LDAP, SAML)
-- Persistent storage via CloudNativePG
 
 ### AWS Infrastructure Layer
 
@@ -85,7 +76,7 @@ flowchart TB
 - **Purpose**: OIDC-authenticated investigation creation
 
 **Responsibilities:**
-- Validate OIDC token from Keycloak (JWKS signature verification)
+- Validate OIDC token (JWKS fetched via OIDC discovery)
 - Check `sre-team` group membership
 - Create or reuse per-investigation EFS access point
 - Register per-investigation task definition with locked EFS mount
@@ -135,17 +126,15 @@ flowchart TB
 
 ## Data Flow Layers
 
-### Layer 1: Authentication (Keycloak)
+### Layer 1: Authentication (RHSSO)
 
 The `rosa-boundary` CLI handles the OIDC PKCE browser flow and caches the token at `~/.cache/rosa-boundary/token-cache`.
 
 ```mermaid
 flowchart LR
-    U[User] -->|1. PKCE Login| KC[Keycloak]
-    KC -->|2. Validate credentials| KCDB[(PostgreSQL)]
-    KCDB -->|3. Return user + groups| KC
-    KC -->|4. Issue ID token| U
-    U -->|5. Cache token| Cache["~/.cache/rosa-boundary/token-cache"]
+    U[User] -->|1. PKCE Login| KC[RHSSO]
+    KC -->|2. Issue ID token| U
+    U -->|3. Cache token| Cache["~/.cache/rosa-boundary/token-cache"]
 ```
 
 **Outputs:**
@@ -162,7 +151,7 @@ flowchart LR
     U[User + Token] -->|1. AssumeRoleWithWebIdentity| InvokerRole[Invoker Role]
     InvokerRole -->|2. Temporary credentials| U
     U -->|"3. Invoke Lambda via SDK (SigV4)"| Lambda[Lambda Function]
-    Lambda -->|4. Validate token via JWKS| KC[Keycloak JWKS]
+    Lambda -->|"4. Validate token (OIDC discovery + JWKS)"| KC[RHSSO]
     KC -->|5. Public key| Lambda
     Lambda -->|6. Check sre-team membership| Lambda
     Lambda -->|7. Create EFS AP + task def + launch task| ECS[ECS]
@@ -200,7 +189,7 @@ The CLI replaces its own process with `session-manager-plugin` via `syscall.Exec
 
 ### Access Control Principles
 
-1. **Verify Identity**: All users authenticate via Keycloak OIDC (no shared credentials)
+1. **Verify Identity**: All users authenticate via RHSSO OIDC (no shared credentials)
 2. **Least Privilege**: Lambda validates group membership; shared ABAC role enforces per-user task isolation via session tags — no per-user IAM roles required
 3. **Assume Breach**: Sessions are ephemeral, isolated per-investigation with audit logs
 4. **Explicit Authorization**: Lambda validates group membership before creating investigation
@@ -209,11 +198,11 @@ The CLI replaces its own process with `session-manager-plugin` via `syscall.Exec
 ### Authentication Chain
 
 ```
-User Credentials → Keycloak MFA → OIDC Token → Assume Invoker Role → Lambda Validation → Assume Shared ABAC SRE Role (session tags) → ECS Exec (ABAC enforced) → Container
+User Credentials → RHSSO MFA → OIDC Token → Assume Invoker Role → Lambda Validation → Assume Shared ABAC SRE Role (session tags) → ECS Exec (ABAC enforced) → Container
 ```
 
 Every step requires valid credentials/tokens:
-- Keycloak validates username/password/MFA
+- RHSSO validates username/password/MFA
 - CLI assumes invoker role via `AssumeRoleWithWebIdentity` (gates Lambda access)
 - Lambda validates OIDC token signature and claims
 - Lambda checks `sre-team` group membership
@@ -226,7 +215,7 @@ Every step requires valid credentials/tokens:
 
 All SREs assume a single shared role (`sre_role_arn`). Cross-user isolation is enforced at the AWS API layer via Attribute-Based Access Control (ABAC):
 
-- **Session tags**: Keycloak propagates `username` via the `https://aws.amazon.com/tags` claim mapper. AWS STS automatically converts this to a session tag during `AssumeRoleWithWebIdentity`.
+- **Session tags**: RHSSO propagates `username` via the `https://aws.amazon.com/tags` claim mapper. AWS STS automatically converts this to a session tag during `AssumeRoleWithWebIdentity`.
 - **Task tags**: The create-investigation Lambda tags each task with `username` (the SRE's `preferred_username`).
 - **ABAC condition**: The shared role's permissions policy requires `ecs:ResourceTag/username == ${aws:PrincipalTag/username}`.
 
@@ -251,7 +240,7 @@ The reaper Lambda provides tamper-proof enforcement of task deadlines:
 
 Every access attempt generates logs in multiple locations:
 
-1. **Keycloak**: Authentication events, login attempts, token issuance
+1. **RHSSO**: Authentication events, login attempts, token issuance
 2. **AWS CloudWatch Logs**: Lambda invocations, SSM session I/O, ECS Exec commands, container stdout/stderr
 3. **AWS CloudTrail**: API calls (ECS, IAM, Lambda invocations)
 
@@ -265,12 +254,7 @@ Additional artifacts:
 flowchart TB
     subgraph Internet["Internet"]
         User["User Workstation<br/>(rosa-boundary CLI)"]
-    end
-
-    subgraph OpenShift["OpenShift Cluster"]
-        KC["Keycloak Pod<br/>:8080"]
-        KCDB["PostgreSQL Pod<br/>:5432"]
-        Route["OpenShift Route<br/>TLS Edge"]
+        RHSSO["Red Hat SSO<br/>(RHSSO)"]
     end
 
     subgraph AWS["AWS VPC"]
@@ -290,12 +274,10 @@ flowchart TB
         SSM["SSM API<br/>(regional endpoint)"]
     end
 
-    User -->|"HTTPS (PKCE)"| Route
+    User -->|"HTTPS (PKCE)"| RHSSO
     User -->|"AWS SDK (SigV4)"| Lambda
     User -->|AWS API| SSM
-    Route -->|HTTP| KC
-    KC -->|TCP 5432| KCDB
-    Lambda -->|"Validate token (JWKS)"| Route
+    Lambda -->|"Validate token (OIDC discovery + JWKS)"| RHSSO
     EventBridge -->|schedule| Reaper
     Reaper -->|ecs:StopTask| Fargate1
     Reaper -->|ecs:StopTask| Fargate2
@@ -308,12 +290,11 @@ flowchart TB
     SSM -->|WebSocket| Fargate1
     SSM -->|WebSocket| Fargate2
 
-    style OpenShift fill:#e3f2fd
     style AWS fill:#fce4ec
 ```
 
 **Network Isolation:**
-- Keycloak: OpenShift Routes with edge TLS, internal ClusterIP services
+- RHSSO: External HTTPS endpoint; Lambda fetches JWKS via OIDC discovery
 - Lambda: Invoked via AWS SDK (`lambda:InvokeFunction`), gated by IAM invoker role
 - Fargate: No ingress, SSM provides egress-only access via AWS PrivateLink
 
@@ -330,7 +311,7 @@ Investigation inv-123 for cluster rosa-prod-01
 │   ├── Environment: INVESTIGATION_ID=inv-123
 │   └── Environment: OC_VERSION=4.20
 ├── Shared ABAC SRE Role: rosa-boundary-dev-sre-shared
-│   ├── Session tag: username=sre-user (from Keycloak JWT)
+│   ├── Session tag: username=sre-user (from RHSSO JWT)
 │   └── ABAC condition: ecs:ResourceTag/username == ${aws:PrincipalTag/username}
 ├── Task Tags: username=sre-user, oidc_sub=<uuid>, deadline=<ISO8601>
 │   └── deadline enforced by Reaper Lambda (tamper-proof)
@@ -350,11 +331,10 @@ Investigation inv-123 for cluster rosa-prod-01
 graph TB
     subgraph config["Configuration Layer"]
         TF[Terraform]
-        KC_CR[KeycloakRealmImport CR]
     end
 
     subgraph runtime["Runtime Layer"]
-        KC_RT[Keycloak Runtime]
+        KC_RT[RHSSO]
         Lambda_RT[Lambda: create-investigation]
         Reaper_RT[Lambda: reap-tasks]
         EventBridge_RT[EventBridge Schedule]
@@ -374,11 +354,10 @@ graph TB
     TF -->|provisions Reaper| Reaper_RT
     TF -->|provisions EventBridge| EventBridge_RT
     TF -->|provisions ECS| ECS_RT
-    KC_CR -->|configures| KC_RT
 
     LOGIN -->|PKCE token from| KC_RT
     START -->|assumes invoker role, invokes| Lambda_RT
-    Lambda_RT -->|validates token with| KC_RT
+    Lambda_RT -->|"validates token (OIDC discovery + JWKS)"| KC_RT
     Lambda_RT -->|creates EFS AP + task def + launches task in| ECS_RT
     START -->|assumes shared ABAC SRE role, connects to| ECS_RT
     JOIN -->|ECS Exec into| ECS_RT
@@ -397,9 +376,7 @@ graph TB
 
 | Layer | Component | Version | Purpose |
 |-------|-----------|---------|---------|
-| **Identity** | Keycloak | 26.4.7 (RHBK) | OIDC authentication |
-| | PostgreSQL | 18.1 (CNPG) | Keycloak database |
-| | OpenShift | 4.x (ROSA) | Kubernetes platform |
+| **Identity** | Red Hat SSO (RHSSO) | — | OIDC authentication (external) |
 | **Infrastructure** | AWS Lambda | Python 3.11 | Investigation creation & authorization |
 | | AWS Lambda | Python 3.11 | Task timeout enforcement (Reaper) |
 | | IAM | — | Shared ABAC role with session-tag policies |

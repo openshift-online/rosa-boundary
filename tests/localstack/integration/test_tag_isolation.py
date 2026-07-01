@@ -5,7 +5,7 @@ to match against ecs:ResourceTag/username on ECS tasks. This ensures each user
 can only exec into tasks tagged with their own username (preferred_username).
 
 Session tags flow:
-  Keycloak JWT → https://aws.amazon.com/tags claim → AssumeRoleWithWebIdentity
+  OIDC JWT → https://aws.amazon.com/tags claim → AssumeRoleWithWebIdentity
   → AWS session tags → PrincipalTag/username in IAM conditions
 """
 
@@ -440,7 +440,7 @@ def test_cross_user_isolation_via_policy_simulation(iam_client):
         "Alice must NOT be allowed to exec into Bob's task (username tag mismatch)"
     )
 
-    # Simulate missing session tag (no PrincipalTag/username — e.g. broken Keycloak mapper)
+    # Simulate missing session tag (no PrincipalTag/username — e.g. broken OIDC claim mapper)
     no_session_tag_context = [
         {'ContextKeyName': 'ecs:ResourceTag/username', 'ContextKeyValues': ['alice'], 'ContextKeyType': 'string'},
         # aws:PrincipalTag/username intentionally absent

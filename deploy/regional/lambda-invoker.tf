@@ -1,6 +1,6 @@
 # IAM role for Lambda function URL invocation via OIDC federation.
 #
-# SREs assume this role using AssumeRoleWithWebIdentity with their Keycloak OIDC
+# SREs assume this role using AssumeRoleWithWebIdentity with their RHSSO OIDC
 # token to obtain SigV4 credentials for calling the create-investigation Lambda URL.
 #
 # This provides a first authentication layer (AWS IAM/SigV4) before the Lambda
@@ -16,7 +16,7 @@ resource "aws_iam_role" "lambda_invoker" {
       [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.keycloak.arn
+          Federated = aws_iam_openid_connect_provider.primary.arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",
@@ -28,10 +28,10 @@ resource "aws_iam_role" "lambda_invoker" {
           }
         }
       }],
-      var.stage_keycloak_issuer_url != "" ? [{
+      var.stage_oidc_issuer_url != "" ? [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.stage_keycloak[0].arn
+          Federated = aws_iam_openid_connect_provider.stage[0].arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",
@@ -43,10 +43,10 @@ resource "aws_iam_role" "lambda_invoker" {
           }
         }
       }] : [],
-      var.prod_keycloak_issuer_url != "" ? [{
+      var.prod_oidc_issuer_url != "" ? [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.prod_keycloak[0].arn
+          Federated = aws_iam_openid_connect_provider.prod[0].arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",

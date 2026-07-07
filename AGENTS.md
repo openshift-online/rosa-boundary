@@ -239,10 +239,10 @@ rosa-boundary/
 │   ├── .bash_profile          # Profile sourcing
 │   ├── .inputrc               # Bracketed paste
 │   ├── .bashrc.d/             # Modular shell configuration
-│   └── .claude/               # Claude Code config (CLAUDE.md, settings.json)
-├── utils/
-│   ├── dockerfile_assets/     # Build helpers (platform_convert, github_dl)
-│   └── sre-login              # Cluster login script
+│   ├── .claude/               # Claude Code config (CLAUDE.md, settings.json)
+│   └── .local/bin/            # User-local scripts (sre-login, etc.)
+├── build/                     # Containerfile build helpers (platform_convert, github_dl)
+│                              # Per Go standard project layout: packaging and CI
 ├── deploy/
 │   ├── keycloak/              # Kustomize config for Keycloak (RHBK) on OpenShift
 │   └── regional/              # Terraform for AWS Fargate deployment

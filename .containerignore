@@ -1,0 +1,50 @@
+# Build context exclusions for rosa-boundary container image.
+# Keep the build context minimal — only files needed by the Containerfile.
+
+# Version control
+.git/
+
+# Tests (not needed in container)
+tests/
+
+# Lambda functions (deployed separately via Terraform)
+lambda/
+
+# Terraform and deployment configs
+deploy/
+*.tf
+*.tfstate*
+.terraform/
+
+# Documentation
+docs/
+*.md
+!skel/**/*.md
+
+# Go CLI source (built separately, not part of container image)
+cmd/
+internal/
+go.mod
+go.sum
+bin/
+
+# Python virtual environments
+.venv/
+__pycache__/
+
+# CI/CD configuration
+.github/
+.tekton/
+.pre-commit-config.yaml
+
+# Security findings
+adversary-findings.*
+
+# Editor and tool configs
+.claude/worktrees/
+.env
+.env.example
+renovate.json
+
+# Scripts (not part of container image)
+scripts/

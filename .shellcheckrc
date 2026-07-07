@@ -1,0 +1,9 @@
+# ShellCheck configuration for rosa-boundary
+# https://www.shellcheck.net/wiki/
+
+# Default shell for scripts without a shebang
+shell=bash
+
+# SC2034: variable appears unused — many variables are consumed by sourcing scripts
+# (e.g., bashrc.d files export variables used by other bashrc.d files)
+disable=SC2034

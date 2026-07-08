@@ -69,3 +69,21 @@ STUB
     run source "${BASHRC_FILE}"
     assert_output --partial "Cluster access verified via kube-proxy sidecar"
 }
+
+@test "26-sre-login: warns when proxy connectivity fails" {
+    export CLUSTER_ID="test-cluster"
+    export CLUSTER_AUTH_METHOD="proxy"
+    unset SKIP_CLUSTER_LOGIN
+    cat > "${STUBS_DIR}/oc" <<'STUB'
+#!/bin/bash
+case "$1" in
+    config) exit 1 ;;
+    version) exit 0 ;;
+    get) exit 1 ;;
+esac
+STUB
+    chmod +x "${STUBS_DIR}/oc"
+    run source "${BASHRC_FILE}"
+    assert_output --partial "kube-proxy sidecar not responding"
+    assert_file_exists "${HOME}/.session/sre-login-attempted"
+}

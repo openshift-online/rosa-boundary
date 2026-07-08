@@ -66,7 +66,7 @@ def get_url_with_authentication(url, token=None, additional_headers=None, retry=
     if additional_headers:
         headers.update(additional_headers)
 
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=120)
 
     if response.status_code == 200:
         return response
@@ -84,7 +84,11 @@ def get_url_with_authentication(url, token=None, additional_headers=None, retry=
 
 def list_assets(url, token=None) -> list:
     """List release assets from a GitHub Releases API URL."""
-    content = get_url_with_authentication(url, token).json()
+    response = get_url_with_authentication(url, token)
+    if response is None:
+        print(f"Failed to fetch content from {url}")
+        return []
+    content = response.json()
     if not content:
         print(f"Failed to fetch content from {url}")
         return []

@@ -5,6 +5,9 @@
 #   backplane (default): runs sre-login to call ocm backplane login
 #   proxy: verifies kube-proxy sidecar connectivity (no login needed)
 #
+# SKIP_CLUSTER_LOGIN: set to any value to disable auto-login entirely.
+#   Useful when debugging or when login is handled externally.
+#
 # Only attempts login once per session via a sentinel file to prevent
 # repeated attempts in terminal multiplexer panes.
 

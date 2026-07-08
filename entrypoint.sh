@@ -1,9 +1,8 @@
 #!/bin/bash
 # entrypoint.sh — rosa-boundary container initialization and lifecycle.
 #
-# Runs as root at container start to perform privileged setup (alternatives,
-# kubeconfig generation). ECS Exec sessions connect as the sre user via a
-# separate process that inherits the Containerfile ENV HOME=/home/sre.
+# Runs as the sre user (UID 1000) via the Containerfile USER directive.
+# The one privileged operation (alternatives --set) uses sudo.
 #
 # Supports two modes:
 #   Interactive (default): CMD is "sleep infinity", container waits for ECS Exec
@@ -14,14 +13,10 @@
 
 # ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-# Override HOME for root entrypoint so root operations (alternatives, aws s3
-# sync) don't create root-owned files under /home/sre (EFS). ECS Exec sessions
-# inherit the container-level ENV HOME=/home/sre from the Containerfile, not
-# this export, since they start as a separate process.
 # Defaults can be overridden in tests
-ENTRYPOINT_HOME="${ENTRYPOINT_HOME:-/root}"
 SRE_HOME="${SRE_HOME:-/home/sre}"
 SKEL_DIR="${SKEL_DIR:-/etc/skel-sre}"
+OC_BASE_DIR="${OC_BASE_DIR:-/opt/openshift}"
 
 # ─── S3 AUDIT SYNC ──────────────────────────────────────────────────────────
 
@@ -72,13 +67,15 @@ cleanup() {
 
 # Switch the active OC CLI version via the alternatives system.
 # OC_VERSION is set per-investigation by the Lambda (e.g., "4.18").
+# Uses sudo because alternatives requires root; the sre user has NOPASSWD sudo.
+# OC_BASE_DIR is configurable for testing.
 switch_oc_version() {
     if [ -z "${OC_VERSION}" ]; then
         return
     fi
 
-    if [ -x "/opt/openshift/${OC_VERSION}/oc" ]; then
-        alternatives --set oc "/opt/openshift/${OC_VERSION}/oc"
+    if [ -x "${OC_BASE_DIR}/${OC_VERSION}/oc" ]; then
+        sudo alternatives --set oc "${OC_BASE_DIR}/${OC_VERSION}/oc"
     else
         echo "Warning: OC version ${OC_VERSION} not found, using default" >&2
     fi
@@ -89,6 +86,7 @@ switch_oc_version() {
 # Generate a kubeconfig pointing at the kube-proxy sidecar when
 # KUBE_PROXY_PORT is set. The sidecar runs `oc proxy` with a cluster
 # kubeconfig injected from Secrets Manager.
+# Entrypoint runs as sre, so no chown needed.
 configure_kube_proxy() {
     if [ -z "${KUBE_PROXY_PORT}" ]; then
         return
@@ -108,7 +106,6 @@ contexts:
   name: investigation
 current-context: investigation
 KUBECONFIG
-    chown sre:sre "${SRE_HOME}/.kube" "${SRE_HOME}/.kube/config"
     echo "Configured oc/kubectl to use proxy at localhost:${KUBE_PROXY_PORT}"
 }
 
@@ -116,10 +113,10 @@ KUBECONFIG
 
 # Copy skeleton config from /etc/skel-sre/ to /home/sre/ on first run.
 # Uses --no-clobber so existing files are preserved on subsequent runs.
-# Runs as the sre user so files have correct ownership without chown -R.
+# Entrypoint runs as sre, so files have correct ownership without chown.
 initialize_home() {
     if [ -d "${SKEL_DIR}" ]; then
-        runuser --user sre -- cp --recursive --no-clobber "${SKEL_DIR}/." "${SRE_HOME}/"
+        cp --recursive --no-clobber "${SKEL_DIR}/." "${SRE_HOME}/"
     fi
 }
 
@@ -207,11 +204,10 @@ do_cluster_login() {
 
 main() {
     set -e
-    export HOME="${ENTRYPOINT_HOME}"
 
     trap cleanup SIGTERM SIGINT SIGHUP
 
-    # Privileged setup (runs as root)
+    # Setup (runs as sre user; sudo used where root is needed)
     switch_oc_version
     configure_kube_proxy
     initialize_home
@@ -227,15 +223,16 @@ main() {
 
     # Run the command in the background and wait for it. Cannot use exec
     # because it replaces the shell process and traps would not fire.
-    # Note: entrypoint runs as root for alternatives --set; ECS Exec sessions
-    # connect as the sre user via the CLI's "runuser -u sre -- bash" command.
     "${@:-sleep infinity}" &
     CHILD_PID=$!
-    wait ${CHILD_PID}
-    EXIT_CODE=$?
+
+    # Capture exit code without triggering set -e on nonzero status.
+    # This ensures sync_to_s3 always runs, even if the command fails.
+    wait ${CHILD_PID} || EXIT_CODE=$?
+    EXIT_CODE="${EXIT_CODE:-0}"
 
     sync_to_s3
-    exit ${EXIT_CODE}
+    exit "${EXIT_CODE}"
 }
 
 # Guard: allow sourcing for bats tests without triggering execution.

@@ -11,7 +11,6 @@ load helpers/stubs
 ENTRYPOINT="${REPO_ROOT}/entrypoint.sh"
 
 setup() {
-    # Create isolated temp directory for this test run
     TEST_TMPDIR="$(mktemp --directory)"
     export TEST_TMPDIR
     STUBS_DIR="${TEST_TMPDIR}/stubs"
@@ -23,8 +22,15 @@ setup() {
     # Override entrypoint constants to use test directories
     export SRE_HOME="${HOME}"
     export SKEL_DIR="${TEST_TMPDIR}/skel-sre"
-    export ENTRYPOINT_HOME="${TEST_TMPDIR}/root"
-    mkdir --parents "${SKEL_DIR}" "${ENTRYPOINT_HOME}"
+    export OC_BASE_DIR="${TEST_TMPDIR}/openshift"
+    mkdir --parents "${SKEL_DIR}"
+
+    # Stub sudo to just run the command (no root in tests)
+    cat > "${STUBS_DIR}/sudo" <<'STUB'
+#!/bin/bash
+"$@"
+STUB
+    chmod +x "${STUBS_DIR}/sudo"
 
     # Source entrypoint without executing main
     source "${ENTRYPOINT}"
@@ -45,16 +51,15 @@ teardown() {
 
 @test "switch_oc_version: calls alternatives --set when version binary exists" {
     export OC_VERSION="4.18"
-    # Create a fake oc binary
-    mkdir --parents /tmp/bats-oc-test/openshift/4.18
-    touch /tmp/bats-oc-test/openshift/4.18/oc
-    chmod +x /tmp/bats-oc-test/openshift/4.18/oc
+    mkdir --parents "${OC_BASE_DIR}/4.18"
+    touch "${OC_BASE_DIR}/4.18/oc"
+    chmod +x "${OC_BASE_DIR}/4.18/oc"
 
-    create_capturing_stub alternatives
-    # Override the path check to use our temp dir
-    switch_oc_version 2>/dev/null || true
+    create_capturing_stub alternatives 0
+    switch_oc_version
 
-    rm --recursive --force /tmp/bats-oc-test
+    run stub_args alternatives
+    assert_output "--set oc ${OC_BASE_DIR}/4.18/oc"
 }
 
 @test "switch_oc_version: warns when version binary does not exist" {
@@ -73,8 +78,6 @@ teardown() {
 
 @test "configure_kube_proxy: generates kubeconfig when KUBE_PROXY_PORT is set" {
     export KUBE_PROXY_PORT="8001"
-    # Stub chown since we don't have the sre user in tests
-    create_stub chown
     configure_kube_proxy
     assert_file_exists "${HOME}/.kube/config"
     run cat "${HOME}/.kube/config"
@@ -86,17 +89,8 @@ teardown() {
 # ── initialize_home ──────────────────────────────────────────────────────────
 
 @test "initialize_home: copies skel when SKEL_DIR exists" {
-    # SKEL_DIR is set to TEST_TMPDIR/skel-sre in setup
     mkdir --parents "${SKEL_DIR}/.bashrc.d"
     echo "test-content" > "${SKEL_DIR}/test-file"
-
-    # Stub runuser to just run cp directly (no sre user in tests)
-    cat > "${STUBS_DIR}/runuser" <<STUB
-#!/bin/bash
-shift 3
-"\$@"
-STUB
-    chmod +x "${STUBS_DIR}/runuser"
 
     initialize_home
 
@@ -133,6 +127,40 @@ STUB
     unset AWS_REGION
     configure_bedrock
     assert [ -z "${AWS_REGION:-}" ]
+}
+
+# ── sync_to_s3 ──────────────────────────────────────────────────────────────
+
+@test "sync_to_s3: auto-generates S3 path from structured vars" {
+    export S3_AUDIT_BUCKET="my-bucket"
+    export CLUSTER_ID="cluster-01"
+    export INVESTIGATION_ID="inv-001"
+    unset S3_AUDIT_ESCROW
+    unset ECS_CONTAINER_METADATA_URI_V4
+
+    create_capturing_stub aws 0
+    create_capturing_stub timeout 0
+
+    sync_to_s3
+
+    # S3_AUDIT_ESCROW should have been auto-generated
+    [[ "${S3_AUDIT_ESCROW}" == s3://my-bucket/cluster-01/inv-001/* ]]
+}
+
+@test "sync_to_s3: uses --no-follow-symlinks" {
+    export S3_AUDIT_ESCROW="s3://test-bucket/path/"
+    create_capturing_stub timeout 0
+
+    sync_to_s3
+
+    run stub_args timeout
+    assert_output --partial "--no-follow-symlinks"
+}
+
+@test "sync_to_s3: warns when audit not configured" {
+    unset S3_AUDIT_ESCROW S3_AUDIT_BUCKET CLUSTER_ID INVESTIGATION_ID
+    run sync_to_s3
+    assert_output --partial "Warning: S3 audit not configured"
 }
 
 # ── warn_audit_config ────────────────────────────────────────────────────────

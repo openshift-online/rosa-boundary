@@ -15,6 +15,12 @@
 get_cluster_json() {
     local ocmjson total
 
+    # Validate cluster argument: allow alphanumeric, hyphens, underscores, dots
+    if ! [[ "${1}" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        echo "Invalid cluster identifier: \"${1}\"" >&2
+        return 1
+    fi
+
     # Try by name
     ocmjson=$(ocm get clusters --parameter search="name='${1}'")
     total=$(jq --raw-output ".total" <<<"${ocmjson}")
@@ -76,19 +82,17 @@ sre_login_main() {
 
     echo "Logging into cluster ${1}"
 
-    local clusterjson cluster_id rc
+    local clusterjson cluster_id
     clusterjson=$(get_cluster_json "${1}")
     cluster_id=$(jq --raw-output '.id' <<<"${clusterjson}")
 
-    ocm backplane login "${cluster_id}"
-    rc=$?
-
-    # Clear the sentinel on success so future shells auto-login
-    if [ "${rc}" -eq 0 ]; then
+    # Login and clear sentinel on success. Use explicit if/else instead of
+    # rc=$? which is dead code under set -e (failure exits before rc is set).
+    if ocm backplane login "${cluster_id}"; then
         rm --force "${HOME}/.session/sre-login-attempted"
+    else
+        exit 1
     fi
-
-    exit "${rc}"
 }
 
 # Guard: allow sourcing for tests without executing

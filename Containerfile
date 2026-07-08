@@ -350,11 +350,14 @@ RUN chmod +x /etc/skel-sre/.local/bin/sre-login
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # ── Environment ─────────────────────────────────────────────────────────────
-# HOME: set for ECS Exec sessions (sre user). The entrypoint overrides this
-#   to /root for its own process so root operations don't write to EFS.
 # EDITOR: system-wide default editor for interactive use.
 ENV HOME=/home/sre
 ENV EDITOR=vim
+
+# ── Non-Root User ──────────────────────────────────────────────────────────
+# Run the entrypoint and PID 1 as the sre user (UID 1000) for least privilege.
+# The one privileged operation (alternatives --set) uses sudo via NOPASSWD.
+USER sre
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["sleep", "infinity"]

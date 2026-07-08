@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{PROJECT_NAME}} — Groundwork + Security Report</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-alt: #f8f9fa;
+  --bg-sidebar: #1a1a2e;
+  --text: #212529;
+  --text-muted: #6c757d;
+  --text-sidebar: #e0e0e0;
+  --text-sidebar-active: #ffffff;
+  --border: #dee2e6;
+  --accent: #4361ee;
+  --accent-hover: #3a56d4;
+  --critical: #dc3545;
+  --critical-bg: #f8d7da;
+  --high: #fd7e14;
+  --high-bg: #fff3cd;
+  --medium: #ffc107;
+  --medium-bg: #fff9e6;
+  --low: #0dcaf0;
+  --low-bg: #d1ecf1;
+  --pass: #198754;
+  --pass-bg: #d1e7dd;
+  --code-bg: #f4f4f5;
+  --shadow: rgba(0,0,0,0.08);
+  --sidebar-width: 260px;
+}
+
+[data-theme="dark"] {
+  --bg: #1a1a2e;
+  --bg-alt: #16213e;
+  --bg-sidebar: #0f0f23;
+  --text: #e0e0e0;
+  --text-muted: #9ca3af;
+  --text-sidebar: #9ca3af;
+  --text-sidebar-active: #ffffff;
+  --border: #374151;
+  --accent: #6d83f2;
+  --accent-hover: #8b9cf5;
+  --critical: #f87171;
+  --critical-bg: #450a0a;
+  --high: #fb923c;
+  --high-bg: #451a03;
+  --medium: #fbbf24;
+  --medium-bg: #422006;
+  --low: #22d3ee;
+  --low-bg: #083344;
+  --pass: #4ade80;
+  --pass-bg: #052e16;
+  --code-bg: #0f0f23;
+  --shadow: rgba(0,0,0,0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-sidebar);
+  overflow-y: auto;
+  padding: 1.5rem 0;
+  z-index: 100;
+}
+
+.sidebar-header {
+  padding: 0 1.25rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-header h2 {
+  color: var(--text-sidebar-active);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.sidebar-header .scan-date {
+  color: var(--text-sidebar);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.sidebar nav a {
+  display: block;
+  padding: 0.4rem 1.25rem;
+  color: var(--text-sidebar);
+  text-decoration: none;
+  font-size: 0.82rem;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+
+.sidebar nav a:hover {
+  color: var(--text-sidebar-active);
+  background: rgba(255,255,255,0.05);
+}
+
+.sidebar nav a.active {
+  color: var(--text-sidebar-active);
+  border-left-color: var(--accent);
+  background: rgba(255,255,255,0.08);
+  font-weight: 500;
+}
+
+.sidebar nav .nav-group {
+  margin-top: 0.75rem;
+  padding: 0 1.25rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* Main content */
+.main {
+  margin-left: var(--sidebar-width);
+  padding: 2rem 3rem;
+  max-width: 960px;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar .controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.search-box {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
+  width: 220px;
+}
+
+.theme-toggle {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+/* Severity filters */
+.severity-filters {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.sev-btn {
+  padding: 0.3rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 1;
+  transition: opacity 0.15s;
+}
+
+.sev-btn.off { opacity: 0.35; }
+.sev-btn[data-sev="critical"] { background: var(--critical-bg); color: var(--critical); }
+.sev-btn[data-sev="high"] { background: var(--high-bg); color: var(--high); }
+.sev-btn[data-sev="medium"] { background: var(--medium-bg); color: var(--medium); }
+.sev-btn[data-sev="low"] { background: var(--low-bg); color: var(--low); }
+
+/* Sections */
+.section {
+  margin-bottom: 2.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.75rem 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 1rem;
+  user-select: none;
+}
+
+.section-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  flex: 1;
+}
+
+.section-header .collapse-icon {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  transition: transform 0.2s;
+}
+
+.section-header.collapsed .collapse-icon {
+  transform: rotate(-90deg);
+}
+
+.section-body {
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.section-body.collapsed {
+  max-height: 0 !important;
+  overflow: hidden;
+}
+
+/* Summary cards */
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-card {
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.summary-card .value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.summary-card .label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-critical { background: var(--critical-bg); color: var(--critical); }
+.badge-high { background: var(--high-bg); color: var(--high); }
+.badge-medium { background: var(--medium-bg); color: var(--medium); }
+.badge-low { background: var(--low-bg); color: var(--low); }
+.badge-pass { background: var(--pass-bg); color: var(--pass); }
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.85rem;
+}
+
+th, td {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+th {
+  background: var(--bg-alt);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+tr:hover { background: var(--bg-alt); }
+
+/* Code blocks */
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  position: relative;
+  margin: 0.75rem 0;
+}
+
+code {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.85em;
+}
+
+pre code { font-size: inherit; }
+
+.copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+pre:hover .copy-btn { opacity: 1; }
+
+/* Findings */
+.finding {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  border-left: 4px solid var(--border);
+}
+
+.finding[data-severity="critical"] { border-left-color: var(--critical); }
+.finding[data-severity="high"] { border-left-color: var(--high); }
+.finding[data-severity="medium"] { border-left-color: var(--medium); }
+.finding[data-severity="low"] { border-left-color: var(--low); }
+
+.finding-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.finding-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.finding-meta {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.finding-meta span { margin-right: 1.5rem; }
+
+/* Coverage bar */
+.coverage-bar {
+  height: 8px;
+  background: var(--bg-alt);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.25rem 0;
+}
+
+.coverage-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.coverage-fill.good { background: var(--pass); }
+.coverage-fill.warn { background: var(--medium); }
+.coverage-fill.bad { background: var(--critical); }
+
+/* Risk indicator */
+.risk-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.risk-critical { background: var(--critical-bg); color: var(--critical); }
+.risk-high { background: var(--high-bg); color: var(--high); }
+.risk-medium { background: var(--medium-bg); color: var(--medium); }
+.risk-low { background: var(--low-bg); color: var(--low); }
+.risk-clean { background: var(--pass-bg); color: var(--pass); }
+
+/* Print styles */
+@media print {
+  .sidebar { display: none; }
+  .main { margin-left: 0; max-width: 100%; }
+  .topbar .controls { display: none; }
+  .section-body { max-height: none !important; }
+  .finding { break-inside: avoid; }
+  .copy-btn { display: none; }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 1rem; }
+  .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  .search-box { width: 150px; }
+}
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-header">
+    <h2>{{PROJECT_NAME}}</h2>
+    <div class="scan-date">{{SCAN_DATE}}</div>
+  </div>
+  <nav>
+    <a href="#executive-summary">Executive Summary</a>
+
+    <div class="nav-group">Groundwork Analysis</div>
+    <a href="#architecture">Architecture Overview</a>
+    <a href="#code-patterns">Code Patterns</a>
+    <a href="#api-surface">API Surface</a>
+    <a href="#data-models">Data Models</a>
+    <a href="#dependency-analysis">Dependency Analysis</a>
+    <a href="#devops">DevOps &amp; Infrastructure</a>
+    <a href="#git-health">Git &amp; Repository Health</a>
+
+    <div class="nav-group">Security Analysis</div>
+    <a href="#security-findings">Security Findings</a>
+    <a href="#supply-chain">Supply Chain Analysis</a>
+    <a href="#adversarial">Adversarial Analysis</a>
+
+    <div class="nav-group">Correlation</div>
+    <a href="#doc-correlation">Documentation Correlation</a>
+    <a href="#cross-project">Cross-Project Overlap</a>
+
+    <div class="nav-group">Summary</div>
+    <a href="#remediation">Remediation Summary</a>
+    <a href="#verification">Verification Report</a>
+    <a href="#security-posture">Security Posture</a>
+  </nav>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1 style="font-size:1.5rem;font-weight:700;">Groundwork + Security Report</h1>
+      <div style="font-size:0.85rem;color:var(--text-muted);">
+        {{SCAN_MODE}} &middot; {{TECH_STACK}}
+      </div>
+    </div>
+    <div class="controls">
+      <input type="text" class="search-box" placeholder="Search findings..." id="searchBox">
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+        <span id="themeIcon">&#9790;</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Severity Filters -->
+  <div class="severity-filters">
+    <button class="sev-btn" data-sev="critical" onclick="toggleSev('critical')">Critical</button>
+    <button class="sev-btn" data-sev="high" onclick="toggleSev('high')">High</button>
+    <button class="sev-btn" data-sev="medium" onclick="toggleSev('medium')">Medium</button>
+    <button class="sev-btn" data-sev="low" onclick="toggleSev('low')">Low</button>
+  </div>
+
+  <!-- Section 0: Executive Summary -->
+  <div class="section" id="executive-summary">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Executive Summary</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">
+      <div class="summary-grid">
+        <div class="summary-card">
+          <div class="value">{{FILES_REVIEWED}}</div>
+          <div class="label">Files Reviewed</div>
+        </div>
+        <div class="summary-card">
+          <div class="value">{{ENDPOINTS_COUNT}}</div>
+          <div class="label">API Endpoints</div>
+        </div>
+        <div class="summary-card">
+          <div class="value">{{FINDINGS_TOTAL}}</div>
+          <div class="label">Security Findings</div>
+        </div>
+        <div class="summary-card">
+          <div class="value risk-indicator risk-{{OVERALL_RISK_CLASS}}">{{OVERALL_RISK}}</div>
+          <div class="label">Overall Risk</div>
+        </div>
+      </div>
+      <div>{{EXECUTIVE_SUMMARY_CONTENT}}</div>
+    </div>
+  </div>
+
+  <!-- Section 1: Architecture -->
+  <div class="section" id="architecture">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Architecture Overview</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{ARCHITECTURE_CONTENT}}</div>
+  </div>
+
+  <!-- Section 2: Code Patterns -->
+  <div class="section" id="code-patterns">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Code Patterns</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{CODE_PATTERNS_CONTENT}}</div>
+  </div>
+
+  <!-- Section 3: API Surface -->
+  <div class="section" id="api-surface">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>API Surface</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{API_SURFACE_CONTENT}}</div>
+  </div>
+
+  <!-- Section 4: Data Models -->
+  <div class="section" id="data-models">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Data Models</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{DATA_MODELS_CONTENT}}</div>
+  </div>
+
+  <!-- Section 5: Dependency Analysis -->
+  <div class="section" id="dependency-analysis">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Dependency Analysis</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{DEPENDENCY_CONTENT}}</div>
+  </div>
+
+  <!-- Section 6: DevOps -->
+  <div class="section" id="devops">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>DevOps &amp; Infrastructure</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{DEVOPS_CONTENT}}</div>
+  </div>
+
+  <!-- Section 7: Git Health -->
+  <div class="section" id="git-health">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Git &amp; Repository Health</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{GIT_HEALTH_CONTENT}}</div>
+  </div>
+
+  <!-- Section 8: Security Findings -->
+  <div class="section" id="security-findings">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Security Findings</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body" id="findingsContainer">{{SECURITY_FINDINGS_CONTENT}}</div>
+  </div>
+
+  <!-- Section 9: Supply Chain -->
+  <div class="section" id="supply-chain">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Supply Chain Analysis</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{SUPPLY_CHAIN_CONTENT}}</div>
+  </div>
+
+  <!-- Section 10: Adversarial -->
+  <div class="section" id="adversarial">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Adversarial Analysis</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{ADVERSARIAL_CONTENT}}</div>
+  </div>
+
+  <!-- Section 11: Documentation Correlation -->
+  <div class="section" id="doc-correlation">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Documentation Correlation</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{DOC_CORRELATION_CONTENT}}</div>
+  </div>
+
+  <!-- Section 12: Cross-Project -->
+  <div class="section" id="cross-project">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Cross-Project Overlap</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{CROSS_PROJECT_CONTENT}}</div>
+  </div>
+
+  <!-- Section 13: Remediation -->
+  <div class="section" id="remediation">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Remediation Summary</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{REMEDIATION_CONTENT}}</div>
+  </div>
+
+  <!-- Section 14: Verification -->
+  <div class="section" id="verification">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Verification Report</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{VERIFICATION_CONTENT}}</div>
+  </div>
+
+  <!-- Section 15: Security Posture -->
+  <div class="section" id="security-posture">
+    <div class="section-header" onclick="toggleSection(this)">
+      <h2>Security Posture</h2>
+      <span class="collapse-icon">&#9660;</span>
+    </div>
+    <div class="section-body">{{SECURITY_POSTURE_CONTENT}}</div>
+  </div>
+
+  <footer style="text-align:center;padding:2rem 0;color:var(--text-muted);font-size:0.78rem;border-top:1px solid var(--border);margin-top:2rem;">
+    Generated by Adversary (Groundwork Enhanced) &middot; {{SCAN_DATE}}
+  </footer>
+</div>
+
+<script>
+// Theme management
+function getPreferredTheme() {
+  const stored = localStorage.getItem('adversary-theme');
+  if (stored) return stored;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀' : '☾';
+  localStorage.setItem('adversary-theme', theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+applyTheme(getPreferredTheme());
+
+// Section collapse
+function toggleSection(header) {
+  header.classList.toggle('collapsed');
+  const body = header.nextElementSibling;
+  body.classList.toggle('collapsed');
+}
+
+// Severity filter
+const sevState = { critical: true, high: true, medium: true, low: true };
+
+function toggleSev(sev) {
+  sevState[sev] = !sevState[sev];
+  document.querySelector(`.sev-btn[data-sev="${sev}"]`).classList.toggle('off');
+  applyFilters();
+}
+
+// Search
+document.getElementById('searchBox').addEventListener('input', function() {
+  applyFilters();
+});
+
+function applyFilters() {
+  const query = document.getElementById('searchBox').value.toLowerCase();
+  const findings = document.querySelectorAll('.finding');
+
+  findings.forEach(function(f) {
+    const sev = f.getAttribute('data-severity');
+    const text = f.textContent.toLowerCase();
+    const sevMatch = sevState[sev] !== false;
+    const textMatch = !query || text.includes(query);
+    f.style.display = (sevMatch && textMatch) ? '' : 'none';
+  });
+}
+
+// Scroll spy for sidebar
+const sections = document.querySelectorAll('.section');
+const navLinks = document.querySelectorAll('.sidebar nav a[href^="#"]');
+
+function updateScrollSpy() {
+  let current = '';
+  sections.forEach(function(section) {
+    const rect = section.getBoundingClientRect();
+    if (rect.top <= 120) {
+      current = section.id;
+    }
+  });
+
+  navLinks.forEach(function(link) {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === '#' + current) {
+      link.classList.add('active');
+    }
+  });
+}
+
+window.addEventListener('scroll', updateScrollSpy);
+updateScrollSpy();
+
+// Copy to clipboard for code blocks
+document.querySelectorAll('pre').forEach(function(block) {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = 'Copy';
+  btn.addEventListener('click', function() {
+    const code = block.querySelector('code') || block;
+    navigator.clipboard.writeText(code.textContent).then(function() {
+      btn.textContent = 'Copied!';
+      setTimeout(function() { btn.textContent = 'Copy'; }, 1500);
+    });
+  });
+  block.appendChild(btn);
+});
+</script>
+</body>
+</html>

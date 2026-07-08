@@ -1,0 +1,2 @@
+# Prevent auto-execution of pasted text containing newlines
+set enable-bracketed-paste on

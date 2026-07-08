@@ -6,4 +6,8 @@ shell=bash
 
 # SC2034: variable appears unused — many variables are consumed by sourcing scripts
 # (e.g., bashrc.d files export variables used by other bashrc.d files)
-disable=SC2034
+# SC2269: variable assigned to itself — vendored kube-ps1 uses this pattern
+# to preserve existing values without providing a default
+# SC1091: not following sourced file — external files (e.g., /etc/bashrc) are
+# not available during static analysis
+disable=SC2034,SC2269,SC1091

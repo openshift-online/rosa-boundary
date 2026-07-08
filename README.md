@@ -5,12 +5,13 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 ## Features
 
 - **Go CLI**: `rosa-boundary` — authenticate, start, join, list, and stop investigations
-- **AWS CLI**: Official AWS CLI v2
-- **OpenShift CLI**: Versions 4.14 through 4.20 from stable channels
+- **SRE Toolchain**: OCM, backplane, osdctl, ocm-addons, yq via backplane-tools
+- **AWS CLI**: Official AWS CLI v2 (via backplane-tools)
+- **OpenShift CLI**: Versions 4.14 through 4.20 with runtime switching
 - **Claude Code**: AI-powered CLI assistant with Amazon Bedrock integration
-- **Dynamic Version Selection**: Switch tool versions via environment variables at runtime
-- **ECS Exec Ready**: Designed for AWS Fargate with ECS Exec support
+- **Shell Environment**: Modular bashrc.d configuration with kube-ps1, auto-login, completions, fzf
 - **Multi-architecture**: Supports both x86_64 (amd64) and ARM64 (aarch64)
+- **Containerized CI**: All quality checks run in containers — only podman required
 - **OIDC Authentication**: Keycloak integration with Lambda-based authorization
 - **Tag-Based Isolation**: Shared SRE role with task-level ABAC access control
 
@@ -18,7 +19,7 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 
 ### Prerequisites
 
-- Go 1.23+ (to build the CLI from source)
+- Go 1.24+ (to build the CLI from source)
 - Terraform (infrastructure deployment)
 - Keycloak with OIDC configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
 - [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) — required for `join-task` and `start-task --connect`
@@ -120,323 +121,157 @@ rosa-boundary join-task <task-id>
 rosa-boundary stop-task <task-id>
 ```
 
-## Repository Structure
-
-```
-rosa-boundary/
-├── .env.example           # Environment configuration template (copy to .env)
-├── Containerfile          # Multi-arch container build
-├── entrypoint.sh          # Runtime initialization and signal handling
-├── skel/sre/.claude/      # Skeleton Claude Code config for container users
-├── cmd/rosa-boundary/     # CLI entrypoint
-├── internal/
-│   ├── auth/              # PKCE/OIDC authentication
-│   ├── aws/               # ECS and STS clients
-│   ├── cmd/               # Cobra subcommands
-│   ├── config/            # Viper-based configuration
-│   ├── lambda/            # Lambda invocation client
-│   └── output/            # Text/JSON output helpers
-├── deploy/
-│   ├── regional/          # Terraform: ECS, EFS, S3, Lambda, OIDC
-│   │   ├── *.tf          # Infrastructure definitions
-│   │   ├── examples/     # Manual lifecycle scripts
-│   │   └── README.md     # Deployment guide
-│   └── keycloak/         # Kustomize: Keycloak realm and clients
-├── lambda/
-│   ├── create-investigation/  # OIDC-authenticated investigation creation
-│   │   ├── handler.py    # Group auth, role creation, task tagging
-│   │   └── Makefile      # Build Lambda package
-│   └── reap-tasks/            # Periodic task timeout enforcement
-│       └── handler.py    # Deadline-based task termination
-├── tests/
-│   └── localstack/       # LocalStack integration tests
-│       ├── compose.yml   # LocalStack Pro + mock OIDC
-│       └── integration/  # AWS service tests
-├── docs/                 # Architecture and implementation docs
-└── .github/workflows/    # CI/CD automation
-```
-
-## CLI Reference
-
-### Subcommands
-
-| Command | Description |
-|---|---|
-| `login` | Authenticate with Keycloak and cache the OIDC token |
-| `start-task` | Create an investigation and start an ECS task |
-| `join-task <task-id>` | Connect to a running ECS task via ECS Exec |
-| `list-tasks` | List ECS tasks in the cluster |
-| `stop-task <task-id>` | Stop a running ECS task |
-| `version` | Print the rosa-boundary version |
-
-### Notable Flags
-
-**`start-task`**:
-- `--cluster-id` — ROSA cluster ID to investigate (required)
-- `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
-- `--oc-version` — OpenShift CLI version (default: `4.20`)
-- `--task-timeout` — seconds before reaper kills the task (default: `3600`)
-- `--connect` — automatically join the task after it reaches RUNNING
-- `--no-wait` — return immediately without waiting for RUNNING
-- `--force-login` — force fresh OIDC authentication
-- `--output text|json`
-
-**`join-task`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
-
-**`list-tasks`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
-
-**`stop-task`**: `--reason`, `--wait`
-
-**`login`**: `--force`
-
-### Global Flags
-
-```
---verbose, -v           Enable verbose/debug output
---keycloak-url          Keycloak base URL
---realm                 Keycloak realm (default: sre-ops)
---client-id             OIDC client ID (default: aws-sre-access)
---region                AWS region (default: us-east-2)
---ecs-cluster           ECS cluster name (default: rosa-boundary-dev)
---lambda-function-name  Lambda function name or ARN
---invoker-role-arn      Lambda invoker role ARN
---role-arn              SRE role ARN (overrides Lambda response)
---lambda-url            Lambda function URL (HTTP mode)
-```
-
-### Configuration Precedence
-
-Flags > environment variables (`ROSA_BOUNDARY_*`) > `~/.rosa-boundary/config.yaml` > defaults
-
-Environment variable examples: `ROSA_BOUNDARY_KEYCLOAK_URL`, `ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME`, `ROSA_BOUNDARY_INVOKER_ROLE_ARN`.
-
 ## Building
 
-### Container
+### Container Image
+
+The Containerfile uses a multi-stage build with 6 stages. Builder stages run in parallel. All downloads are checksum-verified and GitHub API calls are authenticated.
 
 ```bash
 # Build both architectures and create manifest
+# Requires GITHUB_TOKEN for authenticated GitHub API calls during build
 make all
 
 # Build single architecture
 make build-amd64
 make build-arm64
-
-# Create manifest list from existing builds
-make manifest
-
-# Remove all images and manifests
-make clean
 ```
 
 ### CLI
 
 ```bash
-# Build the rosa-boundary binary to ./bin/
-make build-cli
-
-# Install to $GOBIN
-make install-cli
-
-# Run Go unit tests
-make test-cli
+make build-cli       # Build to ./bin/rosa-boundary
+make install-cli     # Install to $GOBIN
+make test-cli        # Run Go unit tests
 ```
 
-## Environment Variables
+## Testing and CI
 
-The easiest way to select tool versions is via environment variables at container startup:
+### Containerized CI (recommended — only podman required)
 
-| Variable | Values | Default | Description |
-|----------|--------|---------|-------------|
-| `OC_VERSION` | `4.14`, `4.15`, `4.16`, `4.17`, `4.18`, `4.19`, `4.20` | `4.20` | OpenShift CLI version |
-| `S3_AUDIT_ESCROW` | S3 URI (e.g., `s3://bucket/path/`) | _(none)_ | S3 destination for /home/sre sync on exit |
-| `CLAUDE_CODE_USE_BEDROCK` | `0`, `1` | `1` | Enable Claude Code via Amazon Bedrock |
-| `AWS_REGION` | AWS region code | _(auto-detect)_ | AWS region for Bedrock. Auto-detected from ECS metadata; fallback to us-east-1 |
-| `ANTHROPIC_MODEL` | Bedrock model ID | _(default)_ | Override Claude model (e.g., `global.anthropic.claude-sonnet-4-5-20250929-v1:0`) |
-
-**Examples:**
-```bash
-# Use OpenShift CLI 4.18
-podman run -e OC_VERSION=4.18 rosa-boundary:latest
-
-# With a custom command
-podman run -e OC_VERSION=4.19 rosa-boundary:latest /bin/bash
-```
-
-## SRE User and Audit Escrow
-
-The container includes a non-root `sre` user (uid=1000) designed for SSM/ECS Exec connections. The `/home/sre` directory is intended to be mounted as EFS via Fargate task definition.
-
-### Automatic S3 Sync on Exit
-
-When the container receives termination signals (SIGTERM, SIGINT, SIGHUP) or exits normally, the entrypoint automatically syncs `/home/sre` to S3 if `S3_AUDIT_ESCROW` is set:
+All quality checks run inside a CI container image (`build/Containerfile.test`). No Go, bats, shellcheck, or other tooling needs to be installed locally.
 
 ```bash
-# Container will sync /home/sre to S3 on exit
-podman run -e S3_AUDIT_ESCROW=s3://my-bucket/investigation-123/ rosa-boundary:latest
+# Run ALL CI checks (one command)
+make ci-all
+
+# Individual checks
+make ci-test-shell      # bats-core shell unit tests (57 tests)
+make ci-lint-shell      # shellcheck on all shell scripts
+make ci-build-cli       # go build
+make ci-test-cli        # go test
+make ci-lint            # golangci-lint
+make ci-staticcheck     # staticcheck
+make ci-fmt             # check formatting (fails on diff)
+make ci-fmt-fix         # fix formatting (writes to files)
+make build-ci-image     # build the CI runner container (cached)
 ```
 
-**Features:**
-- Automatic sync on container exit or termination signals
-- Graceful failure - warns but doesn't block exit if sync fails
-- Only syncs if `S3_AUDIT_ESCROW` is defined (no sync if unset)
-- Useful for preserving investigation artifacts after ephemeral container use
-
-## Tool Management
-
-The container supports two methods for switching tool versions:
-
-1. **Environment Variables** (recommended): Set `OC_VERSION` at container startup (see above)
-2. **Alternatives Commands** (advanced): Manually switch versions inside a running container
-
-### OpenShift CLI Versions
-
-Seven OpenShift CLI versions are available (4.14-4.20), with 4.20 as the default:
+### Host-based (require tools installed locally)
 
 ```bash
-# View available oc versions
-alternatives --display oc
-
-# Switch to a specific version
-alternatives --set oc /opt/openshift/4.17/oc
-alternatives --set oc /opt/openshift/4.19/oc
+make test-shell     # bats-core tests
+make lint-shell     # shellcheck
+make fmt            # gofmt + shfmt (write mode)
+make lint           # golangci-lint
+make staticcheck    # staticcheck
 ```
-
-## Claude Code
-
-The container includes Claude Code CLI with Amazon Bedrock integration for AI-assisted troubleshooting and automation.
-
-### Configuration
-
-**Location**: `/home/sre/.claude/`
-
-Default configuration files are automatically initialized on first run:
-- `settings.json` - Bedrock authentication and auto-update settings
-- `CLAUDE.md` - SRE workflow guidance and available tools documentation
-
-**Authentication**: Uses IAM via Amazon Bedrock (no API keys required)
-
-### AWS Region Detection
-
-Claude Code automatically detects the AWS region from ECS task metadata:
-
-1. Checks if `AWS_REGION` environment variable is set (explicit override)
-2. Queries ECS metadata endpoint to extract region from Task ARN
-3. Falls back to `us-east-1` if detection fails
-
-This ensures Claude Code uses Bedrock in the same region as the running container.
-
-### IAM Permissions
-
-The ECS task role needs Bedrock permissions:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream",
-        "bedrock:ListInferenceProfiles"
-      ],
-      "Resource": [
-        "arn:aws:bedrock:*:*:inference-profile/*",
-        "arn:aws:bedrock:*:*:foundation-model/*"
-      ]
-    }
-  ]
-}
-```
-
-### Usage Examples
-
-```bash
-# Start Claude Code session
-claude
-
-# Get help with a command
-claude "How do I check the status of cluster operators?"
-
-# Run interactive investigation
-claude "Investigate pods in crashloop in default namespace"
-
-# Disable Claude Code via environment variable
-podman run -e CLAUDE_CODE_USE_BEDROCK=0 rosa-boundary:latest
-```
-
-### Configuration Persistence
-
-Configuration files in `/home/sre/.claude/` are preserved across container restarts when using EFS:
-- **First run**: Skeleton files copied from `/etc/skel-sre/.claude/`
-- **Subsequent runs**: Existing configuration preserved (no overwrite)
-- **Customize**: Edit `/home/sre/.claude/CLAUDE.md` to add cluster-specific context
-
-## Usage
-
-### Running locally
-```bash
-# Run with default versions (OC 4.20, official AWS CLI)
-podman run -it rosa-boundary:latest /bin/bash
-
-# Run with specific versions
-podman run -it -e OC_VERSION=4.18 rosa-boundary:latest /bin/bash
-
-# Check tool versions
-podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client"
-```
-
-## Image Details
-
-- **Base**: Red Hat UBI9
-- **AWS CLI**: Official AWS CLI v2
-- **OpenShift CLI**: 4.14.x, 4.15.x, 4.16.x, 4.17.x, 4.18.x, 4.19.x, 4.20.x
-- **Claude Code**: 2.0.69 (native installer), auto-updates disabled
-- **Additional tools**: util-linux (includes su for user switching)
-
-## Architecture Support
-
-The manifest list automatically selects the appropriate image for your platform:
-- `linux/amd64` - x86_64 architecture
-- `linux/arm64` - ARM64/aarch64 architecture (Graviton)
-
-## Testing
-
-### LocalStack Integration Tests
-
-Test AWS functionality locally before production deployment:
-
-```bash
-# Start LocalStack (requires LocalStack Pro token)
-make localstack-up
-
-# Run fast tests (~2-3 min)
-make test-localstack-fast
-
-# Run full test suite (~5-7 min)
-make test-localstack
-
-# Stop LocalStack
-make localstack-down
-```
-
-See [`tests/localstack/README.md`](tests/localstack/README.md) for complete documentation.
 
 ### Lambda Unit Tests
 
 ```bash
-cd lambda/create-investigation/
-make test
+make test-lambda                      # All Lambda tests
+make test-lambda-create-investigation # create-investigation tests
+make test-lambda-reap-tasks           # reap-tasks tests
 ```
 
-## CI/CD
+### LocalStack Integration Tests
 
-GitHub Actions workflow runs on PRs and pushes to main:
+```bash
+make localstack-up          # Start LocalStack Pro
+make test-localstack-fast   # Fast tests (~2-3 min)
+make test-localstack        # Full suite (~5-7 min)
+make localstack-down        # Stop LocalStack
+```
 
-- **LocalStack Integration Tests** - AWS service validation
-- **Lambda Unit Tests** - Handler function validation with moto
+See [`tests/localstack/README.md`](tests/localstack/README.md) for documentation.
 
-**Required GitHub Secret**: `LOCALSTACK_AUTH_TOKEN` (LocalStack Pro license)
+### Prow CI
 
-See [`.github/workflows/localstack-tests.yml`](.github/workflows/localstack-tests.yml).
+Prow presubmit jobs run all `ci-*` checks in parallel on PRs. Config is in the [openshift/release](https://github.com/openshift/release) repo.
+
+## Container Tools
+
+Tools installed in the container image:
+
+| Tool | Source | Purpose |
+|---|---|---|
+| `oc` (4.14-4.20) | mirror.openshift.com | OpenShift CLI with runtime version switching |
+| `ocm` | backplane-tools | OpenShift Cluster Manager CLI |
+| `ocm-backplane` | backplane-tools | Cluster login via backplane |
+| `osdctl` | backplane-tools | OSD control utility |
+| `ocm-addons` | backplane-tools | OCM addons plugin |
+| `yq` | backplane-tools | YAML processor |
+| `aws` | backplane-tools | AWS CLI v2 |
+| `claude` | GitHub Releases | AI-assisted investigation |
+| `fzf` | GitHub Releases | Interactive fuzzy finder |
+| `jq` | dnf | JSON processor |
+| `tmux` | dnf | Terminal multiplexer |
+| `vim` | dnf | Text editor |
+| `git` | dnf | Version control |
+| `session-manager-plugin` | AWS RPM | SSM session support |
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OC_VERSION` | `4.20` | OpenShift CLI version (4.14-4.20) |
+| `OCM_ENVIRONMENT` | — | OCM environment for PS1 display |
+| `CLUSTER_AUTH_METHOD` | `backplane` | Auth method: `backplane` or `proxy` |
+| `CLUSTER_ID` | — | Cluster ID for investigation |
+| `INVESTIGATION_ID` | — | Investigation ID |
+| `TMUX_AUTOSTART` | `0` | Set to `1` to auto-start tmux |
+| `SHOW_CLUSTER_CONTEXT` | `1` | Set to `0` to skip cluster context display |
+| `S3_AUDIT_ESCROW` | — | S3 URI for /home/sre sync on exit |
+| `TASK_TIMEOUT` | `3600` | Timeout in seconds (enforced by reaper Lambda) |
+| `CLAUDE_CODE_USE_BEDROCK` | `1` | Enable Claude Code via Amazon Bedrock |
+| `AWS_REGION` | auto-detected | AWS region for Bedrock |
+
+## Repository Structure
+
+```
+rosa-boundary/
+├── AGENTS.md              # Project guidance, hard requirements, pre-PR gates
+├── Containerfile          # Multi-stage multi-arch container build (6 stages)
+├── entrypoint.sh          # Runtime init: version switching, S3 sync, Bedrock
+├── Makefile               # Host + containerized CI targets
+├── build/                 # Container build helpers and CI runner
+│   ├── Containerfile.test # CI runner image (Go + bats + shellcheck + shfmt)
+│   ├── platforms.sh       # Architecture detection for multi-arch builds
+│   └── github_dl.py       # Authenticated GitHub Release downloader
+├── skel/sre/              # Skeleton config (copied to /home/sre at runtime)
+│   ├── .bashrc            # bashrc.d sourcing loop
+│   ├── .bashrc.d/         # Modular shell config (10 files)
+│   ├── .inputrc           # Bracketed paste
+│   ├── .claude/           # Claude Code config
+│   └── .local/bin/        # User scripts (sre-login)
+├── cmd/rosa-boundary/     # Go CLI entrypoint
+├── internal/              # Go packages (auth, aws, cmd, config, lambda, output)
+├── deploy/
+│   ├── regional/          # Terraform: ECS, EFS, S3, Lambda, OIDC
+│   └── keycloak/          # Kustomize: Keycloak on OpenShift
+├── lambda/                # Lambda functions (create-investigation, reap-tasks)
+├── tests/
+│   ├── shell/             # bats-core tests for shell scripts (57 tests)
+│   └── localstack/        # LocalStack integration tests (35 tests)
+└── docs/                  # Architecture, configuration, runbooks
+```
+
+## Documentation
+
+- [`AGENTS.md`](AGENTS.md) — Full project guidance, coding standards, and pre-PR quality gates
+- [`docs/architecture/overview.md`](docs/architecture/overview.md) — System architecture
+- [`docs/configuration/`](docs/configuration/) — Setup guides for Keycloak and AWS IAM
+- [`docs/runbooks/`](docs/runbooks/) — Investigation workflows and troubleshooting
+- [`deploy/regional/README.md`](deploy/regional/README.md) — Terraform deployment guide
+- [`tests/localstack/README.md`](tests/localstack/README.md) — Integration test documentation

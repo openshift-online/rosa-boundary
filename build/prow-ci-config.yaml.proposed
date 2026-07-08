@@ -1,0 +1,78 @@
+# Proposed ci-operator config for openshift-online/rosa-boundary.
+# This file is a REFERENCE — the actual config lives in the openshift/release repo at:
+#   ci-operator/config/openshift-online/rosa-boundary/openshift-online-rosa-boundary-main.yaml
+#
+# To apply: copy this content to the release repo and run `make update` to regenerate jobs.
+
+base_images:
+  ubi-python:
+    name: ubi-python-311
+    namespace: ocp
+    tag: "9"
+build_root:
+  image_stream_tag:
+    name: release
+    namespace: openshift
+    tag: rhel-9-release-golang-1.23-openshift-4.18
+images:
+  items:
+  # Lambda test runner — builds a Python image with Lambda deps installed
+  - dockerfile_literal: |
+      FROM ubi-python
+      USER 0
+      COPY . /workspace/
+      WORKDIR /workspace/rosa-boundary/lambda/create-investigation
+      RUN pip install uv && uv sync
+    from: ubi-python
+    inputs:
+      src:
+        paths:
+        - destination_dir: .
+          source_path: /go/src/github.com/openshift-online/rosa-boundary
+    to: lambda-test-runner
+  # Shell test runner — builds a UBI9 image with bats-core and shellcheck
+  - dockerfile_path: build/Containerfile.test
+    inputs:
+      src:
+        paths:
+        - destination_dir: .
+          source_path: /go/src/github.com/openshift-online/rosa-boundary
+    to: shell-test-runner
+prowgen:
+  expose: true
+  private: true
+resources:
+  '*':
+    limits:
+      memory: 1Gi
+    requests:
+      cpu: 100m
+      memory: 200Mi
+tests:
+- as: lambda-unit-tests
+  commands: |
+    export UV_CACHE_DIR=/tmp/uv-cache
+    export AWS_DEFAULT_REGION=us-east-1
+    cd /workspace/rosa-boundary/lambda/create-investigation
+    uv run pytest test_handler.py -v
+  container:
+    from: lambda-test-runner
+- as: lint-shell
+  commands: |
+    cd /workspace/rosa-boundary
+    shellcheck entrypoint.sh \
+      skel/sre/.local/bin/sre-login \
+      skel/sre/.bashrc.d/*.bashrc \
+      skel/sre/.bashrc
+  container:
+    from: shell-test-runner
+- as: shell-unit-tests
+  commands: |
+    cd /workspace/rosa-boundary
+    bats tests/shell/entrypoint.bats tests/shell/sre-login.bats tests/shell/bashrc.d/
+  container:
+    from: shell-test-runner
+zz_generated_metadata:
+  branch: main
+  org: openshift-online
+  repo: rosa-boundary

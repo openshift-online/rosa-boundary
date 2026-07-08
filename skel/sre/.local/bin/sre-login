@@ -17,34 +17,34 @@ get_cluster_json() {
 
     # Try by name
     ocmjson=$(ocm get clusters --parameter search="name='${1}'")
-    total=$(jq --raw-output ".total" <<< "${ocmjson}")
+    total=$(jq --raw-output ".total" <<<"${ocmjson}")
 
     if [ "${total}" -eq 1 ]; then
-        jq ".items[0]" <<< "${ocmjson}"
+        jq ".items[0]" <<<"${ocmjson}"
         return
     elif [ "${total}" -gt 1 ]; then
         echo "There is more than one cluster with that name." >&2
         echo "Run sre-login again using an ID from below." >&2
         echo >&2
-        jq --raw-output '.items[] | [.id, .name, .display_name] | @csv' <<< "${ocmjson}" \
-            | tr --delete '"' \
-            | column -N "ID,NAME,DISPLAY_NAME" -t -s "," >&2
+        jq --raw-output '.items[] | [.id, .name, .display_name] | @csv' <<<"${ocmjson}" |
+            tr --delete '"' |
+            column -N "ID,NAME,DISPLAY_NAME" -t -s "," >&2
         return 1
     fi
 
     # Try by ID
     ocmjson=$(ocm get clusters --parameter search="id='${1}'")
-    total=$(jq --raw-output ".total" <<< "${ocmjson}")
+    total=$(jq --raw-output ".total" <<<"${ocmjson}")
     if [ "${total}" -eq 1 ]; then
-        jq ".items[0]" <<< "${ocmjson}"
+        jq ".items[0]" <<<"${ocmjson}"
         return
     fi
 
     # Try by external ID
     ocmjson=$(ocm get clusters --parameter search="external_id='${1}'")
-    total=$(jq --raw-output ".total" <<< "${ocmjson}")
+    total=$(jq --raw-output ".total" <<<"${ocmjson}")
     if [ "${total}" -eq 1 ]; then
-        jq ".items[0]" <<< "${ocmjson}"
+        jq ".items[0]" <<<"${ocmjson}"
         return
     fi
 
@@ -78,7 +78,7 @@ sre_login_main() {
 
     local clusterjson cluster_id rc
     clusterjson=$(get_cluster_json "${1}")
-    cluster_id=$(jq --raw-output '.id' <<< "${clusterjson}")
+    cluster_id=$(jq --raw-output '.id' <<<"${clusterjson}")
 
     ocm backplane login "${cluster_id}"
     rc=$?

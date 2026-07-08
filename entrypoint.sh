@@ -31,9 +31,9 @@ SKEL_DIR="${SKEL_DIR:-/etc/skel-sre}"
 sync_to_s3() {
     if [ -z "${S3_AUDIT_ESCROW}" ] && [ -n "${S3_AUDIT_BUCKET}" ] && [ -n "${CLUSTER_ID}" ] && [ -n "${INVESTIGATION_ID}" ]; then
         if [ -n "${ECS_CONTAINER_METADATA_URI_V4}" ]; then
-            TASK_ARN=$(curl --silent "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null \
-                | grep --only-matching '"TaskARN":"[^"]*"' \
-                | cut --delimiter='"' --fields=4)
+            TASK_ARN=$(curl --silent "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null |
+                grep --only-matching '"TaskARN":"[^"]*"' |
+                cut --delimiter='"' --fields=4)
             TASK_ID="${TASK_ARN##*/}"
         fi
 
@@ -139,9 +139,9 @@ configure_bedrock() {
         task_metadata=$(curl --silent "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null || true)
         if [ -n "${task_metadata}" ]; then
             # Task ARN format: arn:aws:ecs:REGION:ACCOUNT:task/CLUSTER/TASKID
-            detected_region=$(echo "${task_metadata}" \
-                | grep --only-matching '"TaskARN":"arn:aws:ecs:[^:]*' \
-                | cut --delimiter=: --fields=4)
+            detected_region=$(echo "${task_metadata}" |
+                grep --only-matching '"TaskARN":"arn:aws:ecs:[^:]*' |
+                cut --delimiter=: --fields=4)
             if [ -n "${detected_region}" ]; then
                 export AWS_REGION="${detected_region}"
                 echo "Auto-detected AWS_REGION=${AWS_REGION} from ECS task metadata"
@@ -157,8 +157,8 @@ configure_bedrock() {
 # Warn if S3 audit sync is not configured. Audit sync is mandatory for
 # compliance — this warning helps catch misconfigured deployments.
 warn_audit_config() {
-    if [ -z "${S3_AUDIT_ESCROW}" ] && \
-       { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INVESTIGATION_ID}" ]; }; then
+    if [ -z "${S3_AUDIT_ESCROW}" ] &&
+        { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INVESTIGATION_ID}" ]; }; then
         echo "Warning: S3 audit not configured. ${SRE_HOME} will not be backed up on exit." >&2
         echo "  Set either S3_AUDIT_ESCROW or (S3_AUDIT_BUCKET + CLUSTER_ID + INVESTIGATION_ID)" >&2
     fi
@@ -189,17 +189,17 @@ do_cluster_login() {
     fi
 
     case "${CLUSTER_AUTH_METHOD:-backplane}" in
-        proxy)
-            echo "Proxy sidecar mode: cluster access provided by kube-proxy sidecar"
-            ;;
-        backplane|*)
-            if command -v sre-login &>/dev/null; then
-                echo "Logging into cluster ${CLUSTER_ID} via backplane..."
-                sre-login "${CLUSTER_ID}" || echo "Warning: cluster login failed" >&2
-            else
-                echo "Warning: sre-login not found, skipping cluster login" >&2
-            fi
-            ;;
+    proxy)
+        echo "Proxy sidecar mode: cluster access provided by kube-proxy sidecar"
+        ;;
+    backplane | *)
+        if command -v sre-login &>/dev/null; then
+            echo "Logging into cluster ${CLUSTER_ID} via backplane..."
+            sre-login "${CLUSTER_ID}" || echo "Warning: cluster login failed" >&2
+        else
+            echo "Warning: sre-login not found, skipping cluster login" >&2
+        fi
+        ;;
     esac
 }
 

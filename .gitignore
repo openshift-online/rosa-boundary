@@ -91,6 +91,8 @@ tests/localstack/terraform/localstack.tfvars
 
 # Test binary, built with `go test -c`
 *.test
+# Exception: CI test runner Containerfile
+!build/Containerfile.test
 
 # Output of the go coverage tool
 *.out

@@ -1,0 +1,88 @@
+# CI runner image for all local and Prow CI jobs.
+# Provides: bats-core, shellcheck, shfmt, Go toolchain, golangci-lint.
+# Used by: make test-shell, make lint-shell, make fmt, make lint,
+#          make test-cli, make build-cli, and Prow CI jobs.
+#
+# bats-core and ShellCheck are not in UBI9 repos, so we install from
+# upstream GitHub releases. Go is installed from the official tarball.
+
+FROM registry.access.redhat.com/ubi9/ubi:latest
+
+# Pin versions for reproducibility — Renovate can update these ARGs
+ARG BATS_VERSION=1.13.0
+ARG SHELLCHECK_VERSION=0.10.0
+ARG GO_VERSION=1.26.4
+ARG GOLANGCI_LINT_VERSION=2.12.2
+ARG SHFMT_VERSION=3.11.0
+ARG STATICCHECK_VERSION=2025.1.1
+
+# System packages: git (bats submodules + go modules), xz (shellcheck archive),
+# make (build system), gcc (cgo if needed)
+RUN dnf install --assumeyes --nodocs \
+        gcc \
+        git \
+        make \
+        xz \
+    && dnf clean all \
+    && rm --recursive --force /var/cache/yum
+
+# Install Go from the official tarball
+RUN ARCH=$(uname -m) \
+    && case "${ARCH}" in \
+        x86_64)  GOARCH="amd64" ;; \
+        aarch64) GOARCH="arm64" ;; \
+    esac \
+    && curl --silent --location --fail \
+        "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" \
+        --output /tmp/go.tar.gz \
+    && tar --extract --gzip --file=/tmp/go.tar.gz --directory=/usr/local \
+    && rm --force /tmp/go.tar.gz
+
+ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
+ENV GOPATH="/root/go"
+
+# Install bats-core from GitHub release
+RUN curl --silent --location --fail \
+        "https://github.com/bats-core/bats-core/archive/refs/tags/v${BATS_VERSION}.tar.gz" \
+        --output /tmp/bats.tar.gz \
+    && tar --extract --gzip --file=/tmp/bats.tar.gz --directory=/tmp \
+    && /tmp/bats-core-${BATS_VERSION}/install.sh /usr/local \
+    && rm --recursive --force /tmp/bats*
+
+# Install ShellCheck from GitHub release (static binary)
+RUN ARCH=$(uname -m) \
+    && curl --silent --location --fail \
+        "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.${ARCH}.tar.xz" \
+        --output /tmp/shellcheck.tar.xz \
+    && tar --extract --xz --file=/tmp/shellcheck.tar.xz --directory=/tmp \
+    && install --mode=755 /tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck /usr/local/bin/shellcheck \
+    && rm --recursive --force /tmp/shellcheck*
+
+# Install shfmt (shell formatter)
+RUN ARCH=$(uname -m) \
+    && case "${ARCH}" in \
+        x86_64)  SHFMT_ARCH="amd64" ;; \
+        aarch64) SHFMT_ARCH="arm64" ;; \
+    esac \
+    && curl --silent --location --fail \
+        "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_${SHFMT_ARCH}" \
+        --output /usr/local/bin/shfmt \
+    && chmod +x /usr/local/bin/shfmt
+
+# Install golangci-lint
+RUN ARCH=$(uname -m) \
+    && case "${ARCH}" in \
+        x86_64)  LINT_ARCH="amd64" ;; \
+        aarch64) LINT_ARCH="arm64" ;; \
+    esac \
+    && curl --silent --location --fail \
+        "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${LINT_ARCH}.tar.gz" \
+        --output /tmp/golangci-lint.tar.gz \
+    && tar --extract --gzip --file=/tmp/golangci-lint.tar.gz --directory=/tmp \
+    && install --mode=755 /tmp/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${LINT_ARCH}/golangci-lint /usr/local/bin/golangci-lint \
+    && rm --recursive --force /tmp/golangci-lint*
+
+# Install staticcheck
+RUN go install "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
+
+WORKDIR /workspace

@@ -13,7 +13,9 @@ CLI_VERSION ?= dev
 CLI_LDFLAGS := -ldflags "-X github.com/openshift/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
 
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
-        build-cli install-cli test-cli fmt lint \
+        build-cli install-cli test-cli fmt lint staticcheck test-shell lint-shell \
+        build-ci-image ci-all ci-test-shell ci-lint-shell \
+        ci-build-cli ci-test-cli ci-fmt ci-fmt-fix ci-lint ci-staticcheck \
         validate-findings convert-sarif upload-sarif
 
 # Default target: build both architectures and create manifest
@@ -103,16 +105,11 @@ test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	@echo "Running create-investigation unit tests..."
 	cd lambda/create-investigation && uv run pytest test_handler.py -v
 
-staticcheck: ## Run staticcheck before commits
+staticcheck: ## Run staticcheck on host (requires staticcheck installed)
 	@echo "Running staticcheck..."
-	@if command -v staticcheck > /dev/null 2>&1; then \
-		staticcheck ./...; \
-	else \
-		echo "staticcheck not installed. Install with: go install honnef.co/go/tools/cmd/staticcheck@latest"; \
-		exit 1; \
-	fi
+	staticcheck ./...
 
-# Go CLI targets
+# Go CLI targets — run on the host (require Go toolchain installed)
 build-cli: ## Build the rosa-boundary Go CLI binary
 	@echo "Building rosa-boundary CLI..."
 	@mkdir -p bin
@@ -126,30 +123,128 @@ test-cli: ## Run Go unit tests for the CLI
 	@echo "Running CLI unit tests..."
 	go test ./...
 
-fmt: ## Format Go and shell code
+fmt: ## Format Go and shell code (requires gofmt; shfmt optional)
 	@echo "Formatting Go code..."
 	gofmt -w .
 	@echo "Formatting shell scripts..."
 	@if command -v shfmt > /dev/null 2>&1; then \
-		shfmt -w -i 4 entrypoint.sh deploy/regional/examples/; \
+		shfmt -w -i 4 entrypoint.sh skel/sre/.bashrc.d/*.bashrc skel/sre/.local/bin/sre-login; \
 	else \
-		echo "shfmt not installed, skipping shell formatting"; \
+		echo "shfmt not installed — run 'make ci-fmt-fix' to format shell scripts in container"; \
 	fi
 
-lint: ## Lint Go code and shell scripts
+lint: ## Lint Go code (requires golangci-lint installed)
 	@echo "Linting Go code..."
-	@if command -v golangci-lint > /dev/null 2>&1; then \
-		golangci-lint run ./...; \
-	else \
-		echo "golangci-lint not installed, running go vet instead"; \
-		go vet ./...; \
-	fi
-	@echo "Linting shell scripts..."
-	@if command -v shellcheck > /dev/null 2>&1; then \
-		shellcheck deploy/regional/examples/*.sh entrypoint.sh 2>/dev/null || true; \
-	else \
-		echo "shellcheck not installed, skipping shell linting"; \
-	fi
+	golangci-lint run ./...
+
+# ── Containerized CI variants ────────────────────────────────────────────────
+# Mirror the host targets but run inside the CI image (build/Containerfile.test).
+# Used by Prow and for local CI validation without host tooling.
+# Only podman is required on the host.
+
+CI_IMAGE := rosa-boundary-ci:latest
+
+build-ci-image: ## Build the CI runner container image (cached)
+	@echo "Building CI runner image..."
+	podman build --tag $(CI_IMAGE) --file build/Containerfile.test .
+ci-all: ci-lint-shell ci-test-shell ci-lint ci-staticcheck ci-test-cli ci-fmt ## Run all CI checks (containerized)
+	@echo "All CI checks passed"
+
+ci-test-shell: build-ci-image ## Run bats-core shell unit tests (containerized)
+	@echo "Running shell unit tests in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:ro,Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		bats tests/shell/entrypoint.bats tests/shell/sre-login.bats tests/shell/bashrc.d/
+
+ci-lint-shell: build-ci-image ## Run shellcheck on all shell scripts (containerized)
+	@echo "Running shellcheck in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:ro,Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		shellcheck entrypoint.sh \
+			skel/sre/.local/bin/sre-login \
+			skel/sre/.bashrc.d/*.bashrc \
+			skel/sre/.bashrc
+	@echo "All shell scripts passed shellcheck"
+
+ci-build-cli: build-ci-image ## Build the Go CLI binary (containerized)
+	@echo "Building rosa-boundary CLI in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		go build $(CLI_LDFLAGS) -o $(CLI_BIN) ./cmd/rosa-boundary/
+
+ci-test-cli: build-ci-image ## Run Go unit tests (containerized)
+	@echo "Running CLI unit tests in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:ro,Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		go test ./...
+
+ci-fmt-fix: build-ci-image ## Fix Go and shell formatting (containerized, writes to files)
+	@echo "Fixing code formatting in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		sh -c "gofmt -w . && shfmt -w -i 4 entrypoint.sh skel/sre/.bashrc.d/*.bashrc skel/sre/.local/bin/sre-login"
+
+ci-fmt: build-ci-image ## Check Go and shell formatting (containerized, fails on diff)
+	@echo "Checking code formatting in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:ro,Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		sh -c '\
+			FAIL=0; \
+			GOFMT_OUT=$$(gofmt -l .); \
+			if [ -n "$$GOFMT_OUT" ]; then \
+				echo "gofmt: the following files need formatting:"; \
+				echo "$$GOFMT_OUT"; \
+				FAIL=1; \
+			fi; \
+			SHFMT_OUT=$$(shfmt -d -i 4 entrypoint.sh skel/sre/.bashrc.d/*.bashrc skel/sre/.local/bin/sre-login); \
+			if [ -n "$$SHFMT_OUT" ]; then \
+				echo "shfmt: the following files need formatting:"; \
+				echo "$$SHFMT_OUT"; \
+				FAIL=1; \
+			fi; \
+			if [ $$FAIL -eq 0 ]; then echo "All files correctly formatted"; fi; \
+		exit $$FAIL'
+
+ci-lint: build-ci-image ## Lint Go code (containerized)
+	@echo "Linting Go code in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:ro,Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		golangci-lint run ./...
+
+ci-staticcheck: build-ci-image ## Run staticcheck (containerized)
+	@echo "Running staticcheck in container..."
+	podman run --rm \
+		--volume "$(CURDIR):/workspace:ro,Z" \
+		--workdir /workspace \
+		$(CI_IMAGE) \
+		staticcheck ./...
+
+# Shell testing and linting — run on host (require bats + shellcheck installed)
+test-shell: ## Run bats-core unit tests for shell scripts
+	@echo "Running shell unit tests..."
+	bats tests/shell/entrypoint.bats tests/shell/sre-login.bats tests/shell/bashrc.d/
+
+lint-shell: ## Run shellcheck on all shell scripts (blocking)
+	@echo "Running shellcheck..."
+	shellcheck entrypoint.sh \
+		skel/sre/.local/bin/sre-login \
+		skel/sre/.bashrc.d/*.bashrc \
+		skel/sre/.bashrc
+	@echo "All shell scripts passed shellcheck"
 
 # Security findings
 validate-findings: ## Validate adversary-findings.json schema
@@ -183,7 +278,7 @@ help:
 	@echo "  make manifest     - Create multi-arch manifest list"
 	@echo "  make clean        - Remove all images and manifests"
 	@echo ""
-	@echo "Go CLI Targets:"
+	@echo "Go CLI Targets (run on host, require Go toolchain):"
 	@echo "  make build-cli    - Build the rosa-boundary CLI binary (./bin/rosa-boundary)"
 	@echo "  make install-cli  - Install CLI to GOBIN (~/go/bin)"
 	@echo "  make test-cli     - Run CLI unit tests"
@@ -200,10 +295,24 @@ help:
 	@echo "  make test-lambda-reap-tasks           - Run reap-tasks unit tests"
 	@echo "  make test-lambda-create-investigation - Run create-investigation unit tests"
 	@echo ""
-	@echo "Code Quality Targets:"
-	@echo "  make fmt          - Format Go code (gofmt) and shell scripts (shfmt)"
-	@echo "  make lint         - Lint Go (golangci-lint/go vet) and shell (shellcheck)"
-	@echo "  make staticcheck  - Run staticcheck static analysis"
+	@echo "Code Quality (run on host, require tools installed):"
+	@echo "  make fmt            - Format Go (gofmt) and shell (shfmt) code"
+	@echo "  make lint           - Lint Go code (golangci-lint)"
+	@echo "  make staticcheck    - Run staticcheck static analysis"
+	@echo "  make test-shell     - Run bats-core shell unit tests"
+	@echo "  make lint-shell     - Run shellcheck on all shell scripts"
+	@echo ""
+	@echo "Containerized CI (only podman required — mirrors Prow jobs):"
+	@echo "  make ci-all             - Run ALL CI checks (one command)"
+	@echo "  make build-ci-image     - Build the CI runner container (cached)"
+	@echo "  make ci-test-shell      - Run bats-core shell unit tests"
+	@echo "  make ci-lint-shell      - Run shellcheck on all shell scripts"
+	@echo "  make ci-build-cli       - Build Go CLI binary"
+	@echo "  make ci-test-cli        - Run Go unit tests"
+	@echo "  make ci-fmt             - Check Go and shell formatting (fails on diff)"
+	@echo "  make ci-fmt-fix         - Fix Go and shell formatting (writes)"
+	@echo "  make ci-lint            - Lint Go code (golangci-lint)"
+	@echo "  make ci-staticcheck     - Run staticcheck"
 	@echo ""
 	@echo "Security Findings Targets:"
 	@echo "  make validate-findings  - Validate adversary-findings.json schema"

@@ -3,8 +3,8 @@
 # Gated by SHOW_CLUSTER_CONTEXT (default: on).
 # Only runs once per session via sentinel file.
 
-if [ -n "$CLUSTER_ID" ] && [ "${SHOW_CLUSTER_CONTEXT:-1}" = "1" ] && \
-   [ ! -f "${HOME}/.session/osdctl-context-attempted" ]; then
+if [ -n "$CLUSTER_ID" ] && [ "${SHOW_CLUSTER_CONTEXT:-1}" = "1" ] &&
+    [ ! -f "${HOME}/.session/osdctl-context-attempted" ]; then
     mkdir --parents "${HOME}/.session"
     touch "${HOME}/.session/osdctl-context-attempted"
     echo "Fetching context for cluster ${CLUSTER_ID}..."

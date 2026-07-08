@@ -116,6 +116,10 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
         {
           name  = "KUBE_PROXY_PORT"
           value = tostring(var.kube_proxy_port)
+        },
+        {
+          name  = "OCM_ENVIRONMENT"
+          value = var.ocm_environment
         }
       ]
 

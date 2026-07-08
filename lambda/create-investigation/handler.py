@@ -517,6 +517,7 @@ def register_investigation_task_definition(
         'OC_VERSION': oc_version,
         'S3_AUDIT_BUCKET': s3_audit_bucket,
         'TASK_TIMEOUT': str(task_timeout),
+        'OCM_ENVIRONMENT': os.environ.get('OCM_ENVIRONMENT', ''),
     }
 
     # Partial ARN (no random suffix) — ECS accepts partial ARNs for Secrets Manager valueFrom

@@ -62,7 +62,13 @@ variable "kube_proxy_port" {
 variable "enable_kube_proxy" {
   description = "Include the kube-proxy sidecar in the base task definition. Set to false for testing or environments without a cluster kubeconfig."
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "ocm_environment" {
+  description = "OCM environment name (e.g., 'production', 'staging'). Passed to the container for PS1 display and to the Lambda for env_overrides."
+  type        = string
+  default     = ""
 }
 
 variable "vpc_id" {

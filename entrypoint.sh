@@ -8,8 +8,9 @@
 # Supports two modes:
 #   Interactive (default): CMD is "sleep infinity", container waits for ECS Exec
 #   Command:               CMD is a command, optionally preceded by cluster login
-
-set -e
+#
+# Note: set -e is inside main(), not at the top level, so that sourcing this
+# file for bats tests does not enable errexit in the test runner.
 
 # ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -17,9 +18,10 @@ set -e
 # sync) don't create root-owned files under /home/sre (EFS). ECS Exec sessions
 # inherit the container-level ENV HOME=/home/sre from the Containerfile, not
 # this export, since they start as a separate process.
-readonly ENTRYPOINT_HOME=/root
-readonly SRE_HOME=/home/sre
-readonly SKEL_DIR=/etc/skel-sre
+# Defaults can be overridden in tests
+ENTRYPOINT_HOME="${ENTRYPOINT_HOME:-/root}"
+SRE_HOME="${SRE_HOME:-/home/sre}"
+SKEL_DIR="${SKEL_DIR:-/etc/skel-sre}"
 
 # ─── S3 AUDIT SYNC ──────────────────────────────────────────────────────────
 
@@ -204,6 +206,7 @@ do_cluster_login() {
 # ─── MAIN ────────────────────────────────────────────────────────────────────
 
 main() {
+    set -e
     export HOME="${ENTRYPOINT_HOME}"
 
     trap cleanup SIGTERM SIGINT SIGHUP

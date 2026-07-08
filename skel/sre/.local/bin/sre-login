@@ -11,28 +11,6 @@
 #
 # Ported from openshift/ocm-container, adapted for sre user.
 
-set -euo pipefail
-
-# Proxy mode: no backplane login needed
-if [[ "${CLUSTER_AUTH_METHOD:-backplane}" == "proxy" ]]; then
-    echo "Proxy sidecar mode: cluster access is provided by the kube-proxy sidecar."
-    echo "No login required. Run 'oc get nodes' to verify connectivity."
-    exit 0
-fi
-
-# Verify backplane is installed
-if ! ocm backplane version &>/dev/null; then
-    echo "The OCM backplane plugin must be installed for automatic cluster login." >&2
-    exit 1
-fi
-
-if [ -z "${1:-}" ]; then
-    echo "Usage: sre-login <cluster-name-or-id>" >&2
-    exit 1
-fi
-
-echo "Logging into cluster ${1}"
-
 # Resolve cluster argument — search by name, then ID, then external_id
 get_cluster_json() {
     local ocmjson total
@@ -51,7 +29,7 @@ get_cluster_json() {
         jq --raw-output '.items[] | [.id, .name, .display_name] | @csv' <<< "${ocmjson}" \
             | tr --delete '"' \
             | column -N "ID,NAME,DISPLAY_NAME" -t -s "," >&2
-        exit 1
+        return 1
     fi
 
     # Try by ID
@@ -71,11 +49,34 @@ get_cluster_json() {
     fi
 
     echo "Could not find a cluster with name, id or external id of \"${1}\"" >&2
-    exit 1
+    return 1
 }
 
-# Guard: allow sourcing for tests without executing
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# Main execution — only runs when invoked directly, not when sourced.
+sre_login_main() {
+    set -euo pipefail
+
+    # Proxy mode: no backplane login needed
+    if [[ "${CLUSTER_AUTH_METHOD:-backplane}" == "proxy" ]]; then
+        echo "Proxy sidecar mode: cluster access is provided by the kube-proxy sidecar."
+        echo "No login required. Run 'oc get nodes' to verify connectivity."
+        exit 0
+    fi
+
+    # Verify backplane is installed
+    if ! ocm backplane version &>/dev/null; then
+        echo "The OCM backplane plugin must be installed for automatic cluster login." >&2
+        exit 1
+    fi
+
+    if [ -z "${1:-}" ]; then
+        echo "Usage: sre-login <cluster-name-or-id>" >&2
+        exit 1
+    fi
+
+    echo "Logging into cluster ${1}"
+
+    local clusterjson cluster_id rc
     clusterjson=$(get_cluster_json "${1}")
     cluster_id=$(jq --raw-output '.id' <<< "${clusterjson}")
 
@@ -88,4 +89,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     fi
 
     exit "${rc}"
+}
+
+# Guard: allow sourcing for tests without executing
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    sre_login_main "$@"
 fi

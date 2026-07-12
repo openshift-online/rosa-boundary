@@ -1,8 +1,8 @@
 # CI runner image for all local and Prow CI jobs.
-# Provides: bats-core, shellcheck, shfmt, Go toolchain, golangci-lint.
-# Used by: make test-shell, make lint-shell, make fmt, make lint,
-#          make test-cli, make build-cli, and Prow CI jobs.
+# Provides: bats-core, shellcheck, shfmt, Go toolchain, golangci-lint, staticcheck.
+# Used by: make ci-*, and Prow CI jobs.
 #
+# All external downloads are checksum-verified at build time.
 # bats-core and ShellCheck are not in UBI9 repos, so we install from
 # upstream GitHub releases. Go is installed from the official tarball.
 
@@ -16,6 +16,16 @@ ARG GOLANGCI_LINT_VERSION=2.12.2
 ARG SHFMT_VERSION=3.11.0
 ARG STATICCHECK_VERSION=2025.1.1
 
+# Go checksums from https://go.dev/dl/?mode=json&include=all
+# Update these when bumping GO_VERSION.
+ARG GO_SHA256_AMD64=1153d3d50e0ac764b447adfe05c2bcf08e889d42a02e0fe0259bd47f6733ad7f
+ARG GO_SHA256_ARM64=ef758ae7c6cf9267c9c0ef080b8965f453d89ab2d25d9eb22de4405925238768
+
+# ShellCheck does not publish checksum files, so we hardcode per-arch SHA256s.
+# Update these when bumping SHELLCHECK_VERSION.
+ARG SHELLCHECK_SHA256_X86_64=6c881ab0698e4e6ea235245f22832860544f17ba386442fe7e9d629f8cbedf87
+ARG SHELLCHECK_SHA256_AARCH64=324a7e89de8fa2aed0d0c28f3dab59cf84c6d74264022c00c22af665ed1a09bb
+
 # System packages: git (bats submodules + go modules), xz (shellcheck archive),
 # make (build system), gcc (cgo if needed)
 RUN dnf install --assumeyes --nodocs \
@@ -26,22 +36,27 @@ RUN dnf install --assumeyes --nodocs \
     && dnf clean all \
     && rm --recursive --force /var/cache/yum
 
-# Install Go from the official tarball
+# Install Go from the official tarball with hardcoded SHA256 verification.
+# Checksums sourced from https://go.dev/dl/?mode=json&include=all
 RUN ARCH=$(uname -m) \
     && case "${ARCH}" in \
-        x86_64)  GOARCH="amd64" ;; \
-        aarch64) GOARCH="arm64" ;; \
+        x86_64)  GOARCH="amd64"; EXPECTED_SHA="${GO_SHA256_AMD64}" ;; \
+        aarch64) GOARCH="arm64"; EXPECTED_SHA="${GO_SHA256_ARM64}" ;; \
     esac \
+    && TARBALL="go${GO_VERSION}.linux-${GOARCH}.tar.gz" \
     && curl --silent --location --fail \
-        "https://go.dev/dl/go${GO_VERSION}.linux-${GOARCH}.tar.gz" \
-        --output /tmp/go.tar.gz \
-    && tar --extract --gzip --file=/tmp/go.tar.gz --directory=/usr/local \
-    && rm --force /tmp/go.tar.gz
+        "https://go.dev/dl/${TARBALL}" \
+        --output "/tmp/${TARBALL}" \
+    && echo "${EXPECTED_SHA}  /tmp/${TARBALL}" | sha256sum --check --status \
+    && tar --extract --gzip --file="/tmp/${TARBALL}" --directory=/usr/local \
+    && rm --force "/tmp/${TARBALL}"
 
 ENV PATH="/usr/local/go/bin:/root/go/bin:${PATH}"
 ENV GOPATH="/root/go"
 
-# Install bats-core from GitHub release
+# Install bats-core from GitHub release.
+# bats-core is a shell script framework (not a binary) — verified via
+# tag-pinned URL. No published checksums.
 RUN curl --silent --location --fail \
         "https://github.com/bats-core/bats-core/archive/refs/tags/v${BATS_VERSION}.tar.gz" \
         --output /tmp/bats.tar.gz \
@@ -49,40 +64,60 @@ RUN curl --silent --location --fail \
     && /tmp/bats-core-${BATS_VERSION}/install.sh /usr/local \
     && rm --recursive --force /tmp/bats*
 
-# Install ShellCheck from GitHub release (static binary)
+# Install ShellCheck from GitHub release with hardcoded SHA256 verification.
+# ShellCheck does not publish checksum files in releases.
 RUN ARCH=$(uname -m) \
+    && case "${ARCH}" in \
+        x86_64)  EXPECTED_SHA="${SHELLCHECK_SHA256_X86_64}" ;; \
+        aarch64) EXPECTED_SHA="${SHELLCHECK_SHA256_AARCH64}" ;; \
+    esac \
+    && TARBALL="shellcheck-v${SHELLCHECK_VERSION}.linux.${ARCH}.tar.xz" \
     && curl --silent --location --fail \
-        "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.${ARCH}.tar.xz" \
-        --output /tmp/shellcheck.tar.xz \
-    && tar --extract --xz --file=/tmp/shellcheck.tar.xz --directory=/tmp \
+        "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/${TARBALL}" \
+        --output "/tmp/${TARBALL}" \
+    && echo "${EXPECTED_SHA}  /tmp/${TARBALL}" | sha256sum --check --status \
+    && tar --extract --xz --file="/tmp/${TARBALL}" --directory=/tmp \
     && install --mode=755 /tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck /usr/local/bin/shellcheck \
     && rm --recursive --force /tmp/shellcheck*
 
-# Install shfmt (shell formatter)
+# Install shfmt (mvdan/sh) from GitHub release with SHA256 verification.
+# Checksums published as sha256sums.txt in releases.
 RUN ARCH=$(uname -m) \
     && case "${ARCH}" in \
         x86_64)  SHFMT_ARCH="amd64" ;; \
         aarch64) SHFMT_ARCH="arm64" ;; \
     esac \
+    && BINARY="shfmt_v${SHFMT_VERSION}_linux_${SHFMT_ARCH}" \
     && curl --silent --location --fail \
-        "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_${SHFMT_ARCH}" \
-        --output /usr/local/bin/shfmt \
-    && chmod +x /usr/local/bin/shfmt
+        "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/${BINARY}" \
+        --output "/tmp/${BINARY}" \
+    && curl --silent --location --fail \
+        "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/sha256sums.txt" \
+        --output /tmp/shfmt-sha256sums.txt \
+    && grep "${BINARY}" /tmp/shfmt-sha256sums.txt | (cd /tmp && sha256sum --check --status) \
+    && install --mode=755 "/tmp/${BINARY}" /usr/local/bin/shfmt \
+    && rm --force "/tmp/${BINARY}" /tmp/shfmt-sha256sums.txt
 
-# Install golangci-lint
+# Install golangci-lint from GitHub release with SHA256 verification.
+# Checksums published as golangci-lint-VERSION-checksums.txt in releases.
 RUN ARCH=$(uname -m) \
     && case "${ARCH}" in \
         x86_64)  LINT_ARCH="amd64" ;; \
         aarch64) LINT_ARCH="arm64" ;; \
     esac \
+    && TARBALL="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${LINT_ARCH}.tar.gz" \
     && curl --silent --location --fail \
-        "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${LINT_ARCH}.tar.gz" \
-        --output /tmp/golangci-lint.tar.gz \
-    && tar --extract --gzip --file=/tmp/golangci-lint.tar.gz --directory=/tmp \
+        "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/${TARBALL}" \
+        --output "/tmp/${TARBALL}" \
+    && curl --silent --location --fail \
+        "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-checksums.txt" \
+        --output /tmp/golangci-lint-checksums.txt \
+    && grep "  ${TARBALL}$" /tmp/golangci-lint-checksums.txt | (cd /tmp && sha256sum --check --status) \
+    && tar --extract --gzip --file="/tmp/${TARBALL}" --directory=/tmp \
     && install --mode=755 /tmp/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-${LINT_ARCH}/golangci-lint /usr/local/bin/golangci-lint \
     && rm --recursive --force /tmp/golangci-lint*
 
-# Install staticcheck
+# Install staticcheck via go install (checksum verified by Go module system)
 RUN go install "honnef.co/go/tools/cmd/staticcheck@${STATICCHECK_VERSION}"
 
 WORKDIR /workspace

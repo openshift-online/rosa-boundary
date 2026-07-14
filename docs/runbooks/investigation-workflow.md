@@ -2,507 +2,281 @@
 
 ## Overview
 
-This runbook describes the complete investigation lifecycle using Lambda-based OIDC authentication, from creation through access to closure. It extends the existing lifecycle scripts in `deploy/regional/examples/` with automated IAM role management and tag-based isolation.
+This runbook describes the complete investigation lifecycle using the `rosa-boundary` CLI with
+Lambda-based OIDC authentication, from creation through access to closure. The CLI wraps all
+AWS API calls and handles OIDC token caching, role assumption, and ECS Exec session hand-off.
 
 ## Workflow Diagram
 
 ```mermaid
 stateDiagram-v2
-    [*] --> InvestigationCreated: create-investigation-lambda.sh
-    InvestigationCreated --> TaskRunning: Lambda launches task
-    TaskRunning --> UserConnected: aws ecs execute-command
+    [*] --> LoggedIn: rosa-boundary login
+    LoggedIn --> TaskRunning: rosa-boundary start-task
+    TaskRunning --> UserConnected: rosa-boundary join-task
     UserConnected --> Investigation: Work in container
     Investigation --> UserDisconnected: exit
-    UserDisconnected --> TaskStopped: stop_task.sh
-    TaskStopped --> InvestigationClosed: close_investigation.sh
+    UserDisconnected --> TaskStopped: rosa-boundary stop-task
+    TaskStopped --> InvestigationClosed: rosa-boundary close-investigation
     InvestigationClosed --> [*]
 
-    note right of InvestigationCreated
-        - Keycloak OIDC authentication
-        - Lambda validates token + group
-        - Per-user IAM role created
+    note right of LoggedIn
+        - Keycloak PKCE browser flow
+        - Token cached in ~/.cache/rosa-boundary/
+    end note
+
+    note right of TaskRunning
+        - CLI assumes invoker role via STS
+        - Lambda validates OIDC token + group
         - EFS access point created
-        - Task definition registered
-        - ECS task launched with tags
+        - Task definition registered (per-investigation)
+        - ECS task launched with username/cluster/investigation tags
+        - Lambda returns shared SRE role ARN
     end note
 
     note right of UserConnected
-        - Assume per-user role
-        - Tag-based authorization
-        - Direct ECS Exec session
+        - CLI assumes shared SRE ABAC role
+        - ABAC condition: username tag must match caller's session tag
+        - ECS Exec session handed off to session-manager-plugin
     end note
 
     note right of TaskStopped
+        - SIGTERM triggers entrypoint cleanup
         - /home/sre synced to S3
         - CloudWatch logs retained
-        - Task terminated
     end note
 
     note right of InvestigationClosed
+        - Running tasks stopped
         - Task definitions deregistered
         - EFS access point deleted
     end note
 ```
 
-## Phase 1: Create Investigation
-
-**Script**: `tools/create-investigation-lambda.sh`
-
-### Usage
+## Prerequisites
 
 ```bash
-./create-investigation-lambda.sh <cluster-id> <investigation-id> [oc-version]
+# Build the CLI
+make build-cli
+
+# Verify session-manager-plugin is installed (required for join-task)
+session-manager-plugin --version
+
+# Confirm AWS credentials
+aws sts get-caller-identity
 ```
 
-### Example
+## Phase 1: Authenticate
 
 ```bash
-cd tools/
-./create-investigation-lambda.sh rosa-prod-01 456 4.20
+./bin/rosa-boundary login \
+  --keycloak-url https://auth.redhat.com/auth \
+  --realm EmployeeIDP \
+  --client-id rosa-boundary-sre
 ```
 
-### What It Does
+What it does:
+- Opens a browser for Keycloak PKCE authentication
+- Caches the OIDC token at `~/.cache/rosa-boundary/token.json`
+- Token is reused for subsequent CLI commands (TTL: ~4 minutes)
 
-1. **Authenticates with Keycloak**
-   - Browser popup for OIDC authentication (PKCE flow)
-   - Token cached for 4 minutes to reduce popup fatigue
-   - Token sent to Lambda in Authorization header
-
-2. **Lambda Validates Request**
-   - Verifies OIDC token signature against Keycloak JWKS
-   - Checks `sre-team` group membership
-   - Extracts user's OIDC `sub` claim
-
-3. **Lambda Creates IAM Role** (if not exists)
-   ```
-   Role Name: rosa-boundary-user-{hash-of-sub}
-   Policies:
-     - ExecuteCommandOnCluster (ecs:ExecuteCommand on cluster)
-     - ExecuteCommandOnOwnedTasks (ecs:ExecuteCommand on tasks with matching username tag)
-     - DescribeAndListECS (ecs:DescribeTasks, ecs:ListTasks)
-     - SSMSessionForECSExec (ssm:StartSession with tag condition)
-     - KMSForECSExec (kms:Decrypt for encrypted sessions)
-   ```
-
-4. **Lambda Creates EFS Access Point**
-   ```
-   Path: /rosa-prod-01/456/
-   POSIX: uid=1000, gid=1000
-   Tags:
-     - ClusterID: rosa-prod-01
-     - InvestigationId: 456
-   ```
-
-5. **Lambda Registers Task Definition**
-   ```
-   Family: rosa-boundary-dev-rosa-prod-01-456-20260103T150000
-   Environment Variables:
-     - CLUSTER_ID=rosa-prod-01
-     - INVESTIGATION_ID=456
-     - OC_VERSION=4.20
-     - S3_AUDIT_BUCKET=xxx-rosa-boundary-dev-us-east-2
-   ```
-
-6. **Lambda Launches ECS Task**
-   ```
-   Tags:
-     - oidc_sub: {oidc-sub-claim}
-     - username: {preferred-username}
-     - cluster_id: rosa-prod-01
-     - investigation_id: 456
-   ```
-
-7. **Script Assumes IAM Role**
-   - Calls `assume-role.sh` with returned role ARN
-   - Exports AWS credentials to environment
-   - Role permissions scoped to tasks with matching `username` tag
-
-### Output
-
-```
-========================================
-Investigation Created Successfully! 🎉
-========================================
-
-Investigation Details:
-  Cluster:        rosa-prod-01
-  Investigation:  456
-  Task:           a1b2c3d4e5f6
-  OC Version:     4.20
-  EFS Access Pt:  fsap-0a1b2c3d4e5f
-  Your Role:      arn:aws:iam::123456789012:role/rosa-boundary-user-abc123
-
-Connect to task:
-  aws ecs execute-command \
-    --cluster rosa-prod-01 \
-    --task a1b2c3d4e5f6 \
-    --container rosa-boundary \
-    --interactive \
-    --command /bin/bash \
-    --region us-east-2
-
-Or use the join helper:
-  ./join-investigation.sh a1b2c3d4e5f6
-```
-
-Save the task ID for connection and cleanup.
-
-## Phase 2: Connect to Container
-
-**User Action**: SRE connects via ECS Exec
-
-### Usage
+## Phase 2: Start Investigation
 
 ```bash
-# Method 1: Using helper script
-./tools/join-investigation.sh <task-id>
-
-# Method 2: Direct ECS Exec command
-aws ecs execute-command \
-  --cluster rosa-prod-01 \
-  --task a1b2c3d4e5f6 \
-  --container rosa-boundary \
-  --interactive \
-  --command /bin/bash \
+./bin/rosa-boundary start-task \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id> \
+  --lambda-function-name rosa-boundary-dev-create-investigation \
+  --invoker-role-arn arn:aws:iam::660777614061:role/rosa-boundary-dev-lambda-invoker \
+  --ecs-cluster rosa-boundary-dev \
   --region us-east-2
 ```
 
-### What Happens
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant KC as Keycloak
-    participant L as Lambda
-    participant STS as AWS STS
-    participant ECS as ECS/SSM
-    participant C as Container
-
-    U->>KC: Browser OIDC auth (PKCE)
-    KC->>U: ID token
-    U->>L: POST /create (token + params)
-    L->>KC: Validate token (JWKS)
-    KC->>L: Token valid + claims
-    L->>L: Check sre-team membership
-    L->>L: Create/get IAM role (per user)
-    L->>L: Create EFS access point
-    L->>L: Launch ECS task (with username tag)
-    L->>U: Return role ARN + task ARN
-    U->>STS: AssumeRoleWithWebIdentity
-    STS->>U: Temporary credentials
-    U->>ECS: execute-command (with tag-scoped permissions)
-    ECS->>ECS: Verify username tag matches
-    ECS->>C: Start SSM session
-    C->>U: Interactive shell
+Optional flags:
+```
+  --task-timeout 3600     # seconds; 0 = no timeout (default: 3600)
+  --oc-version 4.20       # OpenShift CLI version to lock (default: latest)
 ```
 
-### Session Output
+What it does:
+1. **CLI assumes the invoker role** via STS (two-step: automation creds → invoker role)
+2. **Invokes the create-investigation Lambda** with the cached OIDC token
+3. **Lambda validates** the token against Keycloak JWKS and checks `ai-sd-sre` group membership
+4. **Lambda creates an EFS access point**: `/<cluster-id>/<investigation-id>/`
+5. **Lambda registers a per-investigation task definition** with locked OC version and pre-set env vars
+6. **Lambda launches the ECS task** tagged with `username`, `cluster_id`, `investigation_id`, `deadline`
+7. **Lambda returns the shared SRE role ARN** and task ARN
+8. CLI prints connection command
 
-```
-The Session Manager plugin was installed successfully. Use the AWS CLI to start a session.
+Output includes the task ID — save it for join/stop/close steps.
 
-
-Starting session with SessionId: user-abc123...
-[sre@container ~]$
-```
-
-## Phase 3: Investigation Work
-
-User performs investigation work in the container:
+## Phase 3: List Tasks
 
 ```bash
-# Set up OpenShift context
-oc login --token=<token> --server=https://api.rosa-prod-01.example.com:6443
-
-# Gather diagnostics
-oc get nodes
-oc get pods --all-namespaces | grep -i error
-oc logs -n problematic-namespace pod-name
-
-# Save findings
-cat > ~/investigation-456-findings.md << 'EOF'
-# Investigation 456 Findings
-
-## Problem
-High CPU on worker nodes...
-
-## Root Cause
-...
-
-## Resolution
-...
-EOF
-
-# Download configs for analysis
-oc get deployment problematic-app -n app-namespace -o yaml > ~/app-deployment.yaml
+./bin/rosa-boundary list-tasks \
+  --ecs-cluster rosa-boundary-dev \
+  --region us-east-2
 ```
 
-All files in `/home/sre` are persisted to EFS and synced to S3 on exit.
+Shows: task ID, status, cluster, investigation ID, username, start time.
 
-## Phase 4: Disconnect
-
-User exits the shell:
+## Phase 4: Connect to Container
 
 ```bash
-[sre@container ~]$ exit
-logout
-
-
-Exiting session with sessionId: user-abc123.
+./bin/rosa-boundary join-task <task-id> \
+  --ecs-cluster rosa-boundary-dev \
+  --region us-east-2
 ```
 
-### What Happens on Exit
+What it does:
+1. Assumes the shared SRE ABAC role (scoped by `aws:PrincipalTag/username` ABAC condition)
+2. Calls `ecs:ExecuteCommand` — the IAM policy only allows exec on tasks where `ecs:ResourceTag/username` matches the caller's session tag
+3. Waits ~8 seconds for the container exec agent to open its data channel
+4. Replaces the current process with `session-manager-plugin` for a seamless terminal
 
-1. **Container entrypoint cleanup**:
-   ```bash
-   # entrypoint.sh cleanup() function
-   # Auto-generates S3 path from task metadata
-   aws s3 sync /home/sre/ \
-     s3://bucket/rosa-prod-01/456/20260103/task123/
-   ```
+Inside the container (as `sre` user):
+```bash
+whoami              # sre
+echo $CLUSTER_ID    # <cluster-id>
+echo $INVESTIGATION_ID  # <investigation-id>
+claude --version    # Claude Code via Bedrock
+oc version --client # OpenShift CLI (locked to investigation version)
+```
 
-2. **S3 audit sync**:
-   ```
-   s3://bucket/rosa-prod-01/456/20260103/task123/
-   ├── .bash_history
-   ├── investigation-456-findings.md
-   ├── app-deployment.yaml
-   └── .claude/...
-   ```
+All files in `/home/sre` persist to EFS across task restarts for the same investigation.
 
-## Phase 5: Stop Task
-
-**Script**: `deploy/regional/examples/stop_task.sh`
-
-### Usage
+## Phase 5: Stop Task (Triggers S3 Sync)
 
 ```bash
-./stop_task.sh <task-id> [reason]
+./bin/rosa-boundary stop-task <task-id> \
+  --ecs-cluster rosa-boundary-dev \
+  --region us-east-2
 ```
 
-### Example
-
-```bash
-cd deploy/regional/examples
-./stop_task.sh a1b2c3d4 "Investigation complete"
-```
-
-### What It Does
-
-1. Sends SIGTERM to task
-2. Entrypoint cleanup runs (S3 sync)
-3. Task transitions to STOPPED
-4. Displays expected S3 audit location
+What it does:
+1. Sends SIGTERM to the ECS task
+2. Container entrypoint cleanup runs `aws s3 sync /home/sre/ s3://...`
+3. S3 path is auto-generated: `s3://<bucket>/<cluster-id>/<investigation-id>/<date>/<task-id>/`
+4. Task transitions to STOPPED
 
 ## Phase 6: Close Investigation
 
-**Script**: `deploy/regional/examples/close_investigation.sh`
-
-### Usage
-
 ```bash
-./close_investigation.sh <task-family> <access-point-id>
+./bin/rosa-boundary close-investigation \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id> \
+  --efs-filesystem-id fs-089982673ac88b7d8 \
+  --ecs-cluster rosa-boundary-dev \
+  --region us-east-2
 ```
 
-### Example
-
-```bash
-./close_investigation.sh \
-  rosa-boundary-dev-rosa-prod-01-456-20260103T150000 \
-  fsap-0a1b2c3d4e5f
-```
-
-### What It Does
-
-1. **Checks for running tasks**
-   - Prevents deletion if tasks still active
-   - Lists running tasks for the family
-
-2. **Deregisters task definitions**
-   - All revisions for the family
-   - Prevents future launches
-
-3. **Deletes EFS access point** (with confirmation)
-   - Prompts: "Delete access point? This does NOT delete data. (yes/no)"
-   - EFS data remains in filesystem at `/rosa-prod-01/456/`
-
-### Output
-
-```
-Checking for running tasks in family rosa-boundary-dev-rosa-prod-01-456-20260103T150000...
-No running tasks found.
-
-Deregistering task definition family rosa-boundary-dev-rosa-prod-01-456-20260103T150000...
-Deregistered 1 revision(s).
-
-Delete access point fsap-0a1b2c3d4e5f? This does NOT delete data. (yes/no): yes
-Access point deleted successfully.
-
-==========================================
-✓ Investigation closed successfully!
-==========================================
-
-Cleaned up:
-  ✓ Task definition family: rosa-boundary-dev-rosa-prod-01-456-20260103T150000 (all revisions)
-  ✓ EFS access point: fsap-0a1b2c3d4e5f
-
-Note: EFS data at /rosa-prod-01/456 is preserved on the filesystem.
-The directory will remain but is no longer accessible via this access point.
-```
+What it does:
+1. Verifies no running tasks remain for this investigation
+2. Deregisters all per-investigation task definition revisions
+3. Deletes the EFS access point (EFS data at `/<cluster-id>/<investigation-id>/` is preserved on the filesystem)
 
 ## Complete Example
 
-End-to-end investigation workflow:
+```bash
+# Set common variables
+CLUSTER_ID="rosa-prod-01"
+INV_ID="INV-456"
+REGION="us-east-2"
+ECS_CLUSTER="rosa-boundary-dev"
+LAMBDA_FN="rosa-boundary-dev-create-investigation"
+INVOKER_ROLE="arn:aws:iam::660777614061:role/rosa-boundary-dev-lambda-invoker"
+EFS_ID="fs-089982673ac88b7d8"
+
+# 1. Authenticate
+./bin/rosa-boundary login \
+  --keycloak-url https://auth.redhat.com/auth \
+  --realm EmployeeIDP \
+  --client-id rosa-boundary-sre
+
+# 2. Start investigation (save TASK_ID from output)
+./bin/rosa-boundary start-task \
+  --cluster-id "$CLUSTER_ID" \
+  --investigation-id "$INV_ID" \
+  --lambda-function-name "$LAMBDA_FN" \
+  --invoker-role-arn "$INVOKER_ROLE" \
+  --ecs-cluster "$ECS_CLUSTER" \
+  --region "$REGION"
+
+TASK_ID="<from output>"
+
+# 3. Connect
+./bin/rosa-boundary join-task "$TASK_ID" \
+  --ecs-cluster "$ECS_CLUSTER" \
+  --region "$REGION"
+
+# (exit container when done)
+
+# 4. Stop task
+./bin/rosa-boundary stop-task "$TASK_ID" \
+  --ecs-cluster "$ECS_CLUSTER" \
+  --region "$REGION"
+
+# 5. Close investigation
+./bin/rosa-boundary close-investigation \
+  --cluster-id "$CLUSTER_ID" \
+  --investigation-id "$INV_ID" \
+  --efs-filesystem-id "$EFS_ID" \
+  --ecs-cluster "$ECS_CLUSTER" \
+  --region "$REGION"
+```
+
+## Authorization Model
+
+All SREs share a single IAM role (`rosa-boundary-dev-sre-shared`). Access is scoped at runtime by ABAC:
+
+- Lambda tags tasks with `username: <preferred-username>` at launch
+- Lambda calls `sts:TagSession` to inject `username` into the caller's STS session
+- The shared role policy allows `ecs:ExecuteCommand` only when `ecs:ResourceTag/username == aws:PrincipalTag/username`
+- Cross-user task access is prevented at IAM policy level without per-user roles
+
+## Viewing Session Logs
+
+All ECS Exec sessions are streamed to CloudWatch in real-time with KMS encryption:
 
 ```bash
-# === User: Create investigation ===
-cd tools/
+# List recent sessions
+aws logs describe-log-streams \
+  --log-group-name "/ecs/rosa-boundary-dev/ssm-sessions" \
+  --order-by LastEventTime --descending \
+  --max-items 10 \
+  --region us-east-2
 
-# Create infrastructure and launch task (all-in-one)
-./create-investigation-lambda.sh rosa-prod-01 789 4.20
+# Tail all sessions live
+aws logs tail "/ecs/rosa-boundary-dev/ssm-sessions" --follow --region us-east-2
 
-# Output includes task ID and connection command
-# Save TASK_ID from output (e.g., a1b2c3d4e5f6)
-
-# === User: Connect and investigate ===
-./join-investigation.sh a1b2c3d4e5f6
-
-# ... investigation work ...
-
-exit
-
-# === User: Close investigation ===
-cd ../deploy/regional/examples
-
-# Stop the task (triggers S3 sync)
-./stop_task.sh a1b2c3d4e5f6 "Investigation complete"
-
-# Close investigation (from create-investigation-lambda.sh output)
-./close_investigation.sh \
-  rosa-boundary-dev-rosa-prod-01-789-20260103T150000 \
-  fsap-0a1b2c3d4e5f
-```
-
-## Parallel Investigations
-
-Multiple investigations can run simultaneously:
-
-```bash
-# Create 3 investigations for the same cluster
-./create-investigation-lambda.sh rosa-prod-01 801 4.18
-./create-investigation-lambda.sh rosa-prod-01 802 4.19
-./create-investigation-lambda.sh rosa-prod-01 803 4.20
-
-# Each gets:
-# - Separate EFS path: /rosa-prod-01/801/, /rosa-prod-01/802/, /rosa-prod-01/803/
-# - Separate task definition family
-# - Tag-based isolation (users can only access own tasks)
-
-# Users can only connect to tasks they created (username tag enforcement)
-```
-
-## Tag-Based Authorization Model
-
-**How it works**:
-
-1. **Per-User IAM Roles**: Each user gets a unique role based on their OIDC `sub` claim
-2. **Task Tagging**: Tasks are tagged with `username` at launch
-3. **Policy Enforcement**: IAM policies restrict `ecs:ExecuteCommand` to tasks with matching tag
-
-**Example IAM Policy** (in user's role):
-```json
-{
-  "Effect": "Allow",
-  "Action": "ecs:ExecuteCommand",
-  "Resource": "arn:aws:ecs:*:*:task/*",
-  "Condition": {
-    "StringEquals": {
-      "ecs:ResourceTag/username": "${aws:userid}"
-    }
-  }
-}
-```
-
-**Benefits**:
-- Cross-user task access prevented at IAM policy level
-- No manual permission management
-- Scales to unlimited users
-- Audit trail via CloudTrail (who accessed what)
-
-## Automation Opportunities
-
-### CI/CD Integration
-
-```yaml
-# GitHub Actions example
-name: Create Investigation
-
-on:
-  issues:
-    types: [labeled]
-
-jobs:
-  create:
-    if: github.event.label.name == 'needs-investigation'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Create investigation
-        run: |
-          INVESTIGATION_NUM="${{ github.event.issue.number }}"
-          CLUSTER_ID="rosa-prod-01"
-
-          # Note: Requires GitHub Actions OIDC integration
-          ./tools/create-investigation-lambda.sh "$CLUSTER_ID" "$INVESTIGATION_NUM"
-      - name: Comment on issue
-        uses: actions/github-script@v6
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Investigation container created. See Actions output for connection details.'
-            })
-```
-
-### Scheduled Cleanup
-
-```bash
-# Cron job to clean up old stopped tasks
-0 2 * * * /path/to/cleanup-old-investigations.sh 7  # 7 days
+# View specific session
+aws logs get-log-events \
+  --log-group-name "/ecs/rosa-boundary-dev/ssm-sessions" \
+  --log-stream-name "ecs-execute-command-<SESSION_ID>" \
+  --region us-east-2
 ```
 
 ## Troubleshooting
 
-### Token Cache Issues
-
+### Token cache stale
 ```bash
-# Force fresh OIDC authentication
-tools/sre-auth/get-oidc-token.sh --force
+rm ~/.cache/rosa-boundary/token.json
+./bin/rosa-boundary login ...
 ```
 
-### Permission Denied on ECS Exec
+### AccessDeniedException on join-task
+- Cause: You are not the user who created the task (ABAC tag mismatch) or the task has no `username` tag
+- Verify: `aws ecs describe-tasks --cluster rosa-boundary-dev --tasks <task-id> --query 'tasks[0].tags'`
 
-**Symptom**: `AccessDeniedException` when running `aws ecs execute-command`
+### Lambda returns 403 Forbidden
+- Cause: Caller's OIDC group claim does not include `ai-sd-sre`
+- Verify group membership in Keycloak; contact the Keycloak admin
 
-**Cause**: IAM role doesn't have permission (likely `username` tag mismatch)
+### session-manager-plugin: connection drops immediately
+- Cause: Container exec agent hasn't opened its WebSocket yet
+- The CLI waits 8 seconds by default; if it still fails, the task may not have ECS Exec enabled
 
-**Solution**:
-1. Verify you're using credentials from the investigation creation
-2. Check task tags match your OIDC `sub` claim
-3. Verify role was created correctly by Lambda
+## Related
 
-### Lambda Authorization Failed
-
-**Symptom**: `{"error": "Forbidden: User not in sre-team group"}`
-
-**Cause**: User not member of `sre-team` group in Keycloak
-
-**Solution**: Contact Keycloak admin to add user to group
-
-## Next Steps
-
-- [User Access Guide](user-access-guide.md) - Instructions for SRE users
-- [Troubleshooting](troubleshooting.md) - Common issues and solutions
-- [Tag-Based Isolation](../TAG_BASED_ISOLATION.md) - Deep dive on authorization model
+- [Troubleshooting](troubleshooting.md)
+- [User Access Guide](user-access-guide.md)
+- [AWS IAM Policies](../configuration/aws-iam-policies.md)

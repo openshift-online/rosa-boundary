@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides step-by-step instructions for SRE users to create investigations and access containers using Keycloak OIDC authentication and AWS ECS Exec.
+This guide provides step-by-step instructions for SRE users to create investigations and access containers using the `rosa-boundary` CLI with Keycloak OIDC authentication and AWS ECS Exec.
 
 ## Prerequisites
 
@@ -10,8 +10,8 @@ Before you can access investigation containers, you need:
 
 1. ✅ Keycloak account with `sre-team` group membership
 2. ✅ AWS CLI installed and configured
-3. ✅ Authentication scripts from `tools/sre-auth/`
-4. ✅ Lambda function URL from your administrator
+3. ✅ `session-manager-plugin` installed (required for `join-task`)
+4. ✅ `rosa-boundary` CLI built or installed
 
 ## One-Time Setup
 
@@ -34,85 +34,93 @@ sudo ./aws/install
 aws --version
 ```
 
-### 2. Install Authentication Scripts
+### 2. Install session-manager-plugin
 
+**macOS:**
 ```bash
-# Clone the repository or download scripts
-git clone https://github.com/cuppett/rosa-boundary.git
-cd rosa-boundary/tools/sre-auth
-
-# Or download individually
-mkdir -p ~/rosa-boundary-tools
-cd ~/rosa-boundary-tools
-curl -O <repo-url>/tools/sre-auth/get-oidc-token.sh
-curl -O <repo-url>/tools/sre-auth/assume-role.sh
-
-# Make executable
-chmod +x *.sh
+brew install --cask session-manager-plugin
 ```
 
-### 3. Configure Environment
+**Linux (rpm):**
+```bash
+curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/linux_64bit/session-manager-plugin.rpm" -o session-manager-plugin.rpm
+sudo dnf install -y session-manager-plugin.rpm
+```
 
-Create `~/.sre-auth/config` or set environment variables:
+**Verify:**
+```bash
+session-manager-plugin --version
+```
+
+### 3. Build the rosa-boundary CLI
 
 ```bash
-export KEYCLOAK_ISSUER_URL="https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com/realms/rosa-boundary"
-export OIDC_CLIENT_ID="aws-sre-access"
-export AWS_REGION="us-east-2"
+# From the repo root
+make build-cli
+
+# Or install to ~/go/bin
+make install-cli
+```
+
+### 4. Configure CLI
+
+Run the interactive configurator or write `~/.config/rosa-boundary/config.yaml` directly:
+
+```bash
+./bin/rosa-boundary configure
+```
+
+Key fields (get values from your administrator):
+
+```yaml
+lambda_function_name: rosa-boundary-dev-create-investigation
+invoker_role_arn: arn:aws:iam::<account-id>:role/rosa-boundary-dev-lambda-invoker
+sre_role_arn: arn:aws:iam::<account-id>:role/rosa-boundary-dev-sre-shared
+ecs_cluster_name: rosa-boundary-dev
+aws_region: us-east-2
 ```
 
 ## Daily Usage
 
-### Step 1: Create Investigation
-
-Use the Lambda-based creation script:
+### Step 1: Authenticate
 
 ```bash
-cd tools/sre-auth
+./bin/rosa-boundary login \
+  --keycloak-url https://auth.redhat.com/auth \
+  --realm EmployeeIDP \
+  --client-id rosa-boundary-sre
+```
 
-# Create investigation for cluster rosa-prod-01, investigation inv-123, OC version 4.20
-./create-investigation-lambda.sh rosa-prod-01 inv-123 4.20
+This opens a browser for Keycloak PKCE authentication and caches the token at
+`~/.cache/rosa-boundary/token.json`. The token is reused for subsequent commands.
+
+### Step 2: Start Investigation
+
+```bash
+./bin/rosa-boundary start-task \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id>
 ```
 
 This will:
-1. Get OIDC token from Keycloak (opens browser)
-2. Invoke Lambda function with token
-3. Lambda validates group membership
-4. Lambda creates IAM role and ECS task
-5. Script assumes the returned role
-6. Script waits for task to reach RUNNING state
-7. Displays ECS Exec connection command
+1. Assume the invoker role via STS
+2. Invoke the create-investigation Lambda with your cached OIDC token
+3. Lambda validates group membership (`sre-team`)
+4. Lambda creates an EFS access point and per-investigation task definition
+5. Lambda launches the ECS task tagged with your username
+6. CLI prints the task ID — save it for the next steps
 
-### Step 2: Connect to Investigation Container
-
-After the investigation is created, use the provided command:
+### Step 3: Connect to Investigation Container
 
 ```bash
-# Example output from create-investigation-lambda.sh:
-#
-# Task is now RUNNING!
-# To connect, run:
-# aws ecs execute-command \
-#   --cluster rosa-boundary-dev \
-#   --task arn:aws:ecs:us-east-2:123456789012:task/rosa-boundary-dev/abc123... \
-#   --container rosa-boundary \
-#   --interactive \
-#   --command "/bin/bash"
-```
-
-Or use the manual scripts in `deploy/regional/examples/`:
-
-```bash
-cd deploy/regional/examples
-
-# Get task ID from create-investigation-lambda.sh output
-TASK_ID="abc123def456"
+# List running tasks to find your task ID
+./bin/rosa-boundary list-tasks
 
 # Connect
-./join_task.sh $TASK_ID
+./bin/rosa-boundary join-task <task-id>
 ```
 
-### Step 3: Work in the Container
+### Step 4: Work in the Container
 
 Once connected, you're in an interactive shell as the `sre` user:
 
@@ -136,7 +144,7 @@ aws sts get-caller-identity
 claude
 ```
 
-### Step 4: Exit Cleanly
+### Step 5: Exit Cleanly
 
 ```bash
 # Exit shell
@@ -145,7 +153,15 @@ exit
 # Or press Ctrl-D
 ```
 
-The container's entrypoint will automatically sync `/home/sre` to S3 on exit.
+The container's entrypoint automatically syncs `/home/sre` to S3 on exit.
+
+### Step 6: Stop Task (Optional — if not already exited)
+
+```bash
+./bin/rosa-boundary stop-task <task-id>
+```
+
+Sends SIGTERM to the task, triggering the S3 sync and graceful shutdown.
 
 ## Working with Multiple Investigations
 
@@ -159,10 +175,10 @@ tmux
 
 # Create windows for each investigation
 Ctrl-B C  # New window
-aws ecs execute-command --cluster rosa-boundary-dev --task <task1-arn> ...
+./bin/rosa-boundary join-task <task1-id>
 
 Ctrl-B C  # Another window
-aws ecs execute-command --cluster rosa-boundary-dev --task <task2-arn> ...
+./bin/rosa-boundary join-task <task2-id>
 
 # Switch between windows
 Ctrl-B N  # Next window
@@ -172,10 +188,9 @@ Ctrl-B P  # Previous window
 ### List your investigations
 
 ```bash
-# List tasks tagged with your OIDC sub claim
-aws ecs list-tasks --cluster rosa-boundary-dev
+./bin/rosa-boundary list-tasks --ecs-cluster rosa-boundary-dev
 
-# Describe tasks to see details
+# Or via AWS CLI for tag details
 aws ecs describe-tasks \
   --cluster rosa-boundary-dev \
   --tasks <task-arn> \
@@ -186,67 +201,69 @@ aws ecs describe-tasks \
 
 ### "Authentication failed" in OIDC flow
 
-1. Check Keycloak is accessible:
+1. Clear the token cache and re-authenticate:
    ```bash
-   curl -I https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com/realms/rosa-boundary/.well-known/openid-configuration
+   rm ~/.cache/rosa-boundary/token.json
+   ./bin/rosa-boundary login ...
    ```
 
-2. Verify your credentials:
-   - Visit: https://keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com
-   - Log in with your credentials
+2. Verify your Keycloak credentials by logging in at the Keycloak URL
 
-3. Check group membership:
-   - In Keycloak admin console or ask administrator
-   - Verify you're in `sre-team` group
+3. Check group membership — Lambda requires `sre-team`
 
 ### "AccessDenied" from Lambda
 
-1. Verify group membership - Lambda requires `sre-team` group
-2. Check Lambda function URL is correct
-3. Verify OIDC token is valid (try `./get-oidc-token.sh --force`)
+1. Verify group membership (`sre-team`) in Keycloak
+2. Confirm the invoker role ARN in your config matches what the administrator provided
+3. Token may be expired — clear cache and re-login (see above)
 
 ### "Task not found" or "Task not running"
 
-1. Check if task is still running:
+1. Check task status:
    ```bash
-   aws ecs describe-tasks \
-     --cluster rosa-boundary-dev \
-     --tasks <task-arn> \
-     --query 'tasks[0].lastStatus'
+   ./bin/rosa-boundary list-tasks
    ```
 
-2. If task stopped, create new investigation with `create-investigation-lambda.sh`
+2. If the task stopped, start a new investigation:
+   ```bash
+   ./bin/rosa-boundary start-task --cluster-id <id> --investigation-id <id>
+   ```
 
 ### "AccessDenied" when executing ECS Exec
 
-Your IAM role can only access tasks tagged with your OIDC `sub` claim. Verify:
+Your session is ABAC-scoped — you can only exec into tasks tagged with your username.
+Verify:
 
 ```bash
 # Check task tags
 aws ecs describe-tasks \
   --cluster rosa-boundary-dev \
   --tasks <task-arn> \
+  --include TAGS \
   --query 'tasks[0].tags'
 
 # Check assumed role
 aws sts get-caller-identity
 ```
 
-If the `username` tag doesn't match your role's permissions, you don't own this task.
+If the `username` tag doesn't match your session tag, you don't own this task.
 
 ### "ECS Exec is not enabled for this task"
 
-The task was launched without `--enable-execute-command`. This should not happen with properly created investigations via Lambda. Contact the administrator.
+The task was launched without `--enable-execute-command`. This should not happen
+with properly created investigations via the Lambda. Contact the administrator.
 
-### Token cache issues
+### session-manager-plugin: connection drops immediately
+
+The container exec agent may not have finished opening its WebSocket. The CLI
+waits 8 seconds by default. If it still fails, verify the task has ECS Exec
+enabled:
 
 ```bash
-# Force fresh OIDC token
-cd tools/sre-auth
-./get-oidc-token.sh --force
-
-# Clear token cache manually
-rm -f ~/.sre-auth/id-token.cache
+aws ecs describe-tasks \
+  --cluster rosa-boundary-dev \
+  --tasks <task-arn> \
+  --query 'tasks[0].enableExecuteCommand'
 ```
 
 ## Security Best Practices
@@ -257,7 +274,7 @@ rm -f ~/.sre-auth/id-token.cache
 4. **Enable MFA** in Keycloak for your account
 5. **Review CloudWatch Logs** periodically (`/ecs/rosa-boundary-*/ssm-sessions`)
 6. **Never share credentials** or OIDC tokens
-7. **Use tag-based isolation** - you can only access your own tasks
+7. **Use tag-based isolation** — you can only access your own tasks
 
 ## Getting Help
 
@@ -268,5 +285,5 @@ rm -f ~/.sre-auth/id-token.cache
 
 ## Next Steps
 
-- [Investigation Workflow](investigation-workflow.md) - Full investigation lifecycle from admin perspective
+- [Investigation Workflow](investigation-workflow.md) - Full investigation lifecycle
 - [Troubleshooting](troubleshooting.md) - Detailed troubleshooting guide

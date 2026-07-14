@@ -115,20 +115,18 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
 
     print(f"Created task {task_id} with past deadline: {past_deadline}")
 
-    # Import and invoke reaper handler directly
-    import sys
-    LAMBDA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks'))
-    sys.path.insert(0, LAMBDA_DIR)
+    # Load reaper handler by explicit path to avoid sys.modules cache collision
+    # with lambda/create-investigation/handler.py (both files are named handler.py).
+    import importlib.util
+    _lambda_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py'))
+    _spec = importlib.util.spec_from_file_location('reap_tasks_handler', _lambda_path)
+    reaper_handler = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(reaper_handler)
 
+    _prev_cluster = os.environ.get('ECS_CLUSTER')
     try:
-        # Set environment for reaper
         os.environ['ECS_CLUSTER'] = cluster_name
 
-        import handler as reaper_handler
-        import importlib
-        importlib.reload(reaper_handler)
-
-        # Invoke reaper
         result = reaper_handler.lambda_handler({}, None)
 
         print(f"Reaper result: {result}")
@@ -143,9 +141,10 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
         print("✓ Reaper correctly identified expired task")
 
     finally:
-        sys.path.remove(LAMBDA_DIR)
-        if 'ECS_CLUSTER' in os.environ:
-            del os.environ['ECS_CLUSTER']
+        if _prev_cluster is None:
+            os.environ.pop('ECS_CLUSTER', None)
+        else:
+            os.environ['ECS_CLUSTER'] = _prev_cluster
 
 
 @pytest.mark.integration
@@ -198,20 +197,18 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
 
     print(f"Created task {task_id} without deadline tag")
 
-    # Import and invoke reaper handler directly
-    import sys
-    LAMBDA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks'))
-    sys.path.insert(0, LAMBDA_DIR)
+    # Load reaper handler by explicit path to avoid sys.modules cache collision
+    # with lambda/create-investigation/handler.py (both files are named handler.py).
+    import importlib.util
+    _lambda_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py'))
+    _spec = importlib.util.spec_from_file_location('reap_tasks_handler', _lambda_path)
+    reaper_handler = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(reaper_handler)
 
+    _prev_cluster = os.environ.get('ECS_CLUSTER')
     try:
-        # Set environment for reaper
         os.environ['ECS_CLUSTER'] = cluster_name
 
-        import handler as reaper_handler
-        import importlib
-        importlib.reload(reaper_handler)
-
-        # Invoke reaper
         result = reaper_handler.lambda_handler({}, None)
 
         print(f"Reaper result: {result}")
@@ -230,9 +227,10 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
         print("✓ Reaper correctly skipped task without deadline")
 
     finally:
-        sys.path.remove(LAMBDA_DIR)
-        if 'ECS_CLUSTER' in os.environ:
-            del os.environ['ECS_CLUSTER']
+        if _prev_cluster is None:
+            os.environ.pop('ECS_CLUSTER', None)
+        else:
+            os.environ['ECS_CLUSTER'] = _prev_cluster
 
 
 @pytest.mark.integration

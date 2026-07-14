@@ -52,10 +52,10 @@ cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars with your VPC ID, subnets, and container image
 vi terraform.tfvars
 
-# Initialize and apply Terraform
-terraform init
-terraform plan
-terraform apply
+# Initialize and apply Terraform (always use make targets, not terraform directly)
+make init
+make plan
+make apply
 ```
 
 ### 2. Push Container Image to ECR
@@ -73,7 +73,7 @@ podman tag rosa-boundary:latest-amd64 YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaw
 podman push YOUR_ACCOUNT_ID.dkr.ecr.us-east-2.amazonaws.com/rosa-boundary:latest
 
 # Update terraform.tfvars with ECR image URI and re-apply
-terraform apply
+make apply
 ```
 
 ### 3. Investigation Lifecycle Management
@@ -417,10 +417,10 @@ To destroy all resources:
 
 ```bash
 # Empty the S3 bucket first (WORM compliance prevents Terraform from deleting objects)
-aws s3 rm s3://$(terraform output -raw bucket_name) --recursive
+aws s3 rm s3://$(cd deploy/regional && terraform output -raw bucket_name) --recursive
 
-# Then destroy infrastructure
-terraform destroy
+# Then destroy infrastructure (from deploy/regional/)
+make destroy
 ```
 
 **Warning**: Objects in compliance mode cannot be deleted until retention expires. You may need to wait or contact AWS support to delete the bucket.

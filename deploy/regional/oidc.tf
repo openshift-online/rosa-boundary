@@ -220,6 +220,15 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         # The SSM API does not have access to ECS resource tags.
       },
       {
+        Sid    = "SSMMessagesForECSExec"
+        Effect = "Allow"
+        Action = ["ssmmessages:OpenDataChannel"]
+        Resource = "*"
+        # The operator (caller) needs OpenDataChannel to connect to the WebSocket relay
+        # that ECS generates as a pre-signed URL signed with the caller's credentials.
+        # The Create* actions are needed only by the container (task role), not the caller.
+      },
+      {
         Sid    = "KMSForECSExec"
         Effect = "Allow"
         Action = [

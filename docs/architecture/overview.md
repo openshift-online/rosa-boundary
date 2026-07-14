@@ -1,420 +1,457 @@
 # System Architecture Overview
 
-## Introduction
+## 1. Purpose
 
-The ROSA Boundary system implements an access control pattern for ephemeral SRE containers running on AWS ECS Fargate. The architecture consists of two distinct layers that work together to provide secure, audited access to infrastructure.
+rosa-boundary solves the problem of ephemeral, audited SRE access to ROSA/OpenShift clusters without standing AWS credentials or persistent IAM users.
 
-## High-Level Architecture
+**Problems it eliminates:**
 
-```mermaid
-flowchart TB
-    subgraph User["End User Layer"]
-        CLI["rosa-boundary CLI"]
-    end
+- Shared, long-lived IAM credentials distributed to SRE laptops
+- Per-user IAM roles that require manual lifecycle management
+- SSH bastion hosts with their own patching burden and audit gaps
+- Untracked terminal sessions with no artifact capture
 
-    subgraph Identity["Identity Layer (OpenShift)"]
-        KC["Keycloak (RHBK)<br/>OIDC Provider"]
-        KCDB["PostgreSQL<br/>(CloudNativePG)"]
-    end
+**What it provides instead:**
 
-    subgraph AWS["AWS Infrastructure"]
-        InvokerRole["IAM<br/>Invoker Role"]
-        Lambda["Lambda<br/>Investigation Creator"]
-        IAM["IAM<br/>Shared ABAC Role"]
-        ECS["ECS Fargate<br/>Cluster"]
-        SSM["SSM Session<br/>Manager"]
-        Fargate["Ephemeral Container<br/>(rosa-boundary)"]
-        EFS["EFS<br/>Per-Investigation Storage"]
-        S3["S3<br/>Audit Logs"]
-        CW["CloudWatch<br/>Session Logs"]
-        Reaper["Lambda<br/>Task Reaper"]
-        EventBridge["EventBridge<br/>Schedule"]
-    end
+- OIDC authentication via Red Hat SSO — SRE identity comes from the corporate IdP, not AWS
+- Ephemeral Fargate containers that exist only for the duration of an investigation, isolated per cluster and per investigation
+- Per-investigation EFS home directory: tools, notes, and kubeconfig are preserved across brief reconnects but destroyed when the investigation is closed
+- Audit trail in S3 (full `/home/sre` sync on exit) and CloudWatch (ECS Exec session I/O and container stdout/stderr)
+- Tamper-proof task timeout enforced by an external reaper Lambda, not by the container itself
 
-    CLI -->|"1. OIDC Login (PKCE)"| KC
-    KC -.->|stores| KCDB
-    KC -->|2. ID Token| CLI
-    CLI -->|3. AssumeRoleWithWebIdentity| InvokerRole
-    CLI -->|"4. Invoke Lambda (AWS SDK/SigV4)"| Lambda
-    Lambda -->|5. Validate token via JWKS| KC
-    Lambda -->|6. Create EFS AP + launch task| ECS
-    Lambda -->|7. Return shared role ARN + task ARN| CLI
-    CLI -->|"8. AssumeRoleWithWebIdentity (session tags from JWT)"| IAM
-    CLI -->|9. ecs:ExecuteCommand| ECS
-    ECS -->|10. SSM Session| SSM
-    SSM -->|"11. Shell (syscall.Exec → session-manager-plugin)"| Fargate
-    Fargate -.->|persist| EFS
-    Fargate -.->|audit| S3
-    SSM -.->|logs| CW
-    EventBridge -->|schedule| Reaper
-    Reaper -->|stop expired tasks| ECS
+---
 
-    style Identity fill:#e1f5fe
-    style AWS fill:#f3e5f5
-```
+## 2. Security Model
 
-## Components
+### 2.1 OIDC Authentication via Red Hat SSO
 
-### Identity Layer (Keycloak on OpenShift)
+All access begins with an OIDC PKCE browser flow against Red Hat SSO (Keycloak). The CLI opens a browser, completes the flow, and caches the ID token at `~/.cache/rosa-boundary/`. No AWS credentials are distributed to SRE laptops directly.
 
-**Keycloak (RHBK v26.4.7)**
-- **Purpose**: Identity provider and OIDC authorization server
-- **Deployment**: Red Hat build of Keycloak on OpenShift
-- **Database**: CloudNativePG PostgreSQL 18.1
-- **Namespace**: `keycloak`
-- **Realm**: `sre-ops`
+The Keycloak client is configured with a custom protocol mapper that injects a `https://aws.amazon.com/tags` claim into the ID token. AWS STS automatically processes this claim as session tags during `AssumeRoleWithWebIdentity`, which is the mechanism that makes ABAC work without per-user roles.
 
-**Responsibilities:**
-- User authentication (username/password, MFA)
-- Group membership management (`sre-team`)
-- OIDC token issuance (ID token, access token)
-- Claims mapping (sub, email, preferred_username, groups)
-- Session tag propagation via `https://aws.amazon.com/tags` claim mapper
+Up to three OIDC providers can be registered simultaneously (dev Keycloak, Red Hat EmployeeIDP stage, Red Hat EmployeeIDP production), each with its own thumbprint and client ID. The create-investigation Lambda routes token validation by inspecting the unverified `iss` claim to select the correct JWKS endpoint.
 
-**Key Features:**
-- Protocol mappers for custom claims (including AWS session tags)
-- Integration with external identity providers (LDAP, SAML)
-- Persistent storage via CloudNativePG
+### 2.2 Two-Step Role Assumption
 
-### AWS Infrastructure Layer
+The CLI performs two separate `AssumeRoleWithWebIdentity` calls before taking any action:
 
-**Lambda Function (Investigation Creator)**
-- **Function**: `rosa-boundary-{env}-create-investigation`
-- **Runtime**: Python 3.11
-- **Trigger**: Direct SDK invocation (`lambda:InvokeFunction`) via invoker role
-- **Purpose**: OIDC-authenticated investigation creation
+**Step 1 — lambda-invoker role:**
 
-**Responsibilities:**
-- Validate OIDC token from Keycloak (JWKS signature verification)
-- Check `sre-team` group membership
-- Create or reuse per-investigation EFS access point
-- Register per-investigation task definition with locked EFS mount
-- Launch ECS task tagged with `username` and `oidc_sub` for ABAC and audit
-- Return shared ABAC SRE role ARN and task ARN
+- Used to get SigV4 credentials for calling `lambda:InvokeFunction`
+- Trust policy: federated via the IAM OIDC Provider, audience must equal `oidc_client_id`
+- This role has exactly one permission: invoke the create-investigation Lambda
+- An org-level SCP blocks `lambda:InvokeFunctionUrl` from OIDC-assumed sessions, so the CLI uses direct SDK invocation (`lambda:InvokeFunction`) instead
 
-**Lambda Function (Task Reaper)**
-- **Function**: `rosa-boundary-{env}-reap-tasks`
-- **Runtime**: Python 3.11
-- **Trigger**: EventBridge schedule (default: every 15 minutes)
-- **Purpose**: Tamper-proof task timeout enforcement
+**Step 2 — sre-shared role:**
 
-**Responsibilities:**
-- List all RUNNING ECS tasks in the cluster
-- Parse `deadline` tag (ISO 8601, set at task creation: `created_at + task_timeout`)
-- Call `ecs:StopTask` for tasks where `now > deadline`
-- Skip tasks without a deadline tag (fail-safe)
+- Used to call `ecs:ExecuteCommand` and connect to a running task
+- Trust policy: same federated trust, same audience condition
+- The `sts:TagSession` action in the trust allows session tags from the JWT `https://aws.amazon.com/tags` claim to propagate
+- The `abac_tag_key` variable (default: `username`) controls which claim key becomes the session tag
 
-**Security Properties (Reaper):**
-- Tags are only modifiable via ECS API (IAM permissions not available in container)
-- Deadline is computed at task creation and immutable after launch
-- Invalid or missing deadline tags are skipped (not treated as expired)
+Both roles are assumed with the same ID token, but at different points in the workflow: the invoker role before creating the investigation, and the sre-shared role before connecting.
 
-**ECS Fargate Cluster**
-- **Cluster**: `rosa-boundary-{env}`
-- **Task Definition**: Per-investigation (`rosa-boundary-{env}-{cluster}-{investigation}-{timestamp}`)
-- **Container**: `rosa-boundary` (multi-arch: amd64/arm64)
-- **Compute**: 512 CPU / 1024 MB (configurable)
+### 2.3 ABAC Task Isolation
 
-**SSM Session Manager**
-- **Protocol**: AWS Systems Manager Session Manager
-- **Encryption**: KMS encrypted sessions
-- **Authentication**: IAM-based (task role + ABAC session tags)
-- **Logging**: CloudWatch Logs `/ecs/rosa-boundary-{env}/ssm-sessions`
+All SREs assume a single shared role (`sre-shared`). Cross-user isolation is enforced at the AWS API layer using Attribute-Based Access Control.
 
-**EFS Filesystem**
-- **Mount**: `/home/sre` in container
-- **Access Points**: Per-investigation isolation `/{cluster_id}/{investigation_id}/`
-- **Encryption**: At-rest and in-transit
-- **POSIX**: uid=1000, gid=1000 (sre user)
+**Tag flow:**
 
-**S3 Audit Bucket**
-- **Path**: `s3://{bucket}/{cluster}/{investigation}/{date}/{task_id}/`
-- **Retention**: 90 days (WORM compliance mode)
-- **Sync**: Automatic on container exit via entrypoint signal handling
-- **Encryption**: AES256
+1. Keycloak maps the SRE's `preferred_username` (or `rhatUUID` for EmployeeIDP) to the `https://aws.amazon.com/tags` claim as `principal_tags.username`
+2. STS propagates this as a session tag `username` on the assumed-role session
+3. The create-investigation Lambda tags each ECS task with `username=<abac_tag_value>` using `ecs:TagResource` (applied explicitly after `RunTask` to guarantee tag availability for IAM evaluation)
+4. The sre-shared role's ABAC policy condition: `ecs:ResourceTag/username == ${aws:PrincipalTag/username}`
 
-## Data Flow Layers
+**Two-statement ECS Exec policy design:**
 
-### Layer 1: Authentication (Keycloak)
+`ecs:ExecuteCommand` requires permission on both the cluster resource AND the task resource. The policy uses two statements:
 
-The `rosa-boundary` CLI handles the OIDC PKCE browser flow and caches the token at `~/.cache/rosa-boundary/token-cache`.
-
-```mermaid
-flowchart LR
-    U[User] -->|1. PKCE Login| KC[Keycloak]
-    KC -->|2. Validate credentials| KCDB[(PostgreSQL)]
-    KCDB -->|3. Return user + groups| KC
-    KC -->|4. Issue ID token| U
-    U -->|5. Cache token| Cache["~/.cache/rosa-boundary/token-cache"]
-```
-
-**Outputs:**
-- OIDC ID token with claims (sub, email, preferred_username, groups)
-- Access token for userinfo endpoint
-- Refresh token for long-lived sessions
-
-### Layer 2: Authorization (Lambda + IAM)
-
-The CLI uses a two-step role assumption before invoking Lambda. The invoker role gates Lambda access; the shared SRE ABAC role gates ECS Exec access via session tags from the JWT.
-
-```mermaid
-flowchart LR
-    U[User + Token] -->|1. AssumeRoleWithWebIdentity| InvokerRole[Invoker Role]
-    InvokerRole -->|2. Temporary credentials| U
-    U -->|"3. Invoke Lambda via SDK (SigV4)"| Lambda[Lambda Function]
-    Lambda -->|4. Validate token via JWKS| KC[Keycloak JWKS]
-    KC -->|5. Public key| Lambda
-    Lambda -->|6. Check sre-team membership| Lambda
-    Lambda -->|7. Create EFS AP + task def + launch task| ECS[ECS]
-    Lambda -->|8. Return shared role ARN + task ARN| U
-    U -->|"9. AssumeRoleWithWebIdentity (session tags from JWT)"| SRERole[Shared ABAC SRE Role]
-    SRERole -->|10. Credentials with session tags| U
-```
-
-**Outputs:**
-- Shared ABAC SRE role credentials (session-tagged with `username` from JWT)
-- ECS task ARN (task tagged with `username` and `oidc_sub`)
-- EFS access point ID
-
-### Layer 3: Execution (AWS ECS/SSM)
-
-```mermaid
-flowchart LR
-    U[User + ABAC Credentials] -->|1. ecs:ExecuteCommand| ECS[ECS API]
-    ECS -->|2. Check IAM: cluster permission| IAM[IAM]
-    ECS -->|"3. ABAC: ecs:ResourceTag/username == aws:PrincipalTag/username"| IAM
-    IAM -->|4. Authorize| ECS
-    ECS -->|5. Start SSM session| SSM[SSM]
-    SSM -->|6. WebSocket to container| Fargate[Container]
-    Fargate -->|"7. syscall.Exec → session-manager-plugin"| U
-```
-
-The CLI replaces its own process with `session-manager-plugin` via `syscall.Exec`, providing a seamless terminal handoff with no intermediate wrapper process.
-
-**Outputs:**
-- Interactive terminal session
-- CloudWatch session logs
-- S3 audit artifacts on exit
-
-## Security Model
-
-### Access Control Principles
-
-1. **Verify Identity**: All users authenticate via Keycloak OIDC (no shared credentials)
-2. **Least Privilege**: Lambda validates group membership; shared ABAC role enforces per-user task isolation via session tags — no per-user IAM roles required
-3. **Assume Breach**: Sessions are ephemeral, isolated per-investigation with audit logs
-4. **Explicit Authorization**: Lambda validates group membership before creating investigation
-5. **Continuous Monitoring**: All sessions logged to CloudWatch and artifacts synced to S3
-
-### Authentication Chain
-
-```
-User Credentials → Keycloak MFA → OIDC Token → Assume Invoker Role → Lambda Validation → Assume Shared ABAC SRE Role (session tags) → ECS Exec (ABAC enforced) → Container
-```
-
-Every step requires valid credentials/tokens:
-- Keycloak validates username/password/MFA
-- CLI assumes invoker role via `AssumeRoleWithWebIdentity` (gates Lambda access)
-- Lambda validates OIDC token signature and claims
-- Lambda checks `sre-team` group membership
-- CLI assumes shared SRE role with JWT session tags (`username`, `oidc_sub`)
-- IAM ABAC policy: `ecs:ResourceTag/username` must match `aws:PrincipalTag/username`
-- SSM validates session encryption keys
-- Container enforces `sre` user permissions
-
-### ABAC Isolation Model
-
-All SREs assume a single shared role (`sre_role_arn`). Cross-user isolation is enforced at the AWS API layer via Attribute-Based Access Control (ABAC):
-
-- **Session tags**: Keycloak propagates `username` via the `https://aws.amazon.com/tags` claim mapper. AWS STS automatically converts this to a session tag during `AssumeRoleWithWebIdentity`.
-- **Task tags**: The create-investigation Lambda tags each task with `username` (the SRE's `preferred_username`).
-- **ABAC condition**: The shared role's permissions policy requires `ecs:ResourceTag/username == ${aws:PrincipalTag/username}`.
+- `ExecuteCommandOnCluster`: cluster-level permission, no condition. All SREs pass this check. This alone grants no access to any task ("badge to enter the building").
+- `ExecuteCommandOnOwnedTasks`: task-level permission, `StringEquals` condition on the `username` tag. Only tasks tagged with the caller's session tag pass.
 
 **Fail-closed properties:**
-- Missing session tag → no `PrincipalTag` → condition fails → deny
+
+- Missing session tag (Keycloak mapper misconfigured) → no `PrincipalTag` → condition fails → deny
 - Untagged task → missing `ResourceTag` → condition fails → deny
-- Tag values come from the OIDC JWT, not user-controlled input
+- Cross-user exec attempt → tag mismatch → condition fails → deny
 
-**Two-statement ECS Exec policy** (required because `ecs:ExecuteCommand` needs permissions on both cluster and task resources):
-- `ExecuteCommandOnCluster`: cluster-level permission, no condition (all SREs pass)
-- `ExecuteCommandOnOwnedTasks`: task-level permission, ABAC condition on `username` tag
+### 2.4 Tamper-Proof Task Timeout
 
-### Task Timeout Enforcement
-
-The reaper Lambda provides tamper-proof enforcement of task deadlines:
-- Deadline computed at task creation: `created_at + task_timeout` (ISO 8601, stored as ECS task tag)
-- ECS task tags are not modifiable from within the container (IAM-gated)
-- Reaper runs every 15 minutes (configurable); calls `ecs:StopTask` for expired tasks
-- Tasks without a deadline tag are skipped (no forced termination)
-
-### Audit Trail
-
-Every access attempt generates logs in multiple locations:
-
-1. **Keycloak**: Authentication events, login attempts, token issuance
-2. **AWS CloudWatch Logs**: Lambda invocations, SSM session I/O, ECS Exec commands, container stdout/stderr
-3. **AWS CloudTrail**: API calls (ECS, IAM, Lambda invocations)
-
-Additional artifacts:
-- **EFS**: User activity preserved in `/home/sre` per-investigation
-- **S3**: Container home directory synced on exit for compliance
-
-## Network Topology
-
-```mermaid
-flowchart TB
-    subgraph Internet["Internet"]
-        User["User Workstation<br/>(rosa-boundary CLI)"]
-    end
-
-    subgraph OpenShift["OpenShift Cluster"]
-        KC["Keycloak Pod<br/>:8080"]
-        KCDB["PostgreSQL Pod<br/>:5432"]
-        Route["OpenShift Route<br/>TLS Edge"]
-    end
-
-    subgraph AWS["AWS VPC"]
-        Lambda["Lambda Function<br/>(SDK invocation)"]
-        Reaper["Lambda Function<br/>(Task Reaper)"]
-        EventBridge["EventBridge<br/>Schedule"]
-        subgraph Subnet1["Private Subnet AZ1"]
-            Fargate1["Fargate Task<br/>:8080 (not exposed)"]
-            EFS1["EFS Mount Target"]
-        end
-        subgraph Subnet2["Private Subnet AZ2"]
-            Fargate2["Fargate Task<br/>:8080 (not exposed)"]
-            EFS2["EFS Mount Target"]
-        end
-        EFS["EFS Filesystem<br/>(encrypted)"]
-        S3["S3 Audit Bucket<br/>(WORM)"]
-        SSM["SSM API<br/>(regional endpoint)"]
-    end
-
-    User -->|"HTTPS (PKCE)"| Route
-    User -->|"AWS SDK (SigV4)"| Lambda
-    User -->|AWS API| SSM
-    Route -->|HTTP| KC
-    KC -->|TCP 5432| KCDB
-    Lambda -->|"Validate token (JWKS)"| Route
-    EventBridge -->|schedule| Reaper
-    Reaper -->|ecs:StopTask| Fargate1
-    Reaper -->|ecs:StopTask| Fargate2
-    Fargate1 -.->|NFS| EFS1
-    Fargate2 -.->|NFS| EFS2
-    EFS1 -->|replicate| EFS
-    EFS2 -->|replicate| EFS
-    Fargate1 -.->|on exit| S3
-    Fargate2 -.->|on exit| S3
-    SSM -->|WebSocket| Fargate1
-    SSM -->|WebSocket| Fargate2
-
-    style OpenShift fill:#e3f2fd
-    style AWS fill:#fce4ec
-```
-
-**Network Isolation:**
-- Keycloak: OpenShift Routes with edge TLS, internal ClusterIP services
-- Lambda: Invoked via AWS SDK (`lambda:InvokeFunction`), gated by IAM invoker role
-- Fargate: No ingress, SSM provides egress-only access via AWS PrivateLink
-
-## Per-Investigation Isolation
-
-Each investigation gets dedicated resources:
+The create-investigation Lambda computes a deadline at task creation time:
 
 ```
-Investigation inv-123 for cluster rosa-prod-01
-├── EFS Access Point: /rosa-prod-01/inv-123/
-│   └── Mounted to: /home/sre in container
-├── Task Definition: rosa-boundary-dev-rosa-prod-01-inv-123-20260103T120000
-│   ├── Environment: CLUSTER_ID=rosa-prod-01
-│   ├── Environment: INVESTIGATION_ID=inv-123
-│   └── Environment: OC_VERSION=4.20
-├── Shared ABAC SRE Role: rosa-boundary-dev-sre-shared
-│   ├── Session tag: username=sre-user (from Keycloak JWT)
-│   └── ABAC condition: ecs:ResourceTag/username == ${aws:PrincipalTag/username}
-├── Task Tags: username=sre-user, oidc_sub=<uuid>, deadline=<ISO8601>
-│   └── deadline enforced by Reaper Lambda (tamper-proof)
-└── S3 Audit Path: s3://bucket/rosa-prod-01/inv-123/20260103/{task-id}/
+deadline = created_at + task_timeout  (ISO 8601 UTC)
 ```
 
-**Isolation Guarantees:**
-- Each investigation has a dedicated filesystem namespace (EFS access point)
-- Each investigation has an immutable task definition (version locked, EFS mount baked in)
-- Each investigation has a unique S3 prefix (audit segregation)
-- Shared ABAC role with session tags enforces per-user task access at the AWS API layer
-- Task deadlines are enforced by the Reaper Lambda independent of the container
+This deadline is stored as an ECS task tag (`deadline=2026-02-16T12:34:56`). ECS task tags are only modifiable via the ECS API, which requires IAM permissions not granted to the task role. An SRE inside the container cannot extend their own session.
 
-## Integration Architecture
+The reap-tasks Lambda runs on an EventBridge schedule (default: every 15 minutes). It lists all RUNNING tasks, calls `DescribeTasks` with `include=['TAGS']` to read the deadline tag, and calls `ecs:StopTask` for any task where `now > deadline`. Tasks without a deadline tag are skipped (fail-safe, not fail-open: tasks are not terminated speculatively).
 
-```mermaid
-graph TB
-    subgraph config["Configuration Layer"]
-        TF[Terraform]
-        KC_CR[KeycloakRealmImport CR]
-    end
+The reaper's `ecs:StopTask` permission is conditioned on the task having a `deadline` tag (`ForAnyValue:StringLike`), preventing it from stopping tasks it does not manage.
 
-    subgraph runtime["Runtime Layer"]
-        KC_RT[Keycloak Runtime]
-        Lambda_RT[Lambda: create-investigation]
-        Reaper_RT[Lambda: reap-tasks]
-        EventBridge_RT[EventBridge Schedule]
-        ECS_RT[ECS Fargate Runtime]
-    end
+### 2.5 Audit Trail
 
-    subgraph cli["User Tools (rosa-boundary CLI)"]
-        LOGIN[login]
-        START[start-task]
-        JOIN[join-task]
-        LIST[list-tasks]
-        STOP[stop-task]
-        CLOSE[close-investigation]
-    end
+| Source | What is captured |
+|--------|-----------------|
+| CloudWatch `/ecs/rosa-boundary-dev` | Container stdout/stderr (awslogs driver) |
+| CloudWatch `/ecs/rosa-boundary-dev/ssm-sessions` | Full ECS Exec session I/O (KMS encrypted) |
+| CloudWatch `/aws/lambda/...-create-investigation` | Lambda invocations, OIDC validation results, group checks |
+| CloudWatch `/aws/lambda/...-reap-tasks` | Reaper runs, tasks stopped, deadline values |
+| CloudTrail | All AWS API calls: ECS, IAM, Lambda, EFS, STS |
+| S3 audit bucket | Full `/home/sre` sync on container exit: shell history, notes, downloaded files |
 
-    TF -->|provisions Lambda| Lambda_RT
-    TF -->|provisions Reaper| Reaper_RT
-    TF -->|provisions EventBridge| EventBridge_RT
-    TF -->|provisions ECS| ECS_RT
-    KC_CR -->|configures| KC_RT
+The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YYYYMMDD}/{task_id}/`. The entrypoint's `sync_to_s3()` function runs on SIGTERM (ECS stop signal), SIGINT, SIGHUP, and normal exit. A `SYNC_TIMEOUT` (default 300s) prevents a hung S3 sync from blocking container shutdown past ECS's stop timeout.
 
-    LOGIN -->|PKCE token from| KC_RT
-    START -->|assumes invoker role, invokes| Lambda_RT
-    Lambda_RT -->|validates token with| KC_RT
-    Lambda_RT -->|creates EFS AP + task def + launches task in| ECS_RT
-    START -->|assumes shared ABAC SRE role, connects to| ECS_RT
-    JOIN -->|ECS Exec into| ECS_RT
-    LIST -->|describes tasks in| ECS_RT
-    STOP -->|stops task in| ECS_RT
-    CLOSE -->|stops tasks, deregisters task defs, deletes EFS AP in| ECS_RT
-    EventBridge_RT -->|triggers| Reaper_RT
-    Reaper_RT -->|stops expired tasks in| ECS_RT
+---
 
-    style config fill:#e8f5e9
-    style runtime fill:#fff3e0
-    style cli fill:#f3e5f5
+## 3. Component Reference
+
+### External
+
+| Component | Role | Location |
+|-----------|------|----------|
+| `rosa-boundary` Go CLI | SRE workflow automation: login, start-task, join-task, list-tasks, stop-task, close-investigation | SRE laptop |
+| Red Hat SSO / Keycloak | OIDC authentication and token issuance; group membership; session tag injection via `https://aws.amazon.com/tags` claim mapper | OpenShift cluster (RHBK operator) |
+| ROSA/OpenShift cluster | Target cluster being investigated | AWS (managed) |
+
+### IAM / STS
+
+| Component | Role | Terraform |
+|-----------|------|-----------|
+| IAM OIDC Provider | Registers Keycloak as a trusted identity provider in AWS IAM; used in role trust policies | `oidc.tf` |
+| IAM Role: `lambda-invoker` | First-step role; grants SRE credentials to call `lambda:InvokeFunction` | `lambda-invoker.tf` |
+| IAM Role: `sre-shared` | Second-step role; ABAC policy enforces per-user task isolation via session tags | `oidc.tf` |
+| STS | Issues temporary credentials for both role assumptions; propagates JWT session tags via `sts:TagSession` | AWS managed |
+
+### Lambda
+
+| Component | Role | Terraform |
+|-----------|------|-----------|
+| `create-investigation` | Validates OIDC token (JWKS), checks group membership, creates EFS access point, registers per-investigation task definition, runs ECS task with ABAC tags and deadline | `lambda-create-investigation.tf` |
+| `reap-tasks` | Runs on EventBridge schedule; stops ECS tasks whose `deadline` tag has passed | `lambda-reap-tasks.tf` |
+| EventBridge Rule | Triggers reap-tasks Lambda on a configurable schedule (default: 15 min) | `lambda-reap-tasks.tf` |
+
+### ECS / VPC
+
+| Component | Role | Terraform |
+|-----------|------|-----------|
+| ECS Fargate Cluster | Runs ephemeral investigation tasks; containerInsights enabled; execute command configured with KMS encryption | `ecs.tf` |
+| ECS Task (per-investigation) | Ephemeral Fargate task; family name includes cluster ID, investigation ID, and timestamp; tagged with `username`, `oidc_sub`, `deadline` | Created at runtime by Lambda |
+| Container: `rosa-boundary` | Multi-arch (amd64/arm64) container; runs as `sre` (uid=1000); includes `oc` 4.14–4.20, `aws` CLI, `claude` (Bedrock), `kubectl` | Built from `Containerfile` |
+| Container: `kube-proxy` (optional) | Sidecar that runs `oc proxy` on localhost; exposes cluster API to the main container; must pass health check before main container starts | `ecs.tf` (`enable_kube_proxy`) |
+| EFS Filesystem | Persistent storage; one access point per investigation; at-rest and in-transit encrypted | `efs.tf` |
+| EFS Access Point | Per-investigation directory `/{cluster_id}/{investigation_id}/`; POSIX uid/gid=1000; mounts to `/home/sre` | Created by Lambda |
+| KMS Key | Encrypts ECS Exec session data | `kms.tf` |
+| Security Group | Applied to Fargate tasks; egress-all, no ingress | `ecs.tf` |
+| VPC Interface Endpoints | `ssmmessages`, `kms`, `logs`, `ecr.api`, `ecr.dkr`, `ecs`; tasks have no internet egress requirement | `main.tf` or VPC config |
+
+### AWS Managed Services
+
+| Component | Role |
+|-----------|------|
+| SSM Session Manager | Relays ECS Exec WebSocket between the CLI's `session-manager-plugin` and the container | 
+| ECR | Stores the `rosa-boundary` container image (multi-arch manifest) |
+| CloudWatch Log Groups | `/ecs/rosa-boundary-dev` (container logs), `/ecs/rosa-boundary-dev/ssm-sessions` (session I/O) |
+| S3 Audit Bucket | Receives `/home/sre` sync on container exit; 90-day WORM retention; optional cross-account replication |
+
+---
+
+## 4. Investigation Lifecycle
+
+### Step 0: Prerequisites
+
+```bash
+# Install rosa-boundary CLI and session-manager-plugin
+rosa-boundary configure   # writes ~/.config/rosa-boundary/config.yaml
 ```
 
-## Technology Stack
+Configure the CLI with:
+- `lambda_function_name`: the `create-investigation` Lambda ARN or name
+- `invoker_role_arn`: the `lambda-invoker` role ARN
+- `sre_role_arn`: the `sre-shared` role ARN
+- `ecs_cluster_name`: the ECS cluster name
 
-| Layer | Component | Version | Purpose |
-|-------|-----------|---------|---------|
-| **Identity** | Keycloak | 26.4.7 (RHBK) | OIDC authentication |
-| | PostgreSQL | 18.1 (CNPG) | Keycloak database |
-| | OpenShift | 4.x (ROSA) | Kubernetes platform |
-| **Infrastructure** | AWS Lambda | Python 3.11 | Investigation creation & authorization |
-| | AWS Lambda | Python 3.11 | Task timeout enforcement (Reaper) |
-| | IAM | — | Shared ABAC role with session-tag policies |
-| | EventBridge | — | Periodic Reaper Lambda schedule |
-| | ECS Fargate | — | Container orchestration |
-| | AWS SSM | — | Session management |
-| | EFS | — | Persistent storage |
-| | S3 | — | Audit log storage |
-| | KMS | — | Session encryption |
-| **CLI** | rosa-boundary | Go (latest) | SRE workflow automation |
-| **IaC** | Terraform | >= 1.5 | Infrastructure as code |
-| | AWS Provider | ~> 5.0 | Terraform AWS resources |
+### Step 1: Authenticate
 
-## Next Steps
+```bash
+rosa-boundary login
+```
 
-- [Configuration Guides](../configuration/) - Step-by-step setup instructions
-- [User Access Guide](../runbooks/user-access-guide.md) - End-user workflow
-- [Investigation Workflow](../runbooks/investigation-workflow.md) - Creating and managing investigations
+Opens a browser for the Keycloak PKCE flow. On success, the ID token is cached at `~/.cache/rosa-boundary/`. The token is valid for `oidc_session_duration` seconds (default: 3600).
+
+### Step 2: Start an Investigation
+
+```bash
+rosa-boundary start-task \
+  --cluster-id rosa-prod-01 \
+  --investigation-id INC-12345 \
+  [--oc-version 4.20] \
+  [--task-timeout 3600] \
+  [--connect]
+```
+
+What happens:
+1. CLI calls STS `AssumeRoleWithWebIdentity` with the ID token → `lambda-invoker` temporary credentials
+2. CLI calls `lambda:InvokeFunction` (SigV4) with the ID token in `X-OIDC-Token` header and investigation parameters in the body
+3. Lambda validates the ID token against the Keycloak JWKS endpoint (RS256 signature, audience, expiry)
+4. Lambda checks that the user is a member of at least one group in `REQUIRED_GROUPS` (e.g., `sre-team`)
+5. Lambda creates (or reuses) an EFS access point at `/{cluster_id}/{investigation_id}/`
+6. Lambda registers a per-investigation task definition with the EFS access point baked in and investigation environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET`, `TASK_TIMEOUT`)
+7. Lambda calls `RunTask` with `enableExecuteCommand=true`, `launchType=FARGATE`, `startedBy=sha256({cluster_id}:{investigation_id})[:36]`, and task tags including `username`, `oidc_sub`, `deadline`, `investigation_id`, `cluster_id`
+8. Lambda calls `TagResource` explicitly to guarantee tags are visible to IAM before the SRE connects
+9. CLI calls STS `AssumeRoleWithWebIdentity` with the ID token → `sre-shared` credentials with `username` session tag
+
+If `--connect` is passed, the CLI immediately proceeds to join the task.
+
+**Duplicate detection:** If a task with the same `startedBy` value is already RUNNING, the Lambda returns HTTP 409. The CLI reports the existing task ARN.
+
+### Step 3: Connect to a Running Task
+
+```bash
+rosa-boundary join-task <task-id>
+```
+
+What happens:
+1. CLI calls `ecs:DescribeTask` to check task status
+2. If not yet RUNNING, the CLI polls until it is (or `--no-wait` is set)
+3. CLI calls `ecs:ExecuteCommand` — IAM evaluates the two-statement ABAC policy (cluster permission + task username tag match)
+4. AWS returns an SSM session token
+5. CLI calls `syscall.Exec` (process replacement) into `session-manager-plugin` with the session token
+6. `session-manager-plugin` opens a WebSocket to the SSM regional endpoint, which relays to the container via the `ssmmessages` VPC interface endpoint
+7. The container runs `bash` as the `sre` user (the default `joinCommand` is `runuser -u sre -- bash`)
+
+The user is now in an interactive shell with:
+- `/home/sre` mounted from the investigation's EFS access point
+- `oc` pointing at the target cluster via `~/.kube/config` (written by entrypoint using `KUBE_PROXY_PORT`)
+- `claude` CLI configured for Bedrock
+
+### Step 4: Task Expiry (Automatic)
+
+The reap-tasks Lambda runs every 15 minutes. When `now > deadline` tag:
+1. Lambda calls `ecs:StopTask` with reason `Task deadline exceeded (deadline: {deadline_str})`
+2. ECS sends SIGTERM to the container
+3. `entrypoint.sh` catches SIGTERM and calls `sync_to_s3()` before exiting
+
+The deadline is computed by the create-investigation Lambda as:
+```
+deadline = datetime.utcnow() + timedelta(seconds=task_timeout)
+```
+
+It is immutable after task launch (task tags require `ecs:TagResource`, which the task role does not have).
+
+### Step 5: Stop a Task Manually
+
+```bash
+rosa-boundary stop-task <task-id>
+```
+
+This calls `ecs:StopTask` using the sre-shared credentials. The container's SIGTERM trap fires, syncing `/home/sre` to S3 before exiting.
+
+### Step 6: Close an Investigation
+
+```bash
+rosa-boundary close-investigation \
+  --cluster-id rosa-prod-01 \
+  --investigation-id INC-12345
+```
+
+This:
+1. Stops all running tasks for the investigation
+2. Deregisters all per-investigation task definitions
+3. Deletes the EFS access point
+
+Data in S3 is retained per the bucket's lifecycle policy (90-day WORM). Data in EFS is permanently deleted when the access point is deleted.
+
+---
+
+## 5. Configuration Reference
+
+All Terraform variables are set in `deploy/regional/variables.tf`. Values without defaults must be supplied via `.env` (loaded by the `deploy/regional/Makefile`) or passed as `-var` flags.
+
+### Required (no default)
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `keycloak_issuer_url` | Primary Keycloak OIDC issuer URL | `https://sso.example.com/realms/sre-ops` |
+| `keycloak_thumbprint` | SHA1 of Keycloak TLS cert (for IAM OIDC Provider) | `aabbcc...` (40 hex chars) |
+| `container_image` | Container image URI (ECR or other registry) | `123456789.dkr.ecr.us-east-1.amazonaws.com/rosa-boundary:latest` |
+| `vpc_id` | VPC where Fargate tasks run | `vpc-0abc123` |
+| `subnet_ids` | List of private subnet IDs for tasks and EFS mount targets | `["subnet-0abc", "subnet-0def"]` |
+| `required_groups` | Keycloak groups that may create investigations (at least one must match) | `["sre-team"]` |
+
+### Key Optional Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `oidc_client_id` | `aws-sre-access` | Keycloak client ID; must equal `aud` claim in the JWT |
+| `abac_tag_key` | `username` | ECS tag key for ABAC isolation. Use `username` for dev Keycloak, `uuid` (= `rhatUUID`) for Red Hat EmployeeIDP |
+| `task_timeout_default` | `3600` | Default task lifetime in seconds (passed as `TASK_TIMEOUT` env var; enforced by reaper) |
+| `task_timeout_minimum` | `30` | Minimum timeout a caller may request; lower values are rejected by the Lambda |
+| `oidc_session_duration` | `3600` | Max session duration for the sre-shared role |
+| `reaper_schedule_minutes` | `15` | How often the reap-tasks Lambda runs (1–1440) |
+| `stage_keycloak_issuer_url` | `""` | Optional second OIDC provider (e.g., Red Hat EmployeeIDP stage). Leave empty to skip. |
+| `prod_keycloak_issuer_url` | `""` | Optional third OIDC provider (e.g., Red Hat EmployeeIDP production). Leave empty to skip. |
+| `enable_kube_proxy` | `false` | Include the `kube-proxy` sidecar in the base task definition |
+| `container_cpu` | `1024` | Fargate CPU units (256/512/1024/2048/4096) |
+| `container_memory` | `2048` | Fargate memory in MB |
+| `log_retention_days` | `7` | CloudWatch log retention for Lambda and ECS container logs |
+| `retention_days` | `90` | CloudWatch and S3 retention for session logs and audit data |
+| `audit_replication_bucket_arn` | `""` | Cross-account S3 replication destination. Empty disables replication. |
+
+### Lambda Environment Variables (set by Terraform, not editable at runtime)
+
+| Variable | Source |
+|----------|--------|
+| `KEYCLOAK_URL` | Derived from `keycloak_issuer_url` |
+| `KEYCLOAK_REALM` | Derived from `keycloak_issuer_url` |
+| `KEYCLOAK_CLIENT_ID` | `oidc_client_id` |
+| `REQUIRED_GROUPS` | Comma-separated `required_groups` list |
+| `ABAC_TAG_KEY` | `abac_tag_key` |
+| `TASK_TIMEOUT_DEFAULT` | `task_timeout_default` |
+| `TASK_TIMEOUT_MINIMUM` | `task_timeout_minimum` |
+| `ECS_CLUSTER` | ECS cluster name (both Lambdas) |
+| `EFS_FILESYSTEM_ID` | EFS filesystem ID |
+| `SHARED_ROLE_ARN` | ARN of the sre-shared IAM role |
+| `S3_AUDIT_BUCKET` | S3 audit bucket name |
+| `STAGE_KEYCLOAK_ISSUER_URL` | `stage_keycloak_issuer_url` (create-investigation only) |
+| `PROD_KEYCLOAK_ISSUER_URL` | `prod_keycloak_issuer_url` (create-investigation only) |
+
+### CLI Configuration (~/.config/rosa-boundary/config.yaml)
+
+| Field | Env var | Description |
+|-------|---------|-------------|
+| `lambda_function_name` | `ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME` | Lambda function name or ARN |
+| `invoker_role_arn` | `ROSA_BOUNDARY_INVOKER_ROLE_ARN` | lambda-invoker role ARN |
+| `sre_role_arn` | `ROSA_BOUNDARY_SRE_ROLE_ARN` | sre-shared role ARN |
+| `ecs_cluster_name` | `ROSA_BOUNDARY_ECS_CLUSTER_NAME` | ECS cluster name |
+| `efs_filesystem_id` | `ROSA_BOUNDARY_EFS_FILESYSTEM_ID` | EFS filesystem ID (required for `close-investigation`) |
+| `aws_region` | `ROSA_BOUNDARY_AWS_REGION` | AWS region |
+
+---
+
+## 6. Operator Quick Reference
+
+### Initial Setup
+
+```bash
+# Configure the CLI (interactive wizard)
+rosa-boundary configure
+
+# Verify the config
+cat ~/.config/rosa-boundary/config.yaml
+```
+
+### Standard Investigation Workflow
+
+```bash
+# 1. Login (opens browser for Keycloak PKCE)
+rosa-boundary login
+
+# 2. Start a task and connect immediately
+rosa-boundary start-task \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id> \
+  --connect
+
+# 2b. Or start without connecting (returns task ARN)
+rosa-boundary start-task \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id>
+
+# 3. List running tasks
+rosa-boundary list-tasks
+
+# 4. Reconnect to a running task
+rosa-boundary join-task <task-id>
+
+# 5. Stop a single task
+rosa-boundary stop-task <task-id>
+
+# 6. Close the investigation completely
+#    (stops tasks, deregisters task defs, deletes EFS access point)
+rosa-boundary close-investigation \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id>
+```
+
+### Custom Options
+
+```bash
+# Specific OC version and extended timeout
+rosa-boundary start-task \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id> \
+  --oc-version 4.18 \
+  --task-timeout 7200 \
+  --connect
+
+# Create the EFS access point only (no task — useful for pre-staging)
+rosa-boundary create-investigation \
+  --cluster-id <cluster-id> \
+  --investigation-id <investigation-id>
+
+# Connect to a specific container in the task
+rosa-boundary join-task <task-id> --container kube-proxy
+
+# Run a non-interactive command
+rosa-boundary join-task <task-id> --command "oc get nodes"
+```
+
+### Infrastructure Operations
+
+```bash
+cd deploy/regional
+
+# Plan/apply Terraform changes
+make plan
+make apply          # also builds Lambda deps before terraform apply
+
+# View Terraform outputs (Lambda ARN, role ARNs, etc.)
+make output
+
+# Run LocalStack integration tests
+make localstack-up
+make test-localstack-fast   # skip slow ECS task launch tests
+make test-localstack        # full suite
+make localstack-down
+
+# Run Lambda unit tests
+make test-lambda-create-investigation
+make test-lambda-reap-tasks
+```
+
+### Debugging
+
+```bash
+# Check if a task has ECS Exec enabled and is connectable
+aws ecs describe-tasks \
+  --cluster <cluster-name> \
+  --tasks <task-arn> \
+  --include TAGS
+
+# Check deadline tag
+aws ecs describe-tasks \
+  --cluster <cluster-name> \
+  --tasks <task-arn> \
+  --include TAGS \
+  --query 'tasks[0].tags[?key==`deadline`].value'
+
+# View Lambda logs
+aws logs tail /aws/lambda/<project>-<stage>-create-investigation --follow
+
+# View reaper logs
+aws logs tail /aws/lambda/<project>-<stage>-reap-tasks --follow
+
+# View session I/O logs
+aws logs tail /ecs/<project>-<stage>/ssm-sessions --follow
+```
+
+---
+
+## Related Documents
+
+- [AWS IAM Policies](../configuration/aws-iam-policies.md) — full policy JSON for all roles
+- [Keycloak Realm Setup](../configuration/keycloak-realm-setup.md) — realm, client, and claim mapper configuration
+- [Investigation Workflow Runbook](../runbooks/investigation-workflow.md) — end-to-end walkthrough with troubleshooting
+- [User Access Guide](../runbooks/user-access-guide.md) — onboarding guide for SREs
+- [LocalStack Test README](../../tests/localstack/README.md) — integration test documentation

@@ -89,6 +89,14 @@ func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, regi
 		}
 	}
 
+	// Poll until the container's ECS exec agent is RUNNING before opening the
+	// SSM session — the data channel is closed immediately if the agent hasn't
+	// registered yet. Typically ready within 1-3 s; timeout after 30 s.
+	output.Status("Waiting for container exec agent...")
+	if err := ecsClient.WaitForExecAgent(ctx, taskID, container, 30*time.Second); err != nil {
+		return fmt.Errorf("exec agent not ready: %w", err)
+	}
+
 	// Start ECS Exec session
 	output.Status("\nConnecting to task...")
 	fmt.Fprintln(os.Stderr)
@@ -99,16 +107,6 @@ func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, regi
 	}
 
 	debugf("Session ID: %s", session.SessionID)
-
-	// ssmmessages closes the operator WebSocket immediately if the container's
-	// ECS exec agent hasn't yet opened its side of the data channel. Give the
-	// container a moment to receive the control-channel signal and connect.
-	output.Status("Waiting for container exec agent...")
-	select {
-	case <-time.After(8 * time.Second):
-	case <-ctx.Done():
-		return ctx.Err()
-	}
 
 	// Hand off to session-manager-plugin (replaces the process)
 	return awsclient.StartSessionManagerPlugin(region, session)

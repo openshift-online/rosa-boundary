@@ -143,6 +143,57 @@ func (c *ECSClient) StopTask(ctx context.Context, taskID, reason string) error {
 	return nil
 }
 
+// WaitForExecAgent polls DescribeTasks every 500 ms until the container's
+// ExecuteCommandAgent reaches RUNNING state, the context is cancelled, or
+// maxWait elapses. Call this before ExecuteCommand — the SSM data channel is
+// closed immediately if the agent hasn't registered on its side yet.
+func (c *ECSClient) WaitForExecAgent(ctx context.Context, taskID, container string, maxWait time.Duration) error {
+	const pollInterval = 500 * time.Millisecond
+	deadline := time.Now().Add(maxWait)
+	for {
+		ready, err := c.isExecAgentRunning(ctx, taskID, container)
+		if err != nil {
+			return err
+		}
+		if ready {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("exec agent not ready after %s", maxWait)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(pollInterval):
+		}
+	}
+}
+
+func (c *ECSClient) isExecAgentRunning(ctx context.Context, taskID, container string) (bool, error) {
+	out, err := c.client.DescribeTasks(ctx, &ecs.DescribeTasksInput{
+		Cluster: aws.String(c.cluster),
+		Tasks:   []string{taskID},
+	})
+	if err != nil {
+		return false, fmt.Errorf("DescribeTasks failed: %w", err)
+	}
+	if len(out.Tasks) == 0 {
+		return false, fmt.Errorf("task %s not found", taskID)
+	}
+	for _, cont := range out.Tasks[0].Containers {
+		if aws.ToString(cont.Name) != container {
+			continue
+		}
+		for _, agent := range cont.ManagedAgents {
+			if agent.Name == types.ManagedAgentNameExecuteCommandAgent {
+				return aws.ToString(agent.LastStatus) == "RUNNING", nil
+			}
+		}
+	}
+	// Agent entry not present yet — still initialising.
+	return false, nil
+}
+
 // ExecuteCommand calls ECS ExecuteCommand and returns the session details.
 func (c *ECSClient) ExecuteCommand(ctx context.Context, taskID, container, command string) (*ExecuteCommandSession, error) {
 	out, err := c.client.ExecuteCommand(ctx, &ecs.ExecuteCommandInput{

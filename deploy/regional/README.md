@@ -43,19 +43,23 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 
 ## Quick Start
 
+> **Run all `make` commands from the project root**, not from this directory.
+> The `deploy/regional/Makefile` sources `.env` from the project root and builds
+> Lambda dependencies before applying — running `terraform` directly skips both.
+
 ### 1. Setup Infrastructure
 
 ```bash
-# Copy the example configuration
-cp terraform.tfvars.example terraform.tfvars
+# Copy the example configuration (from project root)
+cp deploy/regional/terraform.tfvars.example deploy/regional/terraform.tfvars
 
-# Edit terraform.tfvars with your VPC ID, subnets, and container image
-vi terraform.tfvars
+# Edit with your VPC ID, subnets, and container image
+vi deploy/regional/terraform.tfvars
 
-# Initialize and apply Terraform (always use make targets, not terraform directly)
-make init
-make plan
-make apply
+# Initialize and apply Terraform (from project root)
+make -C deploy/regional init
+make -C deploy/regional plan
+make -C deploy/regional apply
 ```
 
 ### 2. Push Container Image to ECR

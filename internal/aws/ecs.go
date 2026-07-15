@@ -149,7 +149,8 @@ func (c *ECSClient) StopTask(ctx context.Context, taskID, reason string) error {
 // closed immediately if the agent hasn't registered on its side yet.
 func (c *ECSClient) WaitForExecAgent(ctx context.Context, taskID, container string, maxWait time.Duration) error {
 	const pollInterval = 500 * time.Millisecond
-	deadline := time.Now().Add(maxWait)
+	ctx, cancel := context.WithTimeout(ctx, maxWait)
+	defer cancel()
 	for {
 		ready, err := c.isExecAgentRunning(ctx, taskID, container)
 		if err != nil {
@@ -157,9 +158,6 @@ func (c *ECSClient) WaitForExecAgent(ctx context.Context, taskID, container stri
 		}
 		if ready {
 			return nil
-		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("exec agent not ready after %s", maxWait)
 		}
 		select {
 		case <-ctx.Done():
@@ -189,9 +187,10 @@ func (c *ECSClient) isExecAgentRunning(ctx context.Context, taskID, container st
 				return aws.ToString(agent.LastStatus) == "RUNNING", nil
 			}
 		}
+		// Container found but agent entry not present yet — still initialising.
+		return false, nil
 	}
-	// Agent entry not present yet — still initialising.
-	return false, nil
+	return false, fmt.Errorf("container %q not found in task %s", container, taskID)
 }
 
 // ExecuteCommand calls ECS ExecuteCommand and returns the session details.

@@ -132,7 +132,7 @@ pytest -m e2e
 
 Two compose files are provided:
 - **compose.yml** - Local development (macOS compatible, Lambda tests skipped)
-- **compose.ci.yml** - CI/Linux (Docker executor, Lambda tests enabled)
+- **compose.ci.yml** - Prow CI (local executor, no Docker socket required)
 
 Both start two containers:
 
@@ -188,30 +188,22 @@ Tests verify IAM policy conditions without executing tasks:
 
 ### Lambda Testing
 
-Lambda tests require LocalStack's Docker executor to run. We provide two compose files:
+Both compose files use `LAMBDA_EXECUTOR=local` — Lambda tests requiring a Docker executor are covered by moto unit tests instead.
 
 **`compose.yml`** (default - local development):
-- Uses `LAMBDA_EXECUTOR=local` for macOS compatibility
-- Lambda tests are automatically skipped
-- Faster startup, no Docker socket required
+- `LAMBDA_EXECUTOR=local`, macOS compatible
+- Lambda tests auto-skipped; use `make test-lambda-create-investigation` for unit tests
 
-**`compose.ci.yml`** (CI/Linux):
-- Uses `LAMBDA_EXECUTOR=docker` with socket mount
-- Lambda tests run successfully
-- Requires Docker/Podman socket access
+**`compose.ci.yml`** (local Prow-mode simulation):
+- `LAMBDA_EXECUTOR=local`, no Docker socket required
+- `user: root` for SELinux/rootless podman on Fedora (init script volume mount)
+- Not used by Prow directly; Prow runs LocalStack in host mode via ci-operator
 
 **Local development** (macOS):
 ```bash
 # Lambda tests skipped automatically
 make localstack-up
 make test-localstack-fast
-```
-
-**Linux/CI** (enable Lambda tests):
-```bash
-cd tests/localstack
-podman-compose -f compose.ci.yml up -d
-LAMBDA_EXECUTOR=docker pytest integration/ -v -m "not slow"
 ```
 
 Lambda tests are also available as unit tests with moto (see `lambda/create-investigation/test_handler.py`).
@@ -260,14 +252,37 @@ LocalStack may have limited OIDC provider functionality. Some tests may skip if 
 
 ## CI/CD Integration
 
-GitHub Actions workflow (`.github/workflows/localstack-tests.yml`):
+### Prow CI
 
-1. **Unit Tests** - Run existing moto-based tests
-2. **LocalStack Integration** - Full integration tests with Pro features
-3. **Terraform Validate** - Terraform plan against LocalStack
+Prow presubmit job runs in `openshift/release` at
+`ci-operator/config/openshift-online/rosa-boundary/openshift-online-rosa-boundary-main.yaml`.
 
-**Required GitHub Secret**:
-- `LOCALSTACK_AUTH_TOKEN` - LocalStack Pro license token
+**Job name:** `pull-ci-openshift-online-rosa-boundary-main-localstack-integration-tests` (presubmit)
+
+**Triggers:** PRs touching `lambda/`, `deploy/regional/`, or `tests/localstack/`.
+
+**Architecture:** Single `localstack-test-runner` container (UBI Python + `localstack[runtime]`).
+LocalStack starts in host mode (`localstack start --host`, no Docker socket), then
+`init-aws.sh` and `pytest integration/ -m "not slow"` run in the same container.
+
+**`test_lambda_handler.py` skip:** Auto-skipped under `LAMBDA_EXECUTOR=local`. Lambda logic is covered by moto unit tests (`make test-lambda-create-investigation`).
+
+**Secret bootstrap (one-time setup):**
+Vault path: `secret/rosa-boundary/localstack` → key: `auth-token`
+CI cluster secret: `localstack-token` → key: `localstack-token`
+
+To add the secret:
+1. Store `LOCALSTACK_AUTH_TOKEN` in Vault at the path above
+2. Open a PR to `openshift/release` adding a secret sync rule for `rosa-boundary-localstack-auth-token`
+3. Coordinate with DPTP via `#forum-ocp-testplatform`
+
+**Local verification (Prow-mode):**
+```bash
+cd tests/localstack
+LOCALSTACK_AUTH_TOKEN=<your-token> podman-compose -f compose.ci.yml up -d
+LAMBDA_EXECUTOR=local pytest integration/ -v -m "not slow"
+podman-compose -f compose.ci.yml down -v
+```
 
 ## Troubleshooting
 

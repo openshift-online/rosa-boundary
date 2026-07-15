@@ -1,10 +1,10 @@
 """Test Lambda function with OIDC authentication
 
-NOTE: These tests require Docker/Podman executor for Lambda.
+NOTE: These tests require a Docker/Podman executor for Lambda.
       LocalStack's local executor does not support Lambda function execution.
-
-      - In CI: Tests run with Docker executor (compose.ci.yml)
-      - Locally: Tests are skipped (compose.yml uses local executor for macOS compat)
+      Both compose.yml (local) and compose.ci.yml (Prow) use LAMBDA_EXECUTOR=local,
+      so these tests are always skipped here. Use moto unit tests instead:
+        make test-lambda-create-investigation
 """
 
 import pytest
@@ -19,15 +19,12 @@ from datetime import datetime
 LAMBDA_DIR = os.path.join(os.path.dirname(__file__), '../../../lambda/create-investigation')
 sys.path.insert(0, LAMBDA_DIR)
 
-# Skip Lambda tests when using local executor (local dev on macOS)
-# CI uses Docker executor via compose.ci.yml
 LAMBDA_EXECUTOR = os.getenv('LAMBDA_EXECUTOR', 'local')
-skip_lambda_tests = LAMBDA_EXECUTOR == 'local'
 
 pytestmark = pytest.mark.skipif(
-    skip_lambda_tests,
+    LAMBDA_EXECUTOR == 'local',
     reason=f"Lambda tests require Docker executor (current: {LAMBDA_EXECUTOR}). "
-           "Set LAMBDA_EXECUTOR=docker or use compose.ci.yml for CI."
+           "Run moto unit tests instead: make test-lambda-create-investigation"
 )
 
 

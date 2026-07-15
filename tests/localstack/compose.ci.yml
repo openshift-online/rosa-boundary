@@ -1,25 +1,24 @@
 services:
   localstack:
     image: localstack/localstack-pro:latest
+    # user: root required — LocalStack's init/ready.d scripts execute as root, and
+    # rootless podman on Fedora remaps the container UID; without this the init
+    # script volume mount is unreadable and LocalStack fails to initialise.
+    user: root
     ports:
       - "4566:4566"
       - "4510-4559:4510-4559"
     environment:
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
       - SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm
-      # Use docker executor for Lambda in CI (Linux only)
-      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_EXECUTOR=local
       - ECS_EXECUTOR=local
       - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-2
-      - PERSISTENCE=1
-      # Enable Docker socket access for Lambda execution
-      - DOCKER_HOST=unix:///var/run/docker.sock
+      - PERSISTENCE=0
+      - LOCALSTACK_LOG_DIR=/tmp/localstack-logs
     volumes:
-      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
-      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
-      # Mount Docker socket for Lambda executor (Linux/CI only)
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
@@ -36,7 +35,7 @@ services:
       - ISSUER_URL=http://mock-oidc:8080/realms/sre-ops
       - CLIENT_ID=aws-sre-access
     volumes:
-      - "./oidc/test_keys:/keys:ro"
+      - "./oidc/test_keys:/keys:ro,z"
 
 networks:
   default:

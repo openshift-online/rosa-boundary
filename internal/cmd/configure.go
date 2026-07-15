@@ -22,14 +22,15 @@ Current values are shown in brackets. Press Enter to keep them.
 
 Configuration fields:
 
-  keycloak_url          Base URL of your Keycloak instance (e.g.,
-                        https://keycloak.example.com). Used for OIDC
-                        authentication via the browser-based PKCE flow.
+  keycloak_url          Base URL of your Keycloak instance.
+                        Default: https://auth.redhat.com/auth.
+                        Used for OIDC authentication via the browser-based
+                        PKCE flow.
 
-  keycloak_realm        Keycloak realm name. Default: sre-ops.
+  keycloak_realm        Keycloak realm name. Default: EmployeeIDP.
 
   oidc_client_id        OIDC client ID registered in Keycloak for this
-                        application. Default: aws-sre-access.
+                        application. Default: rosa-boundary-sre.
 
   lambda_function_name  Name of the AWS Lambda function that creates
                         investigation tasks. Must match the function
@@ -92,9 +93,9 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	fmt.Fprintln(os.Stderr, "Run 'rosa-boundary configure --help' for details on each configuration field.")
 	fmt.Fprintln(os.Stderr)
 
-	keycloakURL := prompt("Keycloak URL (required)", cfg.KeycloakURL, "")
-	keycloakRealm := prompt("Keycloak realm", cfg.KeycloakRealm, "sre-ops")
-	oidcClientID := prompt("OIDC client ID", cfg.OIDCClientID, "aws-sre-access")
+	keycloakURL := prompt("Keycloak URL", cfg.KeycloakURL, "https://auth.redhat.com/auth")
+	keycloakRealm := prompt("Keycloak realm", cfg.KeycloakRealm, "EmployeeIDP")
+	oidcClientID := prompt("OIDC client ID", cfg.OIDCClientID, "rosa-boundary-sre")
 	lambdaFunctionName := prompt("Lambda function name (required)", cfg.LambdaFunctionName, "")
 	invokerRoleARN := prompt("Invoker role ARN (required)", cfg.InvokerRoleARN, "")
 	sreRoleARN := prompt("SRE role ARN", cfg.SRERoleARN, "")
@@ -117,12 +118,12 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 		{
 			Key:     "keycloak_realm",
 			Value:   keycloakRealm,
-			Comment: "Keycloak realm name. Default: sre-ops",
+			Comment: "Keycloak realm name. Default: EmployeeIDP",
 		},
 		{
 			Key:     "oidc_client_id",
 			Value:   oidcClientID,
-			Comment: "OIDC client ID registered in Keycloak. Default: aws-sre-access",
+			Comment: "OIDC client ID registered in Keycloak. Default: rosa-boundary-sre",
 		},
 		{
 			Key:     "lambda_function_name",

@@ -59,6 +59,8 @@ tests/localstack/volume/
 
 # Go CLI build output
 bin/
+# Exception: skel user-local scripts ship in the container image
+!skel/sre/.local/bin/
 
 # Generated SARIF (built from adversary-findings.json)
 adversary-findings.sarif
@@ -89,6 +91,8 @@ tests/localstack/terraform/localstack.tfvars
 
 # Test binary, built with `go test -c`
 *.test
+# Exception: CI test runner Containerfile
+!build/Containerfile.test
 
 # Output of the go coverage tool
 *.out

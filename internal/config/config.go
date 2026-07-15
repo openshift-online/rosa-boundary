@@ -63,8 +63,9 @@ func CacheDir() (string, error) {
 // Flag values are not applied here — callers bind pflags to viper before calling Get().
 func Load() error {
 	// Compiled defaults
-	viper.SetDefault("keycloak_realm", "sre-ops")
-	viper.SetDefault("oidc_client_id", "aws-sre-access")
+	viper.SetDefault("keycloak_url", "https://auth.redhat.com/auth")
+	viper.SetDefault("keycloak_realm", "EmployeeIDP")
+	viper.SetDefault("oidc_client_id", "rosa-boundary-sre")
 	viper.SetDefault("aws_region", "us-east-2")
 	viper.SetDefault("ecs_cluster_name", "rosa-boundary-dev")
 

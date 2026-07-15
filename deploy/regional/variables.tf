@@ -98,7 +98,7 @@ variable "tags" {
 }
 
 variable "keycloak_issuer_url" {
-  description = "Keycloak OIDC issuer URL (e.g., https://keycloak.example.com/realms/sre-ops)"
+  description = "Keycloak OIDC issuer URL (e.g., https://auth.redhat.com/auth/realms/EmployeeIDP)"
   type        = string
 }
 
@@ -111,7 +111,7 @@ variable "keycloak_thumbprint" {
 variable "oidc_client_id" {
   description = "Keycloak client ID for AWS integration"
   type        = string
-  default     = "aws-sre-access"
+  default     = "rosa-boundary-sre"
 }
 
 variable "oidc_session_duration" {

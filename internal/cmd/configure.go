@@ -9,16 +9,39 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/openshift/rosa-boundary/internal/auth"
+	awsclient "github.com/openshift/rosa-boundary/internal/aws"
 	"github.com/openshift/rosa-boundary/internal/config"
+	"github.com/openshift/rosa-boundary/internal/lambda"
+	"github.com/openshift/rosa-boundary/internal/output"
+)
+
+var (
+	configAutoDiscover bool
+	configAccountID    string
+	configProject      string
+	configStage        string
 )
 
 var configureCmd = &cobra.Command{
 	Use:   "configure",
-	Short: "Interactively configure rosa-boundary",
-	Long: `Prompt for configuration values and write them to
-~/.config/rosa-boundary/config.yaml (respects XDG_CONFIG_HOME).
+	Short: "Configure rosa-boundary",
+	Long: `Configure rosa-boundary interactively or via auto-discovery.
 
-Current values are shown in brackets. Press Enter to keep them.
+By default, auto-discovery is enabled: the CLI authenticates via OIDC,
+assumes the Lambda invoker role, and fetches all configuration values
+from the Lambda. You only need to provide an AWS account ID and region.
+
+Use --auto-discover=false for interactive prompting.
+
+Auto-discovery flags:
+
+  --account-id    AWS account ID (prompted if not provided)
+  --project       Project name for naming convention (default: rosa-boundary)
+  --stage         Deployment stage for naming convention (default: prod)
+
+Configuration is written to ~/.config/rosa-boundary/config.yaml
+(respects XDG_CONFIG_HOME).
 
 Configuration fields:
 
@@ -58,10 +81,251 @@ CLI flags, or the config file. Resolution order: flags > env > config > defaults
 }
 
 func init() {
+	configureCmd.Flags().BoolVar(&configAutoDiscover, "auto-discover", true, "Auto-discover configuration via Lambda")
+	configureCmd.Flags().StringVar(&configAccountID, "account-id", "", "AWS account ID (prompted if not provided)")
+	configureCmd.Flags().StringVar(&configProject, "project", "rosa-boundary", "Project name for naming convention")
+	configureCmd.Flags().StringVar(&configStage, "stage", "prod", "Deployment stage for naming convention")
 	rootCmd.AddCommand(configureCmd)
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
+	if configAutoDiscover {
+		return runConfigureAuto(cmd)
+	}
+	return runConfigureInteractive(cmd)
+}
+
+// DeriveInvokerRoleARN constructs the invoker role ARN from naming convention.
+func DeriveInvokerRoleARN(accountID, project, stage string) string {
+	return fmt.Sprintf("arn:aws:iam::%s:role/%s-%s-lambda-invoker", accountID, project, stage)
+}
+
+// DeriveLambdaFunctionName constructs the Lambda function name from naming convention.
+func DeriveLambdaFunctionName(project, stage string) string {
+	return fmt.Sprintf("%s-%s-create-investigation", project, stage)
+}
+
+func runConfigureAuto(cmd *cobra.Command) error {
+	// Load existing config for defaults
+	cfg, _ := config.Get()
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
+	scanner := bufio.NewScanner(os.Stdin)
+
+	prompt := func(label, current, def string) string {
+		display := current
+		if display == "" {
+			display = def
+		}
+		if display != "" {
+			fmt.Fprintf(os.Stderr, "%s [%s]: ", label, display)
+		} else {
+			fmt.Fprintf(os.Stderr, "%s: ", label)
+		}
+		if !scanner.Scan() {
+			return display
+		}
+		input := strings.TrimSpace(scanner.Text())
+		if input == "" {
+			return display
+		}
+		return input
+	}
+
+	// 1. Collect seed values
+	accountID := configAccountID
+	if accountID == "" {
+		accountID = prompt("AWS Account ID", "", "")
+	}
+	if accountID == "" {
+		return fmt.Errorf("AWS account ID is required")
+	}
+
+	region := cfg.AWSRegion
+	if region == "" {
+		region = "us-east-2"
+	}
+	region = prompt("AWS Region", region, "us-east-2")
+
+	project := configProject
+	stage := configStage
+	project = prompt("Project", project, "rosa-boundary")
+	stage = prompt("Stage", stage, "prod")
+
+	fmt.Fprintln(os.Stderr)
+
+	// 2. Resolve OIDC values (compiled defaults)
+	keycloakURL := cfg.KeycloakURL
+	if keycloakURL == "" {
+		keycloakURL = "https://auth.redhat.com/auth"
+	}
+	keycloakRealm := cfg.KeycloakRealm
+	if keycloakRealm == "" {
+		keycloakRealm = "EmployeeIDP"
+	}
+	oidcClientID := cfg.OIDCClientID
+	if oidcClientID == "" {
+		oidcClientID = "rosa-boundary-sre"
+	}
+
+	// 3. Derive bootstrap values from naming convention
+	invokerRoleARN := DeriveInvokerRoleARN(accountID, project, stage)
+	lambdaFunctionName := DeriveLambdaFunctionName(project, stage)
+
+	// 4. OIDC login
+	output.Status("Authenticating with Red Hat SSO...")
+	pkce := auth.PKCEConfig{
+		KeycloakURL: keycloakURL,
+		Realm:       keycloakRealm,
+		ClientID:    oidcClientID,
+	}
+	idToken, err := auth.GetToken(cmd.Context(), pkce, false)
+	if err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+	output.Status("  OIDC token obtained")
+	fmt.Fprintln(os.Stderr)
+
+	// 5. Assume invoker role
+	output.Status("Assuming invoker role...")
+	output.Status("  %s", invokerRoleARN)
+
+	invokerCreds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), region, invokerRoleARN, idToken, "rosa-boundary-configure")
+	if err != nil {
+		return fmt.Errorf("invoker role assumption failed: %w\n\nVerify that:\n  - AWS account ID %q is correct\n  - Project %q and stage %q match the deployment\n  - The invoker role exists: %s", err, accountID, project, stage, invokerRoleARN)
+	}
+	output.Status("  Invoker role assumed")
+	fmt.Fprintln(os.Stderr)
+
+	// 6. Invoke Lambda get_config
+	output.Status("Fetching configuration from Lambda...")
+	invokerCredProvider := awsclient.StaticCredentialsProvider(invokerCreds)
+	lambdaClient := lambda.New(lambdaFunctionName, region, invokerCredProvider)
+	configResp, err := lambdaClient.GetConfig(cmd.Context())
+	if err != nil {
+		return fmt.Errorf("failed to fetch configuration from Lambda: %w", err)
+	}
+	fmt.Fprintln(os.Stderr)
+
+	// 7. Validate derived values against Lambda response
+	if configResp.InvokerRoleARN != "" && configResp.InvokerRoleARN != invokerRoleARN {
+		output.Status("  Warning: derived invoker_role_arn differs from Lambda response")
+		output.Status("    derived: %s", invokerRoleARN)
+		output.Status("    Lambda:  %s", configResp.InvokerRoleARN)
+	}
+	if configResp.LambdaFunctionName != "" && configResp.LambdaFunctionName != lambdaFunctionName {
+		output.Status("  Warning: derived lambda_function_name differs from Lambda response")
+		output.Status("    derived: %s", lambdaFunctionName)
+		output.Status("    Lambda:  %s", configResp.LambdaFunctionName)
+	}
+
+	// Use Lambda-returned values (authoritative) with fallback to derived
+	finalLambdaFunctionName := configResp.LambdaFunctionName
+	if finalLambdaFunctionName == "" {
+		finalLambdaFunctionName = lambdaFunctionName
+	}
+	finalInvokerRoleARN := configResp.InvokerRoleARN
+	if finalInvokerRoleARN == "" {
+		finalInvokerRoleARN = invokerRoleARN
+	}
+	finalSRERoleARN := configResp.SRERoleARN
+	finalECSClusterName := configResp.ECSClusterName
+	finalEFSFilesystemID := configResp.EFSFilesystemID
+	finalRegion := configResp.AWSRegion
+	if finalRegion == "" {
+		finalRegion = region
+	}
+	finalKeycloakURL := configResp.KeycloakURL
+	if finalKeycloakURL == "" {
+		finalKeycloakURL = keycloakURL
+	}
+	finalKeycloakRealm := configResp.KeycloakRealm
+	if finalKeycloakRealm == "" {
+		finalKeycloakRealm = keycloakRealm
+	}
+	finalOIDCClientID := configResp.OIDCClientID
+	if finalOIDCClientID == "" {
+		finalOIDCClientID = oidcClientID
+	}
+
+	// 8. Display discovered values
+	output.Status("  %-25s %s", "lambda_function_name :", finalLambdaFunctionName)
+	output.Status("  %-25s %s", "invoker_role_arn :", finalInvokerRoleARN)
+	output.Status("  %-25s %s", "sre_role_arn :", finalSRERoleARN)
+	output.Status("  %-25s %s", "ecs_cluster_name :", finalECSClusterName)
+	output.Status("  %-25s %s", "efs_filesystem_id :", finalEFSFilesystemID)
+	output.Status("  %-25s %s", "aws_region :", finalRegion)
+	output.Status("  %-25s %s", "keycloak_url :", finalKeycloakURL)
+	output.Status("  %-25s %s", "keycloak_realm :", finalKeycloakRealm)
+	output.Status("  %-25s %s", "oidc_client_id :", finalOIDCClientID)
+	fmt.Fprintln(os.Stderr)
+
+	// 9. Build config entries and write config.yaml
+	configDir, err := config.ConfigDir()
+	if err != nil {
+		return err
+	}
+	configPath := filepath.Join(configDir, "config.yaml")
+
+	entries := []config.ConfigEntry{
+		{
+			Key:     "keycloak_url",
+			Value:   finalKeycloakURL,
+			Comment: "Base URL of the Keycloak instance for OIDC authentication.",
+		},
+		{
+			Key:     "keycloak_realm",
+			Value:   finalKeycloakRealm,
+			Comment: "Keycloak realm name. Default: EmployeeIDP",
+		},
+		{
+			Key:     "oidc_client_id",
+			Value:   finalOIDCClientID,
+			Comment: "OIDC client ID registered in Keycloak. Default: rosa-boundary-sre",
+		},
+		{
+			Key:     "lambda_function_name",
+			Value:   finalLambdaFunctionName,
+			Comment: "Name of the AWS Lambda function that creates investigation tasks.\nMust match the function deployed in your AWS account.",
+		},
+		{
+			Key:     "invoker_role_arn",
+			Value:   finalInvokerRoleARN,
+			Comment: "ARN of the IAM role assumed by the CLI before invoking the Lambda.",
+		},
+		{
+			Key:     "sre_role_arn",
+			Value:   finalSRERoleARN,
+			Comment: "ARN of the shared ABAC IAM role assumed for join-task.\nScoped at runtime so you can only exec into tasks tagged with your identity.",
+		},
+		{
+			Key:     "aws_region",
+			Value:   finalRegion,
+			Comment: "AWS region where the infrastructure is deployed. Default: us-east-2",
+		},
+		{
+			Key:     "ecs_cluster_name",
+			Value:   finalECSClusterName,
+			Comment: "Name of the ECS cluster running investigation tasks. Default: rosa-boundary-dev",
+		},
+		{
+			Key:     "efs_filesystem_id",
+			Value:   finalEFSFilesystemID,
+			Comment: "EFS filesystem ID. Required for list-investigations and close-investigation.",
+		},
+	}
+
+	if err := config.WriteConfigFile(configPath, entries); err != nil {
+		return err
+	}
+
+	output.Status("Configuration written to %s", configPath)
+	return nil
+}
+
+func runConfigureInteractive(cmd *cobra.Command) error {
 	// Load existing config so we can show current values as defaults
 	cfg, _ := config.Get()
 	if cfg == nil {

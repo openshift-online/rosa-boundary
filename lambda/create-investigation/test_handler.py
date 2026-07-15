@@ -2007,5 +2007,145 @@ class TestMinimumTaskTimeout:
         assert result['statusCode'] == 401
 
 
+class TestGetConfig:
+    """Test the get_config action for CLI auto-discovery."""
+
+    CONFIG_ENV_VARS = {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'ECS_CLUSTER': 'test-cluster',
+        'EFS_FILESYSTEM_ID': 'fs-abc123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123456789012:role/test-sre-shared',
+        'INVOKER_ROLE_ARN': 'arn:aws:iam::123456789012:role/test-lambda-invoker',
+        'AWS_LAMBDA_FUNCTION_NAME': 'rosa-boundary-dev-create-investigation',
+        'AWS_REGION': 'us-east-2',
+        'AWS_DEFAULT_REGION': 'us-east-2',
+        # Required by handler but not returned by get_config
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'REQUIRED_GROUPS': 'sre-team',
+    }
+
+    @patch.dict('os.environ', CONFIG_ENV_VARS)
+    def test_get_config_returns_env_vars(self):
+        """Set env vars, send get_config action, verify response 200 with all 9 config fields."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {},
+            'body': json.dumps({'action': 'get_config'})
+        }
+        context = Mock()
+
+        result = handler.lambda_handler(event, context)
+
+        assert result['statusCode'] == 200
+        body = json.loads(result['body'])
+        assert body['action'] == 'get_config'
+        config = body['config']
+        assert config['lambda_function_name'] == 'rosa-boundary-dev-create-investigation'
+        assert config['invoker_role_arn'] == 'arn:aws:iam::123456789012:role/test-lambda-invoker'
+        assert config['sre_role_arn'] == 'arn:aws:iam::123456789012:role/test-sre-shared'
+        assert config['efs_filesystem_id'] == 'fs-abc123'
+        assert config['ecs_cluster_name'] == 'test-cluster'
+        assert config['aws_region'] == 'us-east-2'
+        assert config['keycloak_url'] == 'https://keycloak.test'
+        assert config['keycloak_realm'] == 'test-realm'
+        assert config['oidc_client_id'] == 'test-client'
+
+    @patch.dict('os.environ', CONFIG_ENV_VARS)
+    def test_get_config_no_oidc_token_required(self):
+        """Send get_config without any OIDC token header, verify 200 (not 401)."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {},
+            'body': json.dumps({'action': 'get_config'})
+        }
+        context = Mock()
+
+        result = handler.lambda_handler(event, context)
+
+        # Must return 200, not 401 — get_config does not require OIDC
+        assert result['statusCode'] == 200
+
+    @patch.dict('os.environ', {'AWS_DEFAULT_REGION': 'us-east-2'}, clear=True)
+    def test_get_config_missing_env_vars(self):
+        """Unset some env vars, verify graceful handling (empty strings, not errors)."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {},
+            'body': json.dumps({'action': 'get_config'})
+        }
+        context = Mock()
+
+        result = handler.lambda_handler(event, context)
+
+        assert result['statusCode'] == 200
+        body = json.loads(result['body'])
+        config = body['config']
+        # All fields should be present, even if empty
+        assert 'lambda_function_name' in config
+        assert 'invoker_role_arn' in config
+        assert 'sre_role_arn' in config
+        assert 'efs_filesystem_id' in config
+        assert 'ecs_cluster_name' in config
+        assert 'aws_region' in config
+        assert 'keycloak_url' in config
+        assert 'keycloak_realm' in config
+        assert 'oidc_client_id' in config
+        # Values should be empty strings when env vars are unset
+        assert config['invoker_role_arn'] == ''
+        assert config['sre_role_arn'] == ''
+
+    @patch.dict('os.environ', CONFIG_ENV_VARS)
+    def test_get_config_does_not_trigger_investigation(self):
+        """Verify no ECS/EFS boto3 calls are made when action is get_config."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {},
+            'body': json.dumps({'action': 'get_config'})
+        }
+        context = Mock()
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                result = handler.lambda_handler(event, context)
+
+                # No ECS or EFS operations should be called
+                mock_ecs.run_task.assert_not_called()
+                mock_ecs.register_task_definition.assert_not_called()
+                mock_ecs.describe_task_definition.assert_not_called()
+                mock_efs.create_access_point.assert_not_called()
+
+        assert result['statusCode'] == 200
+
+    @patch.dict('os.environ', CONFIG_ENV_VARS)
+    def test_get_config_invalid_json_body(self):
+        """Send malformed JSON body, verify it falls through to existing error handling."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {},
+            'body': 'not valid json{'
+        }
+        context = Mock()
+
+        result = handler.lambda_handler(event, context)
+
+        # Malformed JSON can't match get_config action, so it falls through.
+        # Without an OIDC token, the handler returns 401.
+        assert result['statusCode'] == 401
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

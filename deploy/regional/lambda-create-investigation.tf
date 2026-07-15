@@ -137,6 +137,7 @@ resource "aws_lambda_function" "create_investigation" {
       SECURITY_GROUP       = aws_security_group.fargate.id
       EFS_FILESYSTEM_ID    = aws_efs_file_system.sre_home.id
       SHARED_ROLE_ARN      = aws_iam_role.sre_shared.arn
+      INVOKER_ROLE_ARN     = aws_iam_role.lambda_invoker.arn
       S3_AUDIT_BUCKET      = aws_s3_bucket.audit.id
       AWS_ACCOUNT_ID       = data.aws_caller_identity.current.account_id
       PROJECT_NAME         = var.project

@@ -10,6 +10,31 @@ import (
 	awslambda "github.com/aws/aws-sdk-go-v2/service/lambda"
 )
 
+// ConfigRequest is the payload for the get_config action.
+type ConfigRequest struct {
+	Action string `json:"action"`
+}
+
+// ConfigResponse is the config returned by the Lambda's get_config action.
+type ConfigResponse struct {
+	LambdaFunctionName string `json:"lambda_function_name"`
+	InvokerRoleARN     string `json:"invoker_role_arn"`
+	SRERoleARN         string `json:"sre_role_arn"`
+	EFSFilesystemID    string `json:"efs_filesystem_id"`
+	ECSClusterName     string `json:"ecs_cluster_name"`
+	AWSRegion          string `json:"aws_region"`
+	KeycloakURL        string `json:"keycloak_url"`
+	KeycloakRealm      string `json:"keycloak_realm"`
+	OIDCClientID       string `json:"oidc_client_id"`
+}
+
+// getConfigBody is the intermediate struct to unwrap the config field from
+// the Lambda's get_config response body.
+type getConfigBody struct {
+	Action string         `json:"action"`
+	Config ConfigResponse `json:"config"`
+}
+
 // InvestigationRequest is the payload sent to the create-investigation Lambda.
 type InvestigationRequest struct {
 	ClusterID       string `json:"cluster_id"`
@@ -152,4 +177,57 @@ func (c *Client) CreateInvestigationOnly(ctx context.Context, idToken string, re
 		return nil, fmt.Errorf("lambda response missing access_point_id")
 	}
 	return result, nil
+}
+
+// GetConfig invokes the Lambda with the get_config action to retrieve CLI
+// configuration values. Unlike other methods, this does not send an OIDC
+// token — the request is authenticated by IAM (the caller already assumed
+// the invoker role).
+func (c *Client) GetConfig(ctx context.Context) (*ConfigResponse, error) {
+	configReq := ConfigRequest{Action: "get_config"}
+	bodyBytes, err := json.Marshal(configReq)
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshal config request: %w", err)
+	}
+
+	event := lambdaEventPayload{
+		Headers: map[string]string{},
+		Body:    string(bodyBytes),
+	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return nil, fmt.Errorf("cannot marshal Lambda event: %w", err)
+	}
+
+	out, err := c.sdk.Invoke(ctx, &awslambda.InvokeInput{
+		FunctionName: aws.String(c.functionName),
+		Payload:      payload,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("lambda invocation failed: %w", err)
+	}
+
+	if out.FunctionError != nil {
+		return nil, fmt.Errorf("lambda function error (%s): %s", *out.FunctionError, truncate(string(out.Payload), 200))
+	}
+
+	var apiResp lambdaAPIResponse
+	if err := json.Unmarshal(out.Payload, &apiResp); err != nil {
+		return nil, fmt.Errorf("cannot decode Lambda response: %w", err)
+	}
+
+	if apiResp.StatusCode != http.StatusOK {
+		var errResp errorResponse
+		if jsonErr := json.Unmarshal([]byte(apiResp.Body), &errResp); jsonErr == nil && errResp.Error != "" {
+			return nil, fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, errResp.Error)
+		}
+		return nil, fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, truncate(apiResp.Body, 200))
+	}
+
+	var body getConfigBody
+	if err := json.Unmarshal([]byte(apiResp.Body), &body); err != nil {
+		return nil, fmt.Errorf("cannot decode get_config response body: %w", err)
+	}
+
+	return &body.Config, nil
 }

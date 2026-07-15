@@ -8,7 +8,7 @@ import pytest
 import json
 import time
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 @pytest.mark.integration
@@ -17,7 +17,7 @@ def test_deadline_tag_computed_correctly():
 
     # Simulate Lambda logic for computing deadline
     task_timeout = 3600  # 1 hour
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc).replace(tzinfo=None)
     deadline = created_at + timedelta(seconds=task_timeout)
 
     # Verify deadline is in the future
@@ -41,7 +41,7 @@ def test_no_deadline_tag_when_timeout_zero():
     """Test that no deadline tag is set when task_timeout is 0"""
 
     task_timeout = 0
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     # Simulate Lambda logic
     task_tags = [
@@ -115,27 +115,23 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
 
     print(f"Created task {task_id} with past deadline: {past_deadline}")
 
-    # Load reaper handler by explicit path to avoid sys.modules cache collision
-    # with lambda/create-investigation/handler.py (both files are named handler.py).
+    # ECS_CLUSTER is read at module level in handler.py — must be set before exec_module.
     import importlib.util
-    _lambda_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py'))
-    _spec = importlib.util.spec_from_file_location('reap_tasks_handler', _lambda_path)
-    reaper_handler = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(reaper_handler)
-
+    _lambda_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py')
+    )
     _prev_cluster = os.environ.get('ECS_CLUSTER')
     try:
         os.environ['ECS_CLUSTER'] = cluster_name
-
+        _spec = importlib.util.spec_from_file_location('reap_tasks_handler', _lambda_path)
+        reaper_handler = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(reaper_handler)
         result = reaper_handler.lambda_handler({}, None)
 
         print(f"Reaper result: {result}")
 
-        # Verify task was identified and stopped
-        # Note: In LocalStack, the actual stop may or may not happen
-        # We're testing the reaper logic, not LocalStack's ECS implementation
         assert result['checked'] >= 1
-        assert result['stopped'] >= 0  # May be 0 or 1 depending on LocalStack behavior
+        assert result['stopped'] >= 1, f"Reaper should have stopped the overdue task, got: {result}"
         assert 'error' not in result
 
         print("✓ Reaper correctly identified expired task")
@@ -197,29 +193,26 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
 
     print(f"Created task {task_id} without deadline tag")
 
-    # Load reaper handler by explicit path to avoid sys.modules cache collision
-    # with lambda/create-investigation/handler.py (both files are named handler.py).
+    # ECS_CLUSTER is read at module level in handler.py — must be set before exec_module.
     import importlib.util
-    _lambda_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py'))
-    _spec = importlib.util.spec_from_file_location('reap_tasks_handler', _lambda_path)
-    reaper_handler = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(reaper_handler)
-
+    _lambda_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py')
+    )
     _prev_cluster = os.environ.get('ECS_CLUSTER')
     try:
         os.environ['ECS_CLUSTER'] = cluster_name
-
+        _spec = importlib.util.spec_from_file_location('reap_tasks_handler', _lambda_path)
+        reaper_handler = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(reaper_handler)
         result = reaper_handler.lambda_handler({}, None)
 
         print(f"Reaper result: {result}")
 
-        # Verify task was skipped
         assert result['checked'] >= 1
         assert result['stopped'] == 0
         assert result['skipped'] >= 1
         assert 'error' not in result
 
-        # Verify task is still running (not stopped)
         tasks = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn])
         task_status = tasks['tasks'][0]['lastStatus']
         print(f"Task status after reaper: {task_status}")

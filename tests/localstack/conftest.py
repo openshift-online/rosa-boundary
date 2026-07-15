@@ -269,7 +269,8 @@ def test_token_generator(mock_oidc_available, mock_oidc_issuer):
     from datetime import datetime, timedelta
 
     # Temporarily remove lambda directory from path to avoid importing Linux binaries
-    lambda_dir = '/Users/jjaggars/code/rosa-boundary/lambda/create-investigation'
+    _TESTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    lambda_dir = os.path.join(os.path.dirname(_TESTS_DIR), 'lambda', 'create-investigation')
     original_path = sys.path.copy()
     sys.path = [p for p in sys.path if not p.startswith(lambda_dir)]
 
@@ -281,7 +282,7 @@ def test_token_generator(mock_oidc_available, mock_oidc_issuer):
         sys.path = original_path
 
     # Load private key
-    keys_path = '/Users/jjaggars/code/rosa-boundary/tests/localstack/oidc/test_keys'
+    keys_path = os.path.join(_TESTS_DIR, 'localstack', 'oidc', 'test_keys')
     with open(f'{keys_path}/private.pem', 'rb') as f:
         private_key = serialization.load_pem_private_key(
             f.read(),

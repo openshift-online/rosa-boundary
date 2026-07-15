@@ -1,5 +1,7 @@
 """End-to-end investigation creation workflow test"""
 
+import os
+import time
 import pytest
 import json
 from datetime import datetime
@@ -307,3 +309,168 @@ def test_efs_access_point_cleanup_on_failure(efs_client, test_efs):
     access_points_after = efs_client.describe_access_points(FileSystemId=test_efs)
     remaining_ids = [ap['AccessPointId'] for ap in access_points_after['AccessPoints']]
     assert access_point_id not in remaining_ids
+
+
+@pytest.mark.integration
+@pytest.mark.e2e
+@pytest.mark.slow
+def test_investigation_with_reaper_enforcement(
+    ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup
+):
+    """Chain investigation creation (EFS access point + ECS task with ABAC/deadline tags)
+    with reaper enforcement to validate the full deadline tag lifecycle end-to-end.
+
+    What this proves: the reaper correctly identifies an investigation task whose
+    deadline tag (set at creation) is in the past, given the full tag set from the
+    investigation creation flow.
+    """
+    import sys
+    import importlib
+    from datetime import timedelta
+
+    cluster_id = 'rosa-dev'
+    investigation_id = f'inv-reaper-e2e-{int(datetime.now().timestamp())}'
+    oidc_sub = 'test-user-reaper-e2e'
+    username = 'sre-reaper-e2e'
+    past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+
+    # Step 1: Create ECS task execution role (trusted by ecs-tasks.amazonaws.com)
+    ecs_role_name = f'rosa-boundary-reaper-e2e-{int(datetime.now().timestamp())}'
+    ecs_trust_policy = {
+        'Version': '2012-10-17',
+        'Statement': [{
+            'Effect': 'Allow',
+            'Principal': {'Service': 'ecs-tasks.amazonaws.com'},
+            'Action': 'sts:AssumeRole'
+        }]
+    }
+    ecs_role_response = iam_client.create_role(
+        RoleName=ecs_role_name,
+        AssumeRolePolicyDocument=json.dumps(ecs_trust_policy)
+    )
+    ecs_role_arn = ecs_role_response['Role']['Arn']
+    ecs_cleanup.register_role(ecs_role_name, [])
+
+    # Step 2: Create EFS access point at investigation-scoped path
+    access_point_response = efs_client.create_access_point(
+        FileSystemId=test_efs,
+        PosixUser={'Uid': 1000, 'Gid': 1000},
+        RootDirectory={
+            'Path': f'/{cluster_id}/{investigation_id}',
+            'CreationInfo': {'OwnerUid': 1000, 'OwnerGid': 1000, 'Permissions': '0755'}
+        },
+        Tags=[
+            {'Key': 'ClusterID', 'Value': cluster_id},
+            {'Key': 'InvestigationID', 'Value': investigation_id},
+            {'Key': 'oidc_sub', 'Value': oidc_sub},
+            {'Key': 'username', 'Value': username}
+        ]
+    )
+    access_point_id = access_point_response['AccessPointId']
+    ecs_cleanup.register_access_point(access_point_id)
+
+    # Step 3: Create ECS cluster
+    cluster_name = f'test-reaper-e2e-{int(datetime.now().timestamp())}'
+    ecs_client.create_cluster(clusterName=cluster_name)
+    ecs_cleanup.register_cluster(cluster_name)
+
+    # Step 4: Register task definition with EFS mount
+    task_family = f'{cluster_id}-{investigation_id}-{int(datetime.now().timestamp())}'
+    task_def_response = ecs_client.register_task_definition(
+        family=task_family,
+        networkMode='awsvpc',
+        requiresCompatibilities=['FARGATE'],
+        cpu='256',
+        memory='512',
+        executionRoleArn=ecs_role_arn,
+        taskRoleArn=ecs_role_arn,
+        containerDefinitions=[{
+            'name': 'rosa-boundary',
+            'image': 'public.ecr.aws/amazonlinux/amazonlinux:2023',
+            'essential': True,
+            'command': ['sleep', '60'],
+            'mountPoints': [{
+                'sourceVolume': 'efs-home',
+                'containerPath': '/home/sre',
+                'readOnly': False
+            }],
+            'environment': [
+                {'name': 'CLUSTER_ID', 'value': cluster_id},
+                {'name': 'INVESTIGATION_ID', 'value': investigation_id}
+            ]
+        }],
+        volumes=[{
+            'name': 'efs-home',
+            'efsVolumeConfiguration': {
+                'fileSystemId': test_efs,
+                'transitEncryption': 'ENABLED',
+                'authorizationConfig': {'accessPointId': access_point_id}
+            }
+        }]
+    )
+    task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']
+    ecs_cleanup.register_task_definition(task_def_arn)
+
+    # Step 5: Launch task with full investigation tag set + past deadline
+    run_response = ecs_client.run_task(
+        cluster=cluster_name,
+        taskDefinition=task_def_arn,
+        launchType='FARGATE',
+        networkConfiguration={
+            'awsvpcConfiguration': {
+                'subnets': test_vpc['subnet_ids'],
+                'securityGroups': [test_vpc['security_group_id']],
+                'assignPublicIp': 'ENABLED'
+            }
+        },
+        tags=[
+            {'key': 'oidc_sub', 'value': oidc_sub},
+            {'key': 'username', 'value': username},
+            {'key': 'investigation_id', 'value': investigation_id},
+            {'key': 'cluster_id', 'value': cluster_id},
+            {'key': 'deadline', 'value': past_deadline}
+        ],
+        enableExecuteCommand=True
+    )
+    assert len(run_response['tasks']) == 1
+    task_arn = run_response['tasks'][0]['taskArn']
+    ecs_cleanup.register_task(cluster_name, task_arn)
+
+    # Poll until task reaches RUNNING so the reaper's desiredStatus=RUNNING filter sees it
+    deadline_tag_dict = {}
+    for _ in range(24):  # up to 120s
+        desc = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn], include=['TAGS'])
+        task_state = desc['tasks'][0]
+        deadline_tag_dict = {t['key']: t['value'] for t in task_state.get('tags', [])}
+        if task_state.get('lastStatus') == 'RUNNING':
+            break
+        time.sleep(5)
+    else:
+        pytest.fail(f"Task never reached RUNNING; lastStatus={task_state.get('lastStatus')}")
+
+    assert 'deadline' in deadline_tag_dict, \
+        f"Expected 'deadline' tag, got tags: {list(deadline_tag_dict.keys())}"
+    assert deadline_tag_dict['deadline'] == past_deadline
+
+    # Step 6: Invoke reaper handler directly.
+    # Load via explicit path to avoid sys.modules cache collisions between the two handler.py files.
+    # ECS_CLUSTER is read at module level in handler.py — must be set before exec_module.
+    import importlib.util
+    _lambda_path = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py')
+    )
+    _prev_cluster = os.environ.get('ECS_CLUSTER')
+    try:
+        os.environ['ECS_CLUSTER'] = cluster_name
+        _spec = importlib.util.spec_from_file_location('reap_tasks_handler', _lambda_path)
+        reaper_handler = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(reaper_handler)
+        result = reaper_handler.lambda_handler({}, None)
+        assert result['checked'] >= 1, f"Reaper should have checked at least one task, got: {result}"
+        assert result['stopped'] >= 1, f"Reaper should have stopped the overdue task, got: {result}"
+        assert 'error' not in result, f"Reaper returned an error: {result}"
+    finally:
+        if _prev_cluster is None:
+            os.environ.pop('ECS_CLUSTER', None)
+        else:
+            os.environ['ECS_CLUSTER'] = _prev_cluster

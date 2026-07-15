@@ -343,41 +343,25 @@ uv venv && source .venv/bin/activate && uv pip install pytest boto3 requests
 
 ### Key Notes
 
-- **macOS**: `compose.yml` uses `local` executors (not `docker`/`podman`) to avoid socket issues — tests validate AWS API compliance, not container execution. CI uses `compose.ci.yml` with Docker executor for Lambda support.
+- **macOS**: `compose.yml` uses `local` executors (not `docker`/`podman`) to avoid socket issues — tests validate AWS API compliance, not container execution. Prow CI uses `compose.ci.yml` with `LAMBDA_EXECUTOR=local` (no Docker socket required).
 - **Service names**: LocalStack uses `efs` (not `elasticfilesystem`), `ssm` (not `systems-manager`)
 - **Version**: LocalStack Pro ≥ 4.4.0 required; use `latest` tag in compose files
 - **Test markers**: `@pytest.mark.integration` (all), `@pytest.mark.slow` (ECS task launches), `@pytest.mark.e2e` (end-to-end)
 
 See `tests/localstack/README.md` for full documentation including troubleshooting and adding tests.
 
-## GitHub Actions CI
+## Prow CI
 
-**File**: `.github/workflows/localstack-tests.yml`
+**Triggers**: PRs and merges to `main` touching `lambda/`, `deploy/regional/`, or `tests/localstack/`.
 
-**Triggers**: PRs to `main`/`feature/*` or pushes to `main`, only when `lambda/`, `deploy/regional/`, or `tests/localstack/` change.
+**Required secret**: `LOCALSTACK_AUTH_TOKEN` stored in Vault at `selfservice/rosa-boundary/ci` (key: `localstack-token`); synced to CI cluster secret `localstack-token` in namespace `ci`.
 
-**Required secret**: `LOCALSTACK_AUTH_TOKEN` (repo Settings → Secrets and variables → Actions)
+**Jobs** (defined in `openshift/release` at `ci-operator/jobs/openshift-online/rosa-boundary/`):
+1. **pull-ci-openshift-online-rosa-boundary-main-localstack-integration-tests** — presubmit; integration tests
 
-**Jobs**:
-1. **localstack-tests** — integration tests using `compose.ci.yml`; runs for upstream PRs and pushes to main
-2. **localstack-tests-fork** — skips with a notice for fork PRs (no access to secrets)
-3. **lambda-unit-tests** — moto-based unit tests with Codecov coverage upload; runs on all triggers
+**Architecture**: Single `localstack-test-runner` container (UBI Python + `localstack[runtime]`). LocalStack starts in host mode (`localstack start --host`), no Docker socket required. Runs `tests/localstack/init-aws.sh` then `pytest integration/ -m "not slow"`.
 
-**File**: `.github/workflows/upload-sarif.yml`
-
-**Triggers**: Pushes to `main` or PRs when `adversary-findings.json` or `scripts/findings-to-sarif.py` change. Also supports manual `workflow_dispatch`.
-
-**Jobs**:
-1. **upload-sarif** — converts `adversary-findings.json` to SARIF and uploads to GitHub code scanning via `github/codeql-action/upload-sarif@v3`
-2. **upload-sarif-fork** — skips with a notice for fork PRs (no access to `security-events`)
-
-**File**: `.github/workflows/shell-tests.yml`
-
-**Triggers**: PRs/pushes when `entrypoint.sh`, `skel/**`, `utils/**`, or `tests/shell/**` change.
-
-**Jobs**:
-1. **shell-tests** — bats-core tests with JUnit XML reporting
-2. **shellcheck** — blocking shellcheck on all shell scripts
+**Lambda tests**: Auto-skipped under `LAMBDA_EXECUTOR=local`; covered by moto unit tests (`make test-lambda-create-investigation`).
 
 ## Security Findings
 
@@ -387,7 +371,7 @@ The adversary agent (`/adversary`) writes security findings to `adversary-findin
 
 1. Run the adversary agent to scan for vulnerabilities — it reads/writes `adversary-findings.json`
 2. Convert to SARIF: `make convert-sarif`
-3. Upload to GitHub: `make upload-sarif` (requires `gh` CLI) or push to `main` (GitHub Actions auto-uploads)
+3. Upload to GitHub: `make upload-sarif` (requires `gh` CLI)
 
 ### Make Targets
 

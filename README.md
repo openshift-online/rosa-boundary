@@ -152,8 +152,7 @@ rosa-boundary/
 │   └── localstack/       # LocalStack integration tests
 │       ├── compose.yml   # LocalStack Pro + mock OIDC
 │       └── integration/  # AWS service tests
-├── docs/                 # Architecture and implementation docs
-└── .github/workflows/    # CI/CD automation
+└── docs/                 # Architecture and implementation docs
 ```
 
 ## CLI Reference
@@ -432,11 +431,11 @@ make test
 
 ## CI/CD
 
-GitHub Actions workflow runs on PRs and pushes to main:
+Prow presubmit and postsubmit jobs run on PRs and merges to `main` (job definitions in `openshift/release`):
 
-- **LocalStack Integration Tests** - AWS service validation
-- **Lambda Unit Tests** - Handler function validation with moto
+- **LocalStack Integration Tests** - AWS service validation (`pytest integration/ -m "not slow"`) in a single-container job using LocalStack host mode
+- **Lambda Unit Tests** - Handler function validation with moto (`make test-lambda-create-investigation`)
 
-**Required GitHub Secret**: `LOCALSTACK_AUTH_TOKEN` (LocalStack Pro license)
+**Required secret**: `LOCALSTACK_AUTH_TOKEN` stored in Vault at `secret/rosa-boundary/localstack` (key: `auth-token`).
 
-See [`.github/workflows/localstack-tests.yml`](.github/workflows/localstack-tests.yml).
+See [`tests/localstack/README.md`](tests/localstack/README.md) for full CI and local testing documentation.

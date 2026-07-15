@@ -13,9 +13,10 @@ services:
       - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-2
       - PERSISTENCE=1
+      - LOCALSTACK_LOG_DIR=/tmp/localstack-logs
     volumes:
-      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack"
-      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh"
+      - "${LOCALSTACK_VOLUME_DIR:-./volume}:/var/lib/localstack:z"
+      - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s
@@ -32,7 +33,7 @@ services:
       - ISSUER_URL=http://mock-oidc:8080/realms/sre-ops
       - CLIENT_ID=aws-sre-access
     volumes:
-      - "./oidc/test_keys:/keys:ro"
+      - "./oidc/test_keys:/keys:ro,z"
 
 networks:
   default:

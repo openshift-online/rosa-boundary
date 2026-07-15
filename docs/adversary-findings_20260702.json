@@ -409,6 +409,18 @@
       "issue": "The allowed-tools entries Bash(bash scripts/*) and Bash(python3 scripts/*) grant execution permission to any file present or future under the scripts/ directory. A contributor adding a new script does not need to update allowed-tools, bypassing the intended review gate that explicit tool scoping provides.",
       "impact": "A future malicious or buggy script introduced via PR or supply chain attack on the plugin would be silently executable by the adversary skill with no allowed-tools diff surfacing in code review.",
       "recommendation": "Replace wildcarded entries with specific script calls: Bash(bash scripts/detect-stack.sh *), Bash(bash scripts/repo-stats.sh *), Bash(bash scripts/find-images.sh *), Bash(python3 scripts/serve-dashboard.py *). New scripts require an explicit allowed-tools update, surfacing the expansion in review."
+    },
+    {
+      "id": "L12",
+      "title": "Prow CI LocalStack Container Runs as root",
+      "severity": "low",
+      "category": "CI/CD — Container Privilege",
+      "file": "tests/localstack/compose.ci.yml",
+      "line": 7,
+      "end_line": null,
+      "issue": "compose.ci.yml sets user: root on the LocalStack container. Root is required because LocalStack's init/ready.d scripts execute as root, and rootless Podman on Fedora remaps the container UID — without this, the init-aws.sh volume mount is unreadable and LocalStack fails to initialise.",
+      "impact": "LocalStack runs as root inside the container. No host namespaces, privileged mode, allowPrivilegeEscalation, or SYS_ADMIN are granted. The container is an ephemeral Prow CI sidecar with no production data; blast radius is limited to the test pod lifetime.",
+      "recommendation": "Accepted. Remove user: root if LocalStack adds a supported non-root init path, or if the Prow pod security policy enforces runAsNonRoot. Track the LocalStack GitHub issue for rootless init support."
     }
   ]
 }

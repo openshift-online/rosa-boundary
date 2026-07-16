@@ -250,6 +250,7 @@ rosa-boundary/
 │   ├── create-investigation/  # OIDC-authenticated investigation creation
 │   └── reap-tasks/            # Periodic task timeout enforcement
 ├── scripts/
+│   ├── codecov.sh             # Codecov upload for Prow CI jobs
 │   └── findings-to-sarif.py   # Converts adversary-findings.json → SARIF 2.1.0
 ├── tests/
 │   ├── shell/                 # bats-core tests for shell scripts and bashrc.d
@@ -448,6 +449,9 @@ make lint-shell
 # Run Go unit tests
 make test-cli
 
+# Run Go unit tests with coverage report
+make test-coverage
+
 # Format check (must produce no diff)
 make fmt
 
@@ -538,6 +542,7 @@ Before opening a PR, confirm:
 - [ ] `make test-shell` passes (if shell changes)
 - [ ] `make lint-shell` passes with zero warnings (if shell changes)
 - [ ] `make test-cli` passes (if Go changes)
+- [ ] `make test-coverage` passes (if Go changes)
 - [ ] `make fmt` produces no diff (if Go changes)
 - [ ] `make lint` passes (if Go changes)
 - [ ] `make test-lambda` passes (if Lambda changes)

@@ -13,7 +13,7 @@ CLI_VERSION ?= dev
 CLI_LDFLAGS := -ldflags "-X github.com/openshift/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
 
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
-        build-cli install-cli test-cli fmt lint \
+        build-cli install-cli test-cli test-coverage codecov fmt lint \
         validate-findings convert-sarif upload-sarif
 
 # Default target: build both architectures and create manifest
@@ -126,6 +126,15 @@ test-cli: ## Run Go unit tests for the CLI
 	@echo "Running CLI unit tests..."
 	go test ./...
 
+test-coverage: ## Run Go unit tests with coverage report
+	@echo "Running Go tests with coverage..."
+	go test -coverprofile=coverage.out -covermode=atomic ./...
+	@echo "Coverage report written to coverage.out"
+	@go tool cover -func=coverage.out | tail -1
+
+codecov: test-coverage ## Generate Go coverage and upload to Codecov
+	scripts/codecov.sh
+
 fmt: ## Format Go and shell code
 	@echo "Formatting Go code..."
 	gofmt -w .
@@ -184,9 +193,11 @@ help:
 	@echo "  make clean        - Remove all images and manifests"
 	@echo ""
 	@echo "Go CLI Targets:"
-	@echo "  make build-cli    - Build the rosa-boundary CLI binary (./bin/rosa-boundary)"
-	@echo "  make install-cli  - Install CLI to GOBIN (~/go/bin)"
-	@echo "  make test-cli     - Run CLI unit tests"
+	@echo "  make build-cli       - Build the rosa-boundary CLI binary (./bin/rosa-boundary)"
+	@echo "  make install-cli     - Install CLI to GOBIN (~/go/bin)"
+	@echo "  make test-cli        - Run CLI unit tests"
+	@echo "  make test-coverage   - Run Go tests with coverage report (coverage.out)"
+	@echo "  make codecov         - Generate coverage and upload to Codecov (CI only)"
 	@echo ""
 	@echo "LocalStack Testing Targets:"
 	@echo "  make localstack-up         - Start LocalStack Pro with all services"

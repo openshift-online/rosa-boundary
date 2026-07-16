@@ -9,9 +9,10 @@
 # ║    backplane-tools  → SRE CLI tools via backplane-tools install all        ║
 # ║    oc-versions      → OC 4.14-4.20 with checksum verification             ║
 # ║    claude-builder   → Claude Code from GitHub Releases + SHASUMS256.txt    ║
+# ║    tmux-builder     → tmux binary from CentOS Stream 9 (not in UBI9)      ║
 # ║    final            → production image (only this stage ships)             ║
 # ║                                                                            ║
-# ║  Stages 2-4 run in parallel — no interdependencies.                        ║
+# ║  Stages 2-5 run in parallel — no interdependencies.                        ║
 # ║  All GitHub API calls are authenticated via --mount=type=secret.           ║
 # ║  All externally downloaded binaries are checksum-verified.                  ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
@@ -111,7 +112,7 @@ FROM tools-base AS oc-versions
 
 # Download and verify each OC version
 # Architecture suffix: empty for x86_64, "-arm64" for aarch64
-RUN OC_SUFFIX=$(platform_convert "@@PLATFORM@@" --custom-arm64 "-arm64" --custom-amd64 "") \
+RUN if [ "$(uname -m)" = "aarch64" ]; then OC_SUFFIX="-arm64"; else OC_SUFFIX=""; fi \
     && for version in 4.14 4.15 4.16 4.17 4.18 4.19 4.20; do \
         echo "=== Downloading OC ${version} (suffix: ${OC_SUFFIX}) ===" \
         && TARBALL="openshift-client-linux${OC_SUFFIX}.tar.gz" \
@@ -123,6 +124,7 @@ RUN OC_SUFFIX=$(platform_convert "@@PLATFORM@@" --custom-arm64 "-arm64" --custom
         && curl --silent --location --fail \
             "${BASE_URL}/${TARBALL}" \
             --output "/tmp/${TARBALL}" \
+        && cd /tmp \
         && grep "${TARBALL}" "/tmp/sha256sum-${version}.txt" \
             | sha256sum --check --status \
         && tar --extract --gzip --file="/tmp/${TARBALL}" \
@@ -183,7 +185,19 @@ RUN TARBALL=$(cat /tmp/claude-dl/asset-name) \
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Stage 5: final
+# Stage 5: tmux-builder
+# tmux is in RHEL 9 BaseOS but not in the UBI9 repo subset. CentOS Stream 9
+# is the upstream for RHEL 9 and binary-compatible. Install the RPM there
+# and COPY the binary — all runtime deps (libevent, ncurses) are in UBI9.
+# ══════════════════════════════════════════════════════════════════════════════
+FROM quay.io/centos/centos:stream9 AS tmux-builder
+
+RUN dnf install --assumeyes --nodocs tmux \
+    && dnf clean all
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Stage 6: final
 # Production image. Only this stage ships. Combines dnf packages with
 # artifacts COPY'd from all builder stages.
 # ══════════════════════════════════════════════════════════════════════════════
@@ -203,14 +217,12 @@ RUN dnf install --assumeyes --nodocs \
         bind-utils \
         git \
         gzip \
-        httpie \
         jq \
         openssl \
         python3 \
         python3-pip \
         sudo \
         tar \
-        tmux \
         unzip \
         util-linux \
         vim-enhanced \
@@ -238,11 +250,16 @@ COPY --from=oc-versions /opt/openshift /opt/openshift
 # AI-assisted investigation tool. Binary only, no Node.js runtime needed.
 COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
 
+# ── tmux ────────────────────────────────────────────────────────────────────
+# tmux is not in UBI9 repos. Binary from CentOS Stream 9 (RHEL 9 upstream).
+# Runtime deps (libevent, ncurses-libs) are already in the UBI9 base image.
+COPY --from=tmux-builder /usr/bin/tmux /usr/bin/tmux
+
 # ── Alternatives Registration ───────────────────────────────────────────────
 # Register AWS CLI and OC versions with the alternatives system.
 # OC 4.20 gets priority 100 (default); others get their minor version number.
 # Claude Code gets a symlink from /usr/local/bin/claude.
-RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/bin/aws 20 \
+RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/aws 20 \
     && alternatives --install /usr/local/bin/oc oc /usr/local/bin/oc-backplane 10 \
     && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.14/oc 14 \
     && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.15/oc 15 \

@@ -6,6 +6,8 @@ import pytest
 import json
 from datetime import datetime
 
+from .test_helpers import create_investigation_resources
+
 
 @pytest.mark.integration
 @pytest.mark.e2e
@@ -18,15 +20,12 @@ def test_complete_investigation_creation(
     Uses the shared ABAC role pattern: a single role with ${aws:PrincipalTag/username}
     in the condition serves all SREs, with per-user isolation enforced via session tags.
     """
-    cluster_id = 'rosa-dev'
-    investigation_id = f'inv-e2e-{int(datetime.now().timestamp())}'
-    oidc_sub = 'test-user-e2e-123'
-    username = 'sre-e2e-user'
     oidc_provider_arn = 'arn:aws:iam::123456789012:oidc-provider/keycloak.example.com/realms/sre-ops'
     oidc_domain = 'keycloak.example.com/realms/sre-ops'
     oidc_client_id = 'aws-sre-access'
 
     # Step 1: Create shared SRE role (single role for all SREs, ABAC-scoped via session tags)
+    # This role is unique to the investigation creation test — the reaper test doesn't need it.
     role_name = f'rosa-boundary-sre-shared-{int(datetime.now().timestamp())}'
     trust_policy = {
         'Version': '2012-10-17',
@@ -82,126 +81,13 @@ def test_complete_investigation_creation(
         PolicyDocument=json.dumps(abac_policy)
     )
 
-    # Create a separate ECS task/execution role trusted by ecs-tasks.amazonaws.com.
-    # The SRE role above is for human callers (AssumeRoleWithWebIdentity); ECS tasks
-    # need a distinct role with the ECS service principal in the trust policy.
-    ecs_role_name = f'rosa-boundary-ecs-task-{int(datetime.now().timestamp())}'
-    ecs_trust_policy = {
-        'Version': '2012-10-17',
-        'Statement': [{
-            'Effect': 'Allow',
-            'Principal': {'Service': 'ecs-tasks.amazonaws.com'},
-            'Action': 'sts:AssumeRole'
-        }]
-    }
-    ecs_role_response = iam_client.create_role(
-        RoleName=ecs_role_name,
-        AssumeRolePolicyDocument=json.dumps(ecs_trust_policy),
-        Description='ECS task/execution role for rosa-boundary container'
+    # Steps 2-5: Create investigation infrastructure (ECS role, EFS AP, cluster, task def, task)
+    resources = create_investigation_resources(
+        ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup,
+        oidc_sub='test-user-e2e-123',
+        username='sre-e2e-user',
+        extra_env_vars=[{'name': 'OC_VERSION', 'value': '4.20'}],
     )
-    ecs_role_arn = ecs_role_response['Role']['Arn']
-    ecs_cleanup.register_role(ecs_role_name, [])
-
-    # Step 2: Create EFS access point
-    access_point_response = efs_client.create_access_point(
-        FileSystemId=test_efs,
-        PosixUser={'Uid': 1000, 'Gid': 1000},
-        RootDirectory={
-            'Path': f'/{cluster_id}/{investigation_id}',
-            'CreationInfo': {
-                'OwnerUid': 1000,
-                'OwnerGid': 1000,
-                'Permissions': '0755'
-            }
-        },
-        Tags=[
-            {'Key': 'Name', 'Value': f'{cluster_id}-{investigation_id}'},
-            {'Key': 'ClusterID', 'Value': cluster_id},
-            {'Key': 'InvestigationID', 'Value': investigation_id},
-            {'Key': 'oidc_sub', 'Value': oidc_sub},
-            {'Key': 'username', 'Value': username}
-        ]
-    )
-
-    access_point_id = access_point_response['AccessPointId']
-    ecs_cleanup.register_access_point(access_point_id)
-
-    # Step 3: Create ECS cluster
-    cluster_name = f'test-cluster-{int(datetime.now().timestamp())}'
-    ecs_client.create_cluster(clusterName=cluster_name)
-    ecs_cleanup.register_cluster(cluster_name)
-
-    # Step 4: Register task definition
-    task_family = f'{cluster_id}-{investigation_id}-{int(datetime.now().timestamp())}'
-
-    task_def_response = ecs_client.register_task_definition(
-        family=task_family,
-        networkMode='awsvpc',
-        requiresCompatibilities=['FARGATE'],
-        cpu='256',
-        memory='512',
-        executionRoleArn=ecs_role_arn,
-        taskRoleArn=ecs_role_arn,
-        containerDefinitions=[
-            {
-                'name': 'rosa-boundary',
-                'image': 'public.ecr.aws/amazonlinux/amazonlinux:2023',
-                'essential': True,
-                'mountPoints': [
-                    {
-                        'sourceVolume': 'efs-home',
-                        'containerPath': '/home/sre',
-                        'readOnly': False
-                    }
-                ],
-                'environment': [
-                    {'name': 'CLUSTER_ID', 'value': cluster_id},
-                    {'name': 'INVESTIGATION_ID', 'value': investigation_id},
-                    {'name': 'OC_VERSION', 'value': '4.20'}
-                ]
-            }
-        ],
-        volumes=[
-            {
-                'name': 'efs-home',
-                'efsVolumeConfiguration': {
-                    'fileSystemId': test_efs,
-                    'transitEncryption': 'ENABLED',
-                    'authorizationConfig': {
-                        'accessPointId': access_point_id
-                    }
-                }
-            }
-        ]
-    )
-
-    task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']
-    ecs_cleanup.register_task_definition(task_def_arn)
-
-    # Step 5: Launch ECS task
-    run_response = ecs_client.run_task(
-        cluster=cluster_name,
-        taskDefinition=task_def_arn,
-        launchType='FARGATE',
-        networkConfiguration={
-            'awsvpcConfiguration': {
-                'subnets': test_vpc['subnet_ids'],
-                'securityGroups': [test_vpc['security_group_id']],
-                'assignPublicIp': 'ENABLED'
-            }
-        },
-        tags=[
-            {'key': 'oidc_sub', 'value': oidc_sub},
-            {'key': 'username', 'value': username},
-            {'key': 'investigation_id', 'value': investigation_id},
-            {'key': 'cluster_id', 'value': cluster_id}
-        ],
-        enableExecuteCommand=True
-    )
-
-    assert len(run_response['tasks']) == 1
-    task_arn = run_response['tasks'][0]['taskArn']
-    ecs_cleanup.register_task(cluster_name, task_arn)
 
     # Step 6: Verify complete workflow
     # Verify shared SRE role exists with correct ABAC policy (dynamic PrincipalTag, not hardcoded username)
@@ -218,22 +104,30 @@ def test_complete_investigation_creation(
     )
 
     # Verify access point exists
-    access_points = efs_client.describe_access_points(AccessPointId=access_point_id)
+    access_points = efs_client.describe_access_points(
+        AccessPointId=resources['access_point_id']
+    )
     assert len(access_points['AccessPoints']) == 1
 
     # Verify task has correct tags (use describe_tasks, more reliable than list_tags_for_resource in LocalStack)
-    desc = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn], include=['TAGS'])
+    desc = ecs_client.describe_tasks(
+        cluster=resources['cluster_name'],
+        tasks=[resources['task_arn']],
+        include=['TAGS']
+    )
     tag_dict = {t['key']: t['value'] for t in desc['tasks'][0].get('tags', [])}
-    assert tag_dict['oidc_sub'] == oidc_sub
-    assert tag_dict['username'] == username
-    assert tag_dict['investigation_id'] == investigation_id
+    assert tag_dict['oidc_sub'] == resources['oidc_sub']
+    assert tag_dict['username'] == resources['username']
+    assert tag_dict['investigation_id'] == resources['investigation_id']
 
     # Verify task definition has EFS mount
-    task_def = ecs_client.describe_task_definition(taskDefinition=task_def_arn)
+    task_def = ecs_client.describe_task_definition(
+        taskDefinition=resources['task_def_arn']
+    )
     volumes = task_def['taskDefinition']['volumes']
     assert len(volumes) == 1
     assert volumes[0]['efsVolumeConfiguration']['fileSystemId'] == test_efs
-    assert volumes[0]['efsVolumeConfiguration']['authorizationConfig']['accessPointId'] == access_point_id
+    assert volumes[0]['efsVolumeConfiguration']['authorizationConfig']['accessPointId'] == resources['access_point_id']
 
 
 @pytest.mark.integration
@@ -324,122 +218,31 @@ def test_investigation_with_reaper_enforcement(
     deadline tag (set at creation) is in the past, given the full tag set from the
     investigation creation flow.
     """
-    import sys
-    import importlib
-    from datetime import timedelta
+    from datetime import timedelta, timezone
 
-    cluster_id = 'rosa-dev'
-    investigation_id = f'inv-reaper-e2e-{int(datetime.now().timestamp())}'
-    oidc_sub = 'test-user-reaper-e2e'
-    username = 'sre-reaper-e2e'
-    past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+    past_deadline = (
+        datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
+    ).isoformat()
 
-    # Step 1: Create ECS task execution role (trusted by ecs-tasks.amazonaws.com)
-    ecs_role_name = f'rosa-boundary-reaper-e2e-{int(datetime.now().timestamp())}'
-    ecs_trust_policy = {
-        'Version': '2012-10-17',
-        'Statement': [{
-            'Effect': 'Allow',
-            'Principal': {'Service': 'ecs-tasks.amazonaws.com'},
-            'Action': 'sts:AssumeRole'
-        }]
-    }
-    ecs_role_response = iam_client.create_role(
-        RoleName=ecs_role_name,
-        AssumeRolePolicyDocument=json.dumps(ecs_trust_policy)
+    # Steps 1-5: Create investigation infrastructure with a past deadline tag
+    resources = create_investigation_resources(
+        ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup,
+        oidc_sub='test-user-reaper-e2e',
+        username='sre-reaper-e2e',
+        cluster_name_prefix='test-reaper-e2e',
+        ecs_role_name_prefix='rosa-boundary-reaper-e2e',
+        container_command=['sleep', '60'],
+        extra_task_tags=[{'key': 'deadline', 'value': past_deadline}],
     )
-    ecs_role_arn = ecs_role_response['Role']['Arn']
-    ecs_cleanup.register_role(ecs_role_name, [])
-
-    # Step 2: Create EFS access point at investigation-scoped path
-    access_point_response = efs_client.create_access_point(
-        FileSystemId=test_efs,
-        PosixUser={'Uid': 1000, 'Gid': 1000},
-        RootDirectory={
-            'Path': f'/{cluster_id}/{investigation_id}',
-            'CreationInfo': {'OwnerUid': 1000, 'OwnerGid': 1000, 'Permissions': '0755'}
-        },
-        Tags=[
-            {'Key': 'ClusterID', 'Value': cluster_id},
-            {'Key': 'InvestigationID', 'Value': investigation_id},
-            {'Key': 'oidc_sub', 'Value': oidc_sub},
-            {'Key': 'username', 'Value': username}
-        ]
-    )
-    access_point_id = access_point_response['AccessPointId']
-    ecs_cleanup.register_access_point(access_point_id)
-
-    # Step 3: Create ECS cluster
-    cluster_name = f'test-reaper-e2e-{int(datetime.now().timestamp())}'
-    ecs_client.create_cluster(clusterName=cluster_name)
-    ecs_cleanup.register_cluster(cluster_name)
-
-    # Step 4: Register task definition with EFS mount
-    task_family = f'{cluster_id}-{investigation_id}-{int(datetime.now().timestamp())}'
-    task_def_response = ecs_client.register_task_definition(
-        family=task_family,
-        networkMode='awsvpc',
-        requiresCompatibilities=['FARGATE'],
-        cpu='256',
-        memory='512',
-        executionRoleArn=ecs_role_arn,
-        taskRoleArn=ecs_role_arn,
-        containerDefinitions=[{
-            'name': 'rosa-boundary',
-            'image': 'public.ecr.aws/amazonlinux/amazonlinux:2023',
-            'essential': True,
-            'command': ['sleep', '60'],
-            'mountPoints': [{
-                'sourceVolume': 'efs-home',
-                'containerPath': '/home/sre',
-                'readOnly': False
-            }],
-            'environment': [
-                {'name': 'CLUSTER_ID', 'value': cluster_id},
-                {'name': 'INVESTIGATION_ID', 'value': investigation_id}
-            ]
-        }],
-        volumes=[{
-            'name': 'efs-home',
-            'efsVolumeConfiguration': {
-                'fileSystemId': test_efs,
-                'transitEncryption': 'ENABLED',
-                'authorizationConfig': {'accessPointId': access_point_id}
-            }
-        }]
-    )
-    task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']
-    ecs_cleanup.register_task_definition(task_def_arn)
-
-    # Step 5: Launch task with full investigation tag set + past deadline
-    run_response = ecs_client.run_task(
-        cluster=cluster_name,
-        taskDefinition=task_def_arn,
-        launchType='FARGATE',
-        networkConfiguration={
-            'awsvpcConfiguration': {
-                'subnets': test_vpc['subnet_ids'],
-                'securityGroups': [test_vpc['security_group_id']],
-                'assignPublicIp': 'ENABLED'
-            }
-        },
-        tags=[
-            {'key': 'oidc_sub', 'value': oidc_sub},
-            {'key': 'username', 'value': username},
-            {'key': 'investigation_id', 'value': investigation_id},
-            {'key': 'cluster_id', 'value': cluster_id},
-            {'key': 'deadline', 'value': past_deadline}
-        ],
-        enableExecuteCommand=True
-    )
-    assert len(run_response['tasks']) == 1
-    task_arn = run_response['tasks'][0]['taskArn']
-    ecs_cleanup.register_task(cluster_name, task_arn)
+    cluster_name = resources['cluster_name']
+    task_arn = resources['task_arn']
 
     # Poll until task reaches RUNNING so the reaper's desiredStatus=RUNNING filter sees it
     deadline_tag_dict = {}
     for _ in range(24):  # up to 120s
-        desc = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arn], include=['TAGS'])
+        desc = ecs_client.describe_tasks(
+            cluster=cluster_name, tasks=[task_arn], include=['TAGS']
+        )
         task_state = desc['tasks'][0]
         deadline_tag_dict = {t['key']: t['value'] for t in task_state.get('tags', [])}
         if task_state.get('lastStatus') == 'RUNNING':

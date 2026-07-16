@@ -222,7 +222,7 @@ RUN dnf install --assumeyes --nodocs \
 # ── Backplane Tools (SRE CLI toolchain) ─────────────────────────────────────
 # Binaries from backplane-tools install all: ocm, ocm-backplane, oc, osdctl,
 # ocm-addons, yq. AWS CLI dist is a directory, not a single binary.
-COPY --from=backplane-tools /opt/aws_dist           /usr/local/aws-cli
+COPY --from=backplane-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
 COPY --from=backplane-tools /opt/ocm                /usr/local/bin/
 COPY --from=backplane-tools /opt/ocm-backplane      /usr/local/bin/
 COPY --from=backplane-tools /opt/oc                 /usr/local/bin/oc-backplane

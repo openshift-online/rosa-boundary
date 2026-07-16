@@ -42,13 +42,16 @@ UPLOAD_ARGS=(
     --file coverage.out
     --git-service github
     --commit-sha "${GIT_COMMIT}"
-    --branch "${GIT_BRANCH}"
     --disable-search
 )
 
 if [ -n "${PULL_NUMBER:-}" ]; then
+    # PR upload: let Codecov infer the head branch from the PR number
     UPLOAD_ARGS+=(--pr "${PULL_NUMBER}")
     UPLOAD_ARGS+=(--parent-sha "${PULL_BASE_SHA}")
+else
+    # Postsubmit upload: explicitly set the branch
+    UPLOAD_ARGS+=(--branch "${GIT_BRANCH}")
 fi
 
 ./codecov "${UPLOAD_ARGS[@]}"

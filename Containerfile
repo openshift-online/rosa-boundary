@@ -190,6 +190,10 @@ RUN TARBALL=$(cat /tmp/claude-dl/asset-name) \
 # subscription). Build from source against UBI9's system libevent and ncurses.
 # The runtime shared libs (libevent, ncurses-libs) are already in the UBI9
 # base image used by the final stage.
+#
+# TODO: Figure out how to use RHEL 9 entitlements to install the tmux RPM
+# directly (dnf install tmux) instead of building from source. The RPM is in
+# RHEL 9 BaseOS and would work on entitled build hosts (Konflux, OpenShift CI).
 # ══════════════════════════════════════════════════════════════════════════════
 FROM ${BASE_IMAGE} AS tmux-builder
 

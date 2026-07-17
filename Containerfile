@@ -4,15 +4,16 @@
 # SREs connect via SSM/ECS Exec as the non-root 'sre' user.
 #
 # Stages:
-#   tools-base     — shared build environment (curl, python3, helpers)
-#   github-tools   — backplane-tools + Claude Code via github_dl (SHA256 verified)
-#   oc-versions    — OC 4.14-4.20 with checksum verification
-#   tmux-builder   — tmux built from source (not in UBI9 repos)
-#   final          — production image (only this stage ships)
+#   tools-base       — shared build environment (curl, python3, helpers)
+#   backplane-tools  — SRE CLI tools via github_dl (SHA256 verified)
+#   claude-builder   — Claude Code via github_dl (SHA256 verified)
+#   oc-versions      — OC 4.14-4.20 with checksum verification
+#   tmux-builder     — tmux built from source (not in UBI9 repos)
+#   final            — production image (only this stage ships)
 #
-# github-tools and oc-versions both depend on tools-base.
+# backplane-tools, claude-builder, and oc-versions depend on tools-base.
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
-# stages 2-4 run in parallel once their dependencies complete.
+# stages 2-5 run in parallel once their dependencies complete.
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:bcfca170da4fe08c0b70aa76ca4ee63f0e724db1574712cbc6c6a77fea6b21dc
@@ -39,10 +40,9 @@ COPY build/github_dl.py /usr/local/bin/github_dl
 RUN chmod +x /usr/local/bin/platform_convert /usr/local/bin/github_dl
 
 
-# Stage 2: github-tools
-# All GitHub-hosted tools downloaded via github_dl with SHA256 verification.
-# backplane-tools provides the SRE CLI toolchain; Claude Code is the AI assistant.
-FROM tools-base AS github-tools
+# Stage 2: backplane-tools
+# SRE CLI toolchain: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
+FROM tools-base AS backplane-tools
 
 ARG BACKPLANE_TOOLS_VERSION="tags/v1.4.0"
 ENV BACKPLANE_TOOLS_URL_SLUG="openshift/backplane-tools"
@@ -51,19 +51,11 @@ ENV BACKPLANE_TOOLS_CHECKSUM_FILE="checksums.txt"
 ENV BACKPLANE_TOOLS_CHECKSUM_ALGORITHM="sha256"
 ENV BACKPLANE_TOOLS_PLATFORM_PREFIX="linux_"
 ENV BACKPLANE_BIN_DIR="/root/.local/bin/backplane"
-
-ENV CLAUDE_CODE_VERSION="2.1.199"
-ENV CLAUDE_CODE_URL_SLUG="anthropics/claude-code"
-ENV CLAUDE_CODE_URL="https://api.github.com/repos/${CLAUDE_CODE_URL_SLUG}/releases/tags/v${CLAUDE_CODE_VERSION}"
-ENV CLAUDE_CODE_CHECKSUM_FILE="SHASUMS256.txt"
-ENV CLAUDE_CODE_CHECKSUM_ALGORITHM="sha256"
-
 ARG OUTPUT_DIR="/opt"
 
-RUN mkdir --parents /github-tools
-WORKDIR /github-tools
+RUN mkdir --parents /backplane-tools
+WORKDIR /backplane-tools
 
-# Download and verify backplane-tools
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
     github_dl download \
@@ -91,7 +83,20 @@ RUN cp -Hv "${BACKPLANE_BIN_DIR}/latest/"* "${OUTPUT_DIR}/"
 # AWS CLI dist is a directory, not a single binary
 RUN cp --recursive "${BACKPLANE_BIN_DIR}"/aws/*/aws-cli/dist "${OUTPUT_DIR}/aws_dist"
 
-# Download and verify Claude Code
+
+# Stage 3: claude-builder
+# Claude Code downloaded via github_dl with SHASUMS256.txt verification.
+FROM tools-base AS claude-builder
+
+ENV CLAUDE_CODE_VERSION="2.1.199"
+ENV CLAUDE_CODE_URL_SLUG="anthropics/claude-code"
+ENV CLAUDE_CODE_URL="https://api.github.com/repos/${CLAUDE_CODE_URL_SLUG}/releases/tags/v${CLAUDE_CODE_VERSION}"
+ENV CLAUDE_CODE_CHECKSUM_FILE="SHASUMS256.txt"
+ENV CLAUDE_CODE_CHECKSUM_ALGORITHM="sha256"
+
+RUN mkdir --parents /claude-dl
+WORKDIR /claude-dl
+
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
     github_dl download \
@@ -100,12 +105,12 @@ RUN --mount=type=secret,id=GITHUB_TOKEN \
         --checksum_algorithm "${CLAUDE_CODE_CHECKSUM_ALGORITHM}" \
         --platform "claude-linux-$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64")"
 
-RUN mkdir --parents "${OUTPUT_DIR}/claude" \
-    && tar --extract --gzip --file ./claude-linux-*.tar.gz --directory="${OUTPUT_DIR}/claude" \
-    && chmod +x "${OUTPUT_DIR}/claude/claude"
+RUN mkdir --parents /opt/claude \
+    && tar --extract --gzip --file ./claude-linux-*.tar.gz --directory=/opt/claude \
+    && chmod +x /opt/claude/claude
 
 
-# Stage 3: oc-versions
+# Stage 4: oc-versions
 # OC 4.14-4.20 with SHA256 checksum verification from mirror.openshift.com.
 # Registered as alternatives in the final stage for runtime version switching.
 FROM tools-base AS oc-versions
@@ -133,7 +138,7 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then OC_SUFFIX="-arm64"; else OC_SUFFIX=""
     done
 
 
-# Stage 4: tmux-builder
+# Stage 5: tmux-builder
 # tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
 # subscription). Build from source against UBI9's libevent and ncurses.
 # Runtime shared libs are already in the UBI9 base image.
@@ -173,7 +178,7 @@ RUN curl --silent --location --fail \
     && strip --strip-all /build/out/usr/bin/tmux
 
 
-# Stage 5: final
+# Stage 6: final
 # Production image. Only this stage ships.
 FROM ${BASE_IMAGE} AS final
 
@@ -203,19 +208,19 @@ RUN dnf install --assumeyes --nodocs \
     && rm --recursive --force /var/cache/yum
 
 # Backplane tools: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
-COPY --from=github-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
-COPY --from=github-tools /opt/ocm                /usr/local/bin/
-COPY --from=github-tools /opt/ocm-backplane      /usr/local/bin/
-COPY --from=github-tools /opt/oc                 /usr/local/bin/oc-backplane
-COPY --from=github-tools /opt/osdctl             /usr/local/bin/
-COPY --from=github-tools /opt/ocm-addons         /usr/local/bin/
-COPY --from=github-tools /opt/yq                 /usr/local/bin/
+COPY --from=backplane-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
+COPY --from=backplane-tools /opt/ocm                /usr/local/bin/
+COPY --from=backplane-tools /opt/ocm-backplane      /usr/local/bin/
+COPY --from=backplane-tools /opt/oc                 /usr/local/bin/oc-backplane
+COPY --from=backplane-tools /opt/osdctl             /usr/local/bin/
+COPY --from=backplane-tools /opt/ocm-addons         /usr/local/bin/
+COPY --from=backplane-tools /opt/yq                 /usr/local/bin/
 
 # OC versions for runtime switching via alternatives + OC_VERSION env var
 COPY --from=oc-versions /opt/openshift /opt/openshift
 
 # Claude Code binary
-COPY --from=github-tools /opt/claude /usr/local/lib/claude-code
+COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
 
 # tmux built from source (not in UBI9 repos)
 COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux

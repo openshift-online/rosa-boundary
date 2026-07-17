@@ -12,11 +12,13 @@ export LOCALSTACK_ENDPOINT=http://localhost:4566
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+[[ -n "${LOCALSTACK_AUTH_TOKEN:-}" ]] || { echo "ERROR: LOCALSTACK_AUTH_TOKEN is not set"; exit 1; }
+
 podman run -d \
   --name localstack \
   --user root \
   -p 4566:4566 \
-  -e LOCALSTACK_AUTH_TOKEN="${LOCALSTACK_AUTH_TOKEN}" \
+  -e LOCALSTACK_AUTH_TOKEN \
   -e SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm \
   -e LAMBDA_EXECUTOR=local \
   -e ECS_EXECUTOR=local \
@@ -24,12 +26,12 @@ podman run -d \
   -e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
   -e PERSISTENCE=0 \
   -e LOCALSTACK_LOG_DIR=/tmp/localstack-logs \
-  -v "${SCRIPT_DIR}/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z" \
+  -v "${SCRIPT_DIR}/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro,z" \
   localstack/localstack-pro:latest
 
 echo "Waiting for LocalStack ECS service (timeout: 180s)..."
 TIMEOUT=180; elapsed=0
-until curl -sf http://localhost:4566/_localstack/health 2>/dev/null | \
+until curl -sf --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null | \
     python3 -c "import sys,json; h=json.load(sys.stdin); exit(0 if h['services'].get('ecs') in ('available','running') else 1)" 2>/dev/null; do
   [ $elapsed -ge $TIMEOUT ] && { echo "ERROR: LocalStack did not become ready"; exit 1; }
   printf "  waiting... (%ds)\n" "$elapsed"

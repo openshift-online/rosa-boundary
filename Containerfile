@@ -3,12 +3,16 @@
 # Ephemeral SRE investigation container for AWS ECS Fargate.
 # SREs connect via SSM/ECS Exec as the non-root 'sre' user.
 #
-# Stages (2-4 run in parallel):
+# Stages:
 #   tools-base     — shared build environment (curl, python3, helpers)
 #   github-tools   — backplane-tools + Claude Code via github_dl (SHA256 verified)
 #   oc-versions    — OC 4.14-4.20 with checksum verification
 #   tmux-builder   — tmux built from source (not in UBI9 repos)
 #   final          — production image (only this stage ships)
+#
+# github-tools and oc-versions both depend on tools-base.
+# tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
+# stages 2-4 run in parallel once their dependencies complete.
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:bcfca170da4fe08c0b70aa76ca4ee63f0e724db1574712cbc6c6a77fea6b21dc

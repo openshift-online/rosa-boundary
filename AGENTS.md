@@ -359,7 +359,7 @@ See `tests/localstack/README.md` for full documentation including troubleshootin
 **Jobs** (defined in `openshift/release` at `ci-operator/jobs/openshift-online/rosa-boundary/`):
 1. **pull-ci-openshift-online-rosa-boundary-main-localstack-integration-tests** — presubmit; integration tests
 
-**Architecture**: Single `localstack-test-runner` container (UBI Python + `localstack[runtime]`). LocalStack starts in host mode (`localstack start --host`), no Docker socket required. Runs `tests/localstack/init-aws.sh` then `pytest integration/ -m "not slow"`.
+**Architecture**: CI entrypoint is `tests/localstack/ci-run.sh`. It starts LocalStack Pro in a podman container, mounts `init-aws.sh` as an init hook (auto-runs on ready), waits for the ECS service, then runs `pytest integration/ -v --tb=short` against the full suite.
 
 **Lambda tests**: Auto-skipped under `LAMBDA_EXECUTOR=local`; covered by moto unit tests (`make test-lambda-create-investigation`).
 

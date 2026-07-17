@@ -261,9 +261,9 @@ Prow presubmit job runs in `openshift/release` at
 
 **Triggers:** PRs touching `lambda/`, `deploy/regional/`, or `tests/localstack/`.
 
-**Architecture:** Single `localstack-test-runner` container (UBI Python + `localstack[runtime]`).
-LocalStack starts in host mode (`localstack start --host`, no Docker socket), then
-`init-aws.sh` and `pytest integration/ -m "not slow"` run in the same container.
+**Architecture:** CI entrypoint is `ci-run.sh`. It starts LocalStack Pro in a podman container,
+mounts `init-aws.sh` as an init hook (auto-runs on ready), waits for the ECS service,
+then runs `pytest integration/ -v --tb=short` against the full suite.
 
 **`test_lambda_handler.py` skip:** Auto-skipped under `LAMBDA_EXECUTOR=local`. Lambda logic is covered by moto unit tests (`make test-lambda-create-investigation`).
 
@@ -280,7 +280,7 @@ To add the secret:
 ```bash
 cd tests/localstack
 LOCALSTACK_AUTH_TOKEN=<your-token> podman-compose -f compose.ci.yml up -d
-LAMBDA_EXECUTOR=local pytest integration/ -v -m "not slow"
+LAMBDA_EXECUTOR=local pytest integration/ -v
 podman-compose -f compose.ci.yml down -v
 ```
 

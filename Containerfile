@@ -186,101 +186,41 @@ RUN TARBALL=$(cat /tmp/claude-dl/asset-name) \
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Stage 5: tmux-builder
-# tmux is not in UBI9 repos. Build a fully static binary from source using
-# musl libc so there are zero runtime shared library dependencies.
-# Based on github.com/clcollins/tmux-static-builder.
+# tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
+# subscription). Build from source against UBI9's system libevent and ncurses.
+# The runtime shared libs (libevent, ncurses-libs) are already in the UBI9
+# base image used by the final stage.
 # ══════════════════════════════════════════════════════════════════════════════
 FROM ${BASE_IMAGE} AS tmux-builder
 
-ARG MUSL_VERSION="1.2.5"
-ARG LIBEVENT_VERSION="2.1.12"
-ARG NCURSES_VERSION="6.5"
 ARG TMUX_VERSION="3.5a"
+ARG TMUX_SHA256="16216bd0877170dfcc64157085ba9013610b12b082548c7c9542cc0103198951"
 
 RUN dnf install --assumeyes --nodocs \
         autoconf \
         automake \
         gcc \
-        gzip \
+        libevent-devel \
         make \
-        tar \
-        xz \
+        ncurses-devel \
     && dnf clean all \
     && rm --recursive --force /var/cache/yum
 
 WORKDIR /build
-ENV PREFIX="/build/out"
 
-# Build musl libc (provides musl-gcc for static compilation)
-RUN curl --silent --location --fail \
-        "https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz" \
-        --output musl.tar.gz \
-    && tar --extract --gzip --file musl.tar.gz \
-    && cd "musl-${MUSL_VERSION}" \
-    && CFLAGS="-Os -ffunction-sections -fdata-sections" \
-       LDFLAGS="-Wl,--gc-sections -flto" \
-       ./configure --prefix="${PREFIX}" --disable-shared \
-    && make -j "$(nproc)" \
-    && make install \
-    && make clean
-
-# Build static libevent
-RUN curl --silent --location --fail \
-        "https://github.com/libevent/libevent/releases/download/release-${LIBEVENT_VERSION}-stable/libevent-${LIBEVENT_VERSION}-stable.tar.gz" \
-        --output libevent.tar.gz \
-    && tar --extract --gzip --file libevent.tar.gz \
-    && cd "libevent-${LIBEVENT_VERSION}-stable" \
-    && CC="${PREFIX}/bin/musl-gcc -static" \
-       CFLAGS="-Os -ffunction-sections -fdata-sections -flto" \
-       LDFLAGS="-Wl,--gc-sections -flto" \
-       ./configure --prefix="${PREFIX}" --disable-shared --disable-openssl \
-    && make -j "$(nproc)" \
-    && make install \
-    && make clean
-
-# Build static ncurses
-RUN curl --silent --location --fail \
-        "https://ftp.gnu.org/pub/gnu/ncurses/ncurses-${NCURSES_VERSION}.tar.gz" \
-        --output ncurses.tar.gz \
-    && tar --extract --gzip --file ncurses.tar.gz \
-    && cd "ncurses-${NCURSES_VERSION}" \
-    && CC="${PREFIX}/bin/musl-gcc -static" \
-       CFLAGS="-Os -ffunction-sections -fdata-sections -flto" \
-       LDFLAGS="-Wl,--gc-sections -flto" \
-       ./configure --prefix="${PREFIX}" \
-           --with-default-terminfo-dir=/usr/share/terminfo \
-           --with-terminfo-dirs="/etc/terminfo:/lib/terminfo:/usr/share/terminfo" \
-           --enable-pc-files \
-           --with-pkg-config-libdir="${PREFIX}/lib/pkgconfig" \
-           --without-ada \
-           --without-debug \
-           --with-termlib \
-           --without-cxx \
-           --without-progs \
-           --without-manpages \
-           --disable-db-install \
-           --without-tests \
-    && make -j "$(nproc)" \
-    && make install \
-    && make clean
-
-# Build static tmux
 # Release tarballs ship pre-generated parser files (cmd-parse.c) so yacc/bison
 # is not actually invoked during make. Provide a dummy to satisfy configure.
 RUN curl --silent --location --fail \
         "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz" \
         --output tmux.tar.gz \
+    && echo "${TMUX_SHA256}  tmux.tar.gz" | sha256sum --check --status \
     && tar --extract --gzip --file tmux.tar.gz \
     && ln --symbolic /usr/bin/true /usr/local/bin/yacc \
     && cd "tmux-${TMUX_VERSION}" \
-    && CC="${PREFIX}/bin/musl-gcc -static" \
-       CFLAGS="-Os -ffunction-sections -fdata-sections -flto -I${PREFIX}/include/ncurses/" \
-       LDFLAGS="-Wl,--gc-sections -flto" \
-       PKG_CONFIG_PATH="${PREFIX}/lib/pkgconfig" \
-       ./configure --enable-static --prefix="${PREFIX}" \
+    && ./configure --prefix=/usr \
     && make -j "$(nproc)" \
-    && make install \
-    && strip --strip-all "${PREFIX}/bin/tmux"
+    && make install DESTDIR=/build/out \
+    && strip --strip-all /build/out/usr/bin/tmux
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -338,8 +278,9 @@ COPY --from=oc-versions /opt/openshift /opt/openshift
 COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
 
 # ── tmux ────────────────────────────────────────────────────────────────────
-# Statically linked — zero runtime deps. Built from source in a UBI9 stage.
-COPY --from=tmux-builder /build/out/bin/tmux /usr/bin/tmux
+# Built from source in a UBI9 stage. Runtime deps (libevent, ncurses-libs)
+# are already in the UBI9 base image.
+COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
 
 # ── Alternatives Registration ───────────────────────────────────────────────
 # Register AWS CLI and OC versions with the alternatives system.

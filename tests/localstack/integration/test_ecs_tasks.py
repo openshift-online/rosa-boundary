@@ -172,7 +172,10 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
         enableExecuteCommand=True
     )
 
-    assert len(run_response['tasks']) == 1
+    assert len(run_response['tasks']) == 1, (
+        f"Expected 1 task, got {len(run_response['tasks'])}. "
+        f"Failures: {run_response.get('failures', [])}"
+    )
     task_arn = run_response['tasks'][0]['taskArn']
     ecs_cleanup.register_task(cluster_name, task_arn)
 

@@ -218,11 +218,9 @@ def test_investigation_with_reaper_enforcement(
     deadline tag (set at creation) is in the past, given the full tag set from the
     investigation creation flow.
     """
-    from datetime import timedelta, timezone
+    from datetime import timedelta
 
-    past_deadline = (
-        datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)
-    ).isoformat()
+    past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
 
     # Steps 1-5: Create investigation infrastructure with a past deadline tag
     resources = create_investigation_resources(

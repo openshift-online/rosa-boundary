@@ -3,13 +3,12 @@
 # Ephemeral SRE investigation container for AWS ECS Fargate.
 # SREs connect via SSM/ECS Exec as the non-root 'sre' user.
 #
-# Stages (2-5 run in parallel):
-#   tools-base       — shared build environment (curl, python3, helpers)
-#   backplane-tools  — SRE CLI tools via backplane-tools install all
-#   oc-versions      — OC 4.14-4.20 with checksum verification
-#   claude-builder   — Claude Code from GitHub Releases + SHASUMS256.txt
-#   tmux-builder     — tmux built from source (not in UBI9 repos)
-#   final            — production image (only this stage ships)
+# Stages (2-4 run in parallel):
+#   tools-base     — shared build environment (curl, python3, helpers)
+#   github-tools   — backplane-tools + Claude Code via github_dl (SHA256 verified)
+#   oc-versions    — OC 4.14-4.20 with checksum verification
+#   tmux-builder   — tmux built from source (not in UBI9 repos)
+#   final          — production image (only this stage ships)
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:bcfca170da4fe08c0b70aa76ca4ee63f0e724db1574712cbc6c6a77fea6b21dc
@@ -36,9 +35,10 @@ COPY build/github_dl.py /usr/local/bin/github_dl
 RUN chmod +x /usr/local/bin/platform_convert /usr/local/bin/github_dl
 
 
-# Stage 2: backplane-tools
-# SRE CLI toolchain: oc, ocm, ocm-backplane, osdctl, ocm-addons, yq, AWS CLI v2
-FROM tools-base AS backplane-tools
+# Stage 2: github-tools
+# All GitHub-hosted tools downloaded via github_dl with SHA256 verification.
+# backplane-tools provides the SRE CLI toolchain; Claude Code is the AI assistant.
+FROM tools-base AS github-tools
 
 ARG BACKPLANE_TOOLS_VERSION="tags/v1.4.0"
 ENV BACKPLANE_TOOLS_URL_SLUG="openshift/backplane-tools"
@@ -47,11 +47,19 @@ ENV BACKPLANE_TOOLS_CHECKSUM_FILE="checksums.txt"
 ENV BACKPLANE_TOOLS_CHECKSUM_ALGORITHM="sha256"
 ENV BACKPLANE_TOOLS_PLATFORM_PREFIX="linux_"
 ENV BACKPLANE_BIN_DIR="/root/.local/bin/backplane"
+
+ENV CLAUDE_CODE_VERSION="2.1.199"
+ENV CLAUDE_CODE_URL_SLUG="anthropics/claude-code"
+ENV CLAUDE_CODE_URL="https://api.github.com/repos/${CLAUDE_CODE_URL_SLUG}/releases/tags/v${CLAUDE_CODE_VERSION}"
+ENV CLAUDE_CODE_CHECKSUM_FILE="SHASUMS256.txt"
+ENV CLAUDE_CODE_CHECKSUM_ALGORITHM="sha256"
+
 ARG OUTPUT_DIR="/opt"
 
-RUN mkdir --parents /backplane-tools
-WORKDIR /backplane-tools
+RUN mkdir --parents /github-tools
+WORKDIR /github-tools
 
+# Download and verify backplane-tools
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
     github_dl download \
@@ -62,6 +70,7 @@ RUN --mount=type=secret,id=GITHUB_TOKEN \
 
 RUN tar --extract --gunzip --no-same-owner --directory /usr/local/bin --file ./*.tar.gz
 
+# backplane-tools install all fetches the SRE toolchain (ocm, oc, osdctl, etc.)
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
     if [ -f /run/secrets/read-only-github-pat/token ]; then \
@@ -77,6 +86,19 @@ RUN cp -Hv "${BACKPLANE_BIN_DIR}/latest/"* "${OUTPUT_DIR}/"
 
 # AWS CLI dist is a directory, not a single binary
 RUN cp --recursive "${BACKPLANE_BIN_DIR}"/aws/*/aws-cli/dist "${OUTPUT_DIR}/aws_dist"
+
+# Download and verify Claude Code
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=read-only-github-pat/token \
+    github_dl download \
+        --url "${CLAUDE_CODE_URL}" \
+        --checksum_file "${CLAUDE_CODE_CHECKSUM_FILE}" \
+        --checksum_algorithm "${CLAUDE_CODE_CHECKSUM_ALGORITHM}" \
+        --platform "claude-linux-$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64")"
+
+RUN mkdir --parents "${OUTPUT_DIR}/claude" \
+    && tar --extract --gzip --file ./claude-linux-*.tar.gz --directory="${OUTPUT_DIR}/claude" \
+    && chmod +x "${OUTPUT_DIR}/claude/claude"
 
 
 # Stage 3: oc-versions
@@ -107,47 +129,7 @@ RUN if [ "$(uname -m)" = "aarch64" ]; then OC_SUFFIX="-arm64"; else OC_SUFFIX=""
     done
 
 
-# Stage 4: claude-builder
-# Claude Code from GitHub Releases with SHASUMS256.txt verification.
-FROM tools-base AS claude-builder
-
-ARG CLAUDE_CODE_VERSION="2.1.199"
-
-RUN mkdir --parents /opt/claude /tmp/claude-dl
-WORKDIR /tmp/claude-dl
-
-RUN CLAUDE_ARCH=$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64") \
-    && TARBALL="claude-linux-${CLAUDE_ARCH}.tar.gz" \
-    && echo "${TARBALL}" > /tmp/claude-dl/asset-name
-
-RUN --mount=type=secret,id=GITHUB_TOKEN \
-    --mount=type=secret,id=read-only-github-pat/token \
-    TARBALL=$(cat /tmp/claude-dl/asset-name) \
-    && TOKEN="" \
-    && if [ -f /run/secrets/read-only-github-pat/token ]; then \
-        TOKEN=$(cat /run/secrets/read-only-github-pat/token); \
-    elif [ -f /run/secrets/GITHUB_TOKEN ]; then \
-        TOKEN=$(cat /run/secrets/GITHUB_TOKEN); \
-    fi \
-    && AUTH_HEADER="" \
-    && if [ -n "${TOKEN}" ]; then AUTH_HEADER="Authorization: Bearer ${TOKEN}"; fi \
-    && curl --silent --location --fail \
-        ${AUTH_HEADER:+--header "${AUTH_HEADER}"} \
-        "https://github.com/anthropics/claude-code/releases/download/v${CLAUDE_CODE_VERSION}/${TARBALL}" \
-        --output "/tmp/claude-dl/${TARBALL}" \
-    && curl --silent --location --fail \
-        ${AUTH_HEADER:+--header "${AUTH_HEADER}"} \
-        "https://github.com/anthropics/claude-code/releases/download/v${CLAUDE_CODE_VERSION}/SHASUMS256.txt" \
-        --output /tmp/claude-dl/SHASUMS256.txt
-
-RUN TARBALL=$(cat /tmp/claude-dl/asset-name) \
-    && cd /tmp/claude-dl \
-    && grep "${TARBALL}" SHASUMS256.txt | sha256sum --check --status \
-    && tar --extract --gzip --file="${TARBALL}" --directory=/opt/claude \
-    && chmod +x /opt/claude/claude
-
-
-# Stage 5: tmux-builder
+# Stage 4: tmux-builder
 # tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
 # subscription). Build from source against UBI9's libevent and ncurses.
 # Runtime shared libs are already in the UBI9 base image.
@@ -187,7 +169,7 @@ RUN curl --silent --location --fail \
     && strip --strip-all /build/out/usr/bin/tmux
 
 
-# Stage 6: final
+# Stage 5: final
 # Production image. Only this stage ships.
 FROM ${BASE_IMAGE} AS final
 
@@ -217,19 +199,19 @@ RUN dnf install --assumeyes --nodocs \
     && rm --recursive --force /var/cache/yum
 
 # Backplane tools: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
-COPY --from=backplane-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
-COPY --from=backplane-tools /opt/ocm                /usr/local/bin/
-COPY --from=backplane-tools /opt/ocm-backplane      /usr/local/bin/
-COPY --from=backplane-tools /opt/oc                 /usr/local/bin/oc-backplane
-COPY --from=backplane-tools /opt/osdctl             /usr/local/bin/
-COPY --from=backplane-tools /opt/ocm-addons         /usr/local/bin/
-COPY --from=backplane-tools /opt/yq                 /usr/local/bin/
+COPY --from=github-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
+COPY --from=github-tools /opt/ocm                /usr/local/bin/
+COPY --from=github-tools /opt/ocm-backplane      /usr/local/bin/
+COPY --from=github-tools /opt/oc                 /usr/local/bin/oc-backplane
+COPY --from=github-tools /opt/osdctl             /usr/local/bin/
+COPY --from=github-tools /opt/ocm-addons         /usr/local/bin/
+COPY --from=github-tools /opt/yq                 /usr/local/bin/
 
 # OC versions for runtime switching via alternatives + OC_VERSION env var
 COPY --from=oc-versions /opt/openshift /opt/openshift
 
 # Claude Code binary
-COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
+COPY --from=github-tools /opt/claude /usr/local/lib/claude-code
 
 # tmux built from source (not in UBI9 repos)
 COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
@@ -267,7 +249,6 @@ COPY skel/sre/ /etc/skel-sre/
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV HOME=/home/sre
-ENV EDITOR=vim
 
 USER sre
 

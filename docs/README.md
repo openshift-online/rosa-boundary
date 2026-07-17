@@ -18,6 +18,10 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**Keycloak Realm Setup**](configuration/keycloak-realm-setup.md) - Configure Keycloak realm and OIDC client using KeycloakRealmImport CR
 - [**AWS IAM Policies**](configuration/aws-iam-policies.md) - IAM roles and policies for ECS Exec access
 
+## Testing
+
+- [**Testing**](testing.md) - Test suites, how to run them, and CI integration
+
 ## Runbooks
 
 - [**User Access Guide**](runbooks/user-access-guide.md) - Step-by-step guide for end users

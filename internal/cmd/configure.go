@@ -95,26 +95,11 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	return runConfigureInteractive(cmd)
 }
 
-// DeriveInvokerRoleARN constructs the invoker role ARN from naming convention.
-func DeriveInvokerRoleARN(accountID, project, stage string) string {
-	return fmt.Sprintf("arn:aws:iam::%s:role/%s-%s-lambda-invoker", accountID, project, stage)
-}
-
-// DeriveLambdaFunctionName constructs the Lambda function name from naming convention.
-func DeriveLambdaFunctionName(project, stage string) string {
-	return fmt.Sprintf("%s-%s-create-investigation", project, stage)
-}
-
-func runConfigureAuto(cmd *cobra.Command) error {
-	// Load existing config for defaults
-	cfg, _ := config.Get()
-	if cfg == nil {
-		cfg = &config.Config{}
-	}
-
-	scanner := bufio.NewScanner(os.Stdin)
-
-	prompt := func(label, current, def string) string {
+// newPrompt returns a prompt function that reads from the given scanner. It
+// displays the label with the current/default value, reads user input, trims
+// whitespace, and falls back to the displayed value when input is empty.
+func newPrompt(scanner *bufio.Scanner) func(label, current, def string) string {
+	return func(label, current, def string) string {
 		display := current
 		if display == "" {
 			display = def
@@ -133,6 +118,26 @@ func runConfigureAuto(cmd *cobra.Command) error {
 		}
 		return input
 	}
+}
+
+// DeriveInvokerRoleARN constructs the invoker role ARN from naming convention.
+func DeriveInvokerRoleARN(accountID, project, stage string) string {
+	return fmt.Sprintf("arn:aws:iam::%s:role/%s-%s-lambda-invoker", accountID, project, stage)
+}
+
+// DeriveLambdaFunctionName constructs the Lambda function name from naming convention.
+func DeriveLambdaFunctionName(project, stage string) string {
+	return fmt.Sprintf("%s-%s-create-investigation", project, stage)
+}
+
+func runConfigureAuto(cmd *cobra.Command) error {
+	// Load existing config for defaults
+	cfg, _ := config.Get()
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+
+	prompt := newPrompt(bufio.NewScanner(os.Stdin))
 
 	// 1. Collect seed values
 	accountID := configAccountID
@@ -332,27 +337,7 @@ func runConfigureInteractive(cmd *cobra.Command) error {
 		cfg = &config.Config{}
 	}
 
-	scanner := bufio.NewScanner(os.Stdin)
-
-	prompt := func(label, current, def string) string {
-		display := current
-		if display == "" {
-			display = def
-		}
-		if display != "" {
-			fmt.Fprintf(os.Stderr, "%s [%s]: ", label, display)
-		} else {
-			fmt.Fprintf(os.Stderr, "%s: ", label)
-		}
-		if !scanner.Scan() {
-			return display
-		}
-		input := strings.TrimSpace(scanner.Text())
-		if input == "" {
-			return display
-		}
-		return input
-	}
+	prompt := newPrompt(bufio.NewScanner(os.Stdin))
 
 	fmt.Fprintln(os.Stderr, "Run 'rosa-boundary configure --help' for details on each configuration field.")
 	fmt.Fprintln(os.Stderr)

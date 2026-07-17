@@ -3,14 +3,16 @@ package lambda
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	awslambda "github.com/aws/aws-sdk-go-v2/service/lambda"
 )
 
-// mockLambdaInvoker is a mock for the Lambda SDK client that implements the Invoke method.
+// mockLambdaInvoker is a mock for the Lambda SDK client that implements the
+// lambdaInvoker interface.
 type mockLambdaInvoker struct {
 	payload       []byte
 	functionError *string
@@ -27,11 +29,11 @@ func (m *mockLambdaInvoker) Invoke(ctx context.Context, input *awslambda.InvokeI
 	}, nil
 }
 
-// newTestClient returns a Client with a mock SDK invoker.
+// newTestClient returns a Client wired to the given mock SDK invoker.
 func newTestClient(mock *mockLambdaInvoker) *Client {
 	return &Client{
 		functionName: "test-function",
-		sdk:          nil, // not used directly; we override invoke behavior
+		sdk:          mock,
 	}
 }
 
@@ -62,54 +64,40 @@ func TestGetConfig_Success(t *testing.T) {
 		},
 	}
 
-	payload := buildLambdaResponse(http.StatusOK, configBody)
+	mock := &mockLambdaInvoker{payload: buildLambdaResponse(http.StatusOK, configBody)}
+	client := newTestClient(mock)
 
-	// We need to test GetConfig by calling the actual SDK path, so we'll
-	// construct the client with a real SDK and intercept. Since we can't
-	// easily mock the SDK client in the aws-sdk-go-v2, we'll test the
-	// JSON parsing logic directly.
-
-	// Test the response parsing logic
-	var apiResp lambdaAPIResponse
-	if err := json.Unmarshal(payload, &apiResp); err != nil {
-		t.Fatalf("failed to unmarshal payload: %v", err)
+	cfg, err := client.GetConfig(context.Background())
+	if err != nil {
+		t.Fatalf("GetConfig returned unexpected error: %v", err)
 	}
 
-	if apiResp.StatusCode != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", apiResp.StatusCode)
+	if cfg.LambdaFunctionName != "rosa-boundary-dev-create-investigation" {
+		t.Errorf("expected lambda_function_name 'rosa-boundary-dev-create-investigation', got %q", cfg.LambdaFunctionName)
 	}
-
-	var body getConfigBody
-	if err := json.Unmarshal([]byte(apiResp.Body), &body); err != nil {
-		t.Fatalf("failed to unmarshal body: %v", err)
+	if cfg.InvokerRoleARN != "arn:aws:iam::123:role/invoker" {
+		t.Errorf("expected invoker_role_arn, got %q", cfg.InvokerRoleARN)
 	}
-
-	if body.Config.LambdaFunctionName != "rosa-boundary-dev-create-investigation" {
-		t.Errorf("expected lambda_function_name 'rosa-boundary-dev-create-investigation', got %q", body.Config.LambdaFunctionName)
+	if cfg.SRERoleARN != "arn:aws:iam::123:role/sre-shared" {
+		t.Errorf("expected sre_role_arn, got %q", cfg.SRERoleARN)
 	}
-	if body.Config.InvokerRoleARN != "arn:aws:iam::123:role/invoker" {
-		t.Errorf("expected invoker_role_arn, got %q", body.Config.InvokerRoleARN)
+	if cfg.EFSFilesystemID != "fs-abc123" {
+		t.Errorf("expected efs_filesystem_id 'fs-abc123', got %q", cfg.EFSFilesystemID)
 	}
-	if body.Config.SRERoleARN != "arn:aws:iam::123:role/sre-shared" {
-		t.Errorf("expected sre_role_arn, got %q", body.Config.SRERoleARN)
+	if cfg.ECSClusterName != "rosa-boundary-dev" {
+		t.Errorf("expected ecs_cluster_name 'rosa-boundary-dev', got %q", cfg.ECSClusterName)
 	}
-	if body.Config.EFSFilesystemID != "fs-abc123" {
-		t.Errorf("expected efs_filesystem_id 'fs-abc123', got %q", body.Config.EFSFilesystemID)
+	if cfg.AWSRegion != "us-east-2" {
+		t.Errorf("expected aws_region 'us-east-2', got %q", cfg.AWSRegion)
 	}
-	if body.Config.ECSClusterName != "rosa-boundary-dev" {
-		t.Errorf("expected ecs_cluster_name 'rosa-boundary-dev', got %q", body.Config.ECSClusterName)
+	if cfg.KeycloakURL != "https://auth.redhat.com/auth" {
+		t.Errorf("expected keycloak_url, got %q", cfg.KeycloakURL)
 	}
-	if body.Config.AWSRegion != "us-east-2" {
-		t.Errorf("expected aws_region 'us-east-2', got %q", body.Config.AWSRegion)
+	if cfg.KeycloakRealm != "EmployeeIDP" {
+		t.Errorf("expected keycloak_realm 'EmployeeIDP', got %q", cfg.KeycloakRealm)
 	}
-	if body.Config.KeycloakURL != "https://auth.redhat.com/auth" {
-		t.Errorf("expected keycloak_url, got %q", body.Config.KeycloakURL)
-	}
-	if body.Config.KeycloakRealm != "EmployeeIDP" {
-		t.Errorf("expected keycloak_realm 'EmployeeIDP', got %q", body.Config.KeycloakRealm)
-	}
-	if body.Config.OIDCClientID != "rosa-boundary-sre" {
-		t.Errorf("expected oidc_client_id 'rosa-boundary-sre', got %q", body.Config.OIDCClientID)
+	if cfg.OIDCClientID != "rosa-boundary-sre" {
+		t.Errorf("expected oidc_client_id 'rosa-boundary-sre', got %q", cfg.OIDCClientID)
 	}
 }
 
@@ -117,40 +105,75 @@ func TestGetConfig_ErrorResponse(t *testing.T) {
 	errBody := map[string]interface{}{
 		"error": "Internal server error",
 	}
-	payload := buildLambdaResponse(http.StatusInternalServerError, errBody)
 
-	var apiResp lambdaAPIResponse
-	if err := json.Unmarshal(payload, &apiResp); err != nil {
-		t.Fatalf("failed to unmarshal payload: %v", err)
+	mock := &mockLambdaInvoker{payload: buildLambdaResponse(http.StatusInternalServerError, errBody)}
+	client := newTestClient(mock)
+
+	cfg, err := client.GetConfig(context.Background())
+	if err == nil {
+		t.Fatal("expected error from GetConfig, got nil")
 	}
-
-	if apiResp.StatusCode == http.StatusOK {
-		t.Error("expected non-200 status code")
+	if cfg != nil {
+		t.Errorf("expected nil config on error, got %+v", cfg)
 	}
-
-	var errResp errorResponse
-	if err := json.Unmarshal([]byte(apiResp.Body), &errResp); err != nil {
-		t.Fatalf("failed to unmarshal error body: %v", err)
+	if !strings.Contains(err.Error(), "Internal server error") {
+		t.Errorf("expected error to contain 'Internal server error', got %q", err.Error())
 	}
-
-	if errResp.Error != "Internal server error" {
-		t.Errorf("expected error 'Internal server error', got %q", errResp.Error)
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("expected error to contain status code '500', got %q", err.Error())
 	}
 }
 
 func TestGetConfig_MalformedResponse(t *testing.T) {
-	// Test with malformed body that can't be parsed as getConfigBody
-	malformedPayload := buildLambdaResponse(http.StatusOK, "not a valid json object")
+	// Malformed body that can't be parsed as getConfigBody
+	mock := &mockLambdaInvoker{payload: buildLambdaResponse(http.StatusOK, "not a valid json object")}
+	client := newTestClient(mock)
 
-	var apiResp lambdaAPIResponse
-	if err := json.Unmarshal(malformedPayload, &apiResp); err != nil {
-		t.Fatalf("failed to unmarshal payload: %v", err)
-	}
-
-	var body getConfigBody
-	err := json.Unmarshal([]byte(apiResp.Body), &body)
+	cfg, err := client.GetConfig(context.Background())
 	if err == nil {
-		t.Error("expected error unmarshaling malformed response, got nil")
+		t.Fatal("expected error from GetConfig with malformed response, got nil")
+	}
+	if cfg != nil {
+		t.Errorf("expected nil config on malformed response, got %+v", cfg)
+	}
+	if !strings.Contains(err.Error(), "cannot decode get_config response body") {
+		t.Errorf("expected decode error message, got %q", err.Error())
+	}
+}
+
+func TestGetConfig_InvocationError(t *testing.T) {
+	mock := &mockLambdaInvoker{err: fmt.Errorf("connection refused")}
+	client := newTestClient(mock)
+
+	cfg, err := client.GetConfig(context.Background())
+	if err == nil {
+		t.Fatal("expected error from GetConfig when invocation fails, got nil")
+	}
+	if cfg != nil {
+		t.Errorf("expected nil config on invocation error, got %+v", cfg)
+	}
+	if !strings.Contains(err.Error(), "lambda invocation failed") {
+		t.Errorf("expected 'lambda invocation failed' error, got %q", err.Error())
+	}
+}
+
+func TestGetConfig_FunctionError(t *testing.T) {
+	funcErr := "Unhandled"
+	mock := &mockLambdaInvoker{
+		payload:       []byte(`{"errorMessage":"runtime error"}`),
+		functionError: &funcErr,
+	}
+	client := newTestClient(mock)
+
+	cfg, err := client.GetConfig(context.Background())
+	if err == nil {
+		t.Fatal("expected error from GetConfig on function error, got nil")
+	}
+	if cfg != nil {
+		t.Errorf("expected nil config on function error, got %+v", cfg)
+	}
+	if !strings.Contains(err.Error(), "lambda function error") {
+		t.Errorf("expected 'lambda function error' message, got %q", err.Error())
 	}
 }
 
@@ -209,6 +232,3 @@ func TestGetConfigEventPayload(t *testing.T) {
 		t.Errorf("expected action 'get_config', got %v", parsedBody["action"])
 	}
 }
-
-// Ensure unused import doesn't cause issues
-var _ = aws.String

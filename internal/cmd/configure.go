@@ -266,7 +266,22 @@ func runConfigureAuto(cmd *cobra.Command) error {
 		finalOIDCClientID = oidcClientID
 	}
 
-	// 8. Display discovered values
+	// 8. Validate that Lambda returned all required infrastructure values.
+	var missing []string
+	if finalSRERoleARN == "" {
+		missing = append(missing, "sre_role_arn")
+	}
+	if finalECSClusterName == "" {
+		missing = append(missing, "ecs_cluster_name")
+	}
+	if finalEFSFilesystemID == "" {
+		missing = append(missing, "efs_filesystem_id")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("lambda response missing required values: %s; verify that the Lambda environment variables are correctly configured in Terraform", strings.Join(missing, ", "))
+	}
+
+	// Display discovered values
 	output.Status("  %-25s %s", "lambda_function_name :", finalLambdaFunctionName)
 	output.Status("  %-25s %s", "invoker_role_arn :", finalInvokerRoleARN)
 	output.Status("  %-25s %s", "sre_role_arn :", finalSRERoleARN)
@@ -278,7 +293,7 @@ func runConfigureAuto(cmd *cobra.Command) error {
 	output.Status("  %-25s %s", "oidc_client_id :", finalOIDCClientID)
 	fmt.Fprintln(os.Stderr)
 
-	// 9. Build config entries and write config.yaml
+	// Build config entries and write config.yaml
 	configDir, err := config.ConfigDir()
 	if err != nil {
 		return err

@@ -19,6 +19,7 @@ import (
 var (
 	configAutoDiscover bool
 	configAccountID    string
+	configRegion       string
 	configProject      string
 	configStage        string
 )
@@ -37,6 +38,7 @@ Use --auto-discover=false for interactive prompting.
 Auto-discovery flags:
 
   --account-id    AWS account ID (prompted if not provided)
+  --region        AWS region (prompted if not provided; default: us-east-2)
   --project       Project name for naming convention (default: rosa-boundary)
   --stage         Deployment stage for naming convention (default: prod)
 
@@ -83,6 +85,7 @@ CLI flags, or the config file. Resolution order: flags > env > config > defaults
 func init() {
 	configureCmd.Flags().BoolVar(&configAutoDiscover, "auto-discover", true, "Auto-discover configuration via Lambda")
 	configureCmd.Flags().StringVar(&configAccountID, "account-id", "", "AWS account ID (prompted if not provided)")
+	configureCmd.Flags().StringVar(&configRegion, "region", "", "AWS region (prompted if not provided; default: us-east-2)")
 	configureCmd.Flags().StringVar(&configProject, "project", "rosa-boundary", "Project name for naming convention")
 	configureCmd.Flags().StringVar(&configStage, "stage", "prod", "Deployment stage for naming convention")
 	rootCmd.AddCommand(configureCmd)
@@ -139,7 +142,7 @@ func runConfigureAuto(cmd *cobra.Command) error {
 
 	prompt := newPrompt(bufio.NewScanner(os.Stdin))
 
-	// 1. Collect seed values
+	// 1. Collect seed values — skip prompts for values set via flags.
 	accountID := configAccountID
 	if accountID == "" {
 		accountID = prompt("AWS Account ID", "", "")
@@ -148,16 +151,24 @@ func runConfigureAuto(cmd *cobra.Command) error {
 		return fmt.Errorf("AWS account ID is required")
 	}
 
-	region := cfg.AWSRegion
+	// Region: flag > config > default, only prompt when no flag was provided.
+	region := configRegion
 	if region == "" {
-		region = "us-east-2"
+		fallback := cfg.AWSRegion
+		if fallback == "" {
+			fallback = "us-east-2"
+		}
+		region = prompt("AWS Region", fallback, "us-east-2")
 	}
-	region = prompt("AWS Region", region, "us-east-2")
 
 	project := configProject
+	if !cmd.Flags().Changed("project") {
+		project = prompt("Project", project, "rosa-boundary")
+	}
 	stage := configStage
-	project = prompt("Project", project, "rosa-boundary")
-	stage = prompt("Stage", stage, "prod")
+	if !cmd.Flags().Changed("stage") {
+		stage = prompt("Stage", stage, "prod")
+	}
 
 	fmt.Fprintln(os.Stderr)
 

@@ -103,7 +103,7 @@ RUN --mount=type=secret,id=GITHUB_TOKEN \
         --url "${CLAUDE_CODE_URL}" \
         --checksum_file "${CLAUDE_CODE_CHECKSUM_FILE}" \
         --checksum_algorithm "${CLAUDE_CODE_CHECKSUM_ALGORITHM}" \
-        --platform "claude-linux-$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64")"
+        --platform "claude-linux-$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64").tar.gz"
 
 RUN mkdir --parents /opt/claude \
     && tar --extract --gzip --file ./claude-linux-*.tar.gz --directory=/opt/claude \

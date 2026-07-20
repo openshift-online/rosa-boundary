@@ -1,6 +1,12 @@
 version: 2
 updates:
-  - package-ecosystem: "docker"
+  - package-ecosystem: "pip"
+    directory: "/lambda/create-investigation"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"

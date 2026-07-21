@@ -10,8 +10,9 @@ import time
 import os
 from datetime import datetime, timedelta, timezone
 
-# Default to 'local' — ECS_EXECUTOR is passed to the LocalStack container only,
-# not exported to the pytest process, so os.getenv returns None in Prow.
+# Default to 'local' for direct pytest invocations (e.g., local development)
+# where ECS_EXECUTOR is not set. In Prow CI, ci-run.sh exports ECS_EXECUTOR=docker
+# before invoking pytest, which disables these skips.
 ECS_EXECUTOR = os.getenv('ECS_EXECUTOR', 'local')
 
 

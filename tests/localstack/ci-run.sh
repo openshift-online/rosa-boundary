@@ -18,6 +18,9 @@ unset AWS_SESSION_TOKEN
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+: "${ARTIFACT_DIR:?ARTIFACT_DIR must be set — Prow injects this automatically}"
+: "${LOCALSTACK_AUTH_TOKEN:?LOCALSTACK_AUTH_TOKEN must be set — inject from vault secret}"
+
 echo "=== LocalStack CI Run ==="
 echo "  image:        ${LOCALSTACK_IMAGE}"
 echo "  region:       ${AWS_DEFAULT_REGION}"
@@ -26,11 +29,17 @@ echo "  artifact_dir: ${ARTIFACT_DIR}"
 echo "  script_dir:   ${SCRIPT_DIR}"
 echo "========================="
 
+PODMAN_SERVICE_PID=""
+
 # Collect LocalStack stdout and internal log files into ARTIFACT_DIR on any
 # exit so Docker executor errors are visible in Prow artifacts.
 collect_localstack_logs() {
-    echo "Stopping Podman socket daemon (pid=${PODMAN_SERVICE_PID})..."
-    kill "${PODMAN_SERVICE_PID}" 2>/dev/null || true
+    if [[ -n "${PODMAN_SERVICE_PID}" ]]; then
+        echo "Stopping Podman socket daemon (pid=${PODMAN_SERVICE_PID})..."
+        kill "${PODMAN_SERVICE_PID}" 2>/dev/null || true
+    else
+        echo "Podman socket daemon not started; skipping kill."
+    fi
     echo "Collecting LocalStack container logs..."
     timeout 60 podman logs localstack > "${ARTIFACT_DIR}/localstack.log" 2>&1 \
         || echo "WARN: podman logs timed out or failed" >&2
@@ -42,11 +51,12 @@ collect_localstack_logs() {
 trap collect_localstack_logs EXIT
 
 # Start the Podman REST API (docker-compat) socket so LocalStack's ECS executor
-# can spawn real task containers. ci/nested-podman:latest does not auto-start
-# the socket service, so we do it explicitly here.
+# can spawn real task containers. The Prow CI container image does not auto-start
+# this service, so we start it explicitly to avoid a missing DOCKER_HOST socket
+# that would cause ECS task runs to fail silently.
 # Use /tmp — always writable in Prow; XDG_RUNTIME_DIR is often unset and
 # /run/user/<uid> may not be creatable without loginctl setup.
-PODMAN_SOCK="/tmp/podman-$(id -u).sock"
+PODMAN_SOCK="/tmp/podman-$(id --user).sock"
 export DOCKER_HOST="unix://${PODMAN_SOCK}"
 
 podman system service --time=0 "${DOCKER_HOST}" &
@@ -71,11 +81,11 @@ if ! timeout 300 podman pull "${LOCALSTACK_IMAGE}"; then
 fi
 echo "Pull complete."
 
-CONTAINER_ID=$(podman run -d \
+if ! CONTAINER_ID=$(podman run -d \
   --name localstack \
   --user root \
   -p 4566:4566 \
-  -v "${PODMAN_SOCK}:/var/run/docker.sock:z" \
+  --volume "${PODMAN_SOCK}:/var/run/docker.sock:z" \
   -e LOCALSTACK_AUTH_TOKEN="${LOCALSTACK_AUTH_TOKEN}" \
   -e SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm \
   -e LAMBDA_EXECUTOR=local \
@@ -83,16 +93,21 @@ CONTAINER_ID=$(podman run -d \
   -e AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
   -e PERSISTENCE=0 \
   -e LOCALSTACK_LOG_DIR=/tmp/localstack-logs \
-  -v "${SCRIPT_DIR}/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z" \
-  "${LOCALSTACK_IMAGE}")
+  --volume "${SCRIPT_DIR}/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z" \
+  "${LOCALSTACK_IMAGE}"); then
+    echo "ERROR: failed to start LocalStack container from ${LOCALSTACK_IMAGE}" >&2
+    echo "  Possible causes: invalid LOCALSTACK_AUTH_TOKEN, stale 'localstack' container," >&2
+    echo "  SELinux denial on socket volume, or insufficient memory." >&2
+    exit 1
+fi
 echo "LocalStack container started: ${CONTAINER_ID}"
 
 echo "Waiting for LocalStack ECS service (timeout: 180s)..."
 TIMEOUT=180; elapsed=0
-until curl -sf http://localhost:4566/_localstack/health 2>/dev/null | \
+until curl --silent --fail http://localhost:4566/_localstack/health 2>/dev/null | \
     python3 -c "import sys,json; h=json.load(sys.stdin); exit(0 if h['services'].get('ecs') in ('available','running') else 1)" 2>/dev/null; do
   [ $elapsed -ge $TIMEOUT ] && { echo "ERROR: LocalStack did not become ready"; exit 1; }
-  health=$(curl -sf http://localhost:4566/_localstack/health 2>/dev/null || echo '(no response)')
+  health=$(curl --silent --fail http://localhost:4566/_localstack/health 2>/dev/null || echo '(no response)')
   printf "  waiting... (%ds) health=%s\n" "$elapsed" "$health"
   sleep 5; elapsed=$((elapsed + 5))
 done

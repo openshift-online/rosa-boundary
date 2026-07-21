@@ -102,10 +102,17 @@ if ! CONTAINER_ID=$(podman run -d \
 fi
 echo "LocalStack container started: ${CONTAINER_ID}"
 
-echo "Waiting for LocalStack ECS service (timeout: 180s)..."
+echo "Waiting for LocalStack services (timeout: 180s)..."
 TIMEOUT=180; elapsed=0
 until curl --silent --fail http://localhost:4566/_localstack/health 2>/dev/null | \
-    python3 -c "import sys,json; h=json.load(sys.stdin); exit(0 if h['services'].get('ecs') in ('available','running') else 1)" 2>/dev/null; do
+    python3 -c "
+import sys, json
+h = json.load(sys.stdin)
+svcs = h.get('services', {})
+required = ['s3', 'iam', 'lambda', 'ecs', 'efs', 'kms']
+not_ready = [s for s in required if svcs.get(s) not in ('available', 'running')]
+sys.exit(1 if not_ready else 0)
+" 2>/dev/null; do
   [ $elapsed -ge $TIMEOUT ] && { echo "ERROR: LocalStack did not become ready"; exit 1; }
   health=$(curl --silent --fail http://localhost:4566/_localstack/health 2>/dev/null || echo '(no response)')
   printf "  waiting... (%ds) health=%s\n" "$elapsed" "$health"
@@ -116,3 +123,19 @@ echo "LocalStack ready."
 cd "${SCRIPT_DIR}"
 echo "Running: pytest integration/ -v --tb=short --junit-xml=${ARTIFACT_DIR}/junit_localstack.xml"
 pytest integration/ -v --tb=short --junit-xml="${ARTIFACT_DIR}/junit_localstack.xml"
+
+# Guard against a silent-success run where all tests are skipped due to a
+# service outage — pytest exits 0 even when everything is skipped.
+python3 <<EOF
+import xml.etree.ElementTree as ET, sys
+tree = ET.parse("${ARTIFACT_DIR}/junit_localstack.xml")
+root = tree.getroot()
+suite = root if root.tag == 'testsuite' else root.find('testsuite')
+total = int(suite.get('tests', 0))
+skipped = int(suite.get('skipped', 0))
+ran = total - skipped
+if ran == 0:
+    print(f'ERROR: 0/{total} tests ran ({skipped} skipped) — possible service outage or suite misconfiguration', file=sys.stderr)
+    sys.exit(1)
+print(f'Test gate passed: {ran}/{total} tests ran ({skipped} skipped)')
+EOF

@@ -6,6 +6,11 @@ import pytest
 import json
 from datetime import datetime
 
+# Mirrors test_lambda_handler.py pattern: default to 'local' so skips fire
+# correctly in Prow, where ECS_EXECUTOR is passed only to the LocalStack
+# container (via -e), not exported to the pytest process.
+ECS_EXECUTOR = os.getenv('ECS_EXECUTOR', 'local')
+
 from .test_helpers import create_investigation_resources
 
 
@@ -208,6 +213,10 @@ def test_efs_access_point_cleanup_on_failure(efs_client, test_efs):
 @pytest.mark.integration
 @pytest.mark.e2e
 @pytest.mark.slow
+@pytest.mark.skipif(
+    ECS_EXECUTOR == 'local',
+    reason=f'ECS_EXECUTOR=local cannot run task containers (current: {ECS_EXECUTOR})'
+)
 def test_investigation_with_reaper_enforcement(
     ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup
 ):
@@ -229,7 +238,7 @@ def test_investigation_with_reaper_enforcement(
         username='sre-reaper-e2e',
         cluster_name_prefix='test-reaper-e2e',
         ecs_role_name_prefix='rosa-boundary-reaper-e2e',
-        container_command=['sleep', '60'],
+        container_command=['sh', '-c', 'trap exit TERM; sleep 60 & wait'],
         extra_task_tags=[{'key': 'deadline', 'value': past_deadline}],
     )
     cluster_name = resources['cluster_name']

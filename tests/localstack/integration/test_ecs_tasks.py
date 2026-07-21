@@ -141,7 +141,7 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
                 'name': 'test-container',
                 'image': 'public.ecr.aws/amazonlinux/amazonlinux:2023',
                 'essential': True,
-                'command': ['sleep', '3600']
+                'command': ['sh', '-c', 'trap exit TERM; sleep 60 & wait']
             }
         ]
     )

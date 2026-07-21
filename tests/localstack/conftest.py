@@ -29,11 +29,12 @@ def localstack_available():
         response.raise_for_status()
         health = response.json()
 
-        # Check required services
+        # Check required services are in a healthy state
         required_services = ['s3', 'iam', 'lambda', 'ecs', 'efs', 'kms']
         for service in required_services:
-            if service not in health.get('services', {}):
-                pytest.skip(f'LocalStack service not available: {service}')
+            status = health.get('services', {}).get(service)
+            if status not in ('available', 'running'):
+                pytest.skip(f'LocalStack service not ready: {service} (status={status})')
 
         return True
     except (requests.ConnectionError, requests.Timeout):

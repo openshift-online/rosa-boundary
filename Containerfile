@@ -259,7 +259,8 @@ COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV HOME=/home/sre
 
-USER sre
-
+# The entrypoint runs as root for privileged setup (alternatives --set, chown,
+# runuser). ECS Exec sessions drop to the sre user via the CLI's default
+# command: "runuser -u sre -- sh -c 'cd ~ && exec bash --login'"
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["sleep", "infinity"]

@@ -120,12 +120,11 @@ if [ -n "${TASK_TIMEOUT}" ] && [ "${TASK_TIMEOUT}" != "0" ]; then
     echo "Task will be automatically stopped after ${TASK_TIMEOUT} seconds (enforced by periodic reaper)"
 fi
 
-# Run the command in the background and wait for it
-# This allows the shell to remain and handle signals
-# Note: entrypoint runs as root for alternatives --set; ECS Exec sessions
-# connect as the sre user via the CLI's default "runuser -u sre -- bash" command
-# which preserves the ECS-injected environment (AWS credentials, region, etc.)
-"${@:-sleep infinity}" &
+# Run the command as the sre user in the background and wait for it.
+# This allows the root shell to remain and handle signals (cleanup/S3 sync).
+# The entrypoint runs as root for privileged setup (alternatives --set, chown,
+# runuser); the actual workload drops to sre here.
+runuser -u sre -- "${@:-sleep infinity}" &
 CHILD_PID=$!
 wait ${CHILD_PID}
 EXIT_CODE=$?

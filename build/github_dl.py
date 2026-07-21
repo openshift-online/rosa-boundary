@@ -74,6 +74,8 @@ def validate_token(token) -> bool:
         print(f"Error: Unexpected response validating GitHub token (HTTP {response.status_code}): {response.text}")
         return False
 
+    remaining = response.json().get("rate", {}).get("remaining", "unknown")
+    print(f"GitHub token authenticated successfully (API calls remaining: {remaining})")
     return True
 
 

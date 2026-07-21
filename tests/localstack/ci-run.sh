@@ -104,17 +104,20 @@ echo "LocalStack container started: ${CONTAINER_ID}"
 
 echo "Waiting for LocalStack services (timeout: 180s)..."
 TIMEOUT=180; elapsed=0
-until curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null | \
-    python3 -c "
+while true; do
+  [ $elapsed -ge $TIMEOUT ] && { echo "ERROR: LocalStack did not become ready"; exit 1; }
+  if curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null | \
+      python3 -c "
 import sys, json
 h = json.load(sys.stdin)
 svcs = h.get('services', {})
 required = ['s3', 'iam', 'lambda', 'ecs', 'efs', 'kms']
 not_ready = [s for s in required if svcs.get(s) not in ('available', 'running')]
 sys.exit(1 if not_ready else 0)
-" 2>/dev/null; do
-  [ $elapsed -ge $TIMEOUT ] && { echo "ERROR: LocalStack did not become ready"; exit 1; }
-  health=$(curl --silent --fail http://localhost:4566/_localstack/health 2>/dev/null || echo '(no response)')
+" 2>/dev/null; then
+    break
+  fi
+  health=$(curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null || echo '(no response)')
   printf "  waiting... (%ds) health=%s\n" "$elapsed" "$health"
   sleep 5; elapsed=$((elapsed + 5))
 done

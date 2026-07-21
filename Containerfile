@@ -1,92 +1,266 @@
-# ROSA Boundary Container
-# Red Hat UBI9 with AWS CLI, OpenShift CLI, and Claude Code for Fargate
-FROM registry.access.redhat.com/ubi9/ubi
+# ROSA Boundary — Multi-Stage Multi-Arch Container Build
+#
+# Ephemeral SRE investigation container for AWS ECS Fargate.
+# SREs connect via SSM/ECS Exec as the non-root 'sre' user.
+#
+# Stages:
+#   tools-base       — shared build environment (curl, python3, helpers)
+#   backplane-tools  — SRE CLI tools via github_dl (SHA256 verified)
+#   claude-builder   — Claude Code via github_dl (SHA256 verified)
+#   oc-versions      — OC 4.14-4.20 with checksum verification
+#   tmux-builder     — tmux built from source (not in UBI9 repos)
+#   final            — production image (only this stage ships)
+#
+# backplane-tools, claude-builder, and oc-versions depend on tools-base.
+# tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
+# stages 2-5 run in parallel once their dependencies complete.
 
-# Red Hat container labels — only override labels where the UBI9 defaults
-# are incorrect for this image. Labels like vendor, distribution-scope,
-# release, and maintainer are inherited correctly from the UBI9 base.
-LABEL com.redhat.component="rosa-boundary" \
-      description="Multi-architecture container providing AWS CLI, OpenShift CLI, and Claude Code for ephemeral ROSA SRE investigations via ECS Fargate." \
-      io.k8s.description="Multi-architecture container providing AWS CLI, OpenShift CLI, and Claude Code for ephemeral ROSA SRE investigations via ECS Fargate." \
-      summary="ROSA SRE investigation container with AWS CLI, OpenShift CLI, and Claude Code" \
-      url="https://github.com/openshift-online/rosa-boundary"
+# Base image pinned by digest for reproducibility. Renovate updates this.
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:bcfca170da4fe08c0b70aa76ca4ee63f0e724db1574712cbc6c6a77fea6b21dc
 
-# Install base packages
-RUN dnf install -y \
-    alternatives \
-    unzip \
-    git \
-    vim \
-    tar \
-    gzip \
-    sudo \
-    util-linux \
-    && dnf clean all
 
-# Set up architecture-specific variables using uname
-RUN ARCH=$(uname -m) && \
-    echo "${ARCH}" > /tmp/aws_cli_arch && \
-    if [ "${ARCH}" = "aarch64" ]; then \
-      echo "-arm64" > /tmp/oc_suffix; \
+# Stage 1: tools-base
+# Shared build environment for all builder stages.
+FROM ${BASE_IMAGE} AS tools-base
+
+RUN dnf install --assumeyes --nodocs \
+        gzip \
+        jq \
+        python3 \
+        python3-pip \
+        tar \
+        unzip \
+    && dnf clean all \
+    && rm --recursive --force /var/cache/yum
+
+RUN python3 -m pip install --no-cache-dir requests
+
+COPY build/platforms.sh /usr/local/bin/platform_convert
+COPY build/github_dl.py /usr/local/bin/github_dl
+RUN chmod +x /usr/local/bin/platform_convert /usr/local/bin/github_dl
+
+
+# Stage 2: backplane-tools
+# SRE CLI toolchain: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
+FROM tools-base AS backplane-tools
+
+ARG BACKPLANE_TOOLS_VERSION="tags/v1.4.0"
+ENV BACKPLANE_TOOLS_URL_SLUG="openshift/backplane-tools"
+ENV BACKPLANE_TOOLS_URL="https://api.github.com/repos/${BACKPLANE_TOOLS_URL_SLUG}/releases/${BACKPLANE_TOOLS_VERSION}"
+ENV BACKPLANE_TOOLS_CHECKSUM_FILE="checksums.txt"
+ENV BACKPLANE_TOOLS_CHECKSUM_ALGORITHM="sha256"
+ENV BACKPLANE_TOOLS_PLATFORM_PREFIX="linux_"
+ENV BACKPLANE_BIN_DIR="/root/.local/bin/backplane"
+ARG OUTPUT_DIR="/opt"
+
+RUN mkdir --parents /backplane-tools
+WORKDIR /backplane-tools
+
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=read-only-github-pat/token \
+    github_dl download \
+        --url "${BACKPLANE_TOOLS_URL}" \
+        --checksum_file "${BACKPLANE_TOOLS_CHECKSUM_FILE}" \
+        --checksum_algorithm "${BACKPLANE_TOOLS_CHECKSUM_ALGORITHM}" \
+        --platform "${BACKPLANE_TOOLS_PLATFORM_PREFIX}$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+
+RUN tar --extract --gunzip --no-same-owner --directory /usr/local/bin --file ./*.tar.gz
+
+# backplane-tools install all fetches the SRE toolchain (ocm, oc, osdctl, etc.)
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=read-only-github-pat/token \
+    if [ -f /run/secrets/read-only-github-pat/token ]; then \
+        GITHUB_TOKEN=$(cat /run/secrets/read-only-github-pat/token) /usr/local/bin/backplane-tools install all; \
+    elif [ -f /run/secrets/GITHUB_TOKEN ]; then \
+        GITHUB_TOKEN=$(cat /run/secrets/GITHUB_TOKEN) /usr/local/bin/backplane-tools install all; \
     else \
-      echo "" > /tmp/oc_suffix; \
+        /usr/local/bin/backplane-tools install all; \
     fi
 
-# Download and install official AWS CLI
-RUN AWS_CLI_ARCH=$(cat /tmp/aws_cli_arch) && \
-    curl -o /tmp/awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_CLI_ARCH}.zip" && \
-    unzip -q /tmp/awscliv2.zip -d /tmp && \
-    /tmp/aws/install --install-dir /opt/aws-cli-official --bin-dir /usr/local/bin/aws-cli-bin && \
-    rm -rf /tmp/awscliv2.zip /tmp/aws
+# -H follows symlinks (backplane installs as symlinks in latest/)
+RUN cp -Hv "${BACKPLANE_BIN_DIR}/latest/"* "${OUTPUT_DIR}/"
 
-# Register AWS CLI with alternatives
-RUN alternatives --install /usr/local/bin/aws aws /opt/aws-cli-official/v2/current/bin/aws 20 --family aws-official
+# AWS CLI dist is a directory, not a single binary
+RUN cp --recursive "${BACKPLANE_BIN_DIR}"/aws/*/aws-cli/dist "${OUTPUT_DIR}/aws_dist"
 
-# Download and install OpenShift CLI versions 4.14-4.20
-RUN OC_SUFFIX=$(cat /tmp/oc_suffix) && \
-    for version in 4.14 4.15 4.16 4.17 4.18 4.19 4.20; do \
-      mkdir -p /opt/openshift/${version} && \
-      curl -sL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${version}/openshift-client-linux${OC_SUFFIX}.tar.gz" | \
-        tar -xzf - -C /opt/openshift/${version} oc && \
-      chmod +x /opt/openshift/${version}/oc; \
+
+# Stage 3: claude-builder
+# Claude Code downloaded via github_dl with SHASUMS256.txt verification.
+FROM tools-base AS claude-builder
+
+ENV CLAUDE_CODE_VERSION="2.1.199"
+ENV CLAUDE_CODE_URL_SLUG="anthropics/claude-code"
+ENV CLAUDE_CODE_URL="https://api.github.com/repos/${CLAUDE_CODE_URL_SLUG}/releases/tags/v${CLAUDE_CODE_VERSION}"
+ENV CLAUDE_CODE_CHECKSUM_FILE="SHASUMS256.txt"
+ENV CLAUDE_CODE_CHECKSUM_ALGORITHM="sha256"
+
+RUN mkdir --parents /claude-dl
+WORKDIR /claude-dl
+
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=read-only-github-pat/token \
+    github_dl download \
+        --url "${CLAUDE_CODE_URL}" \
+        --checksum_file "${CLAUDE_CODE_CHECKSUM_FILE}" \
+        --checksum_algorithm "${CLAUDE_CODE_CHECKSUM_ALGORITHM}" \
+        --platform "claude-linux-$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64").tar.gz"
+
+RUN mkdir --parents /opt/claude \
+    && tar --extract --gzip --file ./claude-linux-*.tar.gz --directory=/opt/claude \
+    && chmod +x /opt/claude/claude
+
+
+# Stage 4: oc-versions
+# OC 4.14-4.20 with SHA256 checksum verification from mirror.openshift.com.
+# Registered as alternatives in the final stage for runtime version switching.
+FROM tools-base AS oc-versions
+
+RUN if [ "$(uname -m)" = "aarch64" ]; then OC_SUFFIX="-arm64"; else OC_SUFFIX=""; fi \
+    && for version in 4.14 4.15 4.16 4.17 4.18 4.19 4.20; do \
+        echo "=== Downloading OC ${version} (suffix: ${OC_SUFFIX}) ===" \
+        && TARBALL="openshift-client-linux${OC_SUFFIX}.tar.gz" \
+        && BASE_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${version}" \
+        && mkdir --parents "/opt/openshift/${version}" \
+        && curl --silent --location --fail \
+            "${BASE_URL}/sha256sum.txt" \
+            --output "/tmp/sha256sum-${version}.txt" \
+        && curl --silent --location --fail \
+            "${BASE_URL}/${TARBALL}" \
+            --output "/tmp/${TARBALL}" \
+        && cd /tmp \
+        && grep "${TARBALL}" "/tmp/sha256sum-${version}.txt" \
+            | sha256sum --check --status \
+        && tar --extract --gzip --file="/tmp/${TARBALL}" \
+            --directory="/opt/openshift/${version}" oc \
+        && chmod +x "/opt/openshift/${version}/oc" \
+        && rm --force "/tmp/${TARBALL}" "/tmp/sha256sum-${version}.txt" \
+        && echo "=== OC ${version} verified and installed ==="; \
     done
 
-# Register all OpenShift CLI versions with alternatives
-# Priority increases with version number, 4.20 gets highest (100) to be default
-RUN alternatives --install /usr/local/bin/oc oc /opt/openshift/4.14/oc 14 && \
-    alternatives --install /usr/local/bin/oc oc /opt/openshift/4.15/oc 15 && \
-    alternatives --install /usr/local/bin/oc oc /opt/openshift/4.16/oc 16 && \
-    alternatives --install /usr/local/bin/oc oc /opt/openshift/4.17/oc 17 && \
-    alternatives --install /usr/local/bin/oc oc /opt/openshift/4.18/oc 18 && \
-    alternatives --install /usr/local/bin/oc oc /opt/openshift/4.19/oc 19 && \
-    alternatives --install /usr/local/bin/oc oc /opt/openshift/4.20/oc 100
 
-# Cleanup temporary files
-RUN rm -f /tmp/aws_cli_arch /tmp/oc_suffix
+# Stage 5: tmux-builder
+# tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
+# subscription). Build from source against UBI9's libevent and ncurses.
+# Runtime shared libs are already in the UBI9 base image.
+#
+# TODO: Figure out how to use RHEL 9 entitlements to install the tmux RPM
+# directly (dnf install tmux) instead of building from source. The RPM is in
+# RHEL 9 BaseOS and would work on entitled build hosts (Konflux, OpenShift CI).
+FROM ${BASE_IMAGE} AS tmux-builder
 
-# Create SRE user for SSM/ECS Exec connections
-# Home directory will be mounted as EFS via task definition
-RUN useradd -m -s /bin/bash sre && \
-    echo 'sre ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sre && \
-    chown root:root /etc/sudoers.d/sre && \
-    chmod 0440 /etc/sudoers.d/sre && \
-    visudo -cf /etc/sudoers
+ARG TMUX_VERSION="3.5a"
+ARG TMUX_SHA256="16216bd0877170dfcc64157085ba9013610b12b082548c7c9542cc0103198951"
 
-# Install Claude Code CLI to /usr/local (system-wide, independent of HOME)
-RUN curl -fsSL https://claude.ai/install.sh | INSTALL_DIR=/usr/local/lib/claude-code BIN_DIR=/usr/local/bin bash
+RUN dnf install --assumeyes --nodocs \
+        autoconf \
+        automake \
+        gcc \
+        libevent-devel \
+        make \
+        ncurses-devel \
+    && dnf clean all \
+    && rm --recursive --force /var/cache/yum
 
-# Copy skeleton config files to /etc/skel-sre (copied to /home/sre at runtime)
-# /home/sre is EFS-mounted by Fargate, so we copy at container start
+WORKDIR /build
+
+# Release tarballs ship pre-generated parser files so yacc/bison is not
+# invoked during make. Provide a dummy to satisfy configure.
+RUN curl --silent --location --fail \
+        "https://github.com/tmux/tmux/releases/download/${TMUX_VERSION}/tmux-${TMUX_VERSION}.tar.gz" \
+        --output tmux.tar.gz \
+    && echo "${TMUX_SHA256}  tmux.tar.gz" | sha256sum --check --status \
+    && tar --extract --gzip --file tmux.tar.gz \
+    && ln --symbolic /usr/bin/true /usr/local/bin/yacc \
+    && cd "tmux-${TMUX_VERSION}" \
+    && ./configure --prefix=/usr \
+    && make -j "$(nproc)" \
+    && make install DESTDIR=/build/out \
+    && strip --strip-all /build/out/usr/bin/tmux
+
+
+# Stage 6: final
+# Production image. Only this stage ships.
+FROM ${BASE_IMAGE} AS final
+
+LABEL org.opencontainers.image.title="rosa-boundary" \
+      org.opencontainers.image.description="Ephemeral SRE investigation container for ROSA clusters on AWS ECS Fargate" \
+      org.opencontainers.image.source="https://github.com/openshift-online/rosa-boundary" \
+      org.opencontainers.image.vendor="Red Hat"
+
+RUN dnf install --assumeyes --nodocs \
+        alternatives \
+        bash-completion \
+        bind-utils \
+        git \
+        gzip \
+        jq \
+        openssl \
+        python3 \
+        python3-pip \
+        sudo \
+        tar \
+        unzip \
+        util-linux \
+        vim-enhanced \
+        wget \
+        xz \
+    && dnf clean all \
+    && rm --recursive --force /var/cache/yum
+
+# Backplane tools: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
+COPY --from=backplane-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
+COPY --from=backplane-tools /opt/ocm                /usr/local/bin/
+COPY --from=backplane-tools /opt/ocm-backplane      /usr/local/bin/
+COPY --from=backplane-tools /opt/oc                 /usr/local/bin/oc-backplane
+COPY --from=backplane-tools /opt/osdctl             /usr/local/bin/
+COPY --from=backplane-tools /opt/ocm-addons         /usr/local/bin/
+COPY --from=backplane-tools /opt/yq                 /usr/local/bin/
+
+# OC versions for runtime switching via alternatives + OC_VERSION env var
+COPY --from=oc-versions /opt/openshift /opt/openshift
+
+# Claude Code binary
+COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
+
+# tmux built from source (not in UBI9 repos)
+COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
+
+# Register tools with alternatives. OC 4.20 is default (priority 100).
+# backplane-tools OC is fallback (priority 10).
+RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/aws 20 \
+    && alternatives --install /usr/local/bin/oc oc /usr/local/bin/oc-backplane 10 \
+    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.14/oc 14 \
+    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.15/oc 15 \
+    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.16/oc 16 \
+    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.17/oc 17 \
+    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.18/oc 18 \
+    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.19/oc 19 \
+    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.20/oc 100 \
+    && ln --symbolic /usr/local/lib/claude-code/claude /usr/local/bin/claude
+
+# Generate bash completions at build time
+RUN ocm completion bash > /etc/bash_completion.d/ocm \
+    && ocm backplane completion bash > /etc/bash_completion.d/ocm-backplane \
+    && oc completion bash > /etc/bash_completion.d/oc \
+    && osdctl completion bash --skip-version-check > /etc/bash_completion.d/osdctl \
+    && ocm addons completion bash > /etc/bash_completion.d/ocm-addons
+
+# Non-root user for ECS Exec sessions
+RUN useradd --create-home --shell /bin/bash sre \
+    && echo 'sre ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/sre \
+    && chown root:root /etc/sudoers.d/sre \
+    && chmod 0440 /etc/sudoers.d/sre \
+    && visudo --check --file /etc/sudoers
+
+# Skeleton config copied to /home/sre at runtime by the entrypoint
 COPY skel/sre/ /etc/skel-sre/
 
-# Copy entrypoint script
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Set HOME for ECS Exec sessions (sre user). The entrypoint overrides this
-# to /root for its own process so root operations don't write to /home/sre.
 ENV HOME=/home/sre
 
-# Set entrypoint for Fargate
+# The entrypoint runs as root for privileged setup (alternatives --set, chown,
+# runuser). ECS Exec sessions drop to the sre user via the CLI's default
+# command: "runuser -u sre -- sh -c 'cd ~ && exec bash --login'"
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["sleep", "infinity"]

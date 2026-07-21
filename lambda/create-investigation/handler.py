@@ -91,6 +91,18 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                            for k, v in event.get('headers', {}).items()}
         logger.info(f"Headers: {headers_redacted}")
 
+        # Check for get_config action before any OIDC validation.
+        # This must be dispatched early because get_config callers have not yet
+        # obtained an OIDC token — they are bootstrapping their CLI configuration.
+        body_raw = event.get('body', '{}')
+        try:
+            body_peek = json.loads(body_raw)
+        except json.JSONDecodeError:
+            body_peek = {}
+
+        if body_peek.get('action') == 'get_config':
+            return get_config_response()
+
         # Extract OIDC token: prefer X-OIDC-Token header (SigV4 flow); fall back to
         # Authorization: Bearer for backward compatibility during migration.
         headers = event.get('headers', {})
@@ -799,6 +811,33 @@ def create_investigation_task(
         except Exception:
             pass
         raise
+
+
+def get_config_response() -> Dict[str, Any]:
+    """Return CLI configuration values from Lambda environment variables.
+
+    No OIDC validation is performed on this action. The response contains only
+    resource identifiers (ARNs, IDs) — not secrets. The Lambda is already behind
+    IAM auth (SigV4): only principals who have assumed the invoker role can reach
+    it. Adding OIDC validation here would re-introduce the chicken-and-egg problem
+    that this endpoint is designed to solve (the CLI needs these values *before* it
+    can complete OIDC setup).
+    """
+    logger.info("Returning CLI configuration (get_config action)")
+    return response(200, {
+        'action': 'get_config',
+        'config': {
+            'lambda_function_name': os.environ.get('AWS_LAMBDA_FUNCTION_NAME', ''),
+            'invoker_role_arn': os.environ.get('INVOKER_ROLE_ARN', ''),
+            'sre_role_arn': os.environ.get('SHARED_ROLE_ARN', ''),
+            'efs_filesystem_id': os.environ.get('EFS_FILESYSTEM_ID', ''),
+            'ecs_cluster_name': os.environ.get('ECS_CLUSTER', ''),
+            'aws_region': os.environ.get('AWS_REGION', ''),
+            'keycloak_url': os.environ.get('KEYCLOAK_URL', ''),
+            'keycloak_realm': os.environ.get('KEYCLOAK_REALM', ''),
+            'oidc_client_id': os.environ.get('KEYCLOAK_CLIENT_ID', ''),
+        }
+    })
 
 
 def response(status_code: int, body: Dict[str, Any]) -> Dict[str, Any]:

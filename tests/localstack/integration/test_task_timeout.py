@@ -10,6 +10,11 @@ import time
 import os
 from datetime import datetime, timedelta, timezone
 
+# Default to 'local' for direct pytest invocations (e.g., local development)
+# where ECS_EXECUTOR is not set. In Prow CI, ci-run.sh exports ECS_EXECUTOR=docker
+# before invoking pytest, which disables these skips.
+ECS_EXECUTOR = os.getenv('ECS_EXECUTOR', 'local')
+
 
 @pytest.mark.integration
 def test_deadline_tag_computed_correctly():
@@ -63,6 +68,10 @@ def test_no_deadline_tag_when_timeout_zero():
 
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.skipif(
+    ECS_EXECUTOR == 'local',
+    reason=f'ECS_EXECUTOR=local: tasks never reach RUNNING state so reaper finds 0 tasks (current: {ECS_EXECUTOR})'
+)
 def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
     """Test that reaper Lambda stops task with past deadline"""
 
@@ -81,8 +90,8 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
         memory='512',
         containerDefinitions=[{
             'name': 'test-container',
-            'image': 'alpine:latest',
-            'command': ['sleep', '300'],
+            'image': 'public.ecr.aws/docker/library/alpine:latest',
+            'command': ['sh', '-c', 'trap exit TERM; sleep 60 & wait'],
         }]
     )
     task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']
@@ -145,6 +154,10 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
 
 @pytest.mark.integration
 @pytest.mark.slow
+@pytest.mark.skipif(
+    ECS_EXECUTOR == 'local',
+    reason=f'ECS_EXECUTOR=local: tasks never reach RUNNING state so reaper finds 0 tasks (current: {ECS_EXECUTOR})'
+)
 def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
     """Test that reaper skips task without deadline tag"""
 
@@ -163,8 +176,8 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
         memory='512',
         containerDefinitions=[{
             'name': 'test-container',
-            'image': 'alpine:latest',
-            'command': ['sleep', '300'],
+            'image': 'public.ecr.aws/docker/library/alpine:latest',
+            'command': ['sh', '-c', 'trap exit TERM; sleep 60 & wait'],
         }]
     )
     task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']

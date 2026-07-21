@@ -141,7 +141,7 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
                 'name': 'test-container',
                 'image': 'public.ecr.aws/amazonlinux/amazonlinux:2023',
                 'essential': True,
-                'command': ['sleep', '3600']
+                'command': ['sh', '-c', 'trap exit TERM; sleep 60 & wait']
             }
         ]
     )
@@ -172,7 +172,10 @@ def test_run_fargate_task_with_tags(ecs_client, test_vpc, iam_client, ecs_cleanu
         enableExecuteCommand=True
     )
 
-    assert len(run_response['tasks']) == 1
+    assert len(run_response['tasks']) == 1, (
+        f"Expected 1 task, got {len(run_response['tasks'])}. "
+        f"Failures: {run_response.get('failures', [])}"
+    )
     task_arn = run_response['tasks'][0]['taskArn']
     ecs_cleanup.register_task(cluster_name, task_arn)
 

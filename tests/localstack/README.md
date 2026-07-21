@@ -267,6 +267,11 @@ then runs `pytest integration/ -v --tb=short` against the full suite.
 
 **`test_lambda_handler.py` skip:** Auto-skipped under `LAMBDA_EXECUTOR=local`. Lambda logic is covered by moto unit tests (`make test-lambda-create-investigation`).
 
+**Executor-dependent test skips:** Three tests in `test_task_timeout.py` and `test_full_workflow.py` are gated on `ECS_EXECUTOR != 'local'`. In Prow CI, `ci-run.sh` exports `ECS_EXECUTOR=docker` before invoking pytest, so these tests run. Locally, `make test-localstack` does not set `ECS_EXECUTOR`, so they are silently skipped — this is intentional since they require a live container runtime socket. To replicate CI behavior locally:
+```bash
+ECS_EXECUTOR=docker make test-localstack
+```
+
 **Secret bootstrap (one-time setup):**
 Vault path: `secret/rosa-boundary/localstack` → key: `auth-token`
 CI cluster secret: `localstack-token` → key: `localstack-token`

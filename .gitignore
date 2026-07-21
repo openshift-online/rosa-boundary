@@ -122,5 +122,5 @@ Desktop.ini
 /dist/
 
 # Test artifacts
-test-results.xml
-*.xml
+**/test-results.xml
+coverage.xml

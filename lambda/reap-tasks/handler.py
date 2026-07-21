@@ -18,7 +18,8 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # AWS clients
-ecs = boto3.client('ecs')
+# LOCALSTACK_ENDPOINT is set in LocalStack test environments; absent in production.
+ecs = boto3.client('ecs', endpoint_url=os.environ.get('LOCALSTACK_ENDPOINT'))
 
 # Environment variables
 ECS_CLUSTER = os.environ.get('ECS_CLUSTER')

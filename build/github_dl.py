@@ -224,19 +224,17 @@ def resolve_token() -> str:
     Priority: build secret mount > CI secret mount > GITHUB_TOKEN env var.
     Returns None if no token found — all GitHub API calls require authentication.
     """
-    # Build secret mount (podman build --mount=type=secret,id=GITHUB_TOKEN)
-    secret_mount = "/run/secrets/GITHUB_TOKEN"
-    if os.path.isfile(secret_mount):
-        with open(secret_mount) as f:
-            return f.read().strip()
+    token_paths = [
+        "/run/secrets/GITHUB_TOKEN",
+        "/run/secrets/read-only-github-pat/token",
+        "/additional-secret/token",
+    ]
 
-    # Konflux CI secret mount
-    token_mount = "/run/secrets/read-only-github-pat/token"
-    if os.path.isfile(token_mount):
-        with open(token_mount) as f:
-            return f.read().strip()
+    for path in token_paths:
+        if os.path.isfile(path):
+            with open(path) as f:
+                return f.read().strip()
 
-    # Environment variable
     if os.environ.get("GITHUB_TOKEN"):
         return os.environ["GITHUB_TOKEN"]
 

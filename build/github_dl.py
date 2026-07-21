@@ -60,10 +60,14 @@ def validate_token(token) -> bool:
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
-    response = requests.get("https://api.github.com/rate_limit", headers=headers)
+    try:
+        response = requests.get("https://api.github.com/rate_limit", headers=headers, timeout=30)
+    except requests.RequestException as e:
+        print(f"Error: Failed to validate GitHub token: {e}")
+        return False
 
     if response.status_code == 401:
-        print(f"Error: GitHub token is invalid or expired (HTTP 401). Please check your GITHUB_TOKEN.")
+        print("Error: GitHub token is invalid or expired (HTTP 401). Please check your GITHUB_TOKEN.")
         return False
 
     if response.status_code == 403:

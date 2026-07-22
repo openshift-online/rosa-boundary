@@ -348,26 +348,31 @@ def test_reaper_iam_policy_simulation(iam_client):
             except iam_client.exceptions.NoSuchEntityException:
                 pass
             except Exception as e:
-                logger.warning("delete_role_policy(%s) cleanup failed: %s", role_name, e)
+                logger.warning("delete_role_policy(%s) cleanup failed: %s", role_name, type(e).__name__)
             finally:
+                _role_deleted = False
                 for _attempt in range(3):
                     try:
                         iam_client.delete_role(RoleName=role_name)
+                        _role_deleted = True
                         break
                     except iam_client.exceptions.NoSuchEntityException:
+                        _role_deleted = True
                         break
                     except iam_client.exceptions.DeleteConflictException:
                         if _attempt < 2:
                             try:
                                 iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
                             except Exception as e:
-                                logger.debug("delete_role_policy(%s) during conflict retry: %s", role_name, e)
+                                logger.debug("delete_role_policy(%s) during conflict retry: %s", role_name, type(e).__name__)
                             time.sleep(2 ** _attempt)
                         else:
-                            logger.warning("delete_role(%s) still conflicts after 3 attempts — manual cleanup needed", role_name)
+                            logger.warning("delete_role(%s) still conflicts after 3 attempts", role_name)
                     except Exception as e:
-                        logger.warning("delete_role(%s) cleanup failed: %s", role_name, e)
+                        logger.warning("delete_role(%s) cleanup failed: %s", role_name, type(e).__name__)
                         break
+                if not _role_deleted:
+                    pytest.fail(f"IAM role '{role_name}' could not be deleted — test environment may be polluted")
 
 
 @pytest.mark.integration
@@ -474,26 +479,31 @@ def test_reaper_iam_policy_deadline_condition_structure(iam_client):
             except iam_client.exceptions.NoSuchEntityException:
                 pass
             except Exception as e:
-                logger.warning("delete_role_policy(%s) cleanup failed: %s", role_name, e)
+                logger.warning("delete_role_policy(%s) cleanup failed: %s", role_name, type(e).__name__)
             finally:
+                _role_deleted = False
                 for _attempt in range(3):
                     try:
                         iam_client.delete_role(RoleName=role_name)
+                        _role_deleted = True
                         break
                     except iam_client.exceptions.NoSuchEntityException:
+                        _role_deleted = True
                         break
                     except iam_client.exceptions.DeleteConflictException:
                         if _attempt < 2:
                             try:
                                 iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
                             except Exception as e:
-                                logger.debug("delete_role_policy(%s) during conflict retry: %s", role_name, e)
+                                logger.debug("delete_role_policy(%s) during conflict retry: %s", role_name, type(e).__name__)
                             time.sleep(2 ** _attempt)
                         else:
-                            logger.warning("delete_role(%s) still conflicts after 3 attempts — manual cleanup needed", role_name)
+                            logger.warning("delete_role(%s) still conflicts after 3 attempts", role_name)
                     except Exception as e:
-                        logger.warning("delete_role(%s) cleanup failed: %s", role_name, e)
+                        logger.warning("delete_role(%s) cleanup failed: %s", role_name, type(e).__name__)
                         break
+                if not _role_deleted:
+                    pytest.fail(f"IAM role '{role_name}' could not be deleted — test environment may be polluted")
 
 
 @pytest.mark.integration

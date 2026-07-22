@@ -202,7 +202,7 @@ def test_vpc(ssm_client):
                 time.sleep(retry_delay)
         except (EndpointConnectionError, ConnectTimeoutError, ReadTimeoutError) as e:
             last_failure = f"connection error ({type(e).__name__})"
-            logger.warning("SSM connection error (attempt %d/%d): %s", attempt + 1, max_retries, e)
+            logger.warning("SSM connection error (attempt %d/%d): %s", attempt + 1, max_retries, type(e).__name__)
             if attempt < max_retries - 1:
                 time.sleep(retry_delay)
         except ClientError as e:
@@ -260,15 +260,15 @@ def test_efs(efs_client):
             try:
                 efs_client.delete_access_point(AccessPointId=ap['AccessPointId'])
             except Exception as e:
-                logger.warning("Failed to delete EFS access point %s: %s", ap['AccessPointId'], e)
+                logger.warning("Failed to delete EFS access point %s: %s", ap['AccessPointId'], type(e).__name__)
     except Exception as e:
-        logger.warning("Failed to list EFS access points for %s: %s", filesystem_id, e)
+        logger.warning("Failed to list EFS access points for %s: %s", filesystem_id, type(e).__name__)
 
     # Delete filesystem
     try:
         efs_client.delete_file_system(FileSystemId=filesystem_id)
     except Exception as e:
-        logger.warning("Failed to delete EFS filesystem %s: %s", filesystem_id, e)
+        logger.warning("Failed to delete EFS filesystem %s: %s", filesystem_id, type(e).__name__)
 
 
 @pytest.fixture

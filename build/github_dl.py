@@ -78,7 +78,11 @@ def validate_token(token) -> bool:
         print(f"Error: Unexpected response validating GitHub token (HTTP {response.status_code}): {response.text}")
         return False
 
-    remaining = response.json().get("rate", {}).get("remaining", 0)
+    try:
+        remaining = response.json().get("rate", {}).get("remaining", 0)
+    except (ValueError, AttributeError):
+        print("Error: Malformed response from GitHub rate_limit API")
+        return False
     if remaining < 37:
         print(f"Error: GitHub API rate limit nearly exhausted ({remaining} remaining, need at least 37 for a full build)")
         return False
@@ -230,13 +234,14 @@ def get_quota(token=None) -> list:
 def resolve_token() -> str:
     """Resolve GitHub token from build secret mounts or environment.
 
-    Priority: build secret mount > CI secret mount > GITHUB_TOKEN env var.
-    Returns None if no token found — all GitHub API calls require authentication.
+    Priority matches the Containerfile backplane-tools install block:
+    Konflux additional-secret > named secret mount > generic secret mount > env var.
+    Returns None if no token found.
     """
     token_paths = [
-        "/run/secrets/GITHUB_TOKEN",
-        "/run/secrets/read-only-github-pat/token",
         "/additional-secret/token",
+        "/run/secrets/read-only-github-pat/token",
+        "/run/secrets/GITHUB_TOKEN",
     ]
 
     for path in token_paths:

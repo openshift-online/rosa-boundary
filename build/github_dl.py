@@ -70,8 +70,8 @@ def validate_token(token) -> bool:
         print("Error: GitHub token is invalid or expired (HTTP 401). Please check your GITHUB_TOKEN.")
         return False
 
-    if response.status_code == 403:
-        print(f"Error: GitHub token was rejected (HTTP 403): {response.text}")
+    if response.status_code in (403, 429):
+        print(f"Error: GitHub API rate-limited or temporarily blocked (HTTP {response.status_code}): {response.text}")
         return False
 
     if response.status_code != 200:

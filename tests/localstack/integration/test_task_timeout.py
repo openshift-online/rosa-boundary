@@ -121,6 +121,8 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
         ]
     )
 
+    assert not run_response.get('failures'), f"run_task returned failures: {run_response['failures']}"
+    assert run_response.get('tasks'), "run_task returned no tasks and no failures"
     task_arn = run_response['tasks'][0]['taskArn']
     task_id = task_arn.split('/')[-1]
     ecs_cleanup.register_task(cluster_name, task_arn)
@@ -205,6 +207,8 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
         ]
     )
 
+    assert not run_response.get('failures'), f"run_task returned failures: {run_response['failures']}"
+    assert run_response.get('tasks'), "run_task returned no tasks and no failures"
     task_arn = run_response['tasks'][0]['taskArn']
     task_id = task_arn.split('/')[-1]
     ecs_cleanup.register_task(cluster_name, task_arn)

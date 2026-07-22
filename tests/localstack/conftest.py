@@ -38,7 +38,7 @@ def localstack_available():
 
         # Check required services are in a healthy state
         for service in REQUIRED:
-            status = health.get('services', {}).get(service)
+            status = (health.get('services') or {}).get(service)
             if status not in ('available', 'running'):
                 pytest.skip(f'LocalStack service not ready: {service} (status={status})')
 

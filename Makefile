@@ -7,6 +7,9 @@ FULL_IMAGE := $(IMAGE_NAME):$(TAG)
 AMD64_IMAGE := $(IMAGE_NAME):$(TAG)-amd64
 ARM64_IMAGE := $(IMAGE_NAME):$(TAG)-arm64
 
+# Build args
+CACHE ?=
+
 # Go CLI
 CLI_BIN := bin/rosa-boundary
 CLI_VERSION ?= dev
@@ -25,12 +28,16 @@ build: build-amd64 build-arm64
 # Build AMD64/x86_64 variant
 build-amd64:
 	@echo "Building AMD64 variant..."
-	podman build --platform linux/amd64 --build-arg REQUIRE_GITHUB_TOKEN=false -t $(AMD64_IMAGE) -f Containerfile .
+	podman build --platform linux/amd64 --build-arg REQUIRE_GITHUB_TOKEN=false \
+		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
+		$(CACHE) -t $(AMD64_IMAGE) -f Containerfile .
 
 # Build ARM64 variant
 build-arm64:
 	@echo "Building ARM64 variant..."
-	podman build --platform linux/arm64 --build-arg REQUIRE_GITHUB_TOKEN=false -t $(ARM64_IMAGE) -f Containerfile .
+	podman build --platform linux/arm64 --build-arg REQUIRE_GITHUB_TOKEN=false \
+		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
+		$(CACHE) -t $(ARM64_IMAGE) -f Containerfile .
 
 # Create manifest list combining both architectures
 manifest: build

@@ -8,7 +8,6 @@ This testing infrastructure validates all AWS functionality locally before produ
 
 - **S3**: Audit bucket with WORM compliance and Object Lock
 - **IAM**: Roles, policies, OIDC providers, tag-based authorization
-- **Lambda**: OIDC-authenticated investigation creation
 - **ECS**: Fargate task lifecycle (submit/stop/tag verification)
 - **EFS**: Filesystems and access points with POSIX user configuration
 - **KMS**: ECS Exec session encryption keys
@@ -108,6 +107,7 @@ All tests marked with `@pytest.mark.integration`:
 - `test_ecs_tasks.py` - ECS cluster, task definitions, task lifecycle
 - `test_tag_isolation.py` - Tag-based authorization model testing
 - `test_full_workflow.py` - End-to-end investigation creation
+- `test_task_timeout.py` - Reaper Lambda deadline enforcement and IAM policy simulation
 
 ### Test Markers
 
@@ -127,22 +127,12 @@ pytest -m e2e
 ### LocalStack Services
 
 Two compose files are provided:
-- **compose.yml** - Local development (macOS compatible, Lambda tests skipped)
-- **compose.ci.yml** - Prow CI (local executor, no Docker socket required)
+- **compose.yml** - Local development (macOS compatible)
+- **compose.ci.yml** - Local Prow simulation (no Docker socket required)
 
-Both start two containers:
+Both start a single container:
 
-1. **localstack** - LocalStack Pro with ECS, EFS, S3, IAM, Lambda, etc.
-2. **mock-oidc** - Flask server providing JWKS and test token generation
-
-### Mock OIDC Server
-
-Provides:
-- JWKS endpoint at `/realms/sre-ops/protocol/openid-connect/certs`
-- OpenID configuration at `/.well-known/openid-configuration`
-- Test token generation via `create_test_token()` function
-
-RSA keys generated in `oidc/test_keys/` used for signing test JWTs.
+1. **localstack** - LocalStack Pro with ECS, EFS, S3, IAM, KMS, SSM, EC2, etc.
 
 ### Network Initialization
 
@@ -155,12 +145,10 @@ RSA keys generated in `oidc/test_keys/` used for signing test JWTs.
 
 ### pytest Fixtures (`conftest.py`)
 
-- `localstack_available` - Skips tests if LocalStack not running
-- `mock_oidc_available` - Skips if mock OIDC server not running
-- `s3_client`, `iam_client`, `lambda_client`, etc. - Boto3 clients for LocalStack
-- `test_vpc` - VPC and subnets created by init-aws.sh
+- `localstack_available` - Skips tests if LocalStack not running or services not ready
+- `s3_client`, `iam_client`, `ecs_client`, etc. - Boto3 clients for LocalStack
+- `test_vpc` - VPC and subnets created by init-aws.sh (session-scoped)
 - `test_efs` - EFS filesystem with automatic cleanup
-- `test_token_generator` - Function to create test OIDC tokens
 
 ## Testing Approach
 
@@ -182,27 +170,6 @@ Tests verify IAM policy conditions without executing tasks:
 - Verify IAM policy evaluation logic
 - Test cross-user access prevention
 
-### Lambda Testing
-
-Both compose files use `LAMBDA_EXECUTOR=local` — Lambda tests requiring a Docker executor are covered by moto unit tests instead.
-
-**`compose.yml`** (default - local development):
-- `LAMBDA_EXECUTOR=local`, macOS compatible
-- Lambda tests auto-skipped; use `make test-lambda-create-investigation` for unit tests
-
-**`compose.ci.yml`** (local Prow-mode simulation):
-- `LAMBDA_EXECUTOR=local`, no Docker socket required
-- `user: root` for SELinux/rootless podman on Fedora (init script volume mount)
-- Not used by Prow directly; Prow runs LocalStack in host mode via ci-operator
-
-**Local development** (macOS):
-```bash
-# Lambda tests skipped automatically
-make localstack-up
-make test-localstack-fast
-```
-
-Lambda tests are also available as unit tests with moto (see `lambda/create-investigation/test_handler.py`).
 
 ## Terraform Testing
 
@@ -303,9 +270,6 @@ make localstack-logs
 ```bash
 # Verify LocalStack health
 curl http://localhost:4566/_localstack/health | jq
-
-# Verify mock OIDC
-curl http://localhost:8080/realms/sre-ops/protocol/openid-connect/certs
 ```
 
 ### Podman permission issues
@@ -316,14 +280,6 @@ echo $XDG_RUNTIME_DIR
 
 # Check podman socket permissions
 ls -l $XDG_RUNTIME_DIR/podman/podman.sock
-```
-
-### Container build fails
-
-```bash
-# Build mock OIDC container manually
-cd oidc
-podman build -t mock-oidc -f Containerfile .
 ```
 
 ## Development Workflow

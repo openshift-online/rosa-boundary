@@ -77,6 +77,7 @@ TEST_FILES=(
     "tests/localstack/integration/test_ecs_tasks.py"
     "tests/localstack/integration/test_tag_isolation.py"
     "tests/localstack/integration/test_full_workflow.py"
+    "tests/localstack/integration/test_task_timeout.py"
 )
 
 for file in "${TEST_FILES[@]}"; do

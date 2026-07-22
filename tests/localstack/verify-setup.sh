@@ -31,8 +31,6 @@ ERRORS=0
 # Check 1: Directory structure
 echo "Checking directory structure..."
 REQUIRED_DIRS=(
-    "tests/localstack/oidc"
-    "tests/localstack/oidc/test_keys"
     "tests/localstack/terraform"
     "tests/localstack/integration"
 )
@@ -56,11 +54,7 @@ REQUIRED_FILES=(
     "tests/localstack/conftest.py"
     "tests/localstack/pytest.ini"
     "tests/localstack/README.md"
-    "tests/localstack/oidc/Containerfile"
-    "tests/localstack/oidc/mock_jwks.py"
-    "tests/localstack/oidc/pyproject.toml"
-    "tests/localstack/oidc/test_keys/private.pem"
-    "tests/localstack/oidc/test_keys/public.pem"
+    "tests/localstack/required_services.py"
 )
 
 for file in "${REQUIRED_FILES[@]}"; do
@@ -82,8 +76,8 @@ TEST_FILES=(
     "tests/localstack/integration/test_efs_access_points.py"
     "tests/localstack/integration/test_ecs_tasks.py"
     "tests/localstack/integration/test_tag_isolation.py"
-    "tests/localstack/integration/test_lambda_handler.py"
     "tests/localstack/integration/test_full_workflow.py"
+    "tests/localstack/integration/test_task_timeout.py"
 )
 
 for file in "${TEST_FILES[@]}"; do
@@ -161,28 +155,7 @@ for dep in "${PYTHON_DEPS[@]}"; do
 done
 echo ""
 
-# Check 8: RSA keys
-echo "Checking RSA keys..."
-if [ -f "tests/localstack/oidc/test_keys/private.pem" ]; then
-    if openssl rsa -in tests/localstack/oidc/test_keys/private.pem -check -noout &> /dev/null; then
-        pass "Valid RSA private key"
-    else
-        fail "Invalid RSA private key"
-        ((ERRORS++))
-    fi
-fi
-
-if [ -f "tests/localstack/oidc/test_keys/public.pem" ]; then
-    if openssl rsa -pubin -in tests/localstack/oidc/test_keys/public.pem -noout &> /dev/null; then
-        pass "Valid RSA public key"
-    else
-        fail "Invalid RSA public key"
-        ((ERRORS++))
-    fi
-fi
-echo ""
-
-# Check 9: Makefile targets
+# Check 8: Makefile targets
 echo "Checking Makefile targets..."
 MAKEFILE_TARGETS=(localstack-up localstack-down localstack-logs test-localstack test-localstack-fast)
 
@@ -196,7 +169,7 @@ for target in "${MAKEFILE_TARGETS[@]}"; do
 done
 echo ""
 
-# Check 10: GitIgnore entries
+# Check 9: GitIgnore entries
 echo "Checking .gitignore entries..."
 if grep -q "tests/localstack/.env" .gitignore; then
     pass ".gitignore excludes tests/localstack/.env"

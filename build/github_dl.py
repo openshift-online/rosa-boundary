@@ -78,7 +78,10 @@ def validate_token(token) -> bool:
         print(f"Error: Unexpected response validating GitHub token (HTTP {response.status_code}): {response.text}")
         return False
 
-    remaining = response.json().get("rate", {}).get("remaining", "unknown")
+    remaining = response.json().get("rate", {}).get("remaining", 0)
+    if remaining < 37:
+        print(f"Error: GitHub API rate limit nearly exhausted ({remaining} remaining, need at least 37 for a full build)")
+        return False
     print(f"GitHub token authenticated successfully (API calls remaining: {remaining})")
     return True
 
@@ -263,12 +266,16 @@ def main():
 
     token = resolve_token()
     if token is None:
-        print("Error: No GITHUB_TOKEN found. Checked /run/secrets/GITHUB_TOKEN, "
-              "/run/secrets/read-only-github-pat/token, and GITHUB_TOKEN env var.", file=sys.stderr)
-        sys.exit(1)
-
-    if not validate_token(token):
-        sys.exit(1)
+        if os.environ.get("REQUIRE_GITHUB_TOKEN", "false").lower() == "true":
+            print("Error: No GITHUB_TOKEN found. Checked /run/secrets/GITHUB_TOKEN, "
+                  "/run/secrets/read-only-github-pat/token, /additional-secret/token, "
+                  "and GITHUB_TOKEN env var.", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print("WARNING: No GITHUB_TOKEN found. API calls may be rate-limited.", file=sys.stderr)
+    else:
+        if not validate_token(token):
+            sys.exit(1)
 
     if args.command == "quota":
         errors = get_quota(token)

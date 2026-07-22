@@ -83,8 +83,12 @@ def validate_token(token) -> bool:
     except (ValueError, AttributeError):
         print("Error: Malformed response from GitHub rate_limit API")
         return False
-    if remaining < 37:
-        print(f"Error: GitHub API rate limit nearly exhausted ({remaining} remaining, need at least 37 for a full build)")
+    # A full build makes ~32 GitHub API calls: 2 per github_dl invocation
+    # (validate_token + list_assets) x2 stages, plus ~28 from backplane-tools
+    # install all (10 GitHub-sourced tools x ~3 calls each). The threshold
+    # of 50 provides headroom for retries and future tool additions.
+    if remaining < 50:
+        print(f"Error: GitHub API rate limit nearly exhausted ({remaining} remaining, need at least 50 for a full build)")
         return False
     print(f"GitHub token authenticated successfully (API calls remaining: {remaining})")
     return True

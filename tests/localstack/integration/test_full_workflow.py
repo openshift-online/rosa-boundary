@@ -6,10 +6,9 @@ import pytest
 import json
 from datetime import datetime
 
-# Mirrors test_lambda_handler.py pattern: default to 'local' for direct pytest
-# invocations (e.g., local development) where ECS_EXECUTOR is not set.
-# In Prow CI, ci-run.sh exports ECS_EXECUTOR=docker before invoking pytest,
-# enabling these tests to run instead of skip.
+# Default to 'local' for direct pytest invocations (e.g., local development)
+# where ECS_EXECUTOR is not set. In Prow CI, ci-run.sh exports ECS_EXECUTOR=docker
+# before invoking pytest, enabling these tests to run instead of skip.
 ECS_EXECUTOR = os.getenv('ECS_EXECUTOR', 'local')
 
 from .test_helpers import create_investigation_resources

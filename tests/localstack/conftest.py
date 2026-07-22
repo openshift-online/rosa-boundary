@@ -8,6 +8,8 @@ import logging
 import pytest
 import boto3
 from botocore.config import Config
+from required_services import REQUIRED
+import types
 import requests
 import time
 
@@ -17,7 +19,7 @@ logger = logging.getLogger(__name__)
 LOCALSTACK_ENDPOINT = os.getenv('LOCALSTACK_ENDPOINT', 'http://localhost:4566')
 AWS_REGION = os.getenv('AWS_DEFAULT_REGION', 'us-east-2')
 
-# Mock OIDC server
+# OIDC issuer URL used as a string value in IAM OIDC provider tests; no server required
 MOCK_OIDC_URL = os.getenv('MOCK_OIDC_URL', 'http://localhost:8080/realms/sre-ops')
 
 
@@ -30,8 +32,7 @@ def localstack_available():
         health = response.json()
 
         # Check required services are in a healthy state
-        required_services = ['s3', 'iam', 'lambda', 'ecs', 'efs', 'kms']
-        for service in required_services:
+        for service in REQUIRED:
             status = health.get('services', {}).get(service)
             if status not in ('available', 'running'):
                 pytest.skip(f'LocalStack service not ready: {service} (status={status})')
@@ -39,19 +40,6 @@ def localstack_available():
         return True
     except (requests.ConnectionError, requests.Timeout):
         pytest.skip('LocalStack not running. Start with: make localstack-up')
-
-
-@pytest.fixture(scope='session')
-def mock_oidc_available():
-    """Check if mock OIDC server is running"""
-    try:
-        # Mock OIDC server has /health endpoint at root
-        base_url = MOCK_OIDC_URL.rsplit('/realms', 1)[0]
-        response = requests.get(f'{base_url}/health', timeout=5)
-        response.raise_for_status()
-        return True
-    except (requests.ConnectionError, requests.Timeout):
-        pytest.skip('Mock OIDC server not running. Start with: make localstack-up')
 
 
 @pytest.fixture(scope='session')
@@ -172,9 +160,9 @@ def ec2_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ssm_client(localstack_available, boto_config):
-    """SSM client configured for LocalStack"""
+    """SSM client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'ssm',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -184,14 +172,17 @@ def ssm_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def test_vpc(ssm_client):
-    """Get VPC and subnet IDs created by init-aws.sh"""
-    import time
+    """Get VPC and subnet IDs created by init-aws.sh (session-scoped; 12 attempts, 5s apart)"""
+    from botocore.exceptions import (
+        EndpointConnectionError, ConnectTimeoutError, ReadTimeoutError, ClientError
+    )
 
     # Wait for init-aws.sh to complete (runs async in LocalStack ready.d/)
     max_retries = 12
     retry_delay = 5
+    last_failure = "parameters not yet written by init-aws.sh"
 
     for attempt in range(max_retries):
         try:
@@ -200,16 +191,31 @@ def test_vpc(ssm_client):
             subnet2_id = ssm_client.get_parameter(Name='/test/subnet-2-id')['Parameter']['Value']
             sg_id = ssm_client.get_parameter(Name='/test/security-group-id')['Parameter']['Value']
 
-            return {
+            return types.MappingProxyType({
                 'vpc_id': vpc_id,
                 'subnet_ids': [subnet1_id, subnet2_id],
                 'security_group_id': sg_id
-            }
-        except ssm_client.exceptions.ParameterNotFound:
+            })
+        except (ssm_client.exceptions.ParameterNotFound, EndpointConnectionError,
+                ConnectTimeoutError, ReadTimeoutError):
+            last_failure = "ParameterNotFound or connection error"
+            logger.info("SSM parameters not yet available (attempt %d/%d)", attempt + 1, max_retries)
             if attempt < max_retries - 1:
                 time.sleep(retry_delay)
-            else:
+        except ClientError as e:
+            code = e.response['Error']['Code']
+            if code not in ('ThrottlingException', 'RequestThrottled', 'Throttling'):
                 raise
+            last_failure = f"ThrottlingException ({code})"
+            logger.info("SSM throttled (attempt %d/%d)", attempt + 1, max_retries)
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+
+    pytest.skip(
+        f"SSM parameters unavailable after {max_retries * retry_delay}s "
+        f"(last failure: {last_failure}) "
+        "— check LocalStack container logs with: podman logs localstack"
+    )
 
 
 @pytest.fixture
@@ -242,80 +248,22 @@ def test_efs(efs_client):
         for ap in access_points.get('AccessPoints', []):
             try:
                 efs_client.delete_access_point(AccessPointId=ap['AccessPointId'])
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.warning("Failed to delete EFS access point %s: %s", ap['AccessPointId'], e)
+    except Exception as e:
+        logger.warning("Failed to list EFS access points for %s: %s", filesystem_id, e)
 
     # Delete filesystem
     try:
         efs_client.delete_file_system(FileSystemId=filesystem_id)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Failed to delete EFS filesystem %s: %s", filesystem_id, e)
 
 
 @pytest.fixture
 def mock_oidc_issuer():
-    """Mock OIDC issuer URL"""
+    """OIDC issuer URL string for IAM OIDC provider tests — no live server required."""
     return MOCK_OIDC_URL
-
-
-@pytest.fixture
-def test_token_generator(mock_oidc_available, mock_oidc_issuer):
-    """
-    Fixture that provides token generation function.
-    Creates JWT tokens directly without importing mock_jwks.
-    """
-    import sys
-    from datetime import datetime, timedelta
-
-    # Temporarily remove lambda directory from path to avoid importing Linux binaries
-    _TESTS_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    lambda_dir = os.path.join(os.path.dirname(_TESTS_DIR), 'lambda', 'create-investigation')
-    original_path = sys.path.copy()
-    sys.path = [p for p in sys.path if not p.startswith(lambda_dir)]
-
-    try:
-        import jwt
-        from cryptography.hazmat.primitives import serialization
-        from cryptography.hazmat.backends import default_backend
-    finally:
-        sys.path = original_path
-
-    # Load private key
-    keys_path = os.path.join(_TESTS_DIR, 'localstack', 'oidc', 'test_keys')
-    with open(f'{keys_path}/private.pem', 'rb') as f:
-        private_key = serialization.load_pem_private_key(
-            f.read(),
-            password=None,
-            backend=default_backend()
-        )
-
-    def create_test_token(sub='test-user', groups=None, email='test@example.com',
-                         exp_minutes=60, extra_claims=None):
-        """Create a test JWT token"""
-        if groups is None:
-            groups = ['sre-team']
-
-        now = datetime.utcnow()
-
-        claims = {
-            'iss': mock_oidc_issuer,
-            'sub': sub,
-            'aud': 'aws-sre-access',
-            'exp': int((now + timedelta(minutes=exp_minutes)).timestamp()),
-            'iat': int(now.timestamp()),
-            'email': email,
-            'email_verified': True,
-            'groups': groups,
-        }
-
-        if extra_claims:
-            claims.update(extra_claims)
-
-        return jwt.encode(claims, private_key, algorithm='RS256', headers={'kid': 'test-key-1'})
-
-    return create_test_token
 
 
 class ECSCleanupTracker:

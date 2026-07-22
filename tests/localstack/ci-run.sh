@@ -109,12 +109,13 @@ while true; do
   if curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null | \
       python3 -c "
 import sys, json
+sys.path.insert(0, '${SCRIPT_DIR}')
+from required_services import REQUIRED
 h = json.load(sys.stdin)
 svcs = h.get('services', {})
-required = ['s3', 'iam', 'lambda', 'ecs', 'efs', 'kms']
-not_ready = [s for s in required if svcs.get(s) not in ('available', 'running')]
+not_ready = [s for s in REQUIRED if svcs.get(s) not in ('available', 'running')]
 sys.exit(1 if not_ready else 0)
-" 2>/dev/null; then
+"; then
     break
   fi
   health=$(curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null || echo '(no response)')
@@ -122,6 +123,47 @@ sys.exit(1 if not_ready else 0)
   sleep 5; elapsed=$((elapsed + 5))
 done
 echo "LocalStack ready."
+
+echo "Waiting for init-aws.sh to populate SSM parameters (timeout: 120s)..."
+python3 -c "import boto3, botocore.config, botocore.exceptions" || {
+    echo "ERROR: boto3 or botocore is not importable — check Python environment" >&2
+    exit 1
+}
+INIT_TIMEOUT=120; init_elapsed=0
+while true; do
+  [ $init_elapsed -ge $INIT_TIMEOUT ] && {
+    echo "ERROR: /test/security-group-id not found in SSM after ${INIT_TIMEOUT}s — init-aws.sh may have failed" >&2
+    exit 1
+  }
+  _ssm_rc=0
+  python3 -c "
+import sys, os, boto3, botocore.config, botocore.exceptions
+c = boto3.client('ssm', endpoint_url=os.environ['LOCALSTACK_ENDPOINT'],
+    region_name=os.environ['AWS_DEFAULT_REGION'],
+    config=botocore.config.Config(connect_timeout=5, read_timeout=10))
+try:
+    c.get_parameter(Name='/test/security-group-id')
+except botocore.exceptions.ClientError as e:
+    code = e.response['Error']['Code']
+    if code in ('ParameterNotFound', 'ThrottlingException', 'RequestThrottled', 'Throttling'):
+        sys.exit(1)
+    print(f'FATAL SSM error: {e}', file=sys.stderr)
+    sys.exit(2)
+except (botocore.exceptions.EndpointConnectionError,
+        botocore.exceptions.ConnectTimeoutError,
+        botocore.exceptions.ReadTimeoutError):
+    sys.exit(1)
+except botocore.exceptions.BotoCoreError as e:
+    print(f'FATAL boto3 error: {e}', file=sys.stderr)
+    sys.exit(2)
+" || _ssm_rc=$?
+  [ $_ssm_rc -eq 0 ] && break
+  [ $_ssm_rc -ge 128 ] && { echo "ERROR: Python poll interrupted (signal, rc=${_ssm_rc})" >&2; exit 1; }
+  [ $_ssm_rc -eq 2 ] && { echo "ERROR: Fatal SSM error — see stderr above" >&2; exit 1; }
+  printf "  waiting for SSM parameters... (%ds)\n" "$init_elapsed"
+  sleep 5; init_elapsed=$((init_elapsed + 5))
+done
+echo "SSM parameters ready."
 
 cd "${SCRIPT_DIR}"
 echo "Running: pytest integration/ -v --tb=short --junit-xml=${ARTIFACT_DIR}/junit_localstack.xml"

@@ -8,7 +8,7 @@ This testing infrastructure validates all AWS functionality locally before produ
 
 - **S3**: Audit bucket with WORM compliance and Object Lock
 - **IAM**: Roles, policies, OIDC providers, tag-based authorization
-- **Lambda**: OIDC-authenticated investigation creation
+- **Lambda**: Investigation creation (moto unit tests; see `make test-lambda-create-investigation`)
 - **ECS**: Fargate task lifecycle (submit/stop/tag verification)
 - **EFS**: Filesystems and access points with POSIX user configuration
 - **KMS**: ECS Exec session encryption keys
@@ -88,9 +88,6 @@ make test-localstack
 # Run fast tests only (skip slow ECS task launches)
 make test-localstack-fast
 
-# Run without Lambda tests (skip if LocalStack local executor fails)
-pytest tests/localstack/integration/ -v -m "not slow" --ignore=tests/localstack/integration/test_lambda_handler.py
-
 # View logs
 make localstack-logs
 
@@ -110,7 +107,6 @@ All tests marked with `@pytest.mark.integration`:
 - `test_efs_access_points.py` - EFS filesystem and access point lifecycle
 - `test_ecs_tasks.py` - ECS cluster, task definitions, task lifecycle
 - `test_tag_isolation.py` - Tag-based authorization model testing
-- `test_lambda_handler.py` - Lambda with OIDC authentication
 - `test_full_workflow.py` - End-to-end investigation creation
 
 ### Test Markers
@@ -131,22 +127,12 @@ pytest -m e2e
 ### LocalStack Services
 
 Two compose files are provided:
-- **compose.yml** - Local development (macOS compatible, Lambda tests skipped)
-- **compose.ci.yml** - Prow CI (local executor, no Docker socket required)
+- **compose.yml** - Local development (macOS compatible)
+- **compose.ci.yml** - Local Prow simulation (local executor, no Docker socket required; Prow itself uses `ci-run.sh`)
 
-Both start two containers:
+Both start one container:
 
 1. **localstack** - LocalStack Pro with ECS, EFS, S3, IAM, Lambda, etc.
-2. **mock-oidc** - Flask server providing JWKS and test token generation
-
-### Mock OIDC Server
-
-Provides:
-- JWKS endpoint at `/realms/sre-ops/protocol/openid-connect/certs`
-- OpenID configuration at `/.well-known/openid-configuration`
-- Test token generation via `create_test_token()` function
-
-RSA keys generated in `oidc/test_keys/` used for signing test JWTs.
 
 ### Network Initialization
 
@@ -160,11 +146,9 @@ RSA keys generated in `oidc/test_keys/` used for signing test JWTs.
 ### pytest Fixtures (`conftest.py`)
 
 - `localstack_available` - Skips tests if LocalStack not running
-- `mock_oidc_available` - Skips if mock OIDC server not running
 - `s3_client`, `iam_client`, `lambda_client`, etc. - Boto3 clients for LocalStack
 - `test_vpc` - VPC and subnets created by init-aws.sh
 - `test_efs` - EFS filesystem with automatic cleanup
-- `test_token_generator` - Function to create test OIDC tokens
 
 ## Testing Approach
 
@@ -188,25 +172,9 @@ Tests verify IAM policy conditions without executing tasks:
 
 ### Lambda Testing
 
-Both compose files use `LAMBDA_EXECUTOR=local` — Lambda tests requiring a Docker executor are covered by moto unit tests instead.
-
-**`compose.yml`** (default - local development):
-- `LAMBDA_EXECUTOR=local`, macOS compatible
-- Lambda tests auto-skipped; use `make test-lambda-create-investigation` for unit tests
-
-**`compose.ci.yml`** (local Prow-mode simulation):
-- `LAMBDA_EXECUTOR=local`, no Docker socket required
-- `user: root` for SELinux/rootless podman on Fedora (init script volume mount)
-- Not used by Prow directly; Prow runs LocalStack in host mode via ci-operator
-
-**Local development** (macOS):
-```bash
-# Lambda tests skipped automatically
-make localstack-up
-make test-localstack-fast
-```
-
-Lambda tests are also available as unit tests with moto (see `lambda/create-investigation/test_handler.py`).
+Lambda integration tests are not part of this LocalStack suite. Lambda functionality is
+covered by moto unit tests — run them with `make test-lambda-create-investigation`
+(see `lambda/create-investigation/test_handler.py`).
 
 ## Terraform Testing
 
@@ -262,10 +230,9 @@ Prow presubmit job runs in `openshift/release` at
 **Triggers:** PRs touching `lambda/`, `deploy/regional/`, or `tests/localstack/`.
 
 **Architecture:** CI entrypoint is `ci-run.sh`. It starts LocalStack Pro in a podman container,
-mounts `init-aws.sh` as an init hook (auto-runs on ready), waits for the ECS service,
-then runs `pytest integration/ -v --tb=short` against the full suite.
-
-**`test_lambda_handler.py` skip:** Auto-skipped under `LAMBDA_EXECUTOR=local`. Lambda logic is covered by moto unit tests (`make test-lambda-create-investigation`).
+mounts `init-aws.sh` as an init hook (auto-runs on ready), waits for all required services
+(see `required_services.py`) and for `init-aws.sh` to populate SSM parameters, then runs
+`pytest integration/ -v --tb=short` against the full suite.
 
 **Executor-dependent test skips:** Three tests in `test_task_timeout.py` and `test_full_workflow.py` are gated on `ECS_EXECUTOR != 'local'`. In Prow CI, `ci-run.sh` exports `ECS_EXECUTOR=docker` before invoking pytest, so these tests run. Locally, `make test-localstack` does not set `ECS_EXECUTOR`, so they are silently skipped — this is intentional since they require a live container runtime socket. To replicate CI behavior locally:
 ```bash
@@ -285,7 +252,7 @@ To add the secret:
 ```bash
 cd tests/localstack
 LOCALSTACK_AUTH_TOKEN=<your-token> podman-compose -f compose.ci.yml up -d
-LAMBDA_EXECUTOR=local pytest integration/ -v
+pytest integration/ -v
 podman-compose -f compose.ci.yml down -v
 ```
 
@@ -309,9 +276,6 @@ make localstack-logs
 ```bash
 # Verify LocalStack health
 curl http://localhost:4566/_localstack/health | jq
-
-# Verify mock OIDC
-curl http://localhost:8080/realms/sre-ops/protocol/openid-connect/certs
 ```
 
 ### Podman permission issues
@@ -322,14 +286,6 @@ echo $XDG_RUNTIME_DIR
 
 # Check podman socket permissions
 ls -l $XDG_RUNTIME_DIR/podman/podman.sock
-```
-
-### Container build fails
-
-```bash
-# Build mock OIDC container manually
-cd oidc
-podman build -t mock-oidc -f Containerfile .
 ```
 
 ## Development Workflow

@@ -124,3 +124,6 @@ Desktop.ini
 # Test artifacts
 **/test-results.xml
 coverage.xml
+
+# Git worktrees
+.worktrees/

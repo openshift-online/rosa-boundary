@@ -26,20 +26,6 @@ FROM ${BASE_IMAGE} AS tools-base
 ARG REQUIRE_GITHUB_TOKEN="false"
 ENV REQUIRE_GITHUB_TOKEN=${REQUIRE_GITHUB_TOKEN}
 
-RUN --mount=type=secret,id=GITHUB_TOKEN \
-    --mount=type=secret,id=read-only-github-pat/token \
-    if [ "${REQUIRE_GITHUB_TOKEN}" = "true" ]; then \
-        token=""; \
-        for f in /additional-secret/token /run/secrets/read-only-github-pat/token /run/secrets/GITHUB_TOKEN; do \
-            if [ -f "$f" ] && [ -s "$f" ]; then token="$f"; break; fi; \
-        done; \
-        if [ -z "$token" ]; then \
-            echo "Error: REQUIRE_GITHUB_TOKEN=true but no token found at /additional-secret/token, /run/secrets/read-only-github-pat/token, or /run/secrets/GITHUB_TOKEN" >&2; \
-            exit 1; \
-        fi; \
-        echo "GitHub token found at $token"; \
-    fi
-
 RUN dnf install --assumeyes --nodocs \
         gzip \
         jq \

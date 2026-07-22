@@ -256,6 +256,7 @@ def main():
         epilog="Authenticates via build secret mounts or GITHUB_TOKEN environment variable.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("quota", help="Get GitHub API rate limit information")
+    subparsers.add_parser("token", help="Validate token exists, is valid, and has sufficient API calls remaining")
 
     download_parser = subparsers.add_parser("download", help="Download a GitHub asset")
     download_parser.add_argument("--url", required=True, help="GitHub Releases API URL")
@@ -276,6 +277,16 @@ def main():
     else:
         if not validate_token(token):
             sys.exit(1)
+
+    if args.command == "token":
+        if token is None:
+            print("Error: No GITHUB_TOKEN found. Checked /run/secrets/GITHUB_TOKEN, "
+                  "/run/secrets/read-only-github-pat/token, /additional-secret/token, "
+                  "and GITHUB_TOKEN env var.", file=sys.stderr)
+            sys.exit(1)
+        if not validate_token(token):
+            sys.exit(1)
+        sys.exit(0)
 
     if args.command == "quota":
         errors = get_quota(token)

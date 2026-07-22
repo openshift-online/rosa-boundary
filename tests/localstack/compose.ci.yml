@@ -25,18 +25,6 @@ services:
       timeout: 5s
       retries: 10
 
-  mock-oidc:
-    build:
-      context: ./oidc
-      dockerfile: Containerfile
-    ports:
-      - "8080:8080"
-    environment:
-      - ISSUER_URL=http://mock-oidc:8080/realms/sre-ops
-      - CLIENT_ID=aws-sre-access
-    volumes:
-      - "./oidc/test_keys:/keys:ro,z"
-
 networks:
   default:
     name: rosa-boundary-test

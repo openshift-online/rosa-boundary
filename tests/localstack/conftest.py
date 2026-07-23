@@ -11,6 +11,8 @@ from botocore.config import Config
 import requests
 import time
 
+from required_services import REQUIRED
+
 logger = logging.getLogger(__name__)
 
 # LocalStack endpoint
@@ -30,8 +32,7 @@ def localstack_available():
         health = response.json()
 
         # Check required services are in a healthy state
-        required_services = ['s3', 'iam', 'lambda', 'ecs', 'efs', 'kms']
-        for service in required_services:
+        for service in REQUIRED:
             status = health.get('services', {}).get(service)
             if status not in ('available', 'running'):
                 pytest.skip(f'LocalStack service not ready: {service} (status={status})')

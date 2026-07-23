@@ -5,7 +5,7 @@
 #   ARTIFACT_DIR           - Prow artifact directory for JUnit output
 set -euo pipefail
 
-LOCALSTACK_VERSION="${LOCALSTACK_VERSION:-4.11.0}"
+LOCALSTACK_VERSION="${LOCALSTACK_VERSION:-99.0.0}"
 LOCALSTACK_IMAGE="public.ecr.aws/localstack/localstack-pro:${LOCALSTACK_VERSION}"
 
 export AWS_DEFAULT_REGION=us-east-2

@@ -11,7 +11,8 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 import boto3
-from botocore.exceptions import ClientError
+from botocore.config import Config as BotocoreConfig
+from botocore.exceptions import BotoCoreError, ClientError
 
 # Configure logging
 logger = logging.getLogger()
@@ -19,7 +20,11 @@ logger.setLevel(logging.INFO)
 
 # AWS clients
 # LOCALSTACK_ENDPOINT is set in LocalStack test environments; absent in production.
-ecs = boto3.client('ecs', endpoint_url=os.environ.get('LOCALSTACK_ENDPOINT'))
+ecs = boto3.client(
+    'ecs',
+    endpoint_url=os.environ.get('LOCALSTACK_ENDPOINT'),
+    config=BotocoreConfig(connect_timeout=5, read_timeout=10, retries={'max_attempts': 3, 'mode': 'standard'})
+)
 
 # Environment variables
 ECS_CLUSTER = os.environ.get('ECS_CLUSTER')
@@ -84,17 +89,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     task_arn = task['taskArn']
                     task_id = task_arn.split('/')[-1]
 
-                    # Extract deadline, oidc_sub, and username tags
+                    # Extract deadline tag
                     deadline_str = None
-                    oidc_sub = None
-                    owner_username = None
                     for tag in task.get('tags', []):
                         if tag['key'] == 'deadline':
                             deadline_str = tag['value']
-                        elif tag['key'] == 'oidc_sub':
-                            oidc_sub = tag['value']
-                        elif tag['key'] == 'username':
-                            owner_username = tag['value']
+                            break
 
                     # Skip tasks without deadline tag
                     if not deadline_str:
@@ -112,7 +112,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
                         # Check if deadline has passed
                         if now > deadline:
-                            logger.info(f"Task {task_id} deadline exceeded: {deadline_str} (owner: {owner_username} / {oidc_sub})")
+                            logger.info(f"Task {task_id} deadline exceeded: {deadline_str}")
 
                             try:
                                 ecs.stop_task(
@@ -121,10 +121,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                     reason=f'Task deadline exceeded (deadline: {deadline_str})'
                                 )
                                 stopped += 1
-                                logger.info(f"Stopped task {task_id} (owner: {owner_username} / {oidc_sub})")
+                                logger.info(f"Stopped task {task_id} (deadline: {deadline_str})")
 
-                            except Exception as e:
-                                logger.error(f"Failed to stop task {task_id}: {str(e)}")
+                            except (ClientError, BotoCoreError, ConnectionError) as e:
+                                logger.error("Failed to stop task %s: %s", task_id, e, exc_info=True)
                                 errors += 1
                         else:
                             skipped += 1
@@ -134,8 +134,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         logger.warning(f"Invalid deadline format for task {task_id}: {deadline_str} - {str(e)}")
                         skipped += 1
 
-            except ClientError as e:
-                logger.error(f"Failed to describe tasks batch: {str(e)}")
+                for failure in response.get('failures', []):
+                    logger.warning("Could not describe task %s: %s (%s)",
+                                   failure.get('arn'), failure.get('reason'), failure.get('detail', ''))
+                    errors += 1
+
+            except (ClientError, BotoCoreError) as e:
+                logger.error("Failed to describe tasks batch: %s", e, exc_info=True)
                 errors += len(batch)
 
     except Exception as e:
@@ -188,8 +193,8 @@ def list_running_tasks(cluster: str) -> List[str]:
             if not next_token:
                 break
 
-        except ClientError as e:
-            logger.error(f"Failed to list tasks: {str(e)}")
+        except (ClientError, BotoCoreError) as e:
+            logger.error("Failed to list tasks: %s", e, exc_info=True)
             raise
 
     return task_arns

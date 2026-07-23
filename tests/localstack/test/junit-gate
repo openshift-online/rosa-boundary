@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""Mirrors the python3 <<EOF heredoc in ci-run.sh (JUnit gate block).
+If ci-run.sh's gate logic changes, update here to match.
+"""
+import xml.etree.ElementTree as ET, sys, os
+
+xml_path = sys.argv[1]
+if not os.path.exists(xml_path):
+    print(f'ERROR: JUnit XML not found at {xml_path} — pytest may have crashed before writing results', file=sys.stderr)
+    sys.exit(1)
+try:
+    tree = ET.parse(xml_path)
+except ET.ParseError as exc:
+    print(f'ERROR: JUnit XML is malformed: {exc}', file=sys.stderr)
+    sys.exit(1)
+root = tree.getroot()
+suite = root if root.tag == 'testsuite' else root.find('testsuite')
+if suite is None:
+    print('ERROR: No <testsuite> element in JUnit XML — unexpected format', file=sys.stderr)
+    sys.exit(1)
+total = int(suite.get('tests', 0))
+skipped = int(suite.get('skipped', 0))
+if total < 0 or skipped < 0 or skipped > total:
+    print(f'ERROR: invalid test counters (tests={total}, skipped={skipped}) — XML may be malformed', file=sys.stderr)
+    sys.exit(1)
+ran = total - skipped
+if ran <= 0:
+    print(f'ERROR: 0/{total} tests ran ({skipped} skipped) — possible service outage or suite misconfiguration', file=sys.stderr)
+    sys.exit(1)
+print(f'Test gate passed: {ran}/{total} tests ran ({skipped} skipped)')

@@ -21,6 +21,9 @@ def test_create_ecs_cluster(ecs_client):
     assert response['cluster']['clusterName'] == cluster_name
     assert response['cluster']['status'] == 'ACTIVE'
 
+    # DELIBERATE FAILURE — validates Prow CI failure detection and reporting
+    assert False, f"deliberate failure: expected cluster status 'DELETED', got '{response['cluster']['status']}'"
+
     # Cleanup
     ecs_client.delete_cluster(cluster=cluster_name)
 

@@ -44,8 +44,8 @@ variable "vpc_cidr" {
   type        = string
 
   validation {
-    condition     = can(cidrhost(var.vpc_cidr, 0))
-    error_message = "vpc_cidr must be a valid CIDR block (e.g., 10.1.0.0/16)."
+    condition     = can(cidrnetmask(var.vpc_cidr))
+    error_message = "vpc_cidr must be a valid IPv4 CIDR block (e.g., 10.1.0.0/16)."
   }
 }
 
@@ -56,6 +56,21 @@ variable "availability_zones" {
   validation {
     condition     = length(var.availability_zones) >= 2
     error_message = "At least 2 availability zones are required for high availability."
+  }
+
+  validation {
+    condition = (
+      length(var.availability_zones) == length(var.public_subnet_cidrs) &&
+      length(var.availability_zones) == length(var.private_subnet_cidrs)
+    )
+    error_message = "The number of availability_zones, public_subnet_cidrs, and private_subnet_cidrs must be equal."
+  }
+
+  validation {
+    condition = alltrue([
+      for az in var.availability_zones : startswith(az, var.aws_region)
+    ])
+    error_message = "All availability_zones must be in the configured aws_region (e.g., us-east-1a for us-east-1)."
   }
 }
 
@@ -69,8 +84,8 @@ variable "public_subnet_cidrs" {
   }
 
   validation {
-    condition     = alltrue([for cidr in var.public_subnet_cidrs : can(cidrhost(cidr, 0))])
-    error_message = "All public_subnet_cidrs must be valid CIDR blocks."
+    condition     = alltrue([for cidr in var.public_subnet_cidrs : can(cidrnetmask(cidr))])
+    error_message = "All public_subnet_cidrs must be valid IPv4 CIDR blocks."
   }
 }
 
@@ -84,8 +99,17 @@ variable "private_subnet_cidrs" {
   }
 
   validation {
-    condition     = alltrue([for cidr in var.private_subnet_cidrs : can(cidrhost(cidr, 0))])
-    error_message = "All private_subnet_cidrs must be valid CIDR blocks."
+    condition     = alltrue([for cidr in var.private_subnet_cidrs : can(cidrnetmask(cidr))])
+    error_message = "All private_subnet_cidrs must be valid IPv4 CIDR blocks."
+  }
+
+  validation {
+    condition = (
+      length(var.public_subnet_cidrs) == length(toset(var.public_subnet_cidrs)) &&
+      length(var.private_subnet_cidrs) == length(toset(var.private_subnet_cidrs)) &&
+      length(setintersection(toset(var.public_subnet_cidrs), toset(var.private_subnet_cidrs))) == 0
+    )
+    error_message = "Subnet CIDRs must be unique within and across public and private lists."
   }
 }
 

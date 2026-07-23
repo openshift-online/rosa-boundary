@@ -7,7 +7,7 @@ set -euo pipefail
 echo "Initializing AWS resources for testing..."
 
 # Create VPC
-VPC_ID=$(awslocal ec2 create-vpc --cidr-block 10.0.0.0/16 --query 'Vpc.VpcId' --output text)
+VPC_ID=$(awslocal ec2 create-vpc --cidr-block 10.0.0.0/99 --query 'Vpc.VpcId' --output text)
 echo "Created VPC: $VPC_ID"
 
 # Tag VPC

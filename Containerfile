@@ -23,6 +23,9 @@ ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:bcfca170da4fe08c0b70aa
 # Shared build environment for all builder stages.
 FROM ${BASE_IMAGE} AS tools-base
 
+ARG REQUIRE_GITHUB_TOKEN="false"
+ENV REQUIRE_GITHUB_TOKEN=${REQUIRE_GITHUB_TOKEN}
+
 RUN dnf install --assumeyes --nodocs \
         gzip \
         jq \
@@ -69,7 +72,9 @@ RUN tar --extract --gunzip --no-same-owner --directory /usr/local/bin --file ./*
 # backplane-tools install all fetches the SRE toolchain (ocm, oc, osdctl, etc.)
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
-    if [ -f /run/secrets/read-only-github-pat/token ]; then \
+    if [ -f /additional-secret/token ]; then \
+        GITHUB_TOKEN=$(cat /additional-secret/token) /usr/local/bin/backplane-tools install all; \
+    elif [ -f /run/secrets/read-only-github-pat/token ]; then \
         GITHUB_TOKEN=$(cat /run/secrets/read-only-github-pat/token) /usr/local/bin/backplane-tools install all; \
     elif [ -f /run/secrets/GITHUB_TOKEN ]; then \
         GITHUB_TOKEN=$(cat /run/secrets/GITHUB_TOKEN) /usr/local/bin/backplane-tools install all; \

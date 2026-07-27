@@ -53,6 +53,47 @@ def validate_binary(binary, checksum, raw_algorithm="sha256") -> bool:
     return True
 
 
+def validate_token(token) -> bool:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    try:
+        response = requests.get("https://api.github.com/rate_limit", headers=headers, timeout=30)
+    except requests.RequestException as e:
+        print(f"Error: Failed to validate GitHub token: {e}")
+        return False
+
+    if response.status_code == 401:
+        print("Error: GitHub token is invalid or expired (HTTP 401). Please check your GITHUB_TOKEN.")
+        return False
+
+    if response.status_code in (403, 429):
+        print(f"Error: GitHub API rate-limited or temporarily blocked (HTTP {response.status_code}): {response.text}")
+        return False
+
+    if response.status_code != 200:
+        print(f"Error: Unexpected response validating GitHub token (HTTP {response.status_code}): {response.text}")
+        return False
+
+    try:
+        remaining = response.json().get("rate", {}).get("remaining", 0)
+    except (ValueError, AttributeError):
+        print("Error: Malformed response from GitHub rate_limit API")
+        return False
+    # A full build makes ~32 GitHub API calls: 2 per github_dl invocation
+    # (validate_token + list_assets) x2 stages, plus ~28 from backplane-tools
+    # install all (10 GitHub-sourced tools x ~3 calls each). The threshold
+    # of 50 provides headroom for retries and future tool additions.
+    if remaining < 50:
+        print(f"Error: GitHub API rate limit nearly exhausted ({remaining} remaining, need at least 50 for a full build)")
+        return False
+    print(f"GitHub token authenticated successfully (API calls remaining: {remaining})")
+    return True
+
+
 def get_url_with_authentication(url, token=None, additional_headers=None, retry=0, max_retries=5) -> requests.Response:
     """Fetch a URL with optional bearer token authentication and retry on server errors."""
     if retry > max_retries:
@@ -197,22 +238,21 @@ def get_quota(token=None) -> list:
 def resolve_token() -> str:
     """Resolve GitHub token from build secret mounts or environment.
 
-    Priority: build secret mount > CI secret mount > GITHUB_TOKEN env var.
-    Returns None if no token found — all GitHub API calls require authentication.
+    Priority matches the Containerfile backplane-tools install block:
+    Konflux additional-secret > named secret mount > generic secret mount > env var.
+    Returns None if no token found.
     """
-    # Build secret mount (podman build --mount=type=secret,id=GITHUB_TOKEN)
-    secret_mount = "/run/secrets/GITHUB_TOKEN"
-    if os.path.isfile(secret_mount):
-        with open(secret_mount) as f:
-            return f.read().strip()
+    token_paths = [
+        "/additional-secret/token",
+        "/run/secrets/read-only-github-pat/token",
+        "/run/secrets/GITHUB_TOKEN",
+    ]
 
-    # Konflux CI secret mount
-    token_mount = "/run/secrets/read-only-github-pat/token"
-    if os.path.isfile(token_mount):
-        with open(token_mount) as f:
-            return f.read().strip()
+    for path in token_paths:
+        if os.path.isfile(path):
+            with open(path) as f:
+                return f.read().strip()
 
-    # Environment variable
     if os.environ.get("GITHUB_TOKEN"):
         return os.environ["GITHUB_TOKEN"]
 
@@ -225,6 +265,7 @@ def main():
         epilog="Authenticates via build secret mounts or GITHUB_TOKEN environment variable.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("quota", help="Get GitHub API rate limit information")
+    subparsers.add_parser("token", help="Validate token exists, is valid, and has sufficient API calls remaining")
 
     download_parser = subparsers.add_parser("download", help="Download a GitHub asset")
     download_parser.add_argument("--url", required=True, help="GitHub Releases API URL")
@@ -235,7 +276,26 @@ def main():
 
     token = resolve_token()
     if token is None:
-        print("WARNING: No GITHUB_TOKEN found. API calls may be rate-limited.", file=sys.stderr)
+        if os.environ.get("REQUIRE_GITHUB_TOKEN", "false").lower() == "true":
+            print("Error: No GITHUB_TOKEN found. Checked /run/secrets/GITHUB_TOKEN, "
+                  "/run/secrets/read-only-github-pat/token, /additional-secret/token, "
+                  "and GITHUB_TOKEN env var.", file=sys.stderr)
+            sys.exit(1)
+        else:
+            print("WARNING: No GITHUB_TOKEN found. API calls may be rate-limited.", file=sys.stderr)
+    else:
+        if not validate_token(token):
+            sys.exit(1)
+
+    if args.command == "token":
+        if token is None:
+            print("Error: No GITHUB_TOKEN found. Checked /run/secrets/GITHUB_TOKEN, "
+                  "/run/secrets/read-only-github-pat/token, /additional-secret/token, "
+                  "and GITHUB_TOKEN env var.", file=sys.stderr)
+            sys.exit(1)
+        if not validate_token(token):
+            sys.exit(1)
+        sys.exit(0)
 
     if args.command == "quota":
         errors = get_quota(token)

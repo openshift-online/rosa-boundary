@@ -322,12 +322,12 @@ For realm and OIDC client configuration, see [`docs/configuration/keycloak-realm
 
 ## LocalStack Integration Testing
 
-35 integration tests in `tests/localstack/integration/` cover S3, IAM, Lambda, KMS, EFS, ECS, SSM, and CloudWatch Logs.
+~42 integration tests in `tests/localstack/integration/` cover S3, IAM, KMS, EFS, ECS, SSM, EC2, and CloudWatch Logs. Lambda handler logic is covered by moto unit tests (`make test-lambda-create-investigation`), not this suite.
 
 ### Running Tests
 
 ```bash
-make localstack-up           # Start LocalStack Pro + mock OIDC
+make localstack-up           # Start LocalStack Pro
 make test-localstack-fast    # Skip slow ECS task launches
 make test-localstack         # Full test suite
 make localstack-down
@@ -344,9 +344,9 @@ uv venv && source .venv/bin/activate && uv pip install pytest boto3 requests
 
 ### Key Notes
 
-- **macOS**: `compose.yml` uses `local` executors (not `docker`/`podman`) to avoid socket issues — tests validate AWS API compliance, not container execution. Prow CI uses `compose.ci.yml` with `LAMBDA_EXECUTOR=local` (no Docker socket required).
+- **macOS**: `compose.yml` uses `local` executors (not `docker`/`podman`) to avoid socket issues — tests validate AWS API compliance, not container execution. `compose.ci.yml` simulates Prow locally (no Docker socket required); Prow CI itself uses `ci-run.sh` directly.
 - **Service names**: LocalStack uses `efs` (not `elasticfilesystem`), `ssm` (not `systems-manager`)
-- **Version**: LocalStack Pro ≥ 4.4.0 required; use `latest` tag in compose files
+- **Version**: LocalStack Pro ≥ 4.4.0 required. Compose files (local dev) use `latest` from Docker Hub; Prow CI pins to a specific version via `LOCALSTACK_VERSION` in `ci-run.sh` (default: 4.11.0, ECR Public)
 - **Test markers**: `@pytest.mark.integration` (all), `@pytest.mark.slow` (ECS task launches), `@pytest.mark.e2e` (end-to-end)
 
 See `tests/localstack/README.md` for full documentation including troubleshooting and adding tests.
@@ -360,9 +360,7 @@ See `tests/localstack/README.md` for full documentation including troubleshootin
 **Jobs** (defined in `openshift/release` at `ci-operator/jobs/openshift-online/rosa-boundary/`):
 1. **pull-ci-openshift-online-rosa-boundary-main-localstack-integration-tests** — presubmit; integration tests
 
-**Architecture**: CI entrypoint is `tests/localstack/ci-run.sh`. It starts LocalStack Pro in a podman container, mounts `init-aws.sh` as an init hook (auto-runs on ready), waits for the ECS service, then runs `pytest integration/ -v --tb=short` against the full suite.
-
-**Lambda tests**: Auto-skipped under `LAMBDA_EXECUTOR=local`; covered by moto unit tests (`make test-lambda-create-investigation`).
+**Architecture**: CI entrypoint is `tests/localstack/ci-run.sh`. It starts LocalStack Pro in a podman container, mounts `init-aws.sh` as an init hook (auto-runs on ready), waits for all required services (from `required_services.py`) to report ready via the health endpoint, waits for SSM parameters written by `init-aws.sh`, then runs `pytest integration/ --verbose --tb=short` against the full suite.
 
 ## Security Findings
 
@@ -490,6 +488,17 @@ make test-localstack
 # Cleanup
 make localstack-down
 ```
+
+> **Local-only — ci-run.sh shell tests**: `ci-run.sh` is the Prow entrypoint and cannot self-test in CI.
+> To test the JUnit gate logic, log collection, and readiness check locally:
+> ```bash
+> # Install: dnf install bats  (Fedora)  |  brew install bats-core  (macOS)
+> bats tests/localstack/ci-run.bats
+> ```
+> The suite's `setup()` exports three variables into each test:
+> - `ARTIFACT_DIR` — temp directory where JUnit XML and LocalStack logs are written during the test
+> - `STUBS` — temp directory for shell command stubs (`podman`, etc.) that replace real tools in isolation
+> - `BATS_SCRIPT_DIR` — absolute path to `tests/localstack/`, used to locate `ci-run.sh` and helper scripts under `test/`
 
 ### Container Build (required for Containerfile, entrypoint, or skel changes)
 

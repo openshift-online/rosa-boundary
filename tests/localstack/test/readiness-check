@@ -1,0 +1,35 @@
+#!/usr/bin/env python3
+"""Mirrors the python3 -c inline block in ci-run.sh's service readiness poll loop.
+Usage: readiness-check <script-dir> <json-string>
+Exit codes: 0=all ready  1=not ready or bad json  2=import error
+"""
+import sys, json
+
+if len(sys.argv) < 3:
+    print(f'Usage: {sys.argv[0]} <script-dir> <json-string>', file=sys.stderr)
+    sys.exit(3)
+
+script_dir, json_string = sys.argv[1], sys.argv[2]
+
+try:
+    sys.path.insert(0, script_dir)
+    from required_services import REQUIRED
+except ImportError as e:
+    print(f'FATAL: cannot import REQUIRED: {e}', file=sys.stderr)
+    sys.exit(2)
+
+try:
+    h = json.loads(json_string)
+except (json.JSONDecodeError, ValueError):
+    sys.exit(1)
+
+if not isinstance(h, dict):
+    sys.exit(1)
+svcs = h.get('services')
+if svcs is not None and not isinstance(svcs, dict):
+    sys.exit(1)
+svcs = svcs or {}
+not_ready = [s for s in REQUIRED if svcs.get(s) not in ('available', 'running')]
+if not_ready:
+    print('  not ready: ' + ', '.join(not_ready), file=sys.stderr)
+    sys.exit(1)

@@ -24,11 +24,12 @@ module "rosa_boundary" {
 
   workspaces = {
     rosa-boundary-stage-network = {
-      terraform_version = "1.15.8"
-      working_directory = "deploy/network"
-      github_repo_org   = "openshift-online"
-      github_repo_name  = "rosa-boundary"
-      variables         = []
+      terraform_version  = "1.15.8"
+      working_directory  = "deploy/network"
+      github_repo_org    = "openshift-online"
+      github_repo_name   = "rosa-boundary"
+      variable_set_names = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
+      variables          = []
     }
 
     rosa-boundary-stage-aws-creds = {

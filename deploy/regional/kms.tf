@@ -31,6 +31,11 @@ resource "aws_kms_key" "exec_session" {
           "kms:DescribeKey"
         ]
         Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.project}-${var.stage}/ssm-sessions"
+          }
+        }
       },
       {
         Sid    = "Allow ECS Exec"

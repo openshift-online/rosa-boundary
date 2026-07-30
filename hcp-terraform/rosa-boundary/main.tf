@@ -37,8 +37,11 @@ module "rosa_boundary" {
       working_directory = "hcp-terraform/aws-creds/rosa-boundary-stage"
       github_repo_org   = "openshift-online"
       github_repo_name  = "rosa-boundary"
-      execution_mode    = "local"
-      variables         = []
+      variable_set_names = [
+        "rosa-boundary-tfe-creds",
+        "rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds",
+      ]
+      variables = []
     }
   }
 }

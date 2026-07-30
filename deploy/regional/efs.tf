@@ -72,3 +72,34 @@ resource "aws_efs_access_point" "sre" {
     Name = "${var.project}-${var.stage}-sre-access-point"
   })
 }
+
+resource "aws_efs_file_system_policy" "sre_home" {
+  file_system_id = aws_efs_file_system.sre_home.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnforceAccessViaAccessPoint"
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess",
+        ]
+        Resource = aws_efs_file_system.sre_home.arn
+        Condition = {
+          Bool = {
+            "elasticfilesystem:AccessedViaMountTarget" = "true"
+          }
+          StringLike = {
+            "elasticfilesystem:AccessPointArn" = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/*"
+          }
+        }
+      }
+    ]
+  })
+}

@@ -51,6 +51,27 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "audit" {
   }
 }
 
+resource "aws_s3_bucket_policy" "audit" {
+  bucket = aws_s3_bucket.audit.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyNonTLS"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.audit.arn,
+        "${aws_s3_bucket.audit.arn}/*",
+      ]
+      Condition = {
+        Bool = { "aws:SecureTransport" = "false" }
+      }
+    }]
+  })
+}
+
 # Cross-account replication to audit account
 # The destination bucket must be configured separately in the audit account with:
 #   - Versioning enabled

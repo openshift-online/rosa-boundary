@@ -10,7 +10,7 @@ specific access point ARN, breaking dynamic access point creation.
 
 import pytest
 import json
-from datetime import datetime
+import time
 
 
 @pytest.mark.integration
@@ -21,7 +21,7 @@ def test_filesystem_policy_allows_multiple_access_points(efs_client, iam_client)
     specific access point ARN, which would break Lambda-created investigations.
     """
     # Create test EFS filesystem
-    creation_token = f'test-policy-{int(datetime.now().timestamp())}'
+    creation_token = f'test-policy-{int(time.time() * 1000)}'
     fs_response = efs_client.create_file_system(
         CreationToken=creation_token,
         PerformanceMode='generalPurpose',
@@ -30,7 +30,7 @@ def test_filesystem_policy_allows_multiple_access_points(efs_client, iam_client)
     filesystem_id = fs_response['FileSystemId']
 
     # Create IAM role for task (simulating aws_iam_role.task)
-    role_name = f'test-efs-task-role-{int(datetime.now().timestamp())}'
+    role_name = f'test-efs-task-role-{int(time.time() * 1000)}'
     trust_policy = {
         'Version': '2012-10-17',
         'Statement': [{
@@ -106,7 +106,7 @@ def test_filesystem_policy_allows_multiple_access_points(efs_client, iam_client)
 
     # Create dynamic access point (simulating Lambda-created investigation)
     cluster_id = 'rosa-dev'
-    investigation_id = f'inv-{int(datetime.now().timestamp())}'
+    investigation_id = f'inv-{int(time.time() * 1000)}'
     dynamic_ap = efs_client.create_access_point(
         FileSystemId=filesystem_id,
         PosixUser={'Uid': 1000, 'Gid': 1000},
@@ -155,7 +155,7 @@ def test_filesystem_policy_rejects_direct_mount_without_access_point(efs_client,
     preventing direct filesystem access that bypasses per-investigation isolation.
     """
     # Create test EFS filesystem
-    creation_token = f'test-direct-mount-{int(datetime.now().timestamp())}'
+    creation_token = f'test-direct-mount-{int(time.time() * 1000)}'
     fs_response = efs_client.create_file_system(
         CreationToken=creation_token,
         PerformanceMode='generalPurpose',
@@ -164,7 +164,7 @@ def test_filesystem_policy_rejects_direct_mount_without_access_point(efs_client,
     filesystem_id = fs_response['FileSystemId']
 
     # Create IAM role
-    role_name = f'test-direct-mount-role-{int(datetime.now().timestamp())}'
+    role_name = f'test-direct-mount-role-{int(time.time() * 1000)}'
     trust_policy = {
         'Version': '2012-10-17',
         'Statement': [{
@@ -230,7 +230,7 @@ def test_filesystem_policy_structure_matches_terraform(efs_client, iam_client):
     the actual Terraform configuration.
     """
     # Create test EFS filesystem
-    creation_token = f'test-tf-match-{int(datetime.now().timestamp())}'
+    creation_token = f'test-tf-match-{int(time.time() * 1000)}'
     fs_response = efs_client.create_file_system(
         CreationToken=creation_token,
         PerformanceMode='generalPurpose',
@@ -239,7 +239,7 @@ def test_filesystem_policy_structure_matches_terraform(efs_client, iam_client):
     filesystem_id = fs_response['FileSystemId']
 
     # Create IAM role
-    role_name = f'test-tf-role-{int(datetime.now().timestamp())}'
+    role_name = f'test-tf-role-{int(time.time() * 1000)}'
     trust_policy = {
         'Version': '2012-10-17',
         'Statement': [{

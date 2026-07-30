@@ -12,6 +12,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 ## Architecture Documentation
 
 - [**System Overview**](architecture/overview.md) - High-level architecture with diagrams
+- [**Investigations and Tasks**](architecture/investigations-and-tasks.md) - Conceptual model, lifecycle, state recording, and FAQ
 
 ## Configuration Guides
 

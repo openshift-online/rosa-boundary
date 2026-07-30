@@ -95,8 +95,8 @@ resource "aws_efs_file_system_policy" "sre_home" {
           Bool = {
             "elasticfilesystem:AccessedViaMountTarget" = "true"
           }
-          Null = {
-            "elasticfilesystem:AccessPointArn" = "false"
+          StringEquals = {
+            "elasticfilesystem:AccessPointArn" = aws_efs_access_point.sre.arn
           }
         }
       }

@@ -4,11 +4,14 @@ This test suite validates that the reaper Lambda correctly identifies
 and stops tasks that have exceeded their deadline tag.
 """
 
+import logging
 import pytest
 import json
 import time
 import os
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 
 # Default to 'local' for direct pytest invocations (e.g., local development)
 # where ECS_EXECUTOR is not set. In Prow CI, ci-run.sh exports ECS_EXECUTOR=docker
@@ -118,13 +121,17 @@ def test_reaper_stops_expired_task(ecs_client, test_vpc, ecs_cleanup):
         ]
     )
 
+    assert not run_response.get('failures'), f"run_task returned failures: {run_response['failures']}"
+    assert run_response.get('tasks'), "run_task returned no tasks and no failures"
     task_arn = run_response['tasks'][0]['taskArn']
     task_id = task_arn.split('/')[-1]
     ecs_cleanup.register_task(cluster_name, task_arn)
 
     print(f"Created task {task_id} with past deadline: {past_deadline}")
 
-    # ECS_CLUSTER is read at module level in handler.py — must be set before exec_module.
+    # handler.py reads ECS_CLUSTER and LOCALSTACK_ENDPOINT at module level; the ecs boto3
+    # client is also constructed at import time. ECS_CLUSTER is set below; LOCALSTACK_ENDPOINT
+    # must already be in the environment (set by ci-run.sh or local dev setup).
     import importlib.util
     _lambda_path = os.path.abspath(
         os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py')
@@ -200,13 +207,17 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
         ]
     )
 
+    assert not run_response.get('failures'), f"run_task returned failures: {run_response['failures']}"
+    assert run_response.get('tasks'), "run_task returned no tasks and no failures"
     task_arn = run_response['tasks'][0]['taskArn']
     task_id = task_arn.split('/')[-1]
     ecs_cleanup.register_task(cluster_name, task_arn)
 
     print(f"Created task {task_id} without deadline tag")
 
-    # ECS_CLUSTER is read at module level in handler.py — must be set before exec_module.
+    # handler.py reads ECS_CLUSTER and LOCALSTACK_ENDPOINT at module level; the ecs boto3
+    # client is also constructed at import time. ECS_CLUSTER is set below; LOCALSTACK_ENDPOINT
+    # must already be in the environment (set by ci-run.sh or local dev setup).
     import importlib.util
     _lambda_path = os.path.abspath(
         os.path.join(os.path.dirname(__file__), '../../../lambda/reap-tasks/handler.py')
@@ -284,52 +295,84 @@ def test_reaper_iam_policy_simulation(iam_client):
         }]
     }
 
-    role_response = iam_client.create_role(
-        RoleName=role_name,
-        AssumeRolePolicyDocument=json.dumps(trust_policy)
-    )
-    role_arn = role_response['Role']['Arn']
-    iam_client.put_role_policy(
-        RoleName=role_name,
-        PolicyName='ReaperTaskManagement',
-        PolicyDocument=json.dumps(reaper_policy)
-    )
+    role_created = False
+    role_arn = None
+    try:
+        role_response = iam_client.create_role(
+            RoleName=role_name,
+            AssumeRolePolicyDocument=json.dumps(trust_policy)
+        )
+        role_arn = role_response['Role']['Arn']
+        role_created = True
+        iam_client.put_role_policy(
+            RoleName=role_name,
+            PolicyName='ReaperTaskManagement',
+            PolicyDocument=json.dumps(reaper_policy)
+        )
 
-    task_with_deadline_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/task-with-deadline'
-    task_without_deadline_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/task-no-deadline'
+        task_with_deadline_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/task-with-deadline'
+        task_without_deadline_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/task-no-deadline'
 
-    # Task WITH deadline tag — reaper should be allowed to stop it
-    with_deadline_context = [
-        {
-            'ContextKeyName': 'ecs:ResourceTag/deadline',
-            'ContextKeyValues': ['2026-03-30T12:00:00'],
-            'ContextKeyType': 'string'
-        }
-    ]
-    allowed_result = iam_client.simulate_principal_policy(
-        PolicySourceArn=role_arn,
-        ActionNames=['ecs:StopTask'],
-        ResourceArns=[task_with_deadline_arn],
-        ContextEntries=with_deadline_context
-    )
-    assert allowed_result['EvaluationResults'][0]['EvalDecision'] == 'allowed', (
-        "Reaper must be allowed to stop tasks that have a deadline tag"
-    )
+        # Task WITH deadline tag — reaper should be allowed to stop it
+        with_deadline_context = [
+            {
+                'ContextKeyName': 'ecs:ResourceTag/deadline',
+                'ContextKeyValues': ['2026-03-30T12:00:00'],
+                'ContextKeyType': 'string'
+            }
+        ]
+        allowed_result = iam_client.simulate_principal_policy(
+            PolicySourceArn=role_arn,
+            ActionNames=['ecs:StopTask'],
+            ResourceArns=[task_with_deadline_arn],
+            ContextEntries=with_deadline_context
+        )
+        assert allowed_result['EvaluationResults'][0]['EvalDecision'] == 'allowed', (
+            "Reaper must be allowed to stop tasks that have a deadline tag"
+        )
 
-    # Task WITHOUT deadline tag — reaper must NOT be allowed to stop it
-    denied_result = iam_client.simulate_principal_policy(
-        PolicySourceArn=role_arn,
-        ActionNames=['ecs:StopTask'],
-        ResourceArns=[task_without_deadline_arn],
-        ContextEntries=[]  # no deadline resource tag
-    )
-    assert denied_result['EvaluationResults'][0]['EvalDecision'] != 'allowed', (
-        "Reaper must NOT be allowed to stop tasks without a deadline tag"
-    )
-
-    # Cleanup
-    iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
-    iam_client.delete_role(RoleName=role_name)
+        # Task WITHOUT deadline tag — reaper must NOT be allowed to stop it
+        denied_result = iam_client.simulate_principal_policy(
+            PolicySourceArn=role_arn,
+            ActionNames=['ecs:StopTask'],
+            ResourceArns=[task_without_deadline_arn],
+            ContextEntries=[]  # no deadline resource tag
+        )
+        assert denied_result['EvaluationResults'][0]['EvalDecision'] != 'allowed', (
+            "Reaper must NOT be allowed to stop tasks without a deadline tag"
+        )
+    finally:
+        if role_created:
+            try:
+                iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
+            except iam_client.exceptions.NoSuchEntityException:
+                pass
+            except Exception as e:
+                logger.warning("delete_role_policy(%s) cleanup failed: %s", role_name, type(e).__name__)
+            finally:
+                _role_deleted = False
+                for _attempt in range(3):
+                    try:
+                        iam_client.delete_role(RoleName=role_name)
+                        _role_deleted = True
+                        break
+                    except iam_client.exceptions.NoSuchEntityException:
+                        _role_deleted = True
+                        break
+                    except iam_client.exceptions.DeleteConflictException:
+                        if _attempt < 2:
+                            try:
+                                iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
+                            except Exception as e:
+                                logger.debug("delete_role_policy(%s) during conflict retry: %s", role_name, type(e).__name__)
+                            time.sleep(2 ** _attempt)
+                        else:
+                            logger.warning("delete_role(%s) still conflicts after 3 attempts", role_name)
+                    except Exception as e:
+                        logger.warning("delete_role(%s) cleanup failed: %s", role_name, type(e).__name__)
+                        break
+                if not _role_deleted:
+                    pytest.fail(f"IAM role '{role_name}' could not be deleted — test environment may be polluted")
 
 
 @pytest.mark.integration
@@ -385,51 +428,82 @@ def test_reaper_iam_policy_deadline_condition_structure(iam_client):
         }]
     }
 
-    iam_client.create_role(
-        RoleName=role_name,
-        AssumeRolePolicyDocument=json.dumps(trust_policy)
-    )
-    iam_client.put_role_policy(
-        RoleName=role_name,
-        PolicyName='ReaperTaskManagement',
-        PolicyDocument=json.dumps(reaper_policy)
-    )
+    role_created = False
+    try:
+        iam_client.create_role(
+            RoleName=role_name,
+            AssumeRolePolicyDocument=json.dumps(trust_policy)
+        )
+        role_created = True
+        iam_client.put_role_policy(
+            RoleName=role_name,
+            PolicyName='ReaperTaskManagement',
+            PolicyDocument=json.dumps(reaper_policy)
+        )
 
-    retrieved = iam_client.get_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
-    doc_raw = retrieved['PolicyDocument']
-    import urllib.parse
-    if isinstance(doc_raw, str):
-        try:
-            doc = json.loads(doc_raw)
-        except json.JSONDecodeError:
-            doc = json.loads(urllib.parse.unquote(doc_raw))
-    else:
-        doc = doc_raw
+        retrieved = iam_client.get_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
+        doc_raw = retrieved['PolicyDocument']
+        import urllib.parse
+        if isinstance(doc_raw, str):
+            try:
+                doc = json.loads(doc_raw)
+            except json.JSONDecodeError:
+                doc = json.loads(urllib.parse.unquote(doc_raw))
+        else:
+            doc = doc_raw
 
-    stop_stmts = [s for s in doc['Statement'] if s.get('Sid') == 'StopExpiredTasks']
-    assert len(stop_stmts) == 1, "Must have exactly one StopExpiredTasks statement"
+        stop_stmts = [s for s in doc['Statement'] if s.get('Sid') == 'StopExpiredTasks']
+        assert len(stop_stmts) == 1, "Must have exactly one StopExpiredTasks statement"
 
-    stop_stmt = stop_stmts[0]
-    assert stop_stmt['Action'] == 'ecs:StopTask'
-    condition = stop_stmt['Condition']
-    assert 'ForAnyValue:StringLike' in condition, (
-        "StopTask must use ForAnyValue:StringLike condition"
-    )
-    assert 'ecs:ResourceTag/deadline' in condition['ForAnyValue:StringLike'], (
-        "StopTask condition must gate on ecs:ResourceTag/deadline"
-    )
-    assert condition['ForAnyValue:StringLike']['ecs:ResourceTag/deadline'] == '*', (
-        "Condition value must be '*' to match any deadline tag value"
-    )
+        stop_stmt = stop_stmts[0]
+        assert stop_stmt['Action'] == 'ecs:StopTask'
+        condition = stop_stmt['Condition']
+        assert 'ForAnyValue:StringLike' in condition, (
+            "StopTask must use ForAnyValue:StringLike condition"
+        )
+        assert 'ecs:ResourceTag/deadline' in condition['ForAnyValue:StringLike'], (
+            "StopTask condition must gate on ecs:ResourceTag/deadline"
+        )
+        assert condition['ForAnyValue:StringLike']['ecs:ResourceTag/deadline'] == '*', (
+            "Condition value must be '*' to match any deadline tag value"
+        )
 
-    # Verify StopTask is NOT granted without the deadline condition
-    describe_stmts = [s for s in doc['Statement'] if s.get('Sid') == 'DescribeTasks']
-    assert len(describe_stmts) == 1
-    assert 'ecs:StopTask' not in describe_stmts[0]['Action']
-
-    # Cleanup
-    iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
-    iam_client.delete_role(RoleName=role_name)
+        # Verify StopTask is NOT granted without the deadline condition
+        describe_stmts = [s for s in doc['Statement'] if s.get('Sid') == 'DescribeTasks']
+        assert len(describe_stmts) == 1
+        assert 'ecs:StopTask' not in describe_stmts[0]['Action']
+    finally:
+        if role_created:
+            try:
+                iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
+            except iam_client.exceptions.NoSuchEntityException:
+                pass
+            except Exception as e:
+                logger.warning("delete_role_policy(%s) cleanup failed: %s", role_name, type(e).__name__)
+            finally:
+                _role_deleted = False
+                for _attempt in range(3):
+                    try:
+                        iam_client.delete_role(RoleName=role_name)
+                        _role_deleted = True
+                        break
+                    except iam_client.exceptions.NoSuchEntityException:
+                        _role_deleted = True
+                        break
+                    except iam_client.exceptions.DeleteConflictException:
+                        if _attempt < 2:
+                            try:
+                                iam_client.delete_role_policy(RoleName=role_name, PolicyName='ReaperTaskManagement')
+                            except Exception as e:
+                                logger.debug("delete_role_policy(%s) during conflict retry: %s", role_name, type(e).__name__)
+                            time.sleep(2 ** _attempt)
+                        else:
+                            logger.warning("delete_role(%s) still conflicts after 3 attempts", role_name)
+                    except Exception as e:
+                        logger.warning("delete_role(%s) cleanup failed: %s", role_name, type(e).__name__)
+                        break
+                if not _role_deleted:
+                    pytest.fail(f"IAM role '{role_name}' could not be deleted — test environment may be polluted")
 
 
 @pytest.mark.integration

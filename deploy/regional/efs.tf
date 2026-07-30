@@ -83,7 +83,7 @@ resource "aws_efs_file_system_policy" "sre_home" {
         Sid    = "EnforceAccessViaAccessPoint"
         Effect = "Allow"
         Principal = {
-          AWS = "*"
+          AWS = aws_iam_role.task.arn
         }
         Action = [
           "elasticfilesystem:ClientMount",
@@ -95,8 +95,8 @@ resource "aws_efs_file_system_policy" "sre_home" {
           Bool = {
             "elasticfilesystem:AccessedViaMountTarget" = "true"
           }
-          StringLike = {
-            "elasticfilesystem:AccessPointArn" = "arn:aws:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/*"
+          StringEquals = {
+            "elasticfilesystem:AccessPointArn" = aws_efs_access_point.sre.arn
           }
         }
       }

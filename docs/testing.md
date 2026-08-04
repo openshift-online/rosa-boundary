@@ -95,8 +95,8 @@ pre-commit run --all-files
 | System | Trigger | What it runs |
 |--------|---------|--------------|
 | Tekton/Konflux | PR and push to `main` | Container build + security scans (Clair, ClamAV, Snyk SAST, shellcheck, RPM signatures) |
-| Prow | Every PR to `main` | Go coverage (`make codecov`), container image build, Lambda unit tests |
-| Prow (postsubmit) | Merge to `main` | Publish coverage to Codecov |
+| Prow | Every PR to `main` | Go [coverage](configuration/code-coverage.md) (`make codecov`), container image build, Lambda unit tests |
+| Prow (postsubmit) | Merge to `main` | Publish [coverage](configuration/code-coverage.md) to Codecov |
 
 ### Prow Jobs
 

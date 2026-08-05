@@ -36,6 +36,7 @@ module "aws_dynamic_creds" {
           workspace_names = [
             "rosa-boundary-stage-aws-creds",
             "rosa-boundary-stage-network",
+            "rosa-boundary-stage-regional",
           ]
         }
       }

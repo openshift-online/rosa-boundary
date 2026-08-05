@@ -6,7 +6,7 @@ dependencies = [
     "PyJWT>=2.13.0",
     "cryptography>=49.0.0",
     "requests>=2.34.2",
-    "boto3>=1.43.58",
+    "boto3>=1.43.62",
 ]
 
 [dependency-groups]

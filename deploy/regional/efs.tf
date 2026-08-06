@@ -27,14 +27,6 @@ resource "aws_security_group" "efs" {
     security_groups = [aws_security_group.fargate.id]
   }
 
-  egress {
-    description = "Allow all outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-efs-sg"
   })

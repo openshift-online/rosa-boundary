@@ -30,6 +30,10 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**Investigation Workflow**](runbooks/investigation-workflow.md) - Creating and managing investigations
 - [**Troubleshooting**](runbooks/troubleshooting.md) - Common issues and solutions
 
+## Development
+
+- [**Dependency Management Automation**](dependency-management-automation.md) - Dependabot and Mintmaker/Renovate configuration and strategy
+
 ## Quick Start
 
 ### Prerequisites

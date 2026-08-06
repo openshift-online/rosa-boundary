@@ -51,6 +51,17 @@ variable "container_image" {
   type        = string
 }
 
+variable "lambda_image_uri" {
+  description = "ECR repository URI for the create-investigation Lambda container image (without tag)"
+  type        = string
+}
+
+variable "lambda_image_tag" {
+  description = "Image tag for the create-investigation Lambda container image"
+  type        = string
+  default     = "dev"
+}
+
 variable "container_cpu" {
   description = "CPU units for the Fargate task (256, 512, 1024, 2048, 4096)"
   type        = number

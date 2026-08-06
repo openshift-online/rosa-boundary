@@ -88,40 +88,14 @@ resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
   })
 }
 
-# Archive the Lambda function code
-data "archive_file" "create_investigation_lambda" {
-  type        = "zip"
-  source_dir  = "${path.module}/../../lambda/create-investigation"
-  output_path = "${path.module}/.terraform/lambda/create-investigation.zip"
-
-  excludes = [
-    "test_handler.py",
-    "conftest.py",
-    "pytest.ini",
-    "test-security-fixes.sh",
-    "pyproject.toml",
-    "uv.lock",
-    "README.md",
-    "Makefile",
-    "__pycache__",
-    ".pytest_cache",
-    "htmlcov",
-    ".coverage",
-    "bin",
-    ".venv"
-  ]
-}
-
-# Lambda function
+# Lambda function (container image packaging)
 resource "aws_lambda_function" "create_investigation" {
-  filename         = data.archive_file.create_investigation_lambda.output_path
-  function_name    = "${var.project}-${var.stage}-create-investigation"
-  role             = aws_iam_role.create_investigation_lambda.arn
-  handler          = "handler.lambda_handler"
-  source_code_hash = data.archive_file.create_investigation_lambda.output_base64sha256
-  runtime          = "python3.11"
-  timeout          = 60
-  memory_size      = 256
+  function_name = "${var.project}-${var.stage}-create-investigation"
+  role          = aws_iam_role.create_investigation_lambda.arn
+  package_type  = "Image"
+  image_uri     = "${var.lambda_image_uri}:${var.lambda_image_tag}"
+  timeout       = 60
+  memory_size   = 256
 
   environment {
     variables = {

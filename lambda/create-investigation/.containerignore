@@ -1,0 +1,6 @@
+# Whitelist approach: ignore everything, then allow only files needed by the
+# Containerfile (pyproject.toml, uv.lock, handler.py).
+*
+!pyproject.toml
+!uv.lock
+!handler.py

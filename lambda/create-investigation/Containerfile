@@ -28,8 +28,10 @@
 # ---------------------------------------------------------------------------
 FROM public.ecr.aws/lambda/python:3.11 AS builder
 
-# Install uv for lockfile export (produces requirements-lock.txt from uv.lock)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+# Install uv for lockfile export (produces requirements-lock.txt from uv.lock).
+# Pinned by version and manifest digest for reproducible builds.
+ARG UV_VERSION=0.7.12
+COPY --from=ghcr.io/astral-sh/uv:${UV_VERSION}@sha256:4faec156e35a5f345d57804d8858c6ba1cf6352ce5f4bffc11b7fdebdef46a38 /uv /usr/local/bin/uv
 
 WORKDIR /build
 

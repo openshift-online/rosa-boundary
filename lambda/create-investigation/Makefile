@@ -137,9 +137,10 @@ deploy: package ## Build and deploy Lambda function to AWS
 	aws lambda wait function-updated --function-name "$$FUNCTION_NAME"; \
 	echo "Lambda function is ready"
 
-build-image: ## Build the Lambda container image locally
+build-image: ## Build the Lambda container image locally (linux/amd64)
 	@echo "Building Lambda container image: $(LAMBDA_IMAGE)..."
 	$(CONTAINER_RUNTIME) build \
+		--platform linux/amd64 \
 		--tag $(LAMBDA_IMAGE) \
 		--file Containerfile .
 	@echo "Lambda container image built: $(LAMBDA_IMAGE)"

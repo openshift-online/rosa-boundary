@@ -98,6 +98,13 @@ test-localstack-fast: ## Run LocalStack tests without slow tests (faster)
 	fi
 	pytest tests/localstack/integration/ -v -m "not slow" --tb=short
 
+# Lambda container image build
+.PHONY: build-lambda-image
+
+build-lambda-image: ## Build the create-investigation Lambda container image locally
+	@echo "Building create-investigation Lambda container image..."
+	$(MAKE) -C lambda/create-investigation build-image
+
 # Lambda unit testing
 .PHONY: test-lambda test-lambda-reap-tasks test-lambda-create-investigation
 
@@ -214,7 +221,8 @@ help:
 	@echo "  make test-localstack       - Run all LocalStack integration tests"
 	@echo "  make test-localstack-fast  - Run LocalStack tests (skip slow tests)"
 	@echo ""
-	@echo "Lambda Unit Testing Targets:"
+	@echo "Lambda Targets:"
+	@echo "  make build-lambda-image               - Build create-investigation Lambda container image"
 	@echo "  make test-lambda                      - Run all Lambda unit tests"
 	@echo "  make test-lambda-reap-tasks           - Run reap-tasks unit tests"
 	@echo "  make test-lambda-create-investigation - Run create-investigation unit tests"

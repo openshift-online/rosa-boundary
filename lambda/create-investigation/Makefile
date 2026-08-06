@@ -1,4 +1,5 @@
-.PHONY: clean deps deps-local build test test-unit test-coverage help deploy package validate test-local test-localstack test-e2e-localstack
+.PHONY: clean deps deps-local build test test-unit test-coverage help deploy package validate test-local test-localstack test-e2e-localstack \
+        build-image push-image
 
 # Variables
 CONTAINER_RUNTIME ?= podman
@@ -6,6 +7,12 @@ LAMBDA_RUNTIME = public.ecr.aws/lambda/python:3.11
 FUNCTION_DIR = $(shell pwd)
 TERRAFORM_DIR = ../../deploy/regional
 ZIP_FILE = /tmp/lambda-create-investigation.zip
+
+# Container image variables
+LAMBDA_IMAGE_NAME ?= create-investigation-lambda
+LAMBDA_IMAGE_TAG ?= dev
+LAMBDA_IMAGE := $(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)
+ECR_REGISTRY ?=
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -129,6 +136,23 @@ deploy: package ## Build and deploy Lambda function to AWS
 	echo "Waiting for update to complete..."; \
 	aws lambda wait function-updated --function-name "$$FUNCTION_NAME"; \
 	echo "Lambda function is ready"
+
+build-image: ## Build the Lambda container image locally
+	@echo "Building Lambda container image: $(LAMBDA_IMAGE)..."
+	$(CONTAINER_RUNTIME) build \
+		--tag $(LAMBDA_IMAGE) \
+		--file Containerfile .
+	@echo "Lambda container image built: $(LAMBDA_IMAGE)"
+
+push-image: build-image ## Push Lambda container image to ECR (requires ECR_REGISTRY)
+	@if [ -z "$(ECR_REGISTRY)" ]; then \
+		echo "Error: ECR_REGISTRY not set. Usage: make push-image ECR_REGISTRY=<account>.dkr.ecr.<region>.amazonaws.com"; \
+		exit 1; \
+	fi
+	@echo "Tagging and pushing to $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)..."
+	$(CONTAINER_RUNTIME) tag $(LAMBDA_IMAGE) $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)
+	$(CONTAINER_RUNTIME) push $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)
+	@echo "Pushed: $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)"
 
 test-localstack: ## Run Lambda tests against LocalStack
 	@echo "Ensure LocalStack is running: make localstack-up (from project root)"

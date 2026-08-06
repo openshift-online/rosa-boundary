@@ -272,7 +272,7 @@ All Terraform variables are set in `deploy/regional/variables.tf`. Values withou
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `keycloak_issuer_url` | Primary Keycloak OIDC issuer URL | `https://sso.example.com/realms/sre-ops` |
+| `keycloak_issuer_url` | Primary Keycloak OIDC issuer URL | `https://sso.example.com/realms/EmployeeIDP` |
 | `keycloak_thumbprint` | SHA1 of Keycloak TLS cert (for IAM OIDC Provider) | `aabbcc...` (40 hex chars) |
 | `container_image` | Container image URI (ECR or other registry) | `123456789.dkr.ecr.us-east-1.amazonaws.com/rosa-boundary:latest` |
 | `vpc_id` | VPC where Fargate tasks run | `vpc-0abc123` |
@@ -283,7 +283,7 @@ All Terraform variables are set in `deploy/regional/variables.tf`. Values withou
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `oidc_client_id` | `aws-sre-access` | Keycloak client ID; must equal `aud` claim in the JWT |
+| `oidc_client_id` | `rosa-boundary-sre` | Keycloak client ID; must equal `aud` claim in the JWT |
 | `abac_tag_key` | `username` | ECS tag key for ABAC isolation. Use `username` for dev Keycloak, `uuid` (= `rhatUUID`) for Red Hat EmployeeIDP |
 | `task_timeout_default` | `3600` | Default task lifetime in seconds (passed as `TASK_TIMEOUT` env var; enforced by reaper) |
 | `task_timeout_minimum` | `30` | Minimum timeout a caller may request; lower values are rejected by the Lambda |

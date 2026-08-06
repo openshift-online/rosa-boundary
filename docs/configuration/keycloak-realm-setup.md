@@ -14,7 +14,7 @@ Configure a Keycloak realm for AWS Lambda OIDC authentication using the `Keycloa
 ```
 rosa-boundary (realm)
 ├── Clients
-│   └── aws-sre-access (OIDC client)
+│   └── rosa-boundary-sre (OIDC client)
 │       ├── Redirect URIs
 │       ├── Protocol Mappers
 │       └── Client Secret
@@ -50,8 +50,8 @@ spec:
 
     # OIDC Client for AWS SRE Access
     clients:
-      - clientId: aws-sre-access
-        name: "AWS SRE Access"
+      - clientId: rosa-boundary-sre
+        name: "ROSA Boundary SRE"
         enabled: true
         protocol: openid-connect
         publicClient: true
@@ -122,7 +122,7 @@ spec:
             protocolMapper: oidc-audience-mapper
             consentRequired: false
             config:
-              included.client.audience: "aws-sre-access"
+              included.client.audience: "rosa-boundary-sre"
               id.token.claim: "true"
               access.token.claim: "true"
 
@@ -223,7 +223,7 @@ curl -sk -H "Authorization: Bearer $TOKEN" \
 
 # Verify client exists
 curl -sk -H "Authorization: Bearer $TOKEN" \
-  "$KEYCLOAK_URL/admin/realms/rosa-boundary/clients" | jq '.[] | select(.clientId=="aws-sre-access")'
+  "$KEYCLOAK_URL/admin/realms/rosa-boundary/clients" | jq '.[] | select(.clientId=="rosa-boundary-sre")'
 ```
 
 ## Creating Users and Group Assignments
@@ -313,7 +313,7 @@ echo "$ID_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '.'
 # {
 #   "iss": "https://<keycloak>/realms/rosa-boundary",
 #   "sub": "<user-uuid>",
-#   "aud": "aws-sre-access",
+#   "aud": "rosa-boundary-sre",
 #   "email": "user@example.com",
 #   "name": "Jane Doe",
 #   "groups": ["sre-operators"]

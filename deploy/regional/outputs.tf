@@ -100,12 +100,12 @@ output "lambda_function_url" {
 
 output "lambda_function_name" {
   description = "Name of the create-investigation Lambda function"
-  value       = aws_lambda_function.create_investigation.function_name
+  value       = local.create_investigation_function_name
 }
 
 output "lambda_function_arn" {
   description = "ARN of the create-investigation Lambda function"
-  value       = aws_lambda_function.create_investigation.arn
+  value       = local.create_investigation_function_arn
 }
 
 output "lambda_role_arn" {

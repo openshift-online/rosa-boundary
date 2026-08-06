@@ -55,3 +55,10 @@ required_groups = ["ai-sd-sre"]
 # Optional OIDC overrides (defaults are usually fine)
 # oidc_client_id        = "aws-sre-access"
 # oidc_session_duration = 3600  # 1 hour
+
+# Lambda packaging (default: ZIP)
+# Set to "Image" for container image deployment (required for HCP Terraform remote execution).
+# See docs/runbooks/lambda-zip-to-image-migration.md for migration steps.
+# lambda_package_type = "Image"
+# lambda_image_uri    = "123456789012.dkr.ecr.us-east-1.amazonaws.com/rosa-boundary-create-investigation"
+# lambda_image_tag    = "latest"

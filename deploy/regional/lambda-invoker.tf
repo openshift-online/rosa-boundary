@@ -77,7 +77,7 @@ resource "aws_iam_role_policy" "lambda_invoker" {
     Statement = [{
       Effect   = "Allow"
       Action   = "lambda:InvokeFunction"
-      Resource = aws_lambda_function.create_investigation.arn
+      Resource = local.create_investigation_function_arn
     }]
   })
 }

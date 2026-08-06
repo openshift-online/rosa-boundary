@@ -51,6 +51,29 @@ variable "container_image" {
   type        = string
 }
 
+variable "lambda_package_type" {
+  description = "Packaging type for the create-investigation Lambda. Use 'Zip' for traditional deployment (default), 'Image' for container image deployment (required for HCP Terraform remote execution). See docs/runbooks/lambda-zip-to-image-migration.md for migration steps."
+  type        = string
+  default     = "Zip"
+
+  validation {
+    condition     = contains(["Zip", "Image"], var.lambda_package_type)
+    error_message = "lambda_package_type must be either 'Zip' or 'Image'."
+  }
+}
+
+variable "lambda_image_uri" {
+  description = "ECR repository URI for the create-investigation Lambda container image (without tag). Required when lambda_package_type is 'Image'."
+  type        = string
+  default     = ""
+}
+
+variable "lambda_image_tag" {
+  description = "Image tag for the create-investigation Lambda container image. Only used when lambda_package_type is 'Image'."
+  type        = string
+  default     = "latest"
+}
+
 variable "container_cpu" {
   description = "CPU units for the Fargate task (256, 512, 1024, 2048, 4096)"
   type        = number

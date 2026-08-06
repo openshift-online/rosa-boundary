@@ -17,6 +17,13 @@
 # HEALTHCHECK: not applicable. AWS Lambda ignores Docker health checks and
 # manages function health through its own invocation lifecycle.
 #
+# USER directive: intentionally omitted. AWS Lambda overrides the container
+# user at runtime with its own least-privileged non-root identity — the UID
+# and username are not documented and may vary. A USER instruction in the
+# Containerfile has no effect. The sre user (UID 1000) requirement in
+# AGENTS.md applies to the ECS Fargate container only.
+# Ref: https://docs.aws.amazon.com/lambda/latest/dg/python-image.html
+#
 # Build:
 #   podman build --tag create-investigation-lambda:dev \
 #     --file lambda/create-investigation/Containerfile lambda/create-investigation/

@@ -97,4 +97,9 @@ lambda: build-lambda  ## Update Lambda function only
 	@echo "Deploying Lambda function..."
 	@source $(ENV_FILE) && \
 	export TF_VAR_keycloak_issuer_url="$$KEYCLOAK_ISSUER_URL" && \
-	terraform apply -target=aws_lambda_function.create_investigation -auto-approve
+	terraform apply \
+		-target=aws_lambda_function.create_investigation_zip \
+		-target=aws_lambda_function.create_investigation_image \
+		-target=aws_lambda_function_url.create_investigation \
+		-target=aws_lambda_permission.create_investigation_url \
+		-auto-approve

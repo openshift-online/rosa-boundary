@@ -6,8 +6,16 @@
 # deployment via ECR. This replaces the ZIP packaging approach that was
 # incompatible with HCP Terraform remote execution (no Podman/pip on runners).
 #
-# Base image: AWS Lambda Python 3.11 runtime (public ECR, Amazon Linux 2)
-# Architecture: linux/amd64 only (Lambda x86_64)
+# Base image: AWS Lambda Python 3.11 runtime (public ECR, Amazon Linux 2).
+# Not pinned by digest: AWS manages security patches for Lambda base images
+# and the runtime expects compatible base image versions. This is an
+# intentional divergence from the main container's pinned-digest pattern.
+#
+# Architecture: linux/amd64 only (Lambda x86_64). Multi-arch via
+# platform_convert does not apply — Lambda functions target a single arch.
+#
+# HEALTHCHECK: not applicable. AWS Lambda ignores Docker health checks and
+# manages function health through its own invocation lifecycle.
 #
 # Build:
 #   podman build --tag create-investigation-lambda:dev \
@@ -65,11 +73,11 @@ LABEL org.opencontainers.image.title="create-investigation-lambda" \
 # Copy pre-built Python dependencies from the builder stage into the Lambda
 # task root. The trailing slash on the destination ensures files land directly
 # in LAMBDA_TASK_ROOT rather than in a subdirectory.
-COPY --from=builder /deps/ ${LAMBDA_TASK_ROOT}/
+COPY --chmod=0644 --from=builder /deps/ ${LAMBDA_TASK_ROOT}/
 
 # Copy the Lambda handler source. This layer is small and changes frequently,
 # so it sits after the dependency layer for optimal cache behaviour.
-COPY handler.py ${LAMBDA_TASK_ROOT}/
+COPY --chmod=0644 handler.py ${LAMBDA_TASK_ROOT}/
 
 # Set the Lambda handler entrypoint: module.function
 CMD ["handler.lambda_handler"]

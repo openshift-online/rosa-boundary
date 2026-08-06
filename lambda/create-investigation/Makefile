@@ -1,5 +1,5 @@
 .PHONY: clean deps deps-local build test test-unit test-coverage help deploy package validate test-local test-localstack test-e2e-localstack \
-        build-image push-image
+        build-image check-ecr-registry push-image
 
 # Variables
 CONTAINER_RUNTIME ?= podman
@@ -145,11 +145,13 @@ build-image: ## Build the Lambda container image locally (linux/amd64)
 		--file Containerfile .
 	@echo "Lambda container image built: $(LAMBDA_IMAGE)"
 
-push-image: build-image ## Push Lambda container image to ECR (requires ECR_REGISTRY)
+check-ecr-registry: ## Verify ECR_REGISTRY is set (runs before push-image)
 	@if [ -z "$(ECR_REGISTRY)" ]; then \
 		echo "Error: ECR_REGISTRY not set. Usage: make push-image ECR_REGISTRY=<account>.dkr.ecr.<region>.amazonaws.com"; \
 		exit 1; \
 	fi
+
+push-image: check-ecr-registry build-image ## Push Lambda container image to ECR (requires ECR_REGISTRY)
 	@echo "Tagging and pushing to $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)..."
 	$(CONTAINER_RUNTIME) tag $(LAMBDA_IMAGE) $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)
 	$(CONTAINER_RUNTIME) push $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)

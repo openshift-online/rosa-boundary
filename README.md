@@ -58,7 +58,7 @@ See the [AWS documentation](https://docs.aws.amazon.com/systems-manager/latest/u
    | `container_image` | Container image URI |
    | `vpc_id` | VPC for Fargate tasks |
    | `subnet_ids` | 2+ subnets in the same VPC |
-   | `keycloak_issuer_url` | OIDC issuer URL (e.g., `https://keycloak.example.com/realms/sre-ops`) |
+   | `keycloak_issuer_url` | OIDC issuer URL (e.g., `https://keycloak.example.com/realms/EmployeeIDP`) |
    | `keycloak_thumbprint` | SHA1 thumbprint of the Keycloak TLS certificate |
 
 3. Deploy:
@@ -79,11 +79,11 @@ Keycloak must issue tokens with these claims:
 | `preferred_username` | Used as `username` tag (ABAC key) |
 | `email` | Logged |
 | `groups` | Must contain `sre-team` |
-| `aud` | Must match `aws-sre-access` |
+| `aud` | Must match `rosa-boundary-sre` |
 | `https://aws.amazon.com/tags` | Session tags with `principal_tags.username` for ABAC |
 
 Required Keycloak mappers:
-- Groups (flat names), email, audience (`aws-sre-access`)
+- Groups (flat names), email, audience (`rosa-boundary-sre`)
 - AWS session tags: map `preferred_username` → `principal_tags.username`
 
 Client settings: public client, standard flow + PKCE, redirect URI `http://localhost:8400/callback`.
@@ -193,8 +193,8 @@ rosa-boundary/
 ```
 --verbose, -v           Enable verbose/debug output
 --keycloak-url          Keycloak base URL
---realm                 Keycloak realm (default: sre-ops)
---client-id             OIDC client ID (default: aws-sre-access)
+--realm                 Keycloak realm (default: EmployeeIDP)
+--client-id             OIDC client ID (default: rosa-boundary-sre)
 --region                AWS region (default: us-east-2)
 --ecs-cluster           ECS cluster name (default: rosa-boundary-dev)
 --lambda-function-name  Lambda function name or ARN

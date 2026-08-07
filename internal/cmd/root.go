@@ -46,8 +46,8 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose/debug output")
 	rootCmd.PersistentFlags().String("keycloak-url", "", "Keycloak base URL")
-	rootCmd.PersistentFlags().String("realm", "", "Keycloak realm (default: sre-ops)")
-	rootCmd.PersistentFlags().String("client-id", "", "OIDC client ID (default: aws-sre-access)")
+	rootCmd.PersistentFlags().String("realm", "", "Keycloak realm (default: EmployeeIDP)")
+	rootCmd.PersistentFlags().String("client-id", "", "OIDC client ID (default: rosa-boundary-sre)")
 	rootCmd.PersistentFlags().String("region", "", "AWS region (default: us-east-2)")
 	rootCmd.PersistentFlags().String("ecs-cluster", "", "ECS cluster name (default: rosa-boundary-dev)")
 	rootCmd.PersistentFlags().String("role-arn", "", "SRE role ARN (overrides Lambda response)")

@@ -33,9 +33,10 @@ tags = {
 # Default: Red Hat EmployeeIDP. For self-managed Keycloak, replace with your issuer URL.
 keycloak_issuer_url = "https://auth.redhat.com/auth/realms/EmployeeIDP"
 
-# SHA1 thumbprint of the OIDC provider's TLS certificate.
+# SHA1 thumbprint of the OIDC provider's top CA TLS certificate.
 # Default: auth.redhat.com (EmployeeIDP). Regenerate if using a different provider:
-# openssl s_client -connect <host>:443 -servername <host> < /dev/null 2>/dev/null \
+# openssl s_client -showcerts -connect <host>:443 -servername <host> < /dev/null 2>/dev/null \
+#   | awk '/-----BEGIN CERTIFICATE-----/{c=""} {c=c$0"\n"} /-----END CERTIFICATE-----/{last=c} END{printf "%s",last}' \
 #   | openssl x509 -fingerprint -sha1 -noout | sed 's/://g' | awk -F= '{print tolower($2)}'
 keycloak_thumbprint = "6541cf7958127d300fe86fd7ff324e836c75b53b"
 

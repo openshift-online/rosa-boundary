@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.5"
+  required_version = "1.15.8"
 
   required_providers {
     aws = {
@@ -7,6 +7,11 @@ terraform {
       version = "~> 6.0"
     }
   }
+}
+
+provider "aws" {
+  region              = var.aws_region
+  allowed_account_ids = [var.aws_account_id]
 }
 
 # Data sources
@@ -46,8 +51,8 @@ check "subnet_outbound_routing" {
     condition = alltrue([
       for rt in data.aws_route_table.subnet : anytrue([
         for route in rt.routes :
-          route.cidr_block == "0.0.0.0/0" &&
-          (route.nat_gateway_id != "" || route.gateway_id != "")
+        route.cidr_block == "0.0.0.0/0" &&
+        (route.nat_gateway_id != "" || route.gateway_id != "")
       ])
     ])
     error_message = "One or more subnets in subnet_ids lack a default route (0.0.0.0/0) via a NAT gateway or internet gateway. Fargate tasks in these subnets cannot reach ECR. Verify route table associations for each subnet."
@@ -56,12 +61,12 @@ check "subnet_outbound_routing" {
 
 # Local values for naming convention
 locals {
-  bucket_name = "${data.aws_caller_identity.current.account_id}-${var.project}-${var.stage}-${data.aws_region.current.name}"
+  bucket_name = "${data.aws_caller_identity.current.account_id}-${var.project}-${var.stage}-${data.aws_region.current.region}"
 
   common_tags = merge(var.tags, {
     Project   = var.project
     Stage     = var.stage
-    Region    = data.aws_region.current.name
+    Region    = data.aws_region.current.region
     ManagedBy = "Terraform"
   })
 }

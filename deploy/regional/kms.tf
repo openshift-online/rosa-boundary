@@ -20,7 +20,7 @@ resource "aws_kms_key" "exec_session" {
         Sid    = "Allow CloudWatch Logs"
         Effect = "Allow"
         Principal = {
-          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+          Service = "logs.${data.aws_region.current.region}.${data.aws_partition.current.dns_suffix}"
         }
         Action = [
           "kms:Encrypt",
@@ -33,7 +33,7 @@ resource "aws_kms_key" "exec_session" {
         Resource = "*"
         Condition = {
           ArnLike = {
-            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.project}-${var.stage}/ssm-sessions"
+            "kms:EncryptionContext:aws:logs:arn" = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/ecs/${var.project}-${var.stage}/ssm-sessions"
           }
         }
       },

@@ -4,8 +4,8 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 
 ## Prerequisites
 
-- **Terraform** >= 1.5
-- **AWS CLI** configured with appropriate credentials
+- **Terraform** 1.15.8 (pinned for HCP Terraform compatibility)
+- **AWS CLI** configured with appropriate credentials (local development only)
 - **VPC** with at least 2 subnets (for high availability)
 - **Container image** pushed to a container registry (ECR, Docker Hub, etc.)
 
@@ -41,7 +41,43 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 - **Security Groups**: For Fargate tasks and EFS mount targets
 - **CloudWatch Log Group**: For container logs
 
-## Quick Start
+## Execution Modes
+
+### HCP Terraform (Remote Execution)
+
+HCP Terraform executes Terraform directly in `deploy/regional` as the working
+directory. Key differences from local execution:
+
+- HCP Terraform **does not** automatically source the repository-root `.env`.
+- HCP Terraform **does not** run the regional `Makefile` or its `build-lambda` target.
+- All deployment values must be supplied through HCP Terraform workspace
+  variables or approved variable sets — not hardcoded into generic resources.
+- The `Makefile` and `.env` workflow remain a local-development convenience,
+  not a dependency of the Terraform root module.
+
+#### Required HCP Terraform Workspace Variables
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `aws_account_id` | string | 12-digit AWS account ID (provider deployment guard) |
+| `aws_region` | string | AWS region for all resources |
+| `stage` | string | Environment stage (`dev`, `stage`, `prod`) |
+| `vpc_id` | string | VPC ID where Fargate tasks run |
+| `subnet_ids` | list(string) | Private subnet IDs (minimum 2 for HA) |
+| `container_image` | string | Container image URI |
+| `keycloak_issuer_url` | string | Keycloak OIDC issuer URL |
+| `keycloak_thumbprint` | string (sensitive) | SHA1 thumbprint of Keycloak TLS certificate |
+| `required_groups` | list(string) | Groups allowed to create/join investigations |
+
+#### Optional Variables with Defaults
+
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `abac_tag_key` | `"username"` | ECS task tag key for ABAC isolation. The correct value depends on the OIDC provider's principal-tag claim mapping. |
+
+This PR does not create or configure an HCP Terraform workspace.
+
+### Local Development
 
 > **Run all `make` commands from the project root**, not from this directory.
 > The `deploy/regional/Makefile` sources `.env` from the project root and builds
@@ -109,8 +145,11 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
+| `aws_account_id` | string | **required** | 12-digit AWS account ID (provider deployment guard) |
+| `aws_region` | string | **required** | AWS region for all resources |
 | `project` | string | `"rosa-boundary"` | Project name for resource naming |
-| `stage` | string | `"dev"` | Environment stage (dev, staging, prod) |
+| `stage` | string | `"dev"` | Environment stage (dev, stage, prod) |
+| `retention_days` | number | `90` | S3 object lock retention period (1-3650 days) |
 | `retention_days` | number | `90` | Retention period for S3 and CloudWatch Logs (see [valid values](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SttingLogRetention)) |
 | `container_image` | string | **required** | Container image URI |
 | `container_cpu` | number | See `variables.tf` | Fargate CPU units (see [task size](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size)) |

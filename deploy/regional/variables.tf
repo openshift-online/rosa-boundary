@@ -1,3 +1,23 @@
+variable "aws_account_id" {
+  description = "AWS account ID used as a provider deployment guard via allowed_account_ids. Supplied by the HCP Terraform workspace."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.aws_account_id))
+    error_message = "AWS account ID must be exactly 12 digits."
+  }
+}
+
+variable "aws_region" {
+  description = "AWS region for all regional resources. Supplied by the HCP Terraform workspace."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]$", var.aws_region))
+    error_message = "Must be a valid AWS region identifier (e.g., us-east-1)."
+  }
+}
+
 variable "project" {
   description = "Project name (used in resource naming)"
   type        = string
@@ -5,13 +25,13 @@ variable "project" {
 }
 
 variable "stage" {
-  description = "Environment stage (e.g., dev, prod)"
+  description = "Environment stage (e.g., dev, stage, prod)"
   type        = string
   default     = "dev"
 
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.stage)
-    error_message = "Stage must be one of: dev, staging, prod"
+    condition     = contains(["dev", "stage", "prod"], var.stage)
+    error_message = "Stage must be one of: dev, stage, prod."
   }
 }
 

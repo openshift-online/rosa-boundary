@@ -1,6 +1,9 @@
 # ROSA Boundary Terraform Configuration
 # Copy this file to terraform.tfvars and update with your values
 
+aws_account_id = "<12-digit-aws-account-id>"
+aws_region     = "<aws-region>"
+
 project         = "rosa-boundary"
 stage           = "dev"
 retention_days  = 90  # S3 WORM compliance retention period in days

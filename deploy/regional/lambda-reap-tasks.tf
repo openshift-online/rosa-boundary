@@ -57,14 +57,14 @@ resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
         Action = [
           "ecs:DescribeTasks"
         ]
-        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
       },
       {
         Effect = "Allow"
         Action = [
           "ecs:StopTask"
         ]
-        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
         Condition = {
           "ForAnyValue:StringLike" = {
             "ecs:ResourceTag/deadline" = "*"

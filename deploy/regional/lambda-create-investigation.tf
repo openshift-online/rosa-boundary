@@ -125,30 +125,30 @@ resource "aws_lambda_function" "create_investigation" {
 
   environment {
     variables = {
-      KEYCLOAK_URL         = regex("^(.+)/realms/", var.keycloak_issuer_url)[0]
-      KEYCLOAK_REALM       = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
-      KEYCLOAK_CLIENT_ID   = var.oidc_client_id
-      OIDC_PROVIDER_ARN    = aws_iam_openid_connect_provider.keycloak.arn
-      ECS_CLUSTER          = aws_ecs_cluster.main.name
-      TASK_DEFINITION      = aws_ecs_task_definition.rosa_boundary.family
-      TASK_ROLE_ARN        = aws_iam_role.task.arn
-      EXECUTION_ROLE_ARN   = aws_iam_role.execution.arn
-      SUBNETS              = join(",", var.subnet_ids)
-      SECURITY_GROUP       = aws_security_group.fargate.id
-      EFS_FILESYSTEM_ID    = aws_efs_file_system.sre_home.id
-      SHARED_ROLE_ARN      = aws_iam_role.sre_shared.arn
-      INVOKER_ROLE_ARN     = aws_iam_role.lambda_invoker.arn
-      S3_AUDIT_BUCKET      = aws_s3_bucket.audit.id
-      AWS_ACCOUNT_ID       = data.aws_caller_identity.current.account_id
-      PROJECT_NAME         = var.project
-      REQUIRED_GROUPS            = join(",", var.required_groups)
-      ABAC_TAG_KEY               = var.abac_tag_key
-      TASK_TIMEOUT_DEFAULT       = tostring(var.task_timeout_default)
-      TASK_TIMEOUT_MINIMUM       = tostring(var.task_timeout_minimum)
-      STAGE_KEYCLOAK_ISSUER_URL  = var.stage_keycloak_issuer_url
-      STAGE_OIDC_CLIENT_ID       = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
-      PROD_KEYCLOAK_ISSUER_URL   = var.prod_keycloak_issuer_url
-      PROD_OIDC_CLIENT_ID        = var.prod_keycloak_issuer_url != "" ? var.prod_oidc_client_id : ""
+      KEYCLOAK_URL              = regex("^(.+)/realms/", var.keycloak_issuer_url)[0]
+      KEYCLOAK_REALM            = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
+      KEYCLOAK_CLIENT_ID        = var.oidc_client_id
+      OIDC_PROVIDER_ARN         = aws_iam_openid_connect_provider.keycloak.arn
+      ECS_CLUSTER               = aws_ecs_cluster.main.name
+      TASK_DEFINITION           = aws_ecs_task_definition.rosa_boundary.family
+      TASK_ROLE_ARN             = aws_iam_role.task.arn
+      EXECUTION_ROLE_ARN        = aws_iam_role.execution.arn
+      SUBNETS                   = join(",", var.subnet_ids)
+      SECURITY_GROUP            = aws_security_group.fargate.id
+      EFS_FILESYSTEM_ID         = aws_efs_file_system.sre_home.id
+      SHARED_ROLE_ARN           = aws_iam_role.sre_shared.arn
+      INVOKER_ROLE_ARN          = aws_iam_role.lambda_invoker.arn
+      S3_AUDIT_BUCKET           = aws_s3_bucket.audit.id
+      AWS_ACCOUNT_ID            = data.aws_caller_identity.current.account_id
+      PROJECT_NAME              = var.project
+      REQUIRED_GROUPS           = join(",", var.required_groups)
+      ABAC_TAG_KEY              = var.abac_tag_key
+      TASK_TIMEOUT_DEFAULT      = tostring(var.task_timeout_default)
+      TASK_TIMEOUT_MINIMUM      = tostring(var.task_timeout_minimum)
+      STAGE_KEYCLOAK_ISSUER_URL = var.stage_keycloak_issuer_url
+      STAGE_OIDC_CLIENT_ID      = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
+      PROD_KEYCLOAK_ISSUER_URL  = var.prod_keycloak_issuer_url
+      PROD_OIDC_CLIENT_ID       = var.prod_keycloak_issuer_url != "" ? var.prod_oidc_client_id : ""
     }
   }
 

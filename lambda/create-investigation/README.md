@@ -20,7 +20,7 @@ This Lambda implements a secure workflow for creating investigation tasks:
 |----------|-------------|---------|
 | `KEYCLOAK_URL` | Keycloak server URL | `https://keycloak.example.com` |
 | `KEYCLOAK_REALM` | Keycloak realm name | `rosa-boundary` |
-| `KEYCLOAK_CLIENT_ID` | Expected OIDC audience claim | `rosa-boundary-api` |
+| `KEYCLOAK_CLIENT_ID` | Expected OIDC audience claim | `rosa-boundary-sre` |
 | `OIDC_PROVIDER_ARN` | ARN of OIDC identity provider in IAM | `arn:aws:iam::123456789012:oidc-provider/keycloak.example.com` |
 | `ECS_CLUSTER` | ECS cluster name | `rosa-boundary-cluster` |
 | `TASK_DEFINITION` | Base task definition name/ARN | `rosa-boundary-base:1` |
@@ -144,7 +144,7 @@ Roles trust the Keycloak OIDC provider with subject and audience matching:
       "Condition": {
         "StringEquals": {
           "keycloak.example.com:sub": "auth0|abc123...",
-          "keycloak.example.com:aud": "rosa-boundary-api"
+          "keycloak.example.com:aud": "rosa-boundary-sre"
         }
       }
     }
@@ -276,7 +276,7 @@ JWKS URL format:
 ```json
 {
   "sub": "auth0|abc123...",
-  "aud": "rosa-boundary-api",
+  "aud": "rosa-boundary-sre",
   "preferred_username": "jdoe@example.com",
   "email": "jdoe@example.com",
   "groups": ["sre-team", "admins"]
@@ -296,7 +296,7 @@ pip install -r requirements.txt
 ```bash
 export KEYCLOAK_URL="https://keycloak.example.com"
 export KEYCLOAK_REALM="rosa-boundary"
-export KEYCLOAK_CLIENT_ID="rosa-boundary-api"
+export KEYCLOAK_CLIENT_ID="rosa-boundary-sre"
 export OIDC_PROVIDER_ARN="arn:aws:iam::123456789012:oidc-provider/keycloak.example.com"
 export ECS_CLUSTER="rosa-boundary-cluster"
 export TASK_DEFINITION="rosa-boundary-base:1"
@@ -318,7 +318,7 @@ claims = validate_oidc_token(
     token,
     "https://keycloak.example.com",
     "rosa-boundary",
-    "rosa-boundary-api"
+    "rosa-boundary-sre"
 )
 print(json.dumps(claims, indent=2))
 ```

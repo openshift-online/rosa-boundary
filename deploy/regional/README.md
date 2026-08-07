@@ -150,9 +150,10 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `project` | string | `"rosa-boundary"` | Project name for resource naming |
 | `stage` | string | `"dev"` | Environment stage (dev, stage, prod) |
 | `retention_days` | number | `90` | S3 object lock retention period (1-3650 days) |
+| `retention_days` | number | `90` | Retention period for S3 and CloudWatch Logs (see [valid values](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SttingLogRetention)) |
 | `container_image` | string | **required** | Container image URI |
-| `container_cpu` | number | `512` | Fargate CPU units (256, 512, 1024, 2048, 4096) |
-| `container_memory` | number | `1024` | Fargate memory in MB (512-30720) |
+| `container_cpu` | number | See `variables.tf` | Fargate CPU units (see [task size](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size)) |
+| `container_memory` | number | See `variables.tf` | Fargate memory in MB (see [task size](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size)) |
 | `vpc_id` | string | **required** | VPC ID for Fargate tasks |
 | `subnet_ids` | list(string) | **required** | Subnet IDs (minimum 2 for HA) |
 | `log_retention_days` | number | `7` | CloudWatch log retention period |

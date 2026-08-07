@@ -4,11 +4,29 @@
 
 This guide provides step-by-step instructions for SRE users to create investigations and access containers using the `rosa-boundary` CLI with Keycloak OIDC authentication and AWS ECS Exec.
 
+## Getting Access
+
+The create-investigation Lambda checks that your OIDC token contains membership in at least one group listed in the deployment's `required_groups` configuration. How you obtain that membership depends on the identity provider.
+
+### Red Hat EmployeeIDP (staging and shared deployments)
+
+EmployeeIDP tokens carry group memberships as LDAP-synced realm roles under `realm_access.roles`. No Keycloak admin action is needed — membership is managed upstream:
+
+1. **Identify the required group** — ask the deployment operator which group(s) are configured in `required_groups` (e.g., `ai-sd-sre`).
+2. **Request membership** — group membership is managed via LDAP. Depending on the group, this is done through either:
+   - **[app-interface](https://gitlab.cee.redhat.com/service/app-interface)** — for groups defined in app-interface role files (e.g., [sd-sre/roles/sre.yml](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/data/teams/sd-sre/roles/sre.yml)). Submit an MR adding your rover ID to the appropriate role.
+   - **[Rover](https://rover.redhat.com)** — for standalone LDAP groups not managed through app-interface. Request group membership directly through rover.
+3. **Verify** — after group membership propagates, run `rosa-boundary login` and attempt `start-task`. A 403 from the Lambda means your token does not yet contain the required group.
+
+### Self-managed Keycloak (developer deployments)
+
+For deployments using a self-hosted Keycloak instance, groups are created and assigned manually by the Keycloak administrator. See [Keycloak Realm Setup](../configuration/keycloak-realm-setup.md) for group and user configuration.
+
 ## Prerequisites
 
 Before you can access investigation containers, you need:
 
-1. ✅ Keycloak account with `sre-team` group membership
+1. ✅ Membership in a `required_groups` group (see [Getting Access](#getting-access) above)
 2. ✅ AWS CLI installed and configured
 3. ✅ `session-manager-plugin` installed (required for `join-task`)
 4. ✅ `rosa-boundary` CLI built or installed
@@ -105,7 +123,7 @@ This opens a browser for Keycloak PKCE authentication and caches the token at
 This will:
 1. Assume the invoker role via STS
 2. Invoke the create-investigation Lambda with your cached OIDC token
-3. Lambda validates group membership (`sre-team`)
+3. Lambda validates group membership (against `required_groups`)
 4. Lambda creates an EFS access point and per-investigation task definition
 5. Lambda launches the ECS task tagged with your username
 6. CLI prints the task ID — save it for the next steps
@@ -209,11 +227,11 @@ aws ecs describe-tasks \
 
 2. Verify your Keycloak credentials by logging in at the Keycloak URL
 
-3. Check group membership — Lambda requires `sre-team`
+3. Check group membership — see [Getting Access](#getting-access)
 
 ### "AccessDenied" from Lambda
 
-1. Verify group membership (`sre-team`) in Keycloak
+1. Verify group membership — see [Getting Access](#getting-access)
 2. Confirm the invoker role ARN in your config matches what the administrator provided
 3. Token may be expired — clear cache and re-login (see above)
 

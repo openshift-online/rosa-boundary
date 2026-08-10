@@ -8,8 +8,23 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "true"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "pull_request" && target_branch
-      == "main"
+    # Path filter: only trigger builds when container-affecting files change.
+    # Containerfile       - build definition, base image digest, tool version ARGs
+    # entrypoint.sh       - container entrypoint (signal handling, version selection)
+    # .containerignore    - build context filter
+    # build/              - multi-arch helper (platform_convert) and GitHub download helper
+    # skel/               - skeleton user config (bashrc.d, .claude/, .local/bin/)
+    # .tekton/            - pipeline definitions (validate pipeline changes themselves)
+    pipelinesascode.tekton.dev/on-cel-expression: |
+      event == "pull_request" && target_branch == "main"
+      && files.all.exists(x,
+           x.matches('^Containerfile$')
+        || x.matches('^entrypoint\\.sh$')
+        || x.matches('^\\.containerignore$')
+        || x.matches('^build/')
+        || x.matches('^skel/')
+        || x.matches('^\\.tekton/')
+      )
   labels:
     appstudio.openshift.io/application: rosa-boundary
     appstudio.openshift.io/component: rosa-boundary

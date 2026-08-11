@@ -55,3 +55,10 @@ required_groups = ["ai-sd-sre"]
 # Optional OIDC overrides (defaults are usually fine)
 # oidc_client_id        = "aws-sre-access"
 # oidc_session_duration = 3600  # 1 hour
+
+# Lambda packaging (default: ZIP)
+# Set to "Image" for container image deployment (required for HCP Terraform remote execution).
+# The ECR cache must be seeded before apply — see docs/runbooks/lambda-zip-to-image-migration.md.
+# lambda_package_type     = "Image"
+# lambda_image_repository = "redhat-user-workloads/rosa-tenant/rosa-boundary/lambda-create-investigation"
+# lambda_image_tag        = "on-pr-194-abcdef0"  # Use an immutable tag (git SHA, release version), not "latest"

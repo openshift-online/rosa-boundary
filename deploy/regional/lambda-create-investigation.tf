@@ -88,13 +88,32 @@ resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
   })
 }
 
-# Archive the Lambda function code
+# Packaging mode: container image when lambda_package_type is "Image", ZIP otherwise.
+# This allows existing deployments (staging) to continue using ZIP packaging
+# while dev/new deployments can opt-in to container image packaging for HCP
+# Terraform compatibility.
+locals {
+  lambda_use_image = var.lambda_package_type == "Image"
+
+  # ECR pull-through cache URI, constructed from the quay.io repository path.
+  # Format: <account>.dkr.ecr.<region>.amazonaws.com/<project>-quay/<quay-path>:<tag>
+  lambda_ecr_image_uri = (
+    local.lambda_use_image
+    ? "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.region}.amazonaws.com/${var.project}-quay/${var.lambda_image_repository}:${var.lambda_image_tag}"
+    : ""
+  )
+}
+
+# Archive the Lambda function code (ZIP packaging only)
 data "archive_file" "create_investigation_lambda" {
+  count = local.lambda_use_image ? 0 : 1
+
   type        = "zip"
   source_dir  = "${path.module}/../../lambda/create-investigation"
   output_path = "${path.module}/.terraform/lambda/create-investigation.zip"
 
   excludes = [
+    "Containerfile",
     "test_handler.py",
     "conftest.py",
     "pytest.ini",
@@ -112,44 +131,52 @@ data "archive_file" "create_investigation_lambda" {
   ]
 }
 
-# Lambda function
-resource "aws_lambda_function" "create_investigation" {
-  filename         = data.archive_file.create_investigation_lambda.output_path
+# Lambda environment variables shared by both packaging modes
+locals {
+  lambda_env_vars = {
+    KEYCLOAK_URL              = regex("^(.+)/realms/", var.keycloak_issuer_url)[0]
+    KEYCLOAK_REALM            = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
+    KEYCLOAK_CLIENT_ID        = var.oidc_client_id
+    OIDC_PROVIDER_ARN         = aws_iam_openid_connect_provider.keycloak.arn
+    ECS_CLUSTER               = aws_ecs_cluster.main.name
+    TASK_DEFINITION           = aws_ecs_task_definition.rosa_boundary.family
+    TASK_ROLE_ARN             = aws_iam_role.task.arn
+    EXECUTION_ROLE_ARN        = aws_iam_role.execution.arn
+    SUBNETS                   = join(",", var.subnet_ids)
+    SECURITY_GROUP            = aws_security_group.fargate.id
+    EFS_FILESYSTEM_ID         = aws_efs_file_system.sre_home.id
+    SHARED_ROLE_ARN           = aws_iam_role.sre_shared.arn
+    INVOKER_ROLE_ARN          = aws_iam_role.lambda_invoker.arn
+    S3_AUDIT_BUCKET           = aws_s3_bucket.audit.id
+    AWS_ACCOUNT_ID            = data.aws_caller_identity.current.account_id
+    PROJECT_NAME              = var.project
+    REQUIRED_GROUPS           = join(",", var.required_groups)
+    ABAC_TAG_KEY              = var.abac_tag_key
+    TASK_TIMEOUT_DEFAULT      = tostring(var.task_timeout_default)
+    TASK_TIMEOUT_MINIMUM      = tostring(var.task_timeout_minimum)
+    STAGE_KEYCLOAK_ISSUER_URL = var.stage_keycloak_issuer_url
+    STAGE_OIDC_CLIENT_ID      = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
+    PROD_KEYCLOAK_ISSUER_URL  = var.prod_keycloak_issuer_url
+    PROD_OIDC_CLIENT_ID       = var.prod_keycloak_issuer_url != "" ? var.prod_oidc_client_id : ""
+  }
+
+}
+
+# Lambda function — ZIP packaging (default)
+resource "aws_lambda_function" "create_investigation_zip" {
+  count = local.lambda_use_image ? 0 : 1
+
+  filename         = data.archive_file.create_investigation_lambda[0].output_path
   function_name    = "${var.project}-${var.stage}-create-investigation"
   role             = aws_iam_role.create_investigation_lambda.arn
   handler          = "handler.lambda_handler"
-  source_code_hash = data.archive_file.create_investigation_lambda.output_base64sha256
+  source_code_hash = data.archive_file.create_investigation_lambda[0].output_base64sha256
   runtime          = "python3.11"
   timeout          = 60
   memory_size      = 256
 
   environment {
-    variables = {
-      KEYCLOAK_URL              = regex("^(.+)/realms/", var.keycloak_issuer_url)[0]
-      KEYCLOAK_REALM            = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
-      KEYCLOAK_CLIENT_ID        = var.oidc_client_id
-      OIDC_PROVIDER_ARN         = aws_iam_openid_connect_provider.keycloak.arn
-      ECS_CLUSTER               = aws_ecs_cluster.main.name
-      TASK_DEFINITION           = aws_ecs_task_definition.rosa_boundary.family
-      TASK_ROLE_ARN             = aws_iam_role.task.arn
-      EXECUTION_ROLE_ARN        = aws_iam_role.execution.arn
-      SUBNETS                   = join(",", var.subnet_ids)
-      SECURITY_GROUP            = aws_security_group.fargate.id
-      EFS_FILESYSTEM_ID         = aws_efs_file_system.sre_home.id
-      SHARED_ROLE_ARN           = aws_iam_role.sre_shared.arn
-      INVOKER_ROLE_ARN          = aws_iam_role.lambda_invoker.arn
-      S3_AUDIT_BUCKET           = aws_s3_bucket.audit.id
-      AWS_ACCOUNT_ID            = data.aws_caller_identity.current.account_id
-      PROJECT_NAME              = var.project
-      REQUIRED_GROUPS           = join(",", var.required_groups)
-      ABAC_TAG_KEY              = var.abac_tag_key
-      TASK_TIMEOUT_DEFAULT      = tostring(var.task_timeout_default)
-      TASK_TIMEOUT_MINIMUM      = tostring(var.task_timeout_minimum)
-      STAGE_KEYCLOAK_ISSUER_URL = var.stage_keycloak_issuer_url
-      STAGE_OIDC_CLIENT_ID      = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
-      PROD_KEYCLOAK_ISSUER_URL  = var.prod_keycloak_issuer_url
-      PROD_OIDC_CLIENT_ID       = var.prod_keycloak_issuer_url != "" ? var.prod_oidc_client_id : ""
-    }
+    variables = local.lambda_env_vars
   }
 
   depends_on = [
@@ -160,9 +187,58 @@ resource "aws_lambda_function" "create_investigation" {
   tags = local.common_tags
 }
 
+# Lambda function — container image packaging (when lambda_package_type is "Image")
+resource "aws_lambda_function" "create_investigation_image" {
+  count = local.lambda_use_image ? 1 : 0
+
+  function_name = "${var.project}-${var.stage}-create-investigation"
+  role          = aws_iam_role.create_investigation_lambda.arn
+  package_type  = "Image"
+  image_uri = local.lambda_ecr_image_uri
+  timeout       = 60
+  memory_size   = 256
+
+  environment {
+    variables = local.lambda_env_vars
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.lambda_image_repository != ""
+      error_message = "lambda_image_repository is required when lambda_package_type is 'Image'."
+    }
+    precondition {
+      condition     = var.lambda_image_tag != ""
+      error_message = "lambda_image_tag is required when lambda_package_type is 'Image'. Use an immutable tag (e.g., git SHA or release version), not 'latest'."
+    }
+  }
+
+  depends_on = [
+    aws_cloudwatch_log_group.create_investigation_lambda,
+    aws_iam_role_policy_attachment.create_investigation_lambda_basic,
+    aws_ecr_pull_through_cache_rule.quay
+  ]
+
+  tags = local.common_tags
+}
+
+# Resolve the active Lambda function name regardless of packaging mode
+locals {
+  create_investigation_function_name = (
+    local.lambda_use_image
+    ? aws_lambda_function.create_investigation_image[0].function_name
+    : aws_lambda_function.create_investigation_zip[0].function_name
+  )
+  create_investigation_function_arn = (
+    local.lambda_use_image
+    ? aws_lambda_function.create_investigation_image[0].arn
+    : aws_lambda_function.create_investigation_zip[0].arn
+  )
+}
+
 # Lambda Function URL (simpler than API Gateway)
 resource "aws_lambda_function_url" "create_investigation" {
-  function_name      = aws_lambda_function.create_investigation.function_name
+  function_name      = local.create_investigation_function_name
   authorization_type = "AWS_IAM" # SigV4 enforced; OIDC token validated inside the function
 
   cors {
@@ -181,7 +257,7 @@ resource "aws_lambda_function_url" "create_investigation" {
 resource "aws_lambda_permission" "create_investigation_url" {
   statement_id           = "AllowFunctionURLInvoke"
   action                 = "lambda:InvokeFunctionUrl"
-  function_name          = aws_lambda_function.create_investigation.function_name
+  function_name          = local.create_investigation_function_name
   principal              = aws_iam_role.lambda_invoker.arn
   function_url_auth_type = "AWS_IAM"
 }

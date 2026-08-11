@@ -11,11 +11,6 @@ variable "aws_account_id" {
 variable "aws_region" {
   description = "AWS region for all regional resources. Supplied by the HCP Terraform workspace."
   type        = string
-
-  validation {
-    condition     = can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]$", var.aws_region))
-    error_message = "Must be a valid AWS region identifier (e.g., us-east-1)."
-  }
 }
 
 variable "project" {

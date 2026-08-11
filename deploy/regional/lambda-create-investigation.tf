@@ -94,6 +94,14 @@ resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
 # Terraform compatibility.
 locals {
   lambda_use_image = var.lambda_package_type == "Image"
+
+  # ECR pull-through cache URI, constructed from the quay.io repository path.
+  # Format: <account>.dkr.ecr.<region>.amazonaws.com/<project>-quay/<quay-path>:<tag>
+  lambda_ecr_image_uri = (
+    local.lambda_use_image
+    ? "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.region}.amazonaws.com/${var.project}-quay/${var.lambda_image_repository}:${var.lambda_image_tag}"
+    : ""
+  )
 }
 
 # Archive the Lambda function code (ZIP packaging only)
@@ -186,7 +194,7 @@ resource "aws_lambda_function" "create_investigation_image" {
   function_name = "${var.project}-${var.stage}-create-investigation"
   role          = aws_iam_role.create_investigation_lambda.arn
   package_type  = "Image"
-  image_uri     = "${var.lambda_image_uri}:${var.lambda_image_tag}"
+  image_uri = local.lambda_ecr_image_uri
   timeout       = 60
   memory_size   = 256
 
@@ -196,14 +204,15 @@ resource "aws_lambda_function" "create_investigation_image" {
 
   lifecycle {
     precondition {
-      condition     = var.lambda_image_uri != ""
-      error_message = "lambda_image_uri is required when lambda_package_type is 'Image'."
+      condition     = var.lambda_image_repository != ""
+      error_message = "lambda_image_repository is required when lambda_package_type is 'Image'."
     }
   }
 
   depends_on = [
     aws_cloudwatch_log_group.create_investigation_lambda,
-    aws_iam_role_policy_attachment.create_investigation_lambda_basic
+    aws_iam_role_policy_attachment.create_investigation_lambda_basic,
+    aws_ecr_pull_through_cache_rule.quay
   ]
 
   tags = local.common_tags

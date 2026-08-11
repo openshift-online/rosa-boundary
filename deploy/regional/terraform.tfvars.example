@@ -58,7 +58,7 @@ required_groups = ["ai-sd-sre"]
 
 # Lambda packaging (default: ZIP)
 # Set to "Image" for container image deployment (required for HCP Terraform remote execution).
-# See docs/runbooks/lambda-zip-to-image-migration.md for migration steps.
-# lambda_package_type = "Image"
-# lambda_image_uri    = "123456789012.dkr.ecr.us-east-1.amazonaws.com/rosa-boundary-create-investigation"
-# lambda_image_tag    = "latest"
+# The ECR cache must be seeded before apply — see docs/runbooks/lambda-zip-to-image-migration.md.
+# lambda_package_type     = "Image"
+# lambda_image_repository = "redhat-user-workloads/rosa-tenant/rosa-boundary/lambda-create-investigation"
+# lambda_image_tag        = "latest"

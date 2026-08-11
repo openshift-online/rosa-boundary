@@ -62,8 +62,8 @@ variable "lambda_package_type" {
   }
 }
 
-variable "lambda_image_uri" {
-  description = "ECR repository URI for the create-investigation Lambda container image (without tag). Required when lambda_package_type is 'Image'."
+variable "lambda_image_repository" {
+  description = "Quay.io repository path for the create-investigation Lambda container image (e.g., 'redhat-user-workloads/rosa-tenant/rosa-boundary/lambda-create-investigation'). Required when lambda_package_type is 'Image'. The image must be seeded into ECR before apply — see docs/runbooks/lambda-zip-to-image-migration.md."
   type        = string
   default     = ""
 }

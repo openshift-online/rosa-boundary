@@ -69,9 +69,9 @@ variable "lambda_image_repository" {
 }
 
 variable "lambda_image_tag" {
-  description = "Image tag for the create-investigation Lambda container image. Only used when lambda_package_type is 'Image'."
+  description = "Image tag for the create-investigation Lambda container image (e.g., a git SHA or release version). Required when lambda_package_type is 'Image'. Avoid mutable tags like 'latest' — Lambda resolves the tag to a digest at deploy time and does not re-resolve when the tag moves."
   type        = string
-  default     = "latest"
+  default     = ""
 }
 
 variable "container_cpu" {

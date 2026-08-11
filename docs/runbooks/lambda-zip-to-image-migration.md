@@ -101,7 +101,7 @@ Set the following variables in your tfvars file or HCP Terraform workspace:
 ```hcl
 lambda_package_type     = "Image"
 lambda_image_repository = "redhat-user-workloads/rosa-tenant/rosa-boundary/lambda-create-investigation"
-lambda_image_tag        = "latest"  # or a specific tag
+lambda_image_tag        = "v1.0.0"  # Use an immutable tag (git SHA, release version); avoid "latest"
 ```
 
 ### Step 5: Seed the ECR Pull-Through Cache

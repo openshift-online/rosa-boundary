@@ -207,6 +207,10 @@ resource "aws_lambda_function" "create_investigation_image" {
       condition     = var.lambda_image_repository != ""
       error_message = "lambda_image_repository is required when lambda_package_type is 'Image'."
     }
+    precondition {
+      condition     = var.lambda_image_tag != ""
+      error_message = "lambda_image_tag is required when lambda_package_type is 'Image'. Use an immutable tag (e.g., git SHA or release version), not 'latest'."
+    }
   }
 
   depends_on = [

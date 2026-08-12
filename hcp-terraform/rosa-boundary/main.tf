@@ -106,6 +106,21 @@ module "rosa_boundary" {
           value    = "uuid"
           category = "terraform"
         },
+        {
+          key      = "lambda_package_type"
+          value    = "Image"
+          category = "terraform"
+        },
+        {
+          key      = "lambda_image_repository"
+          value    = "redhat-user-workloads/rosa-tenant/create-investigation-lambda"
+          category = "terraform"
+        },
+        {
+          key      = "lambda_image_tag"
+          value    = "37a38113f6c98f0f5ff4821a5360eca77d2a9607"
+          category = "terraform"
+        },
       ]
     }
   }

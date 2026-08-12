@@ -359,7 +359,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "awslambdaric", specifier = ">=3.1.0" },
+    { name = "awslambdaric", specifier = "==4.0.2" },
     { name = "boto3", specifier = ">=1.43.62" },
     { name = "cryptography", specifier = ">=50.0.0" },
     { name = "pyjwt", specifier = ">=2.13.0" },

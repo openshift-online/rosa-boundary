@@ -115,7 +115,12 @@ WORKDIR ${LAMBDA_TASK_ROOT}
 
 # Copy pre-built Python dependencies from the builder stage into the Lambda
 # task root. This includes awslambdaric, boto3, PyJWT, cryptography, etc.
-COPY --chmod=0644 --from=builder /deps/ ${LAMBDA_TASK_ROOT}/
+# Mode 0755: directories require the execute (search) bit for traversal.
+# COPY --chmod applies the same mode to both files and directories, so we use
+# 0755 rather than 0644 — without the execute bit on package directories,
+# Python cannot import modules and Lambda's non-root runtime user cannot
+# access nested packages like awslambdaric/.
+COPY --chmod=0755 --from=builder /deps/ ${LAMBDA_TASK_ROOT}/
 
 # Copy the Lambda handler source. This layer is small and changes frequently,
 # so it sits after the dependency layer for optimal cache behaviour.

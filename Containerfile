@@ -7,11 +7,10 @@
 #   tools-base       — shared build environment (curl, python3, helpers)
 #   backplane-tools  — SRE CLI tools via github_dl (SHA256 verified)
 #   claude-builder   — Claude Code via github_dl (SHA256 verified)
-#   oc-versions      — OC 4.14-4.20 with checksum verification
 #   tmux-builder     — tmux built from source (not in UBI9 repos)
 #   final            — production image (only this stage ships)
 #
-# backplane-tools, claude-builder, and oc-versions depend on tools-base.
+# backplane-tools and claude-builder, depend on tools-base.
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
 # stages 2-5 run in parallel once their dependencies complete.
 
@@ -36,7 +35,9 @@ RUN dnf install --assumeyes --nodocs \
     && dnf clean all \
     && rm --recursive --force /var/cache/yum
 
-RUN python3 -m pip install --no-cache-dir requests
+# PyJWT[crypto] provides RS256 JWT signing for GitHub App token generation
+# in github_dl.py (used when GITHUB_APP_ID/PEM/INSTALL_ID are set).
+RUN python3 -m pip install --no-cache-dir requests "PyJWT[crypto]"
 
 COPY build/platforms.sh /usr/local/bin/platform_convert
 COPY build/github_dl.py /usr/local/bin/github_dl
@@ -61,6 +62,9 @@ WORKDIR /backplane-tools
 
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
+    --mount=type=secret,id=GITHUB_APP_ID \
+    --mount=type=secret,id=GITHUB_APP_PEM \
+    --mount=type=secret,id=GITHUB_APP_INSTALL_ID \
     github_dl download \
         --url "${BACKPLANE_TOOLS_URL}" \
         --checksum_file "${BACKPLANE_TOOLS_CHECKSUM_FILE}" \
@@ -70,17 +74,14 @@ RUN --mount=type=secret,id=GITHUB_TOKEN \
 RUN tar --extract --gunzip --no-same-owner --directory /usr/local/bin --file ./*.tar.gz
 
 # backplane-tools install all fetches the SRE toolchain (ocm, oc, osdctl, etc.)
+# github_dl print-token resolves the token (app or PAT) so backplane-tools
+# gets authenticated GitHub API access regardless of which auth method is configured.
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
-    if [ -f /additional-secret/token ]; then \
-        GITHUB_TOKEN=$(cat /additional-secret/token) /usr/local/bin/backplane-tools install all; \
-    elif [ -f /run/secrets/read-only-github-pat/token ]; then \
-        GITHUB_TOKEN=$(cat /run/secrets/read-only-github-pat/token) /usr/local/bin/backplane-tools install all; \
-    elif [ -f /run/secrets/GITHUB_TOKEN ]; then \
-        GITHUB_TOKEN=$(cat /run/secrets/GITHUB_TOKEN) /usr/local/bin/backplane-tools install all; \
-    else \
-        /usr/local/bin/backplane-tools install all; \
-    fi
+    --mount=type=secret,id=GITHUB_APP_ID \
+    --mount=type=secret,id=GITHUB_APP_PEM \
+    --mount=type=secret,id=GITHUB_APP_INSTALL_ID \
+    GITHUB_TOKEN=$(github_dl print-token) /usr/local/bin/backplane-tools install all
 
 # -H follows symlinks (backplane installs as symlinks in latest/)
 RUN cp -Hv "${BACKPLANE_BIN_DIR}/latest/"* "${OUTPUT_DIR}/"
@@ -104,6 +105,9 @@ WORKDIR /claude-dl
 
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=read-only-github-pat/token \
+    --mount=type=secret,id=GITHUB_APP_ID \
+    --mount=type=secret,id=GITHUB_APP_PEM \
+    --mount=type=secret,id=GITHUB_APP_INSTALL_ID \
     github_dl download \
         --url "${CLAUDE_CODE_URL}" \
         --checksum_file "${CLAUDE_CODE_CHECKSUM_FILE}" \
@@ -115,35 +119,7 @@ RUN mkdir --parents /opt/claude \
     && chmod +x /opt/claude/claude
 
 
-# Stage 4: oc-versions
-# OC 4.14-4.20 with SHA256 checksum verification from mirror.openshift.com.
-# Registered as alternatives in the final stage for runtime version switching.
-FROM tools-base AS oc-versions
-
-RUN if [ "$(uname -m)" = "aarch64" ]; then OC_SUFFIX="-arm64"; else OC_SUFFIX=""; fi \
-    && for version in 4.14 4.15 4.16 4.17 4.18 4.19 4.20; do \
-        echo "=== Downloading OC ${version} (suffix: ${OC_SUFFIX}) ===" \
-        && TARBALL="openshift-client-linux${OC_SUFFIX}.tar.gz" \
-        && BASE_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${version}" \
-        && mkdir --parents "/opt/openshift/${version}" \
-        && curl --silent --location --fail \
-            "${BASE_URL}/sha256sum.txt" \
-            --output "/tmp/sha256sum-${version}.txt" \
-        && curl --silent --location --fail \
-            "${BASE_URL}/${TARBALL}" \
-            --output "/tmp/${TARBALL}" \
-        && cd /tmp \
-        && grep "${TARBALL}" "/tmp/sha256sum-${version}.txt" \
-            | sha256sum --check --status \
-        && tar --extract --gzip --file="/tmp/${TARBALL}" \
-            --directory="/opt/openshift/${version}" oc \
-        && chmod +x "/opt/openshift/${version}/oc" \
-        && rm --force "/tmp/${TARBALL}" "/tmp/sha256sum-${version}.txt" \
-        && echo "=== OC ${version} verified and installed ==="; \
-    done
-
-
-# Stage 5: tmux-builder
+# Stage 4: tmux-builder
 # tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
 # subscription). Build from source against UBI9's libevent and ncurses.
 # Runtime shared libs are already in the UBI9 base image.
@@ -216,13 +192,10 @@ RUN dnf install --assumeyes --nodocs \
 COPY --from=backplane-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
 COPY --from=backplane-tools /opt/ocm                /usr/local/bin/
 COPY --from=backplane-tools /opt/ocm-backplane      /usr/local/bin/
-COPY --from=backplane-tools /opt/oc                 /usr/local/bin/oc-backplane
+COPY --from=backplane-tools /opt/oc                 /usr/local/bin/
 COPY --from=backplane-tools /opt/osdctl             /usr/local/bin/
 COPY --from=backplane-tools /opt/ocm-addons         /usr/local/bin/
 COPY --from=backplane-tools /opt/yq                 /usr/local/bin/
-
-# OC versions for runtime switching via alternatives + OC_VERSION env var
-COPY --from=oc-versions /opt/openshift /opt/openshift
 
 # Claude Code binary
 COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
@@ -233,14 +206,6 @@ COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
 # Register tools with alternatives. OC 4.20 is default (priority 100).
 # backplane-tools OC is fallback (priority 10).
 RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/aws 20 \
-    && alternatives --install /usr/local/bin/oc oc /usr/local/bin/oc-backplane 10 \
-    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.14/oc 14 \
-    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.15/oc 15 \
-    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.16/oc 16 \
-    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.17/oc 17 \
-    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.18/oc 18 \
-    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.19/oc 19 \
-    && alternatives --install /usr/local/bin/oc oc /opt/openshift/4.20/oc 100 \
     && ln --symbolic /usr/local/lib/claude-code/claude /usr/local/bin/claude
 
 # Generate bash completions at build time

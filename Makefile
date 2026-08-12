@@ -18,7 +18,8 @@ CLI_LDFLAGS := -ldflags "-X github.com/openshift/rosa-boundary/internal/cmd.Vers
 
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
         build-cli install-cli test-cli test-coverage codecov fmt lint \
-        validate-findings convert-sarif upload-sarif
+        validate-findings convert-sarif upload-sarif \
+        test-github-dl
 
 # Default target: build both architectures and create manifest
 all: build manifest
@@ -29,15 +30,23 @@ build: build-amd64 build-arm64
 # Build AMD64/x86_64 variant
 build-amd64:
 	@echo "Building AMD64 variant..."
+
 	podman build --platform linux/amd64 --build-arg REQUIRE_GITHUB_TOKEN=$(REQUIRE_GITHUB_TOKEN) \
 		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
+		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=GITHUB_APP_ID,env=GITHUB_APP_ID") \
+		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
+		$$([ -n "$$GITHUB_APP_INSTALL_ID" ] && echo "--secret id=GITHUB_APP_INSTALL_ID,env=GITHUB_APP_INSTALL_ID") \
 		$(CACHE) -t $(AMD64_IMAGE) -f Containerfile .
 
 # Build ARM64 variant
 build-arm64:
 	@echo "Building ARM64 variant..."
+
 	podman build --platform linux/arm64 --build-arg REQUIRE_GITHUB_TOKEN=$(REQUIRE_GITHUB_TOKEN) \
 		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
+		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=GITHUB_APP_ID,env=GITHUB_APP_ID") \
+		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
+		$$([ -n "$$GITHUB_APP_INSTALL_ID" ] && echo "--secret id=GITHUB_APP_INSTALL_ID,env=GITHUB_APP_INSTALL_ID") \
 		$(CACHE) -t $(ARM64_IMAGE) -f Containerfile .
 
 # Create manifest list combining both architectures
@@ -117,6 +126,14 @@ test-lambda-reap-tasks: ## Run reap-tasks Lambda unit tests
 test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	@echo "Running create-investigation unit tests..."
 	cd lambda/create-investigation && uv run pytest test_handler.py -v
+
+# Build helper unit tests
+test-github-dl: ## Run github_dl.py unit tests (venv auto-created in /tmp)
+	@echo "Running github_dl unit tests..."
+	@python3 -m venv /tmp/github_dl_test_venv
+	@/tmp/github_dl_test_venv/bin/pip install --quiet --no-cache-dir requests "PyJWT[crypto]" pytest
+	cd build && /tmp/github_dl_test_venv/bin/python3 -m pytest test_github_dl.py -v --tb=short; \
+		rc=$$?; rm -rf /tmp/github_dl_test_venv; exit $$rc
 
 staticcheck: ## Run staticcheck before commits
 	@echo "Running staticcheck..."
@@ -226,6 +243,9 @@ help:
 	@echo "  make test-lambda                      - Run all Lambda unit tests"
 	@echo "  make test-lambda-reap-tasks           - Run reap-tasks unit tests"
 	@echo "  make test-lambda-create-investigation - Run create-investigation unit tests"
+	@echo ""
+	@echo "Build Helper Targets:"
+	@echo "  make test-github-dl  - Run github_dl.py unit tests"
 	@echo ""
 	@echo "Code Quality Targets:"
 	@echo "  make fmt          - Format Go code (gofmt) and shell scripts (shfmt)"

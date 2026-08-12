@@ -130,10 +130,13 @@ test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 # Build helper unit tests
 test-github-dl: ## Run github_dl.py unit tests (venv auto-created in /tmp)
 	@echo "Running github_dl unit tests..."
-	@python3 -m venv /tmp/github_dl_test_venv
-	@/tmp/github_dl_test_venv/bin/pip install --quiet --no-cache-dir requests "PyJWT[crypto]" pytest
-	cd build && /tmp/github_dl_test_venv/bin/python3 -m pytest test_github_dl.py -v --tb=short; \
-		rc=$$?; rm -rf /tmp/github_dl_test_venv; exit $$rc
+	@set -eu; \
+		venv_dir=$$(mktemp -d /tmp/github_dl_test_venv.XXXXXX); \
+		trap 'rm -rf "$$venv_dir"' EXIT; \
+		python3 -m venv "$$venv_dir"; \
+		"$$venv_dir/bin/pip" install --quiet --no-cache-dir requests "PyJWT[crypto]" pytest; \
+		cd build; \
+		"$$venv_dir/bin/python3" -m pytest test_github_dl.py -v --tb=short
 
 staticcheck: ## Run staticcheck before commits
 	@echo "Running staticcheck..."

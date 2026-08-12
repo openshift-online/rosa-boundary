@@ -290,7 +290,11 @@ def generate_github_app_token(app_id, pem_key, install_id) -> str:
         "iss": str(app_id),
     }
 
-    encoded_jwt = jwt.encode(payload, pem_key, algorithm="RS256")
+    try:
+        encoded_jwt = jwt.encode(payload, pem_key, algorithm="RS256")
+    except (jwt.exceptions.InvalidKeyError, ValueError) as e:
+        print(f"Error: Failed to sign JWT with provided PEM key: {e}", file=sys.stderr)
+        return None
 
     headers = {
         "Authorization": f"Bearer {encoded_jwt}",
@@ -341,7 +345,7 @@ def resolve_token() -> str:
                 with open(pem_key) as f:
                     pem_key = f.read().strip()
             else:
-                print(f"Error: GITHUB_APP_PEM value is not a PEM key and not a readable file path: {pem_key}", file=sys.stderr)
+                print("Error: GITHUB_APP_PEM value is not a PEM key and not a readable file path", file=sys.stderr)
                 pem_key = None
 
         if pem_key:

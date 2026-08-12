@@ -13,6 +13,7 @@ import tempfile
 import unittest
 from unittest.mock import patch, MagicMock
 
+import jwt
 import requests
 
 import github_dl
@@ -170,6 +171,16 @@ class TestGenerateGithubAppToken(unittest.TestCase):
 
         call_args = mock_post.call_args
         assert "789" in call_args[1].get("url", call_args[0][0])
+
+    @patch("github_dl.jwt.encode", side_effect=jwt.exceptions.InvalidKeyError("Could not deserialize key data"))
+    def test_malformed_pem_returns_none(self, mock_jwt):
+        result = github_dl.generate_github_app_token("123", "not-a-real-pem", "456")
+        assert result is None
+
+    @patch("github_dl.jwt.encode", side_effect=ValueError("Could not deserialize key data"))
+    def test_malformed_pem_valueerror_returns_none(self, mock_jwt):
+        result = github_dl.generate_github_app_token("123", "not-a-real-pem", "456")
+        assert result is None
 
 
 class TestResolveToken(unittest.TestCase):

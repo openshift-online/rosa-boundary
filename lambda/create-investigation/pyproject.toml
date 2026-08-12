@@ -7,6 +7,7 @@ dependencies = [
     "cryptography>=50.0.0",
     "requests>=2.34.2",
     "boto3>=1.43.62",
+    "awslambdaric==4.0.2",
 ]
 
 [dependency-groups]

@@ -3,13 +3,14 @@
 # =============================================================================
 #
 # Packages the create-investigation Lambda handler as a container image for
-# deployment via ECR. This replaces the ZIP packaging approach that was
-# incompatible with HCP Terraform remote execution (no Podman/pip on runners).
+# deployment via ECR. Uses the AWS "alternative base image" approach:
+# a non-AWS base image (Red Hat UBI9 Minimal) with the AWS Lambda Runtime
+# Interface Client (awslambdaric) installed as a pip dependency.
+# Ref: https://docs.aws.amazon.com/lambda/latest/dg/images-create.html#images-types
 #
-# Base image: AWS Lambda Python 3.11 runtime (public ECR, Amazon Linux 2).
-# Not pinned by digest: AWS manages security patches for Lambda base images
-# and the runtime expects compatible base image versions. This is an
-# intentional divergence from the main container's pinned-digest pattern.
+# Base image: Red Hat UBI9 Minimal — required by Konflux Enterprise Contract
+# (EC) policy, which rejects non-Red Hat base images. The previous base
+# (public.ecr.aws/lambda/python:3.11 on Amazon Linux 2) failed EC validation.
 #
 # Architecture: linux/amd64 only (Lambda x86_64). Multi-arch via
 # platform_convert does not apply — Lambda functions target a single arch.
@@ -33,15 +34,28 @@
 # ---------------------------------------------------------------------------
 # Stage 1: dependency builder
 # ---------------------------------------------------------------------------
-# Uses the same Lambda base image as the final stage to guarantee glibc ABI
-# compatibility for compiled wheels (cryptography, cffi). A separate builder
-# image (e.g. python:3.11-slim) has a newer glibc, producing .so files that
-# fail to load in the Lambda runtime (Amazon Linux 2, glibc 2.26).
+# Uses the same UBI9 Minimal base as the final stage to guarantee glibc ABI
+# compatibility for compiled wheels (cryptography, cffi, awslambdaric).
+# Compiling on a different base could produce .so files linked against a
+# different glibc version, causing import failures at Lambda runtime.
 #
 # uv is copied in to export a pip-compatible requirements file from the
 # lockfile, then pip installs compiled wheels into a clean target directory.
+# Build tools (gcc, python3.11-devel) are only needed in this stage and are
+# not carried into the final image.
 # ---------------------------------------------------------------------------
-FROM public.ecr.aws/lambda/python:3.11 AS builder
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS builder
+
+# Install Python 3.11 with development headers and build tools needed to
+# compile native extensions (awslambdaric C runtime, cryptography).
+RUN microdnf install --assumeyes --nodocs \
+        python3.11 \
+        python3.11-pip \
+        python3.11-devel \
+        gcc \
+        libffi-devel && \
+    microdnf clean all && \
+    rm --recursive --force /var/cache/yum
 
 # Install uv for lockfile export (produces requirements-lock.txt from uv.lock).
 # Pinned by version and manifest digest for reproducible builds.
@@ -60,8 +74,10 @@ COPY pyproject.toml uv.lock ./
 # Export pinned runtime dependencies (no dev deps, no project itself) from the
 # lockfile into a pip-compatible requirements file, then install them into a
 # clean target directory that will be copied to the final image.
+# awslambdaric (the Lambda Runtime Interface Client) is included in the
+# project dependencies and provides the bootstrap entrypoint for Lambda.
 RUN uv export --frozen --no-dev --no-emit-project --output-file requirements-lock.txt && \
-    pip install \
+    python3.11 -m pip install \
         --no-cache-dir \
         --target /deps \
         --requirement requirements-lock.txt
@@ -69,25 +85,52 @@ RUN uv export --frozen --no-dev --no-emit-project --output-file requirements-loc
 # ---------------------------------------------------------------------------
 # Stage 2: final Lambda runtime image
 # ---------------------------------------------------------------------------
-# Uses the official AWS Lambda Python 3.11 base image which provides the
-# Lambda Runtime Interface Client (RIC) and the runtime bootstrap. We copy
-# in the pre-built dependencies and the handler source.
+# Uses Red Hat UBI9 Minimal with only the Python 3.11 interpreter installed.
+# The AWS Lambda Runtime Interface Client (awslambdaric), installed as a pip
+# dependency in the builder stage, replaces the RIC that the official AWS
+# base image would otherwise provide.
+#
+# The Lambda entrypoint uses awslambdaric as the runtime bootstrap:
+#   python3.11 -m awslambdaric handler.lambda_handler
 # ---------------------------------------------------------------------------
-FROM public.ecr.aws/lambda/python:3.11
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 LABEL org.opencontainers.image.title="create-investigation-lambda" \
       org.opencontainers.image.description="OIDC-authenticated Lambda for creating rosa-boundary investigation tasks" \
       org.opencontainers.image.source="https://github.com/openshift-online/rosa-boundary" \
       org.opencontainers.image.vendor="Red Hat"
 
+# Install only the Python 3.11 interpreter — no pip, no dev headers, no
+# compiler toolchain. Runtime dependencies are pre-compiled in the builder.
+RUN microdnf install --assumeyes --nodocs python3.11 && \
+    microdnf clean all && \
+    rm --recursive --force /var/cache/yum
+
+# LAMBDA_TASK_ROOT is the standard directory where Lambda expects handler code
+# and dependencies. The official AWS base images set this automatically; with
+# a non-AWS base image we define it explicitly.
+ENV LAMBDA_TASK_ROOT=/var/task
+
+WORKDIR ${LAMBDA_TASK_ROOT}
+
 # Copy pre-built Python dependencies from the builder stage into the Lambda
-# task root. The trailing slash on the destination ensures files land directly
-# in LAMBDA_TASK_ROOT rather than in a subdirectory.
-COPY --chmod=0644 --from=builder /deps/ ${LAMBDA_TASK_ROOT}/
+# task root. This includes awslambdaric, boto3, PyJWT, cryptography, etc.
+# Mode 0755: directories require the execute (search) bit for traversal.
+# COPY --chmod applies the same mode to both files and directories, so we use
+# 0755 rather than 0644 — without the execute bit on package directories,
+# Python cannot import modules and Lambda's non-root runtime user cannot
+# access nested packages like awslambdaric/.
+COPY --chmod=0755 --from=builder /deps/ ${LAMBDA_TASK_ROOT}/
 
 # Copy the Lambda handler source. This layer is small and changes frequently,
 # so it sits after the dependency layer for optimal cache behaviour.
 COPY --chmod=0644 handler.py ${LAMBDA_TASK_ROOT}/
 
-# Set the Lambda handler entrypoint: module.function
+# Ensure awslambdaric and all dependencies are importable from LAMBDA_TASK_ROOT.
+ENV PYTHONPATH=${LAMBDA_TASK_ROOT}
+
+# awslambdaric provides the Lambda Runtime Interface Client bootstrap.
+# It polls the Lambda Runtime API for invocations and dispatches them to the
+# handler function specified in CMD.
+ENTRYPOINT ["python3.11", "-m", "awslambdaric"]
 CMD ["handler.lambda_handler"]

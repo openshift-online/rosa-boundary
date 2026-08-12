@@ -40,6 +40,7 @@ import requests
 SECRET_PATH_PATTERNS = [
     "/additional-secret/{name}",
     "/run/secrets/read-only-github-pat/{name}",
+    "/run/secrets/read-only-github-pat/token",
     "/run/secrets/{name}",
 ]
 

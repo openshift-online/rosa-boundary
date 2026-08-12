@@ -85,6 +85,17 @@ class TestResolveSecret(unittest.TestCase):
                 result = github_dl.resolve_secret("MY_VAR")
         assert result == "found-it"
 
+    def test_literal_path_pattern_matches_any_name(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write("konflux-pat-value\n")
+            f.flush()
+            literal_path = f.name
+        patterns = ["/nonexistent/{name}", literal_path]
+        with patch.object(github_dl, "SECRET_PATH_PATTERNS", patterns):
+            result = github_dl.resolve_secret("GITHUB_TOKEN")
+        os.unlink(literal_path)
+        assert result == "konflux-pat-value"
+
     def test_file_preferred_over_env(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             with open(os.path.join(tmpdir, "MY_VAR"), "w") as f:

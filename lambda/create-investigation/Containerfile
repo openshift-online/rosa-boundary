@@ -31,6 +31,9 @@
 #
 # =============================================================================
 
+# Base image pinned by digest for reproducibility. Renovate updates this.
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal@sha256:a29b4c112ffb29b725e60b7ac770cbceda55d2620c253fecca3d9f5e3fa5580c
+
 # ---------------------------------------------------------------------------
 # Stage 1: dependency builder
 # ---------------------------------------------------------------------------
@@ -44,7 +47,7 @@
 # Build tools (gcc, python3.11-devel) are only needed in this stage and are
 # not carried into the final image.
 # ---------------------------------------------------------------------------
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS builder
+FROM ${BASE_IMAGE} AS builder
 
 # Install Python 3.11 with development headers and build tools needed to
 # compile native extensions (awslambdaric C runtime, cryptography).
@@ -93,7 +96,7 @@ RUN uv export --frozen --no-dev --no-emit-project --output-file requirements-loc
 # The Lambda entrypoint uses awslambdaric as the runtime bootstrap:
 #   python3.11 -m awslambdaric handler.lambda_handler
 # ---------------------------------------------------------------------------
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM ${BASE_IMAGE}
 
 LABEL org.opencontainers.image.title="create-investigation-lambda" \
       org.opencontainers.image.description="OIDC-authenticated Lambda for creating rosa-boundary investigation tasks" \

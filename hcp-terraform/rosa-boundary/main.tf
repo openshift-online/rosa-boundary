@@ -121,6 +121,20 @@ module "rosa_boundary" {
           value    = "37a38113f6c98f0f5ff4821a5360eca77d2a9607"
           category = "terraform"
         },
+        {
+          key      = "_deletion_approvals"
+          value    = <<-EOT
+            [
+              {
+                address    = "aws_lambda_function.create_investigation"
+                expires_at = "2026-08-20T23:59:59Z"
+                reason     = "ZIP Lambda replaced by container image (ROSAENG-64685)"
+              }
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
       ]
     }
   }

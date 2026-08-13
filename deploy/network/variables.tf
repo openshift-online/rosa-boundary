@@ -145,3 +145,14 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+# tflint-ignore: terraform_unused_declarations
+variable "_deletion_approvals" {
+  description = "Time-limited deletion approvals for the rosa-deletion-protection OPA policy. Each entry must specify the full Terraform resource address and an RFC 3339 expiration timestamp. The reason field is not evaluated by the policy but serves as inline documentation."
+  type = list(object({
+    address    = string
+    expires_at = string
+    reason     = optional(string)
+  }))
+  default = []
+}

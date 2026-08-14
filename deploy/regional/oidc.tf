@@ -114,11 +114,18 @@ resource "aws_iam_role" "sre_shared" {
           "sts:AssumeRoleWithWebIdentity",
           "sts:TagSession"
         ]
-        Condition = {
-          StringEquals = {
-            "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
-          }
-        }
+        Condition = merge(
+          {
+            StringEquals = {
+              "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
+            }
+          },
+          var.enable_uuid_allowlist ? {
+            "ForAnyValue:StringEquals" = {
+              "aws:RequestTag/uuid" = var.allowed_uuids
+            }
+          } : {}
+        )
       }] : [],
       var.prod_keycloak_issuer_url != "" ? [{
         Effect = "Allow"
@@ -129,14 +136,28 @@ resource "aws_iam_role" "sre_shared" {
           "sts:AssumeRoleWithWebIdentity",
           "sts:TagSession"
         ]
-        Condition = {
-          StringEquals = {
-            "${local.prod_oidc_provider_domain}:aud" = var.prod_oidc_client_id
-          }
-        }
+        Condition = merge(
+          {
+            StringEquals = {
+              "${local.prod_oidc_provider_domain}:aud" = var.prod_oidc_client_id
+            }
+          },
+          var.enable_uuid_allowlist ? {
+            "ForAnyValue:StringEquals" = {
+              "aws:RequestTag/uuid" = var.allowed_uuids
+            }
+          } : {}
+        )
       }] : []
     )
   })
+
+  lifecycle {
+    precondition {
+      condition     = !var.enable_uuid_allowlist || length(var.allowed_uuids) > 0
+      error_message = "allowed_uuids must contain at least one UUID when enable_uuid_allowlist is true."
+    }
+  }
 
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-sre-shared"

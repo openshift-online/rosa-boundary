@@ -263,6 +263,23 @@ variable "_deletion_approvals" {
   default = []
 }
 
+variable "enable_uuid_allowlist" {
+  description = "Enable UUID-based allowlist on EmployeeIDP (stage/prod) OIDC trust statements. When true, only users whose rhatUUID appears in allowed_uuids can assume the SRE shared and Lambda invoker roles. The dev Keycloak trust statement is unaffected."
+  type        = bool
+  default     = false
+}
+
+variable "allowed_uuids" {
+  description = "Allowlist of rhatUUID values permitted to assume the SRE shared and Lambda invoker roles via EmployeeIDP OIDC providers. Only enforced when enable_uuid_allowlist is true. UUIDs come from the principal_tags.uuid claim in the EmployeeIDP JWT (retrievable via: ldapsearch -x -H ldaps://ldap.corp.redhat.com -b 'ou=users,dc=redhat,dc=com' '(uid=<kerberos_uid>)' rhatUUID)."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = alltrue([for uuid in var.allowed_uuids : can(regex("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", uuid))])
+    error_message = "Each allowed_uuids entry must be a valid UUID (lowercase hex with dashes)."
+  }
+}
+
 variable "reaper_schedule_minutes" {
   description = "How often the task reaper Lambda runs (in minutes)"
   type        = number

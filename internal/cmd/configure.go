@@ -9,11 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openshift/rosa-boundary/internal/auth"
-	awsclient "github.com/openshift/rosa-boundary/internal/aws"
-	"github.com/openshift/rosa-boundary/internal/config"
-	"github.com/openshift/rosa-boundary/internal/lambda"
-	"github.com/openshift/rosa-boundary/internal/output"
+	"github.com/openshift-online/rosa-boundary/internal/auth"
+	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/lambda"
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 var (

@@ -1,4 +1,4 @@
-module github.com/openshift/rosa-boundary
+module github.com/openshift-online/rosa-boundary
 
 go 1.25.0
 

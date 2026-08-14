@@ -18,7 +18,7 @@ SARIF_SCHEMA = (
     "sarif-2.1/schema/sarif-schema-2.1.0.json"
 )
 TOOL_NAME = "rosa-boundary-adversary"
-TOOL_URI = "https://github.com/openshift/rosa-boundary"
+TOOL_URI = "https://github.com/openshift-online/rosa-boundary"
 TOOL_VERSION = "1.0.0"
 
 SEVERITY_TO_LEVEL = {

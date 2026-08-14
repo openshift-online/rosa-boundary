@@ -6,7 +6,7 @@ This is an interim measure. The long-term solution replaces the UUID allowlist w
 
 ## How It Works
 
-EmployeeIDP already emits `principal_tags.uuid` in the `https://aws.amazon.com/tags` JWT claim, and `sts:TagSession` is already permitted in the trust policies. Enabling the allowlist adds a `ForAnyValue:StringEquals` condition on `aws:RequestTag/uuid` to all OIDC trust statements on both the SRE shared role (`oidc.tf`) and the Lambda invoker role (`lambda-invoker.tf`).
+EmployeeIDP already emits `principal_tags.uuid` in the `https://aws.amazon.com/tags` JWT claim, and `sts:TagSession` is already permitted in the trust policies. Enabling the allowlist adds `aws:RequestTag/uuid` to the `StringEquals` condition on all OIDC trust statements on both the SRE shared role (`oidc.tf`) and the Lambda invoker role (`lambda-invoker.tf`). Because `aws:RequestTag/*` is a single-valued condition key, `StringEquals` with a list is the correct operator per [AWS documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_condition-single-vs-multi-valued-context-keys.html) (not `ForAnyValue:StringEquals`, which is reserved for multivalued keys).
 
 STS evaluates both conditions during `AssumeRoleWithWebIdentity`:
 

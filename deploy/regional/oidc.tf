@@ -99,18 +99,16 @@ resource "aws_iam_role" "sre_shared" {
           "sts:AssumeRoleWithWebIdentity",
           "sts:TagSession"
         ]
-        Condition = merge(
-          {
-            StringEquals = {
+        Condition = {
+          StringEquals = merge(
+            {
               "${local.oidc_provider_domain}:aud" = var.oidc_client_id
-            }
-          },
-          var.enable_uuid_allowlist ? {
-            "ForAnyValue:StringEquals" = {
+            },
+            var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
-            }
-          } : {}
-        )
+            } : {}
+          )
+        }
       }],
       var.stage_keycloak_issuer_url != "" ? [{
         Effect = "Allow"
@@ -121,18 +119,16 @@ resource "aws_iam_role" "sre_shared" {
           "sts:AssumeRoleWithWebIdentity",
           "sts:TagSession"
         ]
-        Condition = merge(
-          {
-            StringEquals = {
+        Condition = {
+          StringEquals = merge(
+            {
               "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
-            }
-          },
-          var.enable_uuid_allowlist ? {
-            "ForAnyValue:StringEquals" = {
+            },
+            var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
-            }
-          } : {}
-        )
+            } : {}
+          )
+        }
       }] : [],
       var.prod_keycloak_issuer_url != "" ? [{
         Effect = "Allow"
@@ -143,18 +139,16 @@ resource "aws_iam_role" "sre_shared" {
           "sts:AssumeRoleWithWebIdentity",
           "sts:TagSession"
         ]
-        Condition = merge(
-          {
-            StringEquals = {
+        Condition = {
+          StringEquals = merge(
+            {
               "${local.prod_oidc_provider_domain}:aud" = var.prod_oidc_client_id
-            }
-          },
-          var.enable_uuid_allowlist ? {
-            "ForAnyValue:StringEquals" = {
+            },
+            var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
-            }
-          } : {}
-        )
+            } : {}
+          )
+        }
       }] : []
     )
   })

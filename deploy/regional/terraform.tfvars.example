@@ -56,6 +56,32 @@ required_groups = ["ai-sd-sre"]
 # oidc_client_id        = "aws-sre-access"
 # oidc_session_duration = 3600  # 1 hour
 
+# ABAC tag key: the JWT claim key used for session tags and task-level isolation.
+# "username" for self-managed Keycloak; "uuid" for Red Hat EmployeeIDP (rhatUUID).
+# abac_tag_key = "uuid"
+
+# Staging Red Hat SSO (EmployeeIDP) — optional second OIDC provider
+# Enables authenticating with stage.auth.redhat.com alongside the primary provider.
+# stage_keycloak_issuer_url = "https://auth.stage.redhat.com/auth/realms/EmployeeIDP"
+# stage_keycloak_thumbprint = "<sha1-thumbprint>"
+# stage_oidc_client_id      = "rosa-boundary-sre"
+
+# Production Red Hat SSO (EmployeeIDP) — optional third OIDC provider
+# prod_keycloak_issuer_url = "https://sso.redhat.com/auth/realms/EmployeeIDP"
+# prod_keycloak_thumbprint = "<sha1-thumbprint>"
+# prod_oidc_client_id      = "rosa-boundary-sre"
+
+# UUID allowlist for EmployeeIDP trust policies (interim access control)
+# When enabled, only users whose rhatUUID appears in allowed_uuids can assume
+# the SRE shared and Lambda invoker roles via EmployeeIDP providers.
+# Retrieve UUIDs with:
+#   ldapsearch -x -H ldaps://ldap.corp.redhat.com -b "ou=users,dc=redhat,dc=com" "(uid=<kerberos_uid>)" rhatUUID
+# enable_uuid_allowlist = true
+# allowed_uuids = [
+#   "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",  # user1
+#   "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy",  # user2
+# ]
+
 # Lambda packaging (default: ZIP)
 # Set to "Image" for container image deployment (required for HCP Terraform remote execution).
 # The ECR cache must be seeded before apply — see docs/runbooks/lambda-zip-to-image-migration.md.

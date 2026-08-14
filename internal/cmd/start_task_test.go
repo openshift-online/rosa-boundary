@@ -25,9 +25,9 @@ func TestPrintStartSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
 
 	printStartSummary(ecsCluster, rosaClusterID, investigationID, taskID, ocVersion, timeout, accessPointID, roleARN, region)
 
-	w.Close()
+	_ = w.Close()
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	_, _ = buf.ReadFrom(r)
 	os.Stderr = old
 
 	output := buf.String()
@@ -86,9 +86,9 @@ func TestPrintStartSummary_ECSClusterNotConfusedWithClusterID(t *testing.T) {
 
 			printStartSummary(tt.ecsCluster, tt.clusterID, "INV-001", "task-123", "4.20", 3600, "fsap-123", "arn:aws:iam::123:role/r", "us-east-2")
 
-			w.Close()
+			_ = w.Close()
 			var buf bytes.Buffer
-			buf.ReadFrom(r)
+			_, _ = buf.ReadFrom(r)
 			os.Stderr = old
 
 			output := buf.String()

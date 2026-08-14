@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/openshift/rosa-boundary/internal/cmd"
+	"github.com/openshift-online/rosa-boundary/internal/cmd"
 )
 
 func main() {

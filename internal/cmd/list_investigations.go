@@ -6,8 +6,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
-	awsclient "github.com/openshift/rosa-boundary/internal/aws"
-	"github.com/openshift/rosa-boundary/internal/output"
+	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 var listInvestigationsCmd = &cobra.Command{

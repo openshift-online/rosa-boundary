@@ -14,7 +14,7 @@ REQUIRE_GITHUB_TOKEN ?= false
 # Go CLI
 CLI_BIN := bin/rosa-boundary
 CLI_VERSION ?= dev
-CLI_LDFLAGS := -ldflags "-X github.com/openshift/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
+CLI_LDFLAGS := -ldflags "-X github.com/openshift-online/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
 
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
         build-cli install-cli test-cli test-coverage codecov fmt lint \

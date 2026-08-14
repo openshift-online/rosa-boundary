@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"github.com/openshift/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 )
 
 const (

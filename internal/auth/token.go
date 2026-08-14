@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/openshift/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 )
 
 const (

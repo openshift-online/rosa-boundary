@@ -20,6 +20,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**Keycloak Realm Setup**](configuration/keycloak-realm-setup.md) - Configure Keycloak realm and OIDC client using KeycloakRealmImport CR
 - [**AWS IAM Policies**](configuration/aws-iam-policies.md) - IAM roles and policies for ECS Exec access
 - [**Code Coverage**](configuration/code-coverage.md) - Codecov integration, Prow CI jobs, and coverage reporting
+- [**UUID Allowlist**](configuration/uuid-allowlist.md) - Interim access control restricting role assumption by user UUID
 
 ## Testing
 

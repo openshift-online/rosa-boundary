@@ -100,9 +100,14 @@ resource "aws_iam_role" "sre_shared" {
           "sts:TagSession"
         ]
         Condition = {
-          StringEquals = {
-            "${local.oidc_provider_domain}:aud" = var.oidc_client_id
-          }
+          StringEquals = merge(
+            {
+              "${local.oidc_provider_domain}:aud" = var.oidc_client_id
+            },
+            var.enable_uuid_allowlist ? {
+              "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {}
+          )
         }
       }],
       var.stage_keycloak_issuer_url != "" ? [{
@@ -115,9 +120,14 @@ resource "aws_iam_role" "sre_shared" {
           "sts:TagSession"
         ]
         Condition = {
-          StringEquals = {
-            "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
-          }
+          StringEquals = merge(
+            {
+              "${local.stage_oidc_provider_domain}:aud" = var.stage_oidc_client_id
+            },
+            var.enable_uuid_allowlist ? {
+              "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {}
+          )
         }
       }] : [],
       var.prod_keycloak_issuer_url != "" ? [{
@@ -130,13 +140,25 @@ resource "aws_iam_role" "sre_shared" {
           "sts:TagSession"
         ]
         Condition = {
-          StringEquals = {
-            "${local.prod_oidc_provider_domain}:aud" = var.prod_oidc_client_id
-          }
+          StringEquals = merge(
+            {
+              "${local.prod_oidc_provider_domain}:aud" = var.prod_oidc_client_id
+            },
+            var.enable_uuid_allowlist ? {
+              "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {}
+          )
         }
       }] : []
     )
   })
+
+  lifecycle {
+    precondition {
+      condition     = !var.enable_uuid_allowlist || length(var.allowed_uuids) > 0
+      error_message = "allowed_uuids must contain at least one UUID when enable_uuid_allowlist is true."
+    }
+  }
 
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-sre-shared"

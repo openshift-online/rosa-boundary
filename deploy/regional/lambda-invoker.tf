@@ -22,11 +22,18 @@ resource "aws_iam_role" "lambda_invoker" {
           "sts:AssumeRoleWithWebIdentity",
           "sts:TagSession"
         ]
-        Condition = {
-          StringEquals = {
-            "${local.oidc_provider_domain}:aud" = var.oidc_client_id
-          }
-        }
+        Condition = merge(
+          {
+            StringEquals = {
+              "${local.oidc_provider_domain}:aud" = var.oidc_client_id
+            }
+          },
+          var.enable_uuid_allowlist ? {
+            "ForAnyValue:StringEquals" = {
+              "aws:RequestTag/uuid" = var.allowed_uuids
+            }
+          } : {}
+        )
       }],
       var.stage_keycloak_issuer_url != "" ? [{
         Effect = "Allow"

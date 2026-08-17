@@ -122,6 +122,36 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          key      = "default_tags"
+          value    = <<-EOT
+            {
+              owner         = "app-sre"
+              service-phase = "stage"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "ignored_tag_keys"
+          value    = <<-EOT
+            [
+              "app",
+              "app-code",
+              "cost-center",
+              "managed_by_integration",
+              "organization",
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "log_retention_days"
+          value    = "90"
+          category = "terraform"
+        },
+        {
           key      = "_deletion_approvals"
           value    = <<-EOT
             [

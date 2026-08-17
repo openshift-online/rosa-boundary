@@ -12,6 +12,15 @@ terraform {
 provider "aws" {
   region              = var.aws_region
   allowed_account_ids = [var.aws_account_id]
+
+  default_tags {
+    tags = var.default_tags
+  }
+
+  # Tags managed outside this deployment, excluded from reconciliation.
+  ignore_tags {
+    keys = var.ignored_tag_keys
+  }
 }
 
 # Data sources

@@ -12,6 +12,7 @@ This document covers the architecture of the HCP Terraform integration, how chan
 - [AWS Dynamic Credentials](#aws-dynamic-credentials)
 - [User Access](#user-access)
 - [Workspace Variables](#workspace-variables)
+- [Externally Managed Tags and Settings](#externally-managed-tags-and-settings)
 - [Deletion Protection](#deletion-protection)
 - [Two-PR Pattern for New Workspaces](#two-pr-pattern-for-new-workspaces)
 - [Key Differences from Local Development](#key-differences-from-local-development)
@@ -268,10 +269,48 @@ Workspace variables for the staging deployment are defined as code in `hcp-terra
 | `lambda_package_type` | `Image` | Container image packaging (required for HCP Terraform remote execution) |
 | `lambda_image_repository` | `redhat-user-workloads/rosa-tenant/create-investigation-lambda` | Quay repository path |
 | `lambda_image_tag` | `<sha>` | Konflux-built, pinned to commit SHA |
+| `default_tags` | *(account-specific)* | Organization-standard FinOps tags applied via provider `default_tags`; see [Externally Managed Tags and Settings](#externally-managed-tags-and-settings) |
+| `ignored_tag_keys` | *(account-specific)* | Tag keys excluded from Terraform reconciliation; see [Externally Managed Tags and Settings](#externally-managed-tags-and-settings) |
+| `log_retention_days` | *(account-specific)* | Must match the retention enforced by the account's external integrations |
 
 ### rosa-boundary-stage-network and rosa-boundary-stage-aws-creds
 
 These workspaces use the defaults defined in their respective `variables.tf` files and do not have additional variables set through the meta-workspace. The network workspace defaults target the staging account (`150100906299`) and region (`us-east-1`) directly in its variable definitions.
+
+---
+
+## Externally Managed Tags and Settings
+
+AWS accounts managed through app-interface have external integrations (AppSRE, FinOps) that apply their own resource tags and enforce settings such as CloudWatch log retention. When Terraform is unaware of these externally managed values, it reports drift on every plan and attempts to reconcile them — removing tags it didn't apply or reverting enforced settings to their Terraform defaults.
+
+The regional Terraform configuration handles this through three mechanisms, all controlled by workspace variables defined in the meta-workspace (`hcp-terraform/rosa-boundary/main.tf`):
+
+### Provider Default Tags
+
+The `default_tags` variable (`map(string)`, default `{}`) is passed to the AWS provider's `default_tags` block. Tags defined here are automatically applied to every AWS resource Terraform manages, without requiring per-resource tag assignments.
+
+Use this for tags where Terraform is the **authoritative source** — tags this deployment owns and should enforce on every apply.
+
+### Ignored Tag Keys
+
+The `ignored_tag_keys` variable (`list(string)`, default `[]`) is passed to the AWS provider's `ignore_tags` block. Tag keys listed here are excluded from Terraform's reconciliation entirely — Terraform will not report drift for these tags and will not attempt to remove them.
+
+Use this for tags that are managed by external systems (FinOps integrations, app-interface, AWS Config rules) or tags that do not yet have an authoritative value in this deployment.
+
+### Enforced Settings
+
+Some infrastructure-level settings (such as CloudWatch log retention) are enforced by the account's external integrations. When an enforced value differs from the Terraform variable default, the workspace variable must be set to match the externally enforced value. Otherwise, every plan will show drift as Terraform attempts to revert the setting.
+
+These values are set as workspace variables in the meta-workspace alongside `default_tags` and `ignored_tag_keys`.
+
+### Adding a New Environment
+
+When onboarding a new AWS account or environment:
+
+1. Identify which tags the account's external integrations apply to resources.
+2. Determine which of those tags this deployment should own (`default_tags`) versus ignore (`ignored_tag_keys`).
+3. Check whether settings like log retention are enforced at values different from the Terraform defaults, and set workspace variables accordingly.
+4. After the meta-workspace applies the new variables, confirm the regional workspace plan shows no residual drift.
 
 ---
 

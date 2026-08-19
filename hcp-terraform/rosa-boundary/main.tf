@@ -22,6 +22,16 @@ module "rosa_boundary" {
   meta_project_name = "meta-rosa"
   notification_url  = var.notification_url
 
+  notification = {
+    triggers = [
+      "run:needs_attention",
+      "run:errored",
+      "assessment:check_failure",
+      "assessment:drifted",
+      "assessment:failed",
+    ]
+  }
+
   workspaces = {
     rosa-boundary-stage-network = {
       terraform_version  = "1.15.8"

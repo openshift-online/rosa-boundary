@@ -29,7 +29,33 @@ module "rosa_boundary" {
       github_repo_org    = "openshift-online"
       github_repo_name   = "rosa-boundary"
       variable_set_names = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
-      variables          = []
+      variables = [
+        {
+          key      = "default_tags"
+          value    = <<-EOT
+            {
+              owner         = "app-sre"
+              service-phase = "stage"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "ignored_tag_keys"
+          value    = <<-EOT
+            [
+              "app",
+              "app-code",
+              "cost-center",
+              "managed_by_integration",
+              "organization",
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+      ]
     }
 
     rosa-boundary-stage-aws-creds = {

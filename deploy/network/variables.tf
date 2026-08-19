@@ -140,6 +140,18 @@ variable "nat_strategy" {
   }
 }
 
+variable "default_tags" {
+  description = "Organization-standard FinOps tags applied to all AWS resources via the provider default_tags block. Supplied by the HCP Terraform workspace."
+  type        = map(string)
+  default     = {}
+}
+
+variable "ignored_tag_keys" {
+  description = "Tag keys managed outside this deployment and excluded from Terraform reconciliation"
+  type        = list(string)
+  default     = []
+}
+
 variable "additional_tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)

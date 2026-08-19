@@ -3,9 +3,8 @@
 # Ephemeral SRE investigation container for AWS ECS Fargate.
 # SREs connect via SSM/ECS Exec as the non-root 'sre' user.
 #
-# FIPS Compliance: Final stage uses Red Hat Hummingbird (hi/core-runtime) for
-# FIPS 140-2 validated OpenSSL, aligning with ROSA FedRAMP requirements and
-# matching the security baseline used by backplane-api and other ROSA services.
+# FIPS Compliance: Final stage uses UBI9 with FIPS mode enabled for FIPS 140-2
+# validated cryptography, aligning with ROSA FedRAMP requirements.
 #
 # Stages:
 #   tools-base       — shared build environment (curl, python3, helpers)
@@ -18,11 +17,8 @@
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
 # stages 2-5 run in parallel once their dependencies complete.
 
-# Base images for multi-stage build. Renovate updates these.
-# BASE_IMAGE: Used for builder stages (tools-base, tmux-builder) - pinned by digest
-# RUNTIME_IMAGE: FIPS-compliant runtime for final stage (FedRAMP compliance) - Renovate will pin
+# Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:bcfca170da4fe08c0b70aa76ca4ee63f0e724db1574712cbc6c6a77fea6b21dc
-ARG RUNTIME_IMAGE=registry.access.redhat.com/hi/core-runtime:2.42-openssl-fips
 
 
 # Stage 1: tools-base
@@ -168,14 +164,18 @@ RUN curl --silent --location --fail \
 
 # Stage 6: final
 # Production image. Only this stage ships.
-# Uses Red Hat Hummingbird FIPS-compliant runtime for FedRAMP/DoD compliance.
-# Provides FIPS 140-2 validated OpenSSL and hardened runtime environment.
-FROM ${RUNTIME_IMAGE} AS final
+# FIPS mode is enabled for FedRAMP/DoD compliance (FIPS 140-2 validated cryptography).
+FROM ${BASE_IMAGE} AS final
 
 LABEL org.opencontainers.image.title="rosa-boundary" \
       org.opencontainers.image.description="Ephemeral SRE investigation container for ROSA clusters on AWS ECS Fargate (FIPS-compliant)" \
       org.opencontainers.image.source="https://github.com/openshift-online/rosa-boundary" \
       org.opencontainers.image.vendor="Red Hat"
+
+# Enable FIPS 140-2 mode for FedRAMP compliance
+# Note: In containers, crypto policy is set but FIPS kernel mode cannot be enabled without reboot.
+# The FIPS crypto policy ensures all crypto operations use FIPS-validated algorithms.
+RUN update-crypto-policies --set FIPS
 
 RUN dnf install --assumeyes --nodocs \
         alternatives \

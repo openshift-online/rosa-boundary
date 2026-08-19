@@ -273,9 +273,18 @@ Workspace variables for the staging deployment are defined as code in `hcp-terra
 | `ignored_tag_keys` | *(account-specific)* | Tag keys excluded from Terraform reconciliation; see [Externally Managed Tags and Settings](#externally-managed-tags-and-settings) |
 | `log_retention_days` | *(account-specific)* | Must match the retention enforced by the account's external integrations |
 
-### rosa-boundary-stage-network and rosa-boundary-stage-aws-creds
+### rosa-boundary-stage-network
 
-These workspaces use the defaults defined in their respective `variables.tf` files and do not have additional variables set through the meta-workspace. The network workspace defaults target the staging account (`150100906299`) and region (`us-east-1`) directly in its variable definitions.
+| Variable | Value | Notes |
+|----------|-------|-------|
+| `default_tags` | *(account-specific)* | Organization-standard FinOps tags applied via provider `default_tags`; see [Externally Managed Tags and Settings](#externally-managed-tags-and-settings) |
+| `ignored_tag_keys` | *(account-specific)* | Tag keys excluded from Terraform reconciliation; see [Externally Managed Tags and Settings](#externally-managed-tags-and-settings) |
+
+Other variables use the defaults defined in `deploy/network/variables.tf`, which target the staging account (`150100906299`) and region (`us-east-1`) directly.
+
+### rosa-boundary-stage-aws-creds
+
+This workspace uses the defaults defined in its `variables.tf` and does not have additional variables set through the meta-workspace.
 
 ---
 
@@ -283,7 +292,7 @@ These workspaces use the defaults defined in their respective `variables.tf` fil
 
 AWS accounts managed through app-interface have external integrations (AppSRE, FinOps) that apply their own resource tags and enforce settings such as CloudWatch log retention. When Terraform is unaware of these externally managed values, it reports drift on every plan and attempts to reconcile them — removing tags it didn't apply or reverting enforced settings to their Terraform defaults.
 
-The regional Terraform configuration handles this through three mechanisms, all controlled by workspace variables defined in the meta-workspace (`hcp-terraform/rosa-boundary/main.tf`):
+The Terraform configurations (`deploy/regional/` and `deploy/network/`) handle this through three mechanisms, all controlled by workspace variables defined in the meta-workspace (`hcp-terraform/rosa-boundary/main.tf`):
 
 ### Provider Default Tags
 

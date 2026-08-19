@@ -47,8 +47,14 @@ Use --efs-filesystem-id or set efs_filesystem_id in your config.`,
 	cmd.Flags().BoolVar(&opts.force, "force", false, "Stop running tasks before deleting (default: error if tasks are running)")
 	cmd.Flags().BoolVar(&opts.yes, "yes", false, "Skip confirmation prompt for EFS access point deletion")
 	cmd.Flags().StringVar(&opts.output, "output", "text", "Output format: text or json")
-	_ = cmd.MarkFlagRequired("cluster-id")
-	_ = cmd.MarkFlagRequired("investigation-id")
+
+	// MarkFlagRequired only fails if flag doesn't exist (programming error)
+	if err := cmd.MarkFlagRequired("cluster-id"); err != nil {
+		panic(err)
+	}
+	if err := cmd.MarkFlagRequired("investigation-id"); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }

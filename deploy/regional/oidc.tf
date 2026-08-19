@@ -284,6 +284,15 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
           "kms:GenerateDataKey"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "EFSDescribeAccessPoints"
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:DescribeAccessPoints",
+          "elasticfilesystem:DescribeFileSystems"
+        ]
+        Resource = "*"
       }
     ]
   })

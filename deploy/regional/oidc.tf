@@ -221,6 +221,17 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         }
       },
       {
+        Sid      = "StopOwnedTasks"
+        Effect   = "Allow"
+        Action   = ["ecs:StopTask"]
+        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Condition = {
+          StringEquals = {
+            "ecs:ResourceTag/${var.abac_tag_key}" = "$${aws:PrincipalTag/${var.abac_tag_key}}"
+          }
+        }
+      },
+      {
         Sid    = "DescribeAndListECS"
         Effect = "Allow"
         Action = [
@@ -229,6 +240,21 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
           "ecs:DescribeTaskDefinition"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "DeregisterTaskDefinition"
+        Effect = "Allow"
+        Action = ["ecs:DeregisterTaskDefinition"]
+        # Scoped to task definition families matching the project prefix.
+        # Per-investigation task defs follow the pattern:
+        #   {project}-{stage}-{cluster_id}-{investigation_id}-{timestamp}
+        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-${var.stage}-*"
+      },
+      {
+        Sid      = "EFSReadAccessPoints"
+        Effect   = "Allow"
+        Action   = ["elasticfilesystem:DescribeAccessPoints"]
+        Resource = aws_efs_file_system.sre_home.arn
       },
       {
         Sid    = "SSMSessionForECSExec"

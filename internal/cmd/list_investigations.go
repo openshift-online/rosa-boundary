@@ -3,17 +3,25 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var listInvestigationsCmd = &cobra.Command{
-	Use:   "list-investigations",
-	Short: "List investigations (EFS access points) on the configured filesystem",
-	Long: `List all rosa-boundary investigations on the configured EFS filesystem.
+type listInvestigationsOptions struct {
+	forceLogin bool
+	clusterID  string
+	output     string
+}
+
+func newListInvestigationsCmd() *cobra.Command {
+	opts := &listInvestigationsOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "list-investigations",
+		Short: "List investigations (EFS access points) on the configured filesystem",
+		Long: `List all rosa-boundary investigations on the configured EFS filesystem.
 
 An investigation exists as long as its EFS access point exists — even if no
 tasks are currently running. Use --cluster-id to narrow results to a single
@@ -21,50 +29,48 @@ cluster, or omit it to see all investigations across all clusters.
 
 Requires efs_filesystem_id to be set in config, ROSA_BOUNDARY_EFS_FILESYSTEM_ID,
 or --efs-filesystem-id.`,
-	Args: cobra.NoArgs,
-	RunE: runListInvestigations,
-}
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return opts.run(cmd)
+		},
+	}
 
-var (
-	listInvClusterID    string
-	listInvOutputFormat string
-)
+	AddForceLoginFlag(cmd, &opts.forceLogin)
+	cmd.Flags().StringVar(&opts.clusterID, "cluster-id", "", "Filter by cluster ID (lists all clusters if omitted)")
+	cmd.Flags().StringVar(&opts.output, "output", "text", "Output format: text or json")
+
+	return cmd
+}
 
 func init() {
-	listInvestigationsCmd.Flags().StringVar(&listInvClusterID, "cluster-id", "", "Filter by cluster ID (lists all clusters if omitted)")
-	listInvestigationsCmd.Flags().StringVar(&listInvOutputFormat, "output", "text", "Output format: text or json")
-	rootCmd.AddCommand(listInvestigationsCmd)
+	rootCmd.AddCommand(newListInvestigationsCmd())
 }
 
-func runListInvestigations(cmd *cobra.Command, args []string) error {
-	switch listInvOutputFormat {
+func (o *listInvestigationsOptions) run(cmd *cobra.Command) error {
+	switch o.output {
 	case "text", "json":
 	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", listInvOutputFormat)
+		return fmt.Errorf("invalid --output %q: must be text or json", o.output)
 	}
 
-	cfg, err := getConfig(false)
+	authRes, err := GetAWSConfigWithOIDC(cmd, o.forceLogin)
 	if err != nil {
-		return err
+		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	if cfg.EFSFilesystemID == "" {
+	if authRes.Config.EFSFilesystemID == "" {
 		return fmt.Errorf("EFS filesystem ID is required; set --efs-filesystem-id, ROSA_BOUNDARY_EFS_FILESYSTEM_ID, or efs_filesystem_id in config")
 	}
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	efsClient := awsclient.NewEFSClient(authRes.Config.AWSRegion, authRes.Config.EFSFilesystemID, credProvider)
 
-	efsClient := awsclient.NewEFSClient(cfg.AWSRegion, cfg.EFSFilesystemID, awsCfg.Credentials)
-
-	investigations, err := efsClient.ListInvestigations(cmd.Context(), listInvClusterID)
+	investigations, err := efsClient.ListInvestigations(cmd.Context(), o.clusterID)
 	if err != nil {
 		return fmt.Errorf("failed to list investigations: %w", err)
 	}
 
-	if listInvOutputFormat == "json" {
+	if o.output == "json" {
 		type jsonRow struct {
 			InvestigationID string `json:"investigation_id"`
 			ClusterID       string `json:"cluster_id"`

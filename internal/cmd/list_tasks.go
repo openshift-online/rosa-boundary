@@ -4,58 +4,64 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var listTasksCmd = &cobra.Command{
-	Use:   "list-tasks",
-	Short: "List ECS tasks in the cluster",
-	Long: `List running (or stopped) ECS tasks in the configured ECS cluster,
-including tag metadata such as cluster_id, investigation_id, and username.`,
-	RunE: runListTasks,
+type listTasksOptions struct {
+	forceLogin bool
+	status     string
+	output     string
 }
 
-var (
-	listStatus       string
-	listOutputFormat string
-)
+func newListTasksCmd() *cobra.Command {
+	opts := &listTasksOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "list-tasks",
+		Short: "List ECS tasks in the cluster",
+		Long: `List running (or stopped) ECS tasks in the configured ECS cluster,
+including tag metadata such as cluster_id, investigation_id, and username.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return opts.run(cmd)
+		},
+	}
+
+	AddForceLoginFlag(cmd, &opts.forceLogin)
+	cmd.Flags().StringVar(&opts.status, "status", "RUNNING", "Task status filter: RUNNING, STOPPED, or all")
+	cmd.Flags().StringVar(&opts.output, "output", "text", "Output format: text or json")
+
+	return cmd
+}
 
 func init() {
-	listTasksCmd.Flags().StringVar(&listStatus, "status", "RUNNING", "Task status filter: RUNNING, STOPPED, or all")
-	listTasksCmd.Flags().StringVar(&listOutputFormat, "output", "text", "Output format: text or json")
-	rootCmd.AddCommand(listTasksCmd)
+	rootCmd.AddCommand(newListTasksCmd())
 }
 
-func runListTasks(cmd *cobra.Command, args []string) error {
-	desiredStatus := strings.ToUpper(listStatus)
+func (o *listTasksOptions) run(cmd *cobra.Command) error {
+	desiredStatus := strings.ToUpper(o.status)
 	switch desiredStatus {
 	case "RUNNING", "STOPPED", "ALL":
 	default:
-		return fmt.Errorf("invalid --status %q: must be RUNNING, STOPPED, or all", listStatus)
+		return fmt.Errorf("invalid --status %q: must be RUNNING, STOPPED, or all", o.status)
 	}
 
-	switch listOutputFormat {
+	switch o.output {
 	case "text", "json":
 	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", listOutputFormat)
+		return fmt.Errorf("invalid --output %q: must be text or json", o.output)
 	}
 
-	cfg, err := getConfig(false)
+	authRes, err := GetAWSConfigWithOIDC(cmd, o.forceLogin)
 	if err != nil {
-		return err
+		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
-
-	clusterName := cfg.ClusterName
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
+	clusterName := authRes.Config.ClusterName
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus)
 
@@ -77,7 +83,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if listOutputFormat == "json" {
+	if o.output == "json" {
 		return output.JSON(tasks)
 	}
 

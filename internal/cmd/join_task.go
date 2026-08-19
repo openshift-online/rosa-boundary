@@ -6,66 +6,62 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var joinTaskCmd = &cobra.Command{
-	Use:   "join-task <task-id>",
-	Short: "Connect to a running ECS task via ECS Exec",
-	Long: `Connect to a running ECS Fargate task using ECS Exec and the
+type joinTaskOptions struct {
+	forceLogin bool
+	container  string
+	command    string
+	noWait     bool
+}
+
+func newJoinTaskCmd() *cobra.Command {
+	opts := &joinTaskOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "join-task <task-id>",
+		Short: "Connect to a running ECS task via ECS Exec",
+		Long: `Connect to a running ECS Fargate task using ECS Exec and the
 AWS Session Manager plugin. Requires session-manager-plugin to be installed.
 
 The task must be in RUNNING state and have ECS Exec enabled.
-AWS credentials must be configured (e.g., via environment variables or
-after running start-task with --connect).`,
-	Args: cobra.ExactArgs(1),
-	RunE: runJoinTask,
-}
+Uses OIDC authentication via cached token from 'rosa-boundary login'.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return opts.run(cmd, args[0])
+		},
+	}
 
-var (
-	joinContainer string
-	joinCommand   string
-	joinNoWait    bool
-)
+	AddForceLoginFlag(cmd, &opts.forceLogin)
+	cmd.Flags().StringVar(&opts.container, "container", "rosa-boundary", "Container name to connect to")
+	cmd.Flags().StringVar(&opts.command, "command", defaultExecCommand, "Command to run in the container")
+	cmd.Flags().BoolVar(&opts.noWait, "no-wait", false, "Do not wait for RUNNING state before connecting")
+
+	return cmd
+}
 
 func init() {
-	joinTaskCmd.Flags().StringVar(&joinContainer, "container", "rosa-boundary", "Container name to connect to")
-	joinTaskCmd.Flags().StringVar(&joinCommand, "command", defaultExecCommand, "Command to run in the container")
-	joinTaskCmd.Flags().BoolVar(&joinNoWait, "no-wait", false, "Do not wait for RUNNING state before connecting")
-	rootCmd.AddCommand(joinTaskCmd)
+	rootCmd.AddCommand(newJoinTaskCmd())
 }
 
-func runJoinTask(cmd *cobra.Command, args []string) error {
-	taskID := args[0]
-
-	cfg, err := getConfig(false)
+func (o *joinTaskOptions) run(cmd *cobra.Command, taskID string) error {
+	authRes, err := GetAWSConfigWithOIDC(cmd, o.forceLogin)
 	if err != nil {
-		return err
+		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	// Load ambient AWS credentials (from environment, instance profile, etc.)
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w\nRun start-task first or configure AWS credentials", err)
-	}
-
-	// Verify we have credentials by checking the identity
-	creds, credsErr := awsCfg.Credentials.Retrieve(cmd.Context())
-	if credsErr != nil || creds.AccessKeyID == "" {
-		return fmt.Errorf("AWS credentials not configured\nRun start-task first or set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY")
-	}
-
-	clusterName := cfg.ClusterName
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
+	clusterName := authRes.Config.ClusterName
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	output.Status("ECS Cluster: %s", clusterName)
-	output.Status("Task:    %s", taskID)
+	output.Status("Task:        %s", taskID)
 
-	return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, taskID, joinContainer, joinCommand, joinNoWait)
+	return runJoinWithClient(cmd.Context(), ecsClient, authRes.Config.AWSRegion, taskID, o.container, o.command, o.noWait)
 }
 
 // runJoinWithClient is shared by join-task and start-task --connect.

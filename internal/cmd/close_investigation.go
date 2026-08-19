@@ -6,17 +6,28 @@ import (
 	"os"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var closeInvestigationCmd = &cobra.Command{
-	Use:   "close-investigation",
-	Short: "Close an investigation: stop tasks, deregister task defs, delete EFS access point",
-	Long: `Close an investigation workspace by:
+type closeInvestigationOptions struct {
+	forceLogin       bool
+	clusterID        string
+	investigationID  string
+	force            bool
+	yes              bool
+	output           string
+}
+
+func newCloseInvestigationCmd() *cobra.Command {
+	opts := &closeInvestigationOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "close-investigation",
+		Short: "Close an investigation: stop tasks, deregister task defs, delete EFS access point",
+		Long: `Close an investigation workspace by:
   1. Finding the EFS access point for the investigation
   2. Stopping any running tasks (requires --force if tasks are running)
   3. Deregistering associated task definitions
@@ -24,70 +35,65 @@ var closeInvestigationCmd = &cobra.Command{
 
 Note: The EFS data remains on the filesystem after the access point is deleted.
 Use --efs-filesystem-id or set efs_filesystem_id in your config.`,
-	Args: cobra.NoArgs,
-	RunE: runCloseInvestigation,
-}
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return opts.run(cmd)
+		},
+	}
 
-var (
-	closeClusterID       string
-	closeInvestigationID string
-	closeForce           bool
-	closeYes             bool
-	closeOutputFormat    string
-)
+	AddForceLoginFlag(cmd, &opts.forceLogin)
+	cmd.Flags().StringVar(&opts.clusterID, "cluster-id", "", "Cluster ID (required)")
+	cmd.Flags().StringVar(&opts.investigationID, "investigation-id", "", "Investigation ID (required)")
+	cmd.Flags().BoolVar(&opts.force, "force", false, "Stop running tasks before deleting (default: error if tasks are running)")
+	cmd.Flags().BoolVar(&opts.yes, "yes", false, "Skip confirmation prompt for EFS access point deletion")
+	cmd.Flags().StringVar(&opts.output, "output", "text", "Output format: text or json")
+	_ = cmd.MarkFlagRequired("cluster-id")
+	_ = cmd.MarkFlagRequired("investigation-id")
+
+	return cmd
+}
 
 func init() {
-	closeInvestigationCmd.Flags().StringVar(&closeClusterID, "cluster-id", "", "Cluster ID (required)")
-	closeInvestigationCmd.Flags().StringVar(&closeInvestigationID, "investigation-id", "", "Investigation ID (required)")
-	closeInvestigationCmd.Flags().BoolVar(&closeForce, "force", false, "Stop running tasks before deleting (default: error if tasks are running)")
-	closeInvestigationCmd.Flags().BoolVar(&closeYes, "yes", false, "Skip confirmation prompt for EFS access point deletion")
-	closeInvestigationCmd.Flags().StringVar(&closeOutputFormat, "output", "text", "Output format: text or json")
-	_ = closeInvestigationCmd.MarkFlagRequired("cluster-id")
-	_ = closeInvestigationCmd.MarkFlagRequired("investigation-id")
-	rootCmd.AddCommand(closeInvestigationCmd)
+	rootCmd.AddCommand(newCloseInvestigationCmd())
 }
 
-func runCloseInvestigation(cmd *cobra.Command, args []string) error {
-	switch closeOutputFormat {
+func (o *closeInvestigationOptions) run(cmd *cobra.Command) error {
+	switch o.output {
 	case "text", "json":
 	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", closeOutputFormat)
+		return fmt.Errorf("invalid --output %q: must be text or json", o.output)
 	}
 
-	cfg, err := getConfig(false)
+	authRes, err := GetAWSConfigWithOIDC(cmd, o.forceLogin)
 	if err != nil {
-		return err
+		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	if cfg.EFSFilesystemID == "" {
+	if authRes.Config.EFSFilesystemID == "" {
 		return fmt.Errorf("EFS filesystem ID is required; set --efs-filesystem-id, ROSA_BOUNDARY_EFS_FILESYSTEM_ID, or efs_filesystem_id in config")
 	}
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
-
-	efsClient := awsclient.NewEFSClient(cfg.AWSRegion, cfg.EFSFilesystemID, awsCfg.Credentials)
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, cfg.ClusterName, awsCfg.Credentials)
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	efsClient := awsclient.NewEFSClient(authRes.Config.AWSRegion, authRes.Config.EFSFilesystemID, credProvider)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, authRes.Config.ClusterName, credProvider)
 
 	// Step 1: Find EFS access point
 	output.Status("=== Step 1: Finding EFS Access Point ===")
-	output.Status("Cluster:        %s", closeClusterID)
-	output.Status("Investigation:  %s", closeInvestigationID)
+	output.Status("Cluster:        %s", o.clusterID)
+	output.Status("Investigation:  %s", o.investigationID)
 
-	ap, err := efsClient.FindAccessPointByTags(cmd.Context(), closeClusterID, closeInvestigationID)
+	ap, err := efsClient.FindAccessPointByTags(cmd.Context(), o.clusterID, o.investigationID)
 	if err != nil {
 		return fmt.Errorf("failed to find EFS access point: %w", err)
 	}
 	if ap == nil {
-		return fmt.Errorf("no EFS access point found for cluster %q investigation %q", closeClusterID, closeInvestigationID)
+		return fmt.Errorf("no EFS access point found for cluster %q investigation %q", o.clusterID, o.investigationID)
 	}
 	output.Status("Found access point: %s (path: %s)", ap.AccessPointID, ap.Path)
 
 	// Step 2: Check for running tasks
 	output.Status("\n=== Step 2: Checking for Running Tasks ===")
-	runningTasks, err := ecsClient.ListTasksByInvestigation(cmd.Context(), closeInvestigationID)
+	runningTasks, err := ecsClient.ListTasksByInvestigation(cmd.Context(), o.investigationID)
 	if err != nil {
 		return fmt.Errorf("failed to list tasks: %w", err)
 	}
@@ -97,7 +103,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 		for _, t := range runningTasks {
 			output.Status("  %s", t.TaskID)
 		}
-		if !closeForce {
+		if !o.force {
 			return fmt.Errorf("%d task(s) are still running; use --force to stop them first", len(runningTasks))
 		}
 		output.Status("Stopping running tasks (--force)...")
@@ -120,7 +126,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	// Step 3: Deregister task definitions
 	output.Status("\n=== Step 3: Deregistering Task Definitions ===")
 	// Family prefix pattern: {clusterName}-{clusterID}-{investigationID}
-	familyPrefix := fmt.Sprintf("%s-%s-%s", cfg.ClusterName, closeClusterID, closeInvestigationID)
+	familyPrefix := fmt.Sprintf("%s-%s-%s", authRes.Config.ClusterName, o.clusterID, o.investigationID)
 	output.Status("Family prefix: %s", familyPrefix)
 
 	taskDefARNs, err := ecsClient.ListTaskDefinitionsByFamily(cmd.Context(), familyPrefix)
@@ -146,7 +152,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	output.Status("Access Point: %s", ap.AccessPointID)
 	output.Status("Path:         %s", ap.Path)
 
-	if !closeYes {
+	if !o.yes {
 		fmt.Fprintf(os.Stderr, "\nDelete EFS access point %s? This cannot be undone. [y/N]: ", ap.AccessPointID)
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() || !strings.EqualFold(strings.TrimSpace(scanner.Text()), "y") {
@@ -160,10 +166,10 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 
 	output.Status("EFS access point deleted")
 
-	if closeOutputFormat == "json" {
+	if o.output == "json" {
 		summary := map[string]any{
-			"cluster":           closeClusterID,
-			"investigation_id":  closeInvestigationID,
+			"cluster":           o.clusterID,
+			"investigation_id":  o.investigationID,
 			"access_point_id":   ap.AccessPointID,
 			"tasks_stopped":     len(runningTasks),
 			"task_defs_removed": len(taskDefARNs),
@@ -172,7 +178,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		printCloseInvestigationSummary(closeClusterID, closeInvestigationID, ap.AccessPointID, len(runningTasks), len(taskDefARNs))
+		printCloseInvestigationSummary(o.clusterID, o.investigationID, ap.AccessPointID, len(runningTasks), len(taskDefARNs))
 	}
 
 	return nil

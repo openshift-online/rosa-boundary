@@ -3,61 +3,65 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var stopTaskCmd = &cobra.Command{
-	Use:   "stop-task <task-id>",
-	Short: "Stop a running ECS task",
-	Long: `Stop a running ECS Fargate task. The container's entrypoint will
-receive SIGTERM and sync /home/sre to S3 before exiting.`,
-	Args: cobra.ExactArgs(1),
-	RunE: runStopTask,
+type stopTaskOptions struct {
+	forceLogin bool
+	reason     string
+	wait       bool
 }
 
-var (
-	stopReason string
-	stopWait   bool
-)
+func newStopTaskCmd() *cobra.Command {
+	opts := &stopTaskOptions{}
+
+	cmd := &cobra.Command{
+		Use:   "stop-task <task-id>",
+		Short: "Stop a running ECS task",
+		Long: `Stop a running ECS Fargate task. The container's entrypoint will
+receive SIGTERM and sync /home/sre to S3 before exiting.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return opts.run(cmd, args[0])
+		},
+	}
+
+	AddForceLoginFlag(cmd, &opts.forceLogin)
+	cmd.Flags().StringVar(&opts.reason, "reason", "Investigation complete", "Reason for stopping the task")
+	cmd.Flags().BoolVar(&opts.wait, "wait", false, "Wait for the task to reach STOPPED state")
+
+	return cmd
+}
 
 func init() {
-	stopTaskCmd.Flags().StringVar(&stopReason, "reason", "Investigation complete", "Reason for stopping the task")
-	stopTaskCmd.Flags().BoolVar(&stopWait, "wait", false, "Wait for the task to reach STOPPED state")
-	rootCmd.AddCommand(stopTaskCmd)
+	rootCmd.AddCommand(newStopTaskCmd())
 }
 
-func runStopTask(cmd *cobra.Command, args []string) error {
-	taskID := args[0]
-
-	cfg, err := getConfig(false)
+func (o *stopTaskOptions) run(cmd *cobra.Command, taskID string) error {
+	authRes, err := GetAWSConfigWithOIDC(cmd, o.forceLogin)
 	if err != nil {
-		return err
+		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
-
-	clusterName := cfg.ClusterName
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
+	clusterName := authRes.Config.ClusterName
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	output.Status("Stopping task...")
 	output.Status("  Task:    %s", taskID)
 	output.Status("  ECS Cluster: %s", clusterName)
-	output.Status("  Reason:  %s", stopReason)
+	output.Status("  Reason:  %s", o.reason)
 
-	if err := ecsClient.StopTask(cmd.Context(), taskID, stopReason); err != nil {
+	if err := ecsClient.StopTask(cmd.Context(), taskID, o.reason); err != nil {
 		return fmt.Errorf("stop task failed: %w", err)
 	}
 
 	output.Status("Task stop initiated")
 
-	if stopWait {
+	if o.wait {
 		output.Status("Waiting for task to reach STOPPED state...")
 		if err := ecsClient.WaitForStopped(cmd.Context(), taskID); err != nil {
 			return fmt.Errorf("task did not reach STOPPED state: %w", err)

@@ -3,8 +3,14 @@
 #
 # github_dl — download GitHub Release assets with checksum verification.
 #
-# Authenticates via build secret mounts or GITHUB_TOKEN env var.
-# All GitHub API calls are authenticated to avoid rate limiting.
+# Authentication priority:
+#   1. GitHub App token (GITHUB_APP_ID + GITHUB_APP_PEM + GITHUB_APP_INSTALL_ID)
+#   2. Build secret mounts or GITHUB_TOKEN env var
+#   3. Unauthenticated (if no credentials found)
+#
+# If some GITHUB_APP_* vars are set but not all, and GITHUB_TOKEN is
+# available, falls back to GITHUB_TOKEN. If GITHUB_TOKEN is also missing,
+# exits with an error listing the missing app vars.
 #
 # Usage:
 #   github_dl download \
@@ -24,7 +30,21 @@ import time
 import argparse
 import hashlib
 
+import jwt
 import requests
+
+
+# Build secret mount path patterns, checked in priority order.
+# Each secret resolves by substituting its name into these paths,
+# then falling back to the environment variable.
+SECRET_PATH_PATTERNS = [
+    "/additional-secret/{name}",
+    "/run/secrets/read-only-github-pat/{name}",
+    "/run/secrets/read-only-github-pat/token",
+    "/run/secrets/{name}",
+]
+
+GITHUB_APP_VARS = ["GITHUB_APP_ID", "GITHUB_APP_PEM", "GITHUB_APP_INSTALL_ID"]
 
 
 def validate_binary(binary, checksum, raw_algorithm="sha256") -> bool:
@@ -235,37 +255,138 @@ def get_quota(token=None) -> list:
     return quota_errors if quota_errors else None
 
 
-def resolve_token() -> str:
-    """Resolve GitHub token from build secret mounts or environment.
+def resolve_secret(name) -> str:
+    """Resolve a secret from build secret mounts or environment.
 
-    Priority matches the Containerfile backplane-tools install block:
-    Konflux additional-secret > named secret mount > generic secret mount > env var.
-    Returns None if no token found.
+    Checks SECRET_PATH_PATTERNS (with {name} substituted), then
+    falls back to the environment variable. Returns None if not found.
     """
-    token_paths = [
-        "/additional-secret/token",
-        "/run/secrets/read-only-github-pat/token",
-        "/run/secrets/GITHUB_TOKEN",
-    ]
-
-    for path in token_paths:
+    for pattern in SECRET_PATH_PATTERNS:
+        path = pattern.format(name=name)
         if os.path.isfile(path):
+            print(f"Resolved {name} from {path}", file=sys.stderr)
             with open(path) as f:
                 return f.read().strip()
 
-    if os.environ.get("GITHUB_TOKEN"):
-        return os.environ["GITHUB_TOKEN"]
+    value = os.environ.get(name)
+    if value:
+        print(f"Resolved {name} from environment variable", file=sys.stderr)
+        return value
 
     return None
+
+
+def generate_github_app_token(app_id, pem_key, install_id) -> str:
+    """Generate a GitHub App installation access token.
+
+    Creates an RS256-signed JWT from the app's private key, then
+    exchanges it for a short-lived installation token via the
+    GitHub API — equivalent to:
+      gh token generate --app-id $ID --key $PEM --installation-id $INSTALL_ID
+    """
+    now = int(time.time())
+    payload = {
+        "iat": now - 60,
+        "exp": now + (10 * 60),
+        "iss": str(app_id),
+    }
+
+    try:
+        encoded_jwt = jwt.encode(payload, pem_key, algorithm="RS256")
+    except (jwt.exceptions.InvalidKeyError, ValueError) as e:
+        print(f"Error: Failed to sign JWT with provided PEM key: {e}", file=sys.stderr)
+        return None
+
+    headers = {
+        "Authorization": f"Bearer {encoded_jwt}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    url = f"https://api.github.com/app/installations/{install_id}/access_tokens"
+    try:
+        response = requests.post(url, headers=headers, timeout=30)
+    except requests.RequestException as e:
+        print(f"Error: Failed to generate GitHub App installation token: {e}")
+        return None
+
+    if response.status_code != 201:
+        print(f"Error: GitHub App token request failed (HTTP {response.status_code}): {response.text}")
+        return None
+
+    token = response.json().get("token")
+    if not token:
+        print("Error: GitHub App token response did not contain a token")
+        return None
+
+    print("GitHub App installation token generated successfully.", file=sys.stderr)
+    return token
+
+
+def resolve_token() -> str:
+    """Resolve GitHub token from app credentials, build secret mounts, or environment.
+
+    Priority:
+    1. GitHub App token (all three GITHUB_APP_* vars present)
+    2. GITHUB_TOKEN via resolve_secret()
+    3. None (unauthenticated)
+
+    If some GITHUB_APP_* vars are set but not all, falls back to
+    GITHUB_TOKEN. If GITHUB_TOKEN is also missing, exits with an error.
+    """
+    app_vars = {name: resolve_secret(name) for name in GITHUB_APP_VARS}
+    present = {k for k, v in app_vars.items() if v is not None}
+    missing = [k for k in GITHUB_APP_VARS if k not in present]
+
+    if len(present) == len(GITHUB_APP_VARS):
+        pem_key = app_vars["GITHUB_APP_PEM"]
+        # GITHUB_APP_PEM may be a file path rather than raw PEM content
+        if not pem_key.startswith("-----"):
+            if os.path.isfile(pem_key):
+                with open(pem_key) as f:
+                    pem_key = f.read().strip()
+            else:
+                print("Error: GITHUB_APP_PEM value is not a PEM key and not a readable file path", file=sys.stderr)
+                pem_key = None
+
+        if pem_key:
+            token = generate_github_app_token(
+                app_vars["GITHUB_APP_ID"],
+                pem_key,
+                app_vars["GITHUB_APP_INSTALL_ID"],
+            )
+            if token:
+                print("Auth method: GitHub App installation token", file=sys.stderr)
+                return token
+        print("Warning: GitHub App token generation failed, falling back to GITHUB_TOKEN", file=sys.stderr)
+
+    pat_token = resolve_secret("GITHUB_TOKEN")
+
+    if 0 < len(present) < len(GITHUB_APP_VARS):
+        if pat_token:
+            print(f"Warning: Partial GitHub App config (missing: {', '.join(missing)}), using GITHUB_TOKEN instead", file=sys.stderr)
+            print("Auth method: GITHUB_TOKEN (personal access token)", file=sys.stderr)
+            return pat_token
+        print(f"Error: Partial GitHub App config — missing: {', '.join(missing)}, "
+              "and no GITHUB_TOKEN found as fallback.", file=sys.stderr)
+        sys.exit(1)
+
+    if pat_token:
+        print("Auth method: GITHUB_TOKEN (personal access token)", file=sys.stderr)
+    else:
+        print("Auth method: none (unauthenticated)", file=sys.stderr)
+    return pat_token
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="GitHub Downloader",
-        epilog="Authenticates via build secret mounts or GITHUB_TOKEN environment variable.")
+        epilog="Authenticates via GitHub App (GITHUB_APP_ID, GITHUB_APP_PEM, "
+               "GITHUB_APP_INSTALL_ID), build secret mounts, or GITHUB_TOKEN env var.")
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("quota", help="Get GitHub API rate limit information")
     subparsers.add_parser("token", help="Validate token exists, is valid, and has sufficient API calls remaining")
+    subparsers.add_parser("print-token", help="Print the resolved token to stdout (for use in command substitution)")
 
     download_parser = subparsers.add_parser("download", help="Download a GitHub asset")
     download_parser.add_argument("--url", required=True, help="GitHub Releases API URL")
@@ -275,23 +396,31 @@ def main():
     args = parser.parse_args()
 
     token = resolve_token()
+
+    if args.command == "print-token":
+        if token is None:
+            print("Error: No GitHub credentials found.", file=sys.stderr)
+            sys.exit(1)
+        print(token)
+        sys.exit(0)
+
     if token is None:
         if os.environ.get("REQUIRE_GITHUB_TOKEN", "false").lower() == "true":
-            print("Error: No GITHUB_TOKEN found. Checked /run/secrets/GITHUB_TOKEN, "
-                  "/run/secrets/read-only-github-pat/token, /additional-secret/token, "
-                  "and GITHUB_TOKEN env var.", file=sys.stderr)
+            print("Error: No GitHub credentials found. Checked GITHUB_APP_ID/PEM/INSTALL_ID, "
+                  "/run/secrets/GITHUB_TOKEN, /run/secrets/read-only-github-pat/token, "
+                  "/additional-secret/token, and GITHUB_TOKEN env var.", file=sys.stderr)
             sys.exit(1)
         else:
-            print("WARNING: No GITHUB_TOKEN found. API calls may be rate-limited.", file=sys.stderr)
+            print("WARNING: No GitHub credentials found. API calls may be rate-limited.", file=sys.stderr)
     else:
         if not validate_token(token):
             sys.exit(1)
 
     if args.command == "token":
         if token is None:
-            print("Error: No GITHUB_TOKEN found. Checked /run/secrets/GITHUB_TOKEN, "
-                  "/run/secrets/read-only-github-pat/token, /additional-secret/token, "
-                  "and GITHUB_TOKEN env var.", file=sys.stderr)
+            print("Error: No GitHub credentials found. Checked GITHUB_APP_ID/PEM/INSTALL_ID, "
+                  "/run/secrets/GITHUB_TOKEN, /run/secrets/read-only-github-pat/token, "
+                  "/additional-secret/token, and GITHUB_TOKEN env var.", file=sys.stderr)
             sys.exit(1)
         if not validate_token(token):
             sys.exit(1)

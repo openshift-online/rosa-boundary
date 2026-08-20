@@ -1,21 +1,27 @@
 package auth
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/config"
 )
 
 const (
-	tokenCacheFile      = "token-cache"
-	cacheValidityPeriod = 4 * time.Minute
+	tokenCacheFile = "token-cache"
+	// expirationBuffer is the time before actual expiration when we consider a token expired.
+	// This prevents race conditions where a token expires between validation and use.
+	expirationBuffer = 30 * time.Second
 )
 
 // CachedToken reads the token from cache if it is still valid.
 // Returns empty string and nil error if there is no valid cached token.
+// Validates the token by parsing the JWT exp claim and checking expiration.
 func CachedToken() (string, error) {
 	cacheDir, err := config.CacheDir()
 	if err != nil {
@@ -23,21 +29,11 @@ func CachedToken() (string, error) {
 	}
 	cachePath := filepath.Join(cacheDir, tokenCacheFile)
 
-	info, err := os.Stat(cachePath)
+	data, err := os.ReadFile(cachePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil
 		}
-		return "", fmt.Errorf("cannot stat token cache: %w", err)
-	}
-
-	age := time.Since(info.ModTime())
-	if age >= cacheValidityPeriod {
-		return "", nil
-	}
-
-	data, err := os.ReadFile(cachePath)
-	if err != nil {
 		return "", fmt.Errorf("cannot read token cache: %w", err)
 	}
 
@@ -46,7 +42,21 @@ func CachedToken() (string, error) {
 		return "", nil
 	}
 
-	remaining := cacheValidityPeriod - age
+	// Parse JWT expiration from the token
+	expiration, err := parseTokenExpiration(token)
+	if err != nil {
+		// Invalid token format, treat as expired
+		fmt.Fprintf(os.Stderr, "Cached token invalid: %v\n", err)
+		return "", nil
+	}
+
+	// Check if token is expired (with buffer)
+	if time.Now().Add(expirationBuffer).After(expiration) {
+		fmt.Fprintf(os.Stderr, "Cached token expired\n")
+		return "", nil
+	}
+
+	remaining := time.Until(expiration)
 	fmt.Fprintf(os.Stderr, "Using cached token (%d seconds remaining)\n", int(remaining.Seconds()))
 	return token, nil
 }
@@ -76,4 +86,33 @@ func ClearToken() error {
 		return fmt.Errorf("cannot remove token cache: %w", err)
 	}
 	return nil
+}
+
+// parseTokenExpiration extracts the expiration time from a JWT token.
+// Returns an error if the token is malformed or the exp claim is missing/invalid.
+func parseTokenExpiration(token string) (time.Time, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return time.Time{}, fmt.Errorf("invalid JWT format: expected 3 parts, got %d", len(parts))
+	}
+
+	// Decode the payload (middle part)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to decode JWT payload: %w", err)
+	}
+
+	// Parse the JSON claims
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse JWT claims: %w", err)
+	}
+
+	if claims.Exp == 0 {
+		return time.Time{}, fmt.Errorf("JWT missing exp claim")
+	}
+
+	return time.Unix(claims.Exp, 0), nil
 }

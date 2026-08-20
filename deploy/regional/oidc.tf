@@ -251,9 +251,12 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-${var.stage}-*"
       },
       {
-        Sid      = "EFSReadAccessPoints"
-        Effect   = "Allow"
-        Action   = ["elasticfilesystem:DescribeAccessPoints"]
+        Sid    = "EFSManageAccessPoints"
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:DescribeAccessPoints",
+          "elasticfilesystem:DeleteAccessPoint"
+        ]
         Resource = aws_efs_file_system.sre_home.arn
       },
       {

@@ -1,12 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/openshift-online/rosa-boundary/internal/auth"
+	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
 )
 
@@ -16,11 +20,23 @@ const (
 	defaultExecCommand = "runuser -u sre -- sh -c 'cd ~ && exec bash --login'"
 )
 
+type contextKey string
+
+const authResultKey contextKey = "authResult"
+
+// AuthResult contains AWS credentials and configuration obtained via OIDC authentication.
+type AuthResult struct {
+	Config      *config.Config
+	IDToken     string
+	Credentials *awsclient.TemporaryCredentials
+}
+
 var (
 	// Version is set at build time via -ldflags.
 	Version = "dev"
 
-	verbose bool
+	verbose    bool
+	forceLogin bool
 )
 
 // rootCmd is the base command.
@@ -45,6 +61,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose/debug output")
+	rootCmd.PersistentFlags().BoolVar(&forceLogin, "force-login", false, "Force re-authentication with Keycloak OIDC provider")
 	rootCmd.PersistentFlags().String("keycloak-url", "", "Keycloak base URL")
 	rootCmd.PersistentFlags().String("realm", "", "Keycloak realm (default: EmployeeIDP)")
 	rootCmd.PersistentFlags().String("client-id", "", "OIDC client ID (default: rosa-boundary-sre)")
@@ -65,6 +82,9 @@ func init() {
 	_ = viper.BindPFlag("invoker_role_arn", rootCmd.PersistentFlags().Lookup("invoker-role-arn"))
 	_ = viper.BindPFlag("lambda_function_name", rootCmd.PersistentFlags().Lookup("lambda-function-name"))
 	_ = viper.BindPFlag("efs_filesystem_id", rootCmd.PersistentFlags().Lookup("efs-filesystem-id"))
+
+	// PersistentPreRunE runs before any command's RunE, handling OIDC authentication centrally
+	rootCmd.PersistentPreRunE = authenticateIfNeeded
 }
 
 func initConfig() {
@@ -92,4 +112,145 @@ func debugf(format string, args ...any) {
 	if verbose {
 		fmt.Fprintf(os.Stderr, "[debug] "+format+"\n", args...)
 	}
+}
+
+// authenticateIfNeeded runs before any command that requires AWS/OIDC authentication.
+// It performs authentication once and stores the result in the command context.
+// If auth fails with an expired token error, it automatically retries once with a fresh login.
+func authenticateIfNeeded(cmd *cobra.Command, args []string) error {
+	// Commands that don't require authentication
+	if !requiresAuth(cmd) {
+		return nil
+	}
+
+	cfg, err := getConfig(true)
+	if err != nil {
+		return err
+	}
+
+	pkce := auth.PKCEConfig{
+		KeycloakURL: cfg.KeycloakURL,
+		Realm:       cfg.KeycloakRealm,
+		ClientID:    cfg.OIDCClientID,
+	}
+
+	// First attempt: use cached token if available (unless --force-login)
+	idToken, err := auth.GetToken(cmd.Context(), pkce, forceLogin)
+	if err != nil {
+		return fmt.Errorf("authentication failed: %w", err)
+	}
+
+	sessionName := "rosa-boundary-session"
+	creds, err := awsclient.AssumeRoleWithWebIdentity(
+		cmd.Context(),
+		cfg.AWSRegion,
+		cfg.SRERoleARN,
+		idToken,
+		sessionName,
+	)
+
+	// Auto-retry once if we got an auth error (token expired server-side)
+	if err != nil && isAuthError(err) && !forceLogin {
+		debugf("Auth failed with cached token, retrying with fresh login")
+		if clearErr := auth.ClearToken(); clearErr != nil {
+			debugf("Failed to clear token cache: %v", clearErr)
+		}
+
+		idToken, err = auth.GetToken(cmd.Context(), pkce, true)
+		if err != nil {
+			return fmt.Errorf("authentication failed on retry: %w", err)
+		}
+
+		creds, err = awsclient.AssumeRoleWithWebIdentity(
+			cmd.Context(),
+			cfg.AWSRegion,
+			cfg.SRERoleARN,
+			idToken,
+			sessionName,
+		)
+	}
+
+	if err != nil {
+		return fmt.Errorf("failed to assume AWS role via OIDC: %w", err)
+	}
+
+	// Store auth result in context for commands to access
+	authRes := &AuthResult{
+		Config:      cfg,
+		IDToken:     idToken,
+		Credentials: creds,
+	}
+
+	ctx := context.WithValue(cmd.Context(), authResultKey, authRes)
+	cmd.SetContext(ctx)
+
+	return nil
+}
+
+// isAuthError returns true if the error indicates an authentication/authorization failure
+// that might be resolved by refreshing the token.
+func isAuthError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	// Common AWS STS auth errors that indicate the token should be refreshed.
+	// Note: SignatureDoesNotMatch is NOT included - it indicates clock skew or
+	// request signing issues, not token expiration, and retrying won't fix it.
+	return strings.Contains(errStr, "ExpiredToken") ||
+		strings.Contains(errStr, "InvalidClientTokenId") ||
+		strings.Contains(errStr, "InvalidIdentityToken")
+}
+
+// requiresAuth returns true if the command requires OIDC/AWS authentication.
+func requiresAuth(cmd *cobra.Command) bool {
+	noAuthCommands := map[string]bool{
+		"version":              true,
+		"configure":            true,
+		"login":                true,
+		"create-investigation": true, // Manages own OIDC flow via invoker role
+		"start-task":           true, // Manages own OIDC flow via invoker role
+		"help":                 true, // Built-in Cobra command
+	}
+
+	// Check if this command is in the no-auth list
+	if noAuthCommands[cmd.Name()] {
+		return false
+	}
+
+	// Cobra completion commands should not require auth:
+	// - "completion" (parent command)
+	// - "bash", "zsh", "fish", "powershell" (subcommands under completion)
+	// - "__complete", "__completeNoDesc" (hidden completion commands)
+	completionCommands := map[string]bool{
+		"completion":       true,
+		"bash":             true,
+		"zsh":              true,
+		"fish":             true,
+		"powershell":       true,
+		"__complete":       true,
+		"__completeNoDesc": true,
+	}
+
+	if completionCommands[cmd.Name()] {
+		return false
+	}
+
+	// Check if parent is a completion command (e.g., "completion bash")
+	if cmd.Parent() != nil && completionCommands[cmd.Parent().Name()] {
+		return false
+	}
+
+	return true
+}
+
+// getAuthResult retrieves the authentication result from the command context.
+// This should only be called by commands that require authentication (after PersistentPreRunE has run).
+func getAuthResult(cmd *cobra.Command) *AuthResult {
+	authRes, ok := cmd.Context().Value(authResultKey).(*AuthResult)
+	if !ok {
+		// This should never happen if requiresAuth() is correct
+		panic(fmt.Sprintf("command %s requires authentication but auth result not found in context", cmd.Name()))
+	}
+	return authRes
 }

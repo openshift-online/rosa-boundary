@@ -18,6 +18,10 @@ type TemporaryCredentials struct {
 
 // AssumeRoleWithWebIdentity calls STS to exchange an OIDC token for temporary AWS credentials.
 // This is a public STS operation — no ambient credentials are required.
+//
+// Session tags for ABAC are automatically extracted from the https://aws.amazon.com/tags
+// claim in the JWT token (if present). Keycloak must be configured with a mapper to add
+// this claim containing the username for per-user task isolation to work.
 func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, sessionName string) (*TemporaryCredentials, error) {
 	// Use anonymous credentials since AssumeRoleWithWebIdentity doesn't require them.
 	client := sts.New(sts.Options{

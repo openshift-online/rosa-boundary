@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -43,21 +42,14 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output %q: must be text or json", listInvOutputFormat)
 	}
 
-	cfg, err := getConfig(false)
-	if err != nil {
-		return err
-	}
+	authRes := getAuthResult(cmd)
 
-	if cfg.EFSFilesystemID == "" {
+	if authRes.Config.EFSFilesystemID == "" {
 		return fmt.Errorf("EFS filesystem ID is required; set --efs-filesystem-id, ROSA_BOUNDARY_EFS_FILESYSTEM_ID, or efs_filesystem_id in config")
 	}
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
-
-	efsClient := awsclient.NewEFSClient(cfg.AWSRegion, cfg.EFSFilesystemID, awsCfg.Credentials)
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	efsClient := awsclient.NewEFSClient(authRes.Config.AWSRegion, authRes.Config.EFSFilesystemID, credProvider)
 
 	investigations, err := efsClient.ListInvestigations(cmd.Context(), listInvClusterID)
 	if err != nil {

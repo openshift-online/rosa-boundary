@@ -28,6 +28,40 @@ class DuplicateInvestigationError(Exception):
         self.access_point_id = access_point_id
 
 
+def build_efs_access_point_path(cluster_id: str, abac_tag_value: str, investigation_id: str) -> str:
+    """
+    Build EFS access point RootDirectory path with ABAC identity isolation.
+
+    AWS EFS RootDirectory.Path has a 100-character limit. This function ensures the
+    path stays within bounds by using a bounded hash and validating total length.
+
+    Path format: /{cluster_id}/{abac_hash}/{investigation_id}
+    - abac_hash: First 16 hex chars of SHA-256(abac_tag_value)
+
+    Args:
+        cluster_id: Cluster identifier
+        abac_tag_value: ABAC identity value (username or UUID)
+        investigation_id: Investigation identifier
+
+    Returns:
+        EFS path string bounded to ≤100 characters
+
+    Raises:
+        ValueError: If the resulting path exceeds 100 characters
+    """
+    abac_hash = hashlib.sha256(abac_tag_value.encode('utf-8')).hexdigest()[:16]
+    path = f"/{cluster_id}/{abac_hash}/{investigation_id}"
+
+    if len(path) > 100:
+        raise ValueError(
+            f"EFS path exceeds AWS 100-char limit: {len(path)} chars. "
+            f"Path: {path}"
+        )
+
+    return path
+
+
+
 def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
     """
     Return a deterministic ECS startedBy value for the given investigation.
@@ -220,7 +254,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             abac_tag_value = username
 
-        logger.info(f"Token validated for user: {username} (sub: {user_sub}, {ABAC_TAG_KEY}: {abac_tag_value})")
+        logger.info(f"Token validated (ABAC tag key: {ABAC_TAG_KEY})")
 
         # Check group membership (user must be in at least one of the required groups)
         matched_groups = [g for g in REQUIRED_GROUPS if g in groups]
@@ -453,7 +487,15 @@ def find_existing_access_point(
     Returns:
         Access point dict or None if not found or ABAC tag mismatch
     """
-    expected_path = f"/{cluster_id}/{investigation_id}"
+    # Build deterministic EFS path with ABAC identity isolation (bounded to 100 chars)
+    expected_path = build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
+
+    # NOTE: Legacy access points created with path /{cluster_id}/{investigation_id} (without
+    # ABAC hash) will be skipped due to path mismatch below. This is intentional — we cannot
+    # verify legacy access points were created with proper ABAC isolation, so we create new
+    # ones instead. Legacy access points will be cleaned up when their tasks complete or via
+    # manual cleanup if orphaned.
+
     try:
         paginator = efs.get_paginator('describe_access_points')
         for page in paginator.paginate(FileSystemId=efs_filesystem_id):
@@ -470,8 +512,7 @@ def find_existing_access_point(
                 # If the ABAC tag is missing or doesn't match, don't reuse this access point
                 if tags.get(abac_tag_key) != abac_tag_value:
                     logger.warning(
-                        f"Access point {ap['AccessPointId']} ABAC tag mismatch: "
-                        f"expected {abac_tag_key}={abac_tag_value!r}, got {abac_tag_key}={tags.get(abac_tag_key)!r}; skipping"
+                        f"Access point {ap['AccessPointId']} ABAC tag mismatch for key '{abac_tag_key}'; skipping"
                     )
                     continue
 
@@ -633,7 +674,8 @@ def create_investigation_task(
         Dictionary with task ARN and access point ID
     """
     # Create EFS access point for investigation (idempotent: reuse if already exists)
-    access_point_path = f"/{cluster_id}/{investigation_id}"
+    # Use deterministic path builder to ensure lookup and creation use identical paths
+    access_point_path = build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
 
     existing_ap = find_existing_access_point(
         efs_filesystem_id, cluster_id, investigation_id, abac_tag_key, abac_tag_value

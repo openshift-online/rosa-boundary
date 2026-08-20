@@ -218,26 +218,19 @@ func requiresAuth(cmd *cobra.Command) bool {
 		return false
 	}
 
-	// Cobra completion commands should not require auth:
-	// - "completion" (parent command)
-	// - "bash", "zsh", "fish", "powershell" (subcommands under completion)
-	// - "__complete", "__completeNoDesc" (hidden completion commands)
-	completionCommands := map[string]bool{
-		"completion":       true,
-		"bash":             true,
-		"zsh":              true,
-		"fish":             true,
-		"powershell":       true,
-		"__complete":       true,
-		"__completeNoDesc": true,
-	}
-
-	if completionCommands[cmd.Name()] {
+	// Cobra completion commands should not require auth
+	// Only exempt "completion" itself and its direct children
+	if cmd.Name() == "completion" {
 		return false
 	}
 
-	// Check if parent is a completion command (e.g., "completion bash")
-	if cmd.Parent() != nil && completionCommands[cmd.Parent().Name()] {
+	// Exempt children of completion command (e.g., "completion bash")
+	if cmd.Parent() != nil && cmd.Parent().Name() == "completion" {
+		return false
+	}
+
+	// Exempt hidden Cobra completion helpers
+	if cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" {
 		return false
 	}
 

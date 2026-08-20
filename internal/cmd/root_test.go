@@ -36,6 +36,12 @@ func TestRequiresAuth(t *testing.T) {
 		{"stop-task command", "stop-task", "", true},
 		{"join-task command", "join-task", "", true},
 		{"close-investigation command", "close-investigation", "", true},
+
+		// Edge cases: standalone shell commands (NOT under completion) SHOULD require auth
+		{"standalone bash", "bash", "", true},
+		{"standalone zsh", "zsh", "", true},
+		{"standalone fish", "fish", "", true},
+		{"standalone powershell", "powershell", "", true},
 	}
 
 	for _, tt := range tests {
@@ -85,6 +91,25 @@ func TestRequiresAuthCompletionRegression(t *testing.T) {
 		completeNoDescCmd := &cobra.Command{Use: "__completeNoDesc"}
 		if requiresAuth(completeNoDescCmd) {
 			t.Error("__completeNoDesc should not require authentication")
+		}
+	})
+
+	// Edge case: standalone "bash" command (not under completion) SHOULD require auth
+	t.Run("standalone bash command requires auth", func(t *testing.T) {
+		bashCmd := &cobra.Command{Use: "bash"}
+		if !requiresAuth(bashCmd) {
+			t.Error("standalone bash command should require authentication")
+		}
+	})
+
+	// Edge case: child of non-completion "bash" command SHOULD require auth
+	t.Run("child of non-completion bash requires auth", func(t *testing.T) {
+		bashCmd := &cobra.Command{Use: "bash"}
+		childCmd := &cobra.Command{Use: "subcommand"}
+		bashCmd.AddCommand(childCmd)
+
+		if !requiresAuth(childCmd) {
+			t.Error("child of non-completion bash should require authentication")
 		}
 	})
 }

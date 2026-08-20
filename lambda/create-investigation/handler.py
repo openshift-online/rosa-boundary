@@ -429,17 +429,29 @@ def find_running_tasks_for_investigation(cluster: str, cluster_id: str, investig
     return matching
 
 
-def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[Dict[str, Any]]:
+def find_existing_access_point(
+    efs_filesystem_id: str,
+    cluster_id: str,
+    investigation_id: str,
+    abac_tag_key: str,
+    abac_tag_value: str
+) -> Optional[Dict[str, Any]]:
     """
-    Find an existing EFS access point by ClusterID and InvestigationID tags.
+    Find an existing EFS access point by ClusterID, InvestigationID, and ABAC tag.
+
+    Security: Only returns an access point if the ABAC tag (username or uuid) matches
+    the caller's identity. This prevents users from reusing access points created by
+    other users, even if the cluster_id and investigation_id match.
 
     Args:
         efs_filesystem_id: EFS filesystem ID to search
         cluster_id: Cluster identifier to match
         investigation_id: Investigation identifier to match
+        abac_tag_key: ABAC tag key (e.g., 'username' or 'uuid')
+        abac_tag_value: ABAC tag value to match (caller's identity)
 
     Returns:
-        Access point dict or None if not found
+        Access point dict or None if not found or ABAC tag mismatch
     """
     expected_path = f"/{cluster_id}/{investigation_id}"
     try:
@@ -449,8 +461,20 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                 if ap.get('LifeCycleState') != 'available':
                     continue
                 tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
+
+                # Check ClusterID and InvestigationID
                 if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
                     continue
+
+                # SECURITY: Fail closed on missing or mismatched ABAC tag
+                # If the ABAC tag is missing or doesn't match, don't reuse this access point
+                if tags.get(abac_tag_key) != abac_tag_value:
+                    logger.warning(
+                        f"Access point {ap['AccessPointId']} ABAC tag mismatch: "
+                        f"expected {abac_tag_key}={abac_tag_value!r}, got {abac_tag_key}={tags.get(abac_tag_key)!r}; skipping"
+                    )
+                    continue
+
                 # Verify the root path matches what the tags claim — guards against tag
                 # manipulation redirecting an investigation to a different EFS directory.
                 actual_path = ap.get('RootDirectory', {}).get('Path', '')
@@ -611,7 +635,9 @@ def create_investigation_task(
     # Create EFS access point for investigation (idempotent: reuse if already exists)
     access_point_path = f"/{cluster_id}/{investigation_id}"
 
-    existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
+    existing_ap = find_existing_access_point(
+        efs_filesystem_id, cluster_id, investigation_id, abac_tag_key, abac_tag_value
+    )
     ap_newly_created = False
 
     # Reject if a task is already running for this investigation. This check runs before any
@@ -651,7 +677,7 @@ def create_investigation_task(
                     {'Key': 'ClusterID', 'Value': cluster_id},
                     {'Key': 'InvestigationID', 'Value': investigation_id},
                     {'Key': 'oidc_sub', 'Value': oidc_sub},
-                    {'Key': 'username', 'Value': username},
+                    {'Key': abac_tag_key, 'Value': abac_tag_value},
                     {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
                 ]
             )

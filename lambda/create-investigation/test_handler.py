@@ -863,25 +863,29 @@ class TestSkipTask:
                         'LifeCycleState': 'available',
                         'Tags': [
                             {'Key': 'ClusterID', 'Value': 'other-cluster'},
-                            {'Key': 'InvestigationID', 'Value': 'other-inv'}
+                            {'Key': 'InvestigationID', 'Value': 'other-inv'},
+                            {'Key': 'username', 'Value': 'testuser'}
                         ]
                     }
                 ]}
             ]
 
-            result = handler.find_existing_access_point('fs-123', 'test-cluster', 'test-inv')
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'testuser'
+            )
 
         assert result is None
 
     def test_find_existing_access_point_returns_match(self):
-        """Test find_existing_access_point returns matching access point."""
+        """Test find_existing_access_point returns matching access point with ABAC tag match."""
         expected_ap = {
             'AccessPointId': 'fsap-match',
             'LifeCycleState': 'available',
             'RootDirectory': {'Path': '/test-cluster/test-inv'},
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'test-inv'}
+                {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                {'Key': 'username', 'Value': 'alice'}
             ]
         }
 
@@ -890,7 +894,9 @@ class TestSkipTask:
                 {'AccessPoints': [expected_ap]}
             ]
 
-            result = handler.find_existing_access_point('fs-123', 'test-cluster', 'test-inv')
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'alice'
+            )
 
         assert result is not None
         assert result['AccessPointId'] == 'fsap-match'
@@ -905,15 +911,92 @@ class TestSkipTask:
                         'LifeCycleState': 'deleting',
                         'Tags': [
                             {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                            {'Key': 'InvestigationID', 'Value': 'test-inv'}
+                            {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                            {'Key': 'username', 'Value': 'alice'}
                         ]
                     }
                 ]}
             ]
 
-            result = handler.find_existing_access_point('fs-123', 'test-cluster', 'test-inv')
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'alice'
+            )
 
         assert result is None
+
+    def test_find_existing_access_point_abac_tag_mismatch(self):
+        """Test that access points with mismatched ABAC tags are not reused."""
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [
+                    {
+                        'AccessPointId': 'fsap-alice',
+                        'LifeCycleState': 'available',
+                        'RootDirectory': {'Path': '/test-cluster/test-inv'},
+                        'Tags': [
+                            {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                            {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                            {'Key': 'username', 'Value': 'alice'}
+                        ]
+                    }
+                ]}
+            ]
+
+            # Bob tries to reuse Alice's access point - should fail
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'bob'
+            )
+
+        assert result is None
+
+    def test_find_existing_access_point_missing_abac_tag(self):
+        """Test that access points with missing ABAC tags are not reused (fail closed)."""
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [
+                    {
+                        'AccessPointId': 'fsap-no-tag',
+                        'LifeCycleState': 'available',
+                        'RootDirectory': {'Path': '/test-cluster/test-inv'},
+                        'Tags': [
+                            {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                            {'Key': 'InvestigationID', 'Value': 'test-inv'}
+                            # Missing ABAC tag
+                        ]
+                    }
+                ]}
+            ]
+
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'alice'
+            )
+
+        assert result is None
+
+    def test_find_existing_access_point_with_uuid_abac_tag(self):
+        """Test that access point matching works with uuid ABAC tag."""
+        expected_ap = {
+            'AccessPointId': 'fsap-uuid-match',
+            'LifeCycleState': 'available',
+            'RootDirectory': {'Path': '/test-cluster/test-inv'},
+            'Tags': [
+                {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                {'Key': 'uuid', 'Value': 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
+            ]
+        }
+
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [expected_ap]}
+            ]
+
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'uuid', 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+            )
+
+        assert result is not None
+        assert result['AccessPointId'] == 'fsap-uuid-match'
 
 
 class TestDuplicateInvestigationDetection:

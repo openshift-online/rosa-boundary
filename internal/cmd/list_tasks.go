@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -44,22 +43,17 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output %q: must be text or json", listOutputFormat)
 	}
 
-	cfg, err := getConfig(false)
-	if err != nil {
-		return err
-	}
+	authRes := getAuthResult(cmd)
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
-
-	clusterName := cfg.ClusterName
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
+	clusterName := authRes.Config.ClusterName
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus)
 
 	var tasks []awsclient.TaskSummary
+	var err error
+
 	if desiredStatus == "ALL" {
 		running, err := ecsClient.ListRunningTasks(cmd.Context(), "RUNNING")
 		if err != nil {

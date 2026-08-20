@@ -162,7 +162,7 @@ oc adm must-gather --image=quay.io/openshift/origin-network-must-gather --dest-d
 oc adm must-gather --image=registry.redhat.io/ocs4/ocs-must-gather-rhel8 --dest-dir=/home/sre/must-gather/storage-$(date +%Y%m%d-%H%M%S)
 ```
 
-**Important**: Must-gather outputs are large. 
+**Important**: Must-gather outputs are large.
 
 ### AWS Resource Inspection
 

@@ -149,7 +149,7 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 
 | Component | Role |
 |-----------|------|
-| SSM Session Manager | Relays ECS Exec WebSocket between the CLI's `session-manager-plugin` and the container | 
+| SSM Session Manager | Relays ECS Exec WebSocket between the CLI's `session-manager-plugin` and the container |
 | ECR | Stores the `rosa-boundary` container image (multi-arch manifest) |
 | CloudWatch Log Groups | `/ecs/rosa-boundary-dev` (container logs), `/ecs/rosa-boundary-dev/ssm-sessions` (session I/O) |
 | S3 Audit Bucket | Receives `/home/sre` sync on container exit; 90-day WORM retention; optional cross-account replication |

@@ -863,25 +863,29 @@ class TestSkipTask:
                         'LifeCycleState': 'available',
                         'Tags': [
                             {'Key': 'ClusterID', 'Value': 'other-cluster'},
-                            {'Key': 'InvestigationID', 'Value': 'other-inv'}
+                            {'Key': 'InvestigationID', 'Value': 'other-inv'},
+                            {'Key': 'username', 'Value': 'testuser'}
                         ]
                     }
                 ]}
             ]
 
-            result = handler.find_existing_access_point('fs-123', 'test-cluster', 'test-inv')
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'testuser'
+            )
 
         assert result is None
 
     def test_find_existing_access_point_returns_match(self):
-        """Test find_existing_access_point returns matching access point."""
+        """Test find_existing_access_point returns matching access point with ABAC tag match."""
         expected_ap = {
             'AccessPointId': 'fsap-match',
             'LifeCycleState': 'available',
-            'RootDirectory': {'Path': '/test-cluster/test-inv'},
+            'RootDirectory': {'Path': '/test-cluster/2bd806c97f0e00af/test-inv'},
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'test-inv'}
+                {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                {'Key': 'username', 'Value': 'alice'}
             ]
         }
 
@@ -890,7 +894,9 @@ class TestSkipTask:
                 {'AccessPoints': [expected_ap]}
             ]
 
-            result = handler.find_existing_access_point('fs-123', 'test-cluster', 'test-inv')
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'alice'
+            )
 
         assert result is not None
         assert result['AccessPointId'] == 'fsap-match'
@@ -905,15 +911,153 @@ class TestSkipTask:
                         'LifeCycleState': 'deleting',
                         'Tags': [
                             {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                            {'Key': 'InvestigationID', 'Value': 'test-inv'}
+                            {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                            {'Key': 'username', 'Value': 'alice'}
                         ]
                     }
                 ]}
             ]
 
-            result = handler.find_existing_access_point('fs-123', 'test-cluster', 'test-inv')
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'alice'
+            )
 
         assert result is None
+
+    def test_find_existing_access_point_abac_tag_mismatch(self):
+        """Test that access points with mismatched ABAC tags are not reused."""
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [
+                    {
+                        'AccessPointId': 'fsap-alice',
+                        'LifeCycleState': 'available',
+                        'RootDirectory': {'Path': '/test-cluster/2bd806c97f0e00af/test-inv'},
+                        'Tags': [
+                            {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                            {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                            {'Key': 'username', 'Value': 'alice'}
+                        ]
+                    }
+                ]}
+            ]
+
+            # Bob tries to reuse Alice's access point - should fail
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'bob'
+            )
+
+        assert result is None
+
+    def test_different_abac_identities_get_isolated_paths(self):
+        """Test that Alice and Bob get different EFS paths for the same investigation (path isolation)."""
+        import hashlib
+
+        # Alice's access point with her hash in the path
+        alice_hash = hashlib.sha256('alice'.encode('utf-8')).hexdigest()[:16]
+        alice_ap = {
+            'AccessPointId': 'fsap-alice',
+            'LifeCycleState': 'available',
+            'RootDirectory': {'Path': f'/test-cluster/{alice_hash}/test-inv'},
+            'Tags': [
+                {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                {'Key': 'username', 'Value': 'alice'}
+            ]
+        }
+
+        # Bob's access point with his hash in the path
+        bob_hash = hashlib.sha256('bob'.encode('utf-8')).hexdigest()[:16]
+        bob_ap = {
+            'AccessPointId': 'fsap-bob',
+            'LifeCycleState': 'available',
+            'RootDirectory': {'Path': f'/test-cluster/{bob_hash}/test-inv'},
+            'Tags': [
+                {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                {'Key': 'username', 'Value': 'bob'}
+            ]
+        }
+
+        # Verify the hashes are different (proves path isolation)
+        assert alice_hash != bob_hash, "ABAC identity hashes must differ"
+        assert alice_ap['RootDirectory']['Path'] != bob_ap['RootDirectory']['Path'], \
+            "Different ABAC identities must have isolated EFS paths"
+
+        # Alice can only find her own access point
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [alice_ap, bob_ap]}
+            ]
+
+            alice_result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'alice'
+            )
+            assert alice_result is not None
+            assert alice_result['AccessPointId'] == 'fsap-alice'
+            assert alice_hash in alice_result['RootDirectory']['Path']
+
+        # Bob can only find his own access point
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [alice_ap, bob_ap]}
+            ]
+
+            bob_result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'bob'
+            )
+            assert bob_result is not None
+            assert bob_result['AccessPointId'] == 'fsap-bob'
+            assert bob_hash in bob_result['RootDirectory']['Path']
+
+    def test_find_existing_access_point_missing_abac_tag(self):
+        """Test that access points with missing ABAC tags are not reused (fail closed)."""
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [
+                    {
+                        'AccessPointId': 'fsap-no-tag',
+                        'LifeCycleState': 'available',
+                        'RootDirectory': {'Path': '/test-cluster/2bd806c97f0e00af/test-inv'},
+                        'Tags': [
+                            {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                            {'Key': 'InvestigationID', 'Value': 'test-inv'}
+                            # Missing ABAC tag
+                        ]
+                    }
+                ]}
+            ]
+
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'username', 'alice'
+            )
+
+        assert result is None
+
+    def test_find_existing_access_point_with_uuid_abac_tag(self):
+        """Test that access point matching works with uuid ABAC tag."""
+        expected_ap = {
+            'AccessPointId': 'fsap-uuid-match',
+            'LifeCycleState': 'available',
+            'RootDirectory': {'Path': '/test-cluster/e1b185d5d88e6646/test-inv'},
+            'Tags': [
+                {'Key': 'ClusterID', 'Value': 'test-cluster'},
+                {'Key': 'InvestigationID', 'Value': 'test-inv'},
+                {'Key': 'uuid', 'Value': 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'}
+            ]
+        }
+
+        with patch('handler.efs') as mock_efs:
+            mock_efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [expected_ap]}
+            ]
+
+            result = handler.find_existing_access_point(
+                'fs-123', 'test-cluster', 'test-inv', 'uuid', 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+            )
+
+        assert result is not None
+        assert result['AccessPointId'] == 'fsap-uuid-match'
 
 
 class TestDuplicateInvestigationDetection:
@@ -943,10 +1087,11 @@ class TestDuplicateInvestigationDetection:
                     {'AccessPoints': [{
                         'AccessPointId': 'fsap-existing',
                         'LifeCycleState': 'available',
-                        'RootDirectory': {'Path': '/c1/inv1'},
+                        'RootDirectory': {'Path': '/c1/82254a1ed8494693/inv1'},
                         'Tags': [
                             {'Key': 'ClusterID', 'Value': 'c1'},
-                            {'Key': 'InvestigationID', 'Value': 'inv1'}
+                            {'Key': 'InvestigationID', 'Value': 'inv1'},
+                            {'Key': 'username', 'Value': 'sre-user'}
                         ]
                     }]}
                 ]
@@ -1130,10 +1275,11 @@ class TestDuplicateInvestigationDetection:
                         {'AccessPoints': [{
                             'AccessPointId': 'fsap-existing',
                             'LifeCycleState': 'available',
-                            'RootDirectory': {'Path': '/test-cluster/inv-123'},
+                            'RootDirectory': {'Path': '/test-cluster/82254a1ed8494693/inv-123'},
                             'Tags': [
                                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                                {'Key': 'InvestigationID', 'Value': 'inv-123'}
+                                {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                                {'Key': 'username', 'Value': 'sre-user'}
                             ]
                         }]}
                     ]
@@ -1526,10 +1672,11 @@ class TestPerInvestigationTaskDef:
                         {'AccessPoints': [{
                             'AccessPointId': 'fsap-existing',
                             'LifeCycleState': 'available',
-                            'RootDirectory': {'Path': '/c1/inv1'},
+                            'RootDirectory': {'Path': '/c1/82254a1ed8494693/inv1'},
                             'Tags': [
                                 {'Key': 'ClusterID', 'Value': 'c1'},
-                                {'Key': 'InvestigationID', 'Value': 'inv1'}
+                                {'Key': 'InvestigationID', 'Value': 'inv1'},
+                                {'Key': 'username', 'Value': 'sre-user'}
                             ]
                         }]}
                     ]
@@ -1889,7 +2036,7 @@ class TestTaskTagging:
 class TestEfsOwnershipCheck:
     """EFS access point reuse must verify RootDirectory.Path (H10)."""
 
-    def _make_ap(self, ap_id, path, cluster_id='cls-1', investigation_id='inv-1'):
+    def _make_ap(self, ap_id, path, cluster_id='cls-1', investigation_id='inv-1', abac_value='test-user'):
         return {
             'AccessPointId': ap_id,
             'LifeCycleState': 'available',
@@ -1897,17 +2044,18 @@ class TestEfsOwnershipCheck:
             'Tags': [
                 {'Key': 'ClusterID', 'Value': cluster_id},
                 {'Key': 'InvestigationID', 'Value': investigation_id},
+                {'Key': 'username', 'Value': abac_value},
             ],
         }
 
     def test_matching_path_is_returned(self):
         """Access point with correct path is accepted."""
-        ap = self._make_ap('fsap-good', '/cls-1/inv-1')
+        ap = self._make_ap('fsap-good', '/cls-1/f85ac825d102b9f2/inv-1')
         with patch('handler.efs') as mock_efs:
             mock_efs.get_paginator.return_value.paginate.return_value = [
                 {'AccessPoints': [ap]}
             ]
-            result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1')
+            result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1', 'username', 'test-user')
         assert result is not None
         assert result['AccessPointId'] == 'fsap-good'
 
@@ -1918,7 +2066,7 @@ class TestEfsOwnershipCheck:
             mock_efs.get_paginator.return_value.paginate.return_value = [
                 {'AccessPoints': [ap]}
             ]
-            result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1')
+            result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1', 'username', 'test-user')
         assert result is None
 
     def test_path_traversal_attempt_is_rejected(self):
@@ -1928,8 +2076,42 @@ class TestEfsOwnershipCheck:
             mock_efs.get_paginator.return_value.paginate.return_value = [
                 {'AccessPoints': [ap]}
             ]
-            result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1')
+            result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1', 'username', 'test-user')
         assert result is None
+
+
+class TestEfsPathBuilder:
+    """Test build_efs_access_point_path helper for path length validation."""
+
+    def test_path_within_limit(self):
+        """Test that normal paths are accepted."""
+        path = handler.build_efs_access_point_path('cluster-1', 'alice', 'inv-1')
+        assert path.startswith('/')
+        assert len(path) <= 100
+        assert 'cluster-1' in path
+        assert 'inv-1' in path
+
+    def test_path_includes_abac_hash(self):
+        """Test that ABAC hash is included in path."""
+        import hashlib
+        abac_hash = hashlib.sha256('alice'.encode('utf-8')).hexdigest()[:16]
+        path = handler.build_efs_access_point_path('cluster-1', 'alice', 'inv-1')
+        assert abac_hash in path
+
+    def test_path_exceeds_100_char_limit(self):
+        """Test that paths exceeding 100 chars raise ValueError."""
+        # Create IDs that will push path over 100 chars
+        long_cluster = 'x' * 50
+        long_inv = 'y' * 50
+
+        with pytest.raises(ValueError, match="EFS path exceeds AWS 100-char limit"):
+            handler.build_efs_access_point_path(long_cluster, 'alice', long_inv)
+
+    def test_identical_paths_for_same_inputs(self):
+        """Test that helper produces deterministic paths."""
+        path1 = handler.build_efs_access_point_path('cluster-1', 'alice', 'inv-1')
+        path2 = handler.build_efs_access_point_path('cluster-1', 'alice', 'inv-1')
+        assert path1 == path2
 
 
 class TestMinimumTaskTimeout:

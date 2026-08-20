@@ -251,10 +251,29 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-${var.stage}-*"
       },
       {
-        Sid      = "EFSReadAccessPoints"
+        Sid      = "EFSDescribeAccessPoints"
         Effect   = "Allow"
         Action   = ["elasticfilesystem:DescribeAccessPoints"]
         Resource = aws_efs_file_system.sre_home.arn
+      },
+      {
+        Sid      = "EFSDeleteOwnedAccessPoints"
+        Effect   = "Allow"
+        Action   = ["elasticfilesystem:DeleteAccessPoint"]
+        # Access point ARNs are the correct resource type for DeleteAccessPoint.
+        # Constrained to rosa-boundary access points via ManagedBy tag condition.
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            # ABAC: Only allow deleting access points tagged with the user's principal tag.
+            # Access points created by rosa-boundary are tagged with the ABAC identifier from JWT.
+            # EFS uses the global aws:ResourceTag prefix (not elasticfilesystem:ResourceTag).
+            "aws:ResourceTag/${var.abac_tag_key}" = "$${aws:PrincipalTag/${var.abac_tag_key}}"
+            # Constrain to rosa-boundary access points only (all on sre_home filesystem).
+            # Lambda tags all access points with ManagedBy=rosa-boundary-lambda.
+            "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"
+          }
+        }
       },
       {
         Sid    = "SSMSessionForECSExec"

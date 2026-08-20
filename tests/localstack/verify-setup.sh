@@ -110,7 +110,7 @@ echo ""
 echo "Checking podman setup..."
 if command -v podman &> /dev/null; then
     pass "podman installed"
-    
+
     # Check podman socket
     if systemctl --user is-active podman.socket &> /dev/null; then
         pass "podman.socket is active"

@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -33,18 +32,11 @@ func init() {
 func runStopTask(cmd *cobra.Command, args []string) error {
 	taskID := args[0]
 
-	cfg, err := getConfig(false)
-	if err != nil {
-		return err
-	}
+	authRes := getAuthResult(cmd)
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
-
-	clusterName := cfg.ClusterName
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
+	clusterName := authRes.Config.ClusterName
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	output.Status("Stopping task...")
 	output.Status("  Task:    %s", taskID)

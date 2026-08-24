@@ -23,7 +23,9 @@ export TF_VAR_keycloak_issuer_url        := $(shell source $(ENV_FILE) 2>/dev/nu
 export TF_VAR_stage_keycloak_issuer_url  := $(shell source $(ENV_FILE) 2>/dev/null && echo $$STAGE_KEYCLOAK_ISSUER_URL)
 export TF_VAR_stage_oidc_client_id       := $(shell source $(ENV_FILE) 2>/dev/null && echo $$STAGE_OIDC_CLIENT_ID)
 export TF_VAR_stage_keycloak_thumbprint  := $(shell source $(ENV_FILE) 2>/dev/null && echo $$STAGE_KEYCLOAK_THUMBPRINT)
-export TF_VAR_abac_tag_key               := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_abac_tag_key:-username})
+# ABAC tag key: defaults to 'uuid' matching OIDC principal_tags.uuid and Terraform variables.tf.
+# Legacy deployments using 'username' tag can override via .env: TF_VAR_abac_tag_key=username
+export TF_VAR_abac_tag_key               := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_abac_tag_key:-uuid})
 export TF_VAR_enable_kube_proxy          := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_enable_kube_proxy:-true})
 
 .PHONY: help
@@ -54,7 +56,7 @@ show-env:
 	echo "  TF_VAR_keycloak_issuer_url:       $$KEYCLOAK_ISSUER_URL" && \
 	echo "  TF_VAR_stage_keycloak_issuer_url: $$STAGE_KEYCLOAK_ISSUER_URL" && \
 	echo "  TF_VAR_stage_oidc_client_id:      $$STAGE_OIDC_CLIENT_ID" && \
-	echo "  TF_VAR_abac_tag_key:              $${TF_VAR_abac_tag_key:-username}"
+	echo "  TF_VAR_abac_tag_key:              $${TF_VAR_abac_tag_key:-uuid}"
 
 .PHONY: init
 init:

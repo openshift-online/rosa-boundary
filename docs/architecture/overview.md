@@ -57,17 +57,17 @@ All SREs assume a single shared role (`sre-shared`). Cross-user isolation is enf
 
 **Tag flow:**
 
-1. Keycloak maps the SRE's `preferred_username` (or `rhatUUID` for EmployeeIDP) to the `https://aws.amazon.com/tags` claim as `principal_tags.username`
-2. STS propagates this as a session tag `username` on the assumed-role session
-3. The create-investigation Lambda tags each ECS task with `username=<abac_tag_value>` using `ecs:TagResource` (applied explicitly after `RunTask` to guarantee tag availability for IAM evaluation)
-4. The sre-shared role's ABAC policy condition: `ecs:ResourceTag/username == ${aws:PrincipalTag/username}`
+1. Keycloak maps the SRE's UUID to the `https://aws.amazon.com/tags` claim as `principal_tags.uuid` (both dev and production use UUID for environment parity)
+2. STS propagates this as a session tag `uuid` on the assumed-role session
+3. The create-investigation Lambda tags each ECS task with `uuid=<abac_tag_value>` using `ecs:TagResource` (applied explicitly after `RunTask` to guarantee tag availability for IAM evaluation)
+4. The sre-shared role's ABAC policy condition: `ecs:ResourceTag/uuid == ${aws:PrincipalTag/uuid}`
 
 **Two-statement ECS Exec policy design:**
 
 `ecs:ExecuteCommand` requires permission on both the cluster resource AND the task resource. The policy uses two statements:
 
 - `ExecuteCommandOnCluster`: cluster-level permission, no condition. All SREs pass this check. This alone grants no access to any task ("badge to enter the building").
-- `ExecuteCommandOnOwnedTasks`: task-level permission, `StringEquals` condition on the `username` tag. Only tasks tagged with the caller's session tag pass.
+- `ExecuteCommandOnOwnedTasks`: task-level permission, `StringEquals` condition on the `uuid` tag. Only tasks tagged with the caller's session tag pass.
 
 **Fail-closed properties:**
 
@@ -149,7 +149,7 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 
 | Component | Role |
 |-----------|------|
-| SSM Session Manager | Relays ECS Exec WebSocket between the CLI's `session-manager-plugin` and the container | 
+| SSM Session Manager | Relays ECS Exec WebSocket between the CLI's `session-manager-plugin` and the container |
 | ECR | Stores the `rosa-boundary` container image (multi-arch manifest) |
 | CloudWatch Log Groups | `/ecs/rosa-boundary-dev` (container logs), `/ecs/rosa-boundary-dev/ssm-sessions` (session I/O) |
 | S3 Audit Bucket | Receives `/home/sre` sync on container exit; 90-day WORM retention; optional cross-account replication |

@@ -54,8 +54,8 @@ class TestImportRequiresNoCredentials:
         with patch.object(handler, 'ecs') as mock_ecs:
             with patch.object(handler, 'efs') as mock_efs:
                 assert handler.get_aws_account_id() == '111122223333'
-                mock_ecs.assert_not_called()
-                mock_efs.assert_not_called()
+                assert mock_ecs.mock_calls == []
+                assert mock_efs.mock_calls == []
 
 
 class TestInputValidation:
@@ -745,6 +745,91 @@ class TestLambdaHandler:
         assert response['statusCode'] == 403
         body = json.loads(response['body'])
         assert 'not authorized' in body['error'].lower()
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid',
+        'AWS_ACCOUNT_ID': '123456789012',
+    })
+    def test_empty_abac_claim_returns_403(self):
+        """Empty/missing ABAC principal tag must return 403 before task creation."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({'cluster_id': 'test', 'investigation_id': 'inv-abac'})
+        }
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.create_investigation_task') as mock_create:
+            mock_validate.return_value = {
+                'sub': 'user-1',
+                'preferred_username': 'alice',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ''
+                    }
+                }
+            }
+            response = handler.lambda_handler(event, Mock())
+
+        assert response['statusCode'] == 403
+        assert 'ABAC' in json.loads(response['body'])['error']
+        mock_create.assert_not_called()
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'AWS_ACCOUNT_ID': '123456789012',
+    })
+    def test_efs_path_too_long_returns_400(self):
+        """Max-length valid identifiers that exceed EFS path limit return HTTP 400."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'c' * 64,
+                'investigation_id': 'i' * 64,
+                'skip_task': True,
+            })
+        }
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.create_investigation_task') as mock_create:
+            mock_validate.return_value = {
+                'sub': 'user-1',
+                'preferred_username': 'alice',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {'uuid': 'test-uuid'}
+                }
+            }
+            response = handler.lambda_handler(event, Mock())
+
+        assert response['statusCode'] == 400
+        assert 'EFS path' in json.loads(response['body'])['error']
+        mock_create.assert_not_called()
 
 
 class TestResponseHelper:
@@ -1929,8 +2014,8 @@ class TestKubeProxySidecar:
 class TestTaskTagging:
     """Verify that the correct tags are passed to run_task, tag_resource, and create_access_point.
 
-    The 'username' tag is the ABAC key — the shared SRE role policy conditions on
-    ecs:ResourceTag/username == ${aws:PrincipalTag/username}.  If the tag key is wrong
+    The configured ABAC tag key is 'uuid' — the shared SRE role policy conditions on
+    ecs:ResourceTag/uuid == ${aws:PrincipalTag/uuid}.  If the tag key is wrong
     or missing, the ABAC grant is silently broken.  These tests make regressions visible.
     """
 
@@ -2081,7 +2166,7 @@ class TestTaskTagging:
         assert tags.get('FileSystemId') == 'fs-123'
         assert 'Name' in tags, "Name tag must be present on EFS access point"
 
-    def test_username_tag_matches_preferred_username_not_sub(self):
+    def test_uuid_tag_matches_preferred_username_not_sub(self):
         """The ABAC tag key is 'uuid' (mapped from principal_tags.uuid), NOT 'sub'.
         Using 'sub' was the old pattern and would break the shared role ABAC condition."""
         with patch('handler.ecs') as mock_ecs:
@@ -2176,6 +2261,26 @@ class TestEfsPathBuilder:
 
         with pytest.raises(ValueError, match="EFS path exceeds AWS 100-char limit"):
             handler.build_efs_access_point_path(long_cluster, 'alice', long_inv)
+
+    def test_max_length_valid_identifiers_within_path_budget(self):
+        """Max-length IDs that fit the path budget produce a deterministic <=100 path."""
+        # path = /{cluster}/{16-char-hash}/{inv} → cluster+inv <= 81
+        cluster_id = 'c' * 40
+        investigation_id = 'i' * 41
+        assert handler.validate_identifier(cluster_id, 'cluster_id') is True
+        assert handler.validate_identifier(investigation_id, 'investigation_id') is True
+        path = handler.build_efs_access_point_path(cluster_id, 'alice', investigation_id)
+        assert len(path) <= 100
+        assert path == handler.build_efs_access_point_path(cluster_id, 'alice', investigation_id)
+
+    def test_max_length_identifiers_exceed_path_limit(self):
+        """validate_identifier-max IDs can still exceed the EFS 100-char path limit."""
+        cluster_id = 'c' * 64
+        investigation_id = 'i' * 64
+        assert handler.validate_identifier(cluster_id, 'cluster_id') is True
+        assert handler.validate_identifier(investigation_id, 'investigation_id') is True
+        with pytest.raises(ValueError, match="EFS path exceeds AWS 100-char limit"):
+            handler.build_efs_access_point_path(cluster_id, 'alice', investigation_id)
 
     def test_identical_paths_for_same_inputs(self):
         """Test that helper produces deterministic paths."""

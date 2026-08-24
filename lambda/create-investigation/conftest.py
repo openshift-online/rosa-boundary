@@ -20,10 +20,10 @@ if _this_dir not in sys.path:
 # Do not clear keys and leave the default chain open — that can still resolve
 # ambient ~/.aws, IMDS, or container credentials. Use explicit test-only keys
 # (moto convention) and disable every ambient provider.
-os.environ['AWS_ACCESS_KEY_ID'] = 'testing'
-os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'
-os.environ['AWS_SESSION_TOKEN'] = 'testing'
-os.environ['AWS_SECURITY_TOKEN'] = 'testing'
+os.environ['AWS_ACCESS_KEY_ID'] = 'testing'  # noqa: S105
+os.environ['AWS_SECRET_ACCESS_KEY'] = 'testing'  # noqa: S105
+os.environ['AWS_SESSION_TOKEN'] = 'testing'  # noqa: S105
+os.environ['AWS_SECURITY_TOKEN'] = 'testing'  # noqa: S105
 os.environ['AWS_SHARED_CREDENTIALS_FILE'] = '/nonexistent'
 os.environ['AWS_CONFIG_FILE'] = '/nonexistent'
 os.environ['AWS_EC2_METADATA_DISABLED'] = 'true'
@@ -39,10 +39,10 @@ os.environ.setdefault('AWS_ACCOUNT_ID', '123456789012')
 @pytest.fixture(autouse=True)
 def _no_ambient_aws_credentials(monkeypatch):
     """Re-assert the closed credential environment for every test (incl. reloads)."""
-    monkeypatch.setenv('AWS_ACCESS_KEY_ID', 'testing')
-    monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', 'testing')
-    monkeypatch.setenv('AWS_SESSION_TOKEN', 'testing')
-    monkeypatch.setenv('AWS_SECURITY_TOKEN', 'testing')
+    monkeypatch.setenv('AWS_ACCESS_KEY_ID', 'testing')  # noqa: S105
+    monkeypatch.setenv('AWS_SECRET_ACCESS_KEY', 'testing')  # noqa: S105
+    monkeypatch.setenv('AWS_SESSION_TOKEN', 'testing')  # noqa: S105
+    monkeypatch.setenv('AWS_SECURITY_TOKEN', 'testing')  # noqa: S105
     monkeypatch.setenv('AWS_SHARED_CREDENTIALS_FILE', '/nonexistent')
     monkeypatch.setenv('AWS_CONFIG_FILE', '/nonexistent')
     monkeypatch.setenv('AWS_EC2_METADATA_DISABLED', 'true')

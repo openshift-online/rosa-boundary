@@ -12,43 +12,28 @@ func TestListTasks_StatusValidation(t *testing.T) {
 		wantError bool
 	}{
 		{
-			name:      "valid RUNNING status",
+			name:      "valid RUNNING",
 			status:    "RUNNING",
 			wantError: false,
 		},
 		{
-			name:      "valid STOPPED status",
+			name:      "valid STOPPED",
 			status:    "STOPPED",
 			wantError: false,
 		},
 		{
-			name:      "valid ALL status",
-			status:    "ALL",
-			wantError: false,
-		},
-		{
-			name:      "valid lowercase running",
-			status:    "running",
-			wantError: false,
-		},
-		{
-			name:      "valid lowercase stopped",
-			status:    "stopped",
-			wantError: false,
-		},
-		{
-			name:      "valid lowercase all",
+			name:      "valid all lowercase",
 			status:    "all",
+			wantError: false,
+		},
+		{
+			name:      "valid mixed case",
+			status:    "Running",
 			wantError: false,
 		},
 		{
 			name:      "invalid status - PENDING",
 			status:    "PENDING",
-			wantError: true,
-		},
-		{
-			name:      "invalid status - ACTIVE",
-			status:    "ACTIVE",
 			wantError: true,
 		},
 		{
@@ -60,22 +45,18 @@ func TestListTasks_StatusValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Validate the status the same way runListTasks does
-			desiredStatus := strings.ToUpper(tt.status)
-			var valid bool
-			switch desiredStatus {
-			case "RUNNING", "STOPPED", "ALL":
-				valid = true
-			default:
-				valid = false
+			normalized, err := validateListTasksStatus(tt.status)
+
+			if tt.wantError && err == nil {
+				t.Errorf("expected error for status %q, got nil", tt.status)
 			}
 
-			if tt.wantError && valid {
-				t.Errorf("expected error for status %q, but was considered valid", tt.status)
+			if !tt.wantError && err != nil {
+				t.Errorf("unexpected error for status %q: %v", tt.status, err)
 			}
 
-			if !tt.wantError && !valid {
-				t.Errorf("expected status %q to be valid, but was considered invalid", tt.status)
+			if !tt.wantError && normalized != strings.ToUpper(tt.status) {
+				t.Errorf("normalized status = %q, want %q", normalized, strings.ToUpper(tt.status))
 			}
 		})
 	}
@@ -116,21 +97,14 @@ func TestListTasks_OutputFormatValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Validate the output format the same way runListTasks does
-			var valid bool
-			switch tt.format {
-			case "text", "json":
-				valid = true
-			default:
-				valid = false
+			err := validateTextOrJSONOutputFormat(tt.format)
+
+			if tt.wantError && err == nil {
+				t.Errorf("expected error for format %q, got nil", tt.format)
 			}
 
-			if tt.wantError && valid {
-				t.Errorf("expected error for format %q, but was considered valid", tt.format)
-			}
-
-			if !tt.wantError && !valid {
-				t.Errorf("expected format %q to be valid, but was considered invalid", tt.format)
+			if !tt.wantError && err != nil {
+				t.Errorf("unexpected error for format %q: %v", tt.format, err)
 			}
 		})
 	}

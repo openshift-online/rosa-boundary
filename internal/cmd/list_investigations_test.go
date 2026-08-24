@@ -44,14 +44,7 @@ func TestListInvestigations_OutputFormatValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Validate the output format the same way runListInvestigations does
-			var err error
-			switch tt.format {
-			case "text", "json":
-				// valid
-			default:
-				err = &invalidOutputFormatError{format: tt.format}
-			}
+			err := validateListInvestigationsOutputFormat(tt.format)
 
 			if tt.wantError && err == nil {
 				t.Errorf("expected error for format %q, got nil", tt.format)
@@ -60,15 +53,12 @@ func TestListInvestigations_OutputFormatValidation(t *testing.T) {
 			if !tt.wantError && err != nil {
 				t.Errorf("unexpected error for format %q: %v", tt.format, err)
 			}
+
+			if tt.wantError && err != nil {
+				if _, ok := err.(*invalidOutputFormatError); !ok {
+					t.Errorf("expected *invalidOutputFormatError for format %q, got %T", tt.format, err)
+				}
+			}
 		})
 	}
-}
-
-// Helper type to simulate the validation error
-type invalidOutputFormatError struct {
-	format string
-}
-
-func (e *invalidOutputFormatError) Error() string {
-	return "invalid --output \"" + e.format + "\": must be text or json"
 }

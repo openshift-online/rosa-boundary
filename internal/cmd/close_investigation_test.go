@@ -182,21 +182,14 @@ func TestCloseInvestigation_OutputFormatValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Validate the output format the same way runCloseInvestigation does
-			var valid bool
-			switch tt.format {
-			case "text", "json":
-				valid = true
-			default:
-				valid = false
+			err := validateTextOrJSONOutputFormat(tt.format)
+
+			if tt.wantError && err == nil {
+				t.Errorf("expected error for format %q, got nil", tt.format)
 			}
 
-			if tt.wantError && valid {
-				t.Errorf("expected error for format %q, but was considered valid", tt.format)
-			}
-
-			if !tt.wantError && !valid {
-				t.Errorf("expected format %q to be valid, but was considered invalid", tt.format)
+			if !tt.wantError && err != nil {
+				t.Errorf("unexpected error for format %q: %v", tt.format, err)
 			}
 		})
 	}

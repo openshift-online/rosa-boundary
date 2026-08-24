@@ -45,14 +45,12 @@ func CachedToken() (string, error) {
 	// Parse JWT expiration from the token
 	expiration, err := parseTokenExpiration(token)
 	if err != nil {
-		// Invalid token format, clean up corrupted file to prevent persistent errors
+		// Invalid token format — clean up corrupted cache so it does not keep failing.
 		if _, writeErr := fmt.Fprintf(os.Stderr, "Cached token invalid: %v\n", err); writeErr != nil {
-			// Diagnostic write failed, but continue with cleanup
-			_ = writeErr
+			return "", fmt.Errorf("cached token invalid: %w; diagnostic write failed: %v", err, writeErr)
 		}
-		if removeErr := os.Remove(cachePath); removeErr != nil {
-			// Surface unsuccessful cleanup
-			_, _ = fmt.Fprintf(os.Stderr, "Failed to remove invalid token cache: %v\n", removeErr)
+		if removeErr := os.Remove(cachePath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return "", fmt.Errorf("cached token invalid: %w; cannot remove token cache: %w", err, removeErr)
 		}
 		return "", nil
 	}

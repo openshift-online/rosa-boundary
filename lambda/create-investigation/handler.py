@@ -85,24 +85,13 @@ logger.setLevel(logging.INFO)
 # AWS clients. Construction must not call AWS APIs.
 # Region: Lambda sets AWS_REGION; tests set AWS_DEFAULT_REGION via conftest.
 # Account ID: AWS_ACCOUNT_ID env only (get_aws_account_id) — never STS.
-# Credentials at client build: if AWS_ACCESS_KEY_ID is set (conftest pins
-# test-only "testing" keys), pass them explicitly so botocore never walks the
-# ambient chain (~/.aws, IMDS, container). In Lambda those env vars are the
-# execution-role temps from the runtime; same explicit pass-through.
+# Credentials: use boto3's default chain (Lambda execution role in prod;
+# conftest pins test-only keys / disables ambient providers for unit tests).
 _AWS_REGION = os.environ.get('AWS_REGION') or os.environ.get('AWS_DEFAULT_REGION') or 'us-east-1'
 
 
 def _aws_client(service_name: str):
-    kwargs = {'region_name': _AWS_REGION}
-    access_key = os.environ.get('AWS_ACCESS_KEY_ID')
-    secret_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    if access_key and secret_key:
-        kwargs['aws_access_key_id'] = access_key
-        kwargs['aws_secret_access_key'] = secret_key
-        session_token = os.environ.get('AWS_SESSION_TOKEN')
-        if session_token:
-            kwargs['aws_session_token'] = session_token
-    return boto3.client(service_name, **kwargs)
+    return boto3.client(service_name, region_name=_AWS_REGION)
 
 
 ecs = _aws_client('ecs')
@@ -819,8 +808,11 @@ def create_investigation_task(
         if ap_newly_created:
             try:
                 efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            except Exception as cleanup_err:
+                logger.warning(
+                    f"Failed to delete newly created access point {access_point_id} "
+                    f"after task definition registration failure: {cleanup_err}"
+                )
         raise
 
     # Build task tags (used for both run_task and tag_resource)
@@ -877,8 +869,11 @@ def create_investigation_task(
             if ap_newly_created:
                 try:
                     efs.delete_access_point(AccessPointId=access_point_id)
-                except Exception:
-                    pass
+                except Exception as cleanup_err:
+                    logger.warning(
+                        f"Failed to delete newly created access point {access_point_id} "
+                        f"after task launch failures: {cleanup_err}"
+                    )
             raise Exception(f"Failed to launch task: {run_response['failures']}")
 
         task_arn = run_response['tasks'][0]['taskArn']
@@ -908,8 +903,11 @@ def create_investigation_task(
             if ap_newly_created:
                 try:
                     efs.delete_access_point(AccessPointId=access_point_id)
-                except Exception:
-                    pass
+                except Exception as cleanup_err:
+                    logger.warning(
+                        f"Failed to delete newly created access point {access_point_id} "
+                        f"after tagging failure: {cleanup_err}"
+                    )
             raise
 
         return {
@@ -935,8 +933,11 @@ def create_investigation_task(
         if ap_newly_created:
             try:
                 efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            except Exception as cleanup_err:
+                logger.warning(
+                    f"Failed to delete newly created access point {access_point_id} "
+                    f"after ECS ClientError: {cleanup_err}"
+                )
         raise
 
 

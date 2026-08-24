@@ -29,18 +29,24 @@ func init() {
 	rootCmd.AddCommand(listTasksCmd)
 }
 
-func runListTasks(cmd *cobra.Command, args []string) error {
-	desiredStatus := strings.ToUpper(listStatus)
+// validateListTasksStatus normalizes and validates --status for list-tasks.
+func validateListTasksStatus(status string) (string, error) {
+	desiredStatus := strings.ToUpper(status)
 	switch desiredStatus {
 	case "RUNNING", "STOPPED", "ALL":
+		return desiredStatus, nil
 	default:
-		return fmt.Errorf("invalid --status %q: must be RUNNING, STOPPED, or all", listStatus)
+		return "", fmt.Errorf("invalid --status %q: must be RUNNING, STOPPED, or all", status)
 	}
+}
 
-	switch listOutputFormat {
-	case "text", "json":
-	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", listOutputFormat)
+func runListTasks(cmd *cobra.Command, args []string) error {
+	desiredStatus, err := validateListTasksStatus(listStatus)
+	if err != nil {
+		return err
+	}
+	if err := validateTextOrJSONOutputFormat(listOutputFormat); err != nil {
+		return err
 	}
 
 	authRes := getAuthResult(cmd)
@@ -52,22 +58,22 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus)
 
 	var tasks []awsclient.TaskSummary
-	var err error
 
 	if desiredStatus == "ALL" {
-		running, err := ecsClient.ListRunningTasks(cmd.Context(), "RUNNING")
-		if err != nil {
-			return fmt.Errorf("cannot list tasks: %w", err)
+		running, listErr := ecsClient.ListRunningTasks(cmd.Context(), "RUNNING")
+		if listErr != nil {
+			return fmt.Errorf("cannot list tasks: %w", listErr)
 		}
-		stopped, err := ecsClient.ListRunningTasks(cmd.Context(), "STOPPED")
-		if err != nil {
-			return fmt.Errorf("cannot list tasks: %w", err)
+		stopped, listErr := ecsClient.ListRunningTasks(cmd.Context(), "STOPPED")
+		if listErr != nil {
+			return fmt.Errorf("cannot list tasks: %w", listErr)
 		}
 		tasks = append(running, stopped...)
 	} else {
-		tasks, err = ecsClient.ListRunningTasks(cmd.Context(), desiredStatus)
-		if err != nil {
-			return fmt.Errorf("cannot list tasks: %w", err)
+		var listErr error
+		tasks, listErr = ecsClient.ListRunningTasks(cmd.Context(), desiredStatus)
+		if listErr != nil {
+			return fmt.Errorf("cannot list tasks: %w", listErr)
 		}
 	}
 

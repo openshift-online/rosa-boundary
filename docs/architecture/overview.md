@@ -47,7 +47,7 @@ The CLI performs two separate `AssumeRoleWithWebIdentity` calls before taking an
 - Used to call `ecs:ExecuteCommand` and connect to a running task
 - Trust policy: same federated trust, same audience condition
 - The `sts:TagSession` action in the trust allows session tags from the JWT `https://aws.amazon.com/tags` claim to propagate
-- The `abac_tag_key` variable (default: `username`) controls which claim key becomes the session tag
+- The `abac_tag_key` variable (default: `uuid`) controls which claim key becomes the session tag
 
 Both roles are assumed with the same ID token, but at different points in the workflow: the invoker role before creating the investigation, and the sre-shared role before connecting.
 
@@ -214,7 +214,7 @@ rosa-boundary join-task <task-id>
 What happens:
 1. CLI calls `ecs:DescribeTask` to check task status
 2. If not yet RUNNING, the CLI polls until it is (or `--no-wait` is set)
-3. CLI calls `ecs:ExecuteCommand` — IAM evaluates the two-statement ABAC policy (cluster permission + task username tag match)
+3. CLI calls `ecs:ExecuteCommand` — IAM evaluates the two-statement ABAC policy (cluster permission + task ABAC tag match)
 4. AWS returns an SSM session token
 5. CLI calls `syscall.Exec` (process replacement) into `session-manager-plugin` with the session token
 6. `session-manager-plugin` opens a WebSocket to the SSM regional endpoint, which relays to the container via the `ssmmessages` VPC interface endpoint
@@ -284,7 +284,7 @@ All Terraform variables are set in `deploy/regional/variables.tf`. Values withou
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `oidc_client_id` | `rosa-boundary-sre` | Keycloak client ID; must equal `aud` claim in the JWT |
-| `abac_tag_key` | `username` | ECS tag key for ABAC isolation. Use `username` for dev Keycloak, `uuid` (= `rhatUUID`) for Red Hat EmployeeIDP |
+| `abac_tag_key` | `uuid` | ECS tag key for ABAC isolation. Must match `principal_tags` key in OIDC JWT. Red Hat EmployeeIDP uses `uuid` (= `rhatUUID`) |
 | `task_timeout_default` | `3600` | Default task lifetime in seconds (passed as `TASK_TIMEOUT` env var; enforced by reaper) |
 | `task_timeout_minimum` | `30` | Minimum timeout a caller may request; lower values are rejected by the Lambda |
 | `oidc_session_duration` | `3600` | Max session duration for the sre-shared role |

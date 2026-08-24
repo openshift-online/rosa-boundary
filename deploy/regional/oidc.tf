@@ -74,12 +74,12 @@ locals {
 # Shared SRE IAM role using ABAC (Attribute-Based Access Control).
 #
 # Instead of creating one role per user, all SREs assume this single role.
-# Isolation is enforced via session tags: Keycloak adds the user's preferred
-# username to the JWT under the https://aws.amazon.com/tags claim, which AWS
-# STS automatically processes as session tags during AssumeRoleWithWebIdentity.
+# Isolation is enforced via session tags: the OIDC provider adds the user's
+# unique identifier (uuid) to the JWT under the https://aws.amazon.com/tags claim,
+# which AWS STS automatically processes as session tags during AssumeRoleWithWebIdentity.
 #
-# The permissions policy then uses ${aws:PrincipalTag/username} to match against
-# ecs:ResourceTag/username on ECS tasks, so each user can only exec into tasks
+# The permissions policy then uses ${aws:PrincipalTag/<abac_tag_key>} to match against
+# ecs:ResourceTag/<abac_tag_key> on ECS tasks, so each user can only exec into tasks
 # they own — enforced at the AWS API layer without per-user roles.
 resource "aws_iam_role" "sre_shared" {
   name                 = "${var.project}-${var.stage}-sre-shared"
@@ -178,12 +178,12 @@ resource "aws_iam_role" "sre_shared" {
 #
 # Statement 2 (ExecuteCommandOnOwnedTasks):
 #   - Grants permission on task resources with dynamic ABAC condition
-#   - ${aws:PrincipalTag/username} resolves per-session from the JWT session tag
-#   - Only grants access to tasks tagged with matching username value
+#   - ${aws:PrincipalTag/<abac_tag_key>} resolves per-session from the JWT session tag
+#   - Only grants access to tasks tagged with matching ABAC tag value
 #   - Fail-closed: missing session tag → no PrincipalTag → condition fails → deny
 #
 # Security properties:
-#   - Users CANNOT access tasks tagged to other users (username mismatch → deny)
+#   - Users CANNOT access tasks tagged to other users (ABAC tag mismatch → deny)
 #   - Users CANNOT access untagged tasks (missing tag fails condition)
 #   - Tag values come from the OIDC JWT, not from user-controlled input
 #   - Keycloak mapper misconfiguration → fail-closed (no tag → deny)

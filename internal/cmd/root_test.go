@@ -449,18 +449,13 @@ func TestDebugf_NewlineAppended(t *testing.T) {
 }
 
 func TestGetConfig_SuggestsEnvironmentVariables(t *testing.T) {
-	// Verify error message suggests both flag and environment variables
-
-	// Capture Viper state before reset
-	savedSettings := viper.AllSettings()
+	// Verify error message suggests both flag and environment variables.
+	// Do NOT call viper.Reset() — it destroys Cobra flag bindings from package init.
+	savedKeycloakURL := viper.Get("keycloak_url")
 	t.Cleanup(func() {
-		viper.Reset()
-		if len(savedSettings) > 0 {
-			_ = viper.MergeConfigMap(savedSettings)
-		}
+		viper.Set("keycloak_url", savedKeycloakURL)
 	})
 
-	viper.Reset()
 	viper.Set("keycloak_url", "")
 
 	_, err := getConfig(true)
@@ -492,6 +487,7 @@ func BenchmarkDebugf_Disabled(b *testing.B) {
 
 // Benchmark debugf when verbose is enabled
 func BenchmarkDebugf_Enabled(b *testing.B) {
+	oldVerbose := verbose
 	verbose = true
 	// Discard output
 	oldStderr := os.Stderr
@@ -501,8 +497,11 @@ func BenchmarkDebugf_Enabled(b *testing.B) {
 	}
 	os.Stderr = devNull
 	b.Cleanup(func() {
+		verbose = oldVerbose
 		os.Stderr = oldStderr
-		devNull.Close()
+		if closeErr := devNull.Close(); closeErr != nil {
+			b.Errorf("devNull.Close() failed: %v", closeErr)
+		}
 	})
 
 	b.ResetTimer()

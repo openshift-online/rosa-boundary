@@ -47,10 +47,8 @@ func init() {
 }
 
 func runCloseInvestigation(cmd *cobra.Command, args []string) error {
-	switch closeOutputFormat {
-	case "text", "json":
-	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", closeOutputFormat)
+	if err := validateTextOrJSONOutputFormat(closeOutputFormat); err != nil {
+		return err
 	}
 
 	authRes := getAuthResult(cmd)

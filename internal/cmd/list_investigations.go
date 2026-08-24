@@ -35,11 +35,34 @@ func init() {
 	rootCmd.AddCommand(listInvestigationsCmd)
 }
 
-func runListInvestigations(cmd *cobra.Command, args []string) error {
-	switch listInvOutputFormat {
+// invalidOutputFormatError is returned when --output is not text or json.
+type invalidOutputFormatError struct {
+	format string
+}
+
+func (e *invalidOutputFormatError) Error() string {
+	return fmt.Sprintf("invalid --output %q: must be text or json", e.format)
+}
+
+// validateTextOrJSONOutputFormat accepts only text or json --output values.
+func validateTextOrJSONOutputFormat(format string) error {
+	switch format {
 	case "text", "json":
+		return nil
 	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", listInvOutputFormat)
+		return &invalidOutputFormatError{format: format}
+	}
+}
+
+// validateListInvestigationsOutputFormat accepts only the formats supported by
+// list-investigations (--output text|json).
+func validateListInvestigationsOutputFormat(format string) error {
+	return validateTextOrJSONOutputFormat(format)
+}
+
+func runListInvestigations(cmd *cobra.Command, args []string) error {
+	if err := validateTextOrJSONOutputFormat(listInvOutputFormat); err != nil {
+		return err
 	}
 
 	authRes := getAuthResult(cmd)

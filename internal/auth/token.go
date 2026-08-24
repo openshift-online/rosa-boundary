@@ -45,14 +45,22 @@ func CachedToken() (string, error) {
 	// Parse JWT expiration from the token
 	expiration, err := parseTokenExpiration(token)
 	if err != nil {
-		// Invalid token format — clean up corrupted cache so it does not keep failing.
-		if _, writeErr := fmt.Fprintf(os.Stderr, "Cached token invalid: %v\n", err); writeErr != nil {
-			return "", fmt.Errorf("cached token invalid: %w; diagnostic write failed: %v", err, writeErr)
-		}
+		// SECURITY: Token validation failure could indicate tampering or corruption.
+		// Log for audit and fail fast rather than silently retrying.
+		validationErr := fmt.Errorf("cached token validation failed (this may indicate tampering): %w", err)
+
+		// Log to stderr for user visibility
+		fmt.Fprintf(os.Stderr, "Cached token invalid: %v\n", err)
+
+		// Clean up corrupted cache to prevent repeated failures
 		if removeErr := os.Remove(cachePath); removeErr != nil && !os.IsNotExist(removeErr) {
-			return "", fmt.Errorf("cached token invalid: %w; cannot remove token cache: %w", err, removeErr)
+			// Return both errors - validation failure is primary, cleanup is secondary
+			return "", fmt.Errorf("%w; additionally, failed to remove corrupted cache: %v", validationErr, removeErr)
 		}
-		return "", nil
+
+		// Return error instead of nil so caller knows validation failed
+		// Caller can decide whether to log to security audit system
+		return "", validationErr
 	}
 
 	// Check if token is expired (with buffer)

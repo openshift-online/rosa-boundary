@@ -355,9 +355,36 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'access_point_id': e.access_point_id
         })
 
+    except ValueError as e:
+        # Validation errors should return 400, not 500
+        logger.warning(f"Invalid request: {str(e)}")
+        return response(400, {'error': str(e)})
+
+    except ClientError as e:
+        # AWS API errors - distinguish by error code
+        error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+        logger.error(f"AWS API error ({error_code}): {str(e)}", exc_info=True)
+
+        if error_code in ('Throttling', 'RequestLimitExceeded'):
+            return response(503, {
+                'error': 'Service temporarily unavailable due to high load. Please retry.',
+                'retry_after': 60
+            })
+        elif error_code in ('AccessDenied', 'UnauthorizedOperation'):
+            return response(403, {'error': 'Lambda lacks required AWS permissions. Contact administrator.'})
+        else:
+            return response(500, {'error': f'AWS service error: {error_code}'})
+
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        return response(500, {'error': 'Internal server error'})
+        # Log error ID for correlation between user report and logs
+        import uuid
+        error_id = str(uuid.uuid4())
+        logger.error(f"Unexpected error (error_id: {error_id}): {str(e)}", exc_info=True)
+        return response(500, {
+            'error': 'Internal server error',
+            'error_id': error_id,
+            'message': 'An unexpected error occurred. Contact support with this error ID.'
+        })
 
 
 def validate_identifier(identifier: str, field_name: str) -> bool:
@@ -420,11 +447,12 @@ def _validate_with_jwks(token: str, jwks_url: str, client_id: str) -> Optional[D
         logger.warning(f"Invalid token: {str(e)}")
         return None
     except requests.RequestException as e:
-        logger.error(f"Failed to fetch JWKS: {str(e)}")
-        return None
-    except Exception as e:
-        logger.error(f"Token validation error: {str(e)}", exc_info=True)
-        return None
+        # Network errors fetching JWKS should fail fast, not return "invalid token"
+        # This is infrastructure failure (503), not authentication failure (401)
+        logger.error(f"Failed to fetch JWKS from {jwks_url}: {str(e)}")
+        raise  # Let this propagate to main handler
+    # Removed broad except Exception - let unexpected errors propagate
+    # Programming errors should not be masked as "invalid token"
 
 
 def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: str) -> Optional[Dict[str, Any]]:
@@ -562,7 +590,15 @@ def find_existing_access_point(
                     continue
                 return ap
     except ClientError as e:
-        logger.warning(f"Failed to search for existing access points: {str(e)}")
+        error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+        logger.error(
+            f"Failed to search for existing access points on filesystem {efs_filesystem_id}: "
+            f"{error_code} - {str(e)}"
+        )
+        # Don't return None - raise to prevent duplicate creation on API errors
+        # Throttling, AccessDenied, and other API errors should not create duplicates
+        raise
+    # Successfully iterated through all access points without finding a match
     return None
 
 
@@ -856,8 +892,12 @@ def create_investigation_task(
             logger.error(f"Task launch failures: {run_response['failures']}")
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+                logger.info(f"Cleaned up task definition: {investigation_task_def_arn}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to deregister task definition {investigation_task_def_arn} during cleanup: {e}",
+                    exc_info=True
+                )
             # Only delete access point if it was newly created (not reused)
             if ap_newly_created:
                 try:
@@ -886,12 +926,20 @@ def create_investigation_task(
             # Stop task and clean up
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+                logger.info(f"Cleaned up task definition: {investigation_task_def_arn}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to deregister task definition {investigation_task_def_arn} during cleanup: {e}",
+                    exc_info=True
+                )
             try:
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Tagging failed')
-            except Exception:
-                pass
+                logger.info(f"Stopped task during cleanup: {task_arn}")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to stop task {task_arn} during cleanup: {e}",
+                    exc_info=True
+                )
             # Only delete access point if it was newly created (not reused)
             if ap_newly_created:
                 try:
@@ -914,14 +962,22 @@ def create_investigation_task(
         if investigation_task_def_arn:
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+                logger.info(f"Cleaned up task definition: {investigation_task_def_arn}")
+            except Exception as cleanup_e:
+                logger.warning(
+                    f"Failed to deregister task definition {investigation_task_def_arn} during cleanup: {cleanup_e}",
+                    exc_info=True
+                )
         # Stop task if it was created
         if task_arn:
             try:
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Launch failed')
-            except Exception:
-                pass
+                logger.info(f"Stopped task during cleanup: {task_arn}")
+            except Exception as cleanup_e:
+                logger.warning(
+                    f"Failed to stop task {task_arn} during cleanup: {cleanup_e}",
+                    exc_info=True
+                )
         # Clean up access point only if it was newly created (not reused)
         if ap_newly_created:
             try:

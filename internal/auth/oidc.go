@@ -38,7 +38,11 @@ type tokenResponse struct {
 func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	if !force {
 		cached, err := CachedToken()
-		if err == nil && cached != "" {
+		if err != nil {
+			// Log token validation errors for security audit, but continue to re-authenticate.
+			// This provides audit trail while maintaining good UX (auto-recovery).
+			fmt.Fprintf(os.Stderr, "Warning: %v - re-authenticating\n", err)
+		} else if cached != "" {
 			return cached, nil
 		}
 	}

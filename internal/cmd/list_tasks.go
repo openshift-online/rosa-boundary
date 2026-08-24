@@ -81,7 +81,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 		return output.JSON(tasks)
 	}
 
-	tbl := output.NewTable("TASK ID", "STATUS", "CLUSTER", "INVESTIGATION", "USERNAME", "STARTED")
+	tbl := output.NewTable("TASK ID", "STATUS", "CLUSTER", "INVESTIGATION", "OWNER", "STARTED")
 	tbl.PrintHeader()
 
 	for _, t := range tasks {
@@ -94,7 +94,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 			t.Status,
 			t.Tags["cluster_id"],
 			t.Tags["investigation_id"],
-			t.Tags["username"],
+			t.Tags["uuid"],
 			startedAt,
 		)
 	}

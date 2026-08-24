@@ -54,12 +54,6 @@ func validateTextOrJSONOutputFormat(format string) error {
 	}
 }
 
-// validateListInvestigationsOutputFormat accepts only the formats supported by
-// list-investigations (--output text|json).
-func validateListInvestigationsOutputFormat(format string) error {
-	return validateTextOrJSONOutputFormat(format)
-}
-
 func runListInvestigations(cmd *cobra.Command, args []string) error {
 	if err := validateTextOrJSONOutputFormat(listInvOutputFormat); err != nil {
 		return err
@@ -83,7 +77,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 		type jsonRow struct {
 			InvestigationID string `json:"investigation_id"`
 			ClusterID       string `json:"cluster_id"`
-			Username        string `json:"username"`
+			Owner           string `json:"owner"`
 			AccessPointID   string `json:"access_point_id"`
 			State           string `json:"state"`
 		}
@@ -92,7 +86,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 			rows[i] = jsonRow{
 				InvestigationID: inv.Tags["InvestigationID"],
 				ClusterID:       inv.Tags["ClusterID"],
-				Username:        inv.Tags["username"],
+				Owner:           inv.Tags["uuid"],
 				AccessPointID:   inv.AccessPointID,
 				State:           inv.LifeCycleState,
 			}
@@ -100,13 +94,13 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 		return output.JSON(rows)
 	}
 
-	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "USERNAME", "ACCESS POINT", "STATE")
+	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "OWNER", "ACCESS POINT", "STATE")
 	tbl.PrintHeader()
 	for _, inv := range investigations {
 		tbl.PrintRow(
 			inv.Tags["InvestigationID"],
 			inv.Tags["ClusterID"],
-			inv.Tags["username"],
+			inv.Tags["uuid"],
 			inv.AccessPointID,
 			inv.LifeCycleState,
 		)

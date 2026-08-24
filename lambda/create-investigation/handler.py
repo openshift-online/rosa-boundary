@@ -545,27 +545,20 @@ def find_existing_access_point(
                 # SECURITY: Fail closed on missing or mismatched ABAC tag
                 # If the ABAC tag is missing or doesn't match, don't reuse this access point
                 if tags.get(abac_tag_key) != abac_tag_value:
-                    logger.warning(
-                        f"Access point {ap['AccessPointId']} ABAC tag mismatch for key '{abac_tag_key}'; skipping"
-                    )
+                    logger.warning(f"Access point ABAC tag mismatch for key '{abac_tag_key}'; skipping")
                     continue
 
                 # SECURITY: Validate access point belongs to the expected filesystem
                 # Prevents cross-filesystem access point reuse even if other tags match
                 if tags.get('FileSystemId') != efs_filesystem_id:
-                    logger.warning(
-                        f"Access point {ap['AccessPointId']} FileSystemId tag mismatch; skipping"
-                    )
+                    logger.warning("Access point FileSystemId tag mismatch; skipping")
                     continue
 
                 # Verify the root path matches what the tags claim — guards against tag
                 # manipulation redirecting an investigation to a different EFS directory.
                 actual_path = ap.get('RootDirectory', {}).get('Path', '')
                 if actual_path != expected_path:
-                    logger.warning(
-                        f"Access point {ap['AccessPointId']} tags match but path mismatch: "
-                        f"expected {expected_path!r}, got {actual_path!r}; skipping"
-                    )
+                    logger.warning("Access point tags match but RootDirectory path mismatch; skipping")
                     continue
                 return ap
     except ClientError as e:

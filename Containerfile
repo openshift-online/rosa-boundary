@@ -61,10 +61,9 @@ RUN mkdir --parents /backplane-tools
 WORKDIR /backplane-tools
 
 RUN --mount=type=secret,id=GITHUB_TOKEN \
-    --mount=type=secret,id=read-only-github-pat/token \
-    --mount=type=secret,id=GITHUB_APP_ID \
-    --mount=type=secret,id=GITHUB_APP_PEM \
-    --mount=type=secret,id=GITHUB_APP_INSTALL_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
     github_dl download \
         --url "${BACKPLANE_TOOLS_URL}" \
         --checksum_file "${BACKPLANE_TOOLS_CHECKSUM_FILE}" \
@@ -77,10 +76,9 @@ RUN tar --extract --gunzip --no-same-owner --directory /usr/local/bin --file ./*
 # github_dl print-token resolves the token (app or PAT) so backplane-tools
 # gets authenticated GitHub API access regardless of which auth method is configured.
 RUN --mount=type=secret,id=GITHUB_TOKEN \
-    --mount=type=secret,id=read-only-github-pat/token \
-    --mount=type=secret,id=GITHUB_APP_ID \
-    --mount=type=secret,id=GITHUB_APP_PEM \
-    --mount=type=secret,id=GITHUB_APP_INSTALL_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
     GITHUB_TOKEN=$(github_dl print-token) /usr/local/bin/backplane-tools install all
 
 # -H follows symlinks (backplane installs as symlinks in latest/)
@@ -104,10 +102,9 @@ RUN mkdir --parents /claude-dl
 WORKDIR /claude-dl
 
 RUN --mount=type=secret,id=GITHUB_TOKEN \
-    --mount=type=secret,id=read-only-github-pat/token \
-    --mount=type=secret,id=GITHUB_APP_ID \
-    --mount=type=secret,id=GITHUB_APP_PEM \
-    --mount=type=secret,id=GITHUB_APP_INSTALL_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
     github_dl download \
         --url "${CLAUDE_CODE_URL}" \
         --checksum_file "${CLAUDE_CODE_CHECKSUM_FILE}" \

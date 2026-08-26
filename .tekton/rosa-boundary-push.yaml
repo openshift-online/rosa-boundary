@@ -257,7 +257,7 @@ spec:
       - name: IMAGE_APPEND_PLATFORM
         value: "true"
       - name: ADDITIONAL_SECRET
-        value: read-only-github-pat
+        value: rosa-boundary-github-app
       runAfter:
       - prefetch-dependencies
       taskRef:

@@ -7,7 +7,6 @@ import (
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/spf13/cobra"
 
-	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
@@ -51,10 +50,8 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output %q: must be text or json", createOutputFormat)
 	}
 
-	cfg, err := getConfig(true)
-	if err != nil {
-		return err
-	}
+	authRes := cachedAuthResult
+	cfg := authRes.Config
 
 	clusterID := createClusterID
 
@@ -64,44 +61,18 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 		output.Status("Generated investigation ID: %s", investigationID)
 	}
 
-	if cfg.InvokerRoleARN == "" {
-		return fmt.Errorf("invoker role ARN is required; set --invoker-role-arn, ROSA_BOUNDARY_INVOKER_ROLE_ARN, or INVOKER_ROLE_ARN")
-	}
 	if cfg.LambdaFunctionName == "" {
 		return fmt.Errorf("lambda function name is required; set --lambda-function-name, ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME, or LAMBDA_FUNCTION_NAME")
 	}
 
-	// Step 1: Get OIDC token
-	output.Status("=== Step 1: Authenticating with Keycloak ===")
-	pkce := auth.PKCEConfig{
-		KeycloakURL: cfg.KeycloakURL,
-		Realm:       cfg.KeycloakRealm,
-		ClientID:    cfg.OIDCClientID,
-	}
-	idToken, err := auth.GetToken(cmd.Context(), pkce, createForceLogin)
-	if err != nil {
-		return fmt.Errorf("authentication failed: %w", err)
-	}
-	output.Status("OIDC token obtained")
-
-	// Step 2: Assume Lambda Invoker role
-	output.Status("\n=== Step 2: Assuming Lambda Invoker Role ===")
-	output.Status("Role: %s", cfg.InvokerRoleARN)
-
-	invokerCreds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), cfg.AWSRegion, cfg.InvokerRoleARN, idToken, "rosa-boundary-invoker")
-	if err != nil {
-		return fmt.Errorf("lambda invoker role assumption failed: %w", err)
-	}
-	output.Status("Invoker role assumed")
-
-	// Step 3: Call Lambda with skip_task=true (creates only the EFS access point)
-	output.Status("\n=== Step 3: Creating Investigation Workspace via Lambda ===")
+	// Step 1: Call Lambda with skip_task=true (creates only the EFS access point)
+	output.Status("=== Step 1: Creating Investigation Workspace via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)
 	output.Status("Investigation:  %s", investigationID)
 
-	invokerCredProvider := awsclient.StaticCredentialsProvider(invokerCreds)
+	invokerCredProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	lambdaClient := lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, invokerCredProvider)
-	lambdaResp, err := lambdaClient.CreateInvestigationOnly(cmd.Context(), idToken, lambda.InvestigationRequest{
+	lambdaResp, err := lambdaClient.CreateInvestigationOnly(cmd.Context(), authRes.IDToken, lambda.InvestigationRequest{
 		ClusterID:       clusterID,
 		InvestigationID: investigationID,
 	})

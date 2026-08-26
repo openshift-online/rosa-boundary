@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -19,9 +18,7 @@ var joinTaskCmd = &cobra.Command{
 	Long: `Connect to a running ECS Fargate task using ECS Exec and the
 AWS Session Manager plugin. Requires session-manager-plugin to be installed.
 
-The task must be in RUNNING state and have ECS Exec enabled.
-AWS credentials must be configured (e.g., via environment variables or
-after running start-task with --connect).`,
+The task must be in RUNNING state and have ECS Exec enabled.`,
 	Args: cobra.ExactArgs(1),
 	RunE: runJoinTask,
 }
@@ -42,30 +39,19 @@ func init() {
 func runJoinTask(cmd *cobra.Command, args []string) error {
 	taskID := args[0]
 
-	cfg, err := getConfig(false)
-	if err != nil {
-		return err
+	authRes := cachedAuthResult
+	if authRes == nil {
+		return fmt.Errorf("authentication required but not available")
 	}
 
-	// Load ambient AWS credentials (from environment, instance profile, etc.)
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w\nRun start-task first or configure AWS credentials", err)
-	}
-
-	// Verify we have credentials by checking the identity
-	creds, credsErr := awsCfg.Credentials.Retrieve(cmd.Context())
-	if credsErr != nil || creds.AccessKeyID == "" {
-		return fmt.Errorf("AWS credentials not configured\nRun start-task first or set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY")
-	}
-
-	clusterName := cfg.ClusterName
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
+	clusterName := authRes.Config.ClusterName
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	output.Status("ECS Cluster: %s", clusterName)
-	output.Status("Task:    %s", taskID)
+	output.Status("Task:        %s", taskID)
 
-	return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, taskID, joinContainer, joinCommand, joinNoWait)
+	return runJoinWithClient(cmd.Context(), ecsClient, authRes.Config.AWSRegion, taskID, joinContainer, joinCommand, joinNoWait)
 }
 
 // runJoinWithClient is shared by join-task and start-task --connect.

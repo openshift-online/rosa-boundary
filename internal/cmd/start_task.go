@@ -60,10 +60,8 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output %q: must be text or json", startOutputFormat)
 	}
 
-	cfg, err := getConfig(true)
-	if err != nil {
-		return err
-	}
+	authRes := cachedAuthResult
+	cfg := authRes.Config
 
 	clusterID := startClusterID
 
@@ -73,46 +71,20 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		output.Status("Generated investigation ID: %s", investigationID)
 	}
 
-	if cfg.InvokerRoleARN == "" {
-		return fmt.Errorf("invoker role ARN is required; set --invoker-role-arn, ROSA_BOUNDARY_INVOKER_ROLE_ARN, or INVOKER_ROLE_ARN")
-	}
 	if cfg.LambdaFunctionName == "" {
 		return fmt.Errorf("lambda function name is required; set --lambda-function-name, ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME, or LAMBDA_FUNCTION_NAME")
 	}
 
-	// Step 1: Get OIDC token
-	output.Status("=== Step 1: Authenticating with Keycloak ===")
-	pkce := auth.PKCEConfig{
-		KeycloakURL: cfg.KeycloakURL,
-		Realm:       cfg.KeycloakRealm,
-		ClientID:    cfg.OIDCClientID,
-	}
-	idToken, err := auth.GetToken(cmd.Context(), pkce, startForceLogin)
-	if err != nil {
-		return fmt.Errorf("authentication failed: %w", err)
-	}
-	output.Status("OIDC token obtained")
-
-	// Step 2: Assume Lambda Invoker role
-	output.Status("\n=== Step 2: Assuming Lambda Invoker Role ===")
-	output.Status("Role: %s", cfg.InvokerRoleARN)
-
-	invokerCreds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), cfg.AWSRegion, cfg.InvokerRoleARN, idToken, "rosa-boundary-invoker")
-	if err != nil {
-		return fmt.Errorf("lambda invoker role assumption failed: %w", err)
-	}
-	output.Status("Invoker role assumed")
-
-	// Step 3: Call Lambda (SigV4-signed)
-	output.Status("\n=== Step 3: Creating Investigation via Lambda ===")
+	// Step 1: Call Lambda (SigV4-signed)
+	output.Status("=== Step 1: Creating Investigation via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)
 	output.Status("Investigation:  %s", investigationID)
 	output.Status("OC Version:     %s", startOCVersion)
 	output.Status("Task Timeout:   %d seconds", startTaskTimeout)
 
-	invokerCredProvider := awsclient.StaticCredentialsProvider(invokerCreds)
+	invokerCredProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	lambdaClient := lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, invokerCredProvider)
-	lambdaResp, err := lambdaClient.CreateInvestigation(cmd.Context(), idToken, lambda.InvestigationRequest{
+	lambdaResp, err := lambdaClient.CreateInvestigation(cmd.Context(), authRes.IDToken, lambda.InvestigationRequest{
 		ClusterID:       clusterID,
 		InvestigationID: investigationID,
 		OCVersion:       startOCVersion,
@@ -135,8 +107,8 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 
 	output.Status("Investigation created: task %s", taskID)
 
-	// Step 4: Assume SRE role
-	output.Status("\n=== Step 4: Assuming Shared SRE Role ===")
+	// Step 2: Assume SRE role
+	output.Status("\n=== Step 2: Assuming Shared SRE Role ===")
 	output.Status("Role: %s", roleARN)
 
 	sessionName := "rosa-boundary-sre"
@@ -146,7 +118,15 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 
 	debugf("Assuming role %s as session %s", roleARN, sessionName)
 
-	creds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), cfg.AWSRegion, roleARN, idToken, sessionName)
+	pkce := auth.PKCEConfig{
+		KeycloakURL: cfg.KeycloakURL,
+		Realm:       cfg.KeycloakRealm,
+		ClientID:    cfg.OIDCClientID,
+	}
+
+	// We use assumeRoleWithRetry to do the second assumption (SRE role) using the same OIDC token (which should be cached).
+	// This also handles a retry if for some reason the token was invalidated in the split second since the last call.
+	_, creds, err := assumeRoleWithRetry(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, false)
 	if err != nil {
 		return fmt.Errorf("role assumption failed: %w", err)
 	}
@@ -160,9 +140,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	ecsCluster := cfg.ClusterName
 	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, ecsCluster, credProvider)
 
-	// Step 5: Wait for RUNNING (unless --no-wait)
+	// Step 3: Wait for RUNNING (unless --no-wait)
 	if !startNoWait {
-		output.Status("\n=== Step 5: Waiting for Task to be RUNNING ===")
+		output.Status("\n=== Step 3: Waiting for Task to be RUNNING ===")
 		output.Status("Task: %s", taskID)
 		if err := ecsClient.WaitForRunning(cmd.Context(), taskID); err != nil {
 			output.Status("Warning: task may not be running yet: %v", err)
@@ -191,9 +171,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		printStartSummary(ecsCluster, clusterID, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion)
 	}
 
-	// Step 6: Auto-connect if requested
+	// Step 4: Auto-connect if requested
 	if startConnect && !startNoWait {
-		output.Status("\n=== Step 6: Connecting to Task ===")
+		output.Status("\n=== Step 4: Connecting to Task ===")
 		return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, taskID, "rosa-boundary", defaultExecCommand, false)
 	}
 

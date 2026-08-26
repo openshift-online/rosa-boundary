@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -30,50 +29,51 @@ func init() {
 	rootCmd.AddCommand(listTasksCmd)
 }
 
-func runListTasks(cmd *cobra.Command, args []string) error {
-	desiredStatus := strings.ToUpper(listStatus)
+// validateListTasksStatus normalizes and validates --status for list-tasks.
+func validateListTasksStatus(status string) (string, error) {
+	desiredStatus := strings.ToUpper(status)
 	switch desiredStatus {
 	case "RUNNING", "STOPPED", "ALL":
+		return desiredStatus, nil
 	default:
-		return fmt.Errorf("invalid --status %q: must be RUNNING, STOPPED, or all", listStatus)
+		return "", fmt.Errorf("invalid --status %q: must be RUNNING, STOPPED, or all", status)
 	}
+}
 
-	switch listOutputFormat {
-	case "text", "json":
-	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", listOutputFormat)
-	}
-
-	cfg, err := getConfig(false)
+func runListTasks(cmd *cobra.Command, args []string) error {
+	desiredStatus, err := validateListTasksStatus(listStatus)
 	if err != nil {
 		return err
 	}
-
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
+	if err := validateTextOrJSONOutputFormat(listOutputFormat); err != nil {
+		return err
 	}
 
-	clusterName := cfg.ClusterName
-	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, clusterName, awsCfg.Credentials)
+	authRes := cachedAuthResult
+
+	clusterName := authRes.Config.ClusterName
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus)
 
 	var tasks []awsclient.TaskSummary
+
 	if desiredStatus == "ALL" {
-		running, err := ecsClient.ListRunningTasks(cmd.Context(), "RUNNING")
-		if err != nil {
-			return fmt.Errorf("cannot list tasks: %w", err)
+		running, listErr := ecsClient.ListRunningTasks(cmd.Context(), "RUNNING")
+		if listErr != nil {
+			return fmt.Errorf("cannot list tasks: %w", listErr)
 		}
-		stopped, err := ecsClient.ListRunningTasks(cmd.Context(), "STOPPED")
-		if err != nil {
-			return fmt.Errorf("cannot list tasks: %w", err)
+		stopped, listErr := ecsClient.ListRunningTasks(cmd.Context(), "STOPPED")
+		if listErr != nil {
+			return fmt.Errorf("cannot list tasks: %w", listErr)
 		}
 		tasks = append(running, stopped...)
 	} else {
-		tasks, err = ecsClient.ListRunningTasks(cmd.Context(), desiredStatus)
-		if err != nil {
-			return fmt.Errorf("cannot list tasks: %w", err)
+		var listErr error
+		tasks, listErr = ecsClient.ListRunningTasks(cmd.Context(), desiredStatus)
+		if listErr != nil {
+			return fmt.Errorf("cannot list tasks: %w", listErr)
 		}
 	}
 
@@ -81,7 +81,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 		return output.JSON(tasks)
 	}
 
-	tbl := output.NewTable("TASK ID", "STATUS", "CLUSTER", "INVESTIGATION", "USERNAME", "STARTED")
+	tbl := output.NewTable("TASK ID", "STATUS", "CLUSTER", "INVESTIGATION", "OWNER", "STARTED")
 	tbl.PrintHeader()
 
 	for _, t := range tasks {
@@ -94,7 +94,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 			t.Status,
 			t.Tags["cluster_id"],
 			t.Tags["investigation_id"],
-			t.Tags["username"],
+			t.Tags["uuid"],
 			startedAt,
 		)
 	}

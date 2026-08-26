@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -36,28 +35,38 @@ func init() {
 	rootCmd.AddCommand(listInvestigationsCmd)
 }
 
-func runListInvestigations(cmd *cobra.Command, args []string) error {
-	switch listInvOutputFormat {
-	case "text", "json":
-	default:
-		return fmt.Errorf("invalid --output %q: must be text or json", listInvOutputFormat)
-	}
+// invalidOutputFormatError is returned when --output is not text or json.
+type invalidOutputFormatError struct {
+	format string
+}
 
-	cfg, err := getConfig(false)
-	if err != nil {
+func (e *invalidOutputFormatError) Error() string {
+	return fmt.Sprintf("invalid --output %q: must be text or json", e.format)
+}
+
+// validateTextOrJSONOutputFormat accepts only text or json --output values.
+func validateTextOrJSONOutputFormat(format string) error {
+	switch format {
+	case "text", "json":
+		return nil
+	default:
+		return &invalidOutputFormatError{format: format}
+	}
+}
+
+func runListInvestigations(cmd *cobra.Command, args []string) error {
+	if err := validateTextOrJSONOutputFormat(listInvOutputFormat); err != nil {
 		return err
 	}
 
-	if cfg.EFSFilesystemID == "" {
+	authRes := cachedAuthResult
+
+	if authRes.Config.EFSFilesystemID == "" {
 		return fmt.Errorf("EFS filesystem ID is required; set --efs-filesystem-id, ROSA_BOUNDARY_EFS_FILESYSTEM_ID, or efs_filesystem_id in config")
 	}
 
-	awsCfg, err := config.LoadDefaultConfig(cmd.Context(), config.WithRegion(cfg.AWSRegion))
-	if err != nil {
-		return fmt.Errorf("cannot load AWS credentials: %w", err)
-	}
-
-	efsClient := awsclient.NewEFSClient(cfg.AWSRegion, cfg.EFSFilesystemID, awsCfg.Credentials)
+	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
+	efsClient := awsclient.NewEFSClient(authRes.Config.AWSRegion, authRes.Config.EFSFilesystemID, credProvider)
 
 	investigations, err := efsClient.ListInvestigations(cmd.Context(), listInvClusterID)
 	if err != nil {
@@ -68,7 +77,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 		type jsonRow struct {
 			InvestigationID string `json:"investigation_id"`
 			ClusterID       string `json:"cluster_id"`
-			Username        string `json:"username"`
+			Owner           string `json:"owner"`
 			AccessPointID   string `json:"access_point_id"`
 			State           string `json:"state"`
 		}
@@ -77,7 +86,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 			rows[i] = jsonRow{
 				InvestigationID: inv.Tags["InvestigationID"],
 				ClusterID:       inv.Tags["ClusterID"],
-				Username:        inv.Tags["username"],
+				Owner:           inv.Tags["uuid"],
 				AccessPointID:   inv.AccessPointID,
 				State:           inv.LifeCycleState,
 			}
@@ -85,13 +94,13 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 		return output.JSON(rows)
 	}
 
-	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "USERNAME", "ACCESS POINT", "STATE")
+	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "OWNER", "ACCESS POINT", "STATE")
 	tbl.PrintHeader()
 	for _, inv := range investigations {
 		tbl.PrintRow(
 			inv.Tags["InvestigationID"],
 			inv.Tags["ClusterID"],
-			inv.Tags["username"],
+			inv.Tags["uuid"],
 			inv.AccessPointID,
 			inv.LifeCycleState,
 		)

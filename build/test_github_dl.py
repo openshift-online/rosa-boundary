@@ -106,6 +106,56 @@ class TestResolveSecret(unittest.TestCase):
                     result = github_dl.resolve_secret("MY_VAR")
         assert result == "from-file"
 
+    def test_default_patterns_include_additional_secret_mount(self):
+        """Regression guard: the default SECRET_PATH_PATTERNS must resolve the
+        GitHub App creds at the location the Konflux buildah task actually mounts
+        them. ADDITIONAL_SECRET=rosa-boundary-github-app expands to
+        'buildah build --secret id=rosa-boundary-github-app/<key>', which lands
+        each key at /run/secrets/rosa-boundary-github-app/<key> (verified against
+        buildah 1.43). Do not remove this pattern without updating the pipeline."""
+        assert "/run/secrets/rosa-boundary-github-app/{name}" in github_dl.SECRET_PATH_PATTERNS
+
+    def test_resolves_app_cred_at_buildah_mount_path(self):
+        """Simulate the real buildah mount: keys under
+        /run/secrets/rosa-boundary-github-app/ resolve via the default patterns."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            secret_dir = os.path.join(tmpdir, "run", "secrets", "rosa-boundary-github-app")
+            os.makedirs(secret_dir)
+            with open(os.path.join(secret_dir, "GITHUB_APP_ID"), "w") as f:
+                f.write("app-id-123")
+            # Rewrite the absolute /run/secrets prefix under the temp root so the
+            # test does not require writing to the real filesystem root.
+            patterns = [
+                p.replace("/run/secrets", os.path.join(tmpdir, "run", "secrets"))
+                if p.startswith("/run/secrets") else p
+                for p in github_dl.SECRET_PATH_PATTERNS
+            ]
+            with patch.object(github_dl, "SECRET_PATH_PATTERNS", patterns):
+                with patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop("GITHUB_APP_ID", None)
+                    result = github_dl.resolve_secret("GITHUB_APP_ID")
+        assert result == "app-id-123"
+
+    def test_local_dev_github_token_still_resolves(self):
+        """Local development must keep working: a bare GITHUB_TOKEN mounted at
+        /run/secrets/GITHUB_TOKEN (or the env var) resolves via the generic
+        /run/secrets/{name} pattern even after the CI PAT paths are removed."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            secret_dir = os.path.join(tmpdir, "run", "secrets")
+            os.makedirs(secret_dir)
+            with open(os.path.join(secret_dir, "GITHUB_TOKEN"), "w") as f:
+                f.write("ghp_local_dev")
+            patterns = [
+                p.replace("/run/secrets", os.path.join(tmpdir, "run", "secrets"))
+                if p.startswith("/run/secrets") else p
+                for p in github_dl.SECRET_PATH_PATTERNS
+            ]
+            with patch.object(github_dl, "SECRET_PATH_PATTERNS", patterns):
+                with patch.dict(os.environ, {}, clear=False):
+                    os.environ.pop("GITHUB_TOKEN", None)
+                    result = github_dl.resolve_secret("GITHUB_TOKEN")
+        assert result == "ghp_local_dev"
+
 
 class TestGenerateGithubAppToken(unittest.TestCase):
     """Test generate_github_app_token() JWT creation and API exchange."""

@@ -37,10 +37,19 @@ import requests
 # Build secret mount path patterns, checked in priority order.
 # Each secret resolves by substituting its name into these paths,
 # then falling back to the environment variable.
+#
+# In Konflux, the buildah task's ADDITIONAL_SECRET param mounts one k8s
+# Secret; each of its keys lands at /run/secrets/<secret-name>/<key>
+# (via 'buildah build --secret id=<secret-name>/<key>'). We name that
+# Secret 'rosa-boundary-github-app', so the GitHub App creds resolve from
+# /run/secrets/rosa-boundary-github-app/{name}.
+#
+# The generic /run/secrets/{name} entry preserves local development: a
+# developer passing '--mount=type=secret,id=GITHUB_TOKEN' (or the
+# GITHUB_TOKEN env var) still authenticates without the App creds.
 SECRET_PATH_PATTERNS = [
     "/additional-secret/{name}",
-    "/run/secrets/read-only-github-pat/{name}",
-    "/run/secrets/read-only-github-pat/token",
+    "/run/secrets/rosa-boundary-github-app/{name}",
     "/run/secrets/{name}",
 ]
 

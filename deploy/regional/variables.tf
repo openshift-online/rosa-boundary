@@ -171,9 +171,9 @@ variable "oidc_session_duration" {
 }
 
 variable "abac_tag_key" {
-  description = "ECS task tag key used for ABAC isolation (must match the principal_tags key in the OIDC JWT). Use 'username' for dev Keycloak, 'uuid' for Red Hat EmployeeIDP."
+  description = "ECS task tag key used for ABAC isolation (must match the principal_tags key in the OIDC JWT). Should be 'uuid' to match Red Hat EmployeeIDP production configuration."
   type        = string
-  default     = "username"
+  default     = "uuid"
 }
 
 variable "stage_keycloak_issuer_url" {

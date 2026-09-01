@@ -51,11 +51,11 @@ func runJoinTask(cmd *cobra.Command, args []string) error {
 	output.Status("ECS Cluster: %s", clusterName)
 	output.Status("Task:        %s", taskID)
 
-	return runJoinWithClient(cmd.Context(), ecsClient, authRes.Config.AWSRegion, taskID, joinContainer, joinCommand, joinNoWait)
+	return runJoinWithClient(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, taskID, joinContainer, joinCommand, joinNoWait)
 }
 
 // runJoinWithClient is shared by join-task and start-task --connect.
-func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, region, taskID, container, command string, noWait bool) error {
+func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool) error {
 	// Check task status
 	output.Status("Checking task status...")
 	task, err := ecsClient.DescribeTask(ctx, taskID)
@@ -95,5 +95,5 @@ func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, regi
 	debugf("Session ID: %s", session.SessionID)
 
 	// Hand off to session-manager-plugin (replaces the process)
-	return awsclient.StartSessionManagerPlugin(region, session)
+	return awsclient.StartSessionManagerPlugin(region, session, creds)
 }

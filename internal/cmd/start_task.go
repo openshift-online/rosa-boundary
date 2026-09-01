@@ -174,7 +174,7 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	// Step 4: Auto-connect if requested
 	if startConnect && !startNoWait {
 		output.Status("\n=== Step 4: Connecting to Task ===")
-		return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, taskID, "rosa-boundary", defaultExecCommand, false)
+		return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, "rosa-boundary", defaultExecCommand, false)
 	}
 
 	return nil

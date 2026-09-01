@@ -295,13 +295,13 @@ variable "allowed_uuids" {
 variable "enable_oidc_group_enforcement" {
   description = "Enforce OIDC role-based group membership on SRE shared and Lambda invoker trust policies. When true, AssumeRoleWithWebIdentity requires the caller's aws:RequestTag/roles session tag (from the EmployeeIDP principal_tags.roles JWT claim) to equal required_oidc_role."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "required_oidc_role" {
   description = "EmployeeIDP realm role required for role assumption when enable_oidc_group_enforcement is true. The value must match the single principal_tags.roles value emitted by the EmployeeIDP AWS session-tags mapper."
   type        = string
-  default     = ""
+  default     = "ai-sd-sre"
 
   validation {
     condition     = var.required_oidc_role == "" || length(trimspace(var.required_oidc_role)) > 0

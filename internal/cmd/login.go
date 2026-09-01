@@ -44,7 +44,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		ClientID:    cfg.OIDCClientID,
 	}
 
-	token, err := auth.GetToken(cmd.Context(), pkce, loginForce)
+	token, err := auth.GetToken(cmd.Context(), pkce, forceFreshLogin(forceLogin, loginForce))
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
@@ -52,4 +52,9 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// Write token to stdout
 	_, err = fmt.Fprintln(os.Stdout, token)
 	return err
+}
+
+// forceFreshLogin reports whether either supported login force flag was set.
+func forceFreshLogin(globalForceLogin, loginForce bool) bool {
+	return globalForceLogin || loginForce
 }

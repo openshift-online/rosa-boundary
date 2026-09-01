@@ -143,6 +143,16 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          key      = "enable_oidc_group_enforcement"
+          value    = "true"
+          category = "terraform"
+        },
+        {
+          key      = "required_oidc_role"
+          value    = "ai-sd-sre"
+          category = "terraform"
+        },
+        {
           key      = "lambda_package_type"
           value    = "Image"
           category = "terraform"

@@ -82,6 +82,12 @@ required_groups = ["ai-sd-sre"]
 #   "yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy",  # user2
 # ]
 
+# OIDC group enforcement (requires EmployeeIDP principal_tags.roles mapper)
+# When enabled, AssumeRoleWithWebIdentity requires the caller's session tag
+# aws:RequestTag/roles to equal the configured role value.
+# enable_oidc_group_enforcement = true
+# required_oidc_role            = "ai-sd-sre"
+
 # Lambda packaging (default: ZIP)
 # Set to "Image" for container image deployment (required for HCP Terraform remote execution).
 # The ECR cache must be seeded before apply — see docs/runbooks/lambda-zip-to-image-migration.md.

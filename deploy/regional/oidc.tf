@@ -106,6 +106,9 @@ resource "aws_iam_role" "sre_shared" {
             },
             var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {},
+            var.enable_oidc_group_enforcement ? {
+              "aws:RequestTag/roles" = var.required_oidc_role
             } : {}
           )
         }
@@ -126,6 +129,9 @@ resource "aws_iam_role" "sre_shared" {
             },
             var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {},
+            var.enable_oidc_group_enforcement ? {
+              "aws:RequestTag/roles" = var.required_oidc_role
             } : {}
           )
         }
@@ -146,6 +152,9 @@ resource "aws_iam_role" "sre_shared" {
             },
             var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {},
+            var.enable_oidc_group_enforcement ? {
+              "aws:RequestTag/roles" = var.required_oidc_role
             } : {}
           )
         }
@@ -157,6 +166,10 @@ resource "aws_iam_role" "sre_shared" {
     precondition {
       condition     = !var.enable_uuid_allowlist || length(var.allowed_uuids) > 0
       error_message = "allowed_uuids must contain at least one UUID when enable_uuid_allowlist is true."
+    }
+    precondition {
+      condition     = !var.enable_oidc_group_enforcement || var.required_oidc_role != ""
+      error_message = "required_oidc_role must be set when enable_oidc_group_enforcement is true."
     }
   }
 

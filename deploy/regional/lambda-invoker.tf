@@ -29,6 +29,9 @@ resource "aws_iam_role" "lambda_invoker" {
             },
             var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {},
+            var.enable_oidc_group_enforcement ? {
+              "aws:RequestTag/roles" = var.required_oidc_role
             } : {}
           )
         }
@@ -49,6 +52,9 @@ resource "aws_iam_role" "lambda_invoker" {
             },
             var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {},
+            var.enable_oidc_group_enforcement ? {
+              "aws:RequestTag/roles" = var.required_oidc_role
             } : {}
           )
         }
@@ -69,6 +75,9 @@ resource "aws_iam_role" "lambda_invoker" {
             },
             var.enable_uuid_allowlist ? {
               "aws:RequestTag/uuid" = var.allowed_uuids
+            } : {},
+            var.enable_oidc_group_enforcement ? {
+              "aws:RequestTag/roles" = var.required_oidc_role
             } : {}
           )
         }

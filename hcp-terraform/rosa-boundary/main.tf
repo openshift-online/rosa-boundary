@@ -1,5 +1,5 @@
 terraform {
-  required_version = "1.15.8"
+  required_version = ">= 1.15, < 2.0"
 
   required_providers {
     tfe = {
@@ -34,7 +34,7 @@ module "rosa_boundary" {
 
   workspaces = {
     rosa-boundary-stage-network = {
-      terraform_version  = "1.15.8"
+      terraform_version  = "1.16.0"
       working_directory  = "deploy/network"
       github_repo_org    = "openshift-online"
       github_repo_name   = "rosa-boundary"
@@ -69,7 +69,7 @@ module "rosa_boundary" {
     }
 
     rosa-boundary-stage-aws-creds = {
-      terraform_version = "1.15.8"
+      terraform_version = "1.16.0"
       working_directory = "hcp-terraform/aws-creds/rosa-boundary-stage"
       github_repo_org   = "openshift-online"
       github_repo_name  = "rosa-boundary"
@@ -81,7 +81,7 @@ module "rosa_boundary" {
     }
 
     rosa-boundary-stage-regional = {
-      terraform_version      = "1.15.8"
+      terraform_version      = "1.16.0"
       working_directory      = "deploy/regional"
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"

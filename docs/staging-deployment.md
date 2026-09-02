@@ -108,7 +108,7 @@ Changes to workspace configuration itself (adding variables, changing auto-apply
 
 ## Workspaces
 
-All workspaces live in the **`rosa-boundary`** project within the **`hp-platform-engineering`** HCP Terraform organization. They use **Terraform 1.15.8** and are connected to the `openshift-online/rosa-boundary` GitHub repository.
+All workspaces live in the **`rosa-boundary`** project within the **`hp-platform-engineering`** HCP Terraform organization and are connected to the `openshift-online/rosa-boundary` GitHub repository. The three workload workspaces run **Terraform 1.16.0** (an exact, reviewed runtime pin), while the Terraform configurations declare a wider compatibility constraint of **`>= 1.15, < 2.0`**. The `meta-rosa-rosa-boundary` workspace runtime is managed separately by infra-platform.
 
 ### rosa-boundary-stage-network
 

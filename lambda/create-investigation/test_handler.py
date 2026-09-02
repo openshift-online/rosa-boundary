@@ -694,6 +694,423 @@ class TestLambdaHandler:
         body = json.loads(response['body'])
         assert 'not authorized' in body['error'].lower()
 
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_missing_abac_tag_in_principal_tags(self):
+        """Test that missing ABAC tag in principal_tags returns 403."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'test',
+                'investigation_id': 'inv-123'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {}  # ABAC tag 'uuid' is missing
+                }
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 403
+        body = json.loads(response['body'])
+        assert 'Missing required ABAC claim' in body['error']
+        assert 'uuid' in body['error']
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_empty_abac_tag_value_returns_403(self):
+        """Test that empty ABAC tag value returns 403."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'test',
+                'investigation_id': 'inv-123'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ['']  # Empty string
+                    }
+                }
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 403
+        body = json.loads(response['body'])
+        assert 'Missing required ABAC claim' in body['error']
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_non_string_abac_tag_returns_403(self):
+        """Test that non-string ABAC tag values (null, int, array, dict) return 403."""
+        import importlib
+        importlib.reload(handler)
+
+        context = Mock()
+
+        # Test various invalid ABAC tag value types
+        invalid_values = [
+            (None, 'null'),
+            (123, 'integer'),
+            ([], 'empty array'),
+            ({}, 'empty dict'),
+            (['uuid1', 'uuid2'], 'array with multiple values')
+        ]
+
+        for invalid_value, description in invalid_values:
+            event = {
+                'headers': {'authorization': 'Bearer valid-token'},
+                'body': json.dumps({
+                    'cluster_id': 'test',
+                    'investigation_id': f'inv-{description.replace(" ", "-")}'
+                })
+            }
+
+            with patch('handler.validate_oidc_token') as mock_validate:
+                mock_validate.return_value = {
+                    'sub': 'user-123',
+                    'email': 'test@example.com',
+                    'groups': ['sre-team'],
+                    'https://aws.amazon.com/tags': {
+                        'principal_tags': {
+                            'uuid': [invalid_value]
+                        }
+                    }
+                }
+
+                response = handler.lambda_handler(event, context)
+
+            assert response['statusCode'] == 403, f"Failed for {description}"
+            body = json.loads(response['body'])
+            assert 'Missing required ABAC claim' in body['error'], f"Wrong error for {description}"
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_non_dict_principal_tags_returns_403(self):
+        """Test that non-dict principal_tags claim returns 403."""
+        import importlib
+        importlib.reload(handler)
+
+        context = Mock()
+
+        # Test various invalid principal_tags types
+        invalid_principal_tags = [
+            ('not-a-dict', 'string'),
+            (123, 'integer'),
+            ([], 'array'),
+            (None, 'null')
+        ]
+
+        for invalid_value, description in invalid_principal_tags:
+            event = {
+                'headers': {'authorization': 'Bearer valid-token'},
+                'body': json.dumps({
+                    'cluster_id': 'test',
+                    'investigation_id': f'inv-{description}'
+                })
+            }
+
+            with patch('handler.validate_oidc_token') as mock_validate:
+                mock_validate.return_value = {
+                    'sub': 'user-123',
+                    'email': 'test@example.com',
+                    'groups': ['sre-team'],
+                    'https://aws.amazon.com/tags': {
+                        'principal_tags': invalid_value
+                    }
+                }
+
+                response = handler.lambda_handler(event, context)
+
+            assert response['statusCode'] == 403, f"Failed for principal_tags as {description}"
+            body = json.loads(response['body'])
+            assert 'Missing required ABAC claim' in body['error'], f"Wrong error for {description}"
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_non_dict_aws_tags_returns_403(self):
+        """Test that non-dict aws_tags claim returns 403."""
+        import importlib
+        importlib.reload(handler)
+
+        context = Mock()
+
+        # Test various invalid aws_tags types
+        invalid_aws_tags = [
+            ('not-a-dict', 'string'),
+            (123, 'integer'),
+            ([], 'array'),
+            (None, 'null')
+        ]
+
+        for invalid_value, description in invalid_aws_tags:
+            event = {
+                'headers': {'authorization': 'Bearer valid-token'},
+                'body': json.dumps({
+                    'cluster_id': 'test',
+                    'investigation_id': f'inv-{description}'
+                })
+            }
+
+            with patch('handler.validate_oidc_token') as mock_validate:
+                mock_validate.return_value = {
+                    'sub': 'user-123',
+                    'email': 'test@example.com',
+                    'groups': ['sre-team'],
+                    'https://aws.amazon.com/tags': invalid_value
+                }
+
+                response = handler.lambda_handler(event, context)
+
+            assert response['statusCode'] == 403, f"Failed for aws_tags as {description}"
+            body = json.loads(response['body'])
+            assert 'Missing required ABAC claim' in body['error'], f"Wrong error for {description}"
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_efs_path_exceeds_100_chars_returns_400(self):
+        """Test that paths over 100 chars are rejected before resource creation."""
+        import importlib
+        importlib.reload(handler)
+
+        # Path format: /{cluster_id}/{16-char-hash}/{investigation_id}
+        # Total: 1 + len(cluster) + 1 + 16 + 1 + len(inv) = 19 + len(cluster) + len(inv)
+        # For 101 chars: len(cluster) + len(inv) = 82
+        cluster_id = 'a' * 41
+        investigation_id = 'b' * 41
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': cluster_id,
+                'investigation_id': investigation_id
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ['test-uuid-123']
+                    }
+                }
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert 'EFS path limit' in body['error'] or 'too long' in body['error']
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_efs_path_at_100_chars_boundary_passes(self):
+        """Test path exactly at 100 char limit passes validation."""
+        import importlib
+        importlib.reload(handler)
+
+        # For exactly 100 chars: len(cluster) + len(inv) = 81
+        cluster_id = 'a' * 40
+        investigation_id = 'b' * 41
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': cluster_id,
+                'investigation_id': investigation_id
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.create_investigation_task') as mock_create:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ['test-uuid-123']
+                    }
+                }
+            }
+            mock_create.return_value = {
+                'taskArn': 'arn:aws:ecs:us-east-1:123:task/test/abc',
+                'accessPointId': 'fsap-123',
+                'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        # Should NOT get 400 for path validation
+        # Will get 200 (success) since create_investigation_task is mocked
+        assert response['statusCode'] == 200, f"Expected 200, got {response['statusCode']} with body: {response.get('body')}"
+
+    @patch.dict('os.environ', {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+    })
+    def test_efs_path_at_99_chars_passes(self):
+        """Test path under 100 char limit passes validation."""
+        import importlib
+        importlib.reload(handler)
+
+        # For 99 chars: len(cluster) + len(inv) = 80
+        cluster_id = 'a' * 40
+        investigation_id = 'b' * 40
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': cluster_id,
+                'investigation_id': investigation_id
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.create_investigation_task') as mock_create:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ['test-uuid-123']
+                    }
+                }
+            }
+            mock_create.return_value = {
+                'taskArn': 'arn:aws:ecs:us-east-1:123:task/test/abc',
+                'accessPointId': 'fsap-123',
+                'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        # Should get 200 (success) - well under limit
+        assert response['statusCode'] == 200
+
 
 class TestResponseHelper:
     """Test the response helper function."""
@@ -2215,6 +2632,145 @@ class TestGetConfig:
         # Malformed JSON can't match get_config action, so it falls through.
         # Without an OIDC token, the handler returns 401.
         assert result['statusCode'] == 401
+
+
+class TestAwsAccountIdValidation:
+    """Test that missing AWS_ACCOUNT_ID fails before creating resources."""
+
+    _BASE_ENV = {
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'OIDC_PROVIDER_ARN': 'arn:aws:iam::123:oidc-provider/test',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team',
+        'ABAC_TAG_KEY': 'uuid'
+        # AWS_ACCOUNT_ID intentionally omitted
+    }
+
+    @patch.dict('os.environ', _BASE_ENV, clear=True)
+    def test_missing_aws_account_id_fails_before_creating_resources(self):
+        """Test that missing AWS_ACCOUNT_ID returns 500 before creating EFS access points."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'test-cluster',
+                'investigation_id': 'inv-123'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.efs') as mock_efs:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ['test-uuid-123']
+                    }
+                }
+            }
+            # Mock EFS to return no existing access points
+            mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+
+            response = handler.lambda_handler(event, context)
+
+            # Should get 500 (internal server error due to missing config)
+            assert response['statusCode'] == 500
+            body = json.loads(response['body'])
+            assert 'error' in body
+
+            # CRITICAL: EFS access point should NOT have been created
+            # If this is called, we've created an orphaned resource
+            mock_efs.create_access_point.assert_not_called()
+
+    @patch.dict('os.environ', {**_BASE_ENV, 'AWS_ACCOUNT_ID': ''}, clear=True)
+    def test_empty_aws_account_id_fails_before_creating_resources(self):
+        """Test that empty AWS_ACCOUNT_ID string returns 500 before creating resources."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'test-cluster',
+                'investigation_id': 'inv-123'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.efs') as mock_efs:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ['test-uuid-123']
+                    }
+                }
+            }
+            mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+
+            response = handler.lambda_handler(event, context)
+
+            # Should get 500 for empty AWS_ACCOUNT_ID
+            assert response['statusCode'] == 500
+            body = json.loads(response['body'])
+            assert 'error' in body
+
+            # CRITICAL: No orphaned access points
+            mock_efs.create_access_point.assert_not_called()
+
+    @patch.dict('os.environ', {**_BASE_ENV, 'AWS_ACCOUNT_ID': '   '}, clear=True)
+    def test_whitespace_aws_account_id_fails_before_creating_resources(self):
+        """Test that whitespace-only AWS_ACCOUNT_ID is rejected."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {'authorization': 'Bearer valid-token'},
+            'body': json.dumps({
+                'cluster_id': 'test-cluster',
+                'investigation_id': 'inv-123'
+            })
+        }
+        context = Mock()
+
+        with patch('handler.validate_oidc_token') as mock_validate, \
+             patch('handler.efs') as mock_efs:
+            mock_validate.return_value = {
+                'sub': 'user-123',
+                'email': 'test@example.com',
+                'groups': ['sre-team'],
+                'https://aws.amazon.com/tags': {
+                    'principal_tags': {
+                        'uuid': ['test-uuid-123']
+                    }
+                }
+            }
+            mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+
+            response = handler.lambda_handler(event, context)
+
+            # Should get 500 for whitespace-only AWS_ACCOUNT_ID
+            assert response['statusCode'] == 500
+            body = json.loads(response['body'])
+            assert 'error' in body
+
+            # CRITICAL: No orphaned access points
+            mock_efs.create_access_point.assert_not_called()
 
 
 if __name__ == '__main__':

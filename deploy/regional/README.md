@@ -4,7 +4,7 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 
 ## Prerequisites
 
-- **Terraform** 1.15.8 (pinned for HCP Terraform compatibility)
+- **Terraform** — HCP workspace runtime pinned to 1.16.0; configuration compatible with `>= 1.15, < 2.0`
 - **AWS CLI** configured with appropriate credentials (local development only)
 - **VPC** with at least 2 subnets (for high availability)
 - **Container image** pushed to a container registry (ECR, Docker Hub, etc.)

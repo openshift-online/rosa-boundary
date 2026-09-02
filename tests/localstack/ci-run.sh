@@ -29,6 +29,17 @@ echo "  artifact_dir: ${ARTIFACT_DIR}"
 echo "  script_dir:   ${SCRIPT_DIR}"
 echo "========================="
 
+# Determine Python interpreter (prefer python3.11 to match Lambda runtime)
+if command -v python3.11 >/dev/null 2>&1; then
+    PYTHON=python3.11
+elif command -v python3 >/dev/null 2>&1; then
+    PYTHON=python3
+else
+    echo "ERROR: No Python 3 interpreter found" >&2
+    exit 1
+fi
+echo "  python:       $PYTHON ($($PYTHON --version 2>&1 | awk '{print $2}'))"
+
 PODMAN_SERVICE_PID=""
 
 # Collect LocalStack stdout and internal log files into ARTIFACT_DIR on any
@@ -101,7 +112,7 @@ if ! CONTAINER_ID=$(podman run --detach \
 fi
 echo "LocalStack container started: ${CONTAINER_ID}"
 
-python3 -c "
+$PYTHON -c "
 import sys
 sys.path.insert(0, '${SCRIPT_DIR}')
 from required_services import REQUIRED
@@ -120,7 +131,7 @@ _ready_deadline=$(( SECONDS + TIMEOUT ))
 while true; do
   _ready_rc=0
   { curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null | \
-      python3 -c "
+      $PYTHON -c "
 import sys, json
 try:
     sys.path.insert(0, '${SCRIPT_DIR}')
@@ -161,7 +172,7 @@ echo "LocalStack ready."
 # all four parameters exist. If init-aws.sh ever writes new parameters after that
 # line, update this sentinel to match the new last-written parameter.
 echo "Waiting for init-aws.sh SSM sentinel (/test/security-group-id, timeout: 120s)..."
-python3 -c "import boto3, botocore.config, botocore.exceptions" || {
+$PYTHON -c "import boto3, botocore.config, botocore.exceptions" || {
     echo "ERROR: boto3 or botocore is not importable — check Python environment" >&2
     exit 1
 }
@@ -169,7 +180,7 @@ INIT_TIMEOUT=120
 _ssm_deadline=$(( SECONDS + INIT_TIMEOUT ))
 while true; do
   _ssm_rc=0
-  python3 -c "
+  $PYTHON -c "
 import sys, os, boto3, botocore.config, botocore.exceptions
 c = boto3.client('ssm', endpoint_url=os.environ['LOCALSTACK_ENDPOINT'],
     region_name=os.environ['AWS_DEFAULT_REGION'],
@@ -217,7 +228,7 @@ pytest integration/ --verbose --tb=short --junit-xml="${ARTIFACT_DIR}/junit_loca
 
 # Guard against a silent-success run where all tests are skipped due to a
 # service outage — pytest exits 0 even when everything is skipped.
-python3 <<EOF
+$PYTHON <<EOF
 import xml.etree.ElementTree as ET, sys, os
 
 xml_path = "${ARTIFACT_DIR}/junit_localstack.xml"

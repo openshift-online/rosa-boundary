@@ -51,18 +51,18 @@ uv pip install --system podman-compose
 uv venv
 source .venv/bin/activate
 
-# Install test dependencies
-uv pip install pytest boto3 requests
+# Install test dependencies (includes PyJWT and other Lambda dependencies)
+uv pip install -e .
 ```
 
 **Linux - System-wide or venv**:
 ```bash
 # Option 1: System-wide (requires --system flag)
-uv pip install --system pytest boto3 requests
+sudo uv pip install --system -e .
 
 # Option 2: Virtual environment (recommended)
 uv venv && source .venv/bin/activate
-uv pip install pytest boto3 requests
+uv pip install -e .
 ```
 
 ### Configuration

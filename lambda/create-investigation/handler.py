@@ -18,7 +18,7 @@ import boto3
 import jwt
 import requests
 from jwt import PyJWKClient
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, BotoCoreError
 
 class DuplicateInvestigationError(Exception):
     """Raised when an investigation already has a running task."""
@@ -274,17 +274,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # ABAC tag is required for all environments. If missing, fail fast rather
             # than creating a task whose ABAC tag can't be matched by the shared SRE
             # role's PrincipalTag condition.
-            logger.warning(f"ABAC tag key '{ABAC_TAG_KEY}' not found in principal_tags")
-            return response(403, {'error': f'Missing required ABAC claim: {ABAC_TAG_KEY}'})
+            logger.warning("Required ABAC identity tag not found in token principal_tags")
+            return response(403, {'error': 'Authentication failed: missing identity claim'})
 
         # Validate that the ABAC tag value is a non-empty string
         abac_candidate = abac_values[0]
         if not isinstance(abac_candidate, str) or not abac_candidate:
-            logger.warning(f"ABAC tag key '{ABAC_TAG_KEY}' has invalid value (null, empty, or non-string)")
-            return response(403, {'error': f'Missing required ABAC claim: {ABAC_TAG_KEY}'})
+            logger.warning("ABAC identity tag is invalid (empty or non-string)")
+            return response(403, {'error': 'Authentication failed: invalid identity claim format'})
 
         abac_tag_value = abac_candidate
-        logger.info(f"Token validated (ABAC tag key: {ABAC_TAG_KEY})")
+        logger.info("Token validated with ABAC identity claim")
 
         # Check group membership (user must be in at least one of the required groups)
         matched_groups = [g for g in REQUIRED_GROUPS if g in groups]
@@ -308,7 +308,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
         except ValueError as e:
             logger.warning(f"EFS path validation failed: {e!s}")
-            return response(400, {'error': 'Investigation or cluster ID too long for EFS path limit'})
+            # Provide specific guidance on which identifier to shorten
+            if len(cluster_id) > 40:
+                return response(400, {'error': f'cluster_id too long ({len(cluster_id)} chars, recommended max 40)'})
+            elif len(investigation_id) > 40:
+                return response(400, {'error': f'investigation_id too long ({len(investigation_id)} chars, recommended max 40)'})
+            else:
+                return response(400, {'error': 'Combined cluster and investigation IDs exceed path length limit'})
 
         # Create investigation task
         logger.info(f"Creating investigation: {investigation_id} for cluster {cluster_id} (skip_task={skip_task})")
@@ -548,24 +554,43 @@ def find_existing_access_point(
                 # SECURITY: Fail closed on missing or mismatched ABAC tag
                 # If the ABAC tag is missing or doesn't match, don't reuse this access point
                 if tags.get(abac_tag_key) != abac_tag_value:
-                    logger.warning(f"Access point ABAC tag mismatch for key '{abac_tag_key}'; skipping")
+                    logger.warning(
+                        f"Access point {ap['AccessPointId']} ABAC identity tag mismatch "
+                        f"(tag present: {abac_tag_key in tags}); skipping"
+                    )
                     continue
 
                 # SECURITY: Validate access point belongs to the expected filesystem
                 # Prevents cross-filesystem access point reuse even if other tags match
                 if tags.get('FileSystemId') != efs_filesystem_id:
-                    logger.warning("Access point FileSystemId tag mismatch; skipping")
+                    logger.warning(f"Access point {ap['AccessPointId']} FileSystemId tag mismatch; skipping")
                     continue
 
                 # Verify the root path matches what the tags claim — guards against tag
                 # manipulation redirecting an investigation to a different EFS directory.
                 actual_path = ap.get('RootDirectory', {}).get('Path', '')
                 if actual_path != expected_path:
-                    logger.warning("Access point tags match but RootDirectory path mismatch; skipping")
+                    logger.warning(
+                        f"Access point {ap['AccessPointId']} tags match but RootDirectory path mismatch; skipping"
+                    )
                     continue
                 return ap
     except ClientError as e:
-        logger.warning(f"Failed to search for existing access points: {str(e)}")
+        error_code = e.response['Error']['Code']
+        # Only catch transient errors; fail fast on permission/config issues
+        if error_code in ('Throttling', 'RequestTimeout', 'ServiceUnavailable'):
+            logger.warning(f"Transient EFS API error searching for access points: {error_code}")
+            # Return None to create new access point (retryable error, don't block user)
+            return None
+        elif error_code in ('AccessDenied', 'UnauthorizedOperation'):
+            logger.error(f"Permission denied searching for access points: {error_code}")
+            raise
+        elif error_code == 'FileSystemNotFound':
+            logger.error(f"EFS filesystem {efs_filesystem_id} not found")
+            raise
+        else:
+            logger.error(f"Unexpected EFS API error searching for access points: {error_code}")
+            raise
     return None
 
 
@@ -742,7 +767,7 @@ def create_investigation_task(
         logger.info(f"Reusing existing EFS access point: {access_point_id}")
     else:
         try:
-            logger.info(f"Creating EFS access point: {access_point_path}")
+            logger.info("Creating EFS access point")
             ap_response = efs.create_access_point(
                 FileSystemId=efs_filesystem_id,
                 PosixUser={
@@ -807,10 +832,11 @@ def create_investigation_task(
         if ap_newly_created:
             try:
                 efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception as cleanup_err:
+            except (ClientError, BotoCoreError) as cleanup_err:
+                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
                 logger.warning(
                     f"Failed to delete newly created access point {access_point_id} "
-                    f"after task definition registration failure: {cleanup_err}"
+                    f"after task definition registration failure: {error_code}"
                 )
         raise
 
@@ -862,18 +888,24 @@ def create_investigation_task(
             logger.error(f"Task launch failures: {run_response['failures']}")
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+            except (ClientError, BotoCoreError) as cleanup_err:
+                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
+                logger.warning(
+                    f"Failed to deregister task definition {investigation_task_def_arn} "
+                    f"after task launch failure: {error_code}"
+                )
             # Only delete access point if it was newly created (not reused)
             if ap_newly_created:
                 try:
                     efs.delete_access_point(AccessPointId=access_point_id)
-                except Exception as cleanup_err:
+                except (ClientError, BotoCoreError) as cleanup_err:
+                    error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
                     logger.warning(
                         f"Failed to delete newly created access point {access_point_id} "
-                        f"after task launch failures: {cleanup_err}"
+                        f"after task launch failures: {error_code}"
                     )
-            raise Exception(f"Failed to launch task: {run_response['failures']}")
+            # Log full details internally, return sanitized message to user
+            raise Exception("Failed to launch investigation task")
 
         task_arn = run_response['tasks'][0]['taskArn']
         logger.info(f"Launched ECS task: {task_arn}")
@@ -892,20 +924,28 @@ def create_investigation_task(
             # Stop task and clean up
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+            except (ClientError, BotoCoreError) as cleanup_err:
+                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
+                logger.warning(
+                    f"Failed to deregister task definition {investigation_task_def_arn} "
+                    f"after tagging failure: {error_code}"
+                )
             try:
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Tagging failed')
-            except Exception:
-                pass
+            except (ClientError, BotoCoreError) as cleanup_err:
+                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
+                logger.warning(
+                    f"Failed to stop task {task_arn} after tagging failure: {error_code}"
+                )
             # Only delete access point if it was newly created (not reused)
             if ap_newly_created:
                 try:
                     efs.delete_access_point(AccessPointId=access_point_id)
-                except Exception as cleanup_err:
+                except (ClientError, BotoCoreError) as cleanup_err:
+                    error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
                     logger.warning(
                         f"Failed to delete newly created access point {access_point_id} "
-                        f"after tagging failure: {cleanup_err}"
+                        f"after tagging failure: {error_code}"
                     )
             raise
 
@@ -920,22 +960,30 @@ def create_investigation_task(
         if investigation_task_def_arn:
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+            except (ClientError, BotoCoreError) as cleanup_err:
+                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
+                logger.warning(
+                    f"Failed to deregister task definition {investigation_task_def_arn} "
+                    f"during cleanup: {error_code}"
+                )
         # Stop task if it was created
         if task_arn:
             try:
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Launch failed')
-            except Exception:
-                pass
+            except (ClientError, BotoCoreError) as cleanup_err:
+                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
+                logger.warning(
+                    f"Failed to stop task {task_arn} during cleanup: {error_code}"
+                )
         # Clean up access point only if it was newly created (not reused)
         if ap_newly_created:
             try:
                 efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception as cleanup_err:
+            except (ClientError, BotoCoreError) as cleanup_err:
+                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
                 logger.warning(
                     f"Failed to delete newly created access point {access_point_id} "
-                    f"after ECS ClientError: {cleanup_err}"
+                    f"after ECS ClientError: {error_code}"
                 )
         raise
 

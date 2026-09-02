@@ -736,8 +736,8 @@ class TestLambdaHandler:
 
         assert response['statusCode'] == 403
         body = json.loads(response['body'])
-        assert 'Missing required ABAC claim' in body['error']
-        assert 'uuid' in body['error']
+        assert 'Authentication failed' in body['error']
+        assert 'missing identity claim' in body['error']
 
     @patch.dict('os.environ', {
         'KEYCLOAK_URL': 'https://keycloak.test',
@@ -783,7 +783,8 @@ class TestLambdaHandler:
 
         assert response['statusCode'] == 403
         body = json.loads(response['body'])
-        assert 'Missing required ABAC claim' in body['error']
+        assert 'Authentication failed' in body['error']
+        assert 'invalid identity claim format' in body['error']
 
     @patch.dict('os.environ', {
         'KEYCLOAK_URL': 'https://keycloak.test',
@@ -840,7 +841,7 @@ class TestLambdaHandler:
 
             assert response['statusCode'] == 403, f"Failed for {description}"
             body = json.loads(response['body'])
-            assert 'Missing required ABAC claim' in body['error'], f"Wrong error for {description}"
+            assert 'Authentication failed' in body['error'], f"Wrong error for {description}"
 
     @patch.dict('os.environ', {
         'KEYCLOAK_URL': 'https://keycloak.test',
@@ -894,7 +895,7 @@ class TestLambdaHandler:
 
             assert response['statusCode'] == 403, f"Failed for principal_tags as {description}"
             body = json.loads(response['body'])
-            assert 'Missing required ABAC claim' in body['error'], f"Wrong error for {description}"
+            assert 'Authentication failed' in body['error'], f"Wrong error for {description}"
 
     @patch.dict('os.environ', {
         'KEYCLOAK_URL': 'https://keycloak.test',
@@ -946,7 +947,7 @@ class TestLambdaHandler:
 
             assert response['statusCode'] == 403, f"Failed for aws_tags as {description}"
             body = json.loads(response['body'])
-            assert 'Missing required ABAC claim' in body['error'], f"Wrong error for {description}"
+            assert 'Authentication failed' in body['error'], f"Wrong error for {description}"
 
     @patch.dict('os.environ', {
         'KEYCLOAK_URL': 'https://keycloak.test',

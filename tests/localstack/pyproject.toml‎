@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rosa-boundary-localstack-tests"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    # Test framework
+    "pytest>=9.1.1",
+    "boto3>=1.43.67",
+    "requests>=2.34.2",
+    # Lambda handler dependencies (required when tests import from handler.py)
+    "PyJWT>=2.13.0",
+    "cryptography>=50.0.0",
+]
+
+[tool.setuptools]
+py-modules = []

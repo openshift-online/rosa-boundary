@@ -223,8 +223,22 @@ done
 echo "SSM parameters ready."
 
 cd "${SCRIPT_DIR}"
-echo "Running: pytest integration/ --verbose --tb=short --junit-xml=${ARTIFACT_DIR}/junit_localstack.xml"
-pytest integration/ --verbose --tb=short --junit-xml="${ARTIFACT_DIR}/junit_localstack.xml"
+
+# Install test dependencies (pytest, boto3, and Lambda handler dependencies like PyJWT)
+# Install dependencies directly to avoid .egg-info write errors in read-only source directory
+echo "Installing test dependencies..."
+$PYTHON -m pip install --user --quiet --no-cache-dir \
+    'pytest>=9.1.1' \
+    'boto3>=1.43.67' \
+    'requests>=2.34.2' \
+    'PyJWT>=2.13.0' \
+    'cryptography>=50.0.0' || {
+    echo "ERROR: failed to install test dependencies" >&2
+    exit 1
+}
+
+echo "Running: $PYTHON -m pytest integration/ --verbose --tb=short --junit-xml=${ARTIFACT_DIR}/junit_localstack.xml"
+$PYTHON -m pytest integration/ --verbose --tb=short --junit-xml="${ARTIFACT_DIR}/junit_localstack.xml"
 
 # Guard against a silent-success run where all tests are skipped due to a
 # service outage — pytest exits 0 even when everything is skipped.

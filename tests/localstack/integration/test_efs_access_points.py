@@ -155,3 +155,67 @@ def test_multiple_access_points_per_filesystem(test_efs, efs_client):
     # Verify all deleted
     access_points_after = efs_client.describe_access_points(FileSystemId=test_efs)
     assert len(access_points_after['AccessPoints']) == 0
+
+@pytest.mark.integration
+def test_cross_user_access_point_reuse_rejected(test_efs, efs_client, monkeypatch):
+    """Test that User B cannot reuse an access point created by User A."""
+    import os
+    import sys
+    import uuid
+    _lambda_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '../../../lambda/create-investigation')
+    )
+    sys.path.append(_lambda_dir)
+    from handler import find_existing_access_point, build_efs_access_point_path
+
+    # Mock boto3 efs client in the lambda handler
+    monkeypatch.setattr('handler.efs', efs_client)
+
+    cluster_id = 'rosa-dev'
+    investigation_id = f'inv-{int(datetime.now().timestamp())}'
+
+    # User A details (using uuid for ABAC to match production configuration)
+    abac_tag_key = 'uuid'
+    user_a_uuid = str(uuid.uuid4())
+
+    # Create an access point for User A
+    path_a = build_efs_access_point_path(cluster_id, user_a_uuid, investigation_id)
+    response = efs_client.create_access_point(
+        FileSystemId=test_efs,
+        PosixUser={'Uid': 1000, 'Gid': 1000},
+        RootDirectory={
+            'Path': path_a,
+            'CreationInfo': {
+                'OwnerUid': 1000,
+                'OwnerGid': 1000,
+                'Permissions': '0755'
+            }
+        },
+        Tags=[
+            {'Key': 'ClusterID', 'Value': cluster_id},
+            {'Key': 'InvestigationID', 'Value': investigation_id},
+            {'Key': abac_tag_key, 'Value': user_a_uuid},
+            {'Key': 'FileSystemId', 'Value': test_efs},
+        ]
+    )
+    access_point_id = response['AccessPointId']
+
+    # Verify User A can find their own access point
+    found_ap = find_existing_access_point(
+        test_efs, cluster_id, investigation_id, abac_tag_key, user_a_uuid
+    )
+    assert found_ap is not None
+    assert found_ap['AccessPointId'] == access_point_id
+
+    # User B details (different UUID)
+    user_b_uuid = str(uuid.uuid4())
+
+    # Verify User B cannot find User A's access point
+    # even with the same cluster_id and investigation_id
+    not_found_ap = find_existing_access_point(
+        test_efs, cluster_id, investigation_id, abac_tag_key, user_b_uuid
+    )
+    assert not_found_ap is None, "User B should not be able to reuse User A's access point"
+
+    # Cleanup
+    efs_client.delete_access_point(AccessPointId=access_point_id)

@@ -78,11 +78,26 @@ resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
         Effect = "Allow"
         Action = [
           "elasticfilesystem:CreateAccessPoint",
-          "elasticfilesystem:DeleteAccessPoint",
           "elasticfilesystem:DescribeAccessPoints",
           "elasticfilesystem:TagResource"
         ]
         Resource = aws_efs_file_system.sre_home.arn
+      },
+      {
+        Sid    = "DeleteAccessPoints"
+        Effect = "Allow"
+        Action = ["elasticfilesystem:DeleteAccessPoint"]
+        # Access point ARN pattern required for DeleteAccessPoint.
+        # Lambda cleanup deletes access points it created when task registration or launch fails.
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            # Only delete rosa-boundary-managed access points
+            "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"
+            # Only delete access points on sre_home filesystem
+            "aws:ResourceTag/FileSystemId" = aws_efs_file_system.sre_home.id
+          }
+        }
       }
     ]
   })

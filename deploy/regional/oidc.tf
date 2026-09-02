@@ -264,10 +264,36 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-${var.stage}-*"
       },
       {
-        Sid      = "EFSReadAccessPoints"
+        Sid      = "EFSDescribeAccessPoints"
         Effect   = "Allow"
         Action   = ["elasticfilesystem:DescribeAccessPoints"]
         Resource = aws_efs_file_system.sre_home.arn
+      },
+      {
+        Sid    = "EFSDeleteOwnedAccessPoints"
+        Effect = "Allow"
+        Action = ["elasticfilesystem:DeleteAccessPoint"]
+        # Access point ARNs are the correct resource type for DeleteAccessPoint.
+        # Defense-in-depth: Three independent tag validations ensure access points are
+        # (1) owned by the caller, (2) managed by rosa-boundary, and (3) on sre_home filesystem.
+        # NOTE: AWS IAM does not provide a non-tag condition key to validate filesystem
+        # association for DeleteAccessPoint action. Tags provide the only available validation.
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            # ABAC: Only allow deleting access points tagged with the user's principal tag.
+            # Access points created by rosa-boundary are tagged with the ABAC identifier from JWT.
+            # EFS uses the global aws:ResourceTag prefix (not elasticfilesystem:ResourceTag).
+            "aws:ResourceTag/${var.abac_tag_key}" = "$${aws:PrincipalTag/${var.abac_tag_key}}"
+            # Constrain to rosa-boundary-managed access points only.
+            # Lambda tags all access points with ManagedBy=rosa-boundary-lambda.
+            "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"
+            # SECURITY: Validate access point is on sre_home filesystem only.
+            # Prevents deletion of access points on other filesystems even if tagged correctly.
+            # Lambda must tag access points with FileSystemId on creation.
+            "aws:ResourceTag/FileSystemId" = aws_efs_file_system.sre_home.id
+          }
+        }
       },
       {
         Sid    = "SSMSessionForECSExec"

@@ -25,6 +25,19 @@ AWS_REGION = os.getenv('AWS_DEFAULT_REGION', 'us-east-2')
 # OIDC issuer URL used as a string value in IAM OIDC provider tests; no server required
 MOCK_OIDC_URL = os.getenv('MOCK_OIDC_URL', 'http://localhost:8080/realms/sre-ops')
 
+# Set minimal environment variables required by Lambda handler module imports
+# These are needed when integration tests import handler functions
+if 'AWS_ACCOUNT_ID' not in os.environ:
+    os.environ['AWS_ACCOUNT_ID'] = '000000000000'  # LocalStack default account
+if 'AWS_DEFAULT_REGION' not in os.environ:
+    os.environ['AWS_DEFAULT_REGION'] = AWS_REGION
+
+# Configure boto3 to use LocalStack endpoint for handler module imports
+# The handler creates boto3 clients at module level, so we need to configure
+# the endpoint before the handler module is imported by any test
+if 'AWS_ENDPOINT_URL' not in os.environ:
+    os.environ['AWS_ENDPOINT_URL'] = LOCALSTACK_ENDPOINT
+
 
 @pytest.fixture(scope='session')
 def localstack_available():

@@ -28,6 +28,39 @@ class DuplicateInvestigationError(Exception):
         self.access_point_id = access_point_id
 
 
+def build_efs_access_point_path(cluster_id: str, abac_tag_value: str, investigation_id: str) -> str:
+    """
+    Build EFS access point RootDirectory path with ABAC identity isolation.
+
+    AWS EFS RootDirectory.Path has a 100-character limit. This function ensures the
+    path stays within bounds by using a bounded hash and validating total length.
+
+    Path format: /{cluster_id}/{abac_hash}/{investigation_id}
+    - abac_hash: First 16 hex chars of SHA-256(abac_tag_value)
+
+    Args:
+        cluster_id: Cluster identifier
+        abac_tag_value: ABAC identity value (username or UUID)
+        investigation_id: Investigation identifier
+
+    Returns:
+        EFS path string bounded to ≤100 characters
+
+    Raises:
+        ValueError: If the resulting path exceeds 100 characters
+    """
+    abac_hash = hashlib.sha256(abac_tag_value.encode('utf-8')).hexdigest()[:16]
+    path = f"/{cluster_id}/{abac_hash}/{investigation_id}"
+
+    if len(path) > 100:
+        raise ValueError(
+            f"EFS path exceeds AWS 100-char limit: {len(path)} chars"
+        )
+
+    return path
+
+
+
 def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
     """
     Return a deterministic ECS startedBy value for the given investigation.
@@ -48,10 +81,32 @@ def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# AWS clients
-ecs = boto3.client('ecs')
-efs = boto3.client('efs')
-sts = boto3.client('sts')
+# AWS clients. Construction must not call AWS APIs.
+# Region: Lambda sets AWS_REGION; tests set AWS_DEFAULT_REGION via conftest.
+# Account ID: AWS_ACCOUNT_ID env only (get_aws_account_id) — never STS.
+# Credentials: use boto3's default chain (Lambda execution role in prod;
+# conftest pins test-only keys / disables ambient providers for unit tests).
+_AWS_REGION = os.environ.get('AWS_REGION') or os.environ.get('AWS_DEFAULT_REGION') or 'us-east-1'
+
+
+def _aws_client(service_name: str):
+    return boto3.client(service_name, region_name=_AWS_REGION)
+
+
+ecs = _aws_client('ecs')
+efs = _aws_client('efs')
+
+
+def get_aws_account_id() -> str:
+    """Return AWS_ACCOUNT_ID from the environment only (no STS, no credential chain).
+
+    Terraform injects AWS_ACCOUNT_ID on the Lambda. Looking up the account via
+    sts:GetCallerIdentity would require credentials and break credential-free CI.
+    """
+    account_id = os.environ.get('AWS_ACCOUNT_ID', '').strip()
+    if not account_id:
+        raise ValueError('AWS_ACCOUNT_ID environment variable is required')
+    return account_id
 
 # Environment variables
 KEYCLOAK_URL = os.environ.get('KEYCLOAK_URL')
@@ -65,7 +120,7 @@ SECURITY_GROUP = os.environ.get('SECURITY_GROUP')
 EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 SHARED_ROLE_ARN = os.environ.get('SHARED_ROLE_ARN')
 REQUIRED_GROUPS = [g.strip() for g in os.environ.get('REQUIRED_GROUPS', '').split(',') if g.strip()]
-ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'username')
+ABAC_TAG_KEY = os.environ.get('ABAC_TAG_KEY', 'uuid')
 TASK_TIMEOUT_MINIMUM = int(os.environ.get('TASK_TIMEOUT_MINIMUM', '30'))
 STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '').rstrip('/')
 STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
@@ -155,12 +210,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             task_timeout = int(task_timeout)
             if task_timeout < 0 or task_timeout > 86400:
                 raise ValueError("Task timeout out of range")
+            # Enforce TASK_TIMEOUT_MINIMUM (when > 0, reject values below minimum including 0)
             if TASK_TIMEOUT_MINIMUM > 0 and task_timeout < TASK_TIMEOUT_MINIMUM:
                 raise ValueError(f"task_timeout below minimum ({TASK_TIMEOUT_MINIMUM}s)")
         except (ValueError, TypeError) as e:
-            logger.warning(f"Invalid task_timeout: {task_timeout} — {str(e)}")
+            logger.warning(f"Invalid task_timeout: {task_timeout} — {e!s}")
+            if TASK_TIMEOUT_MINIMUM > 0:
+                return response(400, {
+                    'error': f'task_timeout must be between {TASK_TIMEOUT_MINIMUM} and 86400'
+                })
             return response(400, {
-                'error': f'task_timeout must be an integer between {TASK_TIMEOUT_MINIMUM} and 86400'
+                'error': f'task_timeout must be between 0 and 86400'
             })
 
         # Validate identifiers for safe characters
@@ -194,8 +254,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             groups = realm_roles if isinstance(realm_roles, list) else []
 
         # Extract ABAC identifier from the https://aws.amazon.com/tags principal_tags.
-        # The tag key is configurable (ABAC_TAG_KEY env var) to support both dev
-        # (username → preferred_username) and stage (uuid → rhatUUID).
+        # The tag key (ABAC_TAG_KEY env var, default 'uuid') must match what the OIDC
+        # provider emits and what the IAM policy expects. Red Hat EmployeeIDP emits
+        # principal_tags.uuid; dev Keycloak must be configured to emit the same.
         # Guard against non-dict claim shapes that would cause AttributeError at runtime.
         aws_tags = claims.get('https://aws.amazon.com/tags')
         if not isinstance(aws_tags, dict):
@@ -209,18 +270,21 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         elif not isinstance(abac_values, list):
             abac_values = []
 
-        if abac_values:
-            abac_tag_value = abac_values[0]
-        elif ABAC_TAG_KEY != 'username':
-            # Non-default ABAC key configured but not present in token — fail fast rather
-            # than silently falling back to username, which would produce a task whose ABAC
-            # tag can't be matched by the shared SRE role's PrincipalTag condition.
-            logger.warning(f"ABAC tag key '{ABAC_TAG_KEY}' not found in principal_tags for user {username}")
+        if not abac_values:
+            # ABAC tag is required for all environments. If missing, fail fast rather
+            # than creating a task whose ABAC tag can't be matched by the shared SRE
+            # role's PrincipalTag condition.
+            logger.warning(f"ABAC tag key '{ABAC_TAG_KEY}' not found in principal_tags")
             return response(403, {'error': f'Missing required ABAC claim: {ABAC_TAG_KEY}'})
-        else:
-            abac_tag_value = username
 
-        logger.info(f"Token validated for user: {username} (sub: {user_sub}, {ABAC_TAG_KEY}: {abac_tag_value})")
+        # Validate that the ABAC tag value is a non-empty string
+        abac_candidate = abac_values[0]
+        if not isinstance(abac_candidate, str) or not abac_candidate:
+            logger.warning(f"ABAC tag key '{ABAC_TAG_KEY}' has invalid value (null, empty, or non-string)")
+            return response(403, {'error': f'Missing required ABAC claim: {ABAC_TAG_KEY}'})
+
+        abac_tag_value = abac_candidate
+        logger.info(f"Token validated (ABAC tag key: {ABAC_TAG_KEY})")
 
         # Check group membership (user must be in at least one of the required groups)
         matched_groups = [g for g in REQUIRED_GROUPS if g in groups]
@@ -238,6 +302,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # against ecs:ResourceTag/username in the role's permissions policy.
         role_arn = SHARED_ROLE_ARN
         logger.info(f"Using shared SRE role: {role_arn}")
+
+        # Validate EFS path length early to return 400 instead of 500
+        try:
+            build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
+        except ValueError as e:
+            logger.warning(f"EFS path validation failed: {e!s}")
+            return response(400, {'error': 'Investigation or cluster ID too long for EFS path limit'})
 
         # Create investigation task
         logger.info(f"Creating investigation: {investigation_id} for cluster {cluster_id} (skip_task={skip_task})")
@@ -429,19 +500,39 @@ def find_running_tasks_for_investigation(cluster: str, cluster_id: str, investig
     return matching
 
 
-def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[Dict[str, Any]]:
+def find_existing_access_point(
+    efs_filesystem_id: str,
+    cluster_id: str,
+    investigation_id: str,
+    abac_tag_key: str,
+    abac_tag_value: str
+) -> Optional[Dict[str, Any]]:
     """
-    Find an existing EFS access point by ClusterID and InvestigationID tags.
+    Find an existing EFS access point by ClusterID, InvestigationID, and ABAC tag.
+
+    Security: Only returns an access point if the ABAC tag (username or uuid) matches
+    the caller's identity. This prevents users from reusing access points created by
+    other users, even if the cluster_id and investigation_id match.
 
     Args:
         efs_filesystem_id: EFS filesystem ID to search
         cluster_id: Cluster identifier to match
         investigation_id: Investigation identifier to match
+        abac_tag_key: ABAC tag key (e.g., 'username' or 'uuid')
+        abac_tag_value: ABAC tag value to match (caller's identity)
 
     Returns:
-        Access point dict or None if not found
+        Access point dict or None if not found or ABAC tag mismatch
     """
-    expected_path = f"/{cluster_id}/{investigation_id}"
+    # Build deterministic EFS path with ABAC identity isolation (bounded to 100 chars)
+    expected_path = build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
+
+    # NOTE: Legacy access points created with path /{cluster_id}/{investigation_id} (without
+    # ABAC hash) will be skipped due to path mismatch below. This is intentional — we cannot
+    # verify legacy access points were created with proper ABAC isolation, so we create new
+    # ones instead. Legacy access points will be cleaned up when their tasks complete or via
+    # manual cleanup if orphaned.
+
     try:
         paginator = efs.get_paginator('describe_access_points')
         for page in paginator.paginate(FileSystemId=efs_filesystem_id):
@@ -449,16 +540,28 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                 if ap.get('LifeCycleState') != 'available':
                     continue
                 tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
+
+                # Check ClusterID and InvestigationID
                 if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
                     continue
+
+                # SECURITY: Fail closed on missing or mismatched ABAC tag
+                # If the ABAC tag is missing or doesn't match, don't reuse this access point
+                if tags.get(abac_tag_key) != abac_tag_value:
+                    logger.warning(f"Access point ABAC tag mismatch for key '{abac_tag_key}'; skipping")
+                    continue
+
+                # SECURITY: Validate access point belongs to the expected filesystem
+                # Prevents cross-filesystem access point reuse even if other tags match
+                if tags.get('FileSystemId') != efs_filesystem_id:
+                    logger.warning("Access point FileSystemId tag mismatch; skipping")
+                    continue
+
                 # Verify the root path matches what the tags claim — guards against tag
                 # manipulation redirecting an investigation to a different EFS directory.
                 actual_path = ap.get('RootDirectory', {}).get('Path', '')
                 if actual_path != expected_path:
-                    logger.warning(
-                        f"Access point {ap['AccessPointId']} tags match but path mismatch: "
-                        f"expected {expected_path!r}, got {actual_path!r}; skipping"
-                    )
+                    logger.warning("Access point tags match but RootDirectory path mismatch; skipping")
                     continue
                 return ap
     except ClientError as e:
@@ -609,9 +712,12 @@ def create_investigation_task(
         Dictionary with task ARN and access point ID
     """
     # Create EFS access point for investigation (idempotent: reuse if already exists)
-    access_point_path = f"/{cluster_id}/{investigation_id}"
+    # Use deterministic path builder to ensure lookup and creation use identical paths
+    access_point_path = build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
 
-    existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
+    existing_ap = find_existing_access_point(
+        efs_filesystem_id, cluster_id, investigation_id, abac_tag_key, abac_tag_value
+    )
     ap_newly_created = False
 
     # Reject if a task is already running for this investigation. This check runs before any
@@ -625,6 +731,11 @@ def create_investigation_task(
                 existing_tasks=existing_tasks,
                 access_point_id=existing_ap['AccessPointId'] if existing_ap else ''
             )
+
+        # Validate AWS account ID before creating any resources. Fails fast if
+        # AWS_ACCOUNT_ID env var is missing, avoiding orphaned access points.
+        aws_region = os.environ.get('AWS_REGION', 'us-east-1')
+        aws_account_id = get_aws_account_id()
 
     if existing_ap:
         access_point_id = existing_ap['AccessPointId']
@@ -651,8 +762,9 @@ def create_investigation_task(
                     {'Key': 'ClusterID', 'Value': cluster_id},
                     {'Key': 'InvestigationID', 'Value': investigation_id},
                     {'Key': 'oidc_sub', 'Value': oidc_sub},
-                    {'Key': 'username', 'Value': username},
-                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
+                    {'Key': abac_tag_key, 'Value': abac_tag_value},
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
+                    {'Key': 'FileSystemId', 'Value': efs_filesystem_id}
                 ]
             )
 
@@ -671,9 +783,7 @@ def create_investigation_task(
             'accessPointId': access_point_id
         }
 
-    # Derive AWS region and account ID for Secrets Manager ARN construction in the task def.
-    aws_region = os.environ.get('AWS_REGION', 'us-east-1')
-    aws_account_id = sts.get_caller_identity()['Account']
+    # aws_region and aws_account_id already validated above in non-skip_task block
 
     # Register a per-investigation task definition with the correct EFS access point baked in.
     # This ensures each investigation gets its own isolated EFS directory rather than all
@@ -697,8 +807,11 @@ def create_investigation_task(
         if ap_newly_created:
             try:
                 efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            except Exception as cleanup_err:
+                logger.warning(
+                    f"Failed to delete newly created access point {access_point_id} "
+                    f"after task definition registration failure: {cleanup_err}"
+                )
         raise
 
     # Build task tags (used for both run_task and tag_resource)
@@ -751,10 +864,15 @@ def create_investigation_task(
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
             except Exception:
                 pass
-            try:
-                efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            # Only delete access point if it was newly created (not reused)
+            if ap_newly_created:
+                try:
+                    efs.delete_access_point(AccessPointId=access_point_id)
+                except Exception as cleanup_err:
+                    logger.warning(
+                        f"Failed to delete newly created access point {access_point_id} "
+                        f"after task launch failures: {cleanup_err}"
+                    )
             raise Exception(f"Failed to launch task: {run_response['failures']}")
 
         task_arn = run_response['tasks'][0]['taskArn']
@@ -780,10 +898,15 @@ def create_investigation_task(
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Tagging failed')
             except Exception:
                 pass
-            try:
-                efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            # Only delete access point if it was newly created (not reused)
+            if ap_newly_created:
+                try:
+                    efs.delete_access_point(AccessPointId=access_point_id)
+                except Exception as cleanup_err:
+                    logger.warning(
+                        f"Failed to delete newly created access point {access_point_id} "
+                        f"after tagging failure: {cleanup_err}"
+                    )
             raise
 
         return {
@@ -805,11 +928,15 @@ def create_investigation_task(
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Launch failed')
             except Exception:
                 pass
-        # Clean up access point
-        try:
-            efs.delete_access_point(AccessPointId=access_point_id)
-        except Exception:
-            pass
+        # Clean up access point only if it was newly created (not reused)
+        if ap_newly_created:
+            try:
+                efs.delete_access_point(AccessPointId=access_point_id)
+            except Exception as cleanup_err:
+                logger.warning(
+                    f"Failed to delete newly created access point {access_point_id} "
+                    f"after ECS ClientError: {cleanup_err}"
+                )
         raise
 
 

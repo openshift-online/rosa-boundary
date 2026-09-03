@@ -200,6 +200,18 @@ def test_cross_user_access_point_reuse_rejected(test_efs, efs_client, monkeypatc
     )
     access_point_id = response['AccessPointId']
 
+    # EFS access points are eventually consistent; wait until the new point is
+    # available before exercising the production lookup path.
+    for _ in range(30):
+        access_points = efs_client.describe_access_points(AccessPointId=access_point_id)
+        access_point_records = access_points.get('AccessPoints', [])
+        lifecycle_state = access_point_records[0].get('LifeCycleState') if access_point_records else None
+        if lifecycle_state == 'available':
+            break
+        time.sleep(1)
+    else:
+        pytest.fail(f'Access point {access_point_id} did not become available')
+
     # Verify User A can find their own access point
     found_ap = find_existing_access_point(
         test_efs, cluster_id, investigation_id, abac_tag_key, user_a_uuid

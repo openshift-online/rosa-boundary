@@ -9,6 +9,7 @@ import pytest
 import json
 import time
 from datetime import datetime
+from botocore.exceptions import ClientError
 from .test_helpers import get_policy_document, create_investigation_resources
 
 
@@ -230,10 +231,14 @@ def test_deregister_task_definition_idempotent(ecs_client, ecs_cleanup):
         if 'taskDefinition' in deregister_response:
             assert deregister_response['taskDefinition']['status'] == 'INACTIVE'
         print("✓ DeregisterTaskDefinition is idempotent (no error on second call)")
-    except Exception as e:
-        # If LocalStack doesn't support idempotency, document it but don't fail
-        print(f"⚠ LocalStack may not support idempotent deregister: {e}")
-        print("  This is acceptable for local testing; AWS ECS is idempotent in production")
+    except ClientError as e:
+        error = e.response.get('Error', {})
+        message = error.get('Message', '')
+        # Older LocalStack versions reject a second deregistration with this
+        # specific inactive-definition error; unexpected errors must fail.
+        if error.get('Code') != 'ClientException' or 'INACTIVE' not in message.upper():
+            raise
+        print(f"⚠ LocalStack does not support idempotent deregistration: {message}")
 
 
 @pytest.mark.integration

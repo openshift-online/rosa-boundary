@@ -2301,6 +2301,20 @@ class TestTaskTagging:
         assert 'deadline' not in tags, "deadline tag must be absent when task_timeout=0"
 
     @patch.dict('os.environ', ENV_VARS)
+    def test_run_task_client_token_includes_launch_attempt(self):
+        """Each logical launch derives its ECS token from a unique attempt ID."""
+        import hashlib
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.uuid.uuid4') as mock_uuid4:
+                    mock_uuid4.return_value.hex = 'attempt-1'
+                    self._call_create_investigation(mock_ecs, mock_efs)
+
+        expected = hashlib.sha256(b'rosa-dev:inv-001:attempt-1').hexdigest()
+        assert mock_ecs.run_task.call_args[1]['clientToken'] == expected
+
+    @patch.dict('os.environ', ENV_VARS)
     def test_tag_resource_receives_same_tags_as_run_task(self):
         """tag_resource must be called with the same tags as run_task (belt-and-suspenders
         for IAM evaluation timing — both paths must agree on tag values)."""

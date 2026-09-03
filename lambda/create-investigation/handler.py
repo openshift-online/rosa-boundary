@@ -12,6 +12,7 @@ import os
 import json
 import logging
 import time
+import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
@@ -898,10 +899,12 @@ def create_investigation_task(
         task_tags.append({'key': 'deadline', 'value': deadline.isoformat()})
 
     # Launch ECS task using the per-investigation task definition
-    # Generate stable client token for idempotent task creation (max 64 ASCII chars)
-    # Token must be deterministic across retries, so use only stable investigation context
+    # Generate one attempt identifier for this logical launch. The ECS SDK reuses the
+    # client token for its retries of this call, while a new invocation (an intentional
+    # relaunch, including one with a newly registered task definition) gets a new ID.
+    launch_attempt_id = uuid.uuid4().hex
     task_arn = None
-    token_input = f"{cluster_id}:{investigation_id}".encode('utf-8')
+    token_input = f"{cluster_id}:{investigation_id}:{launch_attempt_id}".encode('utf-8')
     client_token = hashlib.sha256(token_input).hexdigest()  # 64 hex chars, stable across retries
     try:
         logger.info(f"Launching ECS task in cluster: {cluster}")
@@ -961,32 +964,6 @@ def create_investigation_task(
             logger.info("Tags applied successfully")
         except ClientError as tag_error:
             logger.error(f"Failed to tag task: {str(tag_error)}")
-            # Stop task and clean up
-            try:
-                ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except (ClientError, BotoCoreError) as cleanup_err:
-                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
-                logger.warning(
-                    f"Failed to deregister task definition {investigation_task_def_arn} "
-                    f"after tagging failure: {error_code}"
-                )
-            try:
-                ecs.stop_task(cluster=cluster, task=task_arn, reason='Tagging failed')
-            except (ClientError, BotoCoreError) as cleanup_err:
-                error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
-                logger.warning(
-                    f"Failed to stop task {task_arn} after tagging failure: {error_code}"
-                )
-            # Only delete access point if it was newly created (not reused)
-            if ap_newly_created:
-                try:
-                    efs.delete_access_point(AccessPointId=access_point_id)
-                except (ClientError, BotoCoreError) as cleanup_err:
-                    error_code = cleanup_err.response['Error']['Code'] if isinstance(cleanup_err, ClientError) else type(cleanup_err).__name__
-                    logger.warning(
-                        f"Failed to delete newly created access point {access_point_id} "
-                        f"after tagging failure: {error_code}"
-                    )
             raise
 
         return {

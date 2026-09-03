@@ -123,7 +123,7 @@ func (c *ECSClient) ListRunningTasks(ctx context.Context, desiredStatus string) 
 			return nil, fmt.Errorf("DescribeTasks failed: %w", err)
 		}
 		for _, t := range out.Tasks {
-			summaries = append(summaries, *taskToSummary(t, c.cluster))
+			summaries = append(summaries, *taskToListSummary(t, c.cluster))
 		}
 	}
 
@@ -312,4 +312,18 @@ func taskToSummary(t types.Task, clusterName string) *TaskSummary {
 		Tags:        tags,
 		ClusterName: cluster,
 	}
+}
+
+// taskToListSummary converts an ECS task to a summary for list output.
+// ListTasks filters on desiredStatus, which changes to STOPPED as soon as a
+// stop is requested while lastStatus can remain RUNNING during shutdown. Use
+// the desired status here so list-tasks does not label a stopped result as
+// RUNNING during that transition. DescribeTask continues to use lastStatus
+// for operations that need the task's actual lifecycle state.
+func taskToListSummary(t types.Task, clusterName string) *TaskSummary {
+	summary := taskToSummary(t, clusterName)
+	if desiredStatus := aws.ToString(t.DesiredStatus); desiredStatus != "" {
+		summary.Status = desiredStatus
+	}
+	return summary
 }

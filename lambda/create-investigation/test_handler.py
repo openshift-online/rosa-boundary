@@ -2417,6 +2417,52 @@ class TestEfsOwnershipCheck:
             result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1', 'uuid', 'test-uuid')
         assert result is None
 
+    def test_retries_throttling_exception(self):
+        """ThrottlingException triggers retry up to max attempts."""
+        from botocore.exceptions import ClientError
+        with patch('handler.efs') as mock_efs:
+            with patch('handler.time.sleep'):  # Skip actual sleep
+                # Fail 2 times with ThrottlingException, succeed on attempt 3
+                mock_efs.get_paginator.return_value.paginate.side_effect = [
+                    ClientError({'Error': {'Code': 'ThrottlingException', 'Message': 'Rate exceeded'}}, 'DescribeAccessPoints'),
+                    ClientError({'Error': {'Code': 'ThrottlingException', 'Message': 'Rate exceeded'}}, 'DescribeAccessPoints'),
+                    [{'AccessPoints': []}]
+                ]
+                result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1', 'uuid', 'test-uuid')
+                assert result is None
+                assert mock_efs.get_paginator.return_value.paginate.call_count == 3
+
+    def test_retries_internal_server_error(self):
+        """InternalServerError triggers retry up to max attempts."""
+        from botocore.exceptions import ClientError
+        with patch('handler.efs') as mock_efs:
+            with patch('handler.time.sleep'):  # Skip actual sleep
+                # Fail 2 times with InternalServerError, succeed on attempt 3
+                mock_efs.get_paginator.return_value.paginate.side_effect = [
+                    ClientError({'Error': {'Code': 'InternalServerError', 'Message': 'Internal error'}}, 'DescribeAccessPoints'),
+                    ClientError({'Error': {'Code': 'InternalServerError', 'Message': 'Internal error'}}, 'DescribeAccessPoints'),
+                    [{'AccessPoints': []}]
+                ]
+                result = handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1', 'uuid', 'test-uuid')
+                assert result is None
+                assert mock_efs.get_paginator.return_value.paginate.call_count == 3
+
+    def test_exhausts_retries_and_raises(self):
+        """After max retries, ThrottlingException is raised."""
+        from botocore.exceptions import ClientError
+        import pytest
+        with patch('handler.efs') as mock_efs:
+            with patch('handler.time.sleep'):  # Skip actual sleep
+                # Fail all 3 attempts
+                mock_efs.get_paginator.return_value.paginate.side_effect = ClientError(
+                    {'Error': {'Code': 'ThrottlingException', 'Message': 'Rate exceeded'}},
+                    'DescribeAccessPoints'
+                )
+                with pytest.raises(ClientError) as exc_info:
+                    handler.find_existing_access_point('fs-123', 'cls-1', 'inv-1', 'uuid', 'test-uuid')
+                assert exc_info.value.response['Error']['Code'] == 'ThrottlingException'
+                assert mock_efs.get_paginator.return_value.paginate.call_count == 3
+
 
 class TestMinimumTaskTimeout:
     """Caller-supplied task_timeout must respect TASK_TIMEOUT_MINIMUM (H5)."""
@@ -2459,8 +2505,9 @@ class TestMinimumTaskTimeout:
             handler.EFS_FILESYSTEM_ID = env['EFS_FILESYSTEM_ID']
             handler.SHARED_ROLE_ARN = env['SHARED_ROLE_ARN']
             handler.REQUIRED_GROUPS = ['sre-operators']
-            # Let OIDC validation fail naturally for tests expecting 401
-            return handler.lambda_handler(self._make_event(task_timeout), Mock())
+            # Mock OIDC validation to avoid network requests in timeout tests
+            with patch('handler.validate_oidc_token', return_value=None):
+                return handler.lambda_handler(self._make_event(task_timeout), Mock())
 
     def test_below_minimum_is_rejected(self):
         """task_timeout below TASK_TIMEOUT_MINIMUM returns 400."""

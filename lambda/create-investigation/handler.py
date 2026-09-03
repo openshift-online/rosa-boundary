@@ -221,7 +221,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'error': f'task_timeout must be between {TASK_TIMEOUT_MINIMUM} and 86400'
                 })
             return response(400, {
-                'error': f'task_timeout must be between 0 and 86400'
+                'error': 'task_timeout must be between 0 and 86400'
             })
 
         # Validate identifiers for safe characters
@@ -601,7 +601,7 @@ def find_existing_access_point(
                 raise
 
             # Retry transient errors with exponential backoff
-            if error_code in ('Throttling', 'RequestTimeout', 'ServiceUnavailable'):
+            if error_code in ('Throttling', 'ThrottlingException', 'RequestTimeout', 'ServiceUnavailable', 'InternalServerError'):
                 if attempt < max_retries - 1:
                     delay = base_delay * (2 ** attempt)
                     logger.warning(
@@ -899,6 +899,7 @@ def create_investigation_task(
 
     # Launch ECS task using the per-investigation task definition
     task_arn = None
+    client_token = f"{cluster_id}:{investigation_id}:{created_at.isoformat()}"
     try:
         logger.info(f"Launching ECS task in cluster: {cluster}")
         run_response = ecs.run_task(
@@ -909,6 +910,7 @@ def create_investigation_task(
             enableExecuteCommand=True,
             enableECSManagedTags=True,
             startedBy=investigation_started_by(cluster_id, investigation_id),
+            clientToken=client_token,
             networkConfiguration={
                 'awsvpcConfiguration': {
                     'subnets': subnets,
@@ -990,8 +992,9 @@ def create_investigation_task(
             'taskDefinitionArn': investigation_task_def_arn
         }
 
-    except ClientError as e:
-        logger.error(f"Failed to launch ECS task: {str(e)}")
+    except (ClientError, BotoCoreError) as e:
+        error_detail = e.response['Error']['Code'] if isinstance(e, ClientError) else type(e).__name__
+        logger.error(f"Failed to launch ECS task: {error_detail} - {str(e)}")
         if investigation_task_def_arn:
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)

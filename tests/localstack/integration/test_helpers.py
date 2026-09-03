@@ -31,6 +31,9 @@ def create_investigation_resources(
     username='sre-e2e-user',
     cluster_name_prefix='test-cluster',
     ecs_role_name_prefix='rosa-boundary-ecs',
+    task_family_prefix='rosa-boundary-dev',
+    abac_tag_key='uuid',  # Production ABAC key for Red Hat EmployeeIDP
+    abac_tag_value=None,  # UUID value for ABAC isolation; generated if None
     extra_efs_tags=None,
     extra_env_vars=None,
     extra_task_tags=None,
@@ -40,12 +43,16 @@ def create_investigation_resources(
     ECS cluster, task definition, and launched task.
 
     Returns a dict with all created resource identifiers:
-        cluster_id, investigation_id, oidc_sub, username,
+        cluster_id, investigation_id, oidc_sub, username, abac_tag_value,
         ecs_role_arn, access_point_id, cluster_name, task_def_arn, task_arn
     """
+    import uuid
+
     ts = int(datetime.now().timestamp())
     if investigation_id is None:
         investigation_id = f'inv-e2e-{ts}'
+    if abac_tag_value is None:
+        abac_tag_value = str(uuid.uuid4())
 
     # ECS task execution role (trusted by ecs-tasks.amazonaws.com)
     ecs_role_name = f'{ecs_role_name_prefix}-{ts}'
@@ -66,12 +73,16 @@ def create_investigation_resources(
     ecs_cleanup.register_role(ecs_role_name, [])
 
     # EFS access point at investigation-scoped path
+    # Production tags: ABAC isolation (uuid), rosa-boundary ownership, and filesystem validation
     efs_tags = [
         {'Key': 'Name', 'Value': f'{cluster_id}-{investigation_id}'},
         {'Key': 'ClusterID', 'Value': cluster_id},
         {'Key': 'InvestigationID', 'Value': investigation_id},
         {'Key': 'oidc_sub', 'Value': oidc_sub},
         {'Key': 'username', 'Value': username},
+        {'Key': abac_tag_key, 'Value': abac_tag_value},  # ABAC isolation key (production: uuid)
+        {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},  # Required by IAM policy condition
+        {'Key': 'FileSystemId', 'Value': test_efs},  # Required by IAM policy condition
     ]
     if extra_efs_tags:
         efs_tags.extend(extra_efs_tags)
@@ -98,7 +109,8 @@ def create_investigation_resources(
     ecs_cleanup.register_cluster(cluster_name)
 
     # Task definition with EFS mount
-    task_family = f'{cluster_id}-{investigation_id}-{ts}'
+    # Production task family naming: {base_family}-{cluster_id}-{investigation_id}-{timestamp}
+    task_family = f'{task_family_prefix}-{cluster_id}-{investigation_id}-{ts}'
     env_vars = [
         {'name': 'CLUSTER_ID', 'value': cluster_id},
         {'name': 'INVESTIGATION_ID', 'value': investigation_id},
@@ -141,10 +153,11 @@ def create_investigation_resources(
     task_def_arn = task_def_response['taskDefinition']['taskDefinitionArn']
     ecs_cleanup.register_task_definition(task_def_arn)
 
-    # Launch task
+    # Launch task with ABAC tag for isolation
     task_tags = [
         {'key': 'oidc_sub', 'value': oidc_sub},
         {'key': 'username', 'value': username},
+        {'key': abac_tag_key, 'value': abac_tag_value},  # ABAC isolation (production: uuid)
         {'key': 'investigation_id', 'value': investigation_id},
         {'key': 'cluster_id', 'value': cluster_id},
     ]
@@ -177,6 +190,8 @@ def create_investigation_resources(
         'investigation_id': investigation_id,
         'oidc_sub': oidc_sub,
         'username': username,
+        'abac_tag_key': abac_tag_key,
+        'abac_tag_value': abac_tag_value,
         'ecs_role_arn': ecs_role_arn,
         'access_point_id': access_point_id,
         'cluster_name': cluster_name,

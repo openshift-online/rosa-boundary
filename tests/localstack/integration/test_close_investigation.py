@@ -14,15 +14,16 @@ from .test_helpers import get_policy_document, create_investigation_resources
 
 
 @pytest.mark.integration
-def test_sre_policy_has_list_task_definitions_permission(iam_client):
+def test_sre_policy_has_list_task_definitions_permission(iam_client, test_efs):
     """Test that SRE ABAC policy includes ecs:ListTaskDefinitions with wildcard resource.
 
     Validates the fix for issue #242: close-investigation requires ListTaskDefinitions
     permission, which AWS IAM mandates must use Resource = "*".
     """
     role_name = f'test-sre-shared-{int(datetime.now().timestamp())}'
+    abac_tag_key = 'uuid'  # Production ABAC key for Red Hat EmployeeIDP
 
-    # Create test SRE role with ABAC policy matching oidc.tf
+    # Create test SRE role with ABAC policy matching deploy/regional/oidc.tf
     trust_policy = {
         'Version': '2012-10-17',
         'Statement': [{
@@ -37,7 +38,8 @@ def test_sre_policy_has_list_task_definitions_permission(iam_client):
         AssumeRolePolicyDocument=json.dumps(trust_policy)
     )
 
-    # Policy matching deploy/regional/oidc.tf DescribeListAndCleanupECS statement
+    # Full permissions policy matching deploy/regional/oidc.tf aws_iam_role_policy.sre_shared_ecs_exec
+    # Uses production ABAC conditions and resource scoping for close-investigation workflow
     permissions_policy = {
         'Version': '2012-10-17',
         'Statement': [
@@ -52,20 +54,39 @@ def test_sre_policy_has_list_task_definitions_permission(iam_client):
                     'ecs:DeregisterTaskDefinition'
                 ],
                 'Resource': '*'
+            },
+            {
+                'Sid': 'EFSDescribeAccessPoints',
+                'Effect': 'Allow',
+                'Action': ['elasticfilesystem:DescribeAccessPoints'],
+                'Resource': f'arn:aws:elasticfilesystem:us-east-2:000000000000:file-system/{test_efs}'
+            },
+            {
+                'Sid': 'EFSDeleteOwnedAccessPoints',
+                'Effect': 'Allow',
+                'Action': ['elasticfilesystem:DeleteAccessPoint'],
+                'Resource': 'arn:aws:elasticfilesystem:us-east-2:000000000000:access-point/*',
+                'Condition': {
+                    'StringEquals': {
+                        f'aws:ResourceTag/{abac_tag_key}': f'${{aws:PrincipalTag/{abac_tag_key}}}',
+                        'aws:ResourceTag/ManagedBy': 'rosa-boundary-lambda',
+                        'aws:ResourceTag/FileSystemId': test_efs
+                    }
+                }
             }
         ]
     }
 
     iam_client.put_role_policy(
         RoleName=role_name,
-        PolicyName='ecs-permissions',
+        PolicyName='sre-shared-ecs-exec',
         PolicyDocument=json.dumps(permissions_policy)
     )
 
     # Retrieve and verify policy
     response = iam_client.get_role_policy(
         RoleName=role_name,
-        PolicyName='ecs-permissions'
+        PolicyName='sre-shared-ecs-exec'
     )
 
     policy_doc = get_policy_document(response['PolicyDocument'])
@@ -100,11 +121,28 @@ def test_sre_policy_has_list_task_definitions_permission(iam_client):
     )
     assert separate_deregister is None, "Separate DeregisterTaskDefinition statement should not exist"
 
+    # Verify EFS access point permissions with ABAC
+    efs_delete_stmt = next(
+        (s for s in policy_doc['Statement'] if s.get('Sid') == 'EFSDeleteOwnedAccessPoints'),
+        None
+    )
+    assert efs_delete_stmt is not None, "EFSDeleteOwnedAccessPoints statement not found"
+    assert efs_delete_stmt['Effect'] == 'Allow'
+    assert 'elasticfilesystem:DeleteAccessPoint' in efs_delete_stmt['Action']
+
+    # Verify ABAC conditions for EFS access point deletion
+    conditions = efs_delete_stmt['Condition']['StringEquals']
+    assert f'aws:ResourceTag/{abac_tag_key}' in conditions, "ABAC tag condition missing"
+    assert conditions['aws:ResourceTag/ManagedBy'] == 'rosa-boundary-lambda', \
+        "ManagedBy tag condition missing or incorrect"
+    assert conditions['aws:ResourceTag/FileSystemId'] == test_efs, \
+        "FileSystemId tag condition missing or incorrect"
+
     # Cleanup
-    iam_client.delete_role_policy(RoleName=role_name, PolicyName='ecs-permissions')
+    iam_client.delete_role_policy(RoleName=role_name, PolicyName='sre-shared-ecs-exec')
     iam_client.delete_role(RoleName=role_name)
 
-    print("✓ SRE policy has all required ECS permissions with correct resource scope")
+    print("✓ SRE policy has all required ECS and EFS permissions with correct ABAC conditions")
 
 
 @pytest.mark.integration
@@ -261,7 +299,7 @@ def test_close_investigation_cleanup_workflow(
     cluster_id = f'cluster-{ts}'
     investigation_id = f'inv-{ts}'
 
-    # Use test helper to create full investigation stack
+    # Use test helper to create full investigation stack with production-shaped configuration
     resources = create_investigation_resources(
         ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup,
         cluster_id=cluster_id,
@@ -270,10 +308,38 @@ def test_close_investigation_cleanup_workflow(
         username='sre-cleanup-test'
     )
 
+    # Verify access point has required production tags for IAM policy conditions
+    access_points = efs_client.describe_access_points(
+        AccessPointId=resources['access_point_id']
+    )
+    assert len(access_points['AccessPoints']) == 1
+    ap_tags = {tag['Key']: tag['Value'] for tag in access_points['AccessPoints'][0].get('Tags', [])}
+
+    assert resources['abac_tag_key'] in ap_tags, \
+        f"Access point missing ABAC tag key '{resources['abac_tag_key']}'"
+    assert ap_tags[resources['abac_tag_key']] == resources['abac_tag_value'], \
+        "ABAC tag value mismatch"
+    assert ap_tags.get('ManagedBy') == 'rosa-boundary-lambda', \
+        "Access point missing ManagedBy=rosa-boundary-lambda tag (required by IAM policy)"
+    assert ap_tags.get('FileSystemId') == test_efs, \
+        f"Access point missing FileSystemId={test_efs} tag (required by IAM policy)"
+
+    print(f"  ✓ Access point has production tags: {resources['abac_tag_key']}, ManagedBy, FileSystemId")
+
     # Extract task definition ARN and family
     task_def_arn = resources['task_def_arn']
     # ARN format: arn:aws:ecs:region:account:task-definition/family:revision
     task_def_family = task_def_arn.split('/')[-1].rsplit(':', 1)[0]
+
+    # Verify production task family naming: rosa-boundary-dev-{cluster_id}-{investigation_id}-{timestamp}
+    assert task_def_family.startswith('rosa-boundary-dev-'), \
+        f"Task family should use production prefix, got: {task_def_family}"
+    assert cluster_id in task_def_family, \
+        f"Task family should contain cluster_id, got: {task_def_family}"
+    assert investigation_id in task_def_family, \
+        f"Task family should contain investigation_id, got: {task_def_family}"
+
+    print(f"  ✓ Task definition family uses production naming: {task_def_family}")
 
     # Step 1: List task definitions by family name
     # In real close-investigation, the Lambda creates task defs with exact family names

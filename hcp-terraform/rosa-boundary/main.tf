@@ -151,7 +151,7 @@ module "rosa_boundary" {
         },
         {
           key      = "enable_uuid_allowlist"
-          value    = "true"
+          value    = "false"
           category = "terraform"
         },
         {

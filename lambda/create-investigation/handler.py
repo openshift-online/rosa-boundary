@@ -898,8 +898,11 @@ def create_investigation_task(
         task_tags.append({'key': 'deadline', 'value': deadline.isoformat()})
 
     # Launch ECS task using the per-investigation task definition
+    # Generate stable client token for idempotent task creation (max 64 ASCII chars)
+    # Token must be deterministic across retries, so use only stable investigation context
     task_arn = None
-    client_token = f"{cluster_id}:{investigation_id}:{created_at.isoformat()}"
+    token_input = f"{cluster_id}:{investigation_id}".encode('utf-8')
+    client_token = hashlib.sha256(token_input).hexdigest()  # 64 hex chars, stable across retries
     try:
         logger.info(f"Launching ECS task in cluster: {cluster}")
         run_response = ecs.run_task(

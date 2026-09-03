@@ -245,23 +245,22 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         }
       },
       {
-        Sid    = "DescribeAndListECS"
+        Sid    = "DescribeListAndCleanupECS"
         Effect = "Allow"
+        # AWS IAM limitation: ListTaskDefinitions and DeregisterTaskDefinition have
+        # no supported resource types or condition keys and must use Resource = "*".
+        # Reference: https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
+        # Defense-in-depth: Task definitions follow strict naming convention
+        # {project}-{stage}-{cluster_id}-{investigation_id}-{timestamp}
+        # and ListTaskDefinitionsByFamily filters by familyPrefix at the API level.
         Action = [
           "ecs:DescribeTasks",
           "ecs:ListTasks",
-          "ecs:DescribeTaskDefinition"
+          "ecs:DescribeTaskDefinition",
+          "ecs:ListTaskDefinitions",
+          "ecs:DeregisterTaskDefinition"
         ]
         Resource = "*"
-      },
-      {
-        Sid    = "DeregisterTaskDefinition"
-        Effect = "Allow"
-        Action = ["ecs:DeregisterTaskDefinition"]
-        # Scoped to task definition families matching the project prefix.
-        # Per-investigation task defs follow the pattern:
-        #   {project}-{stage}-{cluster_id}-{investigation_id}-{timestamp}
-        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-${var.stage}-*"
       },
       {
         Sid      = "EFSDescribeAccessPoints"

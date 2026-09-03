@@ -56,7 +56,8 @@ Content-Type: application/json
 {
   "investigation_id": "incident-20260128-001",
   "cluster_id": "rosa-prod-001",
-  "oc_version": "4.19"
+  "oc_version": "4.19",
+  "launch_attempt_id": "retryable-attempt-1"
 }
 ```
 
@@ -64,6 +65,7 @@ Content-Type: application/json
 - `investigation_id` (required): Unique identifier for the investigation
 - `cluster_id` (required): ROSA cluster identifier
 - `oc_version` (optional): OpenShift CLI version (default: `4.20`)
+- `launch_attempt_id` (optional): Reuse the same value when retrying a launch; provide a new value only for an intentional relaunch
 
 ## API Response Format
 

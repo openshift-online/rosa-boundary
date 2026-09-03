@@ -12,7 +12,6 @@ import os
 import json
 import logging
 import time
-import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
@@ -77,6 +76,28 @@ def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
     """
     key = f"{cluster_id}:{investigation_id}"
     return hashlib.sha256(key.encode()).hexdigest()[:36]
+
+
+def resolve_launch_attempt_id(
+    cluster_id: str,
+    investigation_id: str,
+    launch_attempt_id: Optional[str] = None
+) -> str:
+    """Return the stable ID used to derive the ECS run_task client token.
+
+    Callers should reuse an explicit ID when retrying a launch and provide a new
+    one only for an intentional relaunch. The deterministic fallback preserves
+    idempotency for callers that do not provide retry context.
+    """
+    if launch_attempt_id is not None:
+        if not isinstance(launch_attempt_id, str):
+            raise ValueError("launch_attempt_id must be a string")
+        validate_identifier(launch_attempt_id, 'launch_attempt_id')
+        return launch_attempt_id
+
+    return hashlib.sha256(
+        f"{cluster_id}:{investigation_id}".encode('utf-8')
+    ).hexdigest()
 
 
 # Configure logging
@@ -199,6 +220,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         investigation_id = body.get('investigation_id')
         cluster_id = body.get('cluster_id')
+        launch_attempt_id = body.get('launch_attempt_id')
         oc_version = body.get('oc_version', '4.20')
         task_timeout = body.get('task_timeout', int(os.environ.get('TASK_TIMEOUT_DEFAULT', '3600')))
         skip_task = body.get('skip_task', False)
@@ -226,9 +248,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             })
 
         # Validate identifiers for safe characters
+        if launch_attempt_id is not None and not isinstance(launch_attempt_id, str):
+            logger.warning("Invalid input: launch_attempt_id must be a string")
+            return response(400, {'error': 'Invalid launch_attempt_id: must be a string'})
+
         try:
             validate_identifier(investigation_id, 'investigation_id')
             validate_identifier(cluster_id, 'cluster_id')
+            if launch_attempt_id is not None:
+                validate_identifier(launch_attempt_id, 'launch_attempt_id')
         except ValueError as e:
             logger.warning(f"Invalid input: {str(e)}")
             return response(400, {'error': str(e)})
@@ -334,7 +362,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             efs_filesystem_id=EFS_FILESYSTEM_ID,
             oc_version=oc_version,
             task_timeout=task_timeout,
-            skip_task=skip_task
+            skip_task=skip_task,
+            launch_attempt_id=launch_attempt_id
         )
 
         if skip_task:
@@ -744,7 +773,8 @@ def create_investigation_task(
     efs_filesystem_id: str,
     oc_version: str,
     task_timeout: int = 3600,
-    skip_task: bool = False
+    skip_task: bool = False,
+    launch_attempt_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Create EFS access point and launch ECS task for investigation.
@@ -761,10 +791,18 @@ def create_investigation_task(
         efs_filesystem_id: EFS filesystem ID
         oc_version: OpenShift CLI version
         task_timeout: Task timeout in seconds (0 = no timeout, default: 3600)
+        launch_attempt_id: Stable ID reused by callers when retrying a launch;
+            provide a new ID only for an intentional relaunch.
 
     Returns:
         Dictionary with task ARN and access point ID
     """
+    # Resolve the launch identity before creating resources so invalid retry context
+    # cannot leave an access point or task definition behind.
+    launch_attempt_id = resolve_launch_attempt_id(
+        cluster_id, investigation_id, launch_attempt_id
+    )
+
     # Create EFS access point for investigation (idempotent: reuse if already exists)
     # Use deterministic path builder to ensure lookup and creation use identical paths
     access_point_path = build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
@@ -899,10 +937,7 @@ def create_investigation_task(
         task_tags.append({'key': 'deadline', 'value': deadline.isoformat()})
 
     # Launch ECS task using the per-investigation task definition
-    # Generate one attempt identifier for this logical launch. The ECS SDK reuses the
-    # client token for its retries of this call, while a new invocation (an intentional
-    # relaunch, including one with a newly registered task definition) gets a new ID.
-    launch_attempt_id = uuid.uuid4().hex
+    # Reuse the caller's retry context, or use the deterministic ID resolved above.
     task_arn = None
     token_input = f"{cluster_id}:{investigation_id}:{launch_attempt_id}".encode('utf-8')
     client_token = hashlib.sha256(token_input).hexdigest()  # 64 hex chars, stable across retries

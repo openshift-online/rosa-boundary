@@ -2302,17 +2302,44 @@ class TestTaskTagging:
 
     @patch.dict('os.environ', ENV_VARS)
     def test_run_task_client_token_includes_launch_attempt(self):
-        """Each logical launch derives its ECS token from a unique attempt ID."""
+        """An explicit launch attempt ID is included in the ECS client token."""
         import hashlib
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.uuid.uuid4') as mock_uuid4:
-                    mock_uuid4.return_value.hex = 'attempt-1'
-                    self._call_create_investigation(mock_ecs, mock_efs)
+                self._call_create_investigation(
+                    mock_ecs, mock_efs, launch_attempt_id='attempt-1'
+                )
 
         expected = hashlib.sha256(b'rosa-dev:inv-001:attempt-1').hexdigest()
         assert mock_ecs.run_task.call_args[1]['clientToken'] == expected
+
+    @patch.dict('os.environ', ENV_VARS)
+    def test_run_task_client_token_is_stable_without_retry_context(self):
+        """Repeated invocations without retry context derive the same client token."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                self._call_create_investigation(mock_ecs, mock_efs)
+                self._call_create_investigation(mock_ecs, mock_efs)
+
+        calls = mock_ecs.run_task.call_args_list
+        assert len(calls) == 2
+        assert calls[0][1]['clientToken'] == calls[1][1]['clientToken']
+
+    @patch.dict('os.environ', ENV_VARS)
+    def test_run_task_client_token_changes_for_intentional_relaunch(self):
+        """A caller-supplied new attempt ID produces a new client token."""
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                self._call_create_investigation(
+                    mock_ecs, mock_efs, launch_attempt_id='attempt-1'
+                )
+                self._call_create_investigation(
+                    mock_ecs, mock_efs, launch_attempt_id='attempt-2'
+                )
+
+        calls = mock_ecs.run_task.call_args_list
+        assert calls[0][1]['clientToken'] != calls[1][1]['clientToken']
 
     @patch.dict('os.environ', ENV_VARS)
     def test_tag_resource_receives_same_tags_as_run_task(self):

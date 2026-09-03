@@ -42,6 +42,7 @@ type InvestigationRequest struct {
 	OCVersion       string `json:"oc_version"`
 	TaskTimeout     int    `json:"task_timeout"`
 	SkipTask        bool   `json:"skip_task,omitempty"`
+	LaunchAttemptID string `json:"launch_attempt_id,omitempty"`
 }
 
 // InvestigationResponse is the JSON response from a successful Lambda invocation.

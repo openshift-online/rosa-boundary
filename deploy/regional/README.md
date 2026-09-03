@@ -52,6 +52,10 @@ directory. Key differences from local execution:
 - HCP Terraform **does not** run the regional `Makefile` or its `build-lambda` target.
 - All deployment values must be supplied through HCP Terraform workspace
   variables or approved variable sets — not hardcoded into generic resources.
+- The `rosa-boundary-stage-regional` workspace variables are declared in
+  [`../../hcp-terraform/rosa-boundary/main.tf`](../../hcp-terraform/rosa-boundary/main.tf),
+  which is the source of truth. Update that file through a PR; do not edit
+  workspace variables directly in the HCP Terraform UI, API, or MCP tools.
 - The `Makefile` and `.env` workflow remain a local-development convenience,
   not a dependency of the Terraform root module.
 

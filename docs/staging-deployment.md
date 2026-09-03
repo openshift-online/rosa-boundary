@@ -250,7 +250,17 @@ This opens a browser for SSO authentication and stores a token in `~/.terraform.
 
 ## Workspace Variables
 
-Workspace variables for the staging deployment are defined as code in `hcp-terraform/rosa-boundary/main.tf`, not set manually in the HCP Terraform UI. This keeps variable values version-controlled and reviewable through PRs.
+Workspace variables for the staging deployment are defined as code in `hcp-terraform/rosa-boundary/main.tf`, not set manually in the HCP Terraform UI. This file is the source of truth, which keeps variable values version-controlled and reviewable through PRs.
+
+### Updating Regional Workspace Variables
+
+To change a variable for `rosa-boundary-stage-regional`:
+
+1. Update the matching entry in the `rosa-boundary-stage-regional.variables` list in [`hcp-terraform/rosa-boundary/main.tf`](../hcp-terraform/rosa-boundary/main.tf). Add an entry there when introducing a new workspace variable.
+2. Open, review, and merge a PR. The `meta-rosa-rosa-boundary` workspace applies the definition and reconciles the regional workspace through the HCP Terraform API.
+3. Review the resulting regional plan and approve its apply in HCP Terraform when required.
+
+Do **not** create, edit, or delete these variables directly in the HCP Terraform UI, API, or Terraform HCP MCP tools. Direct edits create drift from the Git source of truth and can be reverted by the next meta-workspace apply. HCP Terraform access may be used to inspect the current state and to review or approve runs; when inspection finds drift, correct `main.tf` rather than the live workspace.
 
 ### rosa-boundary-stage-regional Variables
 

@@ -81,10 +81,10 @@ module "rosa_boundary" {
     }
 
     rosa-boundary-stage-regional = {
-      terraform_version      = "1.16.0"
-      working_directory      = "deploy/regional"
-      github_repo_org        = "openshift-online"
-      github_repo_name       = "rosa-boundary"
+      terraform_version = "1.16.0"
+      working_directory = "deploy/regional"
+      github_repo_org   = "openshift-online"
+      github_repo_name  = "rosa-boundary"
       # Apply successful plans automatically, including plans from workspace run triggers.
       auto_apply             = true
       auto_apply_run_trigger = true
@@ -141,6 +141,17 @@ module "rosa_boundary" {
         {
           key      = "abac_tag_key"
           value    = "uuid"
+          category = "terraform"
+        },
+        {
+          key      = "allowed_uuids"
+          value    = "[\"7b5e6e92-0d75-11e7-851d-28d244ea5a6d\", \"a97b94a0-4b53-11ec-abc9-0a58ac14e8ca\", \"1e750c90-503c-11ec-bc06-0a58ac147a77\", \"9f1c4a70-a139-11e9-97cb-001a4a0a0044\"]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "enable_uuid_allowlist"
+          value    = "false"
           category = "terraform"
         },
         {

@@ -25,6 +25,14 @@ Designed for ephemeral SRE use with ECS Exec access as the `sre` user. The entry
 - **Lambda builds**: Use root `make test-lambda-*` targets (only `create-investigation` has its own Makefile for bundling deps)
 - **Infrastructure**: Use `make` targets in `deploy/regional/` (`make init`, `make plan`, `make apply`) — never run `terraform` directly. `make apply` automatically builds Lambda deps via `build-lambda` before running Terraform.
 
+### HCP Terraform Workspace Variables
+
+**The Git repository is the source of truth for staging workspace variables.** For the `rosa-boundary-stage-regional` workspace, update the `variables` list in [`hcp-terraform/rosa-boundary/main.tf`](hcp-terraform/rosa-boundary/main.tf). Submit the change through a PR; the `meta-rosa-rosa-boundary` HCP Terraform workspace reconciles the regional workspace after merge.
+
+- **Do not** create, update, or delete regional workspace variables directly in the HCP Terraform UI, API, or Terraform HCP MCP tools. Those direct changes create configuration drift and will be overwritten by the meta-workspace.
+- Treat HCP Terraform UI/API/MCP access as read-only for regional workspace variables: use it to inspect the current state and detect drift, then correct the Git definition.
+- The HCP Terraform UI is still used to review and approve regional workspace applies; this restriction applies only to workspace-variable management.
+
 ### Environment Configuration
 
 **Required variables** without Terraform defaults must be supplied in `.env` at the project root:

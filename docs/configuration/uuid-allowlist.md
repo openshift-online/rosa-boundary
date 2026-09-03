@@ -57,7 +57,7 @@ Two Terraform variables control the feature in `deploy/regional/`:
 | `enable_uuid_allowlist` | `bool` | `false` | Toggle the UUID condition on all OIDC trust statements |
 | `allowed_uuids` | `list(string)` | `[]` | UUIDs permitted to assume the roles. Must contain at least one entry when enabled. Validated as lowercase hex UUIDs with dashes. |
 
-Example `terraform.tfvars`:
+Example `terraform.tfvars` for a local deployment:
 
 ```hcl
 enable_uuid_allowlist = true
@@ -68,6 +68,15 @@ allowed_uuids = [
 ```
 
 A lifecycle precondition prevents enabling the allowlist with an empty list.
+
+### Staging Configuration
+
+For `rosa-boundary-stage-regional`, set `allowed_uuids` and
+`enable_uuid_allowlist` in the workspace's `variables` list in
+[`hcp-terraform/rosa-boundary/main.tf`](../../hcp-terraform/rosa-boundary/main.tf).
+That Git file is the source of truth; submit changes through a PR and let the
+meta-workspace reconcile HCP Terraform. Do not edit the variables directly in
+the HCP Terraform UI, API, or MCP tools.
 
 ## Looking Up a User's UUID
 

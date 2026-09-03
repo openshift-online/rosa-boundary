@@ -2670,7 +2670,8 @@ class TestAwsAccountIdValidation:
         context = Mock()
 
         with patch('handler.validate_oidc_token') as mock_validate, \
-             patch('handler.efs') as mock_efs:
+             patch('handler.efs') as mock_efs, \
+             patch('handler.find_running_tasks_for_investigation') as mock_find_tasks:
             mock_validate.return_value = {
                 'sub': 'user-123',
                 'email': 'test@example.com',
@@ -2683,6 +2684,8 @@ class TestAwsAccountIdValidation:
             }
             # Mock EFS to return no existing access points
             mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+            # Mock find_running_tasks to return no existing tasks
+            mock_find_tasks.return_value = []
 
             response = handler.lambda_handler(event, context)
 
@@ -2711,7 +2714,8 @@ class TestAwsAccountIdValidation:
         context = Mock()
 
         with patch('handler.validate_oidc_token') as mock_validate, \
-             patch('handler.efs') as mock_efs:
+             patch('handler.efs') as mock_efs, \
+             patch('handler.find_running_tasks_for_investigation') as mock_find_tasks:
             mock_validate.return_value = {
                 'sub': 'user-123',
                 'email': 'test@example.com',
@@ -2723,6 +2727,7 @@ class TestAwsAccountIdValidation:
                 }
             }
             mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+            mock_find_tasks.return_value = []
 
             response = handler.lambda_handler(event, context)
 
@@ -2750,7 +2755,8 @@ class TestAwsAccountIdValidation:
         context = Mock()
 
         with patch('handler.validate_oidc_token') as mock_validate, \
-             patch('handler.efs') as mock_efs:
+             patch('handler.efs') as mock_efs, \
+             patch('handler.find_running_tasks_for_investigation') as mock_find_tasks:
             mock_validate.return_value = {
                 'sub': 'user-123',
                 'email': 'test@example.com',
@@ -2762,6 +2768,7 @@ class TestAwsAccountIdValidation:
                 }
             }
             mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
+            mock_find_tasks.return_value = []
 
             response = handler.lambda_handler(event, context)
 

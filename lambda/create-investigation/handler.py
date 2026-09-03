@@ -11,6 +11,7 @@ import hashlib
 import os
 import json
 import logging
+import time
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
@@ -520,6 +521,9 @@ def find_existing_access_point(
     the caller's identity. This prevents users from reusing access points created by
     other users, even if the cluster_id and investigation_id match.
 
+    Retries transient EFS API errors with exponential backoff (max 3 attempts) to avoid
+    creating duplicate access points when EFS is temporarily unavailable.
+
     Args:
         efs_filesystem_id: EFS filesystem ID to search
         cluster_id: Cluster identifier to match
@@ -529,6 +533,9 @@ def find_existing_access_point(
 
     Returns:
         Access point dict or None if not found or ABAC tag mismatch
+
+    Raises:
+        ClientError: On permission errors, filesystem not found, or retries exhausted
     """
     # Build deterministic EFS path with ABAC identity isolation (bounded to 100 chars)
     expected_path = build_efs_access_point_path(cluster_id, abac_tag_value, investigation_id)
@@ -539,58 +546,79 @@ def find_existing_access_point(
     # ones instead. Legacy access points will be cleaned up when their tasks complete or via
     # manual cleanup if orphaned.
 
-    try:
-        paginator = efs.get_paginator('describe_access_points')
-        for page in paginator.paginate(FileSystemId=efs_filesystem_id):
-            for ap in page.get('AccessPoints', []):
-                if ap.get('LifeCycleState') != 'available':
-                    continue
-                tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
+    max_retries = 3
+    base_delay = 0.5  # seconds
 
-                # Check ClusterID and InvestigationID
-                if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
-                    continue
+    for attempt in range(max_retries):
+        try:
+            paginator = efs.get_paginator('describe_access_points')
+            for page in paginator.paginate(FileSystemId=efs_filesystem_id):
+                for ap in page.get('AccessPoints', []):
+                    if ap.get('LifeCycleState') != 'available':
+                        continue
+                    tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
 
-                # SECURITY: Fail closed on missing or mismatched ABAC tag
-                # If the ABAC tag is missing or doesn't match, don't reuse this access point
-                if tags.get(abac_tag_key) != abac_tag_value:
-                    logger.warning(
-                        f"Access point {ap['AccessPointId']} ABAC identity tag mismatch "
-                        f"(tag present: {abac_tag_key in tags}); skipping"
-                    )
-                    continue
+                    # Check ClusterID and InvestigationID
+                    if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
+                        continue
 
-                # SECURITY: Validate access point belongs to the expected filesystem
-                # Prevents cross-filesystem access point reuse even if other tags match
-                if tags.get('FileSystemId') != efs_filesystem_id:
-                    logger.warning(f"Access point {ap['AccessPointId']} FileSystemId tag mismatch; skipping")
-                    continue
+                    # SECURITY: Fail closed on missing or mismatched ABAC tag
+                    # If the ABAC tag is missing or doesn't match, don't reuse this access point
+                    if tags.get(abac_tag_key) != abac_tag_value:
+                        logger.warning(
+                            f"Access point {ap['AccessPointId']} ABAC identity tag mismatch "
+                            f"(tag present: {abac_tag_key in tags}); skipping"
+                        )
+                        continue
 
-                # Verify the root path matches what the tags claim — guards against tag
-                # manipulation redirecting an investigation to a different EFS directory.
-                actual_path = ap.get('RootDirectory', {}).get('Path', '')
-                if actual_path != expected_path:
-                    logger.warning(
-                        f"Access point {ap['AccessPointId']} tags match but RootDirectory path mismatch; skipping"
-                    )
-                    continue
-                return ap
-    except ClientError as e:
-        error_code = e.response['Error']['Code']
-        # Only catch transient errors; fail fast on permission/config issues
-        if error_code in ('Throttling', 'RequestTimeout', 'ServiceUnavailable'):
-            logger.warning(f"Transient EFS API error searching for access points: {error_code}")
-            # Return None to create new access point (retryable error, don't block user)
+                    # SECURITY: Validate access point belongs to the expected filesystem
+                    # Prevents cross-filesystem access point reuse even if other tags match
+                    if tags.get('FileSystemId') != efs_filesystem_id:
+                        logger.warning(f"Access point {ap['AccessPointId']} FileSystemId tag mismatch; skipping")
+                        continue
+
+                    # Verify the root path matches what the tags claim — guards against tag
+                    # manipulation redirecting an investigation to a different EFS directory.
+                    actual_path = ap.get('RootDirectory', {}).get('Path', '')
+                    if actual_path != expected_path:
+                        logger.warning(
+                            f"Access point {ap['AccessPointId']} tags match but RootDirectory path mismatch; skipping"
+                        )
+                        continue
+                    return ap
+            # No access point found (not an error)
             return None
-        elif error_code in ('AccessDenied', 'UnauthorizedOperation'):
-            logger.error(f"Permission denied searching for access points: {error_code}")
-            raise
-        elif error_code == 'FileSystemNotFound':
-            logger.error(f"EFS filesystem {efs_filesystem_id} not found")
-            raise
-        else:
-            logger.error(f"Unexpected EFS API error searching for access points: {error_code}")
-            raise
+
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+
+            # Fail fast on permission/config issues
+            if error_code in ('AccessDenied', 'UnauthorizedOperation'):
+                logger.error(f"Permission denied searching for access points: {error_code}")
+                raise
+            elif error_code == 'FileSystemNotFound':
+                logger.error(f"EFS filesystem {efs_filesystem_id} not found")
+                raise
+
+            # Retry transient errors with exponential backoff
+            if error_code in ('Throttling', 'RequestTimeout', 'ServiceUnavailable'):
+                if attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)
+                    logger.warning(
+                        f"Transient EFS API error ({error_code}) on attempt {attempt + 1}/{max_retries}; "
+                        f"retrying in {delay}s"
+                    )
+                    time.sleep(delay)
+                    continue
+                else:
+                    logger.error(
+                        f"EFS API remains unavailable after {max_retries} attempts ({error_code})"
+                    )
+                    raise
+            else:
+                logger.error(f"Unexpected EFS API error searching for access points: {error_code}")
+                raise
+
     return None
 
 
@@ -767,8 +795,15 @@ def create_investigation_task(
         logger.info(f"Reusing existing EFS access point: {access_point_id}")
     else:
         try:
+            # Generate deterministic ClientToken for idempotent access point creation.
+            # If Lambda retries due to timeout or transient error, EFS will return the
+            # existing access point instead of creating a duplicate.
+            token_input = f"{efs_filesystem_id}:{abac_tag_value}:{cluster_id}:{investigation_id}"
+            client_token = hashlib.sha256(token_input.encode('utf-8')).hexdigest()[:64]
+
             logger.info("Creating EFS access point")
             ap_response = efs.create_access_point(
+                ClientToken=client_token,
                 FileSystemId=efs_filesystem_id,
                 PosixUser={
                     'Uid': 1000,  # sre user

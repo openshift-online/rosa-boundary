@@ -301,7 +301,7 @@ This will:
 1. Start local callback server on port 8400
 2. Open browser for authentication
 3. Exchange code for token using PKCE
-4. Return ID token to stdout
+4. Cache the ID token locally without printing it to stdout
 
 ### Validate ID token claims
 

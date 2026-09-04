@@ -11,41 +11,41 @@ import (
 
 func TestDeriveInvokerRoleARN(t *testing.T) {
 	tests := []struct {
-		name      string
-		accountID string
-		project   string
-		stage     string
-		expected  string
+		name        string
+		accountID   string
+		project     string
+		environment string
+		expected    string
 	}{
 		{
-			name:      "default dev",
-			accountID: "123456789012",
-			project:   "rosa-boundary",
-			stage:     "dev",
-			expected:  "arn:aws:iam::123456789012:role/rosa-boundary-dev-lambda-invoker",
+			name:        "default dev",
+			accountID:   "123456789012",
+			project:     "rosa-boundary",
+			environment: "dev",
+			expected:    "arn:aws:iam::123456789012:role/rosa-boundary-dev-lambda-invoker",
 		},
 		{
-			name:      "production",
-			accountID: "933409759055",
-			project:   "rosa-boundary",
-			stage:     "prod",
-			expected:  "arn:aws:iam::933409759055:role/rosa-boundary-prod-lambda-invoker",
+			name:        "production",
+			accountID:   "933409759055",
+			project:     "rosa-boundary",
+			environment: "prod",
+			expected:    "arn:aws:iam::933409759055:role/rosa-boundary-prod-lambda-invoker",
 		},
 		{
-			name:      "custom project",
-			accountID: "111222333444",
-			project:   "my-project",
-			stage:     "staging",
-			expected:  "arn:aws:iam::111222333444:role/my-project-staging-lambda-invoker",
+			name:        "custom project",
+			accountID:   "111222333444",
+			project:     "my-project",
+			environment: "staging",
+			expected:    "arn:aws:iam::111222333444:role/my-project-staging-lambda-invoker",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DeriveInvokerRoleARN(tt.accountID, tt.project, tt.stage)
+			got := DeriveInvokerRoleARN(tt.accountID, tt.project, tt.environment)
 			if got != tt.expected {
 				t.Errorf("DeriveInvokerRoleARN(%q, %q, %q) = %q, want %q",
-					tt.accountID, tt.project, tt.stage, got, tt.expected)
+					tt.accountID, tt.project, tt.environment, got, tt.expected)
 			}
 		})
 	}
@@ -53,37 +53,37 @@ func TestDeriveInvokerRoleARN(t *testing.T) {
 
 func TestDeriveLambdaFunctionName(t *testing.T) {
 	tests := []struct {
-		name     string
-		project  string
-		stage    string
-		expected string
+		name        string
+		project     string
+		environment string
+		expected    string
 	}{
 		{
-			name:     "default dev",
-			project:  "rosa-boundary",
-			stage:    "dev",
-			expected: "rosa-boundary-dev-create-investigation",
+			name:        "default dev",
+			project:     "rosa-boundary",
+			environment: "dev",
+			expected:    "rosa-boundary-dev-create-investigation",
 		},
 		{
-			name:     "production",
-			project:  "rosa-boundary",
-			stage:    "prod",
-			expected: "rosa-boundary-prod-create-investigation",
+			name:        "production",
+			project:     "rosa-boundary",
+			environment: "prod",
+			expected:    "rosa-boundary-prod-create-investigation",
 		},
 		{
-			name:     "custom project",
-			project:  "my-project",
-			stage:    "staging",
-			expected: "my-project-staging-create-investigation",
+			name:        "custom project",
+			project:     "my-project",
+			environment: "staging",
+			expected:    "my-project-staging-create-investigation",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := DeriveLambdaFunctionName(tt.project, tt.stage)
+			got := DeriveLambdaFunctionName(tt.project, tt.environment)
 			if got != tt.expected {
 				t.Errorf("DeriveLambdaFunctionName(%q, %q) = %q, want %q",
-					tt.project, tt.stage, got, tt.expected)
+					tt.project, tt.environment, got, tt.expected)
 			}
 		})
 	}
@@ -151,10 +151,12 @@ func extractTerraformPattern(t *testing.T, content, attribute string) string {
 	return matches[1]
 }
 
-// expandTerraformVars replaces ${var.project} and ${var.stage} with the given values.
-func expandTerraformVars(pattern, project, stage string) string {
+// expandTerraformVars replaces the Terraform ${var.project} and ${var.stage}
+// tokens with the given project and environment values. The Go parameter is
+// named environment even though Terraform calls the same value stage.
+func expandTerraformVars(pattern, project, environment string) string {
 	result := strings.ReplaceAll(pattern, "${var.project}", project)
-	result = strings.ReplaceAll(result, "${var.stage}", stage)
+	result = strings.ReplaceAll(result, "${var.stage}", environment)
 	return result
 }
 
@@ -172,18 +174,18 @@ func TestContractDeriveLambdaFunctionName_MatchesTerraform(t *testing.T) {
 	pattern := extractTerraformPattern(t, content, "function_name")
 
 	for _, tt := range []struct {
-		project string
-		stage   string
+		project     string
+		environment string
 	}{
 		{"rosa-boundary", "dev"},
 		{"rosa-boundary", "prod"},
 		{"custom-project", "staging"},
 	} {
-		expected := expandTerraformVars(pattern, tt.project, tt.stage)
-		got := DeriveLambdaFunctionName(tt.project, tt.stage)
+		expected := expandTerraformVars(pattern, tt.project, tt.environment)
+		got := DeriveLambdaFunctionName(tt.project, tt.environment)
 		if got != expected {
 			t.Errorf("DeriveLambdaFunctionName(%q, %q) = %q, want %q (from Terraform pattern %q)",
-				tt.project, tt.stage, got, expected, pattern)
+				tt.project, tt.environment, got, expected, pattern)
 		}
 	}
 }
@@ -203,21 +205,21 @@ func TestContractDeriveInvokerRoleARN_MatchesTerraform(t *testing.T) {
 	pattern := extractTerraformPattern(t, content, "name")
 
 	for _, tt := range []struct {
-		accountID string
-		project   string
-		stage     string
+		accountID   string
+		project     string
+		environment string
 	}{
 		{"123456789012", "rosa-boundary", "dev"},
 		{"933409759055", "rosa-boundary", "prod"},
 		{"111222333444", "custom-project", "staging"},
 	} {
-		expectedRoleName := expandTerraformVars(pattern, tt.project, tt.stage)
+		expectedRoleName := expandTerraformVars(pattern, tt.project, tt.environment)
 		expectedARN := "arn:aws:iam::" + tt.accountID + ":role/" + expectedRoleName
 
-		got := DeriveInvokerRoleARN(tt.accountID, tt.project, tt.stage)
+		got := DeriveInvokerRoleARN(tt.accountID, tt.project, tt.environment)
 		if got != expectedARN {
 			t.Errorf("DeriveInvokerRoleARN(%q, %q, %q) = %q, want %q (from Terraform pattern %q)",
-				tt.accountID, tt.project, tt.stage, got, expectedARN, pattern)
+				tt.accountID, tt.project, tt.environment, got, expectedARN, pattern)
 		}
 	}
 }

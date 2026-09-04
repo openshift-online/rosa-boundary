@@ -10,11 +10,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 // PKCEConfig holds OIDC/Keycloak configuration for the PKCE flow.
@@ -43,7 +44,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		}
 	}
 
-	fmt.Fprintln(os.Stderr, "No cached token, authenticating...")
+	if err := output.Debug("No cached token, authenticating..."); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
 	verifier, challenge, err := generatePKCE()
 	if err != nil {
@@ -66,8 +69,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	authURL := buildAuthURL(authEndpoint, cfg.ClientID, redirectURI, state, challenge)
 
-	fmt.Fprintf(os.Stderr, "Starting local callback server on port %s...\n", callbackPort)
-	fmt.Fprintf(os.Stderr, "\nIf the browser does not open automatically, visit:\n%s\n\n", authURL)
+	if err := output.Debug("Starting local callback server on port %s...", callbackPort); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
 	// Start the callback server before opening the browser so it is already
 	// listening when the redirect arrives. The goroutine cleans up via the
@@ -82,7 +86,11 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	}()
 
 	if err := openBrowser(authURL); err != nil {
-		fmt.Fprintln(os.Stderr, "Could not open browser automatically. Please use the URL above.")
+		output.Status("Could not open browser automatically. Please visit:\n%s", authURL)
+	} else {
+		if err := output.Debug("Opened browser for authentication. If it fails, visit:\n%s", authURL); err != nil {
+			return "", fmt.Errorf("debug output failed: %w", err)
+		}
 	}
 
 	result := <-codeCh
@@ -91,7 +99,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		return "", fmt.Errorf("callback failed: %w", err)
 	}
 
-	fmt.Fprintln(os.Stderr, "Authorization code received, exchanging for token...")
+	if err := output.Debug("Authorization code received, exchanging for token..."); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
 	token, err := exchangeCode(tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
 	if err != nil {
@@ -99,10 +109,14 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	}
 
 	if err := SaveToken(token); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not cache token: %v\n", err)
+		if debugErr := output.Debug("Warning: could not cache token: %v", err); debugErr != nil {
+			return "", fmt.Errorf("debug output failed: %w", debugErr)
+		}
 	}
 
-	fmt.Fprintln(os.Stderr, "ID token obtained successfully")
+	if err := output.Debug("ID token obtained successfully"); err != nil {
+		output.Status("Warning: could not write debug output: %v", err)
+	}
 	return token, nil
 }
 

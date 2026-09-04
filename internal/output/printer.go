@@ -17,6 +17,19 @@ func Statusf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format, args...)
 }
 
+// Verbose controls whether debug messages are printed.
+var Verbose bool
+
+// Debug writes a debug message to stderr if Verbose is true.
+func Debug(format string, args ...any) error {
+	if !Verbose {
+		return nil
+	}
+
+	_, err := fmt.Fprintf(os.Stderr, "[debug] "+format+"\n", args...)
+	return err
+}
+
 // Fatal writes an error message to stderr and exits with code 1.
 func Fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)

@@ -92,7 +92,9 @@ func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, regi
 		return fmt.Errorf("ECS ExecuteCommand failed: %w", err)
 	}
 
-	debugf("Session ID: %s", session.SessionID)
+	if err := debugf("Session ID: %s", session.SessionID); err != nil {
+		output.Status("Warning: could not write debug output: %v", err)
+	}
 
 	// Hand off to session-manager-plugin (replaces the process)
 	return awsclient.StartSessionManagerPlugin(region, session, creds)

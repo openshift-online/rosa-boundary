@@ -12,6 +12,7 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 const (
@@ -87,6 +88,8 @@ func init() {
 }
 
 func initConfig() {
+	output.Verbose = verbose
+
 	if err := config.Load(); err != nil {
 		fmt.Fprintln(os.Stderr, "Warning: config error:", err)
 	}
@@ -107,10 +110,8 @@ func getConfig(requireKeycloakURL bool) (*config.Config, error) {
 }
 
 // debugf prints a debug message if verbose mode is enabled.
-func debugf(format string, args ...any) {
-	if verbose {
-		fmt.Fprintf(os.Stderr, "[debug] "+format+"\n", args...)
-	}
+func debugf(format string, args ...any) error {
+	return output.Debug(format, args...)
 }
 
 // assumeRoleWithRetry fetches an OIDC token and assumes the given role.
@@ -126,9 +127,13 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 
 	// Auto-retry once if we got an auth error (token expired server-side)
 	if err != nil && isAuthError(err) && !forceLogin {
-		debugf("Auth failed with cached token, retrying with fresh login")
+		if debugErr := debugf("Auth failed with cached token, retrying with fresh login"); debugErr != nil {
+			return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
+		}
 		if clearErr := auth.ClearToken(); clearErr != nil {
-			debugf("Failed to clear token cache: %v", clearErr)
+			if debugErr := debugf("Failed to clear token cache: %v", clearErr); debugErr != nil {
+				return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
+			}
 		}
 
 		idToken, err = auth.GetToken(ctx, pkce, true)

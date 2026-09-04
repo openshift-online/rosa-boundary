@@ -55,7 +55,9 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
-	debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus)
+	if err := debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 
 	var tasks []awsclient.TaskSummary
 

@@ -115,7 +115,7 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	}
 
 	if err := output.Debug("ID token obtained successfully"); err != nil {
-		return "", fmt.Errorf("debug output failed: %w", err)
+		output.Status("Warning: could not write debug output: %v", err)
 	}
 	return token, nil
 }

@@ -93,7 +93,7 @@ func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, regi
 	}
 
 	if err := debugf("Session ID: %s", session.SessionID); err != nil {
-		return fmt.Errorf("debug output failed: %w", err)
+		output.Status("Warning: could not write debug output: %v", err)
 	}
 
 	// Hand off to session-manager-plugin (replaces the process)

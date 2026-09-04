@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"bufio"
 	"bytes"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,7 +21,10 @@ func TestNewTerminalPromptHandlesBackspace(t *testing.T) {
 	terminal := term.NewTerminal(readWriter{Reader: terminalInput, Writer: terminalOutput}, "")
 
 	prompt := newTerminalPrompt(terminal)
-	got := prompt("AWS Account ID", "", "")
+	got, err := prompt("AWS Account ID", "", "")
+	if err != nil {
+		t.Fatalf("prompt returned an unexpected error: %v", err)
+	}
 
 	if got != "19289" {
 		t.Fatalf("prompt returned %q, want %q", got, "19289")
@@ -26,6 +32,64 @@ func TestNewTerminalPromptHandlesBackspace(t *testing.T) {
 	if !strings.Contains(terminalOutput.String(), "AWS Account ID: 1928912") {
 		t.Fatalf("prompt output does not contain the entered value: %q", terminalOutput.String())
 	}
+}
+
+func TestNewTerminalPromptReturnsEOF(t *testing.T) {
+	terminal := term.NewTerminal(readWriter{
+		Reader: strings.NewReader(""),
+		Writer: &bytes.Buffer{},
+	}, "")
+
+	got, err := newTerminalPrompt(terminal)("AWS Account ID", "fallback", "")
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("prompt error = %v, want %v", err, io.EOF)
+	}
+	if got != "" {
+		t.Fatalf("prompt value = %q, want empty value on EOF", got)
+	}
+}
+
+func TestNewTerminalPromptPropagatesError(t *testing.T) {
+	sentinel := errors.New("terminal input failed")
+	terminal := term.NewTerminal(readWriter{
+		Reader: promptErrorReader{err: sentinel},
+		Writer: &bytes.Buffer{},
+	}, "")
+
+	_, err := newTerminalPrompt(terminal)("AWS Account ID", "", "")
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("prompt error = %v, want %v", err, sentinel)
+	}
+}
+
+func TestNewPromptReturnsEOF(t *testing.T) {
+	prompt := newPrompt(bufio.NewScanner(strings.NewReader("")))
+
+	got, err := prompt("AWS Account ID", "fallback", "")
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("prompt error = %v, want %v", err, io.EOF)
+	}
+	if got != "" {
+		t.Fatalf("prompt value = %q, want empty value on EOF", got)
+	}
+}
+
+func TestNewPromptPropagatesScannerError(t *testing.T) {
+	sentinel := errors.New("input failed")
+	prompt := newPrompt(bufio.NewScanner(promptErrorReader{err: sentinel}))
+
+	_, err := prompt("AWS Account ID", "", "")
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("prompt error = %v, want %v", err, sentinel)
+	}
+}
+
+type promptErrorReader struct {
+	err error
+}
+
+func (r promptErrorReader) Read([]byte) (int, error) {
+	return 0, r.err
 }
 
 func TestDeriveInvokerRoleARN(t *testing.T) {

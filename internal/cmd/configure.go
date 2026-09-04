@@ -128,14 +128,17 @@ func promptValue(input, display string) string {
 
 // newPrompt returns a prompt function that reads from the given scanner. It
 // is used for piped input, where terminal line editing is not available.
-func newPrompt(scanner *bufio.Scanner) func(label, current, def string) string {
-	return func(label, current, def string) string {
+func newPrompt(scanner *bufio.Scanner) func(label, current, def string) (string, error) {
+	return func(label, current, def string) (string, error) {
 		display := promptDisplay(current, def)
 		fmt.Fprint(os.Stderr, promptText(label, display))
 		if !scanner.Scan() {
-			return display
+			if err := scanner.Err(); err != nil {
+				return "", err
+			}
+			return "", io.EOF
 		}
-		return promptValue(scanner.Text(), display)
+		return promptValue(scanner.Text(), display), nil
 	}
 }
 
@@ -148,21 +151,21 @@ type readWriter struct {
 // newTerminalPrompt creates a line-editing prompt for an interactive terminal.
 // term.Terminal handles Backspace, cursor movement, and other control keys after
 // the terminal is placed in raw mode by newConfigurePrompt.
-func newTerminalPrompt(terminal *term.Terminal) func(label, current, def string) string {
-	return func(label, current, def string) string {
+func newTerminalPrompt(terminal *term.Terminal) func(label, current, def string) (string, error) {
+	return func(label, current, def string) (string, error) {
 		display := promptDisplay(current, def)
 		terminal.SetPrompt(promptText(label, display))
 		input, err := terminal.ReadLine()
 		if err != nil {
-			return display
+			return "", err
 		}
-		return promptValue(input, display)
+		return promptValue(input, display), nil
 	}
 }
 
 // newConfigurePrompt selects terminal line editing for a TTY and scanner input
 // for pipes and tests. The returned restore function is safe to call repeatedly.
-func newConfigurePrompt() (func(label, current, def string) string, func(), error) {
+func newConfigurePrompt() (func(label, current, def string) (string, error), func(), error) {
 	stdinFD := int(os.Stdin.Fd())
 	stderrFD := int(os.Stderr.Fd())
 	if !term.IsTerminal(stdinFD) || !term.IsTerminal(stderrFD) {
@@ -213,7 +216,10 @@ func runConfigureAuto(cmd *cobra.Command) error {
 	// 1. Collect seed values — skip prompts for values set via flags.
 	accountID := configAccountID
 	if accountID == "" {
-		accountID = prompt("AWS Account ID", "", "")
+		accountID, err = prompt("AWS Account ID", "", "")
+		if err != nil {
+			return err
+		}
 	}
 	if accountID == "" {
 		return fmt.Errorf("AWS account ID is required")
@@ -226,16 +232,25 @@ func runConfigureAuto(cmd *cobra.Command) error {
 		if fallback == "" {
 			fallback = "us-east-2"
 		}
-		region = prompt("AWS Region", fallback, "us-east-2")
+		region, err = prompt("AWS Region", fallback, "us-east-2")
+		if err != nil {
+			return err
+		}
 	}
 
 	project := configProject
 	if !cmd.Flags().Changed("project") {
-		project = prompt("Project", project, "rosa-boundary")
+		project, err = prompt("Project", project, "rosa-boundary")
+		if err != nil {
+			return err
+		}
 	}
 	stage := configStage
 	if !cmd.Flags().Changed("stage") {
-		stage = prompt("Stage", stage, "prod")
+		stage, err = prompt("Stage", stage, "prod")
+		if err != nil {
+			return err
+		}
 	}
 	restorePrompt()
 
@@ -441,15 +456,42 @@ func runConfigureInteractive(cmd *cobra.Command) error {
 	fmt.Fprintln(os.Stderr, "Run 'rosa-boundary configure --help' for details on each configuration field.")
 	fmt.Fprintln(os.Stderr)
 
-	keycloakURL := prompt("Keycloak URL", cfg.KeycloakURL, "https://auth.redhat.com/auth")
-	keycloakRealm := prompt("Keycloak realm", cfg.KeycloakRealm, "EmployeeIDP")
-	oidcClientID := prompt("OIDC client ID", cfg.OIDCClientID, "rosa-boundary-sre")
-	lambdaFunctionName := prompt("Lambda function name (required)", cfg.LambdaFunctionName, "")
-	invokerRoleARN := prompt("Invoker role ARN (required)", cfg.InvokerRoleARN, "")
-	sreRoleARN := prompt("SRE role ARN", cfg.SRERoleARN, "")
-	awsRegion := prompt("AWS region", cfg.AWSRegion, "us-east-2")
-	clusterName := prompt("ECS cluster name", cfg.ClusterName, "rosa-boundary-dev")
-	efsFilesystemID := prompt("EFS filesystem ID", cfg.EFSFilesystemID, "")
+	keycloakURL, err := prompt("Keycloak URL", cfg.KeycloakURL, "https://auth.redhat.com/auth")
+	if err != nil {
+		return err
+	}
+	keycloakRealm, err := prompt("Keycloak realm", cfg.KeycloakRealm, "EmployeeIDP")
+	if err != nil {
+		return err
+	}
+	oidcClientID, err := prompt("OIDC client ID", cfg.OIDCClientID, "rosa-boundary-sre")
+	if err != nil {
+		return err
+	}
+	lambdaFunctionName, err := prompt("Lambda function name (required)", cfg.LambdaFunctionName, "")
+	if err != nil {
+		return err
+	}
+	invokerRoleARN, err := prompt("Invoker role ARN (required)", cfg.InvokerRoleARN, "")
+	if err != nil {
+		return err
+	}
+	sreRoleARN, err := prompt("SRE role ARN", cfg.SRERoleARN, "")
+	if err != nil {
+		return err
+	}
+	awsRegion, err := prompt("AWS region", cfg.AWSRegion, "us-east-2")
+	if err != nil {
+		return err
+	}
+	clusterName, err := prompt("ECS cluster name", cfg.ClusterName, "rosa-boundary-dev")
+	if err != nil {
+		return err
+	}
+	efsFilesystemID, err := prompt("EFS filesystem ID", cfg.EFSFilesystemID, "")
+	if err != nil {
+		return err
+	}
 	restorePrompt()
 
 	configDir, err := config.ConfigDir()

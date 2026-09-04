@@ -1,13 +1,32 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"testing"
+
+	"golang.org/x/term"
 )
+
+func TestNewTerminalPromptHandlesBackspace(t *testing.T) {
+	terminalInput := strings.NewReader("1928912\x7f\x7f\r")
+	terminalOutput := &bytes.Buffer{}
+	terminal := term.NewTerminal(readWriter{Reader: terminalInput, Writer: terminalOutput}, "")
+
+	prompt := newTerminalPrompt(terminal)
+	got := prompt("AWS Account ID", "", "")
+
+	if got != "19289" {
+		t.Fatalf("prompt returned %q, want %q", got, "19289")
+	}
+	if !strings.Contains(terminalOutput.String(), "AWS Account ID: 1928912") {
+		t.Fatalf("prompt output does not contain the entered value: %q", terminalOutput.String())
+	}
+}
 
 func TestDeriveInvokerRoleARN(t *testing.T) {
 	tests := []struct {

@@ -3,11 +3,14 @@ package cmd
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -98,29 +101,90 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	return runConfigureInteractive(cmd)
 }
 
+// promptDisplay returns the value shown to the user and used when input is empty.
+func promptDisplay(current, def string) string {
+	if current != "" {
+		return current
+	}
+	return def
+}
+
+// promptText formats a prompt label and its optional default value.
+func promptText(label, display string) string {
+	if display != "" {
+		return fmt.Sprintf("%s [%s]: ", label, display)
+	}
+	return fmt.Sprintf("%s: ", label)
+}
+
+// promptValue trims user input and falls back to the displayed value when it is empty.
+func promptValue(input, display string) string {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return display
+	}
+	return input
+}
+
 // newPrompt returns a prompt function that reads from the given scanner. It
-// displays the label with the current/default value, reads user input, trims
-// whitespace, and falls back to the displayed value when input is empty.
+// is used for piped input, where terminal line editing is not available.
 func newPrompt(scanner *bufio.Scanner) func(label, current, def string) string {
 	return func(label, current, def string) string {
-		display := current
-		if display == "" {
-			display = def
-		}
-		if display != "" {
-			fmt.Fprintf(os.Stderr, "%s [%s]: ", label, display)
-		} else {
-			fmt.Fprintf(os.Stderr, "%s: ", label)
-		}
+		display := promptDisplay(current, def)
+		fmt.Fprint(os.Stderr, promptText(label, display))
 		if !scanner.Scan() {
 			return display
 		}
-		input := strings.TrimSpace(scanner.Text())
-		if input == "" {
+		return promptValue(scanner.Text(), display)
+	}
+}
+
+// readWriter combines the terminal input and output streams expected by term.Terminal.
+type readWriter struct {
+	io.Reader
+	io.Writer
+}
+
+// newTerminalPrompt creates a line-editing prompt for an interactive terminal.
+// term.Terminal handles Backspace, cursor movement, and other control keys after
+// the terminal is placed in raw mode by newConfigurePrompt.
+func newTerminalPrompt(terminal *term.Terminal) func(label, current, def string) string {
+	return func(label, current, def string) string {
+		display := promptDisplay(current, def)
+		terminal.SetPrompt(promptText(label, display))
+		input, err := terminal.ReadLine()
+		if err != nil {
 			return display
 		}
-		return input
+		return promptValue(input, display)
 	}
+}
+
+// newConfigurePrompt selects terminal line editing for a TTY and scanner input
+// for pipes and tests. The returned restore function is safe to call repeatedly.
+func newConfigurePrompt() (func(label, current, def string) string, func(), error) {
+	stdinFD := int(os.Stdin.Fd())
+	stderrFD := int(os.Stderr.Fd())
+	if !term.IsTerminal(stdinFD) || !term.IsTerminal(stderrFD) {
+		return newPrompt(bufio.NewScanner(os.Stdin)), func() {}, nil
+	}
+
+	state, err := term.MakeRaw(stdinFD)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not enable terminal input: %w", err)
+	}
+
+	terminal := term.NewTerminal(readWriter{Reader: os.Stdin, Writer: os.Stderr}, "")
+	var restoreOnce sync.Once
+	restore := func() {
+		restoreOnce.Do(func() {
+			if err := term.Restore(stdinFD, state); err != nil {
+				fmt.Fprintf(os.Stderr, "\nWarning: could not restore terminal input: %v\n", err)
+			}
+		})
+	}
+
+	return newTerminalPrompt(terminal), restore, nil
 }
 
 // DeriveInvokerRoleARN constructs the invoker role ARN from naming convention.
@@ -140,7 +204,11 @@ func runConfigureAuto(cmd *cobra.Command) error {
 		cfg = &config.Config{}
 	}
 
-	prompt := newPrompt(bufio.NewScanner(os.Stdin))
+	prompt, restorePrompt, err := newConfigurePrompt()
+	if err != nil {
+		return err
+	}
+	defer restorePrompt()
 
 	// 1. Collect seed values — skip prompts for values set via flags.
 	accountID := configAccountID
@@ -169,6 +237,7 @@ func runConfigureAuto(cmd *cobra.Command) error {
 	if !cmd.Flags().Changed("stage") {
 		stage = prompt("Stage", stage, "prod")
 	}
+	restorePrompt()
 
 	fmt.Fprintln(os.Stderr)
 
@@ -363,7 +432,11 @@ func runConfigureInteractive(cmd *cobra.Command) error {
 		cfg = &config.Config{}
 	}
 
-	prompt := newPrompt(bufio.NewScanner(os.Stdin))
+	prompt, restorePrompt, err := newConfigurePrompt()
+	if err != nil {
+		return err
+	}
+	defer restorePrompt()
 
 	fmt.Fprintln(os.Stderr, "Run 'rosa-boundary configure --help' for details on each configuration field.")
 	fmt.Fprintln(os.Stderr)
@@ -377,6 +450,7 @@ func runConfigureInteractive(cmd *cobra.Command) error {
 	awsRegion := prompt("AWS region", cfg.AWSRegion, "us-east-2")
 	clusterName := prompt("ECS cluster name", cfg.ClusterName, "rosa-boundary-dev")
 	efsFilesystemID := prompt("EFS filesystem ID", cfg.EFSFilesystemID, "")
+	restorePrompt()
 
 	configDir, err := config.ConfigDir()
 	if err != nil {

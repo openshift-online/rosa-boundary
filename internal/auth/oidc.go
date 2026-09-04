@@ -44,7 +44,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		}
 	}
 
-	output.Debug("No cached token, authenticating...")
+	if err := output.Debug("No cached token, authenticating..."); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
 	verifier, challenge, err := generatePKCE()
 	if err != nil {
@@ -67,8 +69,10 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	authURL := buildAuthURL(authEndpoint, cfg.ClientID, redirectURI, state, challenge)
 
-	output.Debug("Starting local callback server on port %s...", callbackPort)
-	
+	if err := output.Debug("Starting local callback server on port %s...", callbackPort); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
+
 	// Start the callback server before opening the browser so it is already
 	// listening when the redirect arrives. The goroutine cleans up via the
 	// 120-second context timeout if no callback is received.
@@ -84,7 +88,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	if err := openBrowser(authURL); err != nil {
 		output.Status("Could not open browser automatically. Please visit:\n%s", authURL)
 	} else {
-		output.Debug("Opened browser for authentication. If it fails, visit:\n%s", authURL)
+		if err := output.Debug("Opened browser for authentication. If it fails, visit:\n%s", authURL); err != nil {
+			return "", fmt.Errorf("debug output failed: %w", err)
+		}
 	}
 
 	result := <-codeCh
@@ -93,7 +99,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		return "", fmt.Errorf("callback failed: %w", err)
 	}
 
-	output.Debug("Authorization code received, exchanging for token...")
+	if err := output.Debug("Authorization code received, exchanging for token..."); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
 	token, err := exchangeCode(tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
 	if err != nil {
@@ -101,10 +109,14 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 	}
 
 	if err := SaveToken(token); err != nil {
-		output.Debug("Warning: could not cache token: %v", err)
+		if debugErr := output.Debug("Warning: could not cache token: %v", err); debugErr != nil {
+			return "", fmt.Errorf("debug output failed: %w", debugErr)
+		}
 	}
 
-	output.Debug("ID token obtained successfully")
+	if err := output.Debug("ID token obtained successfully"); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 	return token, nil
 }
 

@@ -116,7 +116,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		sessionName = "rosa-boundary-" + sanitizeSessionName(lambdaResp.Owner)
 	}
 
-	debugf("Assuming role %s as session %s", roleARN, sessionName)
+	if err := debugf("Assuming role %s as session %s", roleARN, sessionName); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 
 	pkce := auth.PKCEConfig{
 		KeycloakURL: cfg.KeycloakURL,

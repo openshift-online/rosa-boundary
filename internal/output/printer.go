@@ -21,10 +21,13 @@ func Statusf(format string, args ...any) {
 var Verbose bool
 
 // Debug writes a debug message to stderr if Verbose is true.
-func Debug(format string, args ...any) {
-	if Verbose {
-		fmt.Fprintf(os.Stderr, "[debug] "+format+"\n", args...)
+func Debug(format string, args ...any) error {
+	if !Verbose {
+		return nil
 	}
+
+	_, err := fmt.Fprintf(os.Stderr, "[debug] "+format+"\n", args...)
+	return err
 }
 
 // Fatal writes an error message to stderr and exits with code 1.

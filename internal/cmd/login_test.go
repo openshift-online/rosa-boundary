@@ -58,14 +58,18 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	os.Stdout = stdoutWriter
 
 	runErr := runLogin(&cobra.Command{}, nil)
-	stdoutWriter.Close()
+	if err := stdoutWriter.Close(); err != nil {
+		t.Errorf("closing captured stdout writer: %v", err)
+	}
 	os.Stdout = oldStdout
 
 	var stdout bytes.Buffer
 	if _, err := io.Copy(&stdout, stdoutReader); err != nil {
 		t.Fatalf("reading stdout: %v", err)
 	}
-	stdoutReader.Close()
+	if err := stdoutReader.Close(); err != nil {
+		t.Errorf("closing captured stdout reader: %v", err)
+	}
 
 	if runErr != nil {
 		t.Fatalf("runLogin() error = %v", runErr)

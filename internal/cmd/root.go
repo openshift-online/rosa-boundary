@@ -12,6 +12,7 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 const (
@@ -87,6 +88,8 @@ func init() {
 }
 
 func initConfig() {
+	output.Verbose = verbose
+
 	if err := config.Load(); err != nil {
 		fmt.Fprintln(os.Stderr, "Warning: config error:", err)
 	}
@@ -108,9 +111,7 @@ func getConfig(requireKeycloakURL bool) (*config.Config, error) {
 
 // debugf prints a debug message if verbose mode is enabled.
 func debugf(format string, args ...any) {
-	if verbose {
-		fmt.Fprintf(os.Stderr, "[debug] "+format+"\n", args...)
-	}
+	output.Debug(format, args...)
 }
 
 // assumeRoleWithRetry fetches an OIDC token and assumes the given role.

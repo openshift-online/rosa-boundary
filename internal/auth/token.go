@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 const (
@@ -46,9 +47,7 @@ func CachedToken() (string, error) {
 	expiration, err := parseTokenExpiration(token)
 	if err != nil {
 		// Invalid token format — clean up corrupted cache so it does not keep failing.
-		if _, writeErr := fmt.Fprintf(os.Stderr, "Cached token invalid: %v\n", err); writeErr != nil {
-			return "", fmt.Errorf("cached token invalid: %w; diagnostic write failed: %v", err, writeErr)
-		}
+		output.Debug("Cached token invalid: %v", err)
 		if removeErr := os.Remove(cachePath); removeErr != nil && !os.IsNotExist(removeErr) {
 			return "", fmt.Errorf("cached token invalid: %w; cannot remove token cache: %w", err, removeErr)
 		}
@@ -57,12 +56,12 @@ func CachedToken() (string, error) {
 
 	// Check if token is expired (with buffer)
 	if time.Now().Add(expirationBuffer).After(expiration) {
-		fmt.Fprintf(os.Stderr, "Cached token expired\n")
+		output.Debug("Cached token expired")
 		return "", nil
 	}
 
 	remaining := time.Until(expiration)
-	fmt.Fprintf(os.Stderr, "Using cached token (%d seconds remaining)\n", int(remaining.Seconds()))
+	output.Debug("Using cached token (%d seconds remaining)", int(remaining.Seconds()))
 	return token, nil
 }
 

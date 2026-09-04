@@ -18,25 +18,25 @@ func TestDeriveInvokerRoleARN(t *testing.T) {
 		expected    string
 	}{
 		{
-			name:      "default dev",
-			accountID: "123456789012",
-			project:   "rosa-boundary",
+			name:        "default dev",
+			accountID:   "123456789012",
+			project:     "rosa-boundary",
 			environment: "dev",
-			expected:  "arn:aws:iam::123456789012:role/rosa-boundary-dev-lambda-invoker",
+			expected:    "arn:aws:iam::123456789012:role/rosa-boundary-dev-lambda-invoker",
 		},
 		{
-			name:      "production",
-			accountID: "933409759055",
-			project:   "rosa-boundary",
+			name:        "production",
+			accountID:   "933409759055",
+			project:     "rosa-boundary",
 			environment: "prod",
-			expected:  "arn:aws:iam::933409759055:role/rosa-boundary-prod-lambda-invoker",
+			expected:    "arn:aws:iam::933409759055:role/rosa-boundary-prod-lambda-invoker",
 		},
 		{
-			name:      "custom project",
-			accountID: "111222333444",
-			project:   "my-project",
+			name:        "custom project",
+			accountID:   "111222333444",
+			project:     "my-project",
 			environment: "staging",
-			expected:  "arn:aws:iam::111222333444:role/my-project-staging-lambda-invoker",
+			expected:    "arn:aws:iam::111222333444:role/my-project-staging-lambda-invoker",
 		},
 	}
 
@@ -53,10 +53,10 @@ func TestDeriveInvokerRoleARN(t *testing.T) {
 
 func TestDeriveLambdaFunctionName(t *testing.T) {
 	tests := []struct {
-		name     string
-		project  string
+		name        string
+		project     string
 		environment string
-		expected string
+		expected    string
 	}{
 		{
 			name:        "default dev",
@@ -136,13 +136,13 @@ func readTerraformFile(t *testing.T, name string) string {
 
 // extractTerraformPattern finds a line like:
 //
-//	function_name = "${var.project}-${var.environment}-create-investigation"
+//	function_name = "${var.project}-${var.stage}-create-investigation"
 //
-// and returns the interpolation expression (e.g. "${var.project}-${var.environment}-create-investigation").
+// and returns the interpolation expression (e.g. "${var.project}-${var.stage}-create-investigation").
 // The attribute parameter matches the HCL attribute name (e.g. "function_name" or "name").
 func extractTerraformPattern(t *testing.T, content, attribute string) string {
 	t.Helper()
-	// Match:  attribute  =  "...${var.project}...${var.environment}..."
+	// Match:  attribute  =  "...${var.project}...${var.stage}..."
 	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(attribute) + `\s*=\s*"(\$\{var\.project\}[^"]*)"`)
 	matches := re.FindStringSubmatch(content)
 	if matches == nil {
@@ -151,10 +151,12 @@ func extractTerraformPattern(t *testing.T, content, attribute string) string {
 	return matches[1]
 }
 
-// expandTerraformVars replaces ${var.project} and ${var.environment} with the given values.
+// expandTerraformVars replaces the Terraform ${var.project} and ${var.stage}
+// tokens with the given project and environment values. The Go parameter is
+// named environment even though Terraform calls the same value stage.
 func expandTerraformVars(pattern, project, environment string) string {
 	result := strings.ReplaceAll(pattern, "${var.project}", project)
-	result = strings.ReplaceAll(result, "${var.environment}", environment)
+	result = strings.ReplaceAll(result, "${var.stage}", environment)
 	return result
 }
 
@@ -203,8 +205,8 @@ func TestContractDeriveInvokerRoleARN_MatchesTerraform(t *testing.T) {
 	pattern := extractTerraformPattern(t, content, "name")
 
 	for _, tt := range []struct {
-		accountID string
-		project   string
+		accountID   string
+		project     string
 		environment string
 	}{
 		{"123456789012", "rosa-boundary", "dev"},

@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -47,6 +49,8 @@ func TestGetTokenAuthenticatesAndCachesToken(t *testing.T) {
 		t.Fatalf("SaveToken() error = %v", err)
 	}
 	freshToken := testJWT(t, time.Now().Add(20*time.Minute))
+	flowCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	var authURL string
 	var callbackState string
@@ -62,24 +66,26 @@ func TestGetTokenAuthenticatesAndCachesToken(t *testing.T) {
 	}
 
 	var exchangeArgs struct {
+		ctx           context.Context
 		tokenEndpoint string
 		clientID      string
 		redirectURI   string
 		code          string
 		verifier      string
 	}
-	deps.codeExchanger = func(tokenEndpoint, clientID, redirectURI, code, verifier string) (string, error) {
+	deps.codeExchanger = func(ctx context.Context, tokenEndpoint, clientID, redirectURI, code, verifier string) (string, error) {
 		exchangeArgs = struct {
+			ctx           context.Context
 			tokenEndpoint string
 			clientID      string
 			redirectURI   string
 			code          string
 			verifier      string
-		}{tokenEndpoint, clientID, redirectURI, code, verifier}
+		}{ctx, tokenEndpoint, clientID, redirectURI, code, verifier}
 		return freshToken, nil
 	}
 
-	got, err := getTokenWithDeps(context.Background(), PKCEConfig{
+	got, err := getTokenWithDeps(flowCtx, PKCEConfig{
 		KeycloakURL: "https://keycloak.example/",
 		Realm:       "test",
 		ClientID:    "client-id",
@@ -89,6 +95,9 @@ func TestGetTokenAuthenticatesAndCachesToken(t *testing.T) {
 	}
 	if got != freshToken {
 		t.Errorf("GetToken() = %q, want fresh token %q", got, freshToken)
+	}
+	if exchangeArgs.ctx != flowCtx {
+		t.Error("token exchange did not receive the flow context")
 	}
 
 	parsedAuthURL, err := url.Parse(authURL)
@@ -143,6 +152,43 @@ func TestGetTokenAuthenticatesAndCachesToken(t *testing.T) {
 	}
 }
 
+func TestExchangeCodeUsesContextAndFormRequest(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("request method = %q, want POST", r.Method)
+		}
+		if got, want := r.Header.Get("Content-Type"), "application/x-www-form-urlencoded"; got != want {
+			t.Errorf("Content-Type = %q, want %q", got, want)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm() error = %v", err)
+		}
+		if got, want := r.Form.Get("code"), "authorization-code"; got != want {
+			t.Errorf("code = %q, want %q", got, want)
+		}
+		_, _ = w.Write([]byte(`{"id_token":"id-token"}`))
+	}))
+	defer server.Close()
+
+	got, err := exchangeCode(context.Background(), server.URL, "client-id", "http://localhost/callback", "authorization-code", "verifier")
+	if err != nil {
+		t.Fatalf("exchangeCode() error = %v", err)
+	}
+	if got != "id-token" {
+		t.Errorf("exchangeCode() = %q, want id-token", got)
+	}
+}
+
+func TestExchangeCodeHonorsContextCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := exchangeCode(ctx, "http://127.0.0.1:1", "client-id", "http://localhost/callback", "authorization-code", "verifier")
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("exchangeCode() error = %v, want context canceled", err)
+	}
+}
+
 func TestGetTokenContinuesAfterBrowserLaunchFailure(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	freshToken := testJWT(t, time.Now().Add(10*time.Minute))
@@ -150,7 +196,7 @@ func TestGetTokenContinuesAfterBrowserLaunchFailure(t *testing.T) {
 		callbackServerStarter: func(context.Context, string) (string, error) {
 			return "authorization-code", nil
 		},
-		codeExchanger: func(_, _, _, code, verifier string) (string, error) {
+		codeExchanger: func(_ context.Context, _, _, _, code, verifier string) (string, error) {
 			if code != "authorization-code" {
 				t.Errorf("authorization code = %q, want authorization-code", code)
 			}
@@ -186,7 +232,7 @@ func TestGetTokenReturnsCallbackError(t *testing.T) {
 			return "", errors.New("state mismatch (possible CSRF)")
 		},
 		browserOpener: func(string) error { return nil },
-		codeExchanger: func(_, _, _, _, _ string) (string, error) {
+		codeExchanger: func(_ context.Context, _, _, _, _, _ string) (string, error) {
 			exchangeCalled = true
 			return "unexpected-token", nil
 		},

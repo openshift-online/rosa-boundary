@@ -39,7 +39,7 @@ type tokenResponse struct {
 type oidcDependencies struct {
 	browserOpener         func(string) error
 	callbackServerStarter func(context.Context, string) (string, error)
-	codeExchanger         func(string, string, string, string, string) (string, error)
+	codeExchanger         func(context.Context, string, string, string, string, string) (string, error)
 }
 
 // GetToken obtains an OIDC ID token using the PKCE flow.
@@ -120,7 +120,7 @@ func getTokenWithDeps(ctx context.Context, cfg PKCEConfig, force bool, deps oidc
 		return "", fmt.Errorf("debug output failed: %w", err)
 	}
 
-	token, err := deps.codeExchanger(tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
+	token, err := deps.codeExchanger(ctx, tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
 	if err != nil {
 		return "", fmt.Errorf("token exchange failed: %w", err)
 	}
@@ -174,7 +174,7 @@ func buildAuthURL(authEndpoint, clientID, redirectURI, state, challenge string) 
 }
 
 // exchangeCode calls the Keycloak token endpoint to exchange an authorization code.
-func exchangeCode(tokenEndpoint, clientID, redirectURI, code, verifier string) (string, error) {
+func exchangeCode(ctx context.Context, tokenEndpoint, clientID, redirectURI, code, verifier string) (string, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -183,7 +183,14 @@ func exchangeCode(tokenEndpoint, clientID, redirectURI, code, verifier string) (
 		"code_verifier": {verifier},
 	}
 
-	resp, err := http.PostForm(tokenEndpoint, form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("cannot create HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("HTTP request failed: %w", err)
 	}

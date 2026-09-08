@@ -24,7 +24,7 @@ var (
 	configAccountID    string
 	configRegion       string
 	configProject      string
-	configStage        string
+	configEnvironment  string
 )
 
 var configureCmd = &cobra.Command{
@@ -43,7 +43,7 @@ Auto-discovery flags:
   --account-id    AWS account ID (prompted if not provided)
   --region        AWS region (prompted if not provided; default: us-east-2)
   --project       Project name for naming convention (default: rosa-boundary)
-  --stage         Deployment stage for naming convention (default: prod)
+  --environment   Deployment Environment for naming convention (default: prod)
 
 Configuration is written to ~/.config/rosa-boundary/config.yaml
 (respects XDG_CONFIG_HOME).
@@ -90,7 +90,7 @@ func init() {
 	configureCmd.Flags().StringVar(&configAccountID, "account-id", "", "AWS account ID (prompted if not provided)")
 	configureCmd.Flags().StringVar(&configRegion, "region", "", "AWS region (prompted if not provided; default: us-east-2)")
 	configureCmd.Flags().StringVar(&configProject, "project", "rosa-boundary", "Project name for naming convention")
-	configureCmd.Flags().StringVar(&configStage, "stage", "prod", "Deployment stage for naming convention")
+	configureCmd.Flags().StringVar(&configEnvironment, "environment", "prod", "Deployment environment for naming convention")
 	rootCmd.AddCommand(configureCmd)
 }
 
@@ -191,13 +191,13 @@ func newConfigurePrompt() (func(label, current, def string) (string, error), fun
 }
 
 // DeriveInvokerRoleARN constructs the invoker role ARN from naming convention.
-func DeriveInvokerRoleARN(accountID, project, stage string) string {
-	return fmt.Sprintf("arn:aws:iam::%s:role/%s-%s-lambda-invoker", accountID, project, stage)
+func DeriveInvokerRoleARN(accountID, project, environment string) string {
+	return fmt.Sprintf("arn:aws:iam::%s:role/%s-%s-lambda-invoker", accountID, project, environment)
 }
 
 // DeriveLambdaFunctionName constructs the Lambda function name from naming convention.
-func DeriveLambdaFunctionName(project, stage string) string {
-	return fmt.Sprintf("%s-%s-create-investigation", project, stage)
+func DeriveLambdaFunctionName(project, environment string) string {
+	return fmt.Sprintf("%s-%s-create-investigation", project, environment)
 }
 
 func runConfigureAuto(cmd *cobra.Command) error {
@@ -245,9 +245,9 @@ func runConfigureAuto(cmd *cobra.Command) error {
 			return err
 		}
 	}
-	stage := configStage
-	if !cmd.Flags().Changed("stage") {
-		stage, err = prompt("Stage", stage, "prod")
+	environment := configEnvironment
+	if !cmd.Flags().Changed("environment") {
+		environment, err = prompt("Environment", environment, "prod")
 		if err != nil {
 			return err
 		}
@@ -271,8 +271,8 @@ func runConfigureAuto(cmd *cobra.Command) error {
 	}
 
 	// 3. Derive bootstrap values from naming convention
-	invokerRoleARN := DeriveInvokerRoleARN(accountID, project, stage)
-	lambdaFunctionName := DeriveLambdaFunctionName(project, stage)
+	invokerRoleARN := DeriveInvokerRoleARN(accountID, project, environment)
+	lambdaFunctionName := DeriveLambdaFunctionName(project, environment)
 
 	// 4. OIDC login
 	output.Status("Authenticating with Red Hat SSO...")
@@ -294,7 +294,7 @@ func runConfigureAuto(cmd *cobra.Command) error {
 
 	invokerCreds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), region, invokerRoleARN, idToken, "rosa-boundary-configure")
 	if err != nil {
-		return fmt.Errorf("invoker role assumption failed: %w\n\nVerify that:\n  - AWS account ID %q is correct\n  - Project %q and stage %q match the deployment\n  - The invoker role exists: %s", err, accountID, project, stage, invokerRoleARN)
+		return fmt.Errorf("invoker role assumption failed: %w\n\nVerify that:\n  - AWS account ID %q is correct\n  - Project %q and environment %q match the deployment\n  - The invoker role exists: %s", err, accountID, project, environment, invokerRoleARN)
 	}
 	output.Status("  Invoker role assumed")
 	fmt.Fprintln(os.Stderr)

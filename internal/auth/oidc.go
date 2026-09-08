@@ -34,9 +34,26 @@ type tokenResponse struct {
 	ErrorDesc   string `json:"error_description"`
 }
 
+// oidcDependencies contains the side-effecting operations used by the PKCE flow.
+// Keeping them explicit allows orchestration tests to remain network-free.
+type oidcDependencies struct {
+	browserOpener         func(string) error
+	callbackServerStarter func(context.Context, string) (string, error)
+	codeExchanger         func(string, string, string, string, string) (string, error)
+}
+
 // GetToken obtains an OIDC ID token using the PKCE flow.
 // It checks the cache first (unless force is true), then opens the browser.
 func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
+	return getTokenWithDeps(ctx, cfg, force, oidcDependencies{
+		browserOpener:         openBrowser,
+		callbackServerStarter: startCallbackServer,
+		codeExchanger:         exchangeCode,
+	})
+}
+
+// getTokenWithDeps runs the PKCE flow with explicitly supplied side-effecting operations.
+func getTokenWithDeps(ctx context.Context, cfg PKCEConfig, force bool, deps oidcDependencies) (string, error) {
 	if !force {
 		cached, err := CachedToken()
 		if err == nil && cached != "" {
@@ -81,11 +98,11 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	codeCh := make(chan callbackResult, 1)
 	go func() {
-		code, err := startCallbackServer(callbackCtx, state)
+		code, err := deps.callbackServerStarter(callbackCtx, state)
 		codeCh <- callbackResult{code: code, err: err}
 	}()
 
-	if err := openBrowser(authURL); err != nil {
+	if err := deps.browserOpener(authURL); err != nil {
 		output.Status("Could not open browser automatically. Please visit:\n%s", authURL)
 	} else {
 		if err := output.Debug("Opened browser for authentication. If it fails, visit:\n%s", authURL); err != nil {
@@ -103,7 +120,7 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		return "", fmt.Errorf("debug output failed: %w", err)
 	}
 
-	token, err := exchangeCode(tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
+	token, err := deps.codeExchanger(tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
 	if err != nil {
 		return "", fmt.Errorf("token exchange failed: %w", err)
 	}

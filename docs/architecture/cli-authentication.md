@@ -107,8 +107,8 @@ You (no AWS creds, no token)
 └──────────────┬───────────────────────┘
                │
                ▼
-         ID token printed
-         to stdout
+         ID token cached locally;
+         never printed to stdout
 ```
 
 **What you need:**

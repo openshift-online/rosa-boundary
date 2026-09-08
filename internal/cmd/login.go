@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -17,7 +16,8 @@ var loginCmd = &cobra.Command{
 Opens a browser window for login, starts a local callback server on port 8400,
 and caches the resulting ID token for 4 minutes.
 
-The token is written to stdout; status messages go to stderr.`,
+The ID token is cached locally and is never written to stdout; status messages
+go to stderr.`,
 	RunE: runLogin,
 }
 
@@ -44,14 +44,12 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		ClientID:    cfg.OIDCClientID,
 	}
 
-	token, err := auth.GetToken(cmd.Context(), pkce, forceFreshLogin(forceLogin, loginForce))
+	_, err = auth.GetToken(cmd.Context(), pkce, forceFreshLogin(forceLogin, loginForce))
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 
-	// Write token to stdout
-	_, err = fmt.Fprintln(os.Stdout, token)
-	return err
+	return nil
 }
 
 // forceFreshLogin reports whether either supported login force flag was set.

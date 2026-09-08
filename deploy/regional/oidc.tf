@@ -245,23 +245,20 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         }
       },
       {
-        Sid    = "DescribeAndListECS"
+        Sid    = "DescribeListAndCleanupECS"
         Effect = "Allow"
+        # AWS IAM does not support resource-level permissions for either task
+        # definition list or deregistration operations, so both require '*'.
+        # Defense-in-depth comes from the exact familyPrefix used by the CLI and
+        # the project/stage/cluster/investigation naming convention for task defs.
         Action = [
           "ecs:DescribeTasks",
           "ecs:ListTasks",
-          "ecs:DescribeTaskDefinition"
+          "ecs:DescribeTaskDefinition",
+          "ecs:ListTaskDefinitions",
+          "ecs:DeregisterTaskDefinition"
         ]
         Resource = "*"
-      },
-      {
-        Sid    = "DeregisterTaskDefinition"
-        Effect = "Allow"
-        Action = ["ecs:DeregisterTaskDefinition"]
-        # Scoped to task definition families matching the project prefix.
-        # Per-investigation task defs follow the pattern:
-        #   {project}-{stage}-{cluster_id}-{investigation_id}-{timestamp}
-        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task-definition/${var.project}-${var.stage}-*"
       },
       {
         Sid      = "EFSReadAccessPoints"

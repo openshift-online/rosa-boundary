@@ -34,9 +34,15 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	debugf("Keycloak URL: %s", cfg.KeycloakURL)
-	debugf("Realm: %s", cfg.KeycloakRealm)
-	debugf("Client ID: %s", cfg.OIDCClientID)
+	if err := debugf("Keycloak URL: %s", cfg.KeycloakURL); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
+	if err := debugf("Realm: %s", cfg.KeycloakRealm); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
+	if err := debugf("Client ID: %s", cfg.OIDCClientID); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 
 	pkce := auth.PKCEConfig{
 		KeycloakURL: cfg.KeycloakURL,

@@ -10,11 +10,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 // PKCEConfig holds OIDC/Keycloak configuration for the PKCE flow.
@@ -33,9 +34,26 @@ type tokenResponse struct {
 	ErrorDesc   string `json:"error_description"`
 }
 
+// oidcDependencies contains the side-effecting operations used by the PKCE flow.
+// Keeping them explicit allows orchestration tests to remain network-free.
+type oidcDependencies struct {
+	browserOpener         func(string) error
+	callbackServerStarter func(context.Context, string) (string, error)
+	codeExchanger         func(context.Context, string, string, string, string, string) (string, error)
+}
+
 // GetToken obtains an OIDC ID token using the PKCE flow.
 // It checks the cache first (unless force is true), then opens the browser.
 func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
+	return getTokenWithDeps(ctx, cfg, force, oidcDependencies{
+		browserOpener:         openBrowser,
+		callbackServerStarter: startCallbackServer,
+		codeExchanger:         exchangeCode,
+	})
+}
+
+// getTokenWithDeps runs the PKCE flow with explicitly supplied side-effecting operations.
+func getTokenWithDeps(ctx context.Context, cfg PKCEConfig, force bool, deps oidcDependencies) (string, error) {
 	if !force {
 		cached, err := CachedToken()
 		if err == nil && cached != "" {
@@ -43,7 +61,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		}
 	}
 
-	fmt.Fprintln(os.Stderr, "No cached token, authenticating...")
+	if err := output.Debug("No cached token, authenticating..."); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
 	verifier, challenge, err := generatePKCE()
 	if err != nil {
@@ -66,8 +86,9 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	authURL := buildAuthURL(authEndpoint, cfg.ClientID, redirectURI, state, challenge)
 
-	fmt.Fprintf(os.Stderr, "Starting local callback server on port %s...\n", callbackPort)
-	fmt.Fprintf(os.Stderr, "\nIf the browser does not open automatically, visit:\n%s\n\n", authURL)
+	if err := output.Debug("Starting local callback server on port %s...", callbackPort); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
 	// Start the callback server before opening the browser so it is already
 	// listening when the redirect arrives. The goroutine cleans up via the
@@ -77,12 +98,16 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 	codeCh := make(chan callbackResult, 1)
 	go func() {
-		code, err := startCallbackServer(callbackCtx, state)
+		code, err := deps.callbackServerStarter(callbackCtx, state)
 		codeCh <- callbackResult{code: code, err: err}
 	}()
 
-	if err := openBrowser(authURL); err != nil {
-		fmt.Fprintln(os.Stderr, "Could not open browser automatically. Please use the URL above.")
+	if err := deps.browserOpener(authURL); err != nil {
+		output.Status("Could not open browser automatically. Please visit:\n%s", authURL)
+	} else {
+		if err := output.Debug("Opened browser for authentication. If it fails, visit:\n%s", authURL); err != nil {
+			return "", fmt.Errorf("debug output failed: %w", err)
+		}
 	}
 
 	result := <-codeCh
@@ -91,18 +116,24 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 		return "", fmt.Errorf("callback failed: %w", err)
 	}
 
-	fmt.Fprintln(os.Stderr, "Authorization code received, exchanging for token...")
+	if err := output.Debug("Authorization code received, exchanging for token..."); err != nil {
+		return "", fmt.Errorf("debug output failed: %w", err)
+	}
 
-	token, err := exchangeCode(tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
+	token, err := deps.codeExchanger(ctx, tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
 	if err != nil {
 		return "", fmt.Errorf("token exchange failed: %w", err)
 	}
 
 	if err := SaveToken(token); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: could not cache token: %v\n", err)
+		if debugErr := output.Debug("Warning: could not cache token: %v", err); debugErr != nil {
+			return "", fmt.Errorf("debug output failed: %w", debugErr)
+		}
 	}
 
-	fmt.Fprintln(os.Stderr, "ID token obtained successfully")
+	if err := output.Debug("ID token obtained successfully"); err != nil {
+		output.Status("Warning: could not write debug output: %v", err)
+	}
 	return token, nil
 }
 
@@ -143,7 +174,7 @@ func buildAuthURL(authEndpoint, clientID, redirectURI, state, challenge string) 
 }
 
 // exchangeCode calls the Keycloak token endpoint to exchange an authorization code.
-func exchangeCode(tokenEndpoint, clientID, redirectURI, code, verifier string) (string, error) {
+func exchangeCode(ctx context.Context, tokenEndpoint, clientID, redirectURI, code, verifier string) (string, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -152,7 +183,14 @@ func exchangeCode(tokenEndpoint, clientID, redirectURI, code, verifier string) (
 		"code_verifier": {verifier},
 	}
 
-	resp, err := http.PostForm(tokenEndpoint, form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("cannot create HTTP request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	client := http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("HTTP request failed: %w", err)
 	}

@@ -783,7 +783,8 @@ class TestSkipTask:
             with patch('handler.find_existing_access_point', return_value=None):
                 with patch('handler.efs') as mock_efs:
                     with patch('handler.ecs') as mock_ecs:
-                        with patch('handler.sts') as mock_sts:
+                        with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                            mock_ssm.describe_sessions.return_value = {'Sessions': []}
                             mock_efs.create_access_point.return_value = mock_ap
                             mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
                             mock_ecs.register_task_definition.return_value = self.REGISTERED_TASK_DEF
@@ -975,7 +976,14 @@ class TestDuplicateInvestigationDetection:
                     }
                 }
                 
-                with patch('handler.sts') as mock_sts:
+                mock_ecs.describe_tasks.return_value = {
+                    'tasks': [{
+                        'containers': [{'runtimeId': 'runtime-123'}]
+                    }]
+                }
+                
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
                     handler.create_investigation_task(
                         cluster='test-cluster',
@@ -998,13 +1006,20 @@ class TestDuplicateInvestigationDetection:
                     task=existing_task_arn,
                     reason="Investigation handover: replaced by new task"
                 )
+                mock_ecs.get_waiter.assert_called_once_with('tasks_stopped')
+                mock_ecs.get_waiter.return_value.wait.assert_called_once_with(
+                    cluster='test-cluster',
+                    tasks=[existing_task_arn],
+                    WaiterConfig={'Delay': 2, 'MaxAttempts': 10}
+                )
                 mock_ecs.run_task.assert_called_once()
 
     def test_no_duplicate_when_no_running_tasks(self):
         """Test that create proceeds when no running tasks exist for the investigation."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     # EFS: no existing access point
                     mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
                     mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
@@ -1013,6 +1028,11 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': []}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
 
                     mock_ecs.describe_task_definition.return_value = {
                         'taskDefinition': {
@@ -1162,6 +1182,11 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
 
                     mock_ecs.run_task.return_value = {
                         'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'}]
@@ -1190,7 +1215,8 @@ class TestDuplicateInvestigationDetection:
                         })
                     }
                     
-                    with patch('handler.sts') as mock_sts:
+                    with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                        mock_ssm.describe_sessions.return_value = {'Sessions': []}
                         mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
                         result = handler.lambda_handler(event, None)
 
@@ -1204,7 +1230,144 @@ class TestDuplicateInvestigationDetection:
             task=existing_task_arn,
             reason="Investigation handover: replaced by new task"
         )
+        mock_ecs.get_waiter.assert_called_once_with('tasks_stopped')
+        mock_ecs.get_waiter.return_value.wait.assert_called_once_with(
+            cluster='test-cluster',
+            tasks=[existing_task_arn],
+            WaiterConfig={'Delay': 2, 'MaxAttempts': 10}
+        )
 
+
+
+    def test_handover_fails_if_stop_task_errors(self):
+        """Test that handover fails closed if stop_task throws an exception."""
+        existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # ECS: list_tasks(startedBy=...) returns the existing task directly
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
+                    
+                    # Mock stop_task to raise Exception
+                    mock_ecs.stop_task.side_effect = Exception("AWS API Error")
+
+                    with pytest.raises(handler.HandoverFailedError) as exc_info:
+                        handler.create_investigation_task(
+                            cluster='test-cluster',
+                            task_def='rosa-boundary-dev',
+                            oidc_sub='sub-123',
+                            username='sre-user',
+                            abac_tag_key='username',
+                            abac_tag_value='sre-user',
+                            investigation_id='inv1',
+                            cluster_id='c1',
+                            subnets=['subnet-1'],
+                            security_group='sg-1',
+                            efs_filesystem_id='fs-1',
+                            oc_version='4.12'
+                        )
+
+                    assert existing_task_arn in exc_info.value.failed_tasks
+                    mock_ecs.run_task.assert_not_called()
+                    mock_ecs.get_waiter.assert_not_called()
+
+    def test_handover_fails_if_waiter_errors(self):
+        """Test that handover fails closed if waiter throws an exception."""
+        existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # ECS: list_tasks(startedBy=...) returns the existing task directly
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
+                    
+                    # Mock waiter to raise Exception
+                    mock_waiter = MagicMock()
+                    mock_waiter.wait.side_effect = Exception("Waiter Timeout")
+                    mock_ecs.get_waiter.return_value = mock_waiter
+
+                    with pytest.raises(handler.HandoverFailedError) as exc_info:
+                        handler.create_investigation_task(
+                            cluster='test-cluster',
+                            task_def='rosa-boundary-dev',
+                            oidc_sub='sub-123',
+                            username='sre-user',
+                            abac_tag_key='username',
+                            abac_tag_value='sre-user',
+                            investigation_id='inv1',
+                            cluster_id='c1',
+                            subnets=['subnet-1'],
+                            security_group='sg-1',
+                            efs_filesystem_id='fs-1',
+                            oc_version='4.12'
+                        )
+
+                    assert existing_task_arn in exc_info.value.failed_tasks
+                    mock_ecs.stop_task.assert_called_once()
+                    mock_ecs.run_task.assert_not_called()
+
+
+    def test_handover_fails_if_active_ssm_session(self):
+        """Test that handover fails closed if there is an active SSM session."""
+        existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # ECS: list_tasks(startedBy=...) returns the existing task directly
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+                    
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
+                    
+                    # Mock active session
+                    mock_ssm.describe_sessions.return_value = {'Sessions': [{'SessionId': 'session-123'}]}
+
+                    with pytest.raises(handler.HandoverFailedError) as exc_info:
+                        handler.create_investigation_task(
+                            cluster='test-cluster',
+                            task_def='rosa-boundary-dev',
+                            oidc_sub='sub-123',
+                            username='sre-user',
+                            abac_tag_key='username',
+                            abac_tag_value='sre-user',
+                            investigation_id='inv1',
+                            cluster_id='c1',
+                            subnets=['subnet-1'],
+                            security_group='sg-1',
+                            efs_filesystem_id='fs-1',
+                            oc_version='4.12'
+                        )
+
+                    assert existing_task_arn in exc_info.value.failed_tasks
+                    assert "locked by an active session" in str(exc_info.value)
+                    mock_ecs.stop_task.assert_not_called()
+                    mock_ecs.run_task.assert_not_called()
 
 class TestInvestigationStartedBy:
     """Unit tests for the investigation_started_by() helper."""
@@ -1236,12 +1399,18 @@ class TestInvestigationStartedBy:
         """run_task is called with startedBy matching investigation_started_by()."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
                     mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': []}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
                     mock_ecs.describe_task_definition.return_value = {
                         'taskDefinition': {
                             'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/base:1',
@@ -1352,7 +1521,8 @@ class TestPerInvestigationTaskDef:
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
                     mock_ecs.register_task_definition.return_value = {
                         'taskDefinition': {'taskDefinitionArn': per_inv_arn}
@@ -1366,6 +1536,11 @@ class TestPerInvestigationTaskDef:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': []}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
                     mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
                     mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
                     mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
@@ -1528,7 +1703,8 @@ class TestPerInvestigationTaskDef:
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     mock_efs.get_paginator.return_value.paginate.return_value = [{'AccessPoints': []}]
                     mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
                     mock_ecs.describe_task_definition.side_effect = Exception("Registration failed")
@@ -1537,6 +1713,11 @@ class TestPerInvestigationTaskDef:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': []}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
 
                     with pytest.raises(Exception, match="Registration failed"):
                         handler.create_investigation_task(
@@ -1568,7 +1749,8 @@ class TestPerInvestigationTaskDef:
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     mock_efs.get_paginator.return_value.paginate.return_value = [
                         {'AccessPoints': [{
                             'AccessPointId': 'fsap-existing',
@@ -1586,6 +1768,11 @@ class TestPerInvestigationTaskDef:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': []}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
 
                     with pytest.raises(Exception, match="Registration failed"):
                         handler.create_investigation_task(
@@ -1819,7 +2006,8 @@ class TestTaskTagging:
         """run_task must include username (ABAC key) and oidc_sub (audit) tags."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
 
         call_kwargs = mock_ecs.run_task.call_args[1]
@@ -1837,7 +2025,8 @@ class TestTaskTagging:
         task_timeout, created_at, and deadline (when timeout > 0)."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
 
         call_kwargs = mock_ecs.run_task.call_args[1]
@@ -1858,7 +2047,8 @@ class TestTaskTagging:
         """deadline tag must NOT be set when task_timeout=0 (reaper skips tagless tasks)."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     self._call_create_investigation(
                         mock_ecs, mock_efs, mock_sts, task_timeout=0
                     )
@@ -1872,7 +2062,8 @@ class TestTaskTagging:
         for IAM evaluation timing — both paths must agree on tag values)."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
 
         run_task_tags = {t['key']: t['value'] for t in mock_ecs.run_task.call_args[1]['tags']}
@@ -1886,7 +2077,8 @@ class TestTaskTagging:
         """tag_resource must be called with the ARN returned by run_task."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
 
         expected_arn = 'arn:aws:ecs:us-east-1:123:task/test-task'
@@ -1898,7 +2090,8 @@ class TestTaskTagging:
         username, oidc_sub, Name, and ManagedBy."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     self._call_create_investigation(mock_ecs, mock_efs, mock_sts)
 
         call_kwargs = mock_efs.create_access_point.call_args[1]
@@ -1916,7 +2109,8 @@ class TestTaskTagging:
         Using 'sub' was the old pattern and would break the shared role ABAC condition."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
-                with patch('handler.sts') as mock_sts:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
                     self._call_create_investigation(
                         mock_ecs, mock_efs, mock_sts,
                         oidc_sub='uid-999',

@@ -918,7 +918,7 @@ class TestSkipTask:
 
 
 class TestDuplicateInvestigationDetection:
-    """Test that creating an investigation with an already-running task is rejected."""
+    """Test that creating an investigation with an already-running task is replaced."""
 
     ENV_VARS = {
         'KEYCLOAK_URL': 'https://keycloak.example.com',
@@ -934,7 +934,7 @@ class TestDuplicateInvestigationDetection:
     }
 
     def test_duplicate_investigation_stops_existing_task(self):
-        """Test that a second task for the same investigation_id returns 409."""
+        """Test that a second task for the same investigation_id stops the existing task and replaces it."""
         existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
 
         with patch('handler.ecs') as mock_ecs:
@@ -1149,7 +1149,7 @@ class TestDuplicateInvestigationDetection:
 
     @patch.dict('os.environ', ENV_VARS)
     def test_lambda_handler_stops_duplicate_and_creates_new(self):
-        """Test that lambda_handler returns 409 when investigation already has a running task."""
+        """Test that lambda_handler returns 200 with the replacement task ARN."""
         import importlib
         importlib.reload(handler)
 

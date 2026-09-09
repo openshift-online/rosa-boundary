@@ -28,7 +28,6 @@ Use --efs-filesystem-id or set efs_filesystem_id in your config.`,
 }
 
 var (
-	closeClusterID       string
 	closeInvestigationID string
 	closeForce           bool
 	closeYes             bool
@@ -36,12 +35,10 @@ var (
 )
 
 func init() {
-	closeInvestigationCmd.Flags().StringVar(&closeClusterID, "cluster-id", "", "Cluster ID (required)")
 	closeInvestigationCmd.Flags().StringVar(&closeInvestigationID, "investigation-id", "", "Investigation ID (required)")
 	closeInvestigationCmd.Flags().BoolVar(&closeForce, "force", false, "Stop running tasks before deleting (default: error if tasks are running)")
 	closeInvestigationCmd.Flags().BoolVar(&closeYes, "yes", false, "Skip confirmation prompt for EFS access point deletion")
 	closeInvestigationCmd.Flags().StringVar(&closeOutputFormat, "output", "text", "Output format: text or json")
-	_ = closeInvestigationCmd.MarkFlagRequired("cluster-id")
 	_ = closeInvestigationCmd.MarkFlagRequired("investigation-id")
 	rootCmd.AddCommand(closeInvestigationCmd)
 }
@@ -63,16 +60,17 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 
 	// Step 1: Find EFS access point
 	output.Status("=== Step 1: Finding EFS Access Point ===")
-	output.Status("Cluster:        %s", closeClusterID)
 	output.Status("Investigation:  %s", closeInvestigationID)
 
-	ap, err := efsClient.FindAccessPointByTags(cmd.Context(), closeClusterID, closeInvestigationID)
+	ap, err := efsClient.FindAccessPointByTags(cmd.Context(), "", closeInvestigationID)
 	if err != nil {
 		return fmt.Errorf("failed to find EFS access point: %w", err)
 	}
 	if ap == nil {
-		return fmt.Errorf("no EFS access point found for cluster %q investigation %q", closeClusterID, closeInvestigationID)
+		return fmt.Errorf("no EFS access point found for investigation %q", closeInvestigationID)
 	}
+	closeClusterID := ap.Tags["ClusterID"]
+	output.Status("Cluster:        %s", closeClusterID)
 	output.Status("Found access point: %s (path: %s)", ap.AccessPointID, ap.Path)
 
 	// Step 2: Check for running tasks

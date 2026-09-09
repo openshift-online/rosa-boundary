@@ -70,6 +70,9 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no EFS access point found for investigation %q", closeInvestigationID)
 	}
 	closeClusterID := ap.Tags["ClusterID"]
+	if closeClusterID == "" {
+		return fmt.Errorf("retrieved EFS access point for investigation %q is missing a ClusterID tag", closeInvestigationID)
+	}
 	output.Status("Cluster:        %s", closeClusterID)
 	output.Status("Found access point: %s (path: %s)", ap.AccessPointID, ap.Path)
 

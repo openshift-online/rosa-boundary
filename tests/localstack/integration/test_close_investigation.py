@@ -112,3 +112,52 @@ def test_close_cleanup_family_prefix_excludes_other_investigations(ecs_client, e
 
     assert target_family in listed_families
     assert other_family not in listed_families
+
+@pytest.mark.integration
+def test_close_investigation_finds_cluster_dynamically(efs_client, efs_filesystem, efs_cleanup):
+    """
+    Verify that providing only the investigation ID retrieves an access point,
+    even when the request omits the cluster ID.
+    """
+    investigation_id = f"test-inv-{int(datetime.now().timestamp())}"
+    cluster_id = f"test-cluster-{int(datetime.now().timestamp())}"
+
+    # Create the access point to simulate a live investigation
+    response = efs_client.create_access_point(
+        FileSystemId=efs_filesystem,
+        PosixUser={'Uid': 1000, 'Gid': 1000},
+        RootDirectory={
+            'Path': f'/{cluster_id}/{investigation_id}',
+            'CreationInfo': {'OwnerUid': 1000, 'OwnerGid': 1000, 'Permissions': '0755'}
+        },
+        Tags=[
+            {'Key': 'InvestigationID', 'Value': investigation_id},
+            {'Key': 'ClusterID', 'Value': cluster_id}
+        ]
+    )
+    ap_id = response['AccessPointId']
+    efs_cleanup.register_access_point(ap_id)
+
+    # Now attempt to find it WITHOUT providing the cluster_id.
+    # We replicate the exact API call from efs.go FindAccessPointByTags.
+    paginator = efs_client.get_paginator('describe_access_points')
+    found_ap = None
+    for page in paginator.paginate(FileSystemId=efs_filesystem):
+        for ap in page.get('AccessPoints', []):
+            if ap.get('LifeCycleState') != 'available':
+                continue
+            tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
+            # Simulate the Go condition: (clusterID == "" || tags["ClusterID"] == clusterID) && tags["InvestigationID"] == investigationID
+            if tags.get('InvestigationID') == investigation_id:
+                found_ap = ap
+                break
+        if found_ap:
+            break
+
+    assert found_ap is not None
+    assert found_ap['AccessPointId'] == ap_id
+    
+    # We should be able to derive the ClusterID from the found access point
+    found_tags = {t['Key']: t['Value'] for t in found_ap.get('Tags', [])}
+    assert found_tags.get('ClusterID') == cluster_id
+

@@ -20,14 +20,6 @@ import requests
 from jwt import PyJWKClient
 from botocore.exceptions import ClientError
 
-class DuplicateInvestigationError(Exception):
-    """Raised when an investigation already has a running task."""
-    def __init__(self, message: str, existing_tasks: list = None, access_point_id: str = ''):
-        super().__init__(message)
-        self.existing_tasks = existing_tasks or []
-        self.access_point_id = access_point_id
-
-
 def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
     """
     Return a deterministic ECS startedBy value for the given investigation.
@@ -277,14 +269,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'owner': username,
             'oc_version': oc_version,
             'task_timeout': task_timeout
-        })
-
-    except DuplicateInvestigationError as e:
-        logger.warning(f"Duplicate investigation: {str(e)}")
-        return response(409, {
-            'error': str(e),
-            'existing_tasks': e.existing_tasks,
-            'access_point_id': e.access_point_id
         })
 
     except Exception as e:
@@ -619,12 +603,17 @@ def create_investigation_task(
     if not skip_task:
         existing_tasks = find_running_tasks_for_investigation(cluster, cluster_id, investigation_id)
         if existing_tasks:
-            logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}")
-            raise DuplicateInvestigationError(
-                f"Investigation '{investigation_id}' already has a running task",
-                existing_tasks=existing_tasks,
-                access_point_id=existing_ap['AccessPointId'] if existing_ap else ''
-            )
+            logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}. Stopping them for handover.")
+            for existing_task in existing_tasks:
+                try:
+                    ecs.stop_task(
+                        cluster=cluster,
+                        task=existing_task,
+                        reason="Investigation handover: replaced by new task"
+                    )
+                    logger.info(f"Stopped existing task: {existing_task}")
+                except Exception as e:
+                    logger.error(f"Failed to stop existing task {existing_task}: {str(e)}")
 
     if existing_ap:
         access_point_id = existing_ap['AccessPointId']

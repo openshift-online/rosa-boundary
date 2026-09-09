@@ -932,7 +932,7 @@ class TestDuplicateInvestigationDetection:
         'REQUIRED_GROUPS': 'sre-team',
     }
 
-    def test_duplicate_investigation_returns_409(self):
+    def test_duplicate_investigation_stops_existing_task(self):
         """Test that a second task for the same investigation_id returns 409."""
         existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
 
@@ -956,7 +956,27 @@ class TestDuplicateInvestigationDetection:
                 ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                 mock_ecs.get_paginator.return_value = ecs_paginator
 
-                with pytest.raises(handler.DuplicateInvestigationError) as exc_info:
+                mock_ecs.run_task.return_value = {
+                    'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'}]
+                }
+                mock_ecs.register_task_definition.return_value = {
+                    'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/new-def:1'}
+                }
+                mock_ecs.describe_task_definition.return_value = {
+                    'taskDefinition': {
+                        'containerDefinitions': [],
+                        'family': 'test-family',
+                        'taskRoleArn': 'arn:aws:iam::123456789012:role/task-role',
+                        'executionRoleArn': 'arn:aws:iam::123456789012:role/exec-role',
+                        'networkMode': 'awsvpc',
+                        'requiresCompatibilities': ['FARGATE'],
+                        'cpu': '256',
+                        'memory': '512'
+                    }
+                }
+                
+                with patch('handler.sts') as mock_sts:
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
                     handler.create_investigation_task(
                         cluster='test-cluster',
                         task_def='rosa-boundary-dev',
@@ -973,12 +993,12 @@ class TestDuplicateInvestigationDetection:
                         task_timeout=3600
                     )
 
-                assert existing_task_arn in exc_info.value.existing_tasks
-                assert exc_info.value.access_point_id == 'fsap-existing'
-
-                # Should NOT have called run_task or register_task_definition
-                mock_ecs.run_task.assert_not_called()
-                mock_ecs.register_task_definition.assert_not_called()
+                mock_ecs.stop_task.assert_called_once_with(
+                    cluster='test-cluster',
+                    task=existing_task_arn,
+                    reason="Investigation handover: replaced by new task"
+                )
+                mock_ecs.run_task.assert_called_once()
 
     def test_no_duplicate_when_no_running_tasks(self):
         """Test that create proceeds when no running tasks exist for the investigation."""
@@ -1108,7 +1128,7 @@ class TestDuplicateInvestigationDetection:
                 mock_ecs.run_task.assert_not_called()
 
     @patch.dict('os.environ', ENV_VARS)
-    def test_lambda_handler_returns_409_for_duplicate(self):
+    def test_lambda_handler_stops_duplicate_and_creates_new(self):
         """Test that lambda_handler returns 409 when investigation already has a running task."""
         import importlib
         importlib.reload(handler)
@@ -1143,6 +1163,25 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
 
+                    mock_ecs.run_task.return_value = {
+                        'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'}]
+                    }
+                    mock_ecs.register_task_definition.return_value = {
+                        'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/new-def:1'}
+                    }
+                    mock_ecs.describe_task_definition.return_value = {
+                        'taskDefinition': {
+                            'containerDefinitions': [],
+                            'family': 'test-family',
+                            'taskRoleArn': 'arn:aws:iam::123456789012:role/task-role',
+                            'executionRoleArn': 'arn:aws:iam::123456789012:role/exec-role',
+                            'networkMode': 'awsvpc',
+                            'requiresCompatibilities': ['FARGATE'],
+                            'cpu': '256',
+                            'memory': '512'
+                        }
+                    }
+                    
                     event = {
                         'headers': {'authorization': 'Bearer valid-token'},
                         'body': json.dumps({
@@ -1150,13 +1189,21 @@ class TestDuplicateInvestigationDetection:
                             'investigation_id': 'inv-123'
                         })
                     }
-                    result = handler.lambda_handler(event, None)
+                    
+                    with patch('handler.sts') as mock_sts:
+                        mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                        result = handler.lambda_handler(event, None)
 
-        assert result['statusCode'] == 409
+        assert result['statusCode'] == 200
         body = json.loads(result['body'])
-        assert 'already has a running task' in body['error']
-        assert existing_task_arn in body['existing_tasks']
+        assert body['message'] == 'Investigation task created successfully'
+        assert body['task_arn'] == 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'
         assert body['access_point_id'] == 'fsap-existing'
+        mock_ecs.stop_task.assert_called_once_with(
+            cluster='test-cluster',
+            task=existing_task_arn,
+            reason="Investigation handover: replaced by new task"
+        )
 
 
 class TestInvestigationStartedBy:

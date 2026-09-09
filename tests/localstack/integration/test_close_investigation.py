@@ -114,7 +114,7 @@ def test_close_cleanup_family_prefix_excludes_other_investigations(ecs_client, e
     assert other_family not in listed_families
 
 @pytest.mark.integration
-def test_close_investigation_finds_cluster_dynamically(efs_client, efs_filesystem, efs_cleanup):
+def test_close_investigation_finds_cluster_dynamically(efs_client, test_efs, ecs_cleanup):
     """
     Verify that providing only the investigation ID retrieves an access point,
     even when the request omits the cluster ID.
@@ -124,7 +124,7 @@ def test_close_investigation_finds_cluster_dynamically(efs_client, efs_filesyste
 
     # Create the access point to simulate a live investigation
     response = efs_client.create_access_point(
-        FileSystemId=efs_filesystem,
+        FileSystemId=test_efs,
         PosixUser={'Uid': 1000, 'Gid': 1000},
         RootDirectory={
             'Path': f'/{cluster_id}/{investigation_id}',
@@ -136,13 +136,13 @@ def test_close_investigation_finds_cluster_dynamically(efs_client, efs_filesyste
         ]
     )
     ap_id = response['AccessPointId']
-    efs_cleanup.register_access_point(ap_id)
+    ecs_cleanup.register_access_point(ap_id)
 
     # Now attempt to find it WITHOUT providing the cluster_id.
     # We replicate the exact API call from efs.go FindAccessPointByTags.
     paginator = efs_client.get_paginator('describe_access_points')
     found_ap = None
-    for page in paginator.paginate(FileSystemId=efs_filesystem):
+    for page in paginator.paginate(FileSystemId=test_efs):
         for ap in page.get('AccessPoints', []):
             if ap.get('LifeCycleState') != 'available':
                 continue

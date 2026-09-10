@@ -622,29 +622,18 @@ def create_investigation_task(
             failed_stops = []
             tasks_to_wait_for = []
             
+            # Preflight check: ensure no task has an active SSM session before stopping any
             for existing_task in existing_tasks:
                 try:
-                    # Check for active SSM sessions (ECS Exec)
-                    # The target format is ecs:{clusterName}_{taskId}_{containerRuntimeId}
-                    # We can use a wildcard for containerRuntimeId, but SSM describe-sessions requires an exact target.
-                    # Since we might not have the container runtime ID easily, checking describe_tasks to get it
-                    # is one way. However, describe-sessions also filters by target ID. Let's see if we can get it from task arn.
-                    
-                    # Extract task ID from task ARN
                     task_id = existing_task.split('/')[-1]
-                    
-                    # Describe the task to get the container runtime ID for rosa-boundary
                     task_details = ecs.describe_tasks(cluster=cluster, tasks=[existing_task])
                     tasks = task_details.get('tasks', [])
                     
                     if not tasks:
-                        # Treat absent tasks as no active session
-                        logger.warning(f"Task {existing_task} not found during describe_tasks, treating as no active session.")
-                        containers = []
-                    else:
-                        containers = tasks[0].get('containers', [])
+                        continue
+                        
+                    containers = tasks[0].get('containers', [])
                     
-                    is_active = False
                     for container in containers:
                         runtime_id = container.get('runtimeId')
                         if runtime_id:
@@ -655,17 +644,22 @@ def create_investigation_task(
                             ).get('Sessions', [])
                             
                             if sessions:
-                                is_active = True
-                                break
-                    
-                    if is_active:
-                        logger.warning(f"Task {existing_task} has an active SSM session, blocking handover.")
-                        raise HandoverFailedError(
-                            f"Investigation '{investigation_id}' is currently locked by an active session.",
-                            failed_tasks=[existing_task],
-                            status_code=409
-                        )
+                                logger.warning(f"Task {existing_task} has an active SSM session, blocking handover.")
+                                raise HandoverFailedError(
+                                    f"Investigation '{investigation_id}' is currently locked by an active session.",
+                                    failed_tasks=[existing_task],
+                                    status_code=409
+                                )
+                except HandoverFailedError:
+                    raise
+                except (ClientError, BotoCoreError) as e:
+                    logger.error(f"Failed to describe task or sessions for {existing_task}: {str(e)}")
+                    # If we fail to describe, we might skip checking active sessions and proceed to try stopping.
+                    # Or we could fail here. Let's log and continue, which preserves original failure handling semantics.
+                    pass
 
+            for existing_task in existing_tasks:
+                try:
                     ecs.stop_task(
                         cluster=cluster,
                         task=existing_task,
@@ -673,8 +667,6 @@ def create_investigation_task(
                     )
                     tasks_to_wait_for.append(existing_task)
                     logger.info(f"Initiated stop for existing task: {existing_task}")
-                except HandoverFailedError:
-                    raise
                 except (ClientError, BotoCoreError) as e:
                     logger.error(f"Failed to initiate stop for existing task {existing_task}: {str(e)}")
                     failed_stops.append(existing_task)
@@ -687,7 +679,7 @@ def create_investigation_task(
                         tasks=tasks_to_wait_for,
                         WaiterConfig={
                             'Delay': 6,
-                            'MaxAttempts': 25
+                            'MaxAttempts': 28
                         }
                     )
                     logger.info(f"Successfully confirmed termination of existing tasks: {tasks_to_wait_for}")

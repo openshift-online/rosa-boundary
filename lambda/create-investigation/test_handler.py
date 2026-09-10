@@ -1010,7 +1010,7 @@ class TestDuplicateInvestigationDetection:
                 mock_ecs.get_waiter.return_value.wait.assert_called_once_with(
                     cluster='test-cluster',
                     tasks=[existing_task_arn],
-                    WaiterConfig={'Delay': 6, 'MaxAttempts': 25}
+                    WaiterConfig={'Delay': 6, 'MaxAttempts': 28}
                 )
                 mock_ecs.run_task.assert_called_once()
 
@@ -1234,7 +1234,7 @@ class TestDuplicateInvestigationDetection:
         mock_ecs.get_waiter.return_value.wait.assert_called_once_with(
             cluster='test-cluster',
             tasks=[existing_task_arn],
-            WaiterConfig={'Delay': 6, 'MaxAttempts': 25}
+            WaiterConfig={'Delay': 6, 'MaxAttempts': 28}
         )
 
 
@@ -1407,6 +1407,59 @@ class TestDuplicateInvestigationDetection:
                         )
 
                     assert existing_task_arn in exc_info.value.failed_tasks
+                    assert "locked by an active session" in str(exc_info.value)
+                    mock_ecs.stop_task.assert_not_called()
+                    mock_ecs.run_task.assert_not_called()
+
+    def test_handover_fails_without_partial_stops_if_second_task_has_active_session(self):
+        """Test that if a second task has an active SSM session, no task is stopped."""
+        task_1_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/task-1'
+        task_2_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/task-2'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # ECS: list_tasks(startedBy=...) returns both tasks
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': [task_1_arn, task_2_arn]}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+                    
+                    def describe_tasks_side_effect(cluster, tasks):
+                        if tasks[0] == task_1_arn:
+                            return {'tasks': [{'containers': [{'runtimeId': 'runtime-1'}]}]}
+                        elif tasks[0] == task_2_arn:
+                            return {'tasks': [{'containers': [{'runtimeId': 'runtime-2'}]}]}
+                        return {'tasks': []}
+                    
+                    mock_ecs.describe_tasks.side_effect = describe_tasks_side_effect
+                    
+                    # Mock active session only for task 2
+                    def describe_sessions_side_effect(State, Filters):
+                        target = Filters[0]['value']
+                        if 'task-2' in target:
+                            return {'Sessions': [{'SessionId': 'session-2'}]}
+                        return {'Sessions': []}
+                        
+                    mock_ssm.describe_sessions.side_effect = describe_sessions_side_effect
+
+                    with pytest.raises(handler.HandoverFailedError) as exc_info:
+                        handler.create_investigation_task(
+                            cluster='test-cluster',
+                            task_def='rosa-boundary-dev',
+                            oidc_sub='sub-123',
+                            username='sre-user',
+                            abac_tag_key='username',
+                            abac_tag_value='sre-user',
+                            investigation_id='inv1',
+                            cluster_id='c1',
+                            subnets=['subnet-1'],
+                            security_group='sg-1',
+                            efs_filesystem_id='fs-1',
+                            oc_version='4.12'
+                        )
+
+                    assert task_2_arn in exc_info.value.failed_tasks
                     assert "locked by an active session" in str(exc_info.value)
                     mock_ecs.stop_task.assert_not_called()
                     mock_ecs.run_task.assert_not_called()

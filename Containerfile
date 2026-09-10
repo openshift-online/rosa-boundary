@@ -75,6 +75,13 @@ RUN tar --extract --gunzip --no-same-owner --directory /usr/local/bin --file ./*
 # backplane-tools install all fetches the SRE toolchain (ocm, oc, osdctl, etc.)
 # github_dl print-token resolves the token (app or PAT) so backplane-tools
 # gets authenticated GitHub API access regardless of which auth method is configured.
+#
+# One-time refresh trigger: backplane-tools resolves the latest upstream
+# backplane-cli release at build time, but a new backplane-cli release does not
+# itself trigger the path-filtered rosa-boundary-on-push build. This comment is
+# an intentional Containerfile change to force a fresh image build so the
+# externally resolved Backplane toolset picks up backplane-cli v0.12.1 (ROSA
+# Boundary trusted-IP fix). Runtime behavior is unchanged.
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \

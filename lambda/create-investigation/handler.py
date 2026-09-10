@@ -687,30 +687,31 @@ def create_investigation_task(
             logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}. Stopping them for handover.")
             failed_stops = []
             tasks_to_wait_for = []
-            
+
+            # Preflight check: ensure no task has an active SSM session before stopping any
             for existing_task in existing_tasks:
                 try:
-                    # Check for active SSM sessions (ECS Exec)
-                    # The target format is ecs:{clusterName}_{taskId}_{containerRuntimeId}
-                    # We can use a wildcard for containerRuntimeId, but SSM describe-sessions requires an exact target.
-                    # Since we might not have the container runtime ID easily, checking describe_tasks to get it
-                    # is one way. However, describe-sessions also filters by target ID. Let's see if we can get it from task arn.
-                    
-                    # Extract task ID from task ARN
                     task_id = existing_task.split('/')[-1]
-                    
-                    # Describe the task to get the container runtime ID for rosa-boundary
                     task_details = ecs.describe_tasks(cluster=cluster, tasks=[existing_task])
                     tasks = task_details.get('tasks', [])
-                    
+
                     if not tasks:
-                        # Treat absent tasks as no active session
-                        logger.warning(f"Task {existing_task} not found during describe_tasks, treating as no active session.")
-                        containers = []
-                    else:
-                        containers = tasks[0].get('containers', [])
-                    
-                    is_active = False
+                        # Task was listed as RUNNING but describe_tasks returned no details.
+                        # This could be eventual consistency, permissions issue, or API error.
+                        # Fail closed rather than skip the active session check.
+                        logger.error(
+                            f"Task {existing_task} listed as RUNNING but describe_tasks returned no details. "
+                            f"Investigation: {investigation_id}, Cluster: {cluster_id}. "
+                            f"Failing handover to prevent interrupting potentially active session."
+                        )
+                        raise HandoverFailedError(
+                            f"Cannot verify session state for task {existing_task}: describe_tasks returned no details",
+                            failed_tasks=[existing_task],
+                            status_code=500
+                        )
+
+                    containers = tasks[0].get('containers', [])
+
                     for container in containers:
                         runtime_id = container.get('runtimeId')
                         if runtime_id:
@@ -719,19 +720,26 @@ def create_investigation_task(
                                 State='Active',
                                 Filters=[{'key': 'Target', 'value': target}]
                             ).get('Sessions', [])
-                            
-                            if sessions:
-                                is_active = True
-                                break
-                    
-                    if is_active:
-                        logger.warning(f"Task {existing_task} has an active SSM session, blocking handover.")
-                        raise HandoverFailedError(
-                            f"Investigation '{investigation_id}' is currently locked by an active session.",
-                            failed_tasks=[existing_task],
-                            status_code=409
-                        )
 
+                            if sessions:
+                                logger.warning(f"Task {existing_task} has an active SSM session, blocking handover.")
+                                raise HandoverFailedError(
+                                    f"Investigation '{investigation_id}' is currently locked by an active session.",
+                                    failed_tasks=[existing_task],
+                                    status_code=409
+                                )
+                except HandoverFailedError:
+                    raise
+                except (ClientError, BotoCoreError) as e:
+                    logger.error(f"Failed to describe task or sessions for {existing_task}: {str(e)}")
+                    raise HandoverFailedError(
+                        f"Cannot verify active sessions for investigation '{investigation_id}' due to AWS API error: {str(e)}",
+                        failed_tasks=[existing_task],
+                        status_code=500
+                    )
+
+            for existing_task in existing_tasks:
+                try:
                     ecs.stop_task(
                         cluster=cluster,
                         task=existing_task,
@@ -739,8 +747,6 @@ def create_investigation_task(
                     )
                     tasks_to_wait_for.append(existing_task)
                     logger.info(f"Initiated stop for existing task: {existing_task}")
-                except HandoverFailedError:
-                    raise
                 except (ClientError, BotoCoreError) as e:
                     logger.error(f"Failed to initiate stop for existing task {existing_task}: {str(e)}")
                     failed_stops.append(existing_task)
@@ -760,7 +766,7 @@ def create_investigation_task(
                 except (ClientError, BotoCoreError, WaiterError) as e:
                     logger.error(f"Failed waiting for tasks to reach STOPPED state: {str(e)}")
                     failed_stops.extend(tasks_to_wait_for)
-                    
+
             if failed_stops:
                 raise HandoverFailedError(
                     "Failed to stop or wait for termination of existing tasks during handover",
@@ -838,8 +844,20 @@ def create_investigation_task(
         if ap_newly_created:
             try:
                 efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            except ClientError as cleanup_error:
+                error_code = cleanup_error.response.get('Error', {}).get('Code', 'Unknown')
+                if error_code in ('AccessPointNotFound', 'FileSystemNotFound'):
+                    logger.info(f"Access point {access_point_id} already deleted during cleanup")
+                else:
+                    logger.error(
+                        f"Failed to clean up access point {access_point_id} after task definition registration failure. "
+                        f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {error_code}"
+                    )
+            except Exception as cleanup_error:
+                logger.error(
+                    f"Unexpected error cleaning up access point {access_point_id}. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(cleanup_error)}"
+                )
         raise
 
     # Build task tags (used for both run_task and tag_resource)
@@ -890,12 +908,31 @@ def create_investigation_task(
             logger.error(f"Task launch failures: {run_response['failures']}")
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
-            try:
-                efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            except ClientError as e:
+                logger.error(
+                    f"Failed to deregister task definition {investigation_task_def_arn} during cleanup. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {e.response.get('Error', {}).get('Code', 'Unknown')}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error deregistering task definition. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(e)}"
+                )
+            if ap_newly_created:
+                try:
+                    efs.delete_access_point(AccessPointId=access_point_id)
+                except ClientError as e:
+                    error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+                    if error_code not in ('AccessPointNotFound', 'FileSystemNotFound'):
+                        logger.error(
+                            f"Failed to delete access point {access_point_id} during cleanup. "
+                            f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {error_code}"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error deleting access point. "
+                        f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(e)}"
+                    )
             raise Exception(f"Failed to launch task: {run_response['failures']}")
 
         task_arn = run_response['tasks'][0]['taskArn']
@@ -915,16 +952,43 @@ def create_investigation_task(
             # Stop task and clean up
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+            except ClientError as e:
+                logger.error(
+                    f"Failed to deregister task definition during cleanup after tag failure. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {e.response.get('Error', {}).get('Code', 'Unknown')}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error deregistering task definition. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(e)}"
+                )
             try:
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Tagging failed')
-            except Exception:
-                pass
-            try:
-                efs.delete_access_point(AccessPointId=access_point_id)
-            except Exception:
-                pass
+            except ClientError as e:
+                logger.error(
+                    f"Failed to stop task during cleanup after tag failure. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {e.response.get('Error', {}).get('Code', 'Unknown')}"
+                )
+            except Exception as e:
+                logger.error(
+                    f"Unexpected error stopping task. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(e)}"
+                )
+            if ap_newly_created:
+                try:
+                    efs.delete_access_point(AccessPointId=access_point_id)
+                except ClientError as e:
+                    error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+                    if error_code not in ('AccessPointNotFound', 'FileSystemNotFound'):
+                        logger.error(
+                            f"Failed to delete access point during cleanup after tag failure. "
+                            f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {error_code}"
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Unexpected error deleting access point. "
+                        f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(e)}"
+                    )
             raise
 
         return {
@@ -938,19 +1002,46 @@ def create_investigation_task(
         if investigation_task_def_arn:
             try:
                 ecs.deregister_task_definition(taskDefinition=investigation_task_def_arn)
-            except Exception:
-                pass
+            except ClientError as cleanup_error:
+                logger.error(
+                    f"Failed to deregister task definition during cleanup. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {cleanup_error.response.get('Error', {}).get('Code', 'Unknown')}"
+                )
+            except Exception as cleanup_error:
+                logger.error(
+                    f"Unexpected error deregistering task definition. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(cleanup_error)}"
+                )
         # Stop task if it was created
         if task_arn:
             try:
                 ecs.stop_task(cluster=cluster, task=task_arn, reason='Launch failed')
-            except Exception:
-                pass
-        # Clean up access point
-        try:
-            efs.delete_access_point(AccessPointId=access_point_id)
-        except Exception:
-            pass
+            except ClientError as cleanup_error:
+                logger.error(
+                    f"Failed to stop task during cleanup. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {cleanup_error.response.get('Error', {}).get('Code', 'Unknown')}"
+                )
+            except Exception as cleanup_error:
+                logger.error(
+                    f"Unexpected error stopping task. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(cleanup_error)}"
+                )
+        # Clean up access point only if newly created
+        if ap_newly_created:
+            try:
+                efs.delete_access_point(AccessPointId=access_point_id)
+            except ClientError as cleanup_error:
+                error_code = cleanup_error.response.get('Error', {}).get('Code', 'Unknown')
+                if error_code not in ('AccessPointNotFound', 'FileSystemNotFound'):
+                    logger.error(
+                        f"Failed to delete access point during cleanup. "
+                        f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {error_code}"
+                    )
+            except Exception as cleanup_error:
+                logger.error(
+                    f"Unexpected error deleting access point. "
+                    f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(cleanup_error)}"
+                )
         raise
 
 

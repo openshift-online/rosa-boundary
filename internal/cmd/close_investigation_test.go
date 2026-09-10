@@ -15,15 +15,25 @@ func TestPrintCloseInvestigationSummary(t *testing.T) {
 	taskDefsRemoved := 1
 
 	old := os.Stderr
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	
+	t.Cleanup(func() {
+		os.Stderr = old
+	})
 	os.Stderr = w
 
 	printCloseInvestigationSummary(cluster, investigationID, accessPointID, tasksStopped, taskDefsRemoved)
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("failed to close writer: %v", err)
+	}
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
-	os.Stderr = old
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatalf("failed to read from pipe: %v", err)
+	}
 
 	output := buf.String()
 

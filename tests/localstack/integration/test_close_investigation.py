@@ -179,7 +179,7 @@ def test_close_investigation_finds_cluster_dynamically(efs_client, test_efs, ecs
         "--yes"
     ]
     
-    result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
     
     assert result.returncode == 0, f"Command failed: {result.stderr}\nStdout: {result.stdout}"
     

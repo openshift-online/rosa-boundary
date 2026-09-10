@@ -83,10 +83,14 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 		}
 		rows := make([]jsonRow, len(investigations))
 		for i, inv := range investigations {
+			owner := inv.Tags["uuid"]
+			if owner == "" {
+				owner = inv.Tags["username"]
+			}
 			rows[i] = jsonRow{
 				InvestigationID: inv.Tags["InvestigationID"],
 				ClusterID:       inv.Tags["ClusterID"],
-				Owner:           inv.Tags["uuid"],
+				Owner:           owner,
 				AccessPointID:   inv.AccessPointID,
 				State:           inv.LifeCycleState,
 			}
@@ -97,10 +101,14 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "OWNER", "ACCESS POINT", "STATE")
 	tbl.PrintHeader()
 	for _, inv := range investigations {
+		owner := inv.Tags["uuid"]
+		if owner == "" {
+			owner = inv.Tags["username"]
+		}
 		tbl.PrintRow(
 			inv.Tags["InvestigationID"],
 			inv.Tags["ClusterID"],
-			inv.Tags["uuid"],
+			owner,
 			inv.AccessPointID,
 			inv.LifeCycleState,
 		)

@@ -91,12 +91,16 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 		if t.StartedAt != nil {
 			startedAt = t.StartedAt.Format("2006-01-02 15:04")
 		}
+		owner := t.Tags["uuid"]
+		if owner == "" {
+			owner = t.Tags["username"]
+		}
 		tbl.PrintRow(
 			t.TaskID,
 			t.Status,
 			t.Tags["cluster_id"],
 			t.Tags["investigation_id"],
-			t.Tags["uuid"],
+			owner,
 			startedAt,
 		)
 	}

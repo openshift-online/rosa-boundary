@@ -122,7 +122,12 @@ def test_close_investigation_finds_cluster_dynamically(efs_client, test_efs, ecs
     import subprocess
     import os
     import platform
+    import shutil
     from pathlib import Path
+
+    go_path = shutil.which("go")
+    if go_path is None:
+        pytest.skip("Go compiler not found in PATH")
     
     investigation_id = f"test-inv-{int(datetime.now().timestamp())}"
     cluster_id = f"test-cluster-{int(datetime.now().timestamp())}"
@@ -152,7 +157,7 @@ def test_close_investigation_finds_cluster_dynamically(efs_client, test_efs, ecs
     # We need to compile the Go CLI first to make sure it's up to date
     repo_root = Path(__file__).resolve().parents[3]
     bin_path = repo_root / "bin" / "rosa-boundary"
-    subprocess.run(["go", "build", "-o", str(bin_path), "./cmd/rosa-boundary"], cwd=repo_root, check=True)
+    subprocess.run([go_path, "build", "-o", str(bin_path), "./cmd/rosa-boundary"], cwd=repo_root, check=True)
     
     # Setup AWS endpoints to point to LocalStack
     endpoint_url = "http://localhost:4566"

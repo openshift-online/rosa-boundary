@@ -13,7 +13,7 @@ Tests cover:
 import json
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, WaiterError
 
 # Import the handler
 import handler
@@ -1010,7 +1010,7 @@ class TestDuplicateInvestigationDetection:
                 mock_ecs.get_waiter.return_value.wait.assert_called_once_with(
                     cluster='test-cluster',
                     tasks=[existing_task_arn],
-                    WaiterConfig={'Delay': 2, 'MaxAttempts': 10}
+                    WaiterConfig={'Delay': 6, 'MaxAttempts': 25}
                 )
                 mock_ecs.run_task.assert_called_once()
 
@@ -1111,7 +1111,7 @@ class TestDuplicateInvestigationDetection:
 
     def test_duplicate_check_fails_closed_on_api_error(self):
         """Test that an ECS API error during duplicate check prevents task creation (fail-closed)."""
-        from botocore.exceptions import ClientError
+        from botocore.exceptions import ClientError, WaiterError
 
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
@@ -1234,10 +1234,52 @@ class TestDuplicateInvestigationDetection:
         mock_ecs.get_waiter.return_value.wait.assert_called_once_with(
             cluster='test-cluster',
             tasks=[existing_task_arn],
-            WaiterConfig={'Delay': 2, 'MaxAttempts': 10}
+            WaiterConfig={'Delay': 6, 'MaxAttempts': 25}
         )
 
 
+
+    def test_handover_succeeds_if_task_disappears_between_list_and_describe(self):
+        """Test that handover succeeds without IndexError if task disappears between list and describe."""
+        existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_ssm.describe_sessions.return_value = {'Sessions': []}
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # ECS: list_tasks returns the task, but describe_tasks returns empty
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+                    mock_ecs.describe_tasks.return_value = {'tasks': []}
+                    
+                    mock_efs.create_access_point.return_value = {'AccessPointId': 'fsap-new'}
+                    mock_ecs.register_task_definition.return_value = {
+                        'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:...'}
+                    }
+                    mock_ecs.run_task.return_value = {
+                        'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'}]
+                    }
+                    
+                    result = handler.create_investigation_task(
+                        cluster='test-cluster',
+                        task_def='rosa-boundary-dev',
+                        oidc_sub='sub-123',
+                        username='sre-user',
+                        abac_tag_key='username',
+                        abac_tag_value='sre-user',
+                        investigation_id='inv1',
+                        cluster_id='c1',
+                        subnets=['subnet-1'],
+                        security_group='sg-1',
+                        efs_filesystem_id='fs-1',
+                        oc_version='4.12'
+                    )
+
+                assert result['taskArn'] == 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'
+                mock_ecs.stop_task.assert_called_once()
+                mock_ecs.run_task.assert_called_once()
 
     def test_handover_fails_if_stop_task_errors(self):
         """Test that handover fails closed if stop_task throws an exception."""
@@ -1259,7 +1301,7 @@ class TestDuplicateInvestigationDetection:
                     }
                     
                     # Mock stop_task to raise Exception
-                    mock_ecs.stop_task.side_effect = Exception("AWS API Error")
+                    mock_ecs.stop_task.side_effect = ClientError({'Error': {'Code': 'Mock', 'Message': 'mock'}}, 'mock')
 
                     with pytest.raises(handler.HandoverFailedError) as exc_info:
                         handler.create_investigation_task(
@@ -1302,7 +1344,7 @@ class TestDuplicateInvestigationDetection:
                     
                     # Mock waiter to raise Exception
                     mock_waiter = MagicMock()
-                    mock_waiter.wait.side_effect = Exception("Waiter Timeout")
+                    mock_waiter.wait.side_effect = WaiterError("tasks_stopped", "mock", {"Error": {}})
                     mock_ecs.get_waiter.return_value = mock_waiter
 
                     with pytest.raises(handler.HandoverFailedError) as exc_info:

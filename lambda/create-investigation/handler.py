@@ -18,13 +18,14 @@ import boto3
 import jwt
 import requests
 from jwt import PyJWKClient
-from botocore.exceptions import ClientError, BotoCoreError
+from botocore.exceptions import ClientError, BotoCoreError, WaiterError
 
 class HandoverFailedError(Exception):
     """Raised when an existing investigation task cannot be stopped for handover."""
-    def __init__(self, message: str, failed_tasks: list = None):
+    def __init__(self, message: str, failed_tasks: list = None, status_code: int = 500):
         super().__init__(message)
         self.failed_tasks = failed_tasks or []
+        self.status_code = status_code
 
 def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
     """
@@ -280,7 +281,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     except HandoverFailedError as e:
         logger.error(f"Investigation handover failed: {str(e)}")
-        return response(500, {
+        return response(e.status_code, {
             'error': str(e),
             'failed_tasks': e.failed_tasks
         })
@@ -634,7 +635,14 @@ def create_investigation_task(
                     
                     # Describe the task to get the container runtime ID for rosa-boundary
                     task_details = ecs.describe_tasks(cluster=cluster, tasks=[existing_task])
-                    containers = task_details.get('tasks', [{}])[0].get('containers', [])
+                    tasks = task_details.get('tasks', [])
+                    
+                    if not tasks:
+                        # Treat absent tasks as no active session
+                        logger.warning(f"Task {existing_task} not found during describe_tasks, treating as no active session.")
+                        containers = []
+                    else:
+                        containers = tasks[0].get('containers', [])
                     
                     is_active = False
                     for container in containers:
@@ -654,7 +662,8 @@ def create_investigation_task(
                         logger.warning(f"Task {existing_task} has an active SSM session, blocking handover.")
                         raise HandoverFailedError(
                             f"Investigation '{investigation_id}' is currently locked by an active session.",
-                            failed_tasks=[existing_task]
+                            failed_tasks=[existing_task],
+                            status_code=409
                         )
 
                     ecs.stop_task(
@@ -666,7 +675,7 @@ def create_investigation_task(
                     logger.info(f"Initiated stop for existing task: {existing_task}")
                 except HandoverFailedError:
                     raise
-                except (ClientError, BotoCoreError, Exception) as e:
+                except (ClientError, BotoCoreError) as e:
                     logger.error(f"Failed to initiate stop for existing task {existing_task}: {str(e)}")
                     failed_stops.append(existing_task)
 
@@ -677,18 +686,18 @@ def create_investigation_task(
                         cluster=cluster,
                         tasks=tasks_to_wait_for,
                         WaiterConfig={
-                            'Delay': 2,
-                            'MaxAttempts': 10
+                            'Delay': 6,
+                            'MaxAttempts': 25
                         }
                     )
                     logger.info(f"Successfully confirmed termination of existing tasks: {tasks_to_wait_for}")
-                except (ClientError, BotoCoreError, Exception) as e:
+                except (ClientError, BotoCoreError, WaiterError) as e:
                     logger.error(f"Failed waiting for tasks to reach STOPPED state: {str(e)}")
                     failed_stops.extend(tasks_to_wait_for)
                     
             if failed_stops:
                 raise HandoverFailedError(
-                    f"Failed to stop or wait for termination of existing tasks during handover",
+                    "Failed to stop or wait for termination of existing tasks during handover",
                     failed_tasks=failed_stops
                 )
 

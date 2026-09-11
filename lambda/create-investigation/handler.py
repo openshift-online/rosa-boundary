@@ -481,9 +481,10 @@ def register_investigation_task_definition(
     """
     Register a per-investigation ECS task definition with the per-investigation EFS access point.
 
-    Fetches the base task definition, overrides the volume config with the per-investigation
-    access point, and bakes investigation-specific environment variables into the SRE container.
-    Injects the cluster kubeconfig Secrets Manager reference into the kube-proxy sidecar.
+    Fetches the base task definition, replaces the EFS access point, preserves unrelated
+    volumes and mounts, and enforces task-scoped OCM and kubeconfig overlays. Bakes
+    investigation-specific environment variables into the SRE container and injects the
+    cluster kubeconfig Secrets Manager reference into the kube-proxy sidecar.
     Returns the registered task definition ARN.
 
     Args:
@@ -506,7 +507,25 @@ def register_investigation_task_definition(
     timestamp = datetime.utcnow().strftime('%Y%m%dT%H%M%S')
     family = f"{base_td['family']}-{cluster_id}-{investigation_id}-{timestamp}"
 
+    credential_volumes = {
+        'ocm-config': '/home/sre/.config/ocm',
+        'kubeconfig': '/home/sre/.kube',
+    }
+    protected_paths = {'/home/sre', *credential_volumes.values()}
+    has_kube_proxy = any(
+        container.get('name') == 'kube-proxy'
+        for container in base_td.get('containerDefinitions', [])
+    )
+
+    # Preserve base volumes such as the sidecar-only proxy volume. Replace the
+    # investigation EFS volume and credential volumes so the latter cannot
+    # inherit persistent storage configuration from a stale base definition.
     volumes = [
+        dict(volume) for volume in base_td.get('volumes', [])
+        if volume.get('name') not in {'sre-home', *credential_volumes}
+        and (volume.get('name') != 'proxy-tmp' or has_kube_proxy)
+    ]
+    volumes.extend([
         {
             'name': 'sre-home',
             'efsVolumeConfiguration': {
@@ -518,10 +537,8 @@ def register_investigation_task_definition(
                 }
             }
         },
-        {
-            'name': 'proxy-tmp'  # ephemeral bind mount, no EFS config
-        }
-    ]
+        *({'name': name} for name in credential_volumes),
+    ])
 
     env_overrides = {
         'CLUSTER_ID': cluster_id,
@@ -545,6 +562,30 @@ def register_investigation_task_definition(
             existing_env = {e['name']: e['value'] for e in new_cd.get('environment', [])}
             existing_env.update(env_overrides)
             new_cd['environment'] = [{'name': k, 'value': v} for k, v in existing_env.items()]
+
+            # Preserve unrelated base mounts, replace the investigation home,
+            # and enforce task-scoped overlays for credential-bearing paths.
+            mount_points = [
+                dict(mount) for mount in new_cd.get('mountPoints', [])
+                if mount.get('sourceVolume') not in {'sre-home', *credential_volumes}
+                and mount.get('containerPath') not in protected_paths
+            ]
+            mount_points.extend([
+                {
+                    'sourceVolume': 'sre-home',
+                    'containerPath': '/home/sre',
+                    'readOnly': False,
+                },
+                *(
+                    {
+                        'sourceVolume': name,
+                        'containerPath': path,
+                        'readOnly': False,
+                    }
+                    for name, path in credential_volumes.items()
+                ),
+            ])
+            new_cd['mountPoints'] = mount_points
         elif new_cd['name'] == 'kube-proxy':
             # Inject cluster kubeconfig secret reference into the proxy sidecar
             existing_secrets = list(new_cd.get('secrets', []))
@@ -553,6 +594,11 @@ def register_investigation_task_definition(
                 'valueFrom': kubeconfig_secret_arn
             })
             new_cd['secrets'] = existing_secrets
+            new_cd['mountPoints'] = [
+                dict(mount) for mount in new_cd.get('mountPoints', [])
+                if mount.get('sourceVolume') not in credential_volumes
+                and mount.get('containerPath') not in credential_volumes.values()
+            ]
         container_defs.append(new_cd)
 
     register_kwargs = {

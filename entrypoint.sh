@@ -23,6 +23,8 @@ sync_to_s3() {
         #   which could point outside /home/sre and exfiltrate host-level files.
         timeout "${SYNC_TIMEOUT:-300}" \
             aws s3 sync /home/sre "${S3_AUDIT_ESCROW}" \
+            --exclude ".config/ocm/*" \
+            --exclude ".kube/*" \
             --no-follow-symlinks \
             --quiet ||
             echo "Warning: S3 sync failed or timed out" >&2

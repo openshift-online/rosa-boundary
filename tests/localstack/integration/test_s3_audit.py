@@ -1,7 +1,11 @@
-"""Test S3 audit bucket with WORM compliance"""
+"""Test S3 audit bucket with WORM compliance."""
+
+import re
+from datetime import datetime
+from fnmatch import fnmatch
+from pathlib import Path
 
 import pytest
-from datetime import datetime
 
 
 @pytest.mark.integration
@@ -109,8 +113,13 @@ def test_bucket_lifecycle_policy(s3_client):
 
 @pytest.mark.integration
 def test_s3_sync_behavior(s3_client, tmp_path):
-    """Test S3 sync behavior (simulating entrypoint.sh backup)"""
+    """Test entrypoint-equivalent filtering uploads controls but not credentials."""
     bucket_name = f'test-sync-bucket-{int(datetime.now().timestamp())}'
+    object_prefix = 'investigation-123/'
+    raw_token_canary = 'raw-token-canary-4e2d54'
+    base64_token_canary = 'cmF3LXRva2VuLWNhbmFyeS00ZTJkNTQ='
+    account_response_canary = 'account-response-canary-user-29817'
+    canaries = (raw_token_canary, base64_token_canary, account_response_canary)
 
     # Create bucket
     s3_client.create_bucket(
@@ -118,24 +127,54 @@ def test_s3_sync_behavior(s3_client, tmp_path):
         CreateBucketConfiguration={'LocationConstraint': 'us-east-2'}
     )
 
-    # Create test files
-    test_file1 = tmp_path / 'test1.txt'
-    test_file1.write_text('Test content 1')
+    files = {
+        'control.txt': 'ordinary audit control',
+        '.config/rosa-boundary/config.yaml': 'unrelated persistent configuration',
+        '.config/ocm/ocm.json': raw_token_canary,
+        '.config/ocm/.ocm.json.upload.tmp': base64_token_canary,
+        '.config/ocm/cache/account.json': account_response_canary,
+        '.kube/config': raw_token_canary,
+        '.kube/cache/discovery/response.json': account_response_canary,
+    }
+    for relative_path, contents in files.items():
+        test_file = tmp_path / relative_path
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text(contents)
 
-    test_file2 = tmp_path / 'subdir' / 'test2.txt'
-    test_file2.parent.mkdir(parents=True, exist_ok=True)
-    test_file2.write_text('Test content 2')
+    # Read the production patterns so this simulation fails if entrypoint
+    # filtering drifts from the expected complete credential subtrees.
+    entrypoint = Path(__file__).parents[3] / 'entrypoint.sh'
+    exclude_patterns = re.findall(r'--exclude "([^"]+)"', entrypoint.read_text())
+    assert exclude_patterns == ['.config/ocm/*', '.kube/*']
+    assert all(not pattern.startswith('/') for pattern in exclude_patterns)
 
-    # Upload files
-    s3_client.upload_file(str(test_file1), bucket_name, 'investigation-123/test1.txt')
-    s3_client.upload_file(str(test_file2), bucket_name, 'investigation-123/subdir/test2.txt')
+    for test_file in tmp_path.rglob('*'):
+        if not test_file.is_file():
+            continue
+        relative_path = test_file.relative_to(tmp_path).as_posix()
+        if any(fnmatch(relative_path, pattern) for pattern in exclude_patterns):
+            continue
+        s3_client.upload_file(
+            str(test_file),
+            bucket_name,
+            f'{object_prefix}{relative_path}'
+        )
 
-    # Verify files exist
-    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix='investigation-123/')
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix=object_prefix)
     assert response['KeyCount'] == 2
 
     keys = sorted([obj['Key'] for obj in response['Contents']])
-    assert keys == ['investigation-123/subdir/test2.txt', 'investigation-123/test1.txt']
+    assert keys == [
+        'investigation-123/.config/rosa-boundary/config.yaml',
+        'investigation-123/control.txt',
+    ]
+    assert not any('/.config/ocm/' in key or '/.kube/' in key for key in keys)
+
+    uploaded_bodies = ''.join(
+        s3_client.get_object(Bucket=bucket_name, Key=key)['Body'].read().decode()
+        for key in keys
+    )
+    assert all(canary not in uploaded_bodies for canary in canaries)
 
     # Cleanup
     for obj in response['Contents']:

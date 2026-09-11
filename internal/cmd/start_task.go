@@ -11,6 +11,7 @@ import (
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	ocmcredentials "github.com/openshift-online/rosa-boundary/internal/credentials/ocm"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
@@ -38,6 +39,9 @@ var (
 	startNoWait          bool
 	startForceLogin      bool
 	startOutputFormat    string
+	startCredentials     []string
+	startOCMURL          string
+	startOCMFlow         string
 )
 
 func init() {
@@ -50,6 +54,9 @@ func init() {
 	startTaskCmd.Flags().BoolVar(&startNoWait, "no-wait", false, "Return immediately without waiting for RUNNING")
 	startTaskCmd.Flags().BoolVar(&startForceLogin, "force-login", false, "Force fresh OIDC authentication")
 	startTaskCmd.Flags().StringVar(&startOutputFormat, "output", "text", "Output format: text or json")
+	startTaskCmd.Flags().StringSliceVar(&startCredentials, "with-credentials", nil, "Configure a credential provider after startup (supported: ocm)")
+	startTaskCmd.Flags().StringVar(&startOCMURL, "ocm-url", "", "OCM environment alias or approved canonical API URL")
+	startTaskCmd.Flags().StringVar(&startOCMFlow, "ocm-auth-flow", string(ocmcredentials.FlowAuthCode), "OCM authentication flow: auth-code or device")
 	rootCmd.AddCommand(startTaskCmd)
 }
 
@@ -58,6 +65,11 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	case "text", "json":
 	default:
 		return fmt.Errorf("invalid --output %q: must be text or json", startOutputFormat)
+	}
+
+	configureOCM, ocmEnvironment, ocmFlow, err := validateStartCredentials()
+	if err != nil {
+		return err
 	}
 
 	authRes := cachedAuthResult
@@ -153,6 +165,15 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Configure credentials only after the task and exec agent are ready, keeping
+	// the freshly issued OCM token's useful lifetime as long as possible.
+	if configureOCM {
+		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
+		if err := configureOCMForTask(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, ocmEnvironment, ocmFlow); err != nil {
+			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, err)
+		}
+	}
+
 	// Print summary
 	if startOutputFormat == "json" {
 		summary := map[string]any{
@@ -166,6 +187,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 			"access_point_id":  lambdaResp.AccessPointID,
 			"role_arn":         roleARN,
 		}
+		if configureOCM {
+			summary["credentials"] = []string{"ocm"}
+		}
 		if err := output.JSON(summary); err != nil {
 			return err
 		}
@@ -173,13 +197,52 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		printStartSummary(ecsCluster, clusterID, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion)
 	}
 
-	// Step 4: Auto-connect if requested
+	// Auto-connect only after any requested credential configuration succeeds.
 	if startConnect && !startNoWait {
-		output.Status("\n=== Step 4: Connecting to Task ===")
+		step := 4
+		if configureOCM {
+			step = 5
+		}
+		output.Status("\n=== Step %d: Connecting to Task ===", step)
 		return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, "rosa-boundary", defaultExecCommand, false)
 	}
 
 	return nil
+}
+
+func validateStartCredentials() (bool, ocmcredentials.Environment, ocmcredentials.Flow, error) {
+	if len(startCredentials) == 0 {
+		return false, ocmcredentials.Environment{}, "", nil
+	}
+	if startNoWait {
+		return false, ocmcredentials.Environment{}, "", fmt.Errorf("--with-credentials cannot be combined with --no-wait")
+	}
+	seenOCM := false
+	for _, provider := range startCredentials {
+		if provider != "ocm" {
+			return false, ocmcredentials.Environment{}, "", fmt.Errorf("unsupported credential provider %q; only ocm is supported", provider)
+		}
+		if seenOCM {
+			return false, ocmcredentials.Environment{}, "", fmt.Errorf("credential provider ocm was requested more than once")
+		}
+		seenOCM = true
+	}
+	environment, err := ocmcredentials.ResolveEnvironment(startOCMURL)
+	if err != nil {
+		return false, ocmcredentials.Environment{}, "", err
+	}
+	flow, err := parseOCMFlow(startOCMFlow)
+	if err != nil {
+		return false, ocmcredentials.Environment{}, "", err
+	}
+	return true, environment, flow, nil
+}
+
+func startCredentialFailure(investigationID, taskID, ecsCluster, region string, cause error) error {
+	return fmt.Errorf(
+		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
+		investigationID, taskID, cause, ecsCluster, region, taskID,
+	)
 }
 
 func printStartSummary(ecsCluster, clusterID, investigationID, taskID, ocVersion string, timeout int, accessPointID, roleARN, region string) {

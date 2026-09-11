@@ -45,7 +45,9 @@ def _register_multi_container_task_def(ecs_client, role_arn, test_efs, family_na
             },
             {
                 'name': 'proxy-tmp'  # bind mount, no EFS config
-            }
+            },
+            {'name': 'ocm-config'},
+            {'name': 'kubeconfig'}
         ],
         containerDefinitions=[
             {
@@ -61,7 +63,17 @@ def _register_multi_container_task_def(ecs_client, role_arn, test_efs, family_na
                     {'name': 'KUBE_PROXY_PORT', 'value': '8001'},
                 ],
                 'mountPoints': [
-                    {'sourceVolume': 'sre-home', 'containerPath': '/home/sre', 'readOnly': False}
+                    {'sourceVolume': 'sre-home', 'containerPath': '/home/sre', 'readOnly': False},
+                    {
+                        'sourceVolume': 'ocm-config',
+                        'containerPath': '/home/sre/.config/ocm',
+                        'readOnly': False
+                    },
+                    {
+                        'sourceVolume': 'kubeconfig',
+                        'containerPath': '/home/sre/.kube',
+                        'readOnly': False
+                    }
                 ],
                 'logConfiguration': {
                     'logDriver': 'awslogs',
@@ -153,7 +165,7 @@ def test_kube_proxy_has_readonly_root_filesystem(ecs_client, iam_client, test_ef
 
 @pytest.mark.integration
 def test_volume_mount_configuration(ecs_client, iam_client, test_efs):
-    """Test that volumes are correctly mounted: sre-home in SRE only, proxy-tmp in sidecar only."""
+    """Test SRE credential overlays and sidecar temporary storage remain isolated."""
     role_name, role_arn = _make_role(iam_client)
     family_name = f'test-kube-proxy-mounts-{int(datetime.now().timestamp())}'
 
@@ -168,9 +180,13 @@ def test_volume_mount_configuration(ecs_client, iam_client, test_efs):
         proxy_mounts = {mp['sourceVolume'] for mp in proxy_cd.get('mountPoints', [])}
 
         assert 'sre-home' in sre_mounts
+        assert 'ocm-config' in sre_mounts
+        assert 'kubeconfig' in sre_mounts
         assert 'proxy-tmp' not in sre_mounts
         assert 'proxy-tmp' in proxy_mounts
         assert 'sre-home' not in proxy_mounts
+        assert 'ocm-config' not in proxy_mounts
+        assert 'kubeconfig' not in proxy_mounts
     finally:
         task_def_arn = response['taskDefinition']['taskDefinitionArn']
         ecs_client.deregister_task_definition(taskDefinition=task_def_arn)
@@ -189,6 +205,24 @@ def test_proxy_tmp_volume_has_no_efs_config(ecs_client, iam_client, test_efs):
         volumes = response['taskDefinition']['volumes']
         proxy_vol = next(v for v in volumes if v['name'] == 'proxy-tmp')
         assert 'efsVolumeConfiguration' not in proxy_vol
+    finally:
+        task_def_arn = response['taskDefinition']['taskDefinitionArn']
+        ecs_client.deregister_task_definition(taskDefinition=task_def_arn)
+        iam_client.delete_role(RoleName=role_name)
+
+
+@pytest.mark.integration
+def test_credential_volumes_have_no_persistent_storage_config(ecs_client, iam_client, test_efs):
+    """Test credential volumes are empty task-scoped Fargate bind volumes."""
+    role_name, role_arn = _make_role(iam_client)
+    family_name = f'test-credential-vol-{int(datetime.now().timestamp())}'
+
+    try:
+        response = _register_multi_container_task_def(ecs_client, role_arn, test_efs, family_name)
+
+        volumes = {volume['name']: volume for volume in response['taskDefinition']['volumes']}
+        assert volumes['ocm-config'] == {'name': 'ocm-config'}
+        assert volumes['kubeconfig'] == {'name': 'kubeconfig'}
     finally:
         task_def_arn = response['taskDefinition']['taskDefinitionArn']
         ecs_client.deregister_task_definition(taskDefinition=task_def_arn)

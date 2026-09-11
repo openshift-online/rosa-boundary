@@ -17,7 +17,7 @@ CLI_VERSION ?= dev
 CLI_LDFLAGS := -ldflags "-X github.com/openshift-online/rosa-boundary/internal/cmd.Version=$(CLI_VERSION)"
 
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
-        build-cli install-cli test-cli test-coverage codecov fmt lint \
+        build-cli install-cli test-cli test-coverage codecov fmt lint test-shell lint-shell \
         validate-findings convert-sarif upload-sarif \
         test-github-dl
 
@@ -147,6 +147,16 @@ staticcheck: ## Run staticcheck before commits
 		exit 1; \
 	fi
 
+# Shell tests and linting are enforced independently because the general lint
+# target retains legacy best-effort behavior for developer compatibility.
+test-shell: ## Run bats-core tests for shell scripts
+	@command -v bats >/dev/null 2>&1 || { echo "bats is required for shell tests" >&2; exit 1; }
+	bats tests/shell
+
+lint-shell: ## Run shellcheck with failures enforced
+	@command -v shellcheck >/dev/null 2>&1 || { echo "shellcheck is required for shell linting" >&2; exit 1; }
+	shellcheck entrypoint.sh deploy/regional/examples/*.sh tests/shell/*.bats
+
 # Go CLI targets
 build-cli: ## Build the rosa-boundary Go CLI binary
 	@echo "Building rosa-boundary CLI..."
@@ -253,6 +263,8 @@ help:
 	@echo "Code Quality Targets:"
 	@echo "  make fmt          - Format Go code (gofmt) and shell scripts (shfmt)"
 	@echo "  make lint         - Lint Go (golangci-lint/go vet) and shell (shellcheck)"
+	@echo "  make test-shell   - Run bats-core shell tests"
+	@echo "  make lint-shell   - Run enforced shellcheck linting"
 	@echo "  make staticcheck  - Run staticcheck static analysis"
 	@echo ""
 	@echo "Security Findings Targets:"

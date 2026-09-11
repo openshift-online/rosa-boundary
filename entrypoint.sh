@@ -1,11 +1,4 @@
 #!/bin/bash
-set -e
-
-# Override HOME for root entrypoint so root operations (alternatives, aws s3
-# sync) don't create root-owned files under /home/sre (EFS). ECS Exec sessions
-# inherit the container-level ENV HOME=/home/sre from the Containerfile, not
-# this export, since they start as a separate process.
-export HOME=/root
 
 # Function to sync home directory to S3 on exit
 sync_to_s3() {
@@ -48,8 +41,30 @@ cleanup() {
     exit 0
 }
 
-# Trap signals for cleanup
-trap cleanup SIGTERM SIGINT SIGHUP
+# Initialize task-scoped credential mounts for use by the sre workload.
+# These explicit paths are required because HOME and ~ resolve to /root while
+# the privileged entrypoint runs; the Fargate mounts are under /home/sre.
+initialize_credential_mounts() {
+    local credential_dir
+
+    for credential_dir in /home/sre/.config/ocm /home/sre/.kube; do
+        mkdir --parents "${credential_dir}"
+        chown sre:sre "${credential_dir}"
+        chmod 0700 "${credential_dir}"
+    done
+}
+
+# Perform privileged container setup, then run the requested workload as sre.
+main() {
+    set -e
+
+    # Override HOME for root entrypoint so root operations (alternatives, aws
+    # s3 sync) don't create root-owned files under /home/sre (EFS). ECS Exec
+    # sessions inherit the image-level HOME=/home/sre in their own process.
+    export HOME=/root
+
+    # Trap signals for cleanup
+    trap cleanup SIGTERM SIGINT SIGHUP
 
 # Switch OpenShift CLI version if OC_VERSION is set
 if [ -n "${OC_VERSION}" ]; then
@@ -60,9 +75,12 @@ if [ -n "${OC_VERSION}" ]; then
     fi
 fi
 
+# Empty Fargate volumes are normally root-owned. Prepare both nested mounts
+# before writing proxy configuration or starting any process as sre.
+initialize_credential_mounts
+
 # Configure kubectl/oc to use the kube-proxy sidecar
 if [ -n "${KUBE_PROXY_PORT}" ]; then
-    mkdir -p /home/sre/.kube
     cat >/home/sre/.kube/config <<KUBECONFIG
 apiVersion: v1
 kind: Config
@@ -132,3 +150,8 @@ EXIT_CODE=$?
 # Sync on normal exit too
 sync_to_s3
 exit ${EXIT_CODE}
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

@@ -10,4 +10,6 @@ shell=bash
 # to preserve existing values without providing a default
 # SC1091: not following sourced file — external files (e.g., /etc/bashrc) are
 # not available during static analysis
-disable=SC2034,SC2269,SC1091
+# SC2016: AWS CLI JMESPath queries intentionally use single quotes so shell
+# expansion cannot alter query literals.
+disable=SC2034,SC2269,SC1091,SC2016

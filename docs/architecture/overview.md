@@ -15,7 +15,7 @@ rosa-boundary solves the problem of ephemeral, audited SRE access to ROSA/OpenSh
 
 - OIDC authentication via Red Hat SSO — SRE identity comes from the corporate IdP, not AWS
 - Ephemeral Fargate containers that exist only for the duration of an investigation, isolated per cluster and per investigation
-- Per-investigation EFS home directory: tools, notes, and kubeconfig are preserved across brief reconnects but destroyed when the investigation is closed
+- Per-investigation EFS home directory for tools and notes, with task-scoped overlays for OCM and kubeconfig credentials
 - Audit trail in S3 (full `/home/sre` sync on exit) and CloudWatch (ECS Exec session I/O and container stdout/stderr)
 - Tamper-proof task timeout enforced by an external reaper Lambda, not by the container itself
 
@@ -222,8 +222,25 @@ What happens:
 
 The user is now in an interactive shell with:
 - `/home/sre` mounted from the investigation's EFS access point
-- `oc` pointing at the target cluster via `~/.kube/config` (written by entrypoint using `KUBE_PROXY_PORT`)
+- `/home/sre/.config/ocm` and `/home/sre/.kube` mounted from separate task-scoped Fargate volumes
+- `oc` pointing at the target cluster via the ephemeral `~/.kube/config` when `KUBE_PROXY_PORT` is enabled
 - `claude` CLI configured for Bedrock
+
+The nested mounts prevent OCM and kubeconfig state from reaching EFS and destroy
+that state when the task stops. The S3 exit sync additionally excludes both
+subtrees as defense in depth while preserving unrelated investigation files.
+
+### OCM credential configuration
+
+`credentials configure ocm` issues a fresh workstation-side access token using
+authorization code with PKCE or the device fallback. The CLI streams only an
+access-token-and-URL request over ECS Exec stdin after the task helper disables
+terminal echo. The static helper validates the candidate with `ocm whoami`,
+discards command output, and atomically installs an access-token-only
+configuration. Refresh and offline tokens are never transferred or cached.
+
+`credentials clear ocm` removes OCM state and `.kube/config`; stopping the task
+is the authoritative cleanup because it destroys both credential volumes.
 
 ### Step 4: Task Expiry (Automatic)
 
@@ -245,7 +262,7 @@ It is immutable after task launch (task tags require `ecs:TagResource`, which th
 rosa-boundary stop-task <task-id>
 ```
 
-This calls `ecs:StopTask` using the sre-shared credentials. The container's SIGTERM trap fires, syncing `/home/sre` to S3 before exiting.
+This calls `ecs:StopTask` using the sre-shared credentials. The container's SIGTERM trap fires, syncing non-credential `/home/sre` content to S3 before the task-scoped credential volumes are destroyed.
 
 ### Step 6: Close an Investigation
 

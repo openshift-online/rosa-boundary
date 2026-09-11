@@ -95,7 +95,14 @@ Optional flags:
 ```
   --task-timeout 3600     # seconds; 0 = no timeout (default: 3600)
   --oc-version 4.20       # OpenShift CLI version to lock (default: latest)
+  --with-credentials ocm  # configure a fresh OCM token before returning
+  --ocm-url production    # production, staging, integration, or canonical URL
+  --ocm-auth-flow device  # headless fallback; auth-code is the default
 ```
+
+`--with-credentials` cannot be combined with `--no-wait`. If configuration
+fails after task creation, the CLI reports the still-running task ID and the
+exact `stop-task` cleanup command.
 
 What it does:
 1. **CLI assumes the invoker role** via STS (two-step: automation creds → invoker role)
@@ -142,7 +149,32 @@ claude --version    # Claude Code via Bedrock
 oc version --client # OpenShift CLI (locked to investigation version)
 ```
 
-All files in `/home/sre` persist to EFS across task restarts for the same investigation.
+Ordinary files in `/home/sre` persist to EFS across task restarts for the same
+investigation. OCM state under `.config/ocm` and kubeconfig state under `.kube`
+are task-scoped, excluded from S3 sync, and destroyed when the task stops.
+
+### Configure or clear OCM on an existing task
+
+```bash
+# Uses a fresh authorization-code-with-PKCE token
+./bin/rosa-boundary credentials configure ocm <task-id> --ocm-url production
+
+# Headless/device fallback
+./bin/rosa-boundary credentials configure ocm <task-id> \
+  --ocm-url staging \
+  --auth-flow device
+
+# Immediate removal; also removes credential-derived ~/.kube/config
+./bin/rosa-boundary credentials clear ocm <task-id>
+```
+
+If `--ocm-url` is omitted, only the non-secret `url` field is read from the
+workstation's `${XDG_CONFIG_HOME:-$HOME/.config}/ocm/ocm.json`. No local token
+is reused or copied. Before opening OCM authentication, the CLI verifies that
+the task image contains the credential helper. A failed preflight means the
+image must be rebuilt and deployed and a new task started. Re-running configure
+atomically replaces an expired token. Stopping the task remains authoritative
+cleanup even if clear is not run.
 
 ## Phase 5: Stop Task (Triggers S3 Sync)
 
@@ -154,7 +186,7 @@ All files in `/home/sre` persist to EFS across task restarts for the same invest
 
 What it does:
 1. Sends SIGTERM to the ECS task
-2. Container entrypoint cleanup runs `aws s3 sync /home/sre/ s3://...`
+2. Container entrypoint cleanup syncs non-credential `/home/sre/` content to S3
 3. S3 path is auto-generated: `s3://<bucket>/<cluster-id>/<investigation-id>/<date>/<task-id>/`
 4. Task transitions to STOPPED
 

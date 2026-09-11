@@ -12,6 +12,12 @@ This Lambda implements a secure workflow for creating investigation tasks:
 4. **EFS Isolation**: Creates unique access points for each investigation
 5. **Task Launch**: Starts Fargate tasks with ECS Exec enabled and proper tagging
 
+For every per-investigation task definition, the Lambda replaces only the EFS
+access point for `/home/sre`, preserves unrelated base volumes and mounts, and
+enforces empty task-scoped volumes at `/home/sre/.config/ocm` and
+`/home/sre/.kube`. The credential overlays are mounted only in the
+`rosa-boundary` container and never in the optional kube-proxy sidecar.
+
 ## Environment Variables
 
 ### Required

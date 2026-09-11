@@ -11,6 +11,7 @@ import hashlib
 import os
 import json
 import logging
+import posixpath
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
@@ -511,7 +512,24 @@ def register_investigation_task_definition(
         'ocm-config': '/home/sre/.config/ocm',
         'kubeconfig': '/home/sre/.kube',
     }
-    protected_paths = {'/home/sre', *credential_volumes.values()}
+    credential_paths = tuple(credential_volumes.values())
+
+    def protected_mount_path(container_path: str, include_home: bool = False) -> bool:
+        """Return whether a canonical mount path can mask protected task storage."""
+        if not isinstance(container_path, str) or not container_path.startswith('/'):
+            raise ValueError('Base task definition contains an invalid container mount path')
+        if '..' in container_path.split('/'):
+            raise ValueError('Base task definition container mount path contains traversal')
+
+        canonical_path = posixpath.normpath('/' + container_path.lstrip('/'))
+        if include_home and canonical_path == '/home/sre':
+            return True
+        return any(
+            canonical_path == credential_path
+            or canonical_path.startswith(f'{credential_path}/')
+            for credential_path in credential_paths
+        )
+
     has_kube_proxy = any(
         container.get('name') == 'kube-proxy'
         for container in base_td.get('containerDefinitions', [])
@@ -557,6 +575,14 @@ def register_investigation_task_definition(
     container_defs = []
     for cd in base_td.get('containerDefinitions', []):
         new_cd = dict(cd)
+        new_cd['mountPoints'] = [
+            dict(mount) for mount in new_cd.get('mountPoints', [])
+            if mount.get('sourceVolume') not in credential_volumes
+            and not protected_mount_path(
+                mount.get('containerPath'),
+                include_home=new_cd.get('name') == 'rosa-boundary',
+            )
+        ]
         if new_cd['name'] == 'rosa-boundary':
             # Apply investigation-specific env vars to the SRE container
             existing_env = {e['name']: e['value'] for e in new_cd.get('environment', [])}
@@ -566,9 +592,8 @@ def register_investigation_task_definition(
             # Preserve unrelated base mounts, replace the investigation home,
             # and enforce task-scoped overlays for credential-bearing paths.
             mount_points = [
-                dict(mount) for mount in new_cd.get('mountPoints', [])
-                if mount.get('sourceVolume') not in {'sre-home', *credential_volumes}
-                and mount.get('containerPath') not in protected_paths
+                mount for mount in new_cd['mountPoints']
+                if mount.get('sourceVolume') != 'sre-home'
             ]
             mount_points.extend([
                 {
@@ -594,11 +619,6 @@ def register_investigation_task_definition(
                 'valueFrom': kubeconfig_secret_arn
             })
             new_cd['secrets'] = existing_secrets
-            new_cd['mountPoints'] = [
-                dict(mount) for mount in new_cd.get('mountPoints', [])
-                if mount.get('sourceVolume') not in credential_volumes
-                and mount.get('containerPath') not in credential_volumes.values()
-            ]
         container_defs.append(new_cd)
 
     register_kwargs = {

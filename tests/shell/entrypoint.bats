@@ -80,10 +80,29 @@ setup() {
 }
 
 @test "credential exclusion patterns cover nested files without excluding audit controls" {
-    run bash -c '
+    run env S3_AUDIT_ESCROW="s3://audit-bucket/investigation/" bash -c '
+        timeout() { printf "%s\n" "$@"; }
+        source "$1"
+
+        mapfile -t sync_output < <(sync_to_s3)
+        patterns=()
+        for ((index = 0; index < ${#sync_output[@]}; index++)); do
+            if [[ "${sync_output[index]}" == "--exclude" ]]; then
+                patterns+=("${sync_output[index + 1]}")
+            fi
+        done
+        [[ "${#patterns[@]}" -eq 2 ]]
+
         excluded() {
             local relative_path="$1"
-            [[ "${relative_path}" == .config/ocm/* || "${relative_path}" == .kube/* ]]
+            local pattern
+
+            for pattern in "${patterns[@]}"; do
+                if [[ "${relative_path}" == ${pattern} ]]; then
+                    return 0
+                fi
+            done
+            return 1
         }
 
         excluded ".config/ocm/ocm.json"
@@ -95,7 +114,7 @@ setup() {
         ! excluded ".config/rosa-boundary/config.yaml"
         ! excluded ".config/ocm-control.txt"
         ! excluded ".kube-control/config"
-    '
+    ' bash "${ENTRYPOINT}"
 
     [ "${status}" -eq 0 ]
 }

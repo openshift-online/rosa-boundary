@@ -1483,6 +1483,112 @@ class TestPerInvestigationTaskDef:
             'readOnly': True,
         } in generated_sre['mountPoints']
 
+    def test_drops_credential_descendant_and_noncanonical_mounts_from_all_containers(self):
+        """Nested mounts cannot mask credential storage or expose it to a sidecar."""
+        import copy
+
+        base_task_def = copy.deepcopy(self.BASE_TASK_DEF)
+        base_td = base_task_def['taskDefinition']
+        base_td['volumes'].extend([
+            {'name': 'persistent-kube-cache'},
+            {'name': 'persistent-ocm-state'},
+            {'name': 'similarly-named-control'},
+        ])
+        sre_cd = next(cd for cd in base_td['containerDefinitions'] if cd['name'] == 'rosa-boundary')
+        sre_cd['mountPoints'].extend([
+            {
+                'sourceVolume': 'persistent-kube-cache',
+                'containerPath': '/home/sre/.kube/cache',
+                'readOnly': False,
+            },
+            {
+                'sourceVolume': 'persistent-ocm-state',
+                'containerPath': '/home/sre/.config/./ocm/state',
+                'readOnly': False,
+            },
+            {
+                'sourceVolume': 'similarly-named-control',
+                'containerPath': '/home/sre/.kube-control/cache',
+                'readOnly': False,
+            },
+        ])
+        proxy_cd = next(cd for cd in base_td['containerDefinitions'] if cd['name'] == 'kube-proxy')
+        proxy_cd['mountPoints'] = [
+            {
+                'sourceVolume': 'persistent-kube-cache',
+                'containerPath': '//home/sre/.kube/cache',
+                'readOnly': False,
+            },
+            {
+                'sourceVolume': 'ocm-config',
+                'containerPath': '/tmp/ocm',
+                'readOnly': False,
+            },
+        ]
+
+        with patch('handler.ecs') as mock_ecs:
+            mock_ecs.describe_task_definition.return_value = base_task_def
+            mock_ecs.register_task_definition.return_value = {
+                'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
+            }
+
+            handler.register_investigation_task_definition(
+                task_def='rosa-boundary-dev',
+                cluster_id='cluster1',
+                investigation_id='inv1',
+                access_point_id='fsap-123',
+                efs_filesystem_id='fs-123',
+                oc_version='4.20',
+                task_timeout=3600,
+                s3_audit_bucket='bucket',
+                aws_region='us-east-1',
+                aws_account_id='123456789012'
+            )
+
+        generated = mock_ecs.register_task_definition.call_args[1]['containerDefinitions']
+        generated_sre = next(cd for cd in generated if cd['name'] == 'rosa-boundary')
+        generated_proxy = next(cd for cd in generated if cd['name'] == 'kube-proxy')
+        sre_paths = {mount['containerPath'] for mount in generated_sre['mountPoints']}
+
+        assert '/home/sre/.kube/cache' not in sre_paths
+        assert '/home/sre/.config/./ocm/state' not in sre_paths
+        assert '/home/sre/.kube-control/cache' in sre_paths
+        assert generated_proxy['mountPoints'] == []
+
+    def test_rejects_mount_paths_with_traversal_segments(self):
+        """Ambiguous parent traversal in a base mount path fails closed."""
+        import copy
+
+        base_task_def = copy.deepcopy(self.BASE_TASK_DEF)
+        sre_cd = next(
+            cd for cd in base_task_def['taskDefinition']['containerDefinitions']
+            if cd['name'] == 'rosa-boundary'
+        )
+        sre_cd['mountPoints'].append({
+            'sourceVolume': 'task-cache',
+            'containerPath': '/home/sre/.kube/../persistent',
+            'readOnly': False,
+        })
+
+        with patch('handler.ecs') as mock_ecs:
+            mock_ecs.describe_task_definition.return_value = base_task_def
+
+            with pytest.raises(ValueError, match='mount path contains traversal'):
+                handler.register_investigation_task_definition(
+                    task_def='rosa-boundary-dev',
+                    cluster_id='cluster1',
+                    investigation_id='inv1',
+                    access_point_id='fsap-123',
+                    efs_filesystem_id='fs-123',
+                    oc_version='4.20',
+                    task_timeout=3600,
+                    s3_audit_bucket='bucket',
+                    aws_region='us-east-1',
+                    aws_account_id='123456789012'
+                )
+
+        mock_ecs.register_task_definition.assert_not_called()
+
     def test_drops_stale_proxy_volume_when_base_has_no_sidecar(self):
         """Credential changes do not introduce or retain proxy storage without the sidecar."""
         import copy

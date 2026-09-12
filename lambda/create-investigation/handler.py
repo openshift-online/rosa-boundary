@@ -18,15 +18,14 @@ import boto3
 import jwt
 import requests
 from jwt import PyJWKClient
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, BotoCoreError, WaiterError
 
-class DuplicateInvestigationError(Exception):
-    """Raised when an investigation already has a running task."""
-    def __init__(self, message: str, existing_tasks: list = None, access_point_id: str = ''):
+class HandoverFailedError(Exception):
+    """Raised when an existing investigation task cannot be stopped for handover."""
+    def __init__(self, message: str, failed_tasks: list = None, status_code: int = 500):
         super().__init__(message)
-        self.existing_tasks = existing_tasks or []
-        self.access_point_id = access_point_id
-
+        self.failed_tasks = failed_tasks or []
+        self.status_code = status_code
 
 def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
     """
@@ -52,6 +51,7 @@ logger.setLevel(logging.INFO)
 ecs = boto3.client('ecs')
 efs = boto3.client('efs')
 sts = boto3.client('sts')
+ssm = boto3.client('ssm')
 
 # Environment variables
 KEYCLOAK_URL = os.environ.get('KEYCLOAK_URL')
@@ -279,12 +279,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'task_timeout': task_timeout
         })
 
-    except DuplicateInvestigationError as e:
-        logger.warning(f"Duplicate investigation: {str(e)}")
-        return response(409, {
+    except HandoverFailedError as e:
+        logger.error(f"Investigation handover failed: {str(e)}")
+        return response(e.status_code, {
             'error': str(e),
-            'existing_tasks': e.existing_tasks,
-            'access_point_id': e.access_point_id
+            'failed_tasks': e.failed_tasks
         })
 
     except Exception as e:
@@ -614,17 +613,85 @@ def create_investigation_task(
     existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
     ap_newly_created = False
 
-    # Reject if a task is already running for this investigation. This check runs before any
-    # new EFS access point is created so there is no access point to clean up on rejection.
+    # Stop any already-running tasks for this investigation before proceeding.
+    # We fail closed if the stop action fails or the task doesn't terminate.
     if not skip_task:
         existing_tasks = find_running_tasks_for_investigation(cluster, cluster_id, investigation_id)
         if existing_tasks:
-            logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}")
-            raise DuplicateInvestigationError(
-                f"Investigation '{investigation_id}' already has a running task",
-                existing_tasks=existing_tasks,
-                access_point_id=existing_ap['AccessPointId'] if existing_ap else ''
-            )
+            logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}. Stopping them for handover.")
+            failed_stops = []
+            tasks_to_wait_for = []
+            
+            # Preflight check: ensure no task has an active SSM session before stopping any
+            for existing_task in existing_tasks:
+                try:
+                    task_id = existing_task.split('/')[-1]
+                    task_details = ecs.describe_tasks(cluster=cluster, tasks=[existing_task])
+                    tasks = task_details.get('tasks', [])
+                    
+                    if not tasks:
+                        continue
+                        
+                    containers = tasks[0].get('containers', [])
+                    
+                    for container in containers:
+                        runtime_id = container.get('runtimeId')
+                        if runtime_id:
+                            target = f"ecs:{cluster}_{task_id}_{runtime_id}"
+                            sessions = ssm.describe_sessions(
+                                State='Active',
+                                Filters=[{'key': 'Target', 'value': target}]
+                            ).get('Sessions', [])
+                            
+                            if sessions:
+                                logger.warning(f"Task {existing_task} has an active SSM session, blocking handover.")
+                                raise HandoverFailedError(
+                                    f"Investigation '{investigation_id}' is currently locked by an active session.",
+                                    failed_tasks=[existing_task],
+                                    status_code=409
+                                )
+                except HandoverFailedError:
+                    raise
+                except (ClientError, BotoCoreError) as e:
+                    logger.error(f"Failed to describe task or sessions for {existing_task}: {str(e)}")
+                    # If we fail to describe, we might skip checking active sessions and proceed to try stopping.
+                    # Or we could fail here. Let's log and continue, which preserves original failure handling semantics.
+                    pass
+
+            for existing_task in existing_tasks:
+                try:
+                    ecs.stop_task(
+                        cluster=cluster,
+                        task=existing_task,
+                        reason="Investigation handover: replaced by new task"
+                    )
+                    tasks_to_wait_for.append(existing_task)
+                    logger.info(f"Initiated stop for existing task: {existing_task}")
+                except (ClientError, BotoCoreError) as e:
+                    logger.error(f"Failed to initiate stop for existing task {existing_task}: {str(e)}")
+                    failed_stops.append(existing_task)
+
+            if tasks_to_wait_for:
+                try:
+                    waiter = ecs.get_waiter('tasks_stopped')
+                    waiter.wait(
+                        cluster=cluster,
+                        tasks=tasks_to_wait_for,
+                        WaiterConfig={
+                            'Delay': 6,
+                            'MaxAttempts': 28
+                        }
+                    )
+                    logger.info(f"Successfully confirmed termination of existing tasks: {tasks_to_wait_for}")
+                except (ClientError, BotoCoreError, WaiterError) as e:
+                    logger.error(f"Failed waiting for tasks to reach STOPPED state: {str(e)}")
+                    failed_stops.extend(tasks_to_wait_for)
+                    
+            if failed_stops:
+                raise HandoverFailedError(
+                    "Failed to stop or wait for termination of existing tasks during handover",
+                    failed_tasks=failed_stops
+                )
 
     if existing_ap:
         access_point_id = existing_ap['AccessPointId']

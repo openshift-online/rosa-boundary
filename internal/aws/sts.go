@@ -2,7 +2,9 @@ package aws
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -25,12 +27,17 @@ type TemporaryCredentials struct {
 // IAM policy conditions. The OIDC role trust policy must include sts:TagSession permission for
 // session tags to be applied. See the architecture overview documentation for Keycloak mapper
 // configuration details.
-func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, sessionName string) (*TemporaryCredentials, error) {
-	// Use anonymous credentials since AssumeRoleWithWebIdentity doesn't require them.
-	client := sts.New(sts.Options{
+// newSTSClient is a variable to allow mocking in tests.
+var newSTSClient = func(region string) *sts.Client {
+	return sts.New(sts.Options{
 		Region:      region,
 		Credentials: aws.AnonymousCredentials{},
 	})
+}
+
+func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, sessionName string) (*TemporaryCredentials, error) {
+	// Use anonymous credentials since AssumeRoleWithWebIdentity doesn't require them.
+	client := newSTSClient(region)
 
 	out, err := client.AssumeRoleWithWebIdentity(ctx, &sts.AssumeRoleWithWebIdentityInput{
 		RoleArn:          aws.String(roleARN),
@@ -38,6 +45,10 @@ func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, se
 		WebIdentityToken: aws.String(idToken),
 	})
 	if err != nil {
+		var httpErr interface{ HTTPStatusCode() int }
+		if (errors.As(err, &httpErr) && httpErr.HTTPStatusCode() == 400) || strings.Contains(err.Error(), "StatusCode: 400") {
+			return nil, fmt.Errorf("You are not a member of the required realm roles: %w", err)
+		}
 		return nil, fmt.Errorf("AssumeRoleWithWebIdentity failed: %w", err)
 	}
 

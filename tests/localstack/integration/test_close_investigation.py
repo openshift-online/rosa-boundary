@@ -112,3 +112,81 @@ def test_close_cleanup_family_prefix_excludes_other_investigations(ecs_client, e
 
     assert target_family in listed_families
     assert other_family not in listed_families
+
+@pytest.mark.integration
+def test_close_investigation_finds_cluster_dynamically(efs_client, test_efs, ecs_cleanup):
+    """
+    Verify that invoking the actual close-investigation CLI command works
+    and correctly derives the cluster ID from the EFS access point.
+    """
+    import subprocess
+    import os
+    import platform
+    import shutil
+    from pathlib import Path
+
+    go_path = shutil.which("go")
+    if go_path is None:
+        pytest.skip("Go compiler not found in PATH")
+    
+    investigation_id = f"test-inv-{int(datetime.now().timestamp())}"
+    cluster_id = f"test-cluster-{int(datetime.now().timestamp())}"
+    cluster_name = "test-cluster-name"
+
+    # Create the access point to simulate a live investigation
+    response = efs_client.create_access_point(
+        FileSystemId=test_efs,
+        PosixUser={'Uid': 1000, 'Gid': 1000},
+        RootDirectory={
+            'Path': f'/{cluster_id}/{investigation_id}',
+            'CreationInfo': {'OwnerUid': 1000, 'OwnerGid': 1000, 'Permissions': '0755'}
+        },
+        Tags=[
+            {'Key': 'InvestigationID', 'Value': investigation_id},
+            {'Key': 'ClusterID', 'Value': cluster_id}
+        ]
+    )
+    ap_id = response['AccessPointId']
+    ecs_cleanup.register_access_point(ap_id)
+
+    # Set up environment variables to point the CLI to localstack
+    env = os.environ.copy()
+    env["ROSA_BOUNDARY_EFS_FILESYSTEM_ID"] = test_efs
+    env["ROSA_BOUNDARY_ECS_CLUSTER_NAME"] = cluster_name
+    
+    # We need to compile the Go CLI first to make sure it's up to date
+    repo_root = Path(__file__).resolve().parents[3]
+    bin_path = repo_root / "bin" / "rosa-boundary"
+    subprocess.run([go_path, "build", "-o", str(bin_path), "./cmd/rosa-boundary"], cwd=repo_root, check=True)
+    
+    # Setup AWS endpoints to point to LocalStack
+    endpoint_url = "http://localhost:4566"
+    if "LOCALSTACK_HOSTNAME" in env:
+        endpoint_url = f"http://{env['LOCALSTACK_HOSTNAME']}:4566"
+    
+    env["AWS_ENDPOINT_URL"] = endpoint_url
+    
+    # We need dummy credentials for the CLI
+    env["AWS_ACCESS_KEY_ID"] = "test"
+    env["AWS_SECRET_ACCESS_KEY"] = "test"
+    env["AWS_DEFAULT_REGION"] = "us-east-1"
+    
+    # Run the close-investigation command
+    cmd = [
+        str(bin_path), 
+        "close-investigation", 
+        "--investigation-id", investigation_id, 
+        "--yes"
+    ]
+    
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
+    
+    assert result.returncode == 0, f"Command failed: {result.stderr}\nStdout: {result.stdout}"
+    
+    # Verify the derived ClusterID is shown in the output
+    assert cluster_id in result.stderr
+    
+    # Verify the access point was deleted
+    access_points = efs_client.describe_access_points(FileSystemId=test_efs)
+    remaining_ids = [ap['AccessPointId'] for ap in access_points.get('AccessPoints', [])]
+    assert ap_id not in remaining_ids

@@ -33,7 +33,8 @@ func NewEFSClient(region, filesystemID string, credProvider aws.CredentialsProvi
 	return &EFSClient{client: client, filesystemID: filesystemID}
 }
 
-// FindAccessPointByTags finds an available EFS access point by ClusterID and InvestigationID tags.
+// FindAccessPointByTags finds an available EFS access point by InvestigationID tag.
+// If clusterID is non-empty, it also matches by ClusterID.
 // Handles both "InvestigationID" and "InvestigationId" key variants.
 // Returns nil if no matching access point is found.
 func (c *EFSClient) FindAccessPointByTags(ctx context.Context, clusterID, investigationID string) (*AccessPointSummary, error) {
@@ -53,7 +54,7 @@ func (c *EFSClient) FindAccessPointByTags(ctx context.Context, clusterID, invest
 			for _, tag := range ap.Tags {
 				tags[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
 			}
-			if tags["ClusterID"] == clusterID && tags["InvestigationID"] == investigationID {
+			if (clusterID == "" || tags["ClusterID"] == clusterID) && tags["InvestigationID"] == investigationID {
 				rootPath := ""
 				if ap.RootDirectory != nil {
 					rootPath = aws.ToString(ap.RootDirectory.Path)

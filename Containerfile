@@ -48,9 +48,10 @@ RUN chmod +x /usr/local/bin/platform_convert /usr/local/bin/github_dl
 # SRE CLI toolchain: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
 FROM tools-base AS backplane-tools
 
-ARG BACKPLANE_TOOLS_VERSION="tags/v1.4.0"
+# renovate: datasource=github-releases depName=openshift/backplane-tools
+ARG BACKPLANE_TOOLS_VERSION="v1.4.0"
 ENV BACKPLANE_TOOLS_URL_SLUG="openshift/backplane-tools"
-ENV BACKPLANE_TOOLS_URL="https://api.github.com/repos/${BACKPLANE_TOOLS_URL_SLUG}/releases/${BACKPLANE_TOOLS_VERSION}"
+ENV BACKPLANE_TOOLS_URL="https://api.github.com/repos/${BACKPLANE_TOOLS_URL_SLUG}/releases/tags/${BACKPLANE_TOOLS_VERSION}"
 ENV BACKPLANE_TOOLS_CHECKSUM_FILE="checksums.txt"
 ENV BACKPLANE_TOOLS_CHECKSUM_ALGORITHM="sha256"
 ENV BACKPLANE_TOOLS_PLATFORM_PREFIX="linux_"

@@ -4,7 +4,21 @@
     "gomod",
     "terraform",
     "pre-commit",
-    "github-actions"
+    "github-actions",
+    "custom.regex"
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update the pinned backplane-tools GitHub release",
+      "managerFilePatterns": ["/^Containerfile$/"],
+      "matchStrings": [
+        "# renovate: datasource=github-releases depName=openshift/backplane-tools\\s+ARG BACKPLANE_TOOLS_VERSION=\"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "openshift/backplane-tools",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    }
   ],
   "packageRules": [
     {

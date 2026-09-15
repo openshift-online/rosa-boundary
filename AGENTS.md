@@ -402,7 +402,7 @@ These are non-negotiable standards for all changes to the container image, Conta
 4. **NO npm installs** — npm is not a trusted delivery mechanism for this project. Binaries come from GitHub Releases, RPM repos, or backplane-tools.
 5. **Checksum verification required** — all binaries not installed via `dnf` or `backplane-tools` must be verified against a published checksum file (SHA256 minimum). Use the `github_dl` helper or equivalent.
 6. **All GitHub API calls must be authenticated** — use `--mount=type=secret,id=GITHUB_TOKEN` in builder stages. The `github_dl` helper resolves tokens from build secret mounts. Unauthenticated GitHub API calls are not permitted (rate limiting).
-7. **Pinned versions** — all externally downloaded tools must have a pinned version ARG in the Containerfile. backplane-tools is the exception (it manages its own versions). Renovate updates version pins via PR.
+7. **Pinned versions** — all externally downloaded tools, including the `backplane-tools` installer release, must have a pinned version ARG in the Containerfile. Renovate updates version pins via PR. `backplane-tools install all` may resolve its individual SRE tools during the image build; that runtime tool selection is distinct from the pinned installer release.
 8. **Single image** — no tiered builds (micro/minimal/full). One image, one target.
 9. **UBI9 base** — `registry.access.redhat.com/ubi9/ubi` with a pinned digest. Do not change the base image without explicit approval.
 

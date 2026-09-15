@@ -8,7 +8,7 @@ Each tool owns a distinct set of package managers with minimal overlap:
 
 | Tool | Ecosystems | Config File |
 |------|-----------|-------------|
-| **Mintmaker (Renovate)** | `gomod`, `terraform`, `pre-commit`, `github-actions` | `renovate.json` |
+| **Mintmaker (Renovate)** | `gomod`, `terraform`, `pre-commit`, `github-actions`, custom regex GitHub releases | `renovate.json` |
 | **Dependabot** | `pip`, `gomod` (AWS SDK grouping) | `.github/dependabot.yml` |
 
 Mintmaker handles the bulk of code dependency updates with broad grouping (all Go minor/patch updates in one PR, all GitHub Actions in one PR). Dependabot covers the Python Lambda dependencies and provides targeted grouping for `aws-sdk-go-v2` modules, which are the highest-volume source of individual Go dependency PRs.
@@ -17,31 +17,11 @@ Mintmaker handles the bulk of code dependency updates with broad grouping (all G
 
 Dependabot is a GitHub-native feature that opens PRs for version updates on a configurable schedule. Configuration lives in `.github/dependabot.yml`.
 
-### Current Configuration
+### Configuration Guide
 
-```yaml
-version: 2
-updates:
-  - package-ecosystem: "pip"
-    directory: "/lambda/create-investigation"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 2
-    groups:
-      all-pip:
-        patterns:
-          - "*"
+Edit `.github/dependabot.yml` on the default branch. Changes take effect on the next scheduled run.
 
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 3
-    groups:
-      aws-sdk:
-        patterns:
-          - "github.com/aws/aws-sdk-go-v2*"
-```
+Full configuration reference: [Dependabot configuration options](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file)
 
 Key settings:
 
@@ -49,47 +29,24 @@ Key settings:
 - **`open-pull-requests-limit`**: Caps the number of open Dependabot PRs per ecosystem. Keeps the PR queue manageable.
 - **`schedule.interval`**: How often Dependabot checks for updates (`daily`, `weekly`, or `monthly`).
 
-### Configuration Guide
-
-Edit `.github/dependabot.yml` on the default branch. Changes take effect on the next scheduled run.
-
-Full configuration reference: [Dependabot configuration options](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file)
-
 ## Mintmaker (Renovate)
 
 Mintmaker is a Konflux-hosted service built on [Renovate](https://docs.renovatebot.com/). It runs on a 4-hour base schedule and opens PRs signed by the `red-hat-konflux` GitHub app. Configuration lives in `renovate.json` at the repository root.
 
-### Current Configuration
+### Backplane-tools release pin
 
-```json
-{
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "enabledManagers": [
-    "gomod",
-    "terraform",
-    "pre-commit",
-    "github-actions"
-  ],
-  "packageRules": [
-    {
-      "description": "Group all Go module patch/minor updates into a single PR",
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "gomod dependencies"
-    },
-    {
-      "description": "Group all GitHub Actions updates into a single PR",
-      "matchManagers": ["github-actions"],
-      "groupName": "github-actions"
-    }
-  ]
-}
-```
+`Containerfile` pins the `openshift/backplane-tools` installer to an exact GitHub
+release tag. Its custom regex manager uses the `github-releases` datasource, so
+Mintmaker proposes only published releases with the archives and `checksums.txt`
+needed by the image build. The rule matches only the annotated
+`BACKPLANE_TOOLS_VERSION` ARG in the root `Containerfile`.
 
-Key settings:
-
-- **`enabledManagers`**: Restricts which package managers Mintmaker runs. Without this, Mintmaker enables all default managers, which can cause overlap with Dependabot.
-- **`packageRules`**: Groups related updates into single PRs. The `gomod dependencies` group batches all minor/patch Go updates; the `github-actions` group batches all Actions version bumps.
+Mintmaker checks approximately every four hours and retains its inherited
+three-day minimum release age. It opens a normal, signed update PR for a newer
+eligible release; the dependency is not automerged and requires the usual human
+review and image build checks. The installer release is pinned, while
+`backplane-tools install all` still resolves the individual SRE tools during the
+image build.
 
 ### Configuration Guide
 
@@ -98,6 +55,13 @@ Edit `renovate.json` on the default branch. Changes take effect on the next Mint
 Full configuration reference: [Renovate configuration options](https://docs.renovatebot.com/configuration-options/)
 
 Mintmaker-specific documentation: [Mintmaker user guide](https://konflux.pages.redhat.com/docs/users/mintmaker/user.html)
+
+Key settings:
+
+- **`enabledManagers`**: Restricts which package managers Mintmaker runs. Without this, Mintmaker enables all default managers, which can cause overlap with Dependabot.
+- **`packageRules`**: Groups related updates into single PRs. The `gomod dependencies` group batches all minor/patch Go updates; the `github-actions` group batches all Actions version bumps.
+- **`custom.regex`**: Enables narrowly scoped custom managers for dependencies that do not have a built-in file manager.
+
 
 ## FAQ
 

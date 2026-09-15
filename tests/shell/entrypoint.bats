@@ -12,6 +12,60 @@ setup() {
     [ "${output}" = "sourced" ]
 }
 
+@test "credential mount verification requires non-NFS mount overlays" {
+    run bash -c '
+        mountpoint() { return 0; }
+        findmnt() { printf "%s\\n" "ext4"; }
+        source "$1"
+        verify_credential_mounts
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+}
+
+@test "credential mount verification fails for a missing overlay" {
+    run bash -c '
+        mountpoint() { return 1; }
+        source "$1"
+        verify_credential_mounts
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -ne 0 ]
+    [[ "${output}" == *"not a task-scoped mount: /home/sre/.config/ocm"* ]]
+}
+
+@test "credential mount verification rejects an EFS-backed overlay" {
+    run bash -c '
+        mountpoint() { return 0; }
+        findmnt() { printf "%s\\n" "nfs4"; }
+        source "$1"
+        verify_credential_mounts
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -ne 0 ]
+    [[ "${output}" == *"backed by NFS/EFS: /home/sre/.config/ocm"* ]]
+}
+
+@test "main verifies credential mounts before initialization" {
+    run env \
+        OC_VERSION="" \
+        KUBE_PROXY_PORT="" \
+        CLAUDE_CODE_USE_BEDROCK="0" \
+        S3_AUDIT_ESCROW="s3://audit-bucket/investigation/" \
+        TASK_TIMEOUT="0" \
+        bash -c '
+            source "$1"
+            verify_credential_mounts() { printf "verify\\n"; }
+            initialize_credential_mounts() { printf "initialize\\n"; }
+            runuser() { :; }
+            sync_to_s3() { :; }
+            main true
+        ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+    [ "${output}" = $'verify\ninitialize' ]
+}
+
 @test "credential mounts are initialized with sre ownership and mode 0700" {
     run bash -c '
         mkdir() { printf "mkdir:%s\n" "$*"; }
@@ -138,6 +192,7 @@ setup() {
         TASK_TIMEOUT="0" \
         bash -c '
             source "$1"
+            verify_credential_mounts() { :; }
             initialize_credential_mounts() { :; }
             runuser() { :; }
             sync_to_s3() { printf "protected-sync\n"; }

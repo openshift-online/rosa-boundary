@@ -43,7 +43,30 @@ cleanup() {
     exit 0
 }
 
-# Initialize task-scoped credential mounts for use by the sre workload.
+# Fail closed unless credential paths are task-scoped mounts, not EFS paths.
+# ECS defines these as empty bind mounts; this catches a missing or EFS-backed
+# overlay before credentials can be written to the persistent home directory.
+verify_credential_mounts() {
+    local credential_dir filesystem_type
+
+    for credential_dir in /home/sre/.config/ocm /home/sre/.kube; do
+        if ! mountpoint --quiet "${credential_dir}"; then
+            echo "Error: credential path is not a task-scoped mount: ${credential_dir}" >&2
+            return 1
+        fi
+
+        if ! filesystem_type=$(findmnt --noheadings --raw --output FSTYPE --target "${credential_dir}"); then
+            echo "Error: could not determine credential mount type: ${credential_dir}" >&2
+            return 1
+        fi
+        if [[ "${filesystem_type}" == nfs* ]]; then
+            echo "Error: credential path is backed by NFS/EFS: ${credential_dir}" >&2
+            return 1
+        fi
+    done
+}
+
+# Initialize verified task-scoped credential mounts for the sre workload.
 # These explicit paths are required because HOME and ~ resolve to /root while
 # the privileged entrypoint runs; the Fargate mounts are under /home/sre.
 initialize_credential_mounts() {
@@ -79,6 +102,7 @@ fi
 
 # Empty Fargate volumes are normally root-owned. Prepare both nested mounts
 # before writing proxy configuration or starting any process as sre.
+verify_credential_mounts
 initialize_credential_mounts
 
 # Configure kubectl/oc to use the kube-proxy sidecar

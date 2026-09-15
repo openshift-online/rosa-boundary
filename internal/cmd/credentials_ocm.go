@@ -25,7 +25,6 @@ type ocmTokenAcquirer interface {
 }
 
 type ocmCredentialTransfer interface {
-	Check(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials) error
 	Configure(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials, []byte) error
 	Clear(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials) error
 }
@@ -83,9 +82,6 @@ func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
 	if err := prepareCredentialTask(cmd.Context(), ecsClient, args[0]); err != nil {
 		return err
 	}
-	if err := checkCredentialHelper(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0]); err != nil {
-		return err
-	}
 	credentialDebugf("Requesting static OCM clear command through ECS Exec")
 	session, err := ecsClient.ExecuteCommand(cmd.Context(), args[0], credentialContainer, ocmcredentials.ClearCommand)
 	if err != nil {
@@ -105,13 +101,6 @@ func newCredentialECSClient(authResult *AuthResult) *awsclient.ECSClient {
 }
 
 func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, taskID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow) error {
-	if err := prepareCredentialTask(ctx, ecsClient, taskID); err != nil {
-		return err
-	}
-	if err := checkCredentialHelper(ctx, ecsClient, region, credentials, taskID); err != nil {
-		return err
-	}
-
 	output.Status("Requesting a fresh OCM access token for %s...", environment.Name)
 	token, err := newOCMTokenAcquirer().Acquire(ctx, flow)
 	if err != nil {
@@ -133,6 +122,9 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 		}
 	}()
 
+	if err := prepareCredentialTask(ctx, ecsClient, taskID); err != nil {
+		return err
+	}
 	credentialDebugf("Requesting static OCM configure command through ECS Exec")
 	session, err := ecsClient.ExecuteCommand(ctx, taskID, credentialContainer, ocmcredentials.ConfigureCommand)
 	if err != nil {
@@ -149,31 +141,6 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 		output.Status("Configured OCM credentials for task %s (%s); expires at %s", taskID, environment.Name, token.Expiry.Format(time.RFC3339))
 	}
 	return nil
-}
-
-func checkCredentialHelper(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, taskID string) error {
-	credentialDebugf("Checking credential helper availability in task %s", taskID)
-	checkCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	session, err := ecsClient.ExecuteCommand(checkCtx, taskID, credentialContainer, ocmcredentials.HelperCheckCommand)
-	if err != nil {
-		return credentialHelperUnavailableError(taskID, err)
-	}
-	credentialDebugf("ECS Exec helper preflight session established: %s", session.SessionID)
-	if err := newOCMCredentialTransfer().Check(checkCtx, region, session, credentials); err != nil {
-		return credentialHelperUnavailableError(taskID, err)
-	}
-	credentialDebugf("Credential helper is available in task %s", taskID)
-	return nil
-}
-
-func credentialHelperUnavailableError(taskID string, cause error) error {
-	return fmt.Errorf(
-		"credential helper is unavailable in task %s; rebuild and deploy the rosa-boundary image containing /usr/local/bin/rosa-boundary-credential-helper, then start a new task: %w",
-		taskID,
-		cause,
-	)
 }
 
 func prepareCredentialTask(ctx context.Context, ecsClient *awsclient.ECSClient, taskID string) error {

@@ -122,21 +122,3 @@ func TestTransferClearRequiresOnlySuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-func TestTransferCheckRequiresAvailabilityMarker(t *testing.T) {
-	runner := func(_ context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, _ io.Reader, stdout, _ io.Writer) error {
-		_, _ = io.WriteString(stdout, "frame:"+helperReadyMarker+":end")
-		return nil
-	}
-	transfer := &Transfer{RunPlugin: runner, Timeout: time.Second, MaxOutput: 1024}
-	if err := transfer.Check(context.Background(), "us-east-1", &awsclient.ExecuteCommandSession{}, testCredentials); err != nil {
-		t.Fatal(err)
-	}
-
-	transfer.RunPlugin = func(_ context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, _ io.Reader, _ io.Writer, _ io.Writer) error {
-		return nil
-	}
-	if err := transfer.Check(context.Background(), "us-east-1", &awsclient.ExecuteCommandSession{}, testCredentials); err == nil {
-		t.Fatal("helper check succeeded without availability marker")
-	}
-}

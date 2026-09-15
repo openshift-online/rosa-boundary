@@ -191,7 +191,7 @@ rosa-boundary/
 
 **`join-task`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
 
-**`credentials configure ocm`**: `--ocm-url` selects the environment and defaults to the non-secret URL in the workstation's OCM configuration; `--auth-flow auth-code|device` selects the fresh-token flow. Before requesting a token, the CLI verifies that the running task image contains the credential helper and provides an image-rebuild/new-task error when it does not. The command never copies or caches local access, refresh, or offline tokens.
+**`credentials configure ocm`**: `--ocm-url` selects the environment and defaults to the non-secret URL in the workstation's OCM configuration; `--auth-flow auth-code|device` selects the fresh-token flow. The command never copies or caches local access, refresh, or offline tokens.
 
 **`list-tasks`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
 

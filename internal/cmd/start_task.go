@@ -169,6 +169,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	// the freshly issued OCM token's useful lifetime as long as possible.
 	if configureOCM {
 		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
+		if err := prepareCredentialTask(cmd.Context(), ecsClient, taskID); err != nil {
+			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, err)
+		}
 		if err := configureOCMForTask(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, ocmEnvironment, ocmFlow); err != nil {
 			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, err)
 		}

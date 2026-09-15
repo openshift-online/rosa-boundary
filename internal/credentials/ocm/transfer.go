@@ -13,13 +13,11 @@ import (
 )
 
 const (
-	ConfigureCommand   = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper configure ocm"
-	ClearCommand       = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper clear ocm"
-	HelperCheckCommand = "runuser --user=sre -- sh -c 'if test -x /usr/local/bin/rosa-boundary-credential-helper; then printf \"%s\\n\" \"__ROSA_BOUNDARY_CREDENTIAL_HELPER_AVAILABLE__\"; else exit 127; fi'"
-	readyMarker        = "__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"
-	successMarker      = "__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"
-	helperReadyMarker  = "__ROSA_BOUNDARY_CREDENTIAL_HELPER_AVAILABLE__"
-	defaultMaxOutput   = 1024 * 1024
+	ConfigureCommand = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper configure ocm"
+	ClearCommand     = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper clear ocm"
+	readyMarker      = "__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"
+	successMarker    = "__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"
+	defaultMaxOutput = 1024 * 1024
 )
 
 // PluginRunner launches Session Manager with explicit protocol streams.
@@ -49,22 +47,17 @@ func (t *Transfer) Configure(ctx context.Context, region string, session *awscli
 		return errors.New("credential request is empty")
 	}
 	payload := base64.StdEncoding.EncodeToString(request) + "\n"
-	err := t.run(ctx, region, session, credentials, payload, readyMarker, successMarker)
+	err := t.run(ctx, region, session, credentials, payload, true)
 	payload = ""
 	return err
 }
 
 // Clear requires helper success but sends no credential payload.
 func (t *Transfer) Clear(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials) error {
-	return t.run(ctx, region, session, credentials, "", "", successMarker)
+	return t.run(ctx, region, session, credentials, "", false)
 }
 
-// Check verifies that the task image contains the executable credential helper.
-func (t *Transfer) Check(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials) error {
-	return t.run(ctx, region, session, credentials, "", "", helperReadyMarker)
-}
-
-func (t *Transfer) run(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials, payload, expectedReadyMarker, expectedSuccessMarker string) error {
+func (t *Transfer) run(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials, payload string, requireReady bool) error {
 	runner := t.RunPlugin
 	if runner == nil {
 		return errors.New("credential session runner is not configured")
@@ -99,7 +92,6 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 	buffer := make([]byte, 4096)
 	readyCount := 0
 	successCount := 0
-	requireReady := expectedReadyMarker != ""
 	protocolErr := error(nil)
 	for {
 		count, readErr := pluginOutput.Read(buffer)
@@ -111,17 +103,14 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 			}
 			_, _ = received.Write(buffer[:count])
 			current := received.String()
-			newReadyCount := 0
-			if requireReady {
-				newReadyCount = strings.Count(current, expectedReadyMarker)
-			}
-			newSuccessCount := strings.Count(current, expectedSuccessMarker)
+			newReadyCount := strings.Count(current, readyMarker)
+			newSuccessCount := strings.Count(current, successMarker)
 			if newReadyCount > 1 || newSuccessCount > 1 {
 				protocolErr = errors.New("credential helper sent duplicate protocol markers")
 				cancel()
 				break
 			}
-			if requireReady && newSuccessCount == 1 && (newReadyCount == 0 || strings.Index(current, expectedSuccessMarker) < strings.Index(current, expectedReadyMarker)) {
+			if requireReady && newSuccessCount == 1 && (newReadyCount == 0 || strings.Index(current, successMarker) < strings.Index(current, readyMarker)) {
 				protocolErr = errors.New("credential helper confirmed success before accepting the request")
 				cancel()
 				break

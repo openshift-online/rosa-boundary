@@ -170,11 +170,8 @@ are task-scoped, excluded from S3 sync, and destroyed when the task stops.
 
 If `--ocm-url` is omitted, only the non-secret `url` field is read from the
 workstation's `${XDG_CONFIG_HOME:-$HOME/.config}/ocm/ocm.json`. No local token
-is reused or copied. Before opening OCM authentication, the CLI verifies that
-the task image contains the credential helper. A failed preflight means the
-image must be rebuilt and deployed and a new task started. Re-running configure
-atomically replaces an expired token. Stopping the task remains authoritative
-cleanup even if clear is not run.
+is reused or copied. Re-running configure atomically replaces an expired token.
+Stopping the task remains authoritative cleanup even if clear is not run.
 
 ## Phase 5: Stop Task (Triggers S3 Sync)
 

@@ -73,18 +73,3 @@ func TestStartCredentialFailureRetainsTaskAndCleanupCommand(t *testing.T) {
 		}
 	}
 }
-
-func TestCredentialHelperUnavailableErrorIsActionable(t *testing.T) {
-	err := credentialHelperUnavailableError("task-123", errors.New("marker missing"))
-	for _, expected := range []string{
-		"credential helper is unavailable",
-		"task-123",
-		"rebuild and deploy",
-		"/usr/local/bin/rosa-boundary-credential-helper",
-		"start a new task",
-	} {
-		if !strings.Contains(err.Error(), expected) {
-			t.Fatalf("error %q does not contain %q", err, expected)
-		}
-	}
-}

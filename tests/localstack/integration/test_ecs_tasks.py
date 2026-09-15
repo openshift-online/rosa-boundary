@@ -27,7 +27,7 @@ def test_create_ecs_cluster(ecs_client):
 
 @pytest.mark.integration
 def test_register_task_definition_with_efs(ecs_client, test_efs, iam_client):
-    """Test ECS task definition registration with EFS volume"""
+    """Test ECS task definition registration with EFS and nested ephemeral volumes."""
     # Create execution role
     role_name = f'test-exec-role-{int(datetime.now().timestamp())}'
     trust_policy = {
@@ -68,6 +68,16 @@ def test_register_task_definition_with_efs(ecs_client, test_efs, iam_client):
                         'sourceVolume': 'efs-home',
                         'containerPath': '/home/sre',
                         'readOnly': False
+                    },
+                    {
+                        'sourceVolume': 'ocm-config',
+                        'containerPath': '/home/sre/.config/ocm',
+                        'readOnly': False
+                    },
+                    {
+                        'sourceVolume': 'kubeconfig',
+                        'containerPath': '/home/sre/.kube',
+                        'readOnly': False
                     }
                 ],
                 'environment': [
@@ -83,14 +93,19 @@ def test_register_task_definition_with_efs(ecs_client, test_efs, iam_client):
                     'fileSystemId': test_efs,
                     'transitEncryption': 'ENABLED'
                 }
-            }
+            },
+            {'name': 'ocm-config'},
+            {'name': 'kubeconfig'}
         ]
     )
 
     task_def_arn = response['taskDefinition']['taskDefinitionArn']
     assert response['taskDefinition']['family'] == family_name
-    assert len(response['taskDefinition']['volumes']) == 1
-    assert response['taskDefinition']['volumes'][0]['efsVolumeConfiguration']['fileSystemId'] == test_efs
+    volumes = {volume['name']: volume for volume in response['taskDefinition']['volumes']}
+    assert set(volumes) == {'efs-home', 'ocm-config', 'kubeconfig'}
+    assert volumes['efs-home']['efsVolumeConfiguration']['fileSystemId'] == test_efs
+    assert volumes['ocm-config'] == {'name': 'ocm-config'}
+    assert volumes['kubeconfig'] == {'name': 'kubeconfig'}
 
     # Cleanup
     ecs_client.deregister_task_definition(taskDefinition=task_def_arn)

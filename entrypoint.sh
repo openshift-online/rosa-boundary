@@ -1,11 +1,4 @@
 #!/bin/bash
-set -e
-
-# Override HOME for root entrypoint so root operations (alternatives, aws s3
-# sync) don't create root-owned files under /home/sre (EFS). ECS Exec sessions
-# inherit the container-level ENV HOME=/home/sre from the Containerfile, not
-# this export, since they start as a separate process.
-export HOME=/root
 
 # Function to sync home directory to S3 on exit
 sync_to_s3() {
@@ -30,6 +23,8 @@ sync_to_s3() {
         #   which could point outside /home/sre and exfiltrate host-level files.
         timeout "${SYNC_TIMEOUT:-300}" \
             aws s3 sync /home/sre "${S3_AUDIT_ESCROW}" \
+            --exclude ".config/ocm/*" \
+            --exclude ".kube/*" \
             --no-follow-symlinks \
             --quiet ||
             echo "Warning: S3 sync failed or timed out" >&2
@@ -48,8 +43,53 @@ cleanup() {
     exit 0
 }
 
-# Trap signals for cleanup
-trap cleanup SIGTERM SIGINT SIGHUP
+# Fail closed unless credential paths are task-scoped mounts, not EFS paths.
+# ECS defines these as empty bind mounts; this catches a missing or EFS-backed
+# overlay before credentials can be written to the persistent home directory.
+verify_credential_mounts() {
+    local credential_dir filesystem_type
+
+    for credential_dir in /home/sre/.config/ocm /home/sre/.kube; do
+        if ! mountpoint --quiet "${credential_dir}"; then
+            echo "Error: credential path is not a task-scoped mount: ${credential_dir}" >&2
+            return 1
+        fi
+
+        if ! filesystem_type=$(findmnt --noheadings --raw --output FSTYPE --target "${credential_dir}"); then
+            echo "Error: could not determine credential mount type: ${credential_dir}" >&2
+            return 1
+        fi
+        if [[ "${filesystem_type}" == nfs* ]]; then
+            echo "Error: credential path is backed by NFS/EFS: ${credential_dir}" >&2
+            return 1
+        fi
+    done
+}
+
+# Initialize verified task-scoped credential mounts for the sre workload.
+# These explicit paths are required because HOME and ~ resolve to /root while
+# the privileged entrypoint runs; the Fargate mounts are under /home/sre.
+initialize_credential_mounts() {
+    local credential_dir
+
+    for credential_dir in /home/sre/.config/ocm /home/sre/.kube; do
+        mkdir --parents "${credential_dir}"
+        chown sre:sre "${credential_dir}"
+        chmod 0700 "${credential_dir}"
+    done
+}
+
+# Perform privileged container setup, then run the requested workload as sre.
+main() {
+    set -e
+
+    # Override HOME for root entrypoint so root operations (alternatives, aws
+    # s3 sync) don't create root-owned files under /home/sre (EFS). ECS Exec
+    # sessions inherit the image-level HOME=/home/sre in their own process.
+    export HOME=/root
+
+    # Trap signals for cleanup
+    trap cleanup SIGTERM SIGINT SIGHUP
 
 # Switch OpenShift CLI version if OC_VERSION is set
 if [ -n "${OC_VERSION}" ]; then
@@ -60,9 +100,13 @@ if [ -n "${OC_VERSION}" ]; then
     fi
 fi
 
+# Empty Fargate volumes are normally root-owned. Prepare both nested mounts
+# before writing proxy configuration or starting any process as sre.
+verify_credential_mounts
+initialize_credential_mounts
+
 # Configure kubectl/oc to use the kube-proxy sidecar
 if [ -n "${KUBE_PROXY_PORT}" ]; then
-    mkdir -p /home/sre/.kube
     cat >/home/sre/.kube/config <<KUBECONFIG
 apiVersion: v1
 kind: Config
@@ -132,3 +176,8 @@ EXIT_CODE=$?
 # Sync on normal exit too
 sync_to_s3
 exit ${EXIT_CODE}
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

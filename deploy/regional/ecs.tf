@@ -82,6 +82,16 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
     }
   }
 
+  # Empty task-scoped volumes overlay credential-bearing paths below the
+  # EFS-backed home so OCM and kubeconfig state is destroyed with the task.
+  volume {
+    name = "ocm-config"
+  }
+
+  volume {
+    name = "kubeconfig"
+  }
+
   # Ephemeral bind mount for kube-proxy working directory (no EFS config)
   dynamic "volume" {
     for_each = var.enable_kube_proxy ? [1] : []
@@ -120,11 +130,23 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
           }
         ]
 
-        mountPoints = [{
-          sourceVolume  = "sre-home"
-          containerPath = "/home/sre"
-          readOnly      = false
-        }]
+        mountPoints = [
+          {
+            sourceVolume  = "sre-home"
+            containerPath = "/home/sre"
+            readOnly      = false
+          },
+          {
+            sourceVolume  = "ocm-config"
+            containerPath = "/home/sre/.config/ocm"
+            readOnly      = false
+          },
+          {
+            sourceVolume  = "kubeconfig"
+            containerPath = "/home/sre/.kube"
+            readOnly      = false
+          }
+        ]
 
         logConfiguration = {
           logDriver = "awslogs"

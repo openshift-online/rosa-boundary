@@ -3,11 +3,11 @@ name = "create-investigation"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "PyJWT>=2.13.0",
+    "PyJWT>=2.14.0",
     "cryptography>=50.0.1",
     "requests>=2.34.2",
-    "boto3>=1.43.89",
-    "awslambdaric==4.0.2",
+    "boto3>=1.43.93",
+    "awslambdaric==4.0.3",
 ]
 
 [dependency-groups]

@@ -35,6 +35,7 @@ var (
 	closeOutputFormat    string
 )
 
+// init registers the close-investigation command and its flags with the root command.
 func init() {
 	closeInvestigationCmd.Flags().StringVar(&closeClusterID, "cluster-id", "", "Cluster ID (optional; required if investigation ID is ambiguous)")
 	closeInvestigationCmd.Flags().StringVar(&closeInvestigationID, "investigation-id", "", "Investigation ID (required)")
@@ -45,6 +46,10 @@ func init() {
 	rootCmd.AddCommand(closeInvestigationCmd)
 }
 
+// runCloseInvestigation executes the close-investigation command workflow.
+// It finds the EFS access point by investigation ID (optionally filtered by cluster ID),
+// stops any running tasks if --force is specified, deregisters task definitions,
+// and deletes the EFS access point after user confirmation.
 func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	if err := validateTextOrJSONOutputFormat(closeOutputFormat); err != nil {
 		return err
@@ -90,7 +95,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 
 	// Step 2: Check for running tasks
 	output.Status("\n=== Step 2: Checking for Running Tasks ===")
-	runningTasks, err := ecsClient.ListTasksByInvestigation(cmd.Context(), closeInvestigationID)
+	runningTasks, err := ecsClient.ListTasksByInvestigation(cmd.Context(), closeClusterID, closeInvestigationID)
 	if err != nil {
 		return fmt.Errorf("failed to list tasks: %w", err)
 	}
@@ -181,6 +186,9 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// printCloseInvestigationSummary outputs a human-readable summary of the close-investigation operation
+// to stderr, including the cluster ID, investigation ID, deleted access point, and counts of
+// stopped tasks and deregistered task definitions.
 func printCloseInvestigationSummary(cluster, investigationID, accessPointID string, tasksStopped, taskDefsRemoved int) {
 	fmt.Fprintln(os.Stderr, "\n========================================")
 	fmt.Fprintln(os.Stderr, "Investigation Closed")

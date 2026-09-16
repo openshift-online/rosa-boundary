@@ -274,15 +274,16 @@ func (c *ECSClient) DeregisterTaskDefinition(ctx context.Context, taskDefinition
 	return nil
 }
 
-// ListTasksByInvestigation returns running tasks tagged with the given investigation ID.
-func (c *ECSClient) ListTasksByInvestigation(ctx context.Context, investigationID string) ([]TaskSummary, error) {
+// ListTasksByInvestigation returns running tasks tagged with the given investigation ID and cluster ID.
+// Both tags must match to prevent accidentally stopping tasks from other clusters with the same investigation ID.
+func (c *ECSClient) ListTasksByInvestigation(ctx context.Context, clusterID, investigationID string) ([]TaskSummary, error) {
 	tasks, err := c.ListRunningTasks(ctx, "RUNNING")
 	if err != nil {
 		return nil, err
 	}
 	var filtered []TaskSummary
 	for _, t := range tasks {
-		if t.Tags["investigation_id"] == investigationID {
+		if t.Tags["investigation_id"] == investigationID && t.Tags["cluster_id"] == clusterID {
 			filtered = append(filtered, t)
 		}
 	}

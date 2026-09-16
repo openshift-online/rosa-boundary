@@ -18,9 +18,15 @@ type AccessPointSummary struct {
 	Tags           map[string]string
 }
 
+// efsAPI defines the subset of EFS API methods used by EFSClient.
+type efsAPI interface {
+	DescribeAccessPoints(ctx context.Context, params *efs.DescribeAccessPointsInput, optFns ...func(*efs.Options)) (*efs.DescribeAccessPointsOutput, error)
+	DeleteAccessPoint(ctx context.Context, params *efs.DeleteAccessPointInput, optFns ...func(*efs.Options)) (*efs.DeleteAccessPointOutput, error)
+}
+
 // EFSClient wraps the AWS EFS SDK client.
 type EFSClient struct {
-	client       *efs.Client
+	client       efsAPI
 	filesystemID string
 }
 

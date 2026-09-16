@@ -28,6 +28,7 @@ Use --efs-filesystem-id or set efs_filesystem_id in your config.`,
 }
 
 var (
+	closeClusterID       string
 	closeInvestigationID string
 	closeForce           bool
 	closeYes             bool
@@ -35,6 +36,7 @@ var (
 )
 
 func init() {
+	closeInvestigationCmd.Flags().StringVar(&closeClusterID, "cluster-id", "", "Cluster ID (optional; required if investigation ID is ambiguous)")
 	closeInvestigationCmd.Flags().StringVar(&closeInvestigationID, "investigation-id", "", "Investigation ID (required)")
 	closeInvestigationCmd.Flags().BoolVar(&closeForce, "force", false, "Stop running tasks before deleting (default: error if tasks are running)")
 	closeInvestigationCmd.Flags().BoolVar(&closeYes, "yes", false, "Skip confirmation prompt for EFS access point deletion")
@@ -60,20 +62,30 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 
 	// Step 1: Find EFS access point
 	output.Status("=== Step 1: Finding EFS Access Point ===")
+	if closeClusterID != "" {
+		output.Status("Cluster:        %s", closeClusterID)
+	}
 	output.Status("Investigation:  %s", closeInvestigationID)
 
-	ap, err := efsClient.FindAccessPointByTags(cmd.Context(), "", closeInvestigationID)
+	ap, err := efsClient.FindAccessPointByTags(cmd.Context(), closeClusterID, closeInvestigationID)
 	if err != nil {
 		return fmt.Errorf("failed to find EFS access point: %w", err)
 	}
 	if ap == nil {
+		if closeClusterID != "" {
+			return fmt.Errorf("no EFS access point found for cluster %q investigation %q", closeClusterID, closeInvestigationID)
+		}
 		return fmt.Errorf("no EFS access point found for investigation %q", closeInvestigationID)
 	}
-	closeClusterID := ap.Tags["ClusterID"]
+
+	// If cluster ID wasn't specified, retrieve it from the access point tags
 	if closeClusterID == "" {
-		return fmt.Errorf("retrieved EFS access point for investigation %q is missing a ClusterID tag", closeInvestigationID)
+		closeClusterID = ap.Tags["ClusterID"]
+		if closeClusterID == "" {
+			return fmt.Errorf("retrieved EFS access point for investigation %q is missing a ClusterID tag", closeInvestigationID)
+		}
+		output.Status("Cluster:        %s", closeClusterID)
 	}
-	output.Status("Cluster:        %s", closeClusterID)
 	output.Status("Found access point: %s (path: %s)", ap.AccessPointID, ap.Path)
 
 	// Step 2: Check for running tasks

@@ -10,12 +10,6 @@ import (
 	"strings"
 )
 
-const (
-	ProductionURL  = "https://api.openshift.com"
-	StagingURL     = "https://api.stage.openshift.com"
-	IntegrationURL = "https://api.integration.openshift.com"
-)
-
 // Environment is an approved OCM API destination.
 type Environment struct {
 	Name string

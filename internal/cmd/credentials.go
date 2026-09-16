@@ -2,6 +2,9 @@ package cmd
 
 import "github.com/spf13/cobra"
 
+// supportedCredentialProviders supplies user-facing provider enumeration.
+var supportedCredentialProviders = []string{"ocm"}
+
 var credentialsCmd = &cobra.Command{
 	Use:   "credentials",
 	Short: "Manage task-scoped credentials",

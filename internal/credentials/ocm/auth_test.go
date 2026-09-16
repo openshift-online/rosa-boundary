@@ -3,8 +3,10 @@ package ocm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -28,6 +30,12 @@ func TestDeviceVerificationURL(t *testing.T) {
 	}
 	if got != "https://sso.redhat.com/device?user_code=AB+CD" {
 		t.Fatalf("fallback URL = %q", got)
+	}
+
+	development := "http://sso.test/device?user_code=complete"
+	got, err = deviceVerificationURL(&oauth2.DeviceAuthResponse{VerificationURIComplete: development})
+	if err != nil || got != development {
+		t.Fatalf("development URL = %q, %v", got, err)
 	}
 }
 
@@ -112,5 +120,32 @@ func TestAuthCodeHandlerSanitizesTokenEndpointErrors(t *testing.T) {
 	}
 	if strings.Contains(result.err.Error(), secretResponse) || strings.Contains(result.err.Error(), "authorization-code-canary") {
 		t.Fatalf("error leaked OAuth response material: %v", result.err)
+	}
+}
+
+func TestAuthCodeHandlerReportsOAuthErrorsWithoutAssumingDenial(t *testing.T) {
+	results := make(chan authCodeResult, 1)
+	handler := authCodeHandler(context.Background(), &oauth2.Config{}, "state", "verifier", results, nil)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/oauth/callback?state=state&error=temporarily_unavailable", nil))
+	result := <-results
+	if result.err == nil || result.err.Error() != "OCM authorization failed" {
+		t.Fatalf("OAuth callback error = %v", result.err)
+	}
+}
+
+type failingListener struct{}
+
+func (failingListener) Accept() (net.Conn, error) { return nil, errors.New("accept failed") }
+func (failingListener) Close() error              { return nil }
+func (failingListener) Addr() net.Addr            { return &net.TCPAddr{} }
+
+func TestAcquireAuthCodeReturnsCallbackServerErrors(t *testing.T) {
+	authenticator := NewAuthenticator(nil)
+	authenticator.Listen = func(string, string) (net.Listener, error) { return failingListener{}, nil }
+	authenticator.OpenBrowser = nil
+	token, err := authenticator.Acquire(context.Background(), FlowAuthCode)
+	if err == nil || !strings.Contains(err.Error(), "callback server stopped unexpectedly") {
+		t.Fatalf("callback server failure = %#v, %v", token, err)
 	}
 }

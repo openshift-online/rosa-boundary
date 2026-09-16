@@ -26,7 +26,7 @@ If --investigation-id is omitted, a random three-word name is generated
 (e.g. "swift-dance-party").
 
 Prints connection info and the join-task command upon completion.`,
-	Args: cobra.NoArgs,
+	Args: validateStartTaskArgs,
 	RunE: runStartTask,
 }
 
@@ -54,7 +54,7 @@ func init() {
 	startTaskCmd.Flags().BoolVar(&startNoWait, "no-wait", false, "Return immediately without waiting for RUNNING")
 	startTaskCmd.Flags().BoolVar(&startForceLogin, "force-login", false, "Force fresh OIDC authentication")
 	startTaskCmd.Flags().StringVar(&startOutputFormat, "output", "text", "Output format: text or json")
-	startTaskCmd.Flags().StringSliceVar(&startCredentials, "with-credentials", nil, "Configure a credential provider after startup (supported: ocm)")
+	startTaskCmd.Flags().StringSliceVar(&startCredentials, "with-credentials", nil, fmt.Sprintf("Configure a credential provider after startup (supported: %s)", strings.Join(supportedCredentialProviders, ", ")))
 	startTaskCmd.Flags().StringVar(&startOCMURL, "ocm-url", "", "OCM environment alias or approved canonical API URL")
 	startTaskCmd.Flags().StringVar(&startOCMFlow, "ocm-auth-flow", string(ocmcredentials.FlowAuthCode), "OCM authentication flow: auth-code or device")
 	rootCmd.AddCommand(startTaskCmd)
@@ -169,9 +169,6 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	// the freshly issued OCM token's useful lifetime as long as possible.
 	if configureOCM {
 		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
-		if err := prepareCredentialTask(cmd.Context(), ecsClient, taskID); err != nil {
-			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, err)
-		}
 		if err := configureOCMForTask(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, ocmEnvironment, ocmFlow); err != nil {
 			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, err)
 		}
@@ -213,6 +210,16 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// validateStartTaskArgs validates credential flags before Cobra runs the
+// inherited AWS authentication hook.
+func validateStartTaskArgs(cmd *cobra.Command, args []string) error {
+	if err := cobra.NoArgs(cmd, args); err != nil {
+		return err
+	}
+	_, _, _, err := validateStartCredentials()
+	return err
+}
+
 func validateStartCredentials() (bool, ocmcredentials.Environment, ocmcredentials.Flow, error) {
 	if len(startCredentials) == 0 {
 		return false, ocmcredentials.Environment{}, "", nil
@@ -223,7 +230,7 @@ func validateStartCredentials() (bool, ocmcredentials.Environment, ocmcredential
 	seenOCM := false
 	for _, provider := range startCredentials {
 		if provider != "ocm" {
-			return false, ocmcredentials.Environment{}, "", fmt.Errorf("unsupported credential provider %q; only ocm is supported", provider)
+			return false, ocmcredentials.Environment{}, "", fmt.Errorf("unsupported credential provider %q", provider)
 		}
 		if seenOCM {
 			return false, ocmcredentials.Environment{}, "", fmt.Errorf("credential provider ocm was requested more than once")
@@ -243,8 +250,8 @@ func validateStartCredentials() (bool, ocmcredentials.Environment, ocmcredential
 
 func startCredentialFailure(investigationID, taskID, ecsCluster, region string, cause error) error {
 	return fmt.Errorf(
-		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
-		investigationID, taskID, cause, ecsCluster, region, taskID,
+		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; retry with: rosa-boundary --ecs-cluster %s --region %s credentials configure ocm %s; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
+		investigationID, taskID, cause, ecsCluster, region, taskID, ecsCluster, region, taskID,
 	)
 }
 

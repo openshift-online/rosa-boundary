@@ -160,22 +160,6 @@ func authenticateIfNeeded(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Validate the non-secret destination before either AWS or OCM
-	// authentication. This prevents issuing a token for an unsupported URL.
-	if isOCMConfigureCommand(cmd) {
-		if _, err := resolveConfigureOCMEnvironment(); err != nil {
-			return err
-		}
-		if _, err := parseOCMFlow(credentialsOCMFlow); err != nil {
-			return err
-		}
-	}
-	if cmd.Name() == "start-task" {
-		if _, _, _, err := validateStartCredentials(); err != nil {
-			return err
-		}
-	}
-
 	cfg, err := getConfig(true)
 	if err != nil {
 		return err
@@ -217,10 +201,6 @@ func authenticationRole(cfg *config.Config, cmd *cobra.Command) (string, string,
 	default:
 		return cfg.SRERoleARN, "rosa-boundary-session", nil
 	}
-}
-
-func isOCMConfigureCommand(cmd *cobra.Command) bool {
-	return cmd.Name() == "ocm" && cmd.Parent() != nil && cmd.Parent().Name() == "configure" && cmd.Parent().Parent() != nil && cmd.Parent().Parent().Name() == "credentials"
 }
 
 // isAuthError returns true if the error indicates an authentication/authorization failure

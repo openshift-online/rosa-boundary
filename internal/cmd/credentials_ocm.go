@@ -44,7 +44,7 @@ var newOCMCredentialTransfer = func() ocmCredentialTransfer {
 var credentialsConfigureOCMCmd = &cobra.Command{
 	Use:   "ocm <task-id>",
 	Short: "Issue and configure a fresh OCM access token",
-	Args:  cobra.ExactArgs(1),
+	Args:  validateCredentialsConfigureOCMArgs,
 	RunE:  runCredentialsConfigureOCM,
 }
 
@@ -76,6 +76,19 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	return configureOCMForTask(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow)
 }
 
+// validateCredentialsConfigureOCMArgs validates provider flags before Cobra runs
+// the inherited AWS authentication hook.
+func validateCredentialsConfigureOCMArgs(cmd *cobra.Command, args []string) error {
+	if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+		return err
+	}
+	if _, err := resolveConfigureOCMEnvironment(); err != nil {
+		return err
+	}
+	_, err := parseOCMFlow(credentialsOCMFlow)
+	return err
+}
+
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
 	authResult := getAuthResult(cmd)
 	ecsClient := newCredentialECSClient(authResult)
@@ -101,6 +114,9 @@ func newCredentialECSClient(authResult *AuthResult) *awsclient.ECSClient {
 }
 
 func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, taskID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow) error {
+	if err := prepareCredentialTask(ctx, ecsClient, taskID); err != nil {
+		return err
+	}
 	output.Status("Requesting a fresh OCM access token for %s...", environment.Name)
 	token, err := newOCMTokenAcquirer().Acquire(ctx, flow)
 	if err != nil {
@@ -122,9 +138,6 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 		}
 	}()
 
-	if err := prepareCredentialTask(ctx, ecsClient, taskID); err != nil {
-		return err
-	}
 	credentialDebugf("Requesting static OCM configure command through ECS Exec")
 	session, err := ecsClient.ExecuteCommand(ctx, taskID, credentialContainer, ocmcredentials.ConfigureCommand)
 	if err != nil {

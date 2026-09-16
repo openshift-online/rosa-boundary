@@ -122,7 +122,7 @@ Key config fields:
 
 - OCM requests contain only a newly issued access token and approved canonical API URL.
 - Refresh/offline tokens and workstation OCM token state must never be copied, cached, logged, or injected.
-- Task-side credential state must remain under `/home/sre/.config/ocm` or `/home/sre/.kube`, both task-scoped mounts excluded from S3 sync.
+- Task-side credential state must use the task-scoped mounts excluded from S3 sync; see [`docs/architecture/overview.md`](docs/architecture/overview.md) for their definitions.
 - Future providers require task-scoped storage and an explicit audit-sync exclusion before user-facing enablement.
 
 ## Testing Containers Locally

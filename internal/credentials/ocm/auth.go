@@ -10,19 +10,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os/exec"
-	"runtime"
 	"time"
 
+	"github.com/skratchdot/open-golang/open"
 	"golang.org/x/oauth2"
-)
-
-const (
-	ClientID      = "ocm-cli"
-	AuthURL       = "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/auth"
-	DeviceAuthURL = "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/auth/device"
-	TokenURL      = "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token"
-	RedirectURL   = "http://127.0.0.1:9998/oauth/callback"
 )
 
 // Flow selects the interactive OAuth flow used to issue a fresh token.
@@ -138,6 +129,8 @@ type authCodeResult struct {
 }
 
 func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
+	// The SDK helper returns a refresh token, so this flow owns the exchange and
+	// immediately reduces its response to the short-lived access token.
 	listen := a.Listen
 	if listen == nil {
 		listen = net.Listen
@@ -170,6 +163,7 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.debug("OCM callback server stopped unexpectedly")
+			sendAuthCodeResult(result, authCodeResult{err: fmt.Errorf("OCM callback server stopped unexpectedly: %w", err)})
 		}
 	}()
 	defer func() {
@@ -221,9 +215,9 @@ func authCodeHandler(ctx context.Context, config *oauth2.Config, expectedState, 
 			return
 		}
 		if query.Get("error") != "" {
-			callDebug(debug, "OCM authorization callback reported denial")
+			callDebug(debug, "OCM authorization callback reported an OAuth error")
 			http.Error(w, "authorization was not completed", http.StatusBadRequest)
-			sendAuthCodeResult(result, authCodeResult{err: errors.New("OCM authorization was denied")})
+			sendAuthCodeResult(result, authCodeResult{err: errors.New("OCM authorization failed")})
 			return
 		}
 		code := query.Get("code")
@@ -266,7 +260,7 @@ func randomState() (string, error) {
 func deviceVerificationURL(device *oauth2.DeviceAuthResponse) (string, error) {
 	if device.VerificationURIComplete != "" {
 		parsed, err := url.Parse(device.VerificationURIComplete)
-		if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+		if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 			return "", errors.New("OCM device authorization returned an invalid verification URL")
 		}
 		return parsed.String(), nil
@@ -274,7 +268,7 @@ func deviceVerificationURL(device *oauth2.DeviceAuthResponse) (string, error) {
 	if device.UserCode == "" {
 		return "", errors.New("OCM device authorization returned no user code")
 	}
-	return "https://sso.redhat.com/device?user_code=" + url.QueryEscape(device.UserCode), nil
+	return ssoBaseURL + "/device?user_code=" + url.QueryEscape(device.UserCode), nil
 }
 
 func accessTokenOnly(token *oauth2.Token) (Token, error) {
@@ -304,18 +298,5 @@ func callDebug(debug func(string, ...any), format string, args ...any) {
 }
 
 func openBrowser(target string) error {
-	var command *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		command = exec.Command("open", target)
-	case "windows":
-		command = exec.Command("rundll32", "url.dll,FileProtocolHandler", target)
-	default:
-		command = exec.Command("xdg-open", target)
-	}
-	if err := command.Start(); err != nil {
-		return err
-	}
-	go func() { _ = command.Wait() }()
-	return nil
+	return open.Run(target)
 }

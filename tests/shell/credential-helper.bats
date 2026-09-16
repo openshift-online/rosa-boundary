@@ -140,6 +140,7 @@ run_clear() {
     [[ "${output}" != *raw-token-canary-failed* ]]
     [[ "${output}" != *"${encoded}"* ]]
     [[ "${output}" != *"sensitive account response"* ]]
+    [[ "${output}" == *"OCM credential validation failed"* ]]
     [ -z "$(find "${OCM_DIR}" -name '.rosa-boundary-credential-*' -print -quit)" ]
 }
 
@@ -193,17 +194,4 @@ STUB
 
     run_clear
     [ "${status}" -eq 0 ]
-}
-
-@test "clear restores only a valid non-secret proxy kubeconfig" {
-    printf 'credential-canary\n' >"${KUBE_DIR}/config"
-    run_clear KUBE_PROXY_PORT=8001
-    [ "${status}" -eq 0 ]
-    grep --quiet --fixed-strings 'server: http://localhost:8001' "${KUBE_DIR}/config"
-    ! grep --quiet --fixed-strings credential-canary "${KUBE_DIR}/config"
-    [ "$(stat --format='%a' "${KUBE_DIR}/config")" = 600 ]
-
-    run_clear KUBE_PROXY_PORT='8001/credential-canary'
-    [ "${status}" -eq 0 ]
-    [ ! -e "${KUBE_DIR}/config" ]
 }

@@ -70,8 +70,8 @@ func RunSessionManagerPlugin(ctx context.Context, region string, session *Execut
 }
 
 // RunSessionManagerPluginWithStreams runs the plugin as a child with caller-owned
-// streams. It preserves credential isolation and waits for process cleanup after
-// cancellation. Callers control when stdin reaches EOF.
+// streams. The separate entry point lets credential transfers control stdin and
+// permits complete subprocess testing without replacing the test process.
 func RunSessionManagerPluginWithStreams(ctx context.Context, region string, session *ExecuteCommandSession, creds *TemporaryCredentials, stdin io.Reader, stdout, stderr io.Writer) error {
 	pluginPath, err := exec.LookPath(sessionManagerPlugin)
 	if err != nil {

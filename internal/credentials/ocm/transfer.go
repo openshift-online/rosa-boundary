@@ -47,9 +47,7 @@ func (t *Transfer) Configure(ctx context.Context, region string, session *awscli
 		return errors.New("credential request is empty")
 	}
 	payload := base64.StdEncoding.EncodeToString(request) + "\n"
-	err := t.run(ctx, region, session, credentials, payload, true)
-	payload = ""
-	return err
+	return t.run(ctx, region, session, credentials, payload, true)
 }
 
 // Clear requires helper success but sends no credential payload.

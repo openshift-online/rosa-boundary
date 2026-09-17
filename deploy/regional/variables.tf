@@ -165,9 +165,14 @@ variable "oidc_client_id" {
 }
 
 variable "oidc_session_duration" {
-  description = "Max session duration for OIDC role (seconds)"
+  description = "Max session duration for OIDC role (seconds). Must be >= 3600 (AWS IAM minimum). The CLI enforces idle timeout separately."
   type        = number
-  default     = 900 # 15 minutes
+  default     = 3600 # AWS IAM minimum
+
+  validation {
+    condition     = var.oidc_session_duration >= 3600 && var.oidc_session_duration <= 43200
+    error_message = "oidc_session_duration must be between 3600 (1 hour, AWS minimum) and 43200 seconds (12 hours)"
+  }
 }
 
 variable "abac_tag_key" {

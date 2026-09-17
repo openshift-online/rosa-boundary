@@ -1,0 +1,197 @@
+package auth
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/output"
+)
+
+const (
+	credentialsCacheFile = "credentials-cache"
+	// defaultIdleTimeout is the time after which cached credentials are considered
+	// expired due to inactivity. This enforces the 15-minute idle timeout requirement.
+	defaultIdleTimeout = 15 * time.Minute
+	// defaultMaxDuration is the absolute maximum lifetime for credentials,
+	// regardless of activity. This aligns with the AWS STS session duration.
+	defaultMaxDuration = 1 * time.Hour
+)
+
+// CachedCredentials represents AWS credentials with activity tracking for idle timeout enforcement.
+type CachedCredentials struct {
+	Credentials  *aws.TemporaryCredentials `json:"credentials"`
+	IssuedAt     time.Time                 `json:"issued_at"`
+	LastUsedAt   time.Time                 `json:"last_used_at"`
+	IdleTimeout  time.Duration             `json:"idle_timeout"`
+	MaxDuration  time.Duration             `json:"max_duration"`
+}
+
+// CredentialManager handles credential caching with idle timeout enforcement.
+type CredentialManager struct {
+	idleTimeout time.Duration
+	maxDuration time.Duration
+}
+
+// NewCredentialManager creates a new credential manager with the specified timeouts.
+// If idleTimeout is 0, defaults to 15 minutes.
+// If maxDuration is 0, defaults to 1 hour.
+func NewCredentialManager(idleTimeout, maxDuration time.Duration) *CredentialManager {
+	if idleTimeout == 0 {
+		idleTimeout = defaultIdleTimeout
+	}
+	if maxDuration == 0 {
+		maxDuration = defaultMaxDuration
+	}
+	return &CredentialManager{
+		idleTimeout: idleTimeout,
+		maxDuration: maxDuration,
+	}
+}
+
+// GetCredentials returns valid credentials, refreshing if necessary due to idle timeout or expiration.
+// The refresh function is called only when credentials need to be renewed.
+func (cm *CredentialManager) GetCredentials(ctx context.Context, refresh func(context.Context) (*aws.TemporaryCredentials, error)) (*aws.TemporaryCredentials, error) {
+	now := time.Now()
+
+	// Try to load cached credentials
+	cached, err := cm.loadCachedCredentials()
+	if err != nil {
+		if debugErr := output.Debug("Failed to load cached credentials: %v", err); debugErr != nil {
+			return nil, fmt.Errorf("debug output failed: %w", debugErr)
+		}
+		// Continue with refresh if cache load failed
+		cached = nil
+	}
+
+	// Check if cached credentials are still valid
+	if cached != nil {
+		idleTime := now.Sub(cached.LastUsedAt)
+		totalAge := now.Sub(cached.IssuedAt)
+
+		if idleTime > cm.idleTimeout {
+			if debugErr := output.Debug("Credentials expired due to %v idle timeout (idle for %v)", cm.idleTimeout, idleTime.Round(time.Second)); debugErr != nil {
+				return nil, fmt.Errorf("debug output failed: %w", debugErr)
+			}
+			cached = nil
+		} else if totalAge > cm.maxDuration {
+			if debugErr := output.Debug("Credentials expired due to maximum duration of %v (age: %v)", cm.maxDuration, totalAge.Round(time.Second)); debugErr != nil {
+				return nil, fmt.Errorf("debug output failed: %w", debugErr)
+			}
+			cached = nil
+		} else {
+			// Credentials still valid - update last used time
+			remaining := cm.idleTimeout - idleTime
+			if debugErr := output.Debug("Using cached credentials (%v until idle timeout)", remaining.Round(time.Second)); debugErr != nil {
+				return nil, fmt.Errorf("debug output failed: %w", debugErr)
+			}
+			cached.LastUsedAt = now
+			if err := cm.saveCachedCredentials(cached); err != nil {
+				if debugErr := output.Debug("Failed to update credential last-used timestamp: %v", err); debugErr != nil {
+					return nil, fmt.Errorf("debug output failed: %w", debugErr)
+				}
+				// Non-fatal - we can still use the credentials
+			}
+			return cached.Credentials, nil
+		}
+	}
+
+	// Need to refresh credentials
+	if debugErr := output.Debug("Refreshing credentials..."); debugErr != nil {
+		return nil, fmt.Errorf("debug output failed: %w", debugErr)
+	}
+
+	creds, err := refresh(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to refresh credentials: %w", err)
+	}
+
+	// Cache the new credentials
+	cached = &CachedCredentials{
+		Credentials: creds,
+		IssuedAt:    now,
+		LastUsedAt:  now,
+		IdleTimeout: cm.idleTimeout,
+		MaxDuration: cm.maxDuration,
+	}
+
+	if err := cm.saveCachedCredentials(cached); err != nil {
+		if debugErr := output.Debug("Failed to cache credentials: %v", err); debugErr != nil {
+			return nil, fmt.Errorf("debug output failed: %w", debugErr)
+		}
+		// Non-fatal - we can still use the credentials
+	}
+
+	return creds, nil
+}
+
+// ClearCredentials removes the cached credentials.
+func (cm *CredentialManager) ClearCredentials() error {
+	cacheDir, err := config.CacheDir()
+	if err != nil {
+		return err
+	}
+	cachePath := filepath.Join(cacheDir, credentialsCacheFile)
+	if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("cannot remove credentials cache: %w", err)
+	}
+	return nil
+}
+
+// loadCachedCredentials reads credentials from the cache file.
+func (cm *CredentialManager) loadCachedCredentials() (*CachedCredentials, error) {
+	cacheDir, err := config.CacheDir()
+	if err != nil {
+		return nil, err
+	}
+	cachePath := filepath.Join(cacheDir, credentialsCacheFile)
+
+	data, err := os.ReadFile(cachePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("cannot read credentials cache: %w", err)
+	}
+
+	var cached CachedCredentials
+	if err := json.Unmarshal(data, &cached); err != nil {
+		// Corrupted cache - clean up
+		if removeErr := os.Remove(cachePath); removeErr != nil && !os.IsNotExist(removeErr) {
+			return nil, fmt.Errorf("corrupted credentials cache: %w; cannot remove: %w", err, removeErr)
+		}
+		return nil, nil
+	}
+
+	// Validate required fields
+	if cached.Credentials == nil {
+		return nil, nil
+	}
+
+	return &cached, nil
+}
+
+// saveCachedCredentials writes credentials to the cache file.
+func (cm *CredentialManager) saveCachedCredentials(cached *CachedCredentials) error {
+	cacheDir, err := config.CacheDir()
+	if err != nil {
+		return err
+	}
+	cachePath := filepath.Join(cacheDir, credentialsCacheFile)
+
+	data, err := json.Marshal(cached)
+	if err != nil {
+		return fmt.Errorf("cannot marshal credentials: %w", err)
+	}
+
+	if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+		return fmt.Errorf("cannot write credentials cache: %w", err)
+	}
+
+	return nil
+}

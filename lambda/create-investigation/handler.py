@@ -720,9 +720,11 @@ def create_investigation_task(
                     raise
                 except (ClientError, BotoCoreError) as e:
                     logger.error(f"Failed to describe task or sessions for {existing_task}: {str(e)}")
-                    # If we fail to describe, we might skip checking active sessions and proceed to try stopping.
-                    # Or we could fail here. Let's log and continue, which preserves original failure handling semantics.
-                    pass
+                    raise HandoverFailedError(
+                        f"Cannot verify active sessions for investigation '{investigation_id}' due to AWS API error: {str(e)}",
+                        failed_tasks=[existing_task],
+                        status_code=500
+                    )
 
             for existing_task in existing_tasks:
                 try:

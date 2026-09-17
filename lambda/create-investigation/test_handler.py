@@ -1464,6 +1464,54 @@ class TestDuplicateInvestigationDetection:
                     mock_ecs.stop_task.assert_not_called()
                     mock_ecs.run_task.assert_not_called()
 
+    def test_handover_fails_closed_on_ssm_client_error(self):
+        """Test that handover fails closed when SSM describe_sessions raises ClientError."""
+        existing_task_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/existing-task-id'
+
+        with patch('handler.ecs') as mock_ecs:
+            with patch('handler.efs') as mock_efs:
+                with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
+                    mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
+                    # ECS: list_tasks(startedBy=...) returns the existing task directly
+                    ecs_paginator = MagicMock()
+                    ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
+                    mock_ecs.get_paginator.return_value = ecs_paginator
+
+                    mock_ecs.describe_tasks.return_value = {
+                        'tasks': [{
+                            'containers': [{'runtimeId': 'runtime-123'}]
+                        }]
+                    }
+
+                    # Mock SSM describe_sessions to raise ClientError
+                    mock_ssm.describe_sessions.side_effect = ClientError(
+                        {'Error': {'Code': 'AccessDeniedException', 'Message': 'Access denied'}},
+                        'DescribeSessions'
+                    )
+
+                    with pytest.raises(handler.HandoverFailedError) as exc_info:
+                        handler.create_investigation_task(
+                            cluster='test-cluster',
+                            task_def='rosa-boundary-dev',
+                            oidc_sub='sub-123',
+                            username='sre-user',
+                            abac_tag_key='username',
+                            abac_tag_value='sre-user',
+                            investigation_id='inv1',
+                            cluster_id='c1',
+                            subnets=['subnet-1'],
+                            security_group='sg-1',
+                            efs_filesystem_id='fs-1',
+                            oc_version='4.12'
+                        )
+
+                    # Verify fail-closed behavior: task is not stopped when session check fails
+                    assert existing_task_arn in exc_info.value.failed_tasks
+                    assert "Cannot verify active sessions" in str(exc_info.value)
+                    assert exc_info.value.status_code == 500
+                    mock_ecs.stop_task.assert_not_called()
+                    mock_ecs.run_task.assert_not_called()
+
 class TestInvestigationStartedBy:
     """Unit tests for the investigation_started_by() helper."""
 

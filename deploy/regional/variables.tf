@@ -167,7 +167,7 @@ variable "oidc_client_id" {
 variable "oidc_session_duration" {
   description = "Max session duration for OIDC role (seconds)"
   type        = number
-  default     = 3600 # 1 hour
+  default     = 900 # 15 minutes
 }
 
 variable "abac_tag_key" {
@@ -230,7 +230,7 @@ variable "required_groups" {
 variable "task_timeout_default" {
   description = "Default task timeout in seconds (0 = no timeout)"
   type        = number
-  default     = 3600
+  default     = 28800 # 8 hours
 
   validation {
     condition     = var.task_timeout_default >= 0 && var.task_timeout_default <= 86400

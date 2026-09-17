@@ -162,6 +162,16 @@ What it does:
 
 ```bash
 ./bin/rosa-boundary close-investigation \
+  --investigation-id <investigation-id> \
+  --efs-filesystem-id fs-089982673ac88b7d8 \
+  --ecs-cluster rosa-boundary-dev \
+  --region us-east-2
+```
+
+Or, if the investigation ID is ambiguous (exists across multiple clusters):
+
+```bash
+./bin/rosa-boundary close-investigation \
   --cluster-id <cluster-id> \
   --investigation-id <investigation-id> \
   --efs-filesystem-id fs-089982673ac88b7d8 \
@@ -170,9 +180,12 @@ What it does:
 ```
 
 What it does:
-1. Verifies no running tasks remain for this investigation
-2. Deregisters all per-investigation task definition revisions
-3. Deletes the EFS access point (EFS data at `/<cluster-id>/<investigation-id>/` is preserved on the filesystem)
+1. Finds the EFS access point by investigation ID (derives cluster ID from the access point tags)
+2. Verifies no running tasks remain for this investigation
+3. Deregisters all per-investigation task definition revisions
+4. Deletes the EFS access point (EFS data at `/<cluster-id>/<investigation-id>/` is preserved on the filesystem)
+
+Note: `--cluster-id` is optional. If omitted, the command automatically derives it from the EFS access point tags. If multiple investigations with the same ID exist across different clusters, you must specify `--cluster-id` to disambiguate.
 
 ## Complete Example
 
@@ -215,13 +228,20 @@ TASK_ID="<from output>"
   --ecs-cluster "$ECS_CLUSTER" \
   --region "$REGION"
 
-# 5. Close investigation
+# 5. Close investigation (cluster ID is auto-discovered from EFS tags)
 ./bin/rosa-boundary close-investigation \
-  --cluster-id "$CLUSTER_ID" \
   --investigation-id "$INV_ID" \
   --efs-filesystem-id "$EFS_ID" \
   --ecs-cluster "$ECS_CLUSTER" \
   --region "$REGION"
+
+# Or, specify cluster ID explicitly if needed:
+# ./bin/rosa-boundary close-investigation \
+#   --cluster-id "$CLUSTER_ID" \
+#   --investigation-id "$INV_ID" \
+#   --efs-filesystem-id "$EFS_ID" \
+#   --ecs-cluster "$ECS_CLUSTER" \
+#   --region "$REGION"
 ```
 
 ## Authorization Model

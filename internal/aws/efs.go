@@ -18,9 +18,15 @@ type AccessPointSummary struct {
 	Tags           map[string]string
 }
 
+// efsAPI defines the subset of EFS API methods used by EFSClient.
+type efsAPI interface {
+	DescribeAccessPoints(ctx context.Context, params *efs.DescribeAccessPointsInput, optFns ...func(*efs.Options)) (*efs.DescribeAccessPointsOutput, error)
+	DeleteAccessPoint(ctx context.Context, params *efs.DeleteAccessPointInput, optFns ...func(*efs.Options)) (*efs.DeleteAccessPointOutput, error)
+}
+
 // EFSClient wraps the AWS EFS SDK client.
 type EFSClient struct {
-	client       *efs.Client
+	client       efsAPI
 	filesystemID string
 }
 
@@ -34,9 +40,12 @@ func NewEFSClient(region, filesystemID string, credProvider aws.CredentialsProvi
 }
 
 // FindAccessPointByTags finds an available EFS access point by ClusterID and InvestigationID tags.
-// Handles both "InvestigationID" and "InvestigationId" key variants.
+// If clusterID is empty, it searches by InvestigationID only and returns an error if multiple
+// access points match (ambiguous investigation ID across clusters).
+// If clusterID is provided, it requires an exact match on both tags.
 // Returns nil if no matching access point is found.
 func (c *EFSClient) FindAccessPointByTags(ctx context.Context, clusterID, investigationID string) (*AccessPointSummary, error) {
+	var matches []AccessPointSummary
 	paginator := efs.NewDescribeAccessPointsPaginator(c.client, &efs.DescribeAccessPointsInput{
 		FileSystemId: aws.String(c.filesystemID),
 	})
@@ -53,22 +62,42 @@ func (c *EFSClient) FindAccessPointByTags(ctx context.Context, clusterID, invest
 			for _, tag := range ap.Tags {
 				tags[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
 			}
-			if tags["ClusterID"] == clusterID && tags["InvestigationID"] == investigationID {
+
+			// Match logic: if clusterID is provided, require exact match on both tags.
+			// If clusterID is empty, match on InvestigationID only.
+			matchesFilter := tags["InvestigationID"] == investigationID &&
+				(clusterID == "" || tags["ClusterID"] == clusterID)
+
+			if matchesFilter {
 				rootPath := ""
 				if ap.RootDirectory != nil {
 					rootPath = aws.ToString(ap.RootDirectory.Path)
 				}
-				return &AccessPointSummary{
+				matches = append(matches, AccessPointSummary{
 					AccessPointID:  aws.ToString(ap.AccessPointId),
 					FileSystemID:   aws.ToString(ap.FileSystemId),
 					Path:           rootPath,
 					LifeCycleState: string(ap.LifeCycleState),
 					Tags:           tags,
-				}, nil
+				})
 			}
 		}
 	}
-	return nil, nil
+
+	if len(matches) == 0 {
+		return nil, nil
+	}
+
+	// If clusterID was omitted and multiple investigations match, this is ambiguous
+	if clusterID == "" && len(matches) > 1 {
+		clusterIDs := make([]string, len(matches))
+		for i, m := range matches {
+			clusterIDs[i] = m.Tags["ClusterID"]
+		}
+		return nil, fmt.Errorf("investigation ID %q is ambiguous: found in clusters %v; specify --cluster-id to disambiguate", investigationID, clusterIDs)
+	}
+
+	return &matches[0], nil
 }
 
 // ListInvestigations returns all EFS access points on the filesystem that have

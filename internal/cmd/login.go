@@ -50,7 +50,22 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		ClientID:    cfg.OIDCClientID,
 	}
 
-	_, err = auth.GetToken(cmd.Context(), pkce, forceFreshLogin(forceLogin, loginForce))
+	// Clear both OIDC token and AWS credentials cache when force login requested
+	force := forceFreshLogin(forceLogin, loginForce)
+	if force {
+		if clearErr := auth.ClearToken(); clearErr != nil {
+			if debugErr := debugf("Failed to clear token cache: %v", clearErr); debugErr != nil {
+				return fmt.Errorf("debug output failed: %w", debugErr)
+			}
+		}
+		if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
+			if debugErr := debugf("Failed to clear credentials cache: %v", clearErr); debugErr != nil {
+				return fmt.Errorf("debug output failed: %w", debugErr)
+			}
+		}
+	}
+
+	_, err = auth.GetToken(cmd.Context(), pkce, force)
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

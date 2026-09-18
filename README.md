@@ -21,7 +21,7 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 - Go 1.23+ (to build the CLI from source)
 - Terraform (infrastructure deployment)
 - Keycloak with OIDC configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
-- [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) — required for `join-task` and `start-task --connect`
+- [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) — required for interactive access and credential configuration
 
 The `session-manager-plugin` is an AWS-provided binary that handles the WebSocket session protocol used by ECS Exec. The `rosa-boundary` CLI calls the ECS `ExecuteCommand` API to obtain session credentials, then hands off to this plugin to establish the interactive session. It must be installed separately on each machine running the CLI.
 
@@ -116,6 +116,10 @@ rosa-boundary list-tasks
 # Connect to an existing task
 rosa-boundary join-task <task-id>
 
+# Configure or clear a fresh, task-scoped OCM access token
+rosa-boundary credentials configure ocm <task-id> --ocm-url production
+rosa-boundary credentials clear ocm <task-id>
+
 # Stop a task (triggers S3 sync)
 rosa-boundary stop-task <task-id>
 ```
@@ -163,6 +167,8 @@ rosa-boundary/
 |---|---|
 | `login` | Authenticate with Keycloak and cache the OIDC token |
 | `start-task` | Create an investigation and start an ECS task |
+| `credentials configure ocm <task-id>` | Issue and configure a fresh OCM access token |
+| `credentials clear ocm <task-id>` | Clear OCM and credential-derived kubeconfig state |
 | `join-task <task-id>` | Connect to a running ECS task via ECS Exec |
 | `list-tasks` | List ECS tasks in the cluster |
 | `stop-task <task-id>` | Stop a running ECS task |
@@ -177,10 +183,15 @@ rosa-boundary/
 - `--task-timeout` — seconds before reaper kills the task (default: `3600`)
 - `--connect` — automatically join the task after it reaches RUNNING
 - `--no-wait` — return immediately without waiting for RUNNING
+- `--with-credentials ocm` — configure OCM before returning or connecting; incompatible with `--no-wait`
+- `--ocm-url` — `production`, `staging`, `integration`, or an approved canonical URL
+- `--ocm-auth-flow` — `auth-code` (default) or `device`
 - `--force-login` — force fresh OIDC authentication
 - `--output text|json`
 
 **`join-task`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
+
+**`credentials configure ocm`**: `--ocm-url` selects the environment and defaults to the non-secret URL in the workstation's OCM configuration; `--auth-flow auth-code|device` selects the fresh-token flow. The command never copies or caches local access, refresh, or offline tokens.
 
 **`list-tasks`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
 
@@ -264,7 +275,7 @@ podman run -e OC_VERSION=4.19 rosa-boundary:latest /bin/bash
 
 ## SRE User and Audit Escrow
 
-The container includes a non-root `sre` user (uid=1000) designed for SSM/ECS Exec connections. The `/home/sre` directory is intended to be mounted as EFS via Fargate task definition.
+The container includes a non-root `sre` user (uid=1000) designed for SSM/ECS Exec connections. `/home/sre` is EFS-backed, while `/home/sre/.config/ocm` and `/home/sre/.kube` are overlaid with task-scoped Fargate volumes. Credential state is destroyed when the task stops.
 
 ### Automatic S3 Sync on Exit
 
@@ -280,6 +291,7 @@ podman run -e S3_AUDIT_ESCROW=s3://my-bucket/investigation-123/ rosa-boundary:la
 - Graceful failure - warns but doesn't block exit if sync fails
 - Only syncs if `S3_AUDIT_ESCROW` is defined (no sync if unset)
 - Useful for preserving investigation artifacts after ephemeral container use
+- Excludes `.config/ocm/*` and `.kube/*` so credential state is never copied to audit storage
 
 ## Tool Management
 

@@ -171,20 +171,9 @@ func authenticateIfNeeded(cmd *cobra.Command, args []string) error {
 		ClientID:    cfg.OIDCClientID,
 	}
 
-	// Determine which role to assume based on the command
-	var roleARN string
-	var sessionName string
-
-	switch cmd.Name() {
-	case "create-investigation", "start-task":
-		roleARN = cfg.InvokerRoleARN
-		sessionName = "rosa-boundary-invoker"
-		if roleARN == "" {
-			return fmt.Errorf("invoker role ARN is required for %s; set --invoker-role-arn, ROSA_BOUNDARY_INVOKER_ROLE_ARN, or INVOKER_ROLE_ARN", cmd.Name())
-		}
-	default:
-		roleARN = cfg.SRERoleARN
-		sessionName = "rosa-boundary-session"
+	roleARN, sessionName, err := authenticationRole(cfg, cmd)
+	if err != nil {
+		return err
 	}
 
 	idToken, creds, err := assumeRoleWithRetry(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, forceLogin)
@@ -200,6 +189,18 @@ func authenticateIfNeeded(cmd *cobra.Command, args []string) error {
 	}
 
 	return nil
+}
+
+func authenticationRole(cfg *config.Config, cmd *cobra.Command) (string, string, error) {
+	switch cmd.Name() {
+	case "create-investigation", "start-task":
+		if cfg.InvokerRoleARN == "" {
+			return "", "", fmt.Errorf("invoker role ARN is required for %s; set --invoker-role-arn, ROSA_BOUNDARY_INVOKER_ROLE_ARN, or INVOKER_ROLE_ARN", cmd.Name())
+		}
+		return cfg.InvokerRoleARN, "rosa-boundary-invoker", nil
+	default:
+		return cfg.SRERoleARN, "rosa-boundary-session", nil
+	}
 }
 
 // isAuthError returns true if the error indicates an authentication/authorization failure

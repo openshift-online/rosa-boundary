@@ -230,6 +230,9 @@ RUN useradd --create-home --shell /bin/bash sre \
 # Skeleton config copied to /home/sre at runtime by the entrypoint
 COPY skel/sre/ /etc/skel-sre/
 
+# The credential helper accepts only fixed OCM configure/clear operations and
+# writes exclusively to task-scoped mounts overlaid below the EFS-backed home.
+COPY --chmod=755 utils/rosa-boundary-credential-helper /usr/local/bin/
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV HOME=/home/sre

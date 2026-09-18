@@ -51,8 +51,9 @@ func TestTransferConfigureHandlesFramedMarkersAndClosesStdinAfterSuccess(t *test
 	var debugLog strings.Builder
 	transfer := &Transfer{
 		RunPlugin: runner,
-		Debug: func(format string, args ...any) {
-			_, _ = fmt.Fprintf(&debugLog, format+"\n", args...)
+		Debug: func(format string, args ...any) error {
+			_, err := fmt.Fprintf(&debugLog, format+"\n", args...)
+			return err
 		},
 		Timeout:   time.Second,
 		MaxOutput: 4096,
@@ -106,14 +107,24 @@ func TestTransferRejectsProtocolFailuresWithoutLeakingPayload(t *testing.T) {
 }
 
 func TestTransferBoundsOutputAndCancellation(t *testing.T) {
-	runner := func(ctx context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, _ io.Reader, stdout, _ io.Writer) error {
+	outputClosed := make(chan struct{})
+	runner := func(_ context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, _ io.Reader, stdout, _ io.Writer) error {
 		_, _ = io.WriteString(stdout, strings.Repeat("x", 128))
-		<-ctx.Done()
-		return ctx.Err()
+		_, err := io.WriteString(stdout, "blocked until the output reader closes")
+		if errors.Is(err, io.ErrClosedPipe) {
+			close(outputClosed)
+			return nil
+		}
+		return fmt.Errorf("output remained writable after the safety limit: %w", err)
 	}
 	transfer := &Transfer{RunPlugin: runner, Timeout: 100 * time.Millisecond, MaxOutput: 64}
 	if err := transfer.Configure(context.Background(), "us-east-1", &awsclient.ExecuteCommandSession{}, testCredentials, []byte("request")); err == nil {
 		t.Fatal("unbounded output succeeded")
+	}
+	select {
+	case <-outputClosed:
+	default:
+		t.Fatal("output reader was not closed before waiting for the plugin")
 	}
 }
 

@@ -68,13 +68,14 @@ func TestAuthCodeHandlerValidatesStateAndUsesPKCEWithoutLeakingCode(t *testing.T
 	config := &oauth2.Config{ClientID: ClientID, RedirectURL: RedirectURL, Endpoint: oauth2.Endpoint{TokenURL: tokenServer.URL}}
 	results := make(chan authCodeResult, 1)
 	var debugLog strings.Builder
-	debug := func(format string, args ...any) {
-		_, _ = fmt.Fprintf(&debugLog, format+"\n", args...)
+	debug := func(format string, args ...any) error {
+		_, err := fmt.Fprintf(&debugLog, format+"\n", args...)
+		return err
 	}
 	handler := authCodeHandler(context.Background(), config, "expected-state", "pkce-verifier", results, debug)
 
 	bad := httptest.NewRecorder()
-	handler.ServeHTTP(bad, httptest.NewRequest(http.MethodGet, "/oauth/callback?state=wrong&code=authorization-code-canary", nil))
+	handler.ServeHTTP(bad, httptest.NewRequest(http.MethodGet, "/oauth/callback?state=rejected-state&code=authorization-code-canary", nil))
 	if bad.Code != http.StatusBadRequest || len(results) != 0 {
 		t.Fatalf("invalid state was not rejected: status=%d results=%d", bad.Code, len(results))
 	}

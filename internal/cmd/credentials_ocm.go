@@ -95,12 +95,16 @@ func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
 	if err := prepareCredentialTask(cmd.Context(), ecsClient, args[0]); err != nil {
 		return err
 	}
-	credentialDebugf("Requesting static OCM clear command through ECS Exec")
+	if err := credentialDebugf("Requesting static OCM clear command through ECS Exec"); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 	session, err := ecsClient.ExecuteCommand(cmd.Context(), args[0], credentialContainer, ocmcredentials.ClearCommand)
 	if err != nil {
 		return fmt.Errorf("start OCM credential clear session: %w", err)
 	}
-	credentialDebugf("ECS Exec clear session established: %s", session.SessionID)
+	if err := credentialDebugf("ECS Exec clear session established: %s", session.SessionID); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 	if err := newOCMCredentialTransfer().Clear(cmd.Context(), authResult.Config.AWSRegion, session, authResult.Credentials); err != nil {
 		return fmt.Errorf("clear OCM credentials: %w", err)
 	}
@@ -139,12 +143,16 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 	}()
 
 	output.Status("Uploading OCM access token to task %s...", taskID)
-	credentialDebugf("Requesting static OCM configure command through ECS Exec")
+	if err := credentialDebugf("Requesting static OCM configure command through ECS Exec"); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 	session, err := ecsClient.ExecuteCommand(ctx, taskID, credentialContainer, ocmcredentials.ConfigureCommand)
 	if err != nil {
 		return fmt.Errorf("start OCM credential configure session: %w", err)
 	}
-	credentialDebugf("ECS Exec configure session established: %s", session.SessionID)
+	if err := credentialDebugf("ECS Exec configure session established: %s", session.SessionID); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 	if err := newOCMCredentialTransfer().Configure(ctx, region, session, credentials, request); err != nil {
 		return fmt.Errorf("configure OCM credentials: %w", err)
 	}
@@ -158,7 +166,9 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 }
 
 func prepareCredentialTask(ctx context.Context, ecsClient *awsclient.ECSClient, taskID string) error {
-	credentialDebugf("Checking access to task %s", taskID)
+	if err := credentialDebugf("Checking access to task %s", taskID); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 	task, err := ecsClient.DescribeTask(ctx, taskID)
 	if err != nil {
 		return fmt.Errorf("cannot access task %s: %w", taskID, err)
@@ -166,16 +176,20 @@ func prepareCredentialTask(ctx context.Context, ecsClient *awsclient.ECSClient, 
 	if task.Status != "RUNNING" {
 		return fmt.Errorf("task %s is not RUNNING (status: %s)", taskID, task.Status)
 	}
-	credentialDebugf("Task %s is RUNNING; waiting for ECS Exec agent", taskID)
+	if err := credentialDebugf("Task %s is RUNNING; waiting for ECS Exec agent", taskID); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 	if err := ecsClient.WaitForExecAgent(ctx, taskID, credentialContainer, 30*time.Second); err != nil {
 		return fmt.Errorf("task %s exec agent is not ready: %w", taskID, err)
 	}
-	credentialDebugf("Task %s ECS Exec agent is ready", taskID)
+	if err := credentialDebugf("Task %s ECS Exec agent is ready", taskID); err != nil {
+		return fmt.Errorf("debug output failed: %w", err)
+	}
 	return nil
 }
 
-func credentialDebugf(format string, args ...any) {
-	_ = output.Debug(format, args...)
+func credentialDebugf(format string, args ...any) error {
+	return output.Debug(format, args...)
 }
 
 func resolveConfigureOCMEnvironment() (ocmcredentials.Environment, error) {

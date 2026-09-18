@@ -170,7 +170,7 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	if configureOCM {
 		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
 		if err := configureOCMForTask(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, ocmEnvironment, ocmFlow); err != nil {
-			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, err)
+			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, ocmEnvironment, ocmFlow, err)
 		}
 	}
 
@@ -248,10 +248,10 @@ func validateStartCredentials() (bool, ocmcredentials.Environment, ocmcredential
 	return true, environment, flow, nil
 }
 
-func startCredentialFailure(investigationID, taskID, ecsCluster, region string, cause error) error {
+func startCredentialFailure(investigationID, taskID, ecsCluster, region string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, cause error) error {
 	return fmt.Errorf(
-		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; retry with: rosa-boundary --ecs-cluster %s --region %s credentials configure ocm %s; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
-		investigationID, taskID, cause, ecsCluster, region, taskID, ecsCluster, region, taskID,
+		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; retry with: rosa-boundary --ecs-cluster %s --region %s credentials configure ocm --ocm-url %s --auth-flow %s %s; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
+		investigationID, taskID, cause, ecsCluster, region, environment.Name, flow, taskID, ecsCluster, region, taskID,
 	)
 }
 

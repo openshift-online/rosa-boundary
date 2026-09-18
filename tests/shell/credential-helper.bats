@@ -144,6 +144,23 @@ run_clear() {
     [ -z "$(find "${OCM_DIR}" -name '.rosa-boundary-credential-*' -print -quit)" ]
 }
 
+@test "installation failure preserves the previous configuration and does not report success" {
+    printf '%s\n' '{"access_token":"old-working-token"}' >"${OCM_DIR}/ocm.json"
+    cat >"${STUBS}/mv" <<'STUB'
+#!/bin/bash
+exit 1
+STUB
+    chmod 0755 "${STUBS}/mv"
+
+    run_configure "$(request replacement-token)"
+
+    [ "${status}" -ne 0 ]
+    [ "$(cat "${OCM_DIR}/ocm.json")" = '{"access_token":"old-working-token"}' ]
+    [[ "${output}" == *"unable to install OCM configuration"* ]]
+    [[ "${output}" != *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
+    [ -z "$(find "${OCM_DIR}" -name '.rosa-boundary-credential-*' -print -quit)" ]
+}
+
 @test "configure bounds request input and restores terminal echo" {
     cat >"${STUBS}/stty" <<STUB
 #!/bin/bash

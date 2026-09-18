@@ -26,7 +26,7 @@ type PluginRunner func(context.Context, string, *awsclient.ExecuteCommandSession
 // Transfer performs the bounded helper protocol over an ECS Exec session.
 type Transfer struct {
 	RunPlugin PluginRunner
-	Debug     func(format string, args ...any)
+	Debug     func(format string, args ...any) error
 	Timeout   time.Duration
 	MaxOutput int
 }
@@ -71,7 +71,9 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 
 	protocolCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	t.debug("Starting Session Manager plugin for credential operation")
+	if err := t.debug("Starting Session Manager plugin for credential operation"); err != nil {
+		return err
+	}
 	pluginInput, inputWriter := io.Pipe()
 	pluginOutput, outputWriter := io.Pipe()
 	pluginResult := make(chan error, 1)
@@ -115,17 +117,29 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 				break
 			}
 			if requireReady && readyCount == 0 && newReadyCount == 1 {
-				t.debug("Credential helper readiness marker received")
+				if err := t.debug("Credential helper readiness marker received"); err != nil {
+					protocolErr = err
+					cancel()
+					break
+				}
 				if _, err := io.WriteString(inputWriter, payload); err != nil {
 					protocolErr = errors.New("credential helper stopped before accepting the request")
 					cancel()
 					break
 				}
 				payload = ""
-				t.debug("Credential request sent; keeping plugin stdin open until helper exit")
+				if err := t.debug("Credential request sent; keeping plugin stdin open until helper exit"); err != nil {
+					protocolErr = err
+					cancel()
+					break
+				}
 			}
 			if successCount == 0 && newSuccessCount == 1 {
-				t.debug("Credential helper success marker received")
+				if err := t.debug("Credential helper success marker received"); err != nil {
+					protocolErr = err
+					cancel()
+					break
+				}
 				// ECS Exec keeps the session alive while plugin stdin remains open.
 				// Wait for helper success before closing it so validation cannot be
 				// interrupted, then let Session Manager terminate normally.
@@ -135,7 +149,11 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 					break
 				}
 				inputClosed = true
-				t.debug("Credential helper succeeded; closed plugin stdin")
+				if err := t.debug("Credential helper succeeded; closed plugin stdin"); err != nil {
+					protocolErr = err
+					cancel()
+					break
+				}
 			}
 			readyCount = newReadyCount
 			successCount = newSuccessCount
@@ -149,15 +167,20 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 	}
 
 	if !inputClosed {
-		if err := inputWriter.Close(); err != nil && protocolErr == nil {
+		if err := inputWriter.CloseWithError(io.ErrClosedPipe); err != nil && protocolErr == nil {
 			protocolErr = errors.New("credential session input could not be closed")
 		}
 	}
+	_ = pluginOutput.CloseWithError(io.ErrClosedPipe)
 	pluginErr := <-pluginResult
 	if pluginErr != nil {
-		t.debug("Session Manager plugin exited unsuccessfully")
+		if err := t.debug("Session Manager plugin exited unsuccessfully"); err != nil && protocolErr == nil {
+			protocolErr = err
+		}
 	} else {
-		t.debug("Session Manager plugin exited successfully")
+		if err := t.debug("Session Manager plugin exited successfully"); err != nil && protocolErr == nil {
+			protocolErr = err
+		}
 	}
 	if protocolErr != nil {
 		return protocolErr
@@ -177,8 +200,11 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 	return nil
 }
 
-func (t *Transfer) debug(format string, args ...any) {
+func (t *Transfer) debug(format string, args ...any) error {
 	if t.Debug != nil {
-		t.Debug(format, args...)
+		if err := t.Debug(format, args...); err != nil {
+			return fmt.Errorf("write credential debug output: %w", err)
+		}
 	}
+	return nil
 }

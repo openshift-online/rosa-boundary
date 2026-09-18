@@ -66,8 +66,16 @@ func TestValidateStartCredentials(t *testing.T) {
 }
 
 func TestStartCredentialFailureRetainsTaskAndCleanupCommand(t *testing.T) {
-	err := startCredentialFailure("INV-1", "task-123", "boundary", "us-east-2", errors.New("configure failed"))
-	for _, expected := range []string{"INV-1", "task-123", "still running", "credentials configure ocm task-123", "stop-task task-123"} {
+	err := startCredentialFailure(
+		"INV-1",
+		"task-123",
+		"boundary",
+		"us-east-2",
+		credentials.Environment{Name: "staging", URL: credentials.StagingURL},
+		credentials.FlowDevice,
+		errors.New("configure failed"),
+	)
+	for _, expected := range []string{"INV-1", "task-123", "still running", "credentials configure ocm --ocm-url staging --auth-flow device task-123", "stop-task task-123"} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error %q does not contain %q", err, expected)
 		}

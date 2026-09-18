@@ -49,7 +49,7 @@ func ResolveEnvironment(value string) (Environment, error) {
 }
 
 // readLocalURL decodes only the non-secret URL field and never returns token data.
-func readLocalURL() (string, error) {
+func readLocalURL() (localURL string, err error) {
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
 		home, err := os.UserHomeDir()
@@ -67,7 +67,12 @@ func readLocalURL() (string, error) {
 		}
 		return "", fmt.Errorf("open local OCM configuration: %w", err)
 	}
-	defer func() { _ = file.Close() }()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			localURL = ""
+			err = fmt.Errorf("close local OCM configuration: %w", closeErr)
+		}
+	}()
 
 	var local struct {
 		URL string `json:"url"`

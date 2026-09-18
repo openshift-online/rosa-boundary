@@ -3,6 +3,7 @@ package ocm
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -36,7 +37,7 @@ type Authenticator struct {
 	OpenBrowser func(string) error
 	Listen      func(network, address string) (net.Listener, error)
 	Status      func(format string, args ...any)
-	Debug       func(format string, args ...any)
+	Debug       func(format string, args ...any) error
 	Timeout     time.Duration
 }
 
@@ -88,13 +89,19 @@ func (a *Authenticator) acquireDevice(ctx context.Context) (Token, error) {
 	ctx = a.oauthContext(ctx)
 	config := a.oauthConfig()
 	verifier := oauth2.GenerateVerifier()
-	a.debug("Requesting OCM device authorization")
+	if err := a.debug("Requesting OCM device authorization"); err != nil {
+		return Token{}, err
+	}
 	device, err := config.DeviceAuth(ctx, oauth2.S256ChallengeOption(verifier), oauth2.VerifierOption(verifier))
 	if err != nil {
-		a.debug("OCM device authorization request failed")
+		if debugErr := a.debug("OCM device authorization request failed"); debugErr != nil {
+			return Token{}, debugErr
+		}
 		return Token{}, errors.New("request OCM device authorization failed")
 	}
-	a.debug("OCM device authorization received; preparing browser approval")
+	if err := a.debug("OCM device authorization received; preparing browser approval"); err != nil {
+		return Token{}, err
+	}
 
 	verificationURL, err := deviceVerificationURL(device)
 	if err != nil {
@@ -107,20 +114,33 @@ func (a *Authenticator) acquireDevice(ctx context.Context) (Token, error) {
 	if a.OpenBrowser != nil {
 		if err := a.OpenBrowser(verificationURL); err != nil {
 			a.status("Could not open a browser automatically; use the URL above")
-			a.debug("Automatic browser launch failed")
+			if debugErr := a.debug("Automatic browser launch failed"); debugErr != nil {
+				return Token{}, debugErr
+			}
 		} else {
-			a.debug("Automatic browser launch started")
+			if debugErr := a.debug("Automatic browser launch started"); debugErr != nil {
+				return Token{}, debugErr
+			}
 		}
 	}
 
 	a.status("Waiting for OCM device authorization approval...")
 	token, err := config.DeviceAccessToken(ctx, device, oauth2.VerifierOption(verifier))
 	if err != nil {
-		a.debug("OCM device authorization did not complete successfully")
+		if debugErr := a.debug("OCM device authorization did not complete successfully"); debugErr != nil {
+			return Token{}, debugErr
+		}
 		return Token{}, errors.New("complete OCM device authorization failed")
 	}
-	a.debug("OCM device token exchange completed")
-	return accessTokenOnly(token)
+	result, err := accessTokenOnly(token)
+	if err != nil {
+		return Token{}, err
+	}
+	if err := a.debug("OCM device token exchange completed"); err != nil {
+		result.AccessToken = ""
+		return Token{}, err
+	}
+	return result, nil
 }
 
 type authCodeResult struct {
@@ -139,7 +159,10 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 	if err != nil {
 		return Token{}, fmt.Errorf("listen for OCM callback on 127.0.0.1:9998: %w", err)
 	}
-	a.debug("OCM callback listener started on 127.0.0.1:9998")
+	if err := a.debug("OCM callback listener started on 127.0.0.1:9998"); err != nil {
+		_ = listener.Close()
+		return Token{}, err
+	}
 
 	state, err := randomState()
 	if err != nil {
@@ -162,7 +185,10 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			a.debug("OCM callback server stopped unexpectedly")
+			if debugErr := a.debug("OCM callback server stopped unexpectedly"); debugErr != nil {
+				sendAuthCodeResult(result, authCodeResult{err: debugErr})
+				return
+			}
 			sendAuthCodeResult(result, authCodeResult{err: fmt.Errorf("OCM callback server stopped unexpectedly: %w", err)})
 		}
 	}()
@@ -177,9 +203,13 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 	if a.OpenBrowser != nil {
 		if err := a.OpenBrowser(authorizationURL); err != nil {
 			a.status("Could not open a browser automatically; use the URL above")
-			a.debug("Automatic browser launch failed")
+			if debugErr := a.debug("Automatic browser launch failed"); debugErr != nil {
+				return Token{}, debugErr
+			}
 		} else {
-			a.debug("Automatic browser launch started")
+			if debugErr := a.debug("Automatic browser launch started"); debugErr != nil {
+				return Token{}, debugErr
+			}
 		}
 	}
 
@@ -189,57 +219,93 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 		if completed.err != nil {
 			return Token{}, completed.err
 		}
-		a.debug("OCM authorization-code flow completed")
-		return accessTokenOnly(completed.token)
+		token, err := accessTokenOnly(completed.token)
+		if err != nil {
+			return Token{}, err
+		}
+		if err := a.debug("OCM authorization-code flow completed"); err != nil {
+			token.AccessToken = ""
+			return Token{}, err
+		}
+		return token, nil
 	case <-callbackCtx.Done():
 		if ctx.Err() != nil {
-			a.debug("OCM authorization callback wait canceled")
+			if err := a.debug("OCM authorization callback wait canceled"); err != nil {
+				return Token{}, err
+			}
 			return Token{}, ctx.Err()
 		}
-		a.debug("OCM authorization callback wait timed out")
+		if err := a.debug("OCM authorization callback wait timed out"); err != nil {
+			return Token{}, err
+		}
 		return Token{}, errors.New("OCM authorization timed out waiting for callback")
 	}
 }
 
-func authCodeHandler(ctx context.Context, config *oauth2.Config, expectedState, verifier string, result chan<- authCodeResult, debug func(string, ...any)) http.Handler {
+func authCodeHandler(ctx context.Context, config *oauth2.Config, expectedState, verifier string, result chan<- authCodeResult, debug func(string, ...any) error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodGet {
-			callDebug(debug, "OCM callback rejected an unexpected HTTP method")
+			if !writeAuthCodeDebug(w, result, debug, "OCM callback rejected an unexpected HTTP method") {
+				return
+			}
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		query := request.URL.Query()
-		if query.Get("state") != expectedState {
-			callDebug(debug, "OCM callback rejected an invalid OAuth state")
+		if subtle.ConstantTimeCompare([]byte(query.Get("state")), []byte(expectedState)) != 1 {
+			if !writeAuthCodeDebug(w, result, debug, "OCM callback rejected an invalid OAuth state") {
+				return
+			}
 			http.Error(w, "invalid OAuth state", http.StatusBadRequest)
 			return
 		}
 		if query.Get("error") != "" {
-			callDebug(debug, "OCM authorization callback reported an OAuth error")
+			if !writeAuthCodeDebug(w, result, debug, "OCM authorization callback reported an OAuth error") {
+				return
+			}
 			http.Error(w, "authorization was not completed", http.StatusBadRequest)
 			sendAuthCodeResult(result, authCodeResult{err: errors.New("OCM authorization failed")})
 			return
 		}
 		code := query.Get("code")
 		if code == "" {
-			callDebug(debug, "OCM callback did not contain an authorization code")
+			if !writeAuthCodeDebug(w, result, debug, "OCM callback did not contain an authorization code") {
+				return
+			}
 			http.Error(w, "authorization response did not include a code", http.StatusBadRequest)
 			sendAuthCodeResult(result, authCodeResult{err: errors.New("OCM authorization response did not include a code")})
 			return
 		}
 
-		callDebug(debug, "OCM callback received and state validated; exchanging authorization code")
+		if !writeAuthCodeDebug(w, result, debug, "OCM callback received and state validated; exchanging authorization code") {
+			return
+		}
 		token, err := config.Exchange(ctx, code, oauth2.VerifierOption(verifier))
 		if err != nil {
-			callDebug(debug, "OCM authorization-code exchange failed")
+			if !writeAuthCodeDebug(w, result, debug, "OCM authorization-code exchange failed") {
+				return
+			}
 			http.Error(w, "authorization exchange failed", http.StatusBadGateway)
 			sendAuthCodeResult(result, authCodeResult{err: errors.New("exchange OCM authorization code failed")})
 			return
 		}
-		callDebug(debug, "OCM authorization-code exchange completed")
+		if !writeAuthCodeDebug(w, result, debug, "OCM authorization-code exchange completed") {
+			token.AccessToken = ""
+			token.RefreshToken = ""
+			return
+		}
 		_, _ = io.WriteString(w, "Login successful. You may close this window and return to the terminal.")
 		sendAuthCodeResult(result, authCodeResult{token: token})
 	})
+}
+
+func writeAuthCodeDebug(w http.ResponseWriter, result chan<- authCodeResult, debug func(string, ...any) error, message string) bool {
+	if err := callDebug(debug, message); err != nil {
+		http.Error(w, "local debug output failed", http.StatusInternalServerError)
+		sendAuthCodeResult(result, authCodeResult{err: fmt.Errorf("write OCM debug output: %w", err)})
+		return false
+	}
+	return true
 }
 
 func sendAuthCodeResult(result chan<- authCodeResult, value authCodeResult) {
@@ -287,14 +353,18 @@ func (a *Authenticator) status(format string, args ...any) {
 	}
 }
 
-func (a *Authenticator) debug(format string, args ...any) {
-	callDebug(a.Debug, format, args...)
+func (a *Authenticator) debug(format string, args ...any) error {
+	if err := callDebug(a.Debug, format, args...); err != nil {
+		return fmt.Errorf("write OCM debug output: %w", err)
+	}
+	return nil
 }
 
-func callDebug(debug func(string, ...any), format string, args ...any) {
+func callDebug(debug func(string, ...any) error, format string, args ...any) error {
 	if debug != nil {
-		debug(format, args...)
+		return debug(format, args...)
 	}
+	return nil
 }
 
 func openBrowser(target string) error {

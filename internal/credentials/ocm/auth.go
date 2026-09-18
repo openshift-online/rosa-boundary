@@ -113,7 +113,7 @@ func (a *Authenticator) acquireDevice(ctx context.Context) (Token, error) {
 		}
 	}
 
-	a.debug("Waiting for OCM device authorization approval")
+	a.status("Waiting for OCM device authorization approval...")
 	token, err := config.DeviceAccessToken(ctx, device, oauth2.VerifierOption(verifier))
 	if err != nil {
 		a.debug("OCM device authorization did not complete successfully")
@@ -183,7 +183,7 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 		}
 	}
 
-	a.debug("Waiting for OCM authorization callback")
+	a.status("Waiting for OCM authorization callback...")
 	select {
 	case completed := <-result:
 		if completed.err != nil {

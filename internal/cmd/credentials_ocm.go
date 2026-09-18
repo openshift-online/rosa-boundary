@@ -123,9 +123,9 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 		return fmt.Errorf("OCM authentication failed: %w", err)
 	}
 	if token.Expiry.IsZero() {
-		credentialDebugf("Fresh OCM access token acquired; server supplied no expiry")
+		output.Status("Fresh OCM access token acquired; server supplied no expiry")
 	} else {
-		credentialDebugf("Fresh OCM access token acquired; expires at %s", token.Expiry.Format(time.RFC3339))
+		output.Status("Fresh OCM access token acquired; expires at %s", token.Expiry.Format(time.RFC3339))
 	}
 	request, err := ocmcredentials.MarshalRequest(token.AccessToken, environment)
 	token.AccessToken = ""
@@ -138,6 +138,7 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 		}
 	}()
 
+	output.Status("Uploading OCM access token to task %s...", taskID)
 	credentialDebugf("Requesting static OCM configure command through ECS Exec")
 	session, err := ecsClient.ExecuteCommand(ctx, taskID, credentialContainer, ocmcredentials.ConfigureCommand)
 	if err != nil {

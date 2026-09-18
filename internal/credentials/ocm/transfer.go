@@ -41,7 +41,7 @@ func NewTransfer() *Transfer {
 }
 
 // Configure waits until terminal echo is disabled, sends one request, and
-// keeps stdin open until the task-side helper and plugin have exited.
+// closes stdin after the task-side helper confirms successful validation.
 func (t *Transfer) Configure(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials, request []byte) error {
 	if len(request) == 0 {
 		return errors.New("credential request is empty")
@@ -90,6 +90,7 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 	buffer := make([]byte, 4096)
 	readyCount := 0
 	successCount := 0
+	inputClosed := false
 	protocolErr := error(nil)
 	for {
 		count, readErr := pluginOutput.Read(buffer)
@@ -125,6 +126,16 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 			}
 			if successCount == 0 && newSuccessCount == 1 {
 				t.debug("Credential helper success marker received")
+				// ECS Exec keeps the session alive while plugin stdin remains open.
+				// Wait for helper success before closing it so validation cannot be
+				// interrupted, then let Session Manager terminate normally.
+				if err := inputWriter.Close(); err != nil {
+					protocolErr = errors.New("credential session input could not be closed")
+					cancel()
+					break
+				}
+				inputClosed = true
+				t.debug("Credential helper succeeded; closed plugin stdin")
 			}
 			readyCount = newReadyCount
 			successCount = newSuccessCount
@@ -137,6 +148,11 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 		}
 	}
 
+	if !inputClosed {
+		if err := inputWriter.Close(); err != nil && protocolErr == nil {
+			protocolErr = errors.New("credential session input could not be closed")
+		}
+	}
 	pluginErr := <-pluginResult
 	if pluginErr != nil {
 		t.debug("Session Manager plugin exited unsuccessfully")

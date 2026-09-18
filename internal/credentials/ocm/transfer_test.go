@@ -16,7 +16,7 @@ import (
 
 var testCredentials = &awsclient.TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "session"}
 
-func TestTransferConfigureHandlesFramedMarkersAndKeepsStdinOpen(t *testing.T) {
+func TestTransferConfigureHandlesFramedMarkersAndClosesStdinAfterSuccess(t *testing.T) {
 	request := []byte(`{"access_token":"raw-token-canary","url":"https://api.openshift.com"}`)
 	encoded := base64.StdEncoding.EncodeToString(request)
 	runner := func(ctx context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, stdin io.Reader, stdout, _ io.Writer) error {
@@ -40,7 +40,12 @@ func TestTransferConfigureHandlesFramedMarkersAndKeepsStdinOpen(t *testing.T) {
 		case <-time.After(20 * time.Millisecond):
 		}
 		_, _ = io.WriteString(stdout, "frame:"+successMarker+":end")
-		return nil
+		select {
+		case <-readFinished:
+			return nil
+		case <-ctx.Done():
+			return errors.New("stdin remained open after helper success")
+		}
 	}
 
 	var debugLog strings.Builder
@@ -55,7 +60,7 @@ func TestTransferConfigureHandlesFramedMarkersAndKeepsStdinOpen(t *testing.T) {
 	if err := transfer.Configure(context.Background(), "us-east-1", &awsclient.ExecuteCommandSession{}, testCredentials, request); err != nil {
 		t.Fatal(err)
 	}
-	for _, stage := range []string{"plugin", "readiness marker", "request sent", "success marker", "exited successfully"} {
+	for _, stage := range []string{"plugin", "readiness marker", "request sent", "success marker", "closed plugin stdin", "exited successfully"} {
 		if !strings.Contains(strings.ToLower(debugLog.String()), stage) {
 			t.Fatalf("debug log does not contain %q: %q", stage, debugLog.String())
 		}
@@ -113,9 +118,19 @@ func TestTransferBoundsOutputAndCancellation(t *testing.T) {
 }
 
 func TestTransferClearRequiresOnlySuccess(t *testing.T) {
-	runner := func(_ context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, stdin io.Reader, stdout, _ io.Writer) error {
+	runner := func(ctx context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, stdin io.Reader, stdout, _ io.Writer) error {
 		_, _ = io.WriteString(stdout, successMarker)
-		return nil
+		readFinished := make(chan struct{})
+		go func() {
+			_, _ = io.ReadAll(stdin)
+			close(readFinished)
+		}()
+		select {
+		case <-readFinished:
+			return nil
+		case <-ctx.Done():
+			return errors.New("stdin remained open after helper success")
+		}
 	}
 	transfer := &Transfer{RunPlugin: runner, Timeout: time.Second, MaxOutput: 1024}
 	if err := transfer.Clear(context.Background(), "us-east-1", &awsclient.ExecuteCommandSession{}, testCredentials); err != nil {

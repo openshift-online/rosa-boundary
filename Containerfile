@@ -49,7 +49,7 @@ RUN chmod +x /usr/local/bin/platform_convert /usr/local/bin/github_dl
 FROM tools-base AS backplane-tools
 
 # renovate: datasource=github-releases depName=openshift/backplane-tools
-ARG BACKPLANE_TOOLS_VERSION="v1.4.0"
+ARG BACKPLANE_TOOLS_VERSION="v1.6.0"
 ENV BACKPLANE_TOOLS_URL_SLUG="openshift/backplane-tools"
 ENV BACKPLANE_TOOLS_URL="https://api.github.com/repos/${BACKPLANE_TOOLS_URL_SLUG}/releases/tags/${BACKPLANE_TOOLS_VERSION}"
 ENV BACKPLANE_TOOLS_CHECKSUM_FILE="checksums.txt"

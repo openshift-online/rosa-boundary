@@ -199,6 +199,9 @@ func authenticationRole(cfg *config.Config, cmd *cobra.Command) (string, string,
 		}
 		return cfg.InvokerRoleARN, "rosa-boundary-invoker", nil
 	default:
+		if cfg.SRERoleARN == "" {
+			return "", "", fmt.Errorf("SRE role ARN is required for %s; set --role-arn, ROSA_BOUNDARY_SRE_ROLE_ARN, or SRE_ROLE_ARN", cmd.Name())
+		}
 		return cfg.SRERoleARN, "rosa-boundary-session", nil
 	}
 }

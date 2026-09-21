@@ -95,16 +95,16 @@ pre-commit run --all-files
 | System | Trigger | What it runs |
 |--------|---------|--------------|
 | Tekton/Konflux | PR and push to `main` | Container build + security scans (Clair, ClamAV, Snyk SAST, shellcheck, RPM signatures) |
-| Prow | Every PR to `main` | Go [coverage](configuration/code-coverage.md) (`make codecov`), container image build, Lambda unit tests |
+| Prow | Every PR to `main` | Non-blocking Go [coverage](configuration/code-coverage.md) (`make codecov`), container image build, Lambda unit tests |
 | Prow (postsubmit) | Merge to `main` | Publish [coverage](configuration/code-coverage.md) to Codecov |
 
 ### Prow Jobs
 
-All presubmit jobs run on every PR (`always_run: true`). Config lives in [`openshift/release`](https://github.com/openshift/release) under `ci-operator/config/openshift-online/rosa-boundary/`.
+Presubmit jobs run on every PR (`always_run: true`). The coverage presubmit is explicitly optional, so it reports coverage without blocking merges. Config lives in [`openshift/release`](https://github.com/openshift/release) under `ci-operator/config/openshift-online/rosa-boundary/`.
 
 | Job | Target | Description | Retrigger |
 |-----|--------|-------------|-----------|
-| `pull-ci-...-coverage` | `coverage` | Runs `make codecov` (Go test coverage) | `/test coverage` |
+| `pull-ci-...-coverage` | `coverage` | Runs `make codecov` (non-blocking Go test coverage) | `/test coverage` |
 | `pull-ci-...-images` | `[images]` | Builds container images via ci-operator | `/test images` |
 | `pull-ci-...-lambda-unit-tests` | `lambda-unit-tests` | Runs `pytest test_handler.py` for `create-investigation` Lambda in a UBI Python container | `/test lambda-unit-tests` |
 | `branch-ci-...-publish-coverage` | `publish-coverage` | Publishes coverage to Codecov on merge (postsubmit) | — |

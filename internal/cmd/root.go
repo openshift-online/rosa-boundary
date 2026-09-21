@@ -126,15 +126,11 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	// If forceLogin requested, clear both OIDC token and credential caches
 	if forceLogin {
 		if clearErr := auth.ClearToken(); clearErr != nil {
-			if debugErr := debugf("Failed to clear token cache: %v", clearErr); debugErr != nil {
-				return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
-			}
+			_ = debugf("Failed to clear token cache: %v", clearErr)
 			return "", nil, fmt.Errorf("failed to clear token cache during force login: %w", clearErr)
 		}
 		if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
-			if debugErr := debugf("Failed to clear credentials cache: %v", clearErr); debugErr != nil {
-				return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
-			}
+			_ = debugf("Failed to clear credentials cache: %v", clearErr)
 			return "", nil, fmt.Errorf("failed to clear credentials cache during force login: %w", clearErr)
 		}
 	}
@@ -156,13 +152,9 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 
 		// Auto-retry once if we got an auth error (token expired server-side)
 		if err != nil && isAuthError(err) && !forceLogin {
-			if debugErr := debugf("Auth failed with cached token, retrying with fresh login"); debugErr != nil {
-				return nil, fmt.Errorf("debug output failed: %w", debugErr)
-			}
+			_ = debugf("Auth failed with cached token, retrying with fresh login")
 			if clearErr := auth.ClearToken(); clearErr != nil {
-				if debugErr := debugf("Failed to clear token cache: %v", clearErr); debugErr != nil {
-					return nil, fmt.Errorf("debug output failed: %w", debugErr)
-				}
+				_ = debugf("Failed to clear token cache: %v", clearErr)
 			}
 
 			token, err = auth.GetToken(ctx, pkce, true)
@@ -195,9 +187,7 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	if idToken == "" {
 		token, err := auth.CachedToken()
 		if err != nil {
-			if debugErr := debugf("Failed to retrieve cached token: %v", err); debugErr != nil {
-				return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
-			}
+			_ = debugf("Failed to retrieve cached token: %v", err)
 		}
 		idToken = token
 	}

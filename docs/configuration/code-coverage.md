@@ -4,7 +4,7 @@ This document describes the code coverage infrastructure for rosa-boundary, incl
 
 ## Overview
 
-rosa-boundary uses [Codecov](https://codecov.io) (App-SRE self-hosted instance) to track Go unit test coverage. Coverage is uploaded automatically by Prow CI on every PR (presubmit) and on every merge to `main` (postsubmit). PR comments show coverage diffs and per-file impact.
+rosa-boundary uses [Codecov](https://codecov.io) (App-SRE self-hosted instance) to track Go unit test coverage. Coverage is uploaded automatically by Prow CI on every PR (presubmit) and on every merge to `main` (postsubmit). The presubmit job and Codecov status checks are non-blocking: coverage failures are reported but do not gate PR merges. PR comments show coverage diffs and per-file impact.
 
 ### Architecture
 
@@ -49,7 +49,7 @@ The upload script handles downloading the Codecov CLI and uploading the coverage
 The `codecov.yml` at the repository root configures how Codecov processes and reports coverage:
 
 **Coverage targets**:
-- Project and patch coverage use `auto` target (tracks against the base branch) with a 1% threshold — a PR will not fail the Codecov status check unless coverage drops by more than 1%.
+- Project and patch coverage use `auto` target (tracks against the base branch) with a 1% threshold. The resulting Codecov status checks are informational, so coverage drops are reported but do not gate PR merges.
 
 **Ignored paths** — the following are excluded from coverage calculations since they contain no Go unit-testable code:
 
@@ -75,13 +75,14 @@ The `codecov.yml` at the repository root configures how Codecov processes and re
 
 Two Prow jobs are defined in [`openshift/release`](https://github.com/openshift/release) under `ci-operator/config/openshift-online/rosa-boundary/openshift-online-rosa-boundary-main.yaml`:
 
-### `coverage` (presubmit)
+### `coverage` (non-blocking presubmit)
 
 - **Trigger**: Every PR to `main` (`always_run: true`)
 - **Retrigger**: `/test coverage`
 - **Command**: `make codecov`
 - **Secret**: Mounts `rosa-boundary-codecov` at `/var/run/codecov-secret`
 - **Result**: Uploads PR coverage to Codecov; Codecov posts a PR comment showing the coverage diff
+- **Gating**: The Prow job is optional, and its failure does not block the PR. Codecov project and patch statuses are informational.
 
 ### `publish-coverage` (postsubmit)
 

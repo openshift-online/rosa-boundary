@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 var loginCmd = &cobra.Command{
@@ -53,7 +54,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// Always clear AWS credentials cache on login to prevent cross-user credential reuse.
 	// Even without --force, the user may be authenticating as a different identity.
 	if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
-		_ = debugf("Failed to clear credentials cache: %v", clearErr)
+		output.DebugNonFatal("Failed to clear credentials cache: %v", clearErr)
 		return fmt.Errorf("failed to clear credentials cache during login: %w", clearErr)
 	}
 
@@ -61,7 +62,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	force := forceFreshLogin(forceLogin, loginForce)
 	if force {
 		if clearErr := auth.ClearToken(); clearErr != nil {
-			_ = debugf("Failed to clear token cache: %v", clearErr)
+			output.DebugNonFatal("Failed to clear token cache: %v", clearErr)
 			return fmt.Errorf("failed to clear token cache during force login: %w", clearErr)
 		}
 	}

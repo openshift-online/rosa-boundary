@@ -126,11 +126,11 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	// If forceLogin requested, clear both OIDC token and credential caches
 	if forceLogin {
 		if clearErr := auth.ClearToken(); clearErr != nil {
-			_ = debugf("Failed to clear token cache: %v", clearErr)
+			output.DebugNonFatal("Failed to clear token cache: %v", clearErr)
 			return "", nil, fmt.Errorf("failed to clear token cache during force login: %w", clearErr)
 		}
 		if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
-			_ = debugf("Failed to clear credentials cache: %v", clearErr)
+			output.DebugNonFatal("Failed to clear credentials cache: %v", clearErr)
 			return "", nil, fmt.Errorf("failed to clear credentials cache during force login: %w", clearErr)
 		}
 	}
@@ -139,38 +139,46 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	var idToken string
 
 	// Define the refresh function - called only when credentials need renewal
-	refresh := func(ctx context.Context) (*awsclient.TemporaryCredentials, error) {
+	refresh := func(ctx context.Context) (*awsclient.TemporaryCredentials, string, error) {
 		// Get OIDC token (may use cache or trigger browser login)
 		token, err := auth.GetToken(ctx, pkce, forceLogin)
 		if err != nil {
-			return nil, fmt.Errorf("authentication failed: %w", err)
+			return nil, "", fmt.Errorf("authentication failed: %w", err)
 		}
 		idToken = token
+		oidcSubject, err := auth.ParseTokenSubject(token)
+		if err != nil {
+			return nil, "", fmt.Errorf("failed to parse OIDC token subject: %w", err)
+		}
 
 		// Exchange OIDC token for AWS credentials
 		creds, err := awsclient.AssumeRoleWithWebIdentity(ctx, region, roleARN, token, sessionName)
 
 		// Auto-retry once if we got an auth error (token expired server-side)
 		if err != nil && isAuthError(err) && !forceLogin {
-			_ = debugf("Auth failed with cached token, retrying with fresh login")
+			output.DebugNonFatal("Auth failed with cached token, retrying with fresh login")
 			if clearErr := auth.ClearToken(); clearErr != nil {
-				_ = debugf("Failed to clear token cache: %v", clearErr)
+				output.DebugNonFatal("Failed to clear token cache: %v", clearErr)
 			}
 
 			token, err = auth.GetToken(ctx, pkce, true)
 			if err != nil {
-				return nil, fmt.Errorf("authentication failed on retry: %w", err)
+				return nil, "", fmt.Errorf("authentication failed on retry: %w", err)
 			}
 			idToken = token
+			oidcSubject, err = auth.ParseTokenSubject(token)
+			if err != nil {
+				return nil, "", fmt.Errorf("failed to parse OIDC token subject on retry: %w", err)
+			}
 
 			creds, err = awsclient.AssumeRoleWithWebIdentity(ctx, region, roleARN, token, sessionName)
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("failed to assume AWS role via OIDC: %w", err)
+			return nil, "", fmt.Errorf("failed to assume AWS role via OIDC: %w", err)
 		}
 
-		return creds, nil
+		return creds, oidcSubject, nil
 	}
 
 	// Construct OIDC issuer for cache identity validation
@@ -186,7 +194,7 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	}
 
 	// Get credentials with idle timeout enforcement
-	creds, err := credentialManager.GetCredentials(ctx, roleARN, sessionName, region, oidcIssuer, oidcSubject, refresh)
+	creds, err := credentialManager.GetCredentialsWithSubject(ctx, roleARN, sessionName, region, oidcIssuer, oidcSubject, refresh)
 	if err != nil {
 		return "", nil, err
 	}
@@ -196,7 +204,7 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	if idToken == "" {
 		token, err := auth.CachedToken()
 		if err != nil {
-			_ = debugf("Failed to retrieve cached token: %v", err)
+			output.DebugNonFatal("Failed to retrieve cached token: %v", err)
 		}
 		// If cached token is missing or invalid, fetch a fresh one
 		if token == "" {

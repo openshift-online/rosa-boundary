@@ -126,11 +126,11 @@ func getTokenWithDeps(ctx context.Context, cfg PKCEConfig, force bool, deps oidc
 	}
 
 	if err := SaveToken(token); err != nil {
-		_ = output.Debug("Could not cache token: %v", err)
+		output.DebugNonFatal("Could not cache token: %v", err)
 		output.Status("Warning: Token could not be cached (%v). Next command will require re-authentication.", err)
 	}
 
-	_ = output.Debug("ID token obtained successfully")
+	output.DebugNonFatal("ID token obtained successfully")
 	return token, nil
 }
 

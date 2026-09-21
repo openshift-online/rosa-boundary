@@ -30,6 +30,14 @@ func Debug(format string, args ...any) error {
 	return err
 }
 
+// DebugNonFatal writes a debug message and reports write failures without
+// making the operation that emitted the message fail.
+func DebugNonFatal(format string, args ...any) {
+	if err := Debug(format, args...); err != nil {
+		Status("Warning: debug output failed: %v", err)
+	}
+}
+
 // Fatal writes an error message to stderr and exits with code 1.
 func Fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "Error: "+format+"\n", args...)

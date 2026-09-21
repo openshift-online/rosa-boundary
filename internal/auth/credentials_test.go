@@ -48,6 +48,57 @@ func TestCredentialManager_GetCredentials_FirstTime(t *testing.T) {
 	}
 }
 
+func TestCredentialManager_GetCredentialsWithSubject_CachesRefreshedSubject(t *testing.T) {
+	cacheDir := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
+
+	cm := NewCredentialManager(15*time.Minute, 1*time.Hour)
+	requestedSubject := "old-user@example.com"
+	refreshedSubject := "new-user@example.com"
+
+	refresh := func(ctx context.Context) (*aws.TemporaryCredentials, string, error) {
+		return &aws.TemporaryCredentials{
+			AccessKeyID:     "AKIA_REFRESHED",
+			SecretAccessKey: "refreshed-secret",
+			SessionToken:    "refreshed-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
+		}, refreshedSubject, nil
+	}
+
+	if _, err := cm.GetCredentialsWithSubject(
+		context.Background(),
+		"arn:aws:iam::123456789012:role/test-role",
+		"test-session",
+		"us-east-2",
+		"https://keycloak.example.com/realms/test",
+		requestedSubject,
+		refresh,
+	); err != nil {
+		t.Fatalf("GetCredentialsWithSubject failed: %v", err)
+	}
+
+	refreshCalled := false
+	refreshAgain := func(ctx context.Context) (*aws.TemporaryCredentials, string, error) {
+		refreshCalled = true
+		return nil, "", errors.New("refresh should not be called")
+	}
+	if _, err := cm.GetCredentialsWithSubject(
+		context.Background(),
+		"arn:aws:iam::123456789012:role/test-role",
+		"test-session",
+		"us-east-2",
+		"https://keycloak.example.com/realms/test",
+		refreshedSubject,
+		refreshAgain,
+	); err != nil {
+		t.Fatalf("GetCredentialsWithSubject with refreshed subject failed: %v", err)
+	}
+
+	if refreshCalled {
+		t.Error("Expected cached credentials to be used with the refreshed subject")
+	}
+}
+
 func TestCredentialManager_GetCredentials_UsesCachedIfValid(t *testing.T) {
 	cacheDir := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", cacheDir)
@@ -388,6 +439,7 @@ func TestCredentialManager_ClearCredentials(t *testing.T) {
 			AccessKeyID:     "AKIA_TEST",
 			SecretAccessKey: "test-secret",
 			SessionToken:    "test-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -452,6 +504,7 @@ func TestCredentialManager_HandlesCorruptedCache(t *testing.T) {
 			AccessKeyID:     "AKIA_TEST",
 			SecretAccessKey: "test-secret",
 			SessionToken:    "test-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 

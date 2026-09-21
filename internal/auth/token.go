@@ -47,7 +47,7 @@ func CachedToken() (string, error) {
 	expiration, err := parseTokenExpiration(token)
 	if err != nil {
 		// Invalid token format — clean up corrupted cache so it does not keep failing.
-		_ = output.Debug("Cached token invalid: %v", err)
+		output.DebugNonFatal("Cached token invalid: %v", err)
 		if removeErr := os.Remove(cachePath); removeErr != nil && !os.IsNotExist(removeErr) {
 			return "", fmt.Errorf("cached token invalid: %w; cannot remove token cache: %w", err, removeErr)
 		}
@@ -56,12 +56,12 @@ func CachedToken() (string, error) {
 
 	// Check if token is expired (with buffer)
 	if time.Now().Add(expirationBuffer).After(expiration) {
-		_ = output.Debug("Cached token expired")
+		output.DebugNonFatal("Cached token expired")
 		return "", nil
 	}
 
 	remaining := time.Until(expiration)
-	_ = output.Debug("Using cached token (%d seconds remaining)", int(remaining.Seconds()))
+	output.DebugNonFatal("Using cached token (%d seconds remaining)", int(remaining.Seconds()))
 	return token, nil
 }
 

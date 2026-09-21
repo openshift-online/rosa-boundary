@@ -28,6 +28,7 @@ type CachedCredentials struct {
 	Credentials *aws.TemporaryCredentials `json:"credentials"`
 	IssuedAt    time.Time                 `json:"issued_at"`
 	LastUsedAt  time.Time                 `json:"last_used_at"`
+	Expiration  time.Time                 `json:"expiration"`
 	IdleTimeout time.Duration             `json:"idle_timeout"`
 	MaxDuration time.Duration             `json:"max_duration"`
 	RoleARN     string                    `json:"role_arn"`
@@ -66,6 +67,7 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIs
 	cached, err := cm.loadCachedCredentials()
 	if err != nil {
 		_ = output.Debug("Failed to load cached credentials: %v", err)
+		output.Status("Warning: Credential cache is not accessible (%v). Performance may be degraded.", err)
 		// Continue with refresh if cache load failed
 		cached = nil
 	}
@@ -80,27 +82,40 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIs
 			_ = output.Debug("Cached credentials OIDC issuer mismatch, refreshing")
 			cached = nil
 		} else {
-			idleTime := now.Sub(cached.LastUsedAt)
-			totalAge := now.Sub(cached.IssuedAt)
-
-			if idleTime > cm.idleTimeout {
-				_ = output.Debug("Credentials expired due to %v idle timeout (idle for %v)", cm.idleTimeout, idleTime.Round(time.Second))
-				cached = nil
-			} else if totalAge > cm.maxDuration {
-				_ = output.Debug("Credentials expired due to maximum duration of %v (age: %v)", cm.maxDuration, totalAge.Round(time.Second))
+			// Check STS expiration first with 5-minute buffer to prevent mid-operation failures
+			expirationBuffer := 5 * time.Minute
+			if now.After(cached.Expiration.Add(-expirationBuffer)) {
+				timeUntilExpiry := time.Until(cached.Expiration)
+				_ = output.Debug("Credentials near or past STS expiration (%v remaining), refreshing", timeUntilExpiry.Round(time.Second))
+				// Clear expired credentials from disk for security
+				_ = cm.ClearCredentials()
 				cached = nil
 			} else {
-				// Credentials still valid - update last used time
-				remaining := cm.idleTimeout - idleTime
-				if debugErr := output.Debug("Using cached credentials (%v until idle timeout)", remaining.Round(time.Second)); debugErr != nil {
-					return nil, fmt.Errorf("debug output failed: %w", debugErr)
+				idleTime := now.Sub(cached.LastUsedAt)
+				totalAge := now.Sub(cached.IssuedAt)
+
+				if idleTime > cm.idleTimeout {
+					_ = output.Debug("Credentials expired due to %v idle timeout (idle for %v)", cm.idleTimeout, idleTime.Round(time.Second))
+					// Clear expired credentials from disk for security
+					_ = cm.ClearCredentials()
+					cached = nil
+				} else if totalAge > cm.maxDuration {
+					_ = output.Debug("Credentials expired due to maximum duration of %v (age: %v)", cm.maxDuration, totalAge.Round(time.Second))
+					// Clear expired credentials from disk for security
+					_ = cm.ClearCredentials()
+					cached = nil
+				} else {
+					// Credentials still valid - update last used time
+					remaining := cm.idleTimeout - idleTime
+					_ = output.Debug("Using cached credentials (%v until idle timeout)", remaining.Round(time.Second))
+					cached.LastUsedAt = now
+					if err := cm.saveCachedCredentials(cached); err != nil {
+						_ = output.Debug("Failed to update credential last-used timestamp: %v", err)
+						output.Status("Warning: Could not update credential cache (%v). Subsequent commands may require re-authentication.", err)
+						// Non-fatal - we can still use the credentials
+					}
+					return cached.Credentials, nil
 				}
-				cached.LastUsedAt = now
-				if err := cm.saveCachedCredentials(cached); err != nil {
-					_ = output.Debug("Failed to update credential last-used timestamp: %v", err)
-					// Non-fatal - we can still use the credentials
-				}
-				return cached.Credentials, nil
 			}
 		}
 	}
@@ -119,6 +134,7 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIs
 		Credentials: creds,
 		IssuedAt:    refreshedAt,
 		LastUsedAt:  refreshedAt,
+		Expiration:  creds.Expiration,
 		IdleTimeout: cm.idleTimeout,
 		MaxDuration: cm.maxDuration,
 		RoleARN:     roleARN,
@@ -127,6 +143,7 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIs
 
 	if err := cm.saveCachedCredentials(cached); err != nil {
 		_ = output.Debug("Failed to cache credentials: %v", err)
+		output.Status("Warning: Could not cache credentials (%v). Subsequent commands will require re-authentication.", err)
 		// Non-fatal - we can still use the credentials
 	}
 
@@ -164,7 +181,9 @@ func (cm *CredentialManager) loadCachedCredentials() (*CachedCredentials, error)
 
 	var cached CachedCredentials
 	if err := json.Unmarshal(data, &cached); err != nil {
-		// Corrupted cache - clean up
+		// Corrupted cache - clean up and warn user
+		_ = output.Debug("Corrupted credentials cache detected: %v", err)
+		output.Status("Warning: Credential cache was corrupted and has been cleared.")
 		if removeErr := os.Remove(cachePath); removeErr != nil && !os.IsNotExist(removeErr) {
 			return nil, fmt.Errorf("corrupted credentials cache: %w; cannot remove: %w", err, removeErr)
 		}

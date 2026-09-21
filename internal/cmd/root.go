@@ -183,11 +183,18 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	}
 
 	// If idToken wasn't set by refresh, we used cached credentials.
-	// Retrieve the cached token for return value consistency.
+	// Retrieve or refresh the OIDC token to ensure we have a valid one for Lambda calls.
 	if idToken == "" {
 		token, err := auth.CachedToken()
 		if err != nil {
 			_ = debugf("Failed to retrieve cached token: %v", err)
+		}
+		// If cached token is missing or invalid, fetch a fresh one
+		if token == "" {
+			token, err = auth.GetToken(ctx, pkce, false)
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to obtain OIDC token for Lambda authentication: %w", err)
+			}
 		}
 		idToken = token
 	}

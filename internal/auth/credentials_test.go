@@ -25,6 +25,7 @@ func TestCredentialManager_GetCredentials_FirstTime(t *testing.T) {
 			AccessKeyID:     "AKIA_TEST_KEY",
 			SecretAccessKey: "test-secret",
 			SessionToken:    "test-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -56,6 +57,7 @@ func TestCredentialManager_GetCredentials_UsesCachedIfValid(t *testing.T) {
 			AccessKeyID:     "AKIA_FIRST",
 			SecretAccessKey: "first-secret",
 			SessionToken:    "first-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -72,6 +74,7 @@ func TestCredentialManager_GetCredentials_UsesCachedIfValid(t *testing.T) {
 			AccessKeyID:     "AKIA_SECOND",
 			SecretAccessKey: "second-secret",
 			SessionToken:    "second-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -102,6 +105,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnIdleTimeout(t *testing.T) {
 			AccessKeyID:     "AKIA_FIRST",
 			SecretAccessKey: "first-secret",
 			SessionToken:    "first-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -121,6 +125,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnIdleTimeout(t *testing.T) {
 			AccessKeyID:     "AKIA_SECOND",
 			SecretAccessKey: "second-secret",
 			SessionToken:    "second-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -151,6 +156,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnMaxDuration(t *testing.T) {
 			AccessKeyID:     "AKIA_FIRST",
 			SecretAccessKey: "first-secret",
 			SessionToken:    "first-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -170,6 +176,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnMaxDuration(t *testing.T) {
 			AccessKeyID:     "AKIA_SECOND",
 			SecretAccessKey: "second-secret",
 			SessionToken:    "second-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 
@@ -199,6 +206,7 @@ func TestCredentialManager_GetCredentials_UpdatesLastUsedTime(t *testing.T) {
 			AccessKeyID:     "AKIA_TEST",
 			SecretAccessKey: "test-secret",
 			SessionToken:    "test-token",
+			Expiration:      time.Now().Add(1 * time.Hour),
 		}, nil
 	}
 

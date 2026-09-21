@@ -72,11 +72,14 @@ Stores AWS credentials with activity metadata:
 
 ```go
 type CachedCredentials struct {
-    Credentials  *aws.TemporaryCredentials  // AWS access keys
+    Credentials  *aws.TemporaryCredentials  // AWS access keys + session token
     IssuedAt     time.Time                  // When credentials were obtained
     LastUsedAt   time.Time                  // When last used by ANY command
+    Expiration   time.Time                  // STS expiration timestamp (from AWS)
     IdleTimeout  time.Duration              // 15 minutes (configurable)
     MaxDuration  time.Duration              // 1 hour (defense-in-depth)
+    RoleARN      string                     // AWS role ARN (cache identity validation)
+    OIDCIssuer   string                     // OIDC issuer URL (cache identity validation)
 }
 ```
 
@@ -96,23 +99,34 @@ type CredentialManager struct {
 
 func (cm *CredentialManager) GetCredentials(
     ctx context.Context,
+    roleARN string,
+    oidcIssuer string,
     refresh func(context.Context) (*aws.TemporaryCredentials, error),
 ) (*aws.TemporaryCredentials, error)
 ```
 
 **Called before every AWS API operation** by all CLI commands.
 
+**Parameters:**
+- `roleARN` - AWS IAM role ARN for cache identity validation
+- `oidcIssuer` - OIDC provider URL for cache identity validation  
+- `refresh` - Callback to obtain fresh credentials when cache miss/expired
+
 #### 3. Decision Logic
 
 ```
-GetCredentials():
+GetCredentials(roleARN, oidcIssuer, refresh):
   ├─ Load cached credentials from disk
   │
   ├─ If cache exists:
+  │   ├─ Validate cache identity: roleARN and oidcIssuer match?
+  │   │   └─ NO → Refresh (prevent cross-role/environment credential reuse)
+  │   ├─ Check STS expiration: now > expiration - 5min?
+  │   │   └─ YES → Refresh + clear from disk
   │   ├─ Check idle timeout: now - LastUsedAt > 15 min?
-  │   │   └─ YES → Refresh
+  │   │   └─ YES → Refresh + clear from disk
   │   ├─ Check max duration: now - IssuedAt > 1 hour?
-  │   │   └─ YES → Refresh
+  │   │   └─ YES → Refresh + clear from disk
   │   └─ If valid:
   │       ├─ Update LastUsedAt = now (reset idle timer)
   │       ├─ Save to disk
@@ -261,7 +275,8 @@ func assumeRoleWithRetry(...) (string, *awsclient.TemporaryCredentials, error) {
         return awsclient.AssumeRoleWithWebIdentity(ctx, region, roleARN, idToken, sessionName)
     }
 
-    creds, err := credentialManager.GetCredentials(ctx, refresh)
+    oidcIssuer := fmt.Sprintf("%s/realms/%s", pkce.KeycloakURL, pkce.Realm)
+    creds, err := credentialManager.GetCredentials(ctx, roleARN, oidcIssuer, refresh)
     // ...
 }
 ```
@@ -270,49 +285,92 @@ The credential manager **wraps** the existing OIDC authentication flow without r
 
 ## Security Benefits
 
-### Before (1-hour fixed credentials)
+### Credential Lifecycle and Idle Timeout
+
+**IMPORTANT**: The idle timeout controls cache reuse through the CLI, not AWS-side credential validity. Stolen AWS credentials remain valid at AWS until their STS expiration timestamp.
+
+#### What Idle Timeout Protects Against
+
+**Scenario: Credential theft from disk**
 
 ```
-Attacker steals credentials at 10:00 AM
-Credentials valid until 11:00 AM
-Attacker has 1 full hour to abuse them
+10:00 AM - User obtains AWS credentials (STS expiration: 11:00 AM)
+10:00 AM - Credentials cached to ~/.cache/rosa-boundary/credentials-cache
+10:05 AM - Attacker gains read access to cache file
+10:05 AM - Attacker steals: ASIA...access key, secret, session token
 ```
 
-### After (15-minute idle timeout)
+**Without idle timeout:**
+- Cache remains valid for 1 hour
+- Legitimate user unknowingly continues using same credentials
+- Attacker uses stolen credentials directly against AWS APIs
+- Both attacker and legitimate user share same credentials until 11:00 AM
+- Detection difficult (same session, same principal tags)
+
+**With 15-minute idle timeout:**
+- 10:15 AM - Idle timeout expires in CLI cache
+- 10:16 AM - User runs next command, triggers credential refresh
+- New credentials issued with different session token
+- Old credentials (stolen at 10:05) still valid until 11:00 AM STS expiration
+- But legitimate user is now on different credentials
+- Attacker activity now distinguishable from legitimate user
+
+**Security benefit**: Limits window where legitimate user and attacker share the same AWS session. Improves detection and forensics.
+
+### Residual Risk (FedRAMP AC-12 Consideration)
+
+**Credentials stolen from cache file remain valid at AWS for the STS session duration.**
 
 ```
-Attacker steals credentials at 10:00 AM
-Legitimate user's last activity was 10:00 AM
-Credentials expire at 10:15 AM (idle timeout)
-Attacker has maximum 15 minutes
+10:00 AM - Credentials issued (STS expiration: 11:00 AM)
+10:05 AM - Attacker steals credentials from cache
+10:15 AM - CLI cache expires (idle timeout)
+10:16 AM - User gets fresh credentials
+11:00 AM - STOLEN credentials finally expire at AWS
 ```
 
-**Even better during active use:**
+**Residual risk window**: Up to 1 hour from credential issuance (IAM role `max_session_duration`).
 
-```
-User actively using credentials every 5-10 minutes
-LastUsedAt keeps updating (10:00, 10:05, 10:10...)
-Attacker steals credentials at 10:12 AM
-User's LastUsedAt: 10:10 AM
-Credentials expire at 10:25 AM (10:10 + 15 min)
-Attacker has ~13 minutes before expiry
-```
+**Mitigations applied:**
+1. **Idle timeout (15 min)** - Limits credential sharing window
+2. **Max duration (1 hour)** - Hard limit on credential lifetime
+3. **Cache clearing on expiry** - Removes expired credentials from disk
+4. **File permissions (0600)** - Restricts cache file access to owner only
 
-The max duration (1 hour) provides defense-in-depth: even if an attacker could simulate activity to keep credentials "warm", they expire after 1 hour regardless.
+**Residual risk statement for AC-12 compliance:**
+> The idle timeout mechanism limits credential reuse through the application cache but does not revoke AWS-side validity. Stolen AWS temporary credentials remain valid until their STS expiration (max 1 hour). This is an inherent limitation of AWS STS temporary credentials, which cannot be revoked after issuance.
+
+### Defense-in-Depth Layers
+
+| Layer | Protection | Residual Risk |
+|-------|-----------|---------------|
+| File permissions (0600) | Prevents unauthorized read | Root/admin access bypasses |
+| Idle timeout (15 min) | Limits cache reuse | AWS credentials still valid |
+| Max duration (1 hour) | Hard session limit | Can't extend beyond 1 hour |
+| Cache clearing | Removes expired creds from disk | Already-stolen creds unaffected |
+
+The max duration (1 hour) provides defense-in-depth: even if an attacker could simulate activity to keep credentials "warm" in the cache, they expire after 1 hour regardless.
 
 ## Testing
 
 Comprehensive test coverage in `internal/auth/credentials_test.go`:
 
+**Core Functionality:**
 - ✅ First-time credential fetch (no cache)
 - ✅ Using cached credentials when valid
-- ✅ Refreshing on idle timeout
-- ✅ Refreshing on max duration exceeded
+- ✅ Refreshing on idle timeout (15 min inactivity)
+- ✅ Refreshing on max duration exceeded (1 hour absolute)
+- ✅ Refreshing on STS expiration (5 min buffer)
 - ✅ Updating LastUsedAt to reset idle timer
 - ✅ Handling refresh errors
 - ✅ Clearing credentials cache
 - ✅ Handling corrupted cache files
 - ✅ Default timeout values
+
+**Security Tests:**
+- ✅ Refreshing on role ARN mismatch (prevents cross-role credential reuse)
+- ✅ Refreshing on OIDC issuer mismatch (prevents cross-environment reuse)
+- ✅ Cache file permissions (0600 - owner read/write only)
 
 Run tests:
 ```bash
@@ -356,7 +414,9 @@ The credential manager creates two cache files in `~/.cache/rosa-boundary/`:
 
 **Security**:
 - Both files have `0600` permissions (owner read/write only)
-- Cleared when `--force-login` is used
+- Credentials cache cleared on every `rosa-boundary login` (prevents cross-user reuse)
+- OIDC token cache cleared when `--force-login` is used
+- Expired credentials automatically removed from disk
 - Can be manually deleted to force re-authentication
 
 **Example `credentials-cache` contents:**
@@ -366,12 +426,16 @@ The credential manager creates two cache files in `~/.cache/rosa-boundary/`:
   "credentials": {
     "AccessKeyID": "ASIAV...",
     "SecretAccessKey": "...",
-    "SessionToken": "..."
+    "SessionToken": "...",
+    "Expiration": "2024-01-15T11:00:00Z"
   },
   "issued_at": "2024-01-15T10:00:00Z",
   "last_used_at": "2024-01-15T10:14:32Z",
+  "expiration": "2024-01-15T11:00:00Z",
   "idle_timeout": 900000000000,
-  "max_duration": 3600000000000
+  "max_duration": 3600000000000,
+  "role_arn": "arn:aws:iam::123456789012:role/rosa-boundary-sre",
+  "oidc_issuer": "https://keycloak.example.com/realms/EmployeeIDP"
 }
 ```
 

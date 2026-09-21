@@ -50,16 +50,19 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		ClientID:    cfg.OIDCClientID,
 	}
 
-	// Clear both OIDC token and AWS credentials cache when force login requested
+	// Always clear AWS credentials cache on login to prevent cross-user credential reuse.
+	// Even without --force, the user may be authenticating as a different identity.
+	if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
+		_ = debugf("Failed to clear credentials cache: %v", clearErr)
+		return fmt.Errorf("failed to clear credentials cache during login: %w", clearErr)
+	}
+
+	// Clear OIDC token cache only when force login requested
 	force := forceFreshLogin(forceLogin, loginForce)
 	if force {
 		if clearErr := auth.ClearToken(); clearErr != nil {
 			_ = debugf("Failed to clear token cache: %v", clearErr)
 			return fmt.Errorf("failed to clear token cache during force login: %w", clearErr)
-		}
-		if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
-			_ = debugf("Failed to clear credentials cache: %v", clearErr)
-			return fmt.Errorf("failed to clear credentials cache during force login: %w", clearErr)
 		}
 	}
 

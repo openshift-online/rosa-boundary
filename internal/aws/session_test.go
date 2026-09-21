@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -52,6 +53,48 @@ func TestSessionManagerPluginEnvUsesAssumedCredentials(t *testing.T) {
 		if _, exists := gotEnv[key]; exists {
 			t.Errorf("environment retains credential source %q", key)
 		}
+	}
+}
+
+func TestRunSessionManagerPluginWithStreamsUsesCallerStreams(t *testing.T) {
+	pluginDir := t.TempDir()
+	processPath := filepath.Join(pluginDir, "process-data")
+	writePlugin(t, pluginDir, `
+printf '%s\n' "$@" > "$ROSA_BOUNDARY_TEST_PROCESS_DATA"
+env >> "$ROSA_BOUNDARY_TEST_PROCESS_DATA"
+read payload
+printf 'framed:%s' '__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__'
+printf ':received=%s' "$payload" >&2
+printf ':__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__'
+`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("ROSA_BOUNDARY_TEST_PROCESS_DATA", processPath)
+
+	var stdout, stderr bytes.Buffer
+	err := RunSessionManagerPluginWithStreams(
+		context.Background(),
+		"us-east-1",
+		&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+		&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+		strings.NewReader("stream-payload\n"),
+		&stdout,
+		&stderr,
+	)
+	if err != nil {
+		t.Fatalf("RunSessionManagerPluginWithStreams returned an error: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "framed:__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__") {
+		t.Fatalf("stdout was not connected: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "received=stream-payload") {
+		t.Fatalf("stderr was not connected: %q", stderr.String())
+	}
+	processData, err := os.ReadFile(processPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(processData), "stream-payload") {
+		t.Fatal("stream payload appeared in plugin arguments or environment")
 	}
 }
 

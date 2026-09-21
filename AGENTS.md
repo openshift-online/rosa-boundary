@@ -83,6 +83,8 @@ make staticcheck    # Static analysis
 | `login` | Authenticate via Keycloak OIDC (PKCE browser flow), cache token |
 | `create-investigation` | Create EFS access point only (no task); OIDC-authenticated via Lambda |
 | `start-task` | Invoke Lambda to create an investigation task (reuses existing access point if present) |
+| `credentials configure ocm` | Issue and inject a fresh OCM access token into a running task |
+| `credentials clear ocm` | Remove OCM and credential-derived kubeconfig state |
 | `join-task` | Connect to a running investigation via ECS Exec |
 | `list-tasks` | List running investigation tasks |
 | `stop-task` | Stop a running investigation task |
@@ -115,6 +117,13 @@ Key config fields:
 - **Two-step role assumption**: Assumes the invoker role first, then the shared SRE ABAC role
 - **`join-task` process replacement**: `exec`s `session-manager-plugin` for a seamless terminal handoff
 - **Prerequisite**: `session-manager-plugin` must be installed and in `PATH`
+
+### Credential handling
+
+- OCM requests contain only a newly issued access token and approved canonical API URL.
+- Refresh/offline tokens and workstation OCM token state must never be copied, cached, logged, or injected.
+- Task-side credential state must use the task-scoped mounts excluded from S3 sync; see [`docs/architecture/overview.md`](docs/architecture/overview.md) for their definitions.
+- Future providers require task-scoped storage and an explicit audit-sync exclusion before user-facing enablement.
 
 ## Testing Containers Locally
 

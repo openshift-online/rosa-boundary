@@ -181,6 +181,17 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `efs_security_group_id` | EFS security group ID |
 | `cloudwatch_log_group` | CloudWatch log group name |
 
+## Credential Volumes
+
+The Terraform base task definition and Lambda-generated per-investigation task
+definitions overlay `/home/sre/.config/ocm` and `/home/sre/.kube` with empty,
+task-scoped Fargate volumes. These volumes have no persistent storage
+configuration, use the default encrypted Fargate ephemeral storage, are not
+mounted into the kube-proxy sidecar, and are destroyed with the task.
+
+The legacy lifecycle scripts under `examples/` do not create these overlays and
+are not a supported path for `credentials configure`.
+
 ## Investigation Lifecycle
 
 The infrastructure uses a per-investigation isolation model with EFS access points and dedicated task definitions.
@@ -261,7 +272,7 @@ echo $INVESTIGATION_ID    # INV-12345
 **What happens:**
 1. Container receives SIGTERM signal
 2. Entrypoint auto-generates S3 path: `s3://bucket/$cluster/$investigation/$date/$taskid/`
-3. Syncs `/home/sre` to S3 with WORM compliance
+3. Syncs `/home/sre` to S3 with WORM compliance, excluding `.config/ocm/*` and `.kube/*`
 4. Container exits gracefully
 
 **S3 Path Example:**

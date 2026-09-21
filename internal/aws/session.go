@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -65,6 +66,13 @@ func StartSessionManagerPlugin(region string, session *ExecuteCommandSession, cr
 // (non-replacing) using the assumed SRE credentials until ctx is canceled. Use
 // this when cleanup is needed after the plugin exits.
 func RunSessionManagerPlugin(ctx context.Context, region string, session *ExecuteCommandSession, creds *TemporaryCredentials) error {
+	return RunSessionManagerPluginWithStreams(ctx, region, session, creds, os.Stdin, os.Stdout, os.Stderr)
+}
+
+// RunSessionManagerPluginWithStreams runs the plugin as a child with caller-owned
+// streams. The separate entry point lets credential transfers control stdin and
+// permits complete subprocess testing without replacing the test process.
+func RunSessionManagerPluginWithStreams(ctx context.Context, region string, session *ExecuteCommandSession, creds *TemporaryCredentials, stdin io.Reader, stdout, stderr io.Writer) error {
 	pluginPath, err := exec.LookPath(sessionManagerPlugin)
 	if err != nil {
 		return fmt.Errorf(
@@ -89,9 +97,9 @@ func RunSessionManagerPlugin(ctx context.Context, region string, session *Execut
 		paramsJSON,
 		ssmEndpoint,
 	)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	env, err := sessionManagerPluginEnv(creds)
 	if err != nil {
 		return err

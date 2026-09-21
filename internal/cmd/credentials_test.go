@@ -24,6 +24,79 @@ func TestNestedCredentialCommandsUseSRERole(t *testing.T) {
 	}
 }
 
+func TestAuthenticationRoleValidation(t *testing.T) {
+	// Test that invoker commands require InvokerRoleARN
+	t.Run("InvokerRoleRequired", func(t *testing.T) {
+		cfg := &config.Config{SRERoleARN: "arn:aws:iam::123:role/sre"}
+		invokerCommands := []*cobra.Command{
+			{Use: "create-investigation"},
+			{Use: "start-task"},
+		}
+		for _, cmd := range invokerCommands {
+			_, _, err := authenticationRole(cfg, cmd)
+			if err == nil {
+				t.Fatalf("expected error for %s with empty InvokerRoleARN", cmd.Name())
+			}
+			if !strings.Contains(err.Error(), "invoker role ARN is required") {
+				t.Fatalf("unexpected error message: %v", err)
+			}
+			if !strings.Contains(err.Error(), cmd.Name()) {
+				t.Fatalf("error message should include command name: %v", err)
+			}
+		}
+	})
+
+	// Test that SRE role commands require SRERoleARN
+	t.Run("SRERoleRequired", func(t *testing.T) {
+		cfg := &config.Config{InvokerRoleARN: "arn:aws:iam::123:role/invoker"}
+		sreCommands := []*cobra.Command{
+			credentialsConfigureOCMCmd,
+			credentialsClearOCMCmd,
+			{Use: "list-investigations"},
+			{Use: "list-tasks"},
+			{Use: "join-task"},
+		}
+		for _, cmd := range sreCommands {
+			_, _, err := authenticationRole(cfg, cmd)
+			if err == nil {
+				t.Fatalf("expected error for %s with empty SRERoleARN", cmd.Name())
+			}
+			if !strings.Contains(err.Error(), "SRE role ARN is required") {
+				t.Fatalf("unexpected error message: %v", err)
+			}
+			if !strings.Contains(err.Error(), cmd.Name()) {
+				t.Fatalf("error message should include command name: %v", err)
+			}
+		}
+	})
+
+	// Test happy path with both roles configured
+	t.Run("BothRolesConfigured", func(t *testing.T) {
+		cfg := &config.Config{
+			SRERoleARN:     "arn:aws:iam::123:role/sre",
+			InvokerRoleARN: "arn:aws:iam::123:role/invoker",
+		}
+
+		// Test invoker commands
+		role, session, err := authenticationRole(cfg, &cobra.Command{Use: "create-investigation"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if role != cfg.InvokerRoleARN || session != "rosa-boundary-invoker" {
+			t.Fatalf("create-investigation: got role=%q session=%q", role, session)
+		}
+
+		// Test SRE commands
+		role, session, err = authenticationRole(cfg, &cobra.Command{Use: "list-investigations"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if role != cfg.SRERoleARN || session != "rosa-boundary-session" {
+			t.Fatalf("list-investigations: got role=%q session=%q", role, session)
+		}
+	})
+}
+
 func TestParseOCMFlow(t *testing.T) {
 	for _, value := range []string{"auth-code", "device"} {
 		if _, err := parseOCMFlow(value); err != nil {

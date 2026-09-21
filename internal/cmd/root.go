@@ -129,11 +129,13 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 			if debugErr := debugf("Failed to clear token cache: %v", clearErr); debugErr != nil {
 				return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
 			}
+			return "", nil, fmt.Errorf("failed to clear token cache during force login: %w", clearErr)
 		}
 		if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
 			if debugErr := debugf("Failed to clear credentials cache: %v", clearErr); debugErr != nil {
 				return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
 			}
+			return "", nil, fmt.Errorf("failed to clear credentials cache during force login: %w", clearErr)
 		}
 	}
 
@@ -179,8 +181,11 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 		return creds, nil
 	}
 
+	// Construct OIDC issuer for cache identity validation
+	oidcIssuer := fmt.Sprintf("%s/realms/%s", pkce.KeycloakURL, pkce.Realm)
+
 	// Get credentials with idle timeout enforcement
-	creds, err := credentialManager.GetCredentials(ctx, refresh)
+	creds, err := credentialManager.GetCredentials(ctx, roleARN, oidcIssuer, refresh)
 	if err != nil {
 		return "", nil, err
 	}

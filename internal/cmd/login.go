@@ -57,11 +57,13 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			if debugErr := debugf("Failed to clear token cache: %v", clearErr); debugErr != nil {
 				return fmt.Errorf("debug output failed: %w", debugErr)
 			}
+			return fmt.Errorf("failed to clear token cache during force login: %w", clearErr)
 		}
 		if clearErr := credentialManager.ClearCredentials(); clearErr != nil {
 			if debugErr := debugf("Failed to clear credentials cache: %v", clearErr); debugErr != nil {
 				return fmt.Errorf("debug output failed: %w", debugErr)
 			}
+			return fmt.Errorf("failed to clear credentials cache during force login: %w", clearErr)
 		}
 	}
 

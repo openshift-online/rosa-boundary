@@ -30,6 +30,8 @@ type CachedCredentials struct {
 	LastUsedAt   time.Time                 `json:"last_used_at"`
 	IdleTimeout  time.Duration             `json:"idle_timeout"`
 	MaxDuration  time.Duration             `json:"max_duration"`
+	RoleARN      string                    `json:"role_arn"`
+	OIDCIssuer   string                    `json:"oidc_issuer"`
 }
 
 // CredentialManager handles credential caching with idle timeout enforcement.
@@ -56,7 +58,8 @@ func NewCredentialManager(idleTimeout, maxDuration time.Duration) *CredentialMan
 
 // GetCredentials returns valid credentials, refreshing if necessary due to idle timeout or expiration.
 // The refresh function is called only when credentials need to be renewed.
-func (cm *CredentialManager) GetCredentials(ctx context.Context, refresh func(context.Context) (*aws.TemporaryCredentials, error)) (*aws.TemporaryCredentials, error) {
+// roleARN and oidcIssuer are validated against cached credentials to prevent credential reuse across different roles or OIDC providers.
+func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIssuer string, refresh func(context.Context) (*aws.TemporaryCredentials, error)) (*aws.TemporaryCredentials, error) {
 	now := time.Now()
 
 	// Try to load cached credentials
@@ -71,33 +74,46 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, refresh func(co
 
 	// Check if cached credentials are still valid
 	if cached != nil {
-		idleTime := now.Sub(cached.LastUsedAt)
-		totalAge := now.Sub(cached.IssuedAt)
-
-		if idleTime > cm.idleTimeout {
-			if debugErr := output.Debug("Credentials expired due to %v idle timeout (idle for %v)", cm.idleTimeout, idleTime.Round(time.Second)); debugErr != nil {
+		// Validate cache identity matches requested role and environment
+		if cached.RoleARN != roleARN {
+			if debugErr := output.Debug("Cached credentials role mismatch (cached: %s, requested: %s), refreshing", cached.RoleARN, roleARN); debugErr != nil {
 				return nil, fmt.Errorf("debug output failed: %w", debugErr)
 			}
 			cached = nil
-		} else if totalAge > cm.maxDuration {
-			if debugErr := output.Debug("Credentials expired due to maximum duration of %v (age: %v)", cm.maxDuration, totalAge.Round(time.Second)); debugErr != nil {
+		} else if cached.OIDCIssuer != oidcIssuer {
+			if debugErr := output.Debug("Cached credentials OIDC issuer mismatch (cached: %s, requested: %s), refreshing", cached.OIDCIssuer, oidcIssuer); debugErr != nil {
 				return nil, fmt.Errorf("debug output failed: %w", debugErr)
 			}
 			cached = nil
 		} else {
-			// Credentials still valid - update last used time
-			remaining := cm.idleTimeout - idleTime
-			if debugErr := output.Debug("Using cached credentials (%v until idle timeout)", remaining.Round(time.Second)); debugErr != nil {
-				return nil, fmt.Errorf("debug output failed: %w", debugErr)
-			}
-			cached.LastUsedAt = now
-			if err := cm.saveCachedCredentials(cached); err != nil {
-				if debugErr := output.Debug("Failed to update credential last-used timestamp: %v", err); debugErr != nil {
+			idleTime := now.Sub(cached.LastUsedAt)
+			totalAge := now.Sub(cached.IssuedAt)
+
+			if idleTime > cm.idleTimeout {
+				if debugErr := output.Debug("Credentials expired due to %v idle timeout (idle for %v)", cm.idleTimeout, idleTime.Round(time.Second)); debugErr != nil {
 					return nil, fmt.Errorf("debug output failed: %w", debugErr)
 				}
-				// Non-fatal - we can still use the credentials
+				cached = nil
+			} else if totalAge > cm.maxDuration {
+				if debugErr := output.Debug("Credentials expired due to maximum duration of %v (age: %v)", cm.maxDuration, totalAge.Round(time.Second)); debugErr != nil {
+					return nil, fmt.Errorf("debug output failed: %w", debugErr)
+				}
+				cached = nil
+			} else {
+				// Credentials still valid - update last used time
+				remaining := cm.idleTimeout - idleTime
+				if debugErr := output.Debug("Using cached credentials (%v until idle timeout)", remaining.Round(time.Second)); debugErr != nil {
+					return nil, fmt.Errorf("debug output failed: %w", debugErr)
+				}
+				cached.LastUsedAt = now
+				if err := cm.saveCachedCredentials(cached); err != nil {
+					if debugErr := output.Debug("Failed to update credential last-used timestamp: %v", err); debugErr != nil {
+						return nil, fmt.Errorf("debug output failed: %w", debugErr)
+					}
+					// Non-fatal - we can still use the credentials
+				}
+				return cached.Credentials, nil
 			}
-			return cached.Credentials, nil
 		}
 	}
 
@@ -111,13 +127,16 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, refresh func(co
 		return nil, fmt.Errorf("failed to refresh credentials: %w", err)
 	}
 
-	// Cache the new credentials
+	// Cache the new credentials with fresh timestamp after successful refresh
+	refreshedAt := time.Now()
 	cached = &CachedCredentials{
 		Credentials: creds,
-		IssuedAt:    now,
-		LastUsedAt:  now,
+		IssuedAt:    refreshedAt,
+		LastUsedAt:  refreshedAt,
 		IdleTimeout: cm.idleTimeout,
 		MaxDuration: cm.maxDuration,
+		RoleARN:     roleARN,
+		OIDCIssuer:  oidcIssuer,
 	}
 
 	if err := cm.saveCachedCredentials(cached); err != nil {
@@ -176,20 +195,29 @@ func (cm *CredentialManager) loadCachedCredentials() (*CachedCredentials, error)
 	return &cached, nil
 }
 
-// saveCachedCredentials writes credentials to the cache file.
+// saveCachedCredentials writes credentials to the cache file atomically.
 func (cm *CredentialManager) saveCachedCredentials(cached *CachedCredentials) error {
 	cacheDir, err := config.CacheDir()
 	if err != nil {
 		return err
 	}
 	cachePath := filepath.Join(cacheDir, credentialsCacheFile)
+	tempPath := cachePath + ".tmp"
 
 	data, err := json.Marshal(cached)
 	if err != nil {
 		return fmt.Errorf("cannot marshal credentials: %w", err)
 	}
 
-	if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+	// Write to temporary file with mode 0600
+	if err := os.WriteFile(tempPath, data, 0o600); err != nil {
+		return fmt.Errorf("cannot write credentials cache: %w", err)
+	}
+
+	// Atomically replace the cache file
+	if err := os.Rename(tempPath, cachePath); err != nil {
+		// Clean up temp file on rename failure
+		_ = os.Remove(tempPath)
 		return fmt.Errorf("cannot write credentials cache: %w", err)
 	}
 

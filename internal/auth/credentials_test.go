@@ -14,9 +14,7 @@ import (
 func TestCredentialManager_GetCredentials_FirstTime(t *testing.T) {
 	// Setup: use temporary cache directory
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	cm := NewCredentialManager(15*time.Minute, 1*time.Hour)
 
@@ -30,7 +28,9 @@ func TestCredentialManager_GetCredentials_FirstTime(t *testing.T) {
 		}, nil
 	}
 
-	creds, err := cm.GetCredentials(context.Background(), refresh)
+	roleARN := "arn:aws:iam::123456789012:role/test-role"
+	oidcIssuer := "https://keycloak.example.com/realms/test"
+	creds, err := cm.GetCredentials(context.Background(), roleARN, oidcIssuer, refresh)
 	if err != nil {
 		t.Fatalf("GetCredentials failed: %v", err)
 	}
@@ -46,9 +46,7 @@ func TestCredentialManager_GetCredentials_FirstTime(t *testing.T) {
 
 func TestCredentialManager_GetCredentials_UsesCachedIfValid(t *testing.T) {
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	cm := NewCredentialManager(15*time.Minute, 1*time.Hour)
 
@@ -61,7 +59,7 @@ func TestCredentialManager_GetCredentials_UsesCachedIfValid(t *testing.T) {
 		}, nil
 	}
 
-	_, err := cm.GetCredentials(context.Background(), refresh)
+	_, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err != nil {
 		t.Fatalf("First GetCredentials failed: %v", err)
 	}
@@ -77,7 +75,7 @@ func TestCredentialManager_GetCredentials_UsesCachedIfValid(t *testing.T) {
 		}, nil
 	}
 
-	creds, err := cm.GetCredentials(context.Background(), refresh2)
+	creds, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh2)
 	if err != nil {
 		t.Fatalf("Second GetCredentials failed: %v", err)
 	}
@@ -93,9 +91,7 @@ func TestCredentialManager_GetCredentials_UsesCachedIfValid(t *testing.T) {
 
 func TestCredentialManager_GetCredentials_RefreshesOnIdleTimeout(t *testing.T) {
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	// Use very short idle timeout for testing
 	cm := NewCredentialManager(100*time.Millisecond, 1*time.Hour)
@@ -109,7 +105,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnIdleTimeout(t *testing.T) {
 		}, nil
 	}
 
-	_, err := cm.GetCredentials(context.Background(), refresh)
+	_, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err != nil {
 		t.Fatalf("First GetCredentials failed: %v", err)
 	}
@@ -128,7 +124,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnIdleTimeout(t *testing.T) {
 		}, nil
 	}
 
-	creds, err := cm.GetCredentials(context.Background(), refresh2)
+	creds, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh2)
 	if err != nil {
 		t.Fatalf("Second GetCredentials failed: %v", err)
 	}
@@ -144,9 +140,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnIdleTimeout(t *testing.T) {
 
 func TestCredentialManager_GetCredentials_RefreshesOnMaxDuration(t *testing.T) {
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	// Use very short max duration for testing
 	cm := NewCredentialManager(1*time.Hour, 100*time.Millisecond)
@@ -160,7 +154,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnMaxDuration(t *testing.T) {
 		}, nil
 	}
 
-	_, err := cm.GetCredentials(context.Background(), refresh)
+	_, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err != nil {
 		t.Fatalf("First GetCredentials failed: %v", err)
 	}
@@ -179,7 +173,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnMaxDuration(t *testing.T) {
 		}, nil
 	}
 
-	creds, err := cm.GetCredentials(context.Background(), refresh2)
+	creds, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh2)
 	if err != nil {
 		t.Fatalf("Second GetCredentials failed: %v", err)
 	}
@@ -195,9 +189,7 @@ func TestCredentialManager_GetCredentials_RefreshesOnMaxDuration(t *testing.T) {
 
 func TestCredentialManager_GetCredentials_UpdatesLastUsedTime(t *testing.T) {
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	cm := NewCredentialManager(200*time.Millisecond, 1*time.Hour)
 
@@ -210,7 +202,7 @@ func TestCredentialManager_GetCredentials_UpdatesLastUsedTime(t *testing.T) {
 		}, nil
 	}
 
-	_, err := cm.GetCredentials(context.Background(), refresh)
+	_, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err != nil {
 		t.Fatalf("First GetCredentials failed: %v", err)
 	}
@@ -219,7 +211,7 @@ func TestCredentialManager_GetCredentials_UpdatesLastUsedTime(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Second call - should use cache and update LastUsedAt
-	_, err = cm.GetCredentials(context.Background(), refresh)
+	_, err = cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err != nil {
 		t.Fatalf("Second GetCredentials failed: %v", err)
 	}
@@ -234,7 +226,7 @@ func TestCredentialManager_GetCredentials_UpdatesLastUsedTime(t *testing.T) {
 		return refresh(ctx)
 	}
 
-	_, err = cm.GetCredentials(context.Background(), refresh2)
+	_, err = cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh2)
 	if err != nil {
 		t.Fatalf("Third GetCredentials failed: %v", err)
 	}
@@ -246,9 +238,7 @@ func TestCredentialManager_GetCredentials_UpdatesLastUsedTime(t *testing.T) {
 
 func TestCredentialManager_GetCredentials_RefreshError(t *testing.T) {
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	cm := NewCredentialManager(15*time.Minute, 1*time.Hour)
 
@@ -257,7 +247,7 @@ func TestCredentialManager_GetCredentials_RefreshError(t *testing.T) {
 		return nil, expectedErr
 	}
 
-	_, err := cm.GetCredentials(context.Background(), refresh)
+	_, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err == nil {
 		t.Fatal("Expected error when refresh fails, got nil")
 	}
@@ -269,9 +259,7 @@ func TestCredentialManager_GetCredentials_RefreshError(t *testing.T) {
 
 func TestCredentialManager_ClearCredentials(t *testing.T) {
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	cm := NewCredentialManager(15*time.Minute, 1*time.Hour)
 
@@ -284,7 +272,7 @@ func TestCredentialManager_ClearCredentials(t *testing.T) {
 		}, nil
 	}
 
-	_, err := cm.GetCredentials(context.Background(), refresh)
+	_, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err != nil {
 		t.Fatalf("GetCredentials failed: %v", err)
 	}
@@ -312,7 +300,7 @@ func TestCredentialManager_ClearCredentials(t *testing.T) {
 		return refresh(ctx)
 	}
 
-	_, err = cm.GetCredentials(context.Background(), refresh2)
+	_, err = cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh2)
 	if err != nil {
 		t.Fatalf("GetCredentials after clear failed: %v", err)
 	}
@@ -324,9 +312,7 @@ func TestCredentialManager_ClearCredentials(t *testing.T) {
 
 func TestCredentialManager_HandlesCorruptedCache(t *testing.T) {
 	cacheDir := t.TempDir()
-	oldCacheDir := os.Getenv("XDG_CACHE_HOME")
-	os.Setenv("XDG_CACHE_HOME", cacheDir)
-	defer os.Setenv("XDG_CACHE_HOME", oldCacheDir)
+	t.Setenv("XDG_CACHE_HOME", cacheDir)
 
 	cm := NewCredentialManager(15*time.Minute, 1*time.Hour)
 
@@ -350,7 +336,7 @@ func TestCredentialManager_HandlesCorruptedCache(t *testing.T) {
 		}, nil
 	}
 
-	_, err := cm.GetCredentials(context.Background(), refresh)
+	_, err := cm.GetCredentials(context.Background(), "arn:aws:iam::123456789012:role/test-role", "https://keycloak.example.com/realms/test", refresh)
 	if err != nil {
 		t.Fatalf("GetCredentials failed with corrupted cache: %v", err)
 	}

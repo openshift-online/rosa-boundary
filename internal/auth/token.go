@@ -120,3 +120,28 @@ func parseTokenExpiration(token string) (time.Time, error) {
 
 	return time.Unix(claims.Exp, 0), nil
 }
+
+// ParseTokenSubject extracts the subject (sub) claim from a JWT token without verification.
+// This is used for cache identity validation only - the token itself is verified elsewhere.
+func ParseTokenSubject(token string) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "", fmt.Errorf("invalid JWT format: expected 3 parts, got %d", len(parts))
+	}
+
+	// Decode the payload (middle part)
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return "", fmt.Errorf("failed to decode JWT payload: %w", err)
+	}
+
+	// Parse the JSON claims
+	var claims struct {
+		Sub string `json:"sub"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return "", fmt.Errorf("failed to parse JWT claims: %w", err)
+	}
+
+	return claims.Sub, nil
+}

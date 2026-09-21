@@ -79,7 +79,10 @@ type CachedCredentials struct {
     IdleTimeout  time.Duration              // 15 minutes (configurable)
     MaxDuration  time.Duration              // 1 hour (defense-in-depth)
     RoleARN      string                     // AWS role ARN (cache identity validation)
+    SessionName  string                     // AWS session name (CloudTrail attribution)
+    Region       string                     // AWS region (cross-region validation)
     OIDCIssuer   string                     // OIDC issuer URL (cache identity validation)
+    OIDCSubject  string                     // OIDC subject (authenticated user identity)
 }
 ```
 
@@ -100,7 +103,10 @@ type CredentialManager struct {
 func (cm *CredentialManager) GetCredentials(
     ctx context.Context,
     roleARN string,
+    sessionName string,
+    region string,
     oidcIssuer string,
+    oidcSubject string,
     refresh func(context.Context) (*aws.TemporaryCredentials, error),
 ) (*aws.TemporaryCredentials, error)
 ```
@@ -109,18 +115,25 @@ func (cm *CredentialManager) GetCredentials(
 
 **Parameters:**
 - `roleARN` - AWS IAM role ARN for cache identity validation
-- `oidcIssuer` - OIDC provider URL for cache identity validation  
+- `sessionName` - AWS session name for CloudTrail attribution validation
+- `region` - AWS region for cross-region cache validation
+- `oidcIssuer` - OIDC provider URL for cache identity validation
+- `oidcSubject` - OIDC subject (authenticated user) for cross-user validation
 - `refresh` - Callback to obtain fresh credentials when cache miss/expired
 
 #### 3. Decision Logic
 
 ```
-GetCredentials(roleARN, oidcIssuer, refresh):
+GetCredentials(roleARN, sessionName, region, oidcIssuer, oidcSubject, refresh):
   ├─ Load cached credentials from disk
   │
   ├─ If cache exists:
-  │   ├─ Validate cache identity: roleARN and oidcIssuer match?
-  │   │   └─ NO → Refresh (prevent cross-role/environment credential reuse)
+  │   ├─ Validate cache identity (all must match):
+  │   │   ├─ roleARN match? NO → Refresh (prevent cross-role reuse)
+  │   │   ├─ sessionName match? NO → Refresh (prevent CloudTrail misattribution)
+  │   │   ├─ region match? NO → Refresh (prevent cross-region reuse)
+  │   │   ├─ oidcIssuer match? NO → Refresh (prevent cross-environment reuse)
+  │   │   └─ oidcSubject match? NO → Refresh (prevent cross-user reuse)
   │   ├─ Check STS expiration: now > expiration - 5min?
   │   │   └─ YES → Refresh + clear from disk
   │   ├─ Check idle timeout: now - LastUsedAt > 15 min?
@@ -134,7 +147,7 @@ GetCredentials(roleARN, oidcIssuer, refresh):
   │
   └─ If cache missing/expired:
       ├─ Call refresh() → OIDC login + AssumeRole
-      ├─ Create CachedCredentials (IssuedAt=now, LastUsedAt=now)
+      ├─ Create CachedCredentials (IssuedAt=now, LastUsedAt=now, all identity fields)
       ├─ Save to disk
       └─ Return fresh credentials
 ```
@@ -276,7 +289,16 @@ func assumeRoleWithRetry(...) (string, *awsclient.TemporaryCredentials, error) {
     }
 
     oidcIssuer := fmt.Sprintf("%s/realms/%s", pkce.KeycloakURL, pkce.Realm)
-    creds, err := credentialManager.GetCredentials(ctx, roleARN, oidcIssuer, refresh)
+    
+    // Extract OIDC subject from cached token for cache identity validation
+    oidcSubject := ""
+    if cachedToken, _ := auth.CachedToken(); cachedToken != "" {
+        if sub, err := auth.ParseTokenSubject(cachedToken); err == nil {
+            oidcSubject = sub
+        }
+    }
+    
+    creds, err := credentialManager.GetCredentials(ctx, roleARN, sessionName, region, oidcIssuer, oidcSubject, refresh)
     // ...
 }
 ```
@@ -369,7 +391,10 @@ Comprehensive test coverage in `internal/auth/credentials_test.go`:
 
 **Security Tests:**
 - ✅ Refreshing on role ARN mismatch (prevents cross-role credential reuse)
+- ✅ Refreshing on session name mismatch (prevents CloudTrail misattribution)
+- ✅ Refreshing on region mismatch (prevents cross-region credential reuse)
 - ✅ Refreshing on OIDC issuer mismatch (prevents cross-environment reuse)
+- ✅ Refreshing on OIDC subject mismatch (prevents cross-user credential reuse)
 - ✅ Cache file permissions (0600 - owner read/write only)
 
 Run tests:
@@ -435,7 +460,10 @@ The credential manager creates two cache files in `~/.cache/rosa-boundary/`:
   "idle_timeout": 900000000000,
   "max_duration": 3600000000000,
   "role_arn": "arn:aws:iam::123456789012:role/rosa-boundary-sre",
-  "oidc_issuer": "https://keycloak.example.com/realms/EmployeeIDP"
+  "session_name": "rosa-boundary-session",
+  "region": "us-east-2",
+  "oidc_issuer": "https://keycloak.example.com/realms/EmployeeIDP",
+  "oidc_subject": "user@example.com"
 }
 ```
 

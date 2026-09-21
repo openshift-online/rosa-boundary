@@ -176,8 +176,17 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 	// Construct OIDC issuer for cache identity validation
 	oidcIssuer := fmt.Sprintf("%s/realms/%s", pkce.KeycloakURL, pkce.Realm)
 
+	// Extract OIDC subject from cached token for cache identity validation
+	// The refresh function will set idToken if it runs, otherwise we get it from cache
+	oidcSubject := ""
+	if cachedToken, _ := auth.CachedToken(); cachedToken != "" {
+		if sub, err := auth.ParseTokenSubject(cachedToken); err == nil {
+			oidcSubject = sub
+		}
+	}
+
 	// Get credentials with idle timeout enforcement
-	creds, err := credentialManager.GetCredentials(ctx, roleARN, oidcIssuer, refresh)
+	creds, err := credentialManager.GetCredentials(ctx, roleARN, sessionName, region, oidcIssuer, oidcSubject, refresh)
 	if err != nil {
 		return "", nil, err
 	}

@@ -25,14 +25,17 @@ const (
 
 // CachedCredentials represents AWS credentials with activity tracking for idle timeout enforcement.
 type CachedCredentials struct {
-	Credentials *aws.TemporaryCredentials `json:"credentials"`
-	IssuedAt    time.Time                 `json:"issued_at"`
-	LastUsedAt  time.Time                 `json:"last_used_at"`
-	Expiration  time.Time                 `json:"expiration"`
-	IdleTimeout time.Duration             `json:"idle_timeout"`
-	MaxDuration time.Duration             `json:"max_duration"`
-	RoleARN     string                    `json:"role_arn"`
-	OIDCIssuer  string                    `json:"oidc_issuer"`
+	Credentials   *aws.TemporaryCredentials `json:"credentials"`
+	IssuedAt      time.Time                 `json:"issued_at"`
+	LastUsedAt    time.Time                 `json:"last_used_at"`
+	Expiration    time.Time                 `json:"expiration"`
+	IdleTimeout   time.Duration             `json:"idle_timeout"`
+	MaxDuration   time.Duration             `json:"max_duration"`
+	RoleARN       string                    `json:"role_arn"`
+	SessionName   string                    `json:"session_name"`
+	Region        string                    `json:"region"`
+	OIDCIssuer    string                    `json:"oidc_issuer"`
+	OIDCSubject   string                    `json:"oidc_subject"`
 }
 
 // CredentialManager handles credential caching with idle timeout enforcement.
@@ -59,8 +62,9 @@ func NewCredentialManager(idleTimeout, maxDuration time.Duration) *CredentialMan
 
 // GetCredentials returns valid credentials, refreshing if necessary due to idle timeout or expiration.
 // The refresh function is called only when credentials need to be renewed.
-// roleARN and oidcIssuer are validated against cached credentials to prevent credential reuse across different roles or OIDC providers.
-func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIssuer string, refresh func(context.Context) (*aws.TemporaryCredentials, error)) (*aws.TemporaryCredentials, error) {
+// Cache identity (roleARN, sessionName, region, oidcIssuer, oidcSubject) is validated to prevent credential
+// reuse across different roles, sessions, regions, OIDC providers, or authenticated users.
+func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, sessionName, region, oidcIssuer, oidcSubject string, refresh func(context.Context) (*aws.TemporaryCredentials, error)) (*aws.TemporaryCredentials, error) {
 	now := time.Now()
 
 	// Try to load cached credentials
@@ -74,12 +78,21 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIs
 
 	// Check if cached credentials are still valid
 	if cached != nil {
-		// Validate cache identity matches requested role and environment
+		// Validate cache identity matches requested role, session, region, and user
 		if cached.RoleARN != roleARN {
 			_ = output.Debug("Cached credentials role mismatch, refreshing")
 			cached = nil
+		} else if cached.SessionName != sessionName {
+			_ = output.Debug("Cached credentials session name mismatch, refreshing")
+			cached = nil
+		} else if cached.Region != region {
+			_ = output.Debug("Cached credentials region mismatch, refreshing")
+			cached = nil
 		} else if cached.OIDCIssuer != oidcIssuer {
 			_ = output.Debug("Cached credentials OIDC issuer mismatch, refreshing")
+			cached = nil
+		} else if cached.OIDCSubject != oidcSubject {
+			_ = output.Debug("Cached credentials OIDC subject mismatch, refreshing")
 			cached = nil
 		} else {
 			// Check STS expiration first with 5-minute buffer to prevent mid-operation failures
@@ -131,14 +144,17 @@ func (cm *CredentialManager) GetCredentials(ctx context.Context, roleARN, oidcIs
 	// Cache the new credentials with fresh timestamp after successful refresh
 	refreshedAt := time.Now()
 	cached = &CachedCredentials{
-		Credentials: creds,
-		IssuedAt:    refreshedAt,
-		LastUsedAt:  refreshedAt,
-		Expiration:  creds.Expiration,
-		IdleTimeout: cm.idleTimeout,
-		MaxDuration: cm.maxDuration,
-		RoleARN:     roleARN,
-		OIDCIssuer:  oidcIssuer,
+		Credentials:  creds,
+		IssuedAt:     refreshedAt,
+		LastUsedAt:   refreshedAt,
+		Expiration:   creds.Expiration,
+		IdleTimeout:  cm.idleTimeout,
+		MaxDuration:  cm.maxDuration,
+		RoleARN:      roleARN,
+		SessionName:  sessionName,
+		Region:       region,
+		OIDCIssuer:   oidcIssuer,
+		OIDCSubject:  oidcSubject,
 	}
 
 	if err := cm.saveCachedCredentials(cached); err != nil {

@@ -118,7 +118,7 @@ module "rosa_boundary" {
         },
         {
           key      = "container_image"
-          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:00fbc5103e418f417c389d9909bd4ffc1ae56940"
+          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:ee72f3ac56e436149ef1153d888b34b813c6db46"
           category = "terraform"
         },
         {
@@ -176,7 +176,7 @@ module "rosa_boundary" {
         },
         {
           key      = "lambda_image_tag"
-          value    = "15712a76976f8192d2797fffe4a5e61758c666a5"
+          value    = "15e6f50a4c029ae315e64ba1457e24a6854c7e64"
           category = "terraform"
         },
         {

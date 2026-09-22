@@ -267,6 +267,30 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         Resource = aws_efs_file_system.sre_home.arn
       },
       {
+        # close-investigation deletes the investigation's EFS access point once
+        # its running tasks are gone. Any authorized Boundary SRE may close any
+        # investigation (shared-investigation trust model); the ability to assume
+        # this role is the authorization boundary, so no per-investigation or
+        # per-caller condition is applied here.
+        #
+        # DeleteAccessPoint authorizes against the access-point resource type, so
+        # the file-system ARN used by EFSReadAccessPoints cannot be reused. Access
+        # points are created dynamically by the create-investigation Lambda with
+        # unpredictable fsap-* IDs, so this scopes to all access points in this
+        # account/region and then restricts deletion to ROSA Boundary-managed
+        # access points via the ManagedBy resource tag the Lambda applies at
+        # creation time (see lambda/create-investigation/handler.py).
+        Sid      = "EFSDeleteManagedAccessPoints"
+        Effect   = "Allow"
+        Action   = ["elasticfilesystem:DeleteAccessPoint"]
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"
+          }
+        }
+      },
+      {
         Sid    = "SSMSessionForECSExec"
         Effect = "Allow"
         Action = ["ssm:StartSession"]

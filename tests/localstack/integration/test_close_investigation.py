@@ -31,9 +31,37 @@ def test_sre_policy_allows_task_definition_cleanup():
     assert '"ecs:DeregisterTaskDefinition"' in statement
     assert 'Sid    = "DeregisterTaskDefinition"' not in policy_source
 
-    # The SRE role must not gain direct access-point deletion; that remains a
-    # separate brokered operation documented by issue #242.
-    assert 'elasticfilesystem:DeleteAccessPoint' not in policy_source
+
+@pytest.mark.integration
+def test_sre_policy_allows_scoped_access_point_deletion():
+    """The shared SRE role must be able to delete ROSA Boundary-managed EFS
+    access points (ROSAENG-66963), but only those — not arbitrary access points.
+
+    Any authorized Boundary SRE may close any investigation, so deletion is not
+    scoped per-investigation or per-caller. It is scoped to Boundary-managed
+    access points via the ManagedBy resource tag the create-investigation Lambda
+    applies at creation time.
+    """
+    policy_source = _load_sre_policy_source()
+
+    statement_start = policy_source.index('Sid      = "EFSDeleteManagedAccessPoints"')
+    # The statement ends at the next Sid or the closing of the Statement list.
+    statement_end = policy_source.index('Sid ', statement_start + 1)
+    statement = policy_source[statement_start:statement_end]
+
+    # DeleteAccessPoint is granted...
+    assert 'elasticfilesystem:DeleteAccessPoint' in statement
+    assert 'Effect   = "Allow"' in statement
+
+    # ...but NOT against every access point in the account. It must target the
+    # access-point resource type (not the file-system ARN, not "*") ...
+    assert ':access-point/*"' in statement
+    assert 'Resource = "*"' not in statement
+
+    # ...and it must be restricted to Boundary-managed access points via the
+    # authoritative ManagedBy tag (see lambda/create-investigation/handler.py),
+    # so unrelated / non-Boundary access points are not deletable.
+    assert '"aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"' in statement
 
 
 @pytest.mark.integration

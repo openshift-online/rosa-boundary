@@ -433,7 +433,7 @@ def reaper_lambda_function(lambda_client, iam_client, test_efs, reaper_lambda_pa
         Handler='handler.lambda_handler',
         Code={'ZipFile': zip_content},
         Timeout=300,
-        MemorySize=256,
+        MemorySize=256,  # Match production Lambda memory config
         Environment={'Variables': {}}  # Will be updated per test
     )
 

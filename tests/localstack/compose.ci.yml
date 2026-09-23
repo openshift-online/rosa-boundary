@@ -1,6 +1,6 @@
 services:
   localstack:
-    image: localstack/localstack-pro:latest
+    image: public.ecr.aws/localstack/localstack-pro:4.11.0
     # user: root required — LocalStack's init/ready.d scripts execute as root, and
     # rootless podman on Fedora remaps the container UID; without this the init
     # script volume mount is unreadable and LocalStack fails to initialise.
@@ -13,8 +13,6 @@ services:
     environment:
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
       - SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm
-      - LAMBDA_EXECUTOR=local
-      - ECS_EXECUTOR=local
       - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-2
       - PERSISTENCE=0

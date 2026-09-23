@@ -48,13 +48,14 @@ def invoke_reaper_lambda(lambda_client, function_name, ecs_cluster, efs_filesyst
         env_vars['ECS_CLUSTER'] = ecs_cluster
         env_vars['EFS_FILESYSTEM_ID'] = efs_filesystem_id
 
-        lambda_client.update_function_configuration(
-            FunctionName=function_name,
-            Environment={'Variables': env_vars}
-        )
+    # Always update the Lambda configuration with the environment variables
+    lambda_client.update_function_configuration(
+        FunctionName=function_name,
+        Environment={'Variables': env_vars}
+    )
 
-        # Wait for update to complete
-        time.sleep(2)
+    # Wait for update to complete
+    time.sleep(2)
 
     # Invoke Lambda
     response = lambda_client.invoke(

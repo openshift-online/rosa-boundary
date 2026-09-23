@@ -46,7 +46,6 @@ GRACE_PERIOD_HOURS = int(os.environ.get('GRACE_PERIOD_HOURS', '72'))
 S3_AUDIT_BUCKET = os.environ.get('S3_AUDIT_BUCKET', '')
 TASK_DEFINITION_FAMILY = os.environ.get('TASK_DEFINITION_FAMILY', '')
 EFS_MOUNT_PATH = '/mnt/efs'
-SYNC_TIMEOUT_SECONDS = 300  # 5 minutes (matches entrypoint.sh)
 
 # Identifier validation pattern (must match create-investigation Lambda)
 IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
@@ -177,7 +176,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 errors += 1
                 continue
 
-            reap_success = reap_investigation(cluster_id, investigation_id, ap_id)
+            reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context)
 
             if reap_success:
                 reaped += 1
@@ -401,12 +400,18 @@ def list_investigation_access_points() -> List[Dict[str, Any]]:
     return access_points
 
 
-def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str) -> bool:
+def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str, context: Any) -> bool:
     """
     Reap a stale investigation by deleting directory, access point, and task definitions.
 
     Directory must be deleted before access point - once the access point is gone,
     we lose the tags that identify the directory location, making it unreclaimable.
+
+    Args:
+        cluster_id: Cluster identifier
+        investigation_id: Investigation identifier
+        access_point_id: EFS access point ID to delete
+        context: Lambda context object for timeout calculation
 
     Returns:
         True if all steps succeeded, False if any step failed
@@ -416,7 +421,7 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
 
     # Step 1: Delete EFS directory
     try:
-        dir_deleted = delete_investigation_directory(cluster_id, investigation_id)
+        dir_deleted = delete_investigation_directory(cluster_id, investigation_id, context)
         if not dir_deleted:
             logger.error("Failed to delete directory for %s/%s", cluster_id, investigation_id)
             all_success = False
@@ -452,12 +457,18 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
     return all_success
 
 
-def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory_path: str) -> bool:
+def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory_path: str, context: Any) -> bool:
     """
     Upload investigation directory to S3 before deletion.
 
     Uploads to s3://{bucket}/{cluster_id}/{investigation_id}/reaper-final-backup/
     with the same exclusions as entrypoint.sh (.config/ocm/*, .kube/*).
+
+    Args:
+        cluster_id: Cluster identifier
+        investigation_id: Investigation identifier
+        directory_path: Local EFS directory path to backup
+        context: Lambda context object for timeout calculation
 
     Returns:
         True if upload succeeded or S3_AUDIT_BUCKET not configured, False if upload failed
@@ -476,7 +487,12 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
 
     # Build S3 path for reaper final backup
     s3_path = f"s3://{S3_AUDIT_BUCKET}/{cluster_id}/{investigation_id}/reaper-final-backup/"
-    logger.info("Backing up %s to %s", directory_path, s3_path)
+
+    # Calculate timeout dynamically: reserve 30s for error handling/cleanup
+    remaining_ms = context.get_remaining_time_in_millis()
+    sync_timeout = max(10, (remaining_ms / 1000) - 30)  # Minimum 10s, reserve 30s buffer
+
+    logger.info("Backing up %s to %s (timeout: %.1fs)", directory_path, s3_path, sync_timeout)
 
     try:
         # Use aws s3 sync with same exclusions as entrypoint.sh
@@ -494,7 +510,7 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
 
         result = subprocess.run(
             cmd,
-            timeout=SYNC_TIMEOUT_SECONDS,
+            timeout=sync_timeout,
             capture_output=True,
             text=True,
             check=True
@@ -504,8 +520,8 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
         return True
 
     except subprocess.TimeoutExpired:
-        logger.error("S3 sync timed out after %ds for %s/%s",
-                    SYNC_TIMEOUT_SECONDS, cluster_id, investigation_id)
+        logger.error("S3 sync timed out after %.1fs for %s/%s",
+                    sync_timeout, cluster_id, investigation_id)
         return False
     except subprocess.CalledProcessError as e:
         logger.error("S3 sync failed for %s/%s: %s\nStderr: %s",
@@ -517,13 +533,18 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
         return False
 
 
-def delete_investigation_directory(cluster_id: str, investigation_id: str) -> bool:
+def delete_investigation_directory(cluster_id: str, investigation_id: str, context: Any) -> bool:
     """
     Delete investigation directory from mounted EFS filesystem.
 
     Validates path to prevent traversal, verifies EFS is mounted, backs up to S3,
     then deletes the directory tree. In test environments with LOCALSTACK_ENDPOINT set,
     skips actual deletion if EFS is not mounted.
+
+    Args:
+        cluster_id: Cluster identifier
+        investigation_id: Investigation identifier
+        context: Lambda context object for timeout calculation
 
     Returns:
         True if deletion succeeded, False otherwise
@@ -554,7 +575,7 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str) -> bo
         return True
 
     # Backup to S3 before deletion (required step)
-    backup_success = backup_investigation_to_s3(cluster_id, investigation_id, directory_path)
+    backup_success = backup_investigation_to_s3(cluster_id, investigation_id, directory_path, context)
     if not backup_success:
         logger.error("S3 backup failed for %s/%s - refusing to delete directory",
                     cluster_id, investigation_id)
@@ -609,14 +630,17 @@ def delete_task_definitions(cluster_id: str, investigation_id: str) -> int:
     family_prefix = f'{TASK_DEFINITION_FAMILY}-{cluster_id}-{investigation_id}'
     deregistered = 0
 
+    logger.info("Searching for task definitions with familyPrefix: %s", family_prefix)
+
     try:
-        # List all active task definitions with this family prefix
+        # List all active task definitions
+        # NOTE: LocalStack 4.11.0 has a bug where familyPrefix doesn't work, so we
+        # list all task definitions and filter client-side
         next_token = None
         task_def_arns = []
 
         while True:
             kwargs = {
-                'familyPrefix': family_prefix,
                 'status': 'ACTIVE'
             }
 
@@ -624,7 +648,17 @@ def delete_task_definitions(cluster_id: str, investigation_id: str) -> int:
                 kwargs['nextToken'] = next_token
 
             response = ecs.list_task_definitions(**kwargs)
-            task_def_arns.extend(response.get('taskDefinitionArns', []))
+            all_arns = response.get('taskDefinitionArns', [])
+
+            # Filter by family prefix client-side (workaround for LocalStack bug)
+            matching_arns = [
+                arn for arn in all_arns
+                if f'task-definition/{family_prefix}' in arn
+            ]
+
+            logger.info("Found %d/%d task definition(s) matching prefix %s",
+                       len(matching_arns), len(all_arns), family_prefix)
+            task_def_arns.extend(matching_arns)
 
             next_token = response.get('nextToken')
             if not next_token:

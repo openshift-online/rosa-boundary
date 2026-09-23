@@ -27,6 +27,8 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_efs = MagicMock()
         self.mock_shutil = MagicMock()
         self.mock_os_path = MagicMock()
+        self.mock_context = MagicMock()
+        self.mock_context.get_remaining_time_in_millis.return_value = 300000  # 5 minutes
 
         self.ecs_patcher = patch('handler.ecs', self.mock_ecs)
         self.efs_patcher = patch('handler.efs', self.mock_efs)
@@ -508,7 +510,7 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_os_path.ismount.return_value = True
         self.mock_os_path.exists.return_value = True
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-large')
+        result = handler.delete_investigation_directory('test-cluster', 'inv-large', self.mock_context)
 
         assert result is True
 
@@ -519,7 +521,7 @@ class TestReaperLambda(unittest.TestCase):
         # shutil.rmtree raises OSError on failure
         self.mock_shutil.rmtree.side_effect = OSError("Permission denied")
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-fail')
+        result = handler.delete_investigation_directory('test-cluster', 'inv-fail', self.mock_context)
 
         assert result is False
 
@@ -528,7 +530,7 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_os_path.ismount.return_value = True
         self.mock_os_path.exists.return_value = False  # Directory doesn't exist
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-missing')
+        result = handler.delete_investigation_directory('test-cluster', 'inv-missing', self.mock_context)
 
         # Should return True (directory already deleted)
         assert result is True
@@ -539,7 +541,7 @@ class TestReaperLambda(unittest.TestCase):
         """Test error when EFS is not mounted"""
         self.mock_os_path.ismount.return_value = False  # EFS not mounted
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-unmounted')
+        result = handler.delete_investigation_directory('test-cluster', 'inv-unmounted', self.mock_context)
 
         assert result is False
         self.mock_shutil.rmtree.assert_not_called()
@@ -940,7 +942,7 @@ class TestReaperLambda(unittest.TestCase):
         mock_subprocess.return_value = MagicMock(returncode=0)
 
         with patch('handler.S3_AUDIT_BUCKET', 'test-bucket'):
-            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1')
+            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
 
         assert result is True
         mock_subprocess.assert_called_once()
@@ -964,7 +966,7 @@ class TestReaperLambda(unittest.TestCase):
         mock_subprocess.side_effect = CalledProcessError(1, 'aws', stderr='Access denied')
 
         with patch('handler.S3_AUDIT_BUCKET', 'test-bucket'):
-            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1')
+            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
 
         assert result is False
 
@@ -974,7 +976,7 @@ class TestReaperLambda(unittest.TestCase):
         mock_exists.return_value = True
 
         with patch('handler.S3_AUDIT_BUCKET', ''):
-            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1')
+            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
 
         # Not configured is not a failure - returns True
         assert result is True
@@ -988,7 +990,7 @@ class TestReaperLambda(unittest.TestCase):
         mock_subprocess.side_effect = TimeoutExpired('aws', 300)
 
         with patch('handler.S3_AUDIT_BUCKET', 'test-bucket'):
-            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1')
+            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
 
         assert result is False
 
@@ -1000,7 +1002,7 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_os_path.ismount.return_value = True
         self.mock_os_path.exists.return_value = True
 
-        result = handler.delete_investigation_directory('cluster-1', 'inv-1')
+        result = handler.delete_investigation_directory('cluster-1', 'inv-1', self.mock_context)
 
         assert result is False
         self.mock_shutil.rmtree.assert_not_called()

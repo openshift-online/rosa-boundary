@@ -126,6 +126,16 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_s3" {
     Statement = [
       {
         Effect = "Allow"
+        Action = "s3:ListBucket"
+        Resource = aws_s3_bucket.audit.arn
+        Condition = {
+          StringLike = {
+            "s3:prefix" = "*/*/reaper-final-backup/*"
+          }
+        }
+      },
+      {
+        Effect = "Allow"
         Action = [
           "s3:PutObject",
           "s3:PutObjectAcl"

@@ -5,6 +5,8 @@ services:
     # rootless podman on Fedora remaps the container UID; without this the init
     # script volume mount is unreadable and LocalStack fails to initialise.
     user: root
+    security_opt:
+      - label=disable
     ports:
       - "4566:4566"
       - "4510-4559:4510-4559"
@@ -19,6 +21,7 @@ services:
       - LOCALSTACK_LOG_DIR=/tmp/localstack-logs
     volumes:
       - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z"
+      - "${XDG_RUNTIME_DIR:-/var/run}/podman/podman.sock:/var/run/docker.sock"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s

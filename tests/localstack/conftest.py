@@ -63,9 +63,9 @@ def boto_config():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def s3_client(localstack_available, boto_config):
-    """S3 client configured for LocalStack"""
+    """S3 client configured for LocalStack (session-scoped)"""
     return boto3.client(
         's3',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -75,9 +75,9 @@ def s3_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def iam_client(localstack_available, boto_config):
-    """IAM client configured for LocalStack"""
+    """IAM client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'iam',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -87,9 +87,9 @@ def iam_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ecs_client(localstack_available, boto_config):
-    """ECS client configured for LocalStack"""
+    """ECS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'ecs',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -99,9 +99,9 @@ def ecs_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def efs_client(localstack_available, boto_config):
-    """EFS client configured for LocalStack"""
+    """EFS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'efs',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -111,9 +111,9 @@ def efs_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def kms_client(localstack_available, boto_config):
-    """KMS client configured for LocalStack"""
+    """KMS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'kms',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -123,9 +123,9 @@ def kms_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def logs_client(localstack_available, boto_config):
-    """CloudWatch Logs client configured for LocalStack"""
+    """CloudWatch Logs client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'logs',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -135,9 +135,9 @@ def logs_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def sts_client(localstack_available, boto_config):
-    """STS client configured for LocalStack"""
+    """STS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'sts',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -147,11 +147,23 @@ def sts_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ec2_client(localstack_available, boto_config):
-    """EC2 client configured for LocalStack"""
+    """EC2 client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'ec2',
+        endpoint_url=LOCALSTACK_ENDPOINT,
+        aws_access_key_id='test',
+        aws_secret_access_key='test',
+        config=boto_config
+    )
+
+
+@pytest.fixture(scope='session')
+def lambda_client(localstack_available, boto_config):
+    """Lambda client configured for LocalStack (session-scoped)"""
+    return boto3.client(
+        'lambda',
         endpoint_url=LOCALSTACK_ENDPOINT,
         aws_access_key_id='test',
         aws_secret_access_key='test',
@@ -229,9 +241,9 @@ def test_vpc(ssm_client):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def test_efs(efs_client):
-    """Create EFS filesystem for testing"""
+    """Create EFS filesystem for testing (session-scoped)"""
     # Use unique creation token to avoid conflicts
     creation_token = f'test-efs-{int(time.time() * 1000)}'
 
@@ -361,3 +373,87 @@ def ecs_cleanup(ecs_client, iam_client, efs_client):
     tracker = ECSCleanupTracker(ecs_client, iam_client, efs_client)
     yield tracker
     tracker.cleanup()
+
+
+@pytest.fixture(scope='session')
+def reaper_lambda_package(tmp_path_factory):
+    """
+    Create a deployment package for the reaper Lambda (session-scoped).
+    Packages handler.py into a zip file for Lambda deployment.
+    """
+    import zipfile
+    from pathlib import Path
+
+    # Path to handler.py
+    lambda_dir = Path(__file__).parent.parent.parent / 'lambda' / 'reap-investigations'
+    handler_file = lambda_dir / 'handler.py'
+
+    # Create zip package in session temp directory
+    tmp_path = tmp_path_factory.mktemp('lambda-packages')
+    zip_path = tmp_path / 'reaper-lambda.zip'
+    with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        zipf.write(handler_file, 'handler.py')
+
+    return str(zip_path)
+
+
+@pytest.fixture(scope='session')
+def reaper_lambda_function(lambda_client, iam_client, test_efs, reaper_lambda_package):
+    """
+    Create the investigation reaper Lambda function in LocalStack (session-scoped).
+    Creates the Lambda once per test session and reuses it across tests.
+    """
+    # Create Lambda execution role with unique name
+    role_name = f'reaper-lambda-role-{int(time.time())}'
+    trust_policy = {
+        'Version': '2012-10-17',
+        'Statement': [{
+            'Effect': 'Allow',
+            'Principal': {'Service': 'lambda.amazonaws.com'},
+            'Action': 'sts:AssumeRole'
+        }]
+    }
+
+    role_response = iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps(trust_policy)
+    )
+    role_arn = role_response['Role']['Arn']
+
+    # Read Lambda zip package
+    with open(reaper_lambda_package, 'rb') as f:
+        zip_content = f.read()
+
+    # Create Lambda function with unique name
+    function_name = f'reaper-lambda-{int(time.time())}'
+    lambda_response = lambda_client.create_function(
+        FunctionName=function_name,
+        Runtime='python3.11',
+        Role=role_arn,
+        Handler='handler.lambda_handler',
+        Code={'ZipFile': zip_content},
+        Timeout=300,
+        MemorySize=256,
+        Environment={'Variables': {}}  # Will be updated per test
+    )
+
+    # Wait for Lambda to be ready (LocalStack needs time after create)
+    time.sleep(3)
+
+    yield {
+        'function_name': function_name,
+        'function_arn': lambda_response['FunctionArn'],
+        'role_name': role_name
+    }
+
+    # Cleanup at end of session
+    try:
+        lambda_client.delete_function(FunctionName=function_name)
+        logger.info("Deleted Lambda function: %s", function_name)
+    except Exception as e:
+        logger.warning("Failed to delete Lambda function %s: %s", function_name, e)
+    try:
+        iam_client.delete_role(RoleName=role_name)
+        logger.info("Deleted IAM role: %s", role_name)
+    except Exception as e:
+        logger.warning("Failed to delete IAM role %s: %s", role_name, e)

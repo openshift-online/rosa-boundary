@@ -265,6 +265,7 @@ rosa-boundary/
 │   └── regional/              # Terraform for AWS Fargate deployment
 ├── lambda/
 │   ├── create-investigation/  # OIDC-authenticated investigation creation
+│   ├── reap-investigations/   # Periodic investigation garbage collection
 │   └── reap-tasks/            # Periodic task timeout enforcement
 ├── scripts/
 │   ├── codecov.sh             # Codecov upload for Prow CI jobs
@@ -308,6 +309,75 @@ The reaper Lambda provides tamper-proof task timeout enforcement via periodic ch
 **IAM Permissions Required**: `ecs:ListTasks`, `ecs:DescribeTasks` (conditioned on cluster ARN), `ecs:StopTask` (scoped to `task/{cluster}/*`)
 
 **Tests**: `make test-lambda-reap-tasks` (unit), `tests/localstack/integration/test_task_timeout.py` (integration)
+
+## Investigation Reaper Lambda (Garbage Collection)
+
+**Location**: `lambda/reap-investigations/`
+
+The investigation reaper Lambda provides periodic garbage collection of stale investigations to prevent EFS access point exhaustion (10,000 limit per filesystem) and reclaim storage.
+
+**Architecture**:
+1. **Periodic Trigger**: EventBridge rule invokes Lambda on schedule (default: every 8 hours, configurable via `investigation_reaper_schedule_hours`)
+2. **Access Point Discovery**: Lists all EFS access points with `ClusterID` and `InvestigationID` tags
+3. **Staleness Check**: Hybrid criteria using task liveness + grace period
+   - **Active**: Investigation has RUNNING tasks in ECS cluster → skip (never reap active investigations)
+   - **Stale**: No running tasks AND created > grace period ago → reap
+4. **Cleanup**: Deletes EFS directory, access point, and task definitions (in that order)
+5. **Error Handling**: Per-investigation error handling; partial failures are retried on next run
+
+**Staleness Detection Flow**:
+```
+1. Check for running tasks: ecs:ListTasks + ecs:DescribeTasks (filtered by investigation tags)
+2. If tasks exist → not stale (investigation is active)
+3. If no tasks:
+   a. Check access point CreationTime (from EFS tags)
+   b. If age > GRACE_PERIOD_HOURS → stale (safe to delete)
+   c. If age ≤ GRACE_PERIOD_HOURS → not stale (within grace period)
+```
+
+**Cleanup Flow (Best-Effort)**:
+1. **Directory Deletion**: `shutil.rmtree()` via root EFS access point
+   - Path validation prevents traversal attacks
+   - Only proceeds if EFS is mounted at `/mnt/efs`
+2. **Access Point Deletion**: Only if directory deletion succeeds
+   - Prevents orphaned directories (once AP is gone, tags are lost)
+3. **Task Definition Cleanup**: Deregisters all `${cluster}-${cluster_id}-${investigation_id}-*` families
+   - Continues even if previous steps failed
+
+**Environment Variables**:
+- `ECS_CLUSTER`: ECS cluster name (required)
+- `EFS_FILESYSTEM_ID`: EFS filesystem ID (required)
+- `GRACE_PERIOD_HOURS`: Hours before investigation is eligible for cleanup (default: 168)
+- `LOCALSTACK_ENDPOINT`: LocalStack endpoint for testing (optional)
+
+**Terraform**: `deploy/regional/lambda-reap-investigations.tf`
+
+**Configuration Variables**:
+- `investigation_reaper_schedule_hours`: Default 8h, range 2-168h (2h minimum due to EventBridge rate expression requirements)
+- `investigation_grace_period_hours`: Default 168h (7 days), range 1-720h (30 days)
+
+**IAM Permissions Required**:
+- `ecs:ListTasks`, `ecs:DescribeTasks` (conditioned on cluster ARN)
+- `ecs:ListTaskDefinitions` (wildcard required)
+- `ecs:DeregisterTaskDefinition` (scoped to `${project}-${stage}-*` families)
+- `elasticfilesystem:DescribeAccessPoints`, `elasticfilesystem:DeleteAccessPoint` (scoped to filesystem ARN)
+- `elasticfilesystem:ClientMount`, `elasticfilesystem:ClientWrite`, `elasticfilesystem:ClientRootAccess` (via dedicated root access point)
+
+**EFS Access Point**:
+- Dedicated reaper access point with `uid=0/gid=0` (root permissions)
+- Mounted at `/mnt/efs` with full filesystem access for directory deletion
+- Path: `/` (root of filesystem for investigation cleanup)
+
+**Security Properties**:
+- **Path validation**: cluster_id and investigation_id validated with regex before use
+- **Realpath check**: Prevents symlink-based traversal attacks
+- **Conditional deletion**: Access point only deleted after directory deletion succeeds
+- **Error isolation**: Failures in one investigation don't prevent cleanup of others
+
+**Tests**:
+- Unit: `make test-lambda-reap-investigations` (moto-based, 27 tests)
+- Integration: `tests/localstack/integration/test_reap_investigations.py` (full workflow)
+- Integration: `tests/localstack/integration/test_reap_investigations_directory.py` (EFS directory cleanup)
 
 ## Investigation Isolation Model
 
@@ -482,6 +552,9 @@ make staticcheck
 ```bash
 # Unit tests for create-investigation Lambda
 make test-lambda-create-investigation
+
+# Unit tests for reap-investigations Lambda
+make test-lambda-reap-investigations
 
 # Unit tests for reap-tasks Lambda
 make test-lambda-reap-tasks

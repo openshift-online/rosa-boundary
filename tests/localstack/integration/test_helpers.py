@@ -31,6 +31,8 @@ def create_investigation_resources(
     username='sre-e2e-user',
     cluster_name_prefix='test-cluster',
     ecs_role_name_prefix='rosa-boundary-ecs',
+    base_task_family='rosa-boundary-test',
+    existing_cluster_name=None,
     extra_efs_tags=None,
     extra_env_vars=None,
     extra_task_tags=None,
@@ -39,16 +41,24 @@ def create_investigation_resources(
     """Create the common investigation infrastructure: IAM role, EFS access point,
     ECS cluster, task definition, and launched task.
 
+    Args:
+        base_task_family: Base task definition family (matches TASK_DEFINITION_FAMILY in production)
+        existing_cluster_name: If provided, use this existing cluster instead of creating a new one
+
     Returns a dict with all created resource identifiers:
         cluster_id, investigation_id, oidc_sub, username,
         ecs_role_arn, access_point_id, cluster_name, task_def_arn, task_arn
     """
-    ts = int(datetime.now().timestamp())
+    # Use microseconds to avoid role name collisions when tests run in parallel
+    now = datetime.now()
+    ts = int(now.timestamp())
+    ts_micro = int(now.timestamp() * 1000000)
     if investigation_id is None:
         investigation_id = f'inv-e2e-{ts}'
 
     # ECS task execution role (trusted by ecs-tasks.amazonaws.com)
-    ecs_role_name = f'{ecs_role_name_prefix}-{ts}'
+    # Use microsecond timestamp to ensure uniqueness even when tests run in parallel
+    ecs_role_name = f'{ecs_role_name_prefix}-{investigation_id}-{ts_micro}'
     ecs_trust_policy = {
         'Version': '2012-10-17',
         'Statement': [{
@@ -92,13 +102,17 @@ def create_investigation_resources(
     access_point_id = access_point_response['AccessPointId']
     ecs_cleanup.register_access_point(access_point_id)
 
-    # ECS cluster
-    cluster_name = f'{cluster_name_prefix}-{ts}'
-    ecs_client.create_cluster(clusterName=cluster_name)
-    ecs_cleanup.register_cluster(cluster_name)
+    # ECS cluster (use existing or create new)
+    if existing_cluster_name:
+        cluster_name = existing_cluster_name
+    else:
+        cluster_name = f'{cluster_name_prefix}-{ts}'
+        ecs_client.create_cluster(clusterName=cluster_name)
+        ecs_cleanup.register_cluster(cluster_name)
 
     # Task definition with EFS mount
-    task_family = f'{cluster_id}-{investigation_id}-{ts}'
+    # Match production format: {base_family}-{cluster_id}-{investigation_id}-{timestamp}
+    task_family = f'{base_task_family}-{cluster_id}-{investigation_id}-{ts}'
     env_vars = [
         {'name': 'CLUSTER_ID', 'value': cluster_id},
         {'name': 'INVESTIGATION_ID', 'value': investigation_id},

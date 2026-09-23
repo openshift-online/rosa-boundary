@@ -6,8 +6,8 @@ dependencies = [
     "PyJWT>=2.14.0",
     "cryptography>=50.0.1",
     "requests>=2.34.2",
-    "boto3>=1.43.93",
-    "awslambdaric==4.0.3",
+    "boto3>=1.43.98",
+    "awslambdaric==4.0.4",
 ]
 
 [dependency-groups]

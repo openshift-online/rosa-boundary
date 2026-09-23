@@ -160,14 +160,23 @@ def ec2_client(localstack_available, boto_config):
 
 
 @pytest.fixture(scope='session')
-def lambda_client(localstack_available, boto_config):
+def lambda_client(localstack_available):
     """Lambda client configured for LocalStack (session-scoped)"""
+    # Lambda needs higher timeout than other services since functions can run up to 300s
+    # In CI with Docker executor, Lambda invocations are slow due to container overhead
+    lambda_config = Config(
+        region_name=AWS_REGION,
+        signature_version='v4',
+        retries={'max_attempts': 3, 'mode': 'standard'},
+        connect_timeout=10,
+        read_timeout=330  # Lambda timeout (300s) + 30s buffer for overhead
+    )
     return boto3.client(
         'lambda',
         endpoint_url=LOCALSTACK_ENDPOINT,
         aws_access_key_id='test',
         aws_secret_access_key='test',
-        config=boto_config
+        config=lambda_config
     )
 
 

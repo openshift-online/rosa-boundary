@@ -39,7 +39,7 @@ type getConfigBody struct {
 type InvestigationRequest struct {
 	ClusterID       string `json:"cluster_id"`
 	InvestigationID string `json:"investigation_id"`
-	OCVersion       string `json:"oc_version"`
+	OCVersion       string `json:"oc_version,omitempty"`
 	TaskTimeout     int    `json:"task_timeout,omitempty"`
 	SkipTask        bool   `json:"skip_task,omitempty"`
 }

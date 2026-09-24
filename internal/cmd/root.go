@@ -60,7 +60,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose/debug output")
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable debug output (warnings and status messages are always shown)")
 	rootCmd.PersistentFlags().BoolVar(&forceLogin, "force-login", false, "Force re-authentication with Keycloak OIDC provider")
 	rootCmd.PersistentFlags().String("keycloak-url", "", "Keycloak base URL")
 	rootCmd.PersistentFlags().String("realm", "", "Keycloak realm (default: EmployeeIDP)")
@@ -91,7 +91,7 @@ func initConfig() {
 	output.Verbose = verbose
 
 	if err := config.Load(); err != nil {
-		fmt.Fprintln(os.Stderr, "Warning: config error:", err)
+		output.Warning("config error: %v", err)
 	}
 }
 

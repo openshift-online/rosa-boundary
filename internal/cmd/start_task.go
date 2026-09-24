@@ -159,7 +159,7 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		output.Status("\n=== Step 3: Waiting for Task to be RUNNING ===")
 		output.Status("Task: %s", taskID)
 		if err := ecsClient.WaitForRunning(cmd.Context(), taskID); err != nil {
-			output.Status("Warning: task may not be running yet: %v", err)
+			output.Warning("task may not be running yet: %v", err)
 		} else {
 			output.Status("Task is RUNNING")
 		}

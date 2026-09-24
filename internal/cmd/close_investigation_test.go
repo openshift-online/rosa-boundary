@@ -19,7 +19,7 @@ func TestPrintCloseInvestigationSummary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create pipe: %v", err)
 	}
-	
+
 	t.Cleanup(func() {
 		os.Stderr = old
 	})

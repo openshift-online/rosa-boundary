@@ -101,6 +101,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         running_tasks = list_all_running_tasks()
         logger.info("Found %d running task(s) in cluster", len(running_tasks))
 
+        # Fetch all active task definitions once to avoid repeated pagination
+        all_task_def_arns = list_all_task_definitions() if TASK_DEFINITION_FAMILY else []
+        logger.info("Found %d active task definition(s)", len(all_task_def_arns))
+
         for ap in access_points:
             checked += 1
             ap_id = ap['AccessPointId']
@@ -176,7 +180,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 errors += 1
                 continue
 
-            reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context)
+            reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context, all_task_def_arns)
 
             if reap_success:
                 reaped += 1
@@ -323,6 +327,38 @@ def list_all_running_tasks() -> List[Dict[str, str]]:
     return tasks
 
 
+def list_all_task_definitions() -> List[str]:
+    """
+    List all ACTIVE task definitions.
+    Returns list of task definition ARNs.
+    Fetched once per Lambda invocation to avoid repeated pagination.
+    """
+    task_def_arns = []
+    next_token = None
+
+    while True:
+        try:
+            kwargs = {
+                'status': 'ACTIVE'
+            }
+
+            if next_token:
+                kwargs['nextToken'] = next_token
+
+            response = ecs.list_task_definitions(**kwargs)
+            task_def_arns.extend(response.get('taskDefinitionArns', []))
+
+            next_token = response.get('nextToken')
+            if not next_token:
+                break
+
+        except (ClientError, BotoCoreError) as e:
+            logger.error("Failed to list task definitions: %s", e, exc_info=True)
+            raise
+
+    return task_def_arns
+
+
 def list_tasks_by_investigation(cluster_id: str, investigation_id: str) -> List[str]:
     """
     List RUNNING tasks tagged with cluster_id and investigation_id.
@@ -400,7 +436,7 @@ def list_investigation_access_points() -> List[Dict[str, Any]]:
     return access_points
 
 
-def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str, context: Any) -> bool:
+def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str, context: Any, task_def_arns: List[str]) -> bool:
     """
     Reap a stale investigation by deleting directory, access point, and task definitions.
 
@@ -412,6 +448,7 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
         investigation_id: Investigation identifier
         access_point_id: EFS access point ID to delete
         context: Lambda context object for timeout calculation
+        task_def_arns: Pre-fetched list of all active task definition ARNs
 
     Returns:
         True if all steps succeeded, False if any step failed
@@ -446,7 +483,7 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
 
     # Step 3: Delete task definitions (even if previous steps failed)
     try:
-        deregistered = delete_task_definitions(cluster_id, investigation_id)
+        deregistered = delete_task_definitions(cluster_id, investigation_id, task_def_arns)
         logger.info("Deregistered %d task definition(s) for %s/%s",
                    deregistered, cluster_id, investigation_id)
     except (ClientError, BotoCoreError) as e:
@@ -495,13 +532,15 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
     logger.info("Backing up %s to %s (timeout: %.1fs)", directory_path, s3_path, sync_timeout)
 
     try:
-        # Use aws s3 sync with same exclusions as entrypoint.sh
+        # Use aws s3 cp --recursive with same exclusions as entrypoint.sh
+        # cp --recursive ensures all files are uploaded fresh (vs sync which skips based on size/time)
         # --no-follow-symlinks: prevents symlink target exfiltration
         # --only-show-errors: reduces log noise
         cmd = [
-            'aws', 's3', 'sync',
+            'aws', 's3', 'cp',
             directory_path,
             s3_path,
+            '--recursive',
             '--exclude', '.config/ocm/*',
             '--exclude', '.kube/*',
             '--no-follow-symlinks',
@@ -615,10 +654,15 @@ def delete_access_point(access_point_id: str) -> bool:
         return False
 
 
-def delete_task_definitions(cluster_id: str, investigation_id: str) -> int:
+def delete_task_definitions(cluster_id: str, investigation_id: str, all_task_def_arns: List[str]) -> int:
     """
     Deregister all task definitions for an investigation.
     Family prefix: {TASK_DEFINITION_FAMILY}-{cluster_id}-{investigation_id}
+
+    Args:
+        cluster_id: Cluster identifier
+        investigation_id: Investigation identifier
+        all_task_def_arns: Pre-fetched list of all active task definition ARNs
 
     Returns:
         Number of task definitions deregistered
@@ -633,38 +677,18 @@ def delete_task_definitions(cluster_id: str, investigation_id: str) -> int:
     logger.info("Searching for task definitions with familyPrefix: %s", family_prefix)
 
     try:
-        # List all active task definitions
-        # NOTE: LocalStack 4.11.0 has a bug where familyPrefix doesn't work, so we
-        # list all task definitions and filter client-side
-        next_token = None
-        task_def_arns = []
+        # Filter pre-fetched task definitions by family prefix
+        # Match exact family (followed by :revision) to prevent prefix collisions
+        # e.g., match "inv-1:5" but not "inv-10:5" when searching for "inv-1"
+        matching_arns = [
+            arn for arn in all_task_def_arns
+            if f'task-definition/{family_prefix}:' in arn
+        ]
 
-        while True:
-            kwargs = {
-                'status': 'ACTIVE'
-            }
+        logger.info("Found %d task definition(s) matching prefix %s",
+                   len(matching_arns), family_prefix)
 
-            if next_token:
-                kwargs['nextToken'] = next_token
-
-            response = ecs.list_task_definitions(**kwargs)
-            all_arns = response.get('taskDefinitionArns', [])
-
-            # Filter by family prefix client-side (workaround for LocalStack bug)
-            matching_arns = [
-                arn for arn in all_arns
-                if f'task-definition/{family_prefix}' in arn
-            ]
-
-            logger.info("Found %d/%d task definition(s) matching prefix %s",
-                       len(matching_arns), len(all_arns), family_prefix)
-            task_def_arns.extend(matching_arns)
-
-            next_token = response.get('nextToken')
-            if not next_token:
-                break
-
-        for arn in task_def_arns:
+        for arn in matching_arns:
             try:
                 ecs.deregister_task_definition(taskDefinition=arn)
                 deregistered += 1
@@ -676,6 +700,6 @@ def delete_task_definitions(cluster_id: str, investigation_id: str) -> int:
         return deregistered
 
     except Exception as e:
-        logger.error("Error listing task definitions for %s: %s",
+        logger.error("Error filtering task definitions for %s: %s",
                     family_prefix, e, exc_info=True)
         raise

@@ -141,6 +141,9 @@ class TestReaperLambda(unittest.TestCase):
         access_point = {
             'AccessPointId': 'fsap-123456',
             'CreationTime': created_at,
+            'RootDirectory': {
+                'Path': '/test-cluster/inv-123'
+            },
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
                 {'Key': 'InvestigationID', 'Value': 'inv-123'}
@@ -189,6 +192,9 @@ class TestReaperLambda(unittest.TestCase):
             {
                 'AccessPointId': f'fsap-{i}',
                 'CreationTime': created_at,
+                'RootDirectory': {
+                    'Path': f'/test-cluster/inv-{i}'
+                },
                 'Tags': [
                     {'Key': 'ClusterID', 'Value': 'test-cluster'},
                     {'Key': 'InvestigationID', 'Value': f'inv-{i}'}

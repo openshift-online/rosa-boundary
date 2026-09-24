@@ -5,20 +5,9 @@ These tests verify that EFS directories are properly cleaned up during investiga
 Note: Some tests may be limited by LocalStack's EFS mount support in Lambda.
 """
 
-import os
-import json
-import time
-import tempfile
-from datetime import datetime, timedelta
-
 import pytest
 
 from .test_helpers import create_investigation_resources
-
-# LocalStack endpoint (from test host)
-LOCALSTACK_ENDPOINT = os.environ.get('LOCALSTACK_ENDPOINT', 'http://localhost:4566')
-# LocalStack endpoint from inside Lambda (uses container networking)
-LAMBDA_LOCALSTACK_ENDPOINT = 'http://localstack:4566'
 
 
 @pytest.mark.integration

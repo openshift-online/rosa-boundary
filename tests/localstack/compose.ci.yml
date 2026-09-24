@@ -12,7 +12,7 @@ services:
       - "4510-4559:4510-4559"
     environment:
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
-      - SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm
+      - SERVICES=s3,iam,logs,kms,sts,ec2,ecs,efs,ssm
       - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-2
       - PERSISTENCE=0

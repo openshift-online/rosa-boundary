@@ -40,7 +40,7 @@ type InvestigationRequest struct {
 	ClusterID       string `json:"cluster_id"`
 	InvestigationID string `json:"investigation_id"`
 	OCVersion       string `json:"oc_version"`
-	TaskTimeout     int    `json:"task_timeout"`
+	TaskTimeout     int    `json:"task_timeout,omitempty"`
 	SkipTask        bool   `json:"skip_task,omitempty"`
 }
 

@@ -61,6 +61,12 @@ resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
           aws_iam_role.task.arn,
           aws_iam_role.execution.arn,
         ]
+      },
+      {
+        Effect = "Allow"
+        Action = ["ssm:DescribeSessions"]
+        # DescribeSessions does not support resource-level scoping
+        Resource = "*"
       }
     ]
   })
@@ -172,7 +178,7 @@ resource "aws_lambda_function" "create_investigation_zip" {
   handler          = "handler.lambda_handler"
   source_code_hash = data.archive_file.create_investigation_lambda[0].output_base64sha256
   runtime          = "python3.11"
-  timeout          = 60
+  timeout          = 300
   memory_size      = 256
 
   environment {
@@ -195,7 +201,7 @@ resource "aws_lambda_function" "create_investigation_image" {
   role          = aws_iam_role.create_investigation_lambda.arn
   package_type  = "Image"
   image_uri = local.lambda_ecr_image_uri
-  timeout       = 60
+  timeout       = 300
   memory_size   = 256
 
   environment {

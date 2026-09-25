@@ -10,7 +10,8 @@ Environment Variables:
 - ECS_CLUSTER: ECS cluster name
 - EFS_FILESYSTEM_ID: EFS filesystem ID
 - GRACE_PERIOD_HOURS: Staleness threshold (default: 72)
-- LOCALSTACK_ENDPOINT: Optional LocalStack endpoint for testing
+- S3_AUDIT_BUCKET: Optional S3 bucket for investigation backups
+- TASK_DEFINITION_FAMILY: Task definition family prefix for cleanup
 """
 
 import os
@@ -30,13 +31,11 @@ logger.setLevel(logging.INFO)
 
 ecs = boto3.client(
     'ecs',
-    endpoint_url=os.environ.get('LOCALSTACK_ENDPOINT'),
     config=BotocoreConfig(connect_timeout=5, read_timeout=10, retries={'max_attempts': 3, 'mode': 'standard'})
 )
 
 efs = boto3.client(
     'efs',
-    endpoint_url=os.environ.get('LOCALSTACK_ENDPOINT'),
     config=BotocoreConfig(connect_timeout=5, read_timeout=10, retries={'max_attempts': 3, 'mode': 'standard'})
 )
 
@@ -577,8 +576,7 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str, conte
     Delete investigation directory from mounted EFS filesystem.
 
     Validates path to prevent traversal, verifies EFS is mounted, backs up to S3,
-    then deletes the directory tree. In test environments with LOCALSTACK_ENDPOINT set,
-    skips actual deletion if EFS is not mounted.
+    then deletes the directory tree.
 
     Args:
         cluster_id: Cluster identifier
@@ -601,10 +599,6 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str, conte
 
     # Verify mount exists
     if not os.path.ismount(EFS_MOUNT_PATH):
-        if os.environ.get('LOCALSTACK_ENDPOINT'):
-            logger.warning("EFS not mounted (LocalStack limitation) - skipping directory deletion for %s",
-                         directory_path)
-            return True
         logger.error("EFS not mounted at %s", EFS_MOUNT_PATH)
         return False
 

@@ -955,7 +955,8 @@ class TestReaperLambda(unittest.TestCase):
         call_args = mock_subprocess.call_args[0][0]
         assert 'aws' in call_args
         assert 's3' in call_args
-        assert 'sync' in call_args
+        assert 'cp' in call_args
+        assert '--recursive' in call_args
         assert '/mnt/efs/cluster-1/inv-1' in call_args
         assert 's3://test-bucket/cluster-1/inv-1/reaper-final-backup/' in call_args
         assert '--exclude' in call_args

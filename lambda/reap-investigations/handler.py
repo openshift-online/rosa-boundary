@@ -562,8 +562,9 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
                     sync_timeout, cluster_id, investigation_id)
         return False
     except subprocess.CalledProcessError as e:
-        logger.error("S3 sync failed for %s/%s: %s\nStderr: %s",
-                    cluster_id, investigation_id, e, e.stderr)
+        # Do not log stderr (may contain paths/filenames) or the full exception (contains command)
+        logger.error("S3 backup failed for %s/%s with exit code %d",
+                    cluster_id, investigation_id, e.returncode)
         return False
     except Exception as e:
         logger.error("Unexpected error during S3 backup for %s/%s: %s",

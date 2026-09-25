@@ -63,9 +63,9 @@ def boto_config():
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def s3_client(localstack_available, boto_config):
-    """S3 client configured for LocalStack"""
+    """S3 client configured for LocalStack (session-scoped)"""
     return boto3.client(
         's3',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -75,9 +75,9 @@ def s3_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def iam_client(localstack_available, boto_config):
-    """IAM client configured for LocalStack"""
+    """IAM client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'iam',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -87,9 +87,9 @@ def iam_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ecs_client(localstack_available, boto_config):
-    """ECS client configured for LocalStack"""
+    """ECS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'ecs',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -99,9 +99,9 @@ def ecs_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def efs_client(localstack_available, boto_config):
-    """EFS client configured for LocalStack"""
+    """EFS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'efs',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -111,9 +111,9 @@ def efs_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def kms_client(localstack_available, boto_config):
-    """KMS client configured for LocalStack"""
+    """KMS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'kms',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -123,9 +123,9 @@ def kms_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def logs_client(localstack_available, boto_config):
-    """CloudWatch Logs client configured for LocalStack"""
+    """CloudWatch Logs client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'logs',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -135,9 +135,9 @@ def logs_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def sts_client(localstack_available, boto_config):
-    """STS client configured for LocalStack"""
+    """STS client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'sts',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -147,9 +147,9 @@ def sts_client(localstack_available, boto_config):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def ec2_client(localstack_available, boto_config):
-    """EC2 client configured for LocalStack"""
+    """EC2 client configured for LocalStack (session-scoped)"""
     return boto3.client(
         'ec2',
         endpoint_url=LOCALSTACK_ENDPOINT,
@@ -229,9 +229,9 @@ def test_vpc(ssm_client):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def test_efs(efs_client):
-    """Create EFS filesystem for testing"""
+    """Create EFS filesystem for testing (session-scoped)"""
     # Use unique creation token to avoid conflicts
     creation_token = f'test-efs-{int(time.time() * 1000)}'
 

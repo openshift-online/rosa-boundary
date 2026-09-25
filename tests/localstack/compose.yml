@@ -1,6 +1,6 @@
 services:
   localstack:
-    image: public.ecr.aws/localstack/localstack-pro:2026.08.0
+    image: public.ecr.aws/localstack/localstack-pro:4.14.0
     security_opt:
       - label=disable
     ports:

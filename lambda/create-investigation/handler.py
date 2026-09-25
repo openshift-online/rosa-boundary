@@ -799,7 +799,8 @@ def create_investigation_task(
                     {'Key': 'InvestigationID', 'Value': investigation_id},
                     {'Key': 'oidc_sub', 'Value': oidc_sub},
                     {'Key': 'username', 'Value': username},
-                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
+                    {'Key': 'CreatedAt', 'Value': datetime.utcnow().isoformat() + 'Z'}
                 ]
             )
 

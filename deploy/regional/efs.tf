@@ -27,6 +27,14 @@ resource "aws_security_group" "efs" {
     security_groups = [aws_security_group.fargate.id]
   }
 
+  ingress {
+    description     = "NFS from reaper Lambda"
+    from_port       = 2049
+    to_port         = 2049
+    protocol        = "tcp"
+    security_groups = [aws_security_group.reaper_lambda.id]
+  }
+
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-efs-sg"
   })

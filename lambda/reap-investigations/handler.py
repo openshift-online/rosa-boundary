@@ -141,14 +141,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                        cluster_id, investigation_id, ap_id)
 
             try:
-                created_at = ap.get('CreationTime')
-                if not created_at:
-                    logger.warning("Access point %s missing CreationTime (LocalStack limitation), checking tasks only", ap_id)
+                # Read creation timestamp from CreatedAt tag (EFS API doesn't provide CreationTime)
+                created_at_str = tags.get('CreatedAt')
+                if not created_at_str:
+                    logger.warning("Access point %s missing CreatedAt tag, checking tasks only", ap_id)
                     staleness = is_investigation_stale(cluster_id, investigation_id, None, now, running_tasks)
                 else:
-                    # Ensure created_at is timezone-aware (boto3 returns aware datetime for AWS API times)
-                    if created_at.tzinfo is None:
-                        created_at = created_at.replace(tzinfo=timezone.utc)
+                    # Parse ISO 8601 timestamp from tag
+                    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
                     staleness = is_investigation_stale(cluster_id, investigation_id, created_at, now, running_tasks)
 
                 if not staleness['is_stale']:

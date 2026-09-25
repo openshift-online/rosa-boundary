@@ -193,17 +193,6 @@ resource "aws_security_group" "reaper_lambda" {
   })
 }
 
-# Update EFS security group to allow NFS from reaper Lambda
-resource "aws_security_group_rule" "efs_from_reaper_lambda" {
-  type                     = "ingress"
-  description              = "NFS from reaper Lambda"
-  from_port                = 2049
-  to_port                  = 2049
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.reaper_lambda.id
-  security_group_id        = aws_security_group.efs.id
-}
-
 # Archive the Lambda function code (single file, no dependencies)
 data "archive_file" "reap_investigations_lambda" {
   type        = "zip"

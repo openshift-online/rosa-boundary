@@ -17,6 +17,11 @@ func Statusf(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, format, args...)
 }
 
+// Warning writes a warning message to stderr.
+func Warning(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "Warning: "+format+"\n", args...)
+}
+
 // Verbose controls whether debug messages are printed.
 var Verbose bool
 

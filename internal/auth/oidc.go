@@ -126,13 +126,11 @@ func getTokenWithDeps(ctx context.Context, cfg PKCEConfig, force bool, deps oidc
 	}
 
 	if err := SaveToken(token); err != nil {
-		if debugErr := output.Debug("Warning: could not cache token: %v", err); debugErr != nil {
-			return "", fmt.Errorf("debug output failed: %w", debugErr)
-		}
+		output.Warning("could not cache token: %v", err)
 	}
 
 	if err := output.Debug("ID token obtained successfully"); err != nil {
-		output.Status("Warning: could not write debug output: %v", err)
+		output.Warning("could not write debug output: %v", err)
 	}
 	return token, nil
 }

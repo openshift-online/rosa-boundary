@@ -39,7 +39,17 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 - **ECS Task Definition**: Complete task definition with EFS mount
 - **IAM Roles**: Execution role and task role with Bedrock, S3, ECS Exec permissions
 - **Security Groups**: For Fargate tasks and EFS mount targets
+- **Bedrock Runtime interface endpoint**: Private DNS and an HTTPS-only security group restricted to the Fargate task security group; one endpoint ENI per task AZ
 - **CloudWatch Log Group**: For container logs
+
+### Bedrock Runtime private networking
+
+The regional stack creates `com.amazonaws.${region}.bedrock-runtime` in
+`subnet_ids`, with private DNS and one endpoint ENI per task AZ. Tasks using the
+standard `bedrock-runtime.<region>.amazonaws.com` hostname route Bedrock Runtime
+traffic through the VPC endpoint instead of NAT. Its dedicated security group
+allows inbound TCP 443 only from `aws_security_group.fargate`. Other AWS APIs
+continue to use their existing network paths.
 
 ## Execution Modes
 

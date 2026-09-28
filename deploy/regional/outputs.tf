@@ -58,6 +58,21 @@ output "efs_security_group_id" {
   value       = aws_security_group.efs.id
 }
 
+output "bedrock_runtime_endpoint_id" {
+  description = "Bedrock Runtime interface endpoint ID"
+  value       = aws_vpc_endpoint.bedrock_runtime.id
+}
+
+output "bedrock_runtime_endpoint_dns_entries" {
+  description = "Bedrock Runtime endpoint DNS entries (regional and per-AZ)"
+  value       = aws_vpc_endpoint.bedrock_runtime.dns_entry
+}
+
+output "bedrock_runtime_endpoint_network_interface_ids" {
+  description = "Bedrock Runtime endpoint ENI IDs for private connectivity checks"
+  value       = aws_vpc_endpoint.bedrock_runtime.network_interface_ids
+}
+
 output "cloudwatch_log_group" {
   description = "CloudWatch log group name for container logs"
   value       = aws_cloudwatch_log_group.rosa_boundary.name

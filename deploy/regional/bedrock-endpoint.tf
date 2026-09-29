@@ -35,6 +35,24 @@ resource "aws_vpc_endpoint" "bedrock_runtime" {
   security_group_ids  = [aws_security_group.bedrock_runtime.id]
   private_dns_enabled = true
 
+  # Model-specific restrictions follow the approved model manifest; until then,
+  # limit this endpoint to task-role inference on model/profile resources.
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { AWS = aws_iam_role.task.arn }
+      Action = [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ]
+      Resource = [
+        "arn:${data.aws_partition.current.partition}:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+        "arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/*"
+      ]
+    }]
+  })
+
   tags = merge(local.common_tags, {
     Name = "${var.project}-${var.stage}-bedrock-runtime"
   })

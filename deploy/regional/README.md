@@ -59,9 +59,13 @@ CloudWatch Logs group (`/aws/bedrock/<project>-<stage>/model-invocations`) with
 its log stream. The setting is **account/Region-wide**, not restricted to
 ROSA Boundary; coordinate with other Bedrock users before deployment. Logs may
 contain prompts and responses (up to 100 KB inline) and must be read only by
-authorized audit operators. Do not copy their bodies into S3 audit escrow or
-terminal transcripts. Binary and larger payloads require a separate protected
-S3 delivery destination and are not covered by this initial configuration.
+authorized audit operators. The separate private S3 bucket
+`<account>-<project>-<stage>-<region>-bedrock-invocations` receives larger
+text payloads under `large-data/`, with SSE-S3, TLS-only access, Bedrock-only
+write permissions, and `retention_days` lifecycle expiration. This is **not**
+the investigation S3 audit escrow. Image, embedding, and video logging remain
+disabled. Do not copy logged bodies into terminal transcripts; large-payload
+delivery has not been validated with an oversized invocation.
 
 ## Execution Modes
 

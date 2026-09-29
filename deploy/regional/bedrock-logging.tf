@@ -91,7 +91,8 @@ resource "aws_iam_role_policy" "bedrock_invocation_logging" {
 
 # Only text delivery is enabled for the current Claude Code path. This setting
 # affects every Bedrock Runtime caller in the account/Region; CloudWatch can
-# contain prompt/response bodies up to 100 KB, so access must be restricted.
+# contain prompt/response bodies up to 100 KB; larger text bodies go to the
+# dedicated S3 bucket. Both destinations require restricted read access.
 resource "aws_bedrock_model_invocation_logging_configuration" "boundary" {
   logging_config {
     text_data_delivery_enabled      = true
@@ -102,8 +103,19 @@ resource "aws_bedrock_model_invocation_logging_configuration" "boundary" {
     cloudwatch_config {
       log_group_name = aws_cloudwatch_log_group.bedrock_invocations.name
       role_arn       = aws_iam_role.bedrock_invocation_logging.arn
+
+      large_data_delivery_s3_config {
+        bucket_name = aws_s3_bucket.bedrock_large_payloads.id
+        key_prefix  = "large-data"
+      }
     }
   }
 
-  depends_on = [aws_iam_role_policy.bedrock_invocation_logging]
+  depends_on = [
+    aws_iam_role_policy.bedrock_invocation_logging,
+    aws_s3_bucket_policy.bedrock_large_payloads,
+    aws_s3_bucket_server_side_encryption_configuration.bedrock_large_payloads,
+    aws_s3_bucket_ownership_controls.bedrock_large_payloads,
+    aws_s3_bucket_lifecycle_configuration.bedrock_large_payloads
+  ]
 }

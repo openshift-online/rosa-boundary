@@ -51,6 +51,18 @@ traffic through the VPC endpoint instead of NAT. Its dedicated security group
 allows inbound TCP 443 only from `aws_security_group.fargate`. Other AWS APIs
 continue to use their existing network paths.
 
+### Bedrock model invocation logging
+
+The regional stack enables text model invocation logging to a dedicated KMS-encrypted
+CloudWatch Logs group (`/aws/bedrock/<project>-<stage>/model-invocations`) with
+`retention_days` retention. Bedrock assumes a separate write-only role scoped to
+its log stream. The setting is **account/Region-wide**, not restricted to
+ROSA Boundary; coordinate with other Bedrock users before deployment. Logs may
+contain prompts and responses (up to 100 KB inline) and must be read only by
+authorized audit operators. Do not copy their bodies into S3 audit escrow or
+terminal transcripts. Binary and larger payloads require a separate protected
+S3 delivery destination and are not covered by this initial configuration.
+
 ## Execution Modes
 
 ### HCP Terraform (Remote Execution)

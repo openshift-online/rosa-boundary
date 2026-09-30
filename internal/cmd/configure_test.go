@@ -12,8 +12,39 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
+
+func TestBootstrapOIDCValue(t *testing.T) {
+	parent := &cobra.Command{Use: "rosa-boundary"}
+	parent.PersistentFlags().String("keycloak-url", "", "")
+	cmd := &cobra.Command{Use: "configure"}
+	parent.AddCommand(cmd)
+	const fallback = "https://auth.redhat.com/auth"
+	get := func() string {
+		return bootstrapOIDCValue(cmd, "keycloak-url", "KEYCLOAK_URL", "KEYCLOAK_URL", fallback)
+	}
+
+	// An existing config is deliberately not an input to the bootstrap resolver.
+	if got := get(); got != fallback {
+		t.Fatalf("default bootstrap URL = %q, want %q", got, fallback)
+	}
+	t.Setenv("KEYCLOAK_URL", "https://legacy.example")
+	if got := get(); got != "https://legacy.example" {
+		t.Errorf("legacy env URL = %q", got)
+	}
+	t.Setenv("ROSA_BOUNDARY_KEYCLOAK_URL", "https://env.example")
+	if got := get(); got != "https://env.example" {
+		t.Errorf("prefixed env URL = %q", got)
+	}
+	if err := parent.PersistentFlags().Set("keycloak-url", "https://flag.example"); err != nil {
+		t.Fatal(err)
+	}
+	if got := get(); got != "https://flag.example" {
+		t.Errorf("flag URL = %q", got)
+	}
+}
 
 func TestNewTerminalPromptHandlesBackspace(t *testing.T) {
 	terminalInput := strings.NewReader("1928912\x7f\x7f\r")

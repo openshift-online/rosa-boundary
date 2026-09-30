@@ -45,6 +45,11 @@ Auto-discovery flags:
   --project       Project name for naming convention (default: rosa-boundary)
   --environment   Deployment Environment for naming convention (default: prod)
 
+Auto-discovery bootstraps OIDC against Red Hat SSO (EmployeeIDP,
+rosa-boundary-sre), regardless of an existing config.yaml. Override with
+--keycloak-url, --realm, and --client-id for other identity providers.
+It always obtains a fresh token rather than reusing one from another deployment.
+
 Configuration is written to ~/.config/rosa-boundary/config.yaml
 (respects XDG_CONFIG_HOME).
 
@@ -200,6 +205,21 @@ func DeriveLambdaFunctionName(project, environment string) string {
 	return fmt.Sprintf("%s-%s-create-investigation", project, environment)
 }
 
+// bootstrapOIDCValue resolves explicit OIDC overrides without inheriting an
+// existing deployment's config.yaml during auto-discovery.
+func bootstrapOIDCValue(cmd *cobra.Command, flagName, envName, legacyEnvName, fallback string) string {
+	if flag := cmd.Flag(flagName); flag != nil && flag.Changed {
+		return flag.Value.String()
+	}
+	if value := os.Getenv("ROSA_BOUNDARY_" + envName); value != "" {
+		return value
+	}
+	if value := os.Getenv(legacyEnvName); value != "" {
+		return value
+	}
+	return fallback
+}
+
 func runConfigureAuto(cmd *cobra.Command) error {
 	// Load existing config for defaults
 	cfg, _ := config.Get()
@@ -256,19 +276,10 @@ func runConfigureAuto(cmd *cobra.Command) error {
 
 	fmt.Fprintln(os.Stderr)
 
-	// 2. Resolve OIDC values (compiled defaults)
-	keycloakURL := cfg.KeycloakURL
-	if keycloakURL == "" {
-		keycloakURL = "https://auth.redhat.com/auth"
-	}
-	keycloakRealm := cfg.KeycloakRealm
-	if keycloakRealm == "" {
-		keycloakRealm = "EmployeeIDP"
-	}
-	oidcClientID := cfg.OIDCClientID
-	if oidcClientID == "" {
-		oidcClientID = "rosa-boundary-sre"
-	}
+	// 2. Bootstrap independently of an existing (possibly different) deployment.
+	keycloakURL := bootstrapOIDCValue(cmd, "keycloak-url", "KEYCLOAK_URL", "KEYCLOAK_URL", "https://auth.redhat.com/auth")
+	keycloakRealm := bootstrapOIDCValue(cmd, "realm", "KEYCLOAK_REALM", "KEYCLOAK_REALM", "EmployeeIDP")
+	oidcClientID := bootstrapOIDCValue(cmd, "client-id", "OIDC_CLIENT_ID", "OIDC_CLIENT_ID", "rosa-boundary-sre")
 
 	// 3. Derive bootstrap values from naming convention
 	invokerRoleARN := DeriveInvokerRoleARN(accountID, project, environment)
@@ -281,7 +292,8 @@ func runConfigureAuto(cmd *cobra.Command) error {
 		Realm:       keycloakRealm,
 		ClientID:    oidcClientID,
 	}
-	idToken, err := auth.GetToken(cmd.Context(), pkce, false)
+	// The shared token cache may contain an ID token from another OIDC issuer.
+	idToken, err := auth.GetToken(cmd.Context(), pkce, true)
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

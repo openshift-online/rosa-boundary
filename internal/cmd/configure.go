@@ -182,7 +182,7 @@ func newConfigurePrompt() (func(label, current, def string) (string, error), fun
 	restore := func() {
 		restoreOnce.Do(func() {
 			if err := term.Restore(stdinFD, state); err != nil {
-				fmt.Fprintf(os.Stderr, "\nWarning: could not restore terminal input: %v\n", err)
+				output.Warning("could not restore terminal input: %v", err)
 			}
 		})
 	}
@@ -311,12 +311,12 @@ func runConfigureAuto(cmd *cobra.Command) error {
 
 	// 7. Validate derived values against Lambda response
 	if configResp.InvokerRoleARN != "" && configResp.InvokerRoleARN != invokerRoleARN {
-		output.Status("  Warning: derived invoker_role_arn differs from Lambda response")
+		output.Warning("derived invoker_role_arn differs from Lambda response")
 		output.Status("    derived: %s", invokerRoleARN)
 		output.Status("    Lambda:  %s", configResp.InvokerRoleARN)
 	}
 	if configResp.LambdaFunctionName != "" && configResp.LambdaFunctionName != lambdaFunctionName {
-		output.Status("  Warning: derived lambda_function_name differs from Lambda response")
+		output.Warning("derived lambda_function_name differs from Lambda response")
 		output.Status("    derived: %s", lambdaFunctionName)
 		output.Status("    Lambda:  %s", configResp.LambdaFunctionName)
 	}

@@ -202,7 +202,7 @@ rosa-boundary/
 ### Global Flags
 
 ```
---verbose, -v           Enable verbose/debug output
+--verbose, -v           Enable debug output (warnings and status messages are always shown)
 --keycloak-url          Keycloak base URL
 --realm                 Keycloak realm (default: EmployeeIDP)
 --client-id             OIDC client ID (default: rosa-boundary-sre)

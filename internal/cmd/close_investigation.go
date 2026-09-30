@@ -118,7 +118,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 		output.Status("Waiting for tasks to stop...")
 		for _, t := range runningTasks {
 			if waitErr := ecsClient.WaitForStopped(cmd.Context(), t.TaskID); waitErr != nil {
-				output.Status("  Warning: task %s may not have stopped cleanly: %v", t.TaskID, waitErr)
+				output.Warning("task %s may not have stopped cleanly: %v", t.TaskID, waitErr)
 			}
 		}
 	} else {
@@ -142,7 +142,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 		output.Status("Found %d task definition(s)", len(taskDefARNs))
 		for _, arn := range taskDefARNs {
 			if deregErr := ecsClient.DeregisterTaskDefinition(cmd.Context(), arn); deregErr != nil {
-				output.Status("  Warning: failed to deregister %s: %v", arn, deregErr)
+				output.Warning("failed to deregister %s: %v", arn, deregErr)
 			} else {
 				output.Status("  Deregistered: %s", arn)
 			}

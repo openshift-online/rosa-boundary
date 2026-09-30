@@ -51,6 +51,50 @@ traffic through the VPC endpoint instead of NAT. Its dedicated security group
 allows inbound TCP 443 only from `aws_security_group.fargate`. Other AWS APIs
 continue to use their existing network paths.
 
+### Bedrock model invocation logging
+
+The regional stack enables text model invocation logging to a dedicated KMS-encrypted
+CloudWatch Logs group (`/aws/bedrock/<project>-<stage>/model-invocations`) with
+`retention_days` retention. Bedrock assumes a separate write-only role scoped to
+its log stream. The setting is **account/Region-wide**, not restricted to
+ROSA Boundary; coordinate with other Bedrock users before deployment. Logs may
+contain prompts and responses (up to 100 KB inline) and must be read only by
+authorized audit operators. The separate private S3 bucket
+`<account>-<project>-<stage>-<region>-bedrock-invocations` receives larger
+text payloads under `large-data/`, with SSE-S3, TLS-only access, Bedrock-only
+write permissions, and `retention_days` lifecycle expiration. This is **not**
+the investigation S3 audit escrow. Image, embedding, and video logging remain
+disabled. Do not copy logged bodies into terminal transcripts; large-payload
+delivery has not been validated with an oversized invocation.
+
+#### Accepted access and encryption controls
+
+For this deployment we accept storing unredacted model inputs and outputs in
+the Bedrock audit destinations, subject to these controls:
+
+- Reading invocation records requires privileged CloudWatch Logs permissions
+  outside ordinary ROSA Boundary/Backplane task access. The Boundary task role
+  and the OIDC-assumed SRE role in this stack do not grant read access to the
+  Bedrock invocation log group. Bedrock's delivery role has only log-stream
+  creation and event-write permissions. Account administrators or other roles
+  granted CloudWatch Logs read permissions can still read the records; review
+  their effective IAM access before staging rollout.
+- CloudWatch invocation logs are encrypted at rest by the dedicated
+  Terraform-managed customer-managed AWS KMS key in `bedrock-logging.tf`. We
+  are retaining this key rather than switching to the AWS-managed CloudWatch
+  Logs key. KMS permissions alone are not the log read-access boundary.
+- Oversized text bodies in the separate private S3 bucket use AWS-managed
+  SSE-S3 encryption, not that KMS key. S3 read access is governed separately
+  by IAM and the bucket policy; block-public-access and the scoped Bedrock
+  delivery *write* grant do not by themselves restrict privileged reads.
+
+These controls limit access and protect storage at rest; they do **not** redact
+prompts or responses, guarantee that sensitive data is absent, or scope the
+account/Region-wide Bedrock configuration to Boundary callers. Review the
+speculative HCP Terraform plan and the account's effective log/S3 readers
+before merging this change; the staging regional workspace auto-applies after
+merge.
+
 ## Execution Modes
 
 ### HCP Terraform (Remote Execution)

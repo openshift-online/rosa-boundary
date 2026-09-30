@@ -149,18 +149,29 @@ resource "aws_iam_role_policy" "task_bedrock" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream",
-        "bedrock:ListInferenceProfiles"
-      ]
-      Resource = [
-        "arn:${data.aws_partition.current.partition}:bedrock:*:*:inference-profile/*",
-        "arn:${data.aws_partition.current.partition}:bedrock:*:*:foundation-model/*"
-      ]
-    }]
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream",
+          "bedrock:ListInferenceProfiles"
+        ]
+        Resource = [
+          "arn:${data.aws_partition.current.partition}:bedrock:*:*:inference-profile/*",
+          "arn:${data.aws_partition.current.partition}:bedrock:*:*:foundation-model/*"
+        ]
+      },
+      {
+        # Claude Code can resolve a profile to its backing model without a fallback retry.
+        Effect = "Allow"
+        Action = ["bedrock:GetInferenceProfile"]
+        Resource = [
+          "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+          "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:application-inference-profile/*"
+        ]
+      }
+    ]
   })
 }
 

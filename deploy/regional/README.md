@@ -420,7 +420,7 @@ Used by ECS to pull images and write logs:
 Used by the container at runtime:
 
 - **S3**: Write access to the audit bucket
-- **Bedrock**: InvokeModel, InvokeModelWithResponseStream, ListInferenceProfiles
+- **Bedrock**: InvokeModel, InvokeModelWithResponseStream, ListInferenceProfiles, GetInferenceProfile (source-region, same-account inference profiles)
 - **SSM**: ECS Exec permissions for interactive access
 
 ## Connecting to Running Tasks

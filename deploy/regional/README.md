@@ -67,6 +67,34 @@ the investigation S3 audit escrow. Image, embedding, and video logging remain
 disabled. Do not copy logged bodies into terminal transcripts; large-payload
 delivery has not been validated with an oversized invocation.
 
+#### Accepted access and encryption controls
+
+For this deployment we accept storing unredacted model inputs and outputs in
+the Bedrock audit destinations, subject to these controls:
+
+- Reading invocation records requires privileged CloudWatch Logs permissions
+  outside ordinary ROSA Boundary/Backplane task access. The Boundary task role
+  and the OIDC-assumed SRE role in this stack do not grant read access to the
+  Bedrock invocation log group. Bedrock's delivery role has only log-stream
+  creation and event-write permissions. Account administrators or other roles
+  granted CloudWatch Logs read permissions can still read the records; review
+  their effective IAM access before staging rollout.
+- CloudWatch invocation logs are encrypted at rest by the dedicated
+  Terraform-managed customer-managed AWS KMS key in `bedrock-logging.tf`. We
+  are retaining this key rather than switching to the AWS-managed CloudWatch
+  Logs key. KMS permissions alone are not the log read-access boundary.
+- Oversized text bodies in the separate private S3 bucket use AWS-managed
+  SSE-S3 encryption, not that KMS key. S3 read access is governed separately
+  by IAM and the bucket policy; block-public-access and the scoped Bedrock
+  delivery *write* grant do not by themselves restrict privileged reads.
+
+These controls limit access and protect storage at rest; they do **not** redact
+prompts or responses, guarantee that sensitive data is absent, or scope the
+account/Region-wide Bedrock configuration to Boundary callers. Review the
+speculative HCP Terraform plan and the account's effective log/S3 readers
+before merging this change; the staging regional workspace auto-applies after
+merge.
+
 ## Execution Modes
 
 ### HCP Terraform (Remote Execution)

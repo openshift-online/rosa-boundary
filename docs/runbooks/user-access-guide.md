@@ -82,11 +82,25 @@ make install-cli
 
 ### 4. Configure CLI
 
-Run the interactive configurator or write `~/.config/rosa-boundary/config.yaml` directly:
+Run auto-discovery with the deployment's AWS account ID, region, project
+(base name without the stage suffix), and environment. For example, a deployment
+named `rosa-boundary-stage` uses project `rosa-boundary` and environment `stage`:
 
 ```bash
-./bin/rosa-boundary configure
+./bin/rosa-boundary configure \
+  --account-id <account-id> \
+  --region <region> \
+  --project rosa-boundary \
+  --environment stage
 ```
+
+Auto-discovery logs in to Red Hat SSO using the default `EmployeeIDP` realm and
+`rosa-boundary-sre` client, obtains a fresh ID token, assumes the derived invoker
+role, and fetches the remaining settings from Lambda. It does not use an existing
+`config.yaml` to choose the OIDC provider. For deployments using a different
+provider, supply `--keycloak-url`, `--realm`, and `--client-id` explicitly (or the
+corresponding `ROSA_BOUNDARY_*` environment variables). To enter all settings
+without auto-discovery, use `configure --auto-discover=false`.
 
 Key fields (get values from your administrator):
 

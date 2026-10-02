@@ -167,7 +167,7 @@ flowchart TB
 
 ## IAM Policy: CloudWatch Logs (Optional)
 
-For viewing session logs:
+For viewing ECS Exec session and container logs. Adjust Region, account, and project/stage for the deployed stack; this example does **not** grant access to Lambda or Bedrock log groups or their S3 audit artifacts (see [Auditing and Logging](../auditing-and-logging.md)).
 
 **Policy Name**: `BoundaryCloudWatchLogsRead`
 
@@ -181,9 +181,14 @@ For viewing session logs:
       "Sid": "DescribeLogGroups",
       "Effect": "Allow",
       "Action": [
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams"
+        "logs:DescribeLogGroups"
       ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DescribeBoundaryLogStreams",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogStreams",
       "Resource": "arn:aws:logs:us-east-2:641875867446:log-group:/ecs/rosa-boundary-*"
     },
     {
@@ -193,7 +198,10 @@ For viewing session logs:
         "logs:GetLogEvents",
         "logs:FilterLogEvents"
       ],
-      "Resource": "arn:aws:logs:us-east-2:641875867446:log-group:/ecs/rosa-boundary-*/ssm-sessions:*"
+      "Resource": [
+        "arn:aws:logs:us-east-2:641875867446:log-group:/ecs/rosa-boundary-*/ssm-sessions:*",
+        "arn:aws:logs:us-east-2:641875867446:log-group:/ecs/rosa-boundary-dev:*"
+      ]
     }
   ]
 }

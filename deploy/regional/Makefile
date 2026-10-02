@@ -36,6 +36,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  init          - Initialize Terraform"
+	@echo "  validate      - Validate Terraform configuration"
 	@echo "  plan          - Show Terraform execution plan"
 	@echo "  apply         - Build Lambda deps, then apply Terraform changes"
 	@echo "  destroy       - Destroy all infrastructure"
@@ -62,6 +63,11 @@ show-env:
 init:
 	@echo "Initializing Terraform..."
 	terraform init
+
+.PHONY: validate
+validate:
+	@echo "Validating Terraform configuration..."
+	terraform validate
 
 .PHONY: plan
 plan:

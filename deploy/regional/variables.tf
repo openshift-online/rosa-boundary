@@ -33,7 +33,7 @@ variable "stage" {
 variable "bedrock_monthly_budget_usd" {
   description = "Monthly USD budget for account-wide Amazon Bedrock charges; notifications only, no spend cutoff."
   type        = number
-  default     = 3000
+  default     = 1000
 
   validation {
     condition     = var.bedrock_monthly_budget_usd > 0

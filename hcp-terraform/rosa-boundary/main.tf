@@ -107,7 +107,7 @@ module "rosa_boundary" {
         },
         {
           key      = "bedrock_monthly_budget_usd"
-          value    = "30000"
+          value    = "2500"
           category = "terraform"
         },
         {

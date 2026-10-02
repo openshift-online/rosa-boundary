@@ -115,20 +115,42 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
           }
         ] : []
 
-        environment = [
-          {
-            name  = "CLAUDE_CODE_USE_BEDROCK"
-            value = "1"
-          },
-          {
-            name  = "TASK_TIMEOUT"
-            value = tostring(var.task_timeout_default)
-          },
-          {
-            name  = "KUBE_PROXY_PORT"
-            value = tostring(var.kube_proxy_port)
-          }
-        ]
+        environment = concat(
+          [
+            {
+              name  = "CLAUDE_CODE_USE_BEDROCK"
+              value = "1"
+            },
+            {
+              name  = "TASK_TIMEOUT"
+              value = tostring(var.task_timeout_default)
+            },
+            {
+              name  = "KUBE_PROXY_PORT"
+              value = tostring(var.kube_proxy_port)
+            }
+          ],
+          # A pinned primary also keeps background requests on the approved
+          # profile; users can still select another permitted profile.
+          contains(keys(var.bedrock_allowed_models), "anthropic.claude-sonnet-5") ? [
+            {
+              name  = "ANTHROPIC_MODEL"
+              value = var.bedrock_allowed_models["anthropic.claude-sonnet-5"].profile_id
+            },
+            {
+              name  = "ANTHROPIC_DEFAULT_SONNET_MODEL"
+              value = var.bedrock_allowed_models["anthropic.claude-sonnet-5"].profile_id
+            }
+          ] : [],
+          contains(keys(var.bedrock_allowed_models), "anthropic.claude-opus-5") ? [{
+            name  = "ANTHROPIC_DEFAULT_OPUS_MODEL"
+            value = var.bedrock_allowed_models["anthropic.claude-opus-5"].profile_id
+          }] : [],
+          contains(keys(var.bedrock_allowed_models), "anthropic.claude-haiku-4-5-20251001-v1:0") ? [{
+            name  = "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+            value = var.bedrock_allowed_models["anthropic.claude-haiku-4-5-20251001-v1:0"].profile_id
+          }] : []
+        )
 
         mountPoints = [
           {

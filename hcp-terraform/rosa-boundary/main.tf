@@ -101,6 +101,37 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          # Invocation allowlist only; model agreement acceptance is a
+          # separate, budget-gated PR reviewed by OWNERS.
+          key      = "bedrock_allowed_models"
+          value    = <<-EOT
+            {
+              "anthropic.claude-sonnet-5" = {
+                profile_id    = "us.anthropic.claude-sonnet-5"
+                model_regions = ["us-east-1", "us-east-2", "us-west-2"]
+              }
+              "anthropic.claude-opus-4-6-v1" = {
+                profile_id    = "us.anthropic.claude-opus-4-6-v1"
+                model_regions = ["us-east-1", "us-east-2", "us-west-2"]
+              }
+              "anthropic.claude-opus-4-8" = {
+                profile_id    = "us.anthropic.claude-opus-4-8"
+                model_regions = ["us-east-1", "us-east-2", "us-west-2"]
+              }
+              "anthropic.claude-opus-5" = {
+                profile_id    = "us.anthropic.claude-opus-5"
+                model_regions = ["us-east-1", "us-east-2", "us-west-2"]
+              }
+              "anthropic.claude-haiku-4-5-20251001-v1:0" = {
+                profile_id    = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+                model_regions = ["us-east-1", "us-east-2", "us-west-2"]
+              }
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
           key      = "stage"
           value    = "stage"
           category = "terraform"

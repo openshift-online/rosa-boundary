@@ -142,37 +142,57 @@ resource "aws_iam_role_policy" "task_s3" {
   })
 }
 
-# Amazon Bedrock access for Claude Code
+# Deny all unapproved resources even if someone adds another role policy.
+# Keep this inline policy small: IAM limits aggregate inline policy size on a
+# role, and five cross-Region model grants exceed that budget by themselves.
 resource "aws_iam_role_policy" "task_bedrock" {
   name = "bedrock-access"
   role = aws_iam_role.task.id
 
+  # When onboarding a model, attach its scoped grant before replacing the
+  # former broad inline policy to minimize interruption for existing tasks.
+  depends_on = [aws_iam_role_policy_attachment.task_bedrock_model]
+
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = local.bedrock_invoke_denies
+  })
+}
+
+# Each approved model gets an independent managed policy, avoiding both the
+# role's aggregate inline policy limit and the managed policy document limit.
+resource "aws_iam_policy" "task_bedrock_model" {
+  for_each = var.bedrock_allowed_models
+
+  name = "${var.project}-${var.stage}-bedrock-${replace(each.key, ":", "-")}"
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat(local.bedrock_model_statements[each.key], [
       {
-        Effect = "Allow"
-        Action = [
-          "bedrock:InvokeModel",
-          "bedrock:InvokeModelWithResponseStream",
-          "bedrock:ListInferenceProfiles"
-        ]
-        Resource = [
-          "arn:${data.aws_partition.current.partition}:bedrock:*:*:inference-profile/*",
-          "arn:${data.aws_partition.current.partition}:bedrock:*:*:foundation-model/*"
-        ]
+        # A direct foundation-model call or another profile must never reuse
+        # this grant, including if another Allow is later added to the role.
+        Effect   = "Deny"
+        Action   = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+        Resource = local.bedrock_allowed_foundation_models[each.key]
+        Condition = {
+          StringNotEqualsIfExists = { "bedrock:InferenceProfileArn" = local.bedrock_allowed_profiles[each.key] }
+        }
       },
       {
-        # Claude Code can resolve a profile to its backing model without a fallback retry.
-        Effect = "Allow"
-        Action = ["bedrock:GetInferenceProfile"]
-        Resource = [
-          "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
-          "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:application-inference-profile/*"
-        ]
+        Effect   = "Allow"
+        Action   = ["bedrock:GetInferenceProfile"]
+        Resource = [local.bedrock_allowed_profiles[each.key]]
       }
-    ]
+    ])
   })
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "task_bedrock_model" {
+  for_each = aws_iam_policy.task_bedrock_model
+
+  role       = aws_iam_role.task.name
+  policy_arn = each.value.arn
 }
 
 # ECS Exec access via SSM

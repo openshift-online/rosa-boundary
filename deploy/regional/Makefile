@@ -38,6 +38,8 @@ help:
 	@echo "  init          - Initialize Terraform"
 	@echo "  validate      - Validate Terraform configuration"
 	@echo "  plan          - Show Terraform execution plan"
+	@echo "  fmt-terraform - Format changed regional and meta-workspace Terraform files"
+	@echo "  test-bedrock  - Test Bedrock allowlist policy using a mocked AWS provider"
 	@echo "  apply         - Build Lambda deps, then apply Terraform changes"
 	@echo "  destroy       - Destroy all infrastructure"
 	@echo "  build-lambda  - Build Lambda dependencies (required before apply)"
@@ -68,6 +70,15 @@ init:
 validate:
 	@echo "Validating Terraform configuration..."
 	terraform validate
+
+.PHONY: fmt-terraform
+fmt-terraform:
+	terraform fmt bedrock-models.tf bedrock-endpoint.tf ecs.tf iam.tf variables.tf tests/bedrock-allowlist.tftest.hcl ../../hcp-terraform/rosa-boundary/main.tf
+
+.PHONY: test-bedrock
+test-bedrock:
+	@echo "Testing Bedrock policy with mocked AWS data..."
+	terraform test -filter=tests/bedrock-allowlist.tftest.hcl
 
 .PHONY: plan
 plan:

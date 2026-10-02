@@ -13,6 +13,37 @@ variable "aws_region" {
   type        = string
 }
 
+# This is an invocation allowlist, not an account-level model agreement. An
+# empty list intentionally denies Bedrock inference until an environment opts in.
+variable "bedrock_allowed_models" {
+  description = "Approved Claude foundation-model IDs mapped to their US system inference profile and exact backing model Regions. Supply per account; an empty map denies task-role inference."
+  type = map(object({
+    profile_id    = string
+    model_regions = set(string)
+  }))
+  default = {}
+
+  # Meta-workspace and regional workspace runs can occur in either order.
+  # Do not auto-apply a deny-all intermediate state in staging while its
+  # Git-managed variable is still being reconciled.
+  validation {
+    condition     = var.stage != "stage" || length(var.bedrock_allowed_models) > 0
+    error_message = "Staging requires the Git-managed bedrock_allowed_models variable before applying the regional stack."
+  }
+
+  validation {
+    condition = alltrue([
+      for model_id, model in var.bedrock_allowed_models :
+      can(regex("^anthropic[.]claude-[a-z0-9-]+(:[0-9]+)?$", model_id)) &&
+      model.profile_id == "us.${model_id}" &&
+      length(model.model_regions) > 0 &&
+      contains(model.model_regions, var.aws_region) &&
+      alltrue([for region in model.model_regions : can(regex("^us-[a-z]+-[0-9]+$", region))])
+    ])
+    error_message = "Each approved Claude model needs its exact us. profile and a nonempty set of US backing Regions including aws_region; wildcards and global profiles are not allowed."
+  }
+}
+
 variable "project" {
   description = "Project name (used in resource naming)"
   type        = string

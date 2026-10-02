@@ -51,6 +51,42 @@ traffic through the VPC endpoint instead of NAT. Its dedicated security group
 allows inbound TCP 443 only from `aws_security_group.fargate`. Other AWS APIs
 continue to use their existing network paths.
 
+### Bedrock task-role model allowlist
+
+`bedrock_allowed_models` is an account-specific map of Claude foundation-model
+IDs to approved `us.` inference profile IDs and **all** backing model Regions.
+It defaults to `{}` (task-role inference denied outside staging); stage refuses
+an apply until its Git-managed variable is present, to avoid a deny-all
+intermediate auto-apply if the meta and regional workspace runs race. Staging's
+five Claude entries are configured in `hcp-terraform/rosa-boundary/main.tf`;
+local dev must opt in
+separately in `terraform.tfvars` after confirming its own profiles and routing.
+`bedrock-models.tf` derives exact account/source-Region profile ARNs and
+accountless destination-Region foundation-model ARNs for both the task role and
+Runtime endpoint. A separate, task-attached managed IAM policy per model grants
+its profile and backing models, and denies direct calls or calls through a
+different profile. A small inline policy denies all other invocation targets,
+even if another Allow policy is attached. The endpoint policy mirrors the
+allowlist but does not prevent traffic taking another network route.
+
+The ECS task definition pins Claude Code's primary/Sonnet model to Sonnet 5,
+Opus alias to Opus 5, and Haiku/background model to Haiku 4.5 **when those
+entries are approved**. These are UX defaults, not a security boundary; tasks
+use their ECS task-role credentials, not injected Bedrock keys. The task role
+gets `bedrock:GetInferenceProfile` for approved profiles; profile listing is
+not granted because pinning avoids task-side discovery.
+
+This map **does not** accept model agreements or ensure model availability.
+Account-level agreement acceptance and terms review are separate work: do not
+apply new agreements before the spending guardrail and private endpoint are
+verified. Onboarding permissions belong to an authorized operator, not the
+task role. Before rollout, review the HCP speculative plan (`auto_apply = true`
+after merge), effective attached task-role policies, and organization/Region
+restrictions. From a fresh task, test an approved Claude streaming request and
+an already-onboarded excluded model; verify the latter fails because of IAM,
+not a missing agreement. Existing tasks can pick up task-role policy changes
+without a new task definition, so stage the change accordingly.
+
 ### Bedrock model invocation logging
 
 The regional stack enables text model invocation logging to a dedicated KMS-encrypted
@@ -464,7 +500,8 @@ Used by ECS to pull images and write logs:
 Used by the container at runtime:
 
 - **S3**: Write access to the audit bucket
-- **Bedrock**: InvokeModel, InvokeModelWithResponseStream, ListInferenceProfiles, GetInferenceProfile (source-region, same-account inference profiles)
+- **Bedrock**: InvokeModel and InvokeModelWithResponseStream only on approved
+  profiles/backing models; GetInferenceProfile only on approved profiles
 - **SSM**: ECS Exec permissions for interactive access
 
 ## Connecting to Running Tasks

@@ -1,24 +1,25 @@
 services:
   localstack:
-    image: localstack/localstack-pro:latest
+    image: public.ecr.aws/localstack/localstack-pro:4.14.0
     # user: root required — LocalStack's init/ready.d scripts execute as root, and
     # rootless podman on Fedora remaps the container UID; without this the init
     # script volume mount is unreadable and LocalStack fails to initialise.
     user: root
+    security_opt:
+      - label=disable
     ports:
       - "4566:4566"
       - "4510-4559:4510-4559"
     environment:
       - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN}
-      - SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm
-      - LAMBDA_EXECUTOR=local
-      - ECS_EXECUTOR=local
+      - SERVICES=s3,iam,logs,kms,sts,ec2,ecs,efs,ssm
       - DEBUG=1
       - AWS_DEFAULT_REGION=us-east-2
       - PERSISTENCE=0
       - LOCALSTACK_LOG_DIR=/tmp/localstack-logs
     volumes:
       - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z"
+      - "${XDG_RUNTIME_DIR:-/var/run}/podman/podman.sock:/var/run/docker.sock"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s

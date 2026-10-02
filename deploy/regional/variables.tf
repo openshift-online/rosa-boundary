@@ -324,3 +324,25 @@ variable "reaper_schedule_minutes" {
     error_message = "Reaper schedule must be between 1 and 1440 minutes (24 hours)"
   }
 }
+
+variable "investigation_reaper_schedule_hours" {
+  description = "How often the investigation reaper Lambda runs (in hours)"
+  type        = number
+  default     = 8
+
+  validation {
+    condition     = var.investigation_reaper_schedule_hours >= 2 && var.investigation_reaper_schedule_hours <= 168
+    error_message = "Investigation reaper schedule must be between 2 and 168 hours (EventBridge requires plural form for rate expressions)"
+  }
+}
+
+variable "investigation_grace_period_hours" {
+  description = "Maximum investigation lifetime (hours) before automatic cleanup when idle. An investigation is reaped if it has no running tasks AND was created more than this many hours ago. This is measured from creation time, not idle duration. Default 168h (7 days) allows for multi-day investigations with task timeouts."
+  type        = number
+  default     = 168  # 7 days
+
+  validation {
+    condition     = var.investigation_grace_period_hours >= 1 && var.investigation_grace_period_hours <= 720
+    error_message = "Investigation grace period must be between 1 and 720 hours (30 days)"
+  }
+}

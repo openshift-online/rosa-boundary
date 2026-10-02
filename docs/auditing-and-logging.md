@@ -8,17 +8,17 @@ This document describes what rosa-boundary audits, where audit data lives, and h
 
 ## S3 Home Directory Escrow
 
-**What**: The entire `/home/sre` directory — shell history, downloaded files, notes, kubeconfig, any artifact created during the investigation.
+**What**: Eligible files under `/home/sre` — for example shell history, downloaded files, and notes. Task-scoped OCM configuration and kubeconfig mounts (`.config/ocm/*` and `.kube/*`) are explicitly excluded; neither they nor symlink targets are escrowed.
 
-**When**: On every container exit (SIGTERM, SIGINT, SIGHUP, or normal exit). The entrypoint `sync_to_s3()` function runs inside a `SYNC_TIMEOUT` (default 300s) guard.
+**When**: The entrypoint attempts a sync on handled signals (SIGTERM, SIGINT, SIGHUP) and normal command completion when an audit destination is configured. It uses a `SYNC_TIMEOUT` guard (default 300s), but failures are not fatal, forced termination can bypass it, and the task definition sets a 120s container stop timeout. Do not assume a complete final snapshot; see [known lifecycle gaps](architecture/investigations-and-tasks.md#known-gaps).
 
 **Where**: S3 bucket `{account_id}-{project}-{stage}-{region}`, path:
 
 s3://{bucket}/{cluster_id}/{investigation_id}/{YYYYMMDD}/{task_id}/
 
 **Protections**:
-- WORM compliance — S3 Object Lock in `COMPLIANCE` mode (`retention_days`, default 90). Objects cannot be deleted or overwritten during retention, even by root.
-- Write-only — the task role has `s3:PutObject` only; no read, no delete.
+- WORM compliance — S3 Object Lock in `COMPLIANCE` mode (`retention_days`, default 90). Protected object versions cannot be deleted during retention, even by root; new versions of the same key can still be written.
+- The task-role policy grants `s3:PutObject` on objects and `s3:ListBucket` on the bucket, but not `s3:GetObject` or `s3:DeleteObject`.
 - No symlink following — `--no-follow-symlinks` prevents exfiltration of files outside `/home/sre`.
 - Optional cross-account replication to a separate audit account (`audit_replication_bucket_arn`).
 - TLS-only bucket policy; SSE-S3 encryption.
@@ -26,8 +26,9 @@ s3://{bucket}/{cluster_id}/{investigation_id}/{YYYYMMDD}/{task_id}/
 **How to access**:
 
 ```bash
-# Get the bucket name from Terraform outputs
-BUCKET=$(cd deploy/regional && make output | grep bucket_name)
+# Set the bucket name from your deployed stack's bucket_name Terraform output,
+# or use the naming convention (verify the account and Region first).
+BUCKET="${ACCOUNT_ID}-${PROJECT}-${STAGE}-${AWS_REGION}"
 
 # List investigations for a cluster
 aws s3 ls "s3://${BUCKET}/${CLUSTER_ID}/" --recursive
@@ -38,13 +39,13 @@ aws s3 cp "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/${DATE}/${TASK_ID}/"
 # AWS Console → S3 → {account_id}-{project}-{stage}-{region}
 ```
 
-Requires `s3:GetObject` and `s3:ListBucket` on the audit bucket (the task role itself is write-only). Cross-account replicas are accessed in the audit account.
+Requires `s3:GetObject` and `s3:ListBucket` on the audit bucket (the task-role policy does not grant GetObject). Cross-account replicas, if configured, are accessed in the audit account.
 
 ---
 
 ## ECS Exec Session Logs
 
-**What**: Full interactive terminal I/O for every `ecs execute-command` (SSM) session — every keystroke and command output.
+**What**: ECS Exec session transcript delivery, including commands and output visible in the session. It is not a guaranteed record of every keystroke: terminal echo can be disabled (for example, during credential injection), and log delivery can fail. Do not use this as the sole audit source.
 
 **Where**: CloudWatch log group `/ecs/{project}-{stage}/ssm-sessions` (e.g., `/ecs/rosa-boundary-dev/ssm-sessions`). KMS-encrypted at rest with a dedicated key (`alias/{project}-{stage}-exec-session`). Retention: `retention_days` (default 90).
 
@@ -71,7 +72,7 @@ Requires `logs:FilterLogEvents` and `kms:Decrypt` on the exec-session KMS key (`
 
 ## Container Logs
 
-**What**: Container stdout/stderr — entrypoint output, tool invocations, and any output written to the console.
+**What**: Container stdout/stderr — entrypoint and workload output. Interactive ECS Exec session output is delivered through the separate session logging path, not necessarily the container log stream.
 
 **Where**: CloudWatch log group `/ecs/{project}-{stage}` (e.g., `/ecs/rosa-boundary-dev`), stream prefix `rosa-boundary`. The kube-proxy sidecar logs to the same group under prefix `kube-proxy`. Retention: `log_retention_days` (default 7).
 
@@ -105,7 +106,7 @@ Requires `logs:FilterLogEvents` on the log group.
 
 ### reap-tasks
 
-**What**: Every reaper run including number of tasks checked, deadline comparisons, tasks stopped (with deadline value), and summary counts (checked/stopped/skipped/errors).
+**What**: Reaper runs, expired deadlines and stopped tasks, errors, and summary counts when tasks are found. Future deadlines and missing tags are logged only at DEBUG level; no-tasks runs do not log the final summary.
 
 **Where**: CloudWatch log group `/aws/lambda/{project}-{stage}-reap-tasks`. Retention: `log_retention_days` (default 7).
 
@@ -129,11 +130,45 @@ Requires `logs:FilterLogEvents` on the respective Lambda log group.
 
 ---
 
+## Bedrock Model Invocation Logs
+
+**What**: Bedrock Runtime model invocation records, including request ID, model ID, caller IAM identity, token counts when available, and text prompt/response bodies. Text bodies up to 100 KB are included in the CloudWatch event; larger bodies are delivered to a separate S3 bucket and referenced from the event. These records may contain customer or other sensitive investigation content: limit read access accordingly.
+
+**Scope and limitations**: The Terraform configuration enables **text** delivery for the entire AWS account and Region, not just Boundary tasks or a single investigation. Image, embedding, and video delivery are disabled. Bedrock invocation logging covers supported calls through `bedrock-runtime` (for example, `Converse`, `ConverseStream`, `InvokeModel`, and `InvokeModelWithResponseStream`), not all AI tools, all endpoints, or every CLI transcript. The `identity.arn` in a task's invocation record is its **ECS task role session**, not necessarily the SRE's OIDC identity. The configuration does not attach an investigation ID or SRE username to Bedrock requests. Correlate with the ECS task, its tags, and session logs rather than assuming a per-user or per-investigation log partition.
+
+**Where**:
+
+- CloudWatch log group `/aws/bedrock/{project}-{stage}/model-invocations`, log stream `aws/bedrock/modelinvocations`. Retention: `retention_days` (default 90). Encrypted with the dedicated KMS key `alias/{project}-{stage}-bedrock-invocations`.
+- For text bodies larger than 100 KB: S3 bucket `{account_id}-{project}-{stage}-{region}-bedrock-invocations`, under `large-data/AWSLogs/{account_id}/BedrockModelInvocationLogs/`. S3 uses SSE-S3, blocks public access, and expires objects after `retention_days` (default 90). **Unlike the investigation audit bucket, this bucket does not have Object Lock or cross-account replication.** It is not the `/home/sre` audit escrow.
+
+**How to access** (set the deployed project, stage, account and Region; use an authorized audit-reader identity):
+
+```bash
+LOG_GROUP="/aws/bedrock/${PROJECT}-${STAGE}/model-invocations"
+PAYLOAD_BUCKET="${ACCOUNT_ID}-${PROJECT}-${STAGE}-${AWS_REGION}-bedrock-invocations"
+
+# Confirm that logging is enabled in the selected account and Region
+aws bedrock get-model-invocation-logging-configuration --region "${AWS_REGION}"
+
+# Inspect records and locate the request ID, task-role identity, and any S3 references
+aws logs filter-log-events --region "${AWS_REGION}" --log-group-name "${LOG_GROUP}" \
+  --start-time "$(($(date +%s) - 7200))000"
+
+# Inspect large-data objects, then download only the relevant object
+aws s3 ls "s3://${PAYLOAD_BUCKET}/large-data/AWSLogs/${ACCOUNT_ID}/BedrockModelInvocationLogs/" \
+  --recursive --region "${AWS_REGION}"
+aws s3 cp "s3://${PAYLOAD_BUCKET}/${OBJECT_KEY}" ./bedrock-payload --region "${AWS_REGION}"
+```
+
+The reader needs `bedrock:GetModelInvocationLoggingConfiguration` to check the configuration, `logs:FilterLogEvents` on the log group to inspect records (and KMS decrypt access to the log-group key as applicable), and `s3:ListBucket`/`s3:GetObject` for the large-payload bucket. The ECS task role is not granted audit-read permissions. Deployment configuration is in `deploy/regional/bedrock-logging.tf` and `deploy/regional/bedrock-large-payloads.tf`.
+
+---
+
 ## CloudTrail
 
-**What**: All AWS API calls — `ecs:RunTask`, `ecs:ExecuteCommand`, `ecs:StopTask`, `sts:AssumeRoleWithWebIdentity`, `lambda:InvokeFunction`, `elasticfilesystem:CreateAccessPoint`, `s3:PutObject`, and everything else at the API level.
+**What**: AWS API activity, subject to the account's CloudTrail configuration. Event history includes recent management events (for example, ECS and STS calls). `s3:PutObject` and `lambda:InvokeFunction` are **data events**, which require separately configured selectors on a trail or event data store and are not available via ordinary Event history / `lookup-events` by default. CloudTrail API records do not contain Bedrock prompt/response content; see [Bedrock Model Invocation Logs](#bedrock-model-invocation-logs).
 
-**Where**: Account-level or organization-level CloudTrail (not deployed by this Terraform — assumed to exist).
+**Where**: AWS CloudTrail Event history for management events (90-day lookup window), or account/organization trails or event data stores if separately configured. This Terraform does not deploy a trail or enable S3/Lambda data-event selectors; verify their existence before relying on them.
 
 **How to access**:
 
@@ -147,10 +182,10 @@ aws cloudtrail lookup-events \
   --lookup-attributes AttributeKey=EventName,AttributeValue=RunTask
 
 # AWS Console → CloudTrail → Event history
-# Filter by: ExecuteCommand, RunTask, StopTask, InvokeFunction, AssumeRoleWithWebIdentity
+# Filter management events by: ExecuteCommand, RunTask, StopTask, AssumeRoleWithWebIdentity
 ```
 
-CloudTrail is account-level; requires `cloudtrail:LookupEvents`.
+Event history requires `cloudtrail:LookupEvents`; accessing any separately configured trail or event data store requires its own permissions.
 
 ---
 
@@ -162,17 +197,19 @@ Applied at task creation by the create-investigation Lambda:
 
 | Tag | Purpose |
 |-----|---------|
-| `oidc_sub` | Immutable OIDC subject UUID — links task to IdP user |
+| `oidc_sub` | OIDC subject claim (interpreted in the context of its issuer) |
 | `{abac_tag_key}` (e.g., `username` or `uuid`) | ABAC identity for IAM policy enforcement |
 | `investigation_id` | Investigation identifier |
 | `cluster_id` | Target cluster |
 | `oc_version` | OpenShift CLI version |
 | `access_point_id` | EFS access point for this investigation |
 | `created_at` | ISO 8601 creation timestamp |
-| `deadline` | ISO 8601 deadline (enforced by reaper Lambda) |
+| `deadline` | ISO 8601 deadline when `task_timeout > 0`; absent otherwise (reaper skips tasks without it) |
 | `task_timeout` | Configured timeout in seconds |
 
 ### EFS Access Point Tags
+
+These reflect access-point creation, not the identity of every subsequent task reusing it. The access point is deleted on investigation close; inspect individual task tags and Lambda logs for later launches.
 
 | Tag | Purpose |
 |-----|---------|
@@ -192,7 +229,7 @@ aws ecs describe-tasks \
   --include TAGS \
   --query 'tasks[0].tags'
 
-# EFS access point tags — who created an investigation?
+# EFS access point tags — creation-time identity
 aws efs describe-access-points \
   --file-system-id "${EFS_ID}" \
   --query 'AccessPoints[?Tags[?Key==`InvestigationID` && Value==`INC-12345`]]'
@@ -207,9 +244,9 @@ Requires `ecs:DescribeTasks` or `efs:DescribeAccessPoints` respectively.
 
 ## IAM Session Tags (Identity Propagation)
 
-Keycloak injects `principal_tags.{abac_tag_key}` into the `https://aws.amazon.com/tags` JWT claim. STS propagates these as session tags during `AssumeRoleWithWebIdentity`. IAM policies use `aws:PrincipalTag/{abac_tag_key}` conditions to enforce per-user task access (exec, stop).
+When configured, Keycloak injects `principal_tags.{abac_tag_key}` into the `https://aws.amazon.com/tags` JWT claim. STS propagates these as session tags during `AssumeRoleWithWebIdentity`. IAM policies use `aws:PrincipalTag/{abac_tag_key}` conditions to enforce per-user task access (exec, stop).
 
-This means every AWS API call made through the SRE role carries the authenticated user's identity, visible in CloudTrail.
+CLI actions using the assumed SRE role can be correlated with its role session and session tags. Investigation creation uses the invoker role; task launch uses the Lambda role; in-container Bedrock calls and S3 uploads use the ECS task role. Those downstream calls do **not** automatically carry the SRE's session tags. Correlate Lambda authorization logs and task tags with task-role activity; CloudTrail visibility still depends on event type and trail configuration.
 
 ---
 
@@ -217,10 +254,12 @@ This means every AWS API call made through the SRE role carries the authenticate
 
 | Audit Source | What | Retention | Encryption |
 |---|---|---|---|
-| S3 audit bucket | `/home/sre` contents on exit | 90 days WORM (configurable) | SSE-S3 |
-| SSM session logs | Full terminal I/O | 90 days (configurable) | KMS |
+| S3 audit bucket | Best-effort eligible `/home/sre` contents (credentials excluded) | 90 days WORM (configurable) | SSE-S3 |
+| SSM session logs | ECS Exec session transcripts (not every keystroke) | 90 days (configurable) | KMS |
 | Container logs | stdout/stderr | 7 days (configurable) | — |
 | Lambda logs (create) | Auth, group checks, task creation | 7 days (configurable) | — |
 | Lambda logs (reaper) | Deadline checks, task stops | 7 days (configurable) | — |
-| CloudTrail | All AWS API calls | Account policy | Account policy |
+| Bedrock invocation logs | Bedrock Runtime metadata and text prompt/response bodies (account/Region-wide) | 90 days (configurable) | KMS (CloudWatch) |
+| Bedrock large-payload bucket | Text bodies over 100 KB; no Object Lock | 90-day lifecycle (configurable) | SSE-S3 |
+| CloudTrail | Management events; optional configured data events | 90-day Event history; trail policy if configured | Account policy |
 | ECS/EFS resource tags | User identity, investigation metadata | Resource lifetime | — |

@@ -41,6 +41,17 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 - **Security Groups**: For Fargate tasks and EFS mount targets
 - **Bedrock Runtime interface endpoint**: Private DNS and an HTTPS-only security group restricted to the Fargate task security group; one endpoint ENI per task AZ
 - **CloudWatch Log Group**: For container logs
+- **Bedrock cost budget**: Monthly account-wide Bedrock spend alerts (no automatic action)
+
+### Bedrock cost alerts
+
+The budget amount and notification email are configurable; see their defaults
+in `deploy/regional/variables.tf` and the staging overrides in
+`hcp-terraform/rosa-boundary/main.tf`. The alert thresholds and **actual**
+monthly spend setting are defined in `deploy/regional/bedrock-budget.tf`. The
+Service filter includes all Amazon Bedrock spend in the account, not only ROSA
+Boundary tasks or a single Region. Billing and alert evaluation can lag usage;
+these alerts do not stop or cap inference spending.
 
 ### Bedrock Runtime private networking
 

@@ -6,6 +6,7 @@ aws_region     = "<aws-region>"
 
 project         = "rosa-boundary"
 stage           = "dev"
+# Optional Bedrock cost-alert overrides: see defaults in variables.tf.
 retention_days  = 90  # S3 WORM compliance retention period in days
 container_image = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/rosa-boundary:latest"
 

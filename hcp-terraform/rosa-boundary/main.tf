@@ -101,6 +101,22 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          key   = "bedrock_model_agreements"
+          value = <<-EOT
+            {
+              "anthropic.claude-sonnet-5" = "offer-2ykemehpsyf7g"
+              "anthropic.claude-opus-4-6-v1" = "offer-ee7a27hh4hr62"
+              "anthropic.claude-opus-4-8" = "offer-wdkl4yk6s7uu4"
+              "anthropic.claude-opus-5" = "offer-f3u6lgbrem3zs"
+              "anthropic.claude-haiku-4-5-20251001-v1:0" = "offer-fudwqbphlos64"
+              "openai.gpt-6-sol" = "offer-pycji3sz5gpcc"
+              "openai.gpt-6-luna" = "offer-gmo53nkzc5or6"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
           key      = "stage"
           value    = "stage"
           category = "terraform"

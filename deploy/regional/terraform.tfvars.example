@@ -10,6 +10,15 @@ stage           = "dev"
 retention_days  = 90  # S3 WORM compliance retention period in days
 container_image = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/rosa-boundary:latest"
 
+# Bedrock foundation-model agreements. Replace the example PUBLIC offer IDs
+# with those returned for this account and Region before applying. For no
+# agreements, use {}. See docs/configuration/bedrock-model-agreements.md for
+# how to find model IDs, offer IDs, and review the offer terms.
+bedrock_model_agreements = {
+  "anthropic.claude-sonnet-5"                = "offer-REPLACE_WITH_APPROVED_ID"
+  "anthropic.claude-haiku-4-5-20251001-v1:0" = "offer-REPLACE_WITH_APPROVED_ID"
+}
+
 # Fargate task sizing
 # CPU/Memory combinations: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
 container_cpu    = 512   # Options: 256, 512, 1024, 2048, 4096

@@ -13,6 +13,12 @@ variable "aws_region" {
   type        = string
 }
 
+variable "bedrock_model_agreements" {
+  description = "Foundation model agreements managed in this account and Region, keyed by foundation model ID with the approved offer ID as value."
+  type        = map(string)
+  default     = {}
+}
+
 variable "project" {
   description = "Project name (used in resource naming)"
   type        = string

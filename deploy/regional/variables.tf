@@ -30,6 +30,28 @@ variable "stage" {
   }
 }
 
+variable "bedrock_monthly_budget_usd" {
+  description = "Monthly USD budget for account-wide Amazon Bedrock charges; notifications only, no spend cutoff."
+  type        = number
+  default     = 1000
+
+  validation {
+    condition     = var.bedrock_monthly_budget_usd > 0
+    error_message = "The Bedrock monthly budget must be greater than zero."
+  }
+}
+
+variable "bedrock_budget_notification_email" {
+  description = "Email destination for Bedrock monthly budget alerts at 50%, 80%, and 100% of actual spend."
+  type        = string
+  default     = "rosa-boundary-access@redhat.com"
+
+  validation {
+    condition     = can(regex("^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$", var.bedrock_budget_notification_email))
+    error_message = "The Bedrock budget notification destination must be an email address."
+  }
+}
+
 variable "retention_days" {
   description = "Retention period in days (must be valid for both S3 Object Lock and CloudWatch Logs)"
   type        = number

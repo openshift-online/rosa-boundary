@@ -106,6 +106,16 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          key      = "bedrock_monthly_budget_usd"
+          value    = "2500"
+          category = "terraform"
+        },
+        {
+          key      = "bedrock_budget_notification_email"
+          value    = "rosa-boundary-access@redhat.com"
+          category = "terraform"
+        },
+        {
           key      = "vpc_id"
           value    = "vpc-008ef33919b443f10"
           category = "terraform"

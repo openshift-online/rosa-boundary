@@ -79,3 +79,16 @@ locals {
     ManagedBy = "Terraform"
   })
 }
+
+# Explicit, reviewed mapping from the Bedrock inference profile ID that Claude
+# Code targets (ANTHROPIC_MODEL / var.claude_default_model) to its underlying
+# foundation model ID (the key space of var.bedrock_model_agreements). AWS does
+# not expose a static, documented contract that derives one from the other, so
+# the relationship is pinned here rather than inferred by stripping a prefix.
+# Scoped to the currently configured default model; add an entry when
+# introducing a new default inference profile.
+locals {
+  claude_inference_profile_foundation_models = {
+    "us.anthropic.claude-sonnet-5" = "anthropic.claude-sonnet-5"
+  }
+}

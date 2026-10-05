@@ -262,7 +262,8 @@ The easiest way to select tool versions is via environment variables at containe
 | `S3_AUDIT_ESCROW` | S3 URI (e.g., `s3://bucket/path/`) | _(none)_ | S3 destination for /home/sre sync on exit |
 | `CLAUDE_CODE_USE_BEDROCK` | `0`, `1` | `1` | Enable Claude Code via Amazon Bedrock |
 | `AWS_REGION` | AWS region code | _(auto-detect)_ | AWS region for Bedrock. Auto-detected from ECS metadata; fallback to us-east-1 |
-| `ANTHROPIC_MODEL` | Bedrock model ID | _(default)_ | Override Claude model (e.g., `global.anthropic.claude-sonnet-4-5-20250929-v1:0`) |
+| `ANTHROPIC_MODEL` | Bedrock inference profile | `us.anthropic.claude-sonnet-5` | Claude model Claude Code uses by default. In ECS this is set from the `claude_default_model` Terraform variable and must be an approved model in `bedrock_model_agreements` |
+| `DISABLE_INSTALLATION_CHECKS` | `0`, `1` | `1` | Suppress Claude's user-local installation self-check (the CLI is image-managed at `/usr/local/bin/claude`) |
 
 **Examples:**
 ```bash

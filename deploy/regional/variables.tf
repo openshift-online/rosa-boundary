@@ -19,6 +19,37 @@ variable "bedrock_model_agreements" {
   default     = {}
 }
 
+variable "claude_default_model" {
+  description = "Bedrock inference profile Claude Code selects by default (ANTHROPIC_MODEL). Must be an approved/subscribed profile in bedrock_model_agreements; the task role has no aws-marketplace:Subscribe permission, so an unapproved model returns 403."
+  type        = string
+  default     = "us.anthropic.claude-sonnet-5"
+
+  validation {
+    condition     = length(trimspace(var.claude_default_model)) > 0
+    error_message = "claude_default_model must not be blank."
+  }
+
+  # Consistency guard: claude_default_model must be a known Bedrock inference
+  # profile ID (a key in the explicit mapping) that resolves to a foundation model
+  # with an approved agreement. claude_default_model is an inference profile ID
+  # (e.g. us.anthropic.claude-sonnet-5); bedrock_model_agreements is keyed by the
+  # foundation model ID (e.g. anthropic.claude-sonnet-5). Bare foundation model IDs
+  # are rejected: the value must be an inference profile present in
+  # local.claude_inference_profile_foundation_models (no prefix stripping). The
+  # resolved foundation model must then be a key in bedrock_model_agreements;
+  # membership is skipped when no agreements are declared (dev/LocalStack use {}).
+  validation {
+    condition = contains(keys(local.claude_inference_profile_foundation_models), var.claude_default_model) && (
+      length(var.bedrock_model_agreements) == 0 ||
+      contains(
+        keys(var.bedrock_model_agreements),
+        lookup(local.claude_inference_profile_foundation_models, var.claude_default_model, "")
+      )
+    )
+    error_message = "claude_default_model (${var.claude_default_model}) must be a known Bedrock inference profile in local.claude_inference_profile_foundation_models that resolves to a foundation model present in bedrock_model_agreements. Add the inference profile to the mapping and/or its foundation model to bedrock_model_agreements. The task role cannot self-subscribe."
+  }
+}
+
 variable "project" {
   description = "Project name (used in resource naming)"
   type        = string

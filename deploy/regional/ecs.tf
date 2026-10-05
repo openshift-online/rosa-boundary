@@ -121,6 +121,16 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
             value = "1"
           },
           {
+            name  = "ANTHROPIC_MODEL"
+            value = var.claude_default_model
+          },
+          {
+            # Suppress the user-local installation self-check; Claude is
+            # image-managed at /usr/local/bin/claude, so the check is cosmetic.
+            name  = "DISABLE_INSTALLATION_CHECKS"
+            value = "1"
+          },
+          {
             name  = "TASK_TIMEOUT"
             value = tostring(var.task_timeout_default)
           },

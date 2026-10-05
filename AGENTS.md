@@ -214,7 +214,8 @@ Modular shell configuration via `~/.bashrc.d/*.bashrc` sourced in numeric order:
 | `SYNC_TIMEOUT` | 300 | Max seconds for `aws s3 sync` on exit |
 | `CLAUDE_CODE_USE_BEDROCK` | `1` | Enable Claude Code Bedrock mode |
 | `AWS_REGION` | auto-detected | Bedrock region |
-| `ANTHROPIC_MODEL` | — | Override Claude model ID |
+| `ANTHROPIC_MODEL` | `us.anthropic.claude-sonnet-5` | Bedrock inference profile Claude Code uses by default; set in the ECS task definition from the `claude_default_model` Terraform variable. Must be an approved model in `bedrock_model_agreements` (the task role has no Marketplace subscribe permission) |
+| `DISABLE_INSTALLATION_CHECKS` | `1` | Suppress Claude's user-local installation self-check; the CLI is image-managed at `/usr/local/bin/claude` |
 
 ### Claude Code Integration
 

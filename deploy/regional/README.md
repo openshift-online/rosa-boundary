@@ -221,6 +221,7 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `retention_days` | number | `90` | S3 object lock retention period (1-3650 days) |
 | `retention_days` | number | `90` | Retention period for S3 and CloudWatch Logs (see [valid values](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SttingLogRetention)) |
 | `container_image` | string | **required** | Container image URI |
+| `claude_default_model` | string | `"us.anthropic.claude-sonnet-5"` | Bedrock inference profile Claude Code uses by default (`ANTHROPIC_MODEL`); must be approved in `bedrock_model_agreements` |
 | `container_cpu` | number | See `variables.tf` | Fargate CPU units (see [task size](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size)) |
 | `container_memory` | number | See `variables.tf` | Fargate memory in MB (see [task size](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size)) |
 | `vpc_id` | string | **required** | VPC ID for Fargate tasks |

@@ -117,6 +117,11 @@ module "rosa_boundary" {
           hcl      = true
         },
         {
+          key      = "claude_default_model"
+          value    = "us.anthropic.claude-sonnet-5"
+          category = "terraform"
+        },
+        {
           key      = "stage"
           value    = "stage"
           category = "terraform"

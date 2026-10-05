@@ -62,6 +62,14 @@ traffic through the VPC endpoint instead of NAT. Its dedicated security group
 allows inbound TCP 443 only from `aws_security_group.fargate`. Other AWS APIs
 continue to use their existing network paths.
 
+The endpoint policy limits inference calls over this endpoint to the Boundary
+task role, but does **not** restrict calls to the model-agreement manifest:
+its inference-profile and foundation-model resource patterns are broad. The
+task role's invocation policy is also broad (`iam.tf`). Account-level
+agreements enable models, not a per-task model allowlist; see the
+[model-agreement guide](../../docs/configuration/bedrock-model-agreements.md)
+for the limits of relying on an absent subscription to deny an invocation.
+
 ### Bedrock model invocation logging
 
 The regional stack enables text model invocation logging to a dedicated KMS-encrypted
@@ -101,10 +109,11 @@ the Bedrock audit destinations, subject to these controls:
 
 These controls limit access and protect storage at rest; they do **not** redact
 prompts or responses, guarantee that sensitive data is absent, or scope the
-account/Region-wide Bedrock configuration to Boundary callers. Review the
-speculative HCP Terraform plan and the account's effective log/S3 readers
-before merging this change; the staging regional workspace auto-applies after
-merge.
+account/Region-wide Bedrock configuration to Boundary callers. For subsequent
+deployment changes, review the speculative HCP Terraform plan before merge
+and verify effective log/S3 readers after apply; the staging regional workspace
+auto-applies after merge. Do not assume a merged PR proves that its HCP run
+completed successfully.
 
 ## Execution Modes
 
@@ -221,7 +230,7 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `retention_days` | number | `90` | S3 object lock retention period (1-3650 days) |
 | `retention_days` | number | `90` | Retention period for S3 and CloudWatch Logs (see [valid values](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/Working-with-log-groups-and-streams.html#SttingLogRetention)) |
 | `container_image` | string | **required** | Container image URI |
-| `claude_default_model` | string | `"us.anthropic.claude-sonnet-5"` | Bedrock inference profile Claude Code uses by default (`ANTHROPIC_MODEL`); must be approved in `bedrock_model_agreements` |
+| `claude_default_model` | string | `"us.anthropic.claude-sonnet-5"` | Bedrock inference profile Claude Code uses by default (`ANTHROPIC_MODEL`); Terraform checks the explicit mapping to a foundation model in `bedrock_model_agreements` when that map is nonempty. This does not enforce invocation access or check live availability |
 | `container_cpu` | number | See `variables.tf` | Fargate CPU units (see [task size](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size)) |
 | `container_memory` | number | See `variables.tf` | Fargate memory in MB (see [task size](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#task_size)) |
 | `vpc_id` | string | **required** | VPC ID for Fargate tasks |
@@ -565,9 +574,28 @@ make destroy
 
 ### Bedrock access denied
 
-- Verify task role has Bedrock permissions
-- Check if Claude models are available in your AWS region
-- Confirm model IDs match those available in Bedrock
+- In a **new** investigation task after the regional base task definition is
+  updated, check `AWS_REGION` and `ANTHROPIC_MODEL` and try a harmless prompt
+  with plain `claude`. Lambda copies the base definition's environment into
+  each new investigation task definition; already-running tasks and existing
+  per-investigation definitions do not pick up new defaults automatically.
+- Confirm the model is supported in the Bedrock Region and that the configured
+  inference profile resolves to the intended foundation model. The default
+  profile-to-foundation-model mapping is in `main.tf`.
+- With an operator identity authorized for the Bedrock control plane, use
+  `get-foundation-model-availability` to check agreement, authorization,
+  entitlement, and Region status; the Boundary task role itself only has the
+  runtime and profile permissions in `iam.tf`. For an Anthropic model, also
+  confirm the account/organization first-time-use form is complete. Check the
+  Terraform-managed agreements for the **account**, not just the manifest.
+- A `GetInferenceProfile` access denial indicates missing task-role profile
+  lookup permission; an invocation denial may instead indicate model
+  availability/subscription or runtime authorization. A missing subscription
+  usually prevents an unenabled third-party model from working because the task
+  role cannot subscribe, but it is **not** a model deny-list: an existing
+  account-wide agreement, models without Marketplace subscriptions, or AWS's
+  temporary first-invocation behavior can change the outcome. For strict
+  denial, use Bedrock invocation IAM/SCP restrictions.
 
 ### S3 sync fails
 

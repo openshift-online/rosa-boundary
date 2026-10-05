@@ -262,7 +262,7 @@ The easiest way to select tool versions is via environment variables at containe
 | `S3_AUDIT_ESCROW` | S3 URI (e.g., `s3://bucket/path/`) | _(none)_ | S3 destination for /home/sre sync on exit |
 | `CLAUDE_CODE_USE_BEDROCK` | `0`, `1` | `1` | Enable Claude Code via Amazon Bedrock |
 | `AWS_REGION` | AWS region code | _(auto-detect)_ | AWS region for Bedrock. Auto-detected from ECS metadata; fallback to us-east-1 |
-| `ANTHROPIC_MODEL` | Bedrock inference profile | `us.anthropic.claude-sonnet-5` | Claude model Claude Code uses by default. In ECS this is set from the `claude_default_model` Terraform variable and must be an approved model in `bedrock_model_agreements` |
+| `ANTHROPIC_MODEL` | Bedrock inference profile | `us.anthropic.claude-sonnet-5` | Claude model Claude Code uses by default. In ECS this is set from `claude_default_model`; Terraform maps the profile to a foundation model in `bedrock_model_agreements` when the manifest is nonempty. This is not an invocation allowlist or a live availability check |
 | `DISABLE_INSTALLATION_CHECKS` | `0`, `1` | `1` | Suppress Claude's user-local installation self-check (the CLI is image-managed at `/usr/local/bin/claude`) |
 
 **Examples:**
@@ -338,29 +338,13 @@ Claude Code automatically detects the AWS region from ECS task metadata:
 
 This ensures Claude Code uses Bedrock in the same region as the running container.
 
-### IAM Permissions
+### IAM Permissions and Model Access
 
-The ECS task role needs Bedrock permissions:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "bedrock:InvokeModel",
-        "bedrock:InvokeModelWithResponseStream",
-        "bedrock:ListInferenceProfiles"
-      ],
-      "Resource": [
-        "arn:aws:bedrock:*:*:inference-profile/*",
-        "arn:aws:bedrock:*:*:foundation-model/*"
-      ]
-    }
-  ]
-}
-```
+The ECS task role's Bedrock permissions are defined in
+[`deploy/regional/iam.tf`](deploy/regional/iam.tf). See the
+[model-agreement guide](docs/configuration/bedrock-model-agreements.md) for
+account-level model enablement and why agreements are not an invocation
+allowlist.
 
 ### Usage Examples
 
@@ -374,7 +358,7 @@ claude "How do I check the status of cluster operators?"
 # Run interactive investigation
 claude "Investigate pods in crashloop in default namespace"
 
-# Disable Claude Code via environment variable
+# Disable Bedrock mode (not the installed Claude Code CLI)
 podman run -e CLAUDE_CODE_USE_BEDROCK=0 rosa-boundary:latest
 ```
 

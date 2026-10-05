@@ -145,9 +145,48 @@ Inside the container (as `sre` user):
 whoami              # sre
 echo $CLUSTER_ID    # <cluster-id>
 echo $INVESTIGATION_ID  # <investigation-id>
-claude --version    # Claude Code via Bedrock
+claude --version    # Confirms installation, not Bedrock access
 oc version --client # OpenShift CLI (locked to investigation version)
 ```
+
+### Verify Bedrock access from a fresh task
+
+After a regional Terraform change to the base ECS task definition, create a
+**new** investigation task: Lambda copies the base container environment into
+each per-investigation task definition, so a running task or an older
+per-investigation definition does not acquire new defaults. In the new task,
+use only a benign test prompt (Bedrock invocation logs can include the full
+prompt and response):
+
+```bash
+printf 'Region: %s\nModel: %s\n' "$AWS_REGION" "$ANTHROPIC_MODEL"
+claude "Reply with the word ready."
+```
+
+For the current staging configuration, the model should be
+`us.anthropic.claude-sonnet-5` without manually setting `ANTHROPIC_MODEL`.
+`claude --version` alone does not exercise inference. If invocation fails,
+compare the profile with `claude_default_model` and the explicit profile-to-
+foundation-model mapping in `deploy/regional/main.tf`. From **outside the
+task**, using an operator identity with Bedrock control-plane permissions,
+check the *foundation* model ID in the same account and Region:
+
+```bash
+aws bedrock get-foundation-model-availability \
+  --region us-east-1 --model-id anthropic.claude-sonnet-5 \
+  --query '{agreement:agreementAvailability.status,authorization:authorizationStatus,entitlement:entitlementAvailability,region:regionAvailability}'
+```
+
+The task role is not granted this availability-check API or AWS Marketplace
+subscription permissions. For Anthropic models, first-time-use setup must
+also be complete. An unlisted model may fail because it is not enabled, but
+the agreement manifest is **not** an IAM allowlist: a model enabled elsewhere
+in the account may work, and AWS documents that a first invocation can
+temporarily succeed while subscription is attempted. Record the actual
+availability and invocation results rather than treating a single 403 or
+successful call as proof of model-allowlist enforcement. See the
+[model-agreement guide](../configuration/bedrock-model-agreements.md) and
+the [regional troubleshooting notes](../../deploy/regional/README.md#bedrock-access-denied).
 
 Ordinary files in `/home/sre` persist to EFS across task restarts for the same
 investigation. OCM state under `.config/ocm` and kubeconfig state under `.kube`

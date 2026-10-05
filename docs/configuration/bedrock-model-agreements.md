@@ -74,9 +74,25 @@ or apply it in an account where that agreement does not already exist. This is
 an operator action, not automatic pre-existing-agreement handling in the module.
 
 Removing an entry deletes the agreement **for the account**, potentially
-affecting other workloads. The manifest does not configure clients or enforce
-which models a task can invoke: Bedrock invocation IAM and endpoint policies
-are separate, and the task role has no Marketplace subscription permissions.
+affecting other workloads. **The manifest is not a model allowlist.** It does
+not restrict which models a Boundary task can invoke: the task role's
+`bedrock:InvokeModel` permissions and the Runtime endpoint policy cover model
+and inference-profile resources broadly. The task role has no AWS Marketplace
+subscription permissions, so invoking a third-party model that has not been
+enabled in the account will normally fail once Bedrock cannot complete
+subscription. That is not guaranteed denial: the model could already be
+enabled elsewhere in the account, some models do not use Marketplace
+subscriptions, and AWS documents that an initial invocation may temporarily
+succeed while automatic subscription is attempted. Removing an agreement alone
+does not reliably block future invocation. If a strict per-model boundary is
+required, enforce it with Bedrock invocation IAM or SCP restrictions, not this
+manifest or a subscription-permission denial alone.
+
+The manifest keys are *foundation model IDs*; `claude_default_model` is an
+*inference profile ID*. Terraform checks its explicit profile-to-foundation
+model mapping and requires the mapped foundation model to be in the manifest
+when the manifest is nonempty. This plan-time consistency check does not query
+live agreement availability or constrain a user who selects a different model.
 
 Offer tokens are resolved at plan time and stored in Terraform state. Updating
 `offer_id` on an already-managed agreement does not renegotiate it because

@@ -39,6 +39,11 @@ module "aws_dynamic_creds" {
             "rosa-boundary-stage-regional",
           ]
         }
+        rosa-trusted-actions = {
+          workspace_names = [
+            "rosa-trusted-actions-stage"
+          ]
+        }
       }
     }
   }

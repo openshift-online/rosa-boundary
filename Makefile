@@ -115,13 +115,17 @@ build-lambda-image: ## Build the create-investigation Lambda container image loc
 	$(MAKE) -C lambda/create-investigation build-image
 
 # Lambda unit testing
-.PHONY: test-lambda test-lambda-reap-tasks test-lambda-create-investigation
+.PHONY: test-lambda test-lambda-reap-tasks test-lambda-reap-investigations test-lambda-create-investigation
 
-test-lambda: test-lambda-reap-tasks test-lambda-create-investigation ## Run all Lambda unit tests
+test-lambda: test-lambda-reap-tasks test-lambda-reap-investigations test-lambda-create-investigation ## Run all Lambda unit tests
 
 test-lambda-reap-tasks: ## Run reap-tasks Lambda unit tests
 	@echo "Running reap-tasks unit tests..."
 	cd lambda/reap-tasks && uv run --with boto3 python -m unittest test_handler -v
+
+test-lambda-reap-investigations: ## Run reap-investigations Lambda unit tests
+	@echo "Running reap-investigations unit tests..."
+	cd lambda/reap-investigations && uv run --with boto3 python -m unittest test_handler -v
 
 test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	@echo "Running create-investigation unit tests..."
@@ -242,10 +246,11 @@ help:
 	@echo "  make test-localstack-fast  - Run LocalStack tests (skip slow tests)"
 	@echo ""
 	@echo "Lambda Targets:"
-	@echo "  make build-lambda-image               - Build create-investigation Lambda container image"
-	@echo "  make test-lambda                      - Run all Lambda unit tests"
-	@echo "  make test-lambda-reap-tasks           - Run reap-tasks unit tests"
-	@echo "  make test-lambda-create-investigation - Run create-investigation unit tests"
+	@echo "  make build-lambda-image                  - Build create-investigation Lambda container image"
+	@echo "  make test-lambda                         - Run all Lambda unit tests"
+	@echo "  make test-lambda-reap-tasks              - Run reap-tasks unit tests"
+	@echo "  make test-lambda-reap-investigations     - Run reap-investigations unit tests"
+	@echo "  make test-lambda-create-investigation    - Run create-investigation unit tests"
 	@echo ""
 	@echo "Build Helper Targets:"
 	@echo "  make test-github-dl  - Run github_dl.py unit tests"

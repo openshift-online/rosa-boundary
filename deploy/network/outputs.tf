@@ -47,3 +47,23 @@ output "s3_vpc_endpoint_id" {
   description = "ID of the S3 Gateway VPC endpoint"
   value       = aws_vpc_endpoint.s3.id
 }
+
+output "efs_vpc_endpoint_id" {
+  description = "ID of the EFS Interface VPC endpoint"
+  value       = aws_vpc_endpoint.efs.id
+}
+
+output "ecs_vpc_endpoint_id" {
+  description = "ID of the ECS Interface VPC endpoint"
+  value       = aws_vpc_endpoint.ecs.id
+}
+
+output "logs_vpc_endpoint_id" {
+  description = "ID of the CloudWatch Logs Interface VPC endpoint"
+  value       = aws_vpc_endpoint.logs.id
+}
+
+output "vpc_endpoints_security_group_id" {
+  description = "ID of the security group for VPC endpoints"
+  value       = aws_security_group.vpc_endpoints.id
+}

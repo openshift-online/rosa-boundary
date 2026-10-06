@@ -232,3 +232,67 @@ func TestGetConfigEventPayload(t *testing.T) {
 		t.Errorf("expected action 'get_config', got %v", parsedBody["action"])
 	}
 }
+
+func TestInvestigationRequestJSON_OmitsZeroTaskTimeout(t *testing.T) {
+	// When TaskTimeout is 0 (not set), it should be omitted from JSON
+	req := InvestigationRequest{
+		ClusterID:       "test-cluster",
+		InvestigationID: "test-investigation",
+		SkipTask:        true,
+	}
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("failed to marshal InvestigationRequest: %v", err)
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	// task_timeout should NOT be present when it's 0
+	if _, exists := decoded["task_timeout"]; exists {
+		t.Errorf("task_timeout should be omitted when zero, got %v", decoded["task_timeout"])
+	}
+
+	// Other fields should be present
+	if decoded["cluster_id"] != "test-cluster" {
+		t.Errorf("expected cluster_id 'test-cluster', got %v", decoded["cluster_id"])
+	}
+	if decoded["investigation_id"] != "test-investigation" {
+		t.Errorf("expected investigation_id 'test-investigation', got %v", decoded["investigation_id"])
+	}
+	if decoded["skip_task"] != true {
+		t.Errorf("expected skip_task true, got %v", decoded["skip_task"])
+	}
+}
+
+func TestInvestigationRequestJSON_IncludesNonZeroTaskTimeout(t *testing.T) {
+	// When TaskTimeout is explicitly set, it should be included in JSON
+	req := InvestigationRequest{
+		ClusterID:       "test-cluster",
+		InvestigationID: "test-investigation",
+		TaskTimeout:     3600,
+	}
+
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("failed to marshal InvestigationRequest: %v", err)
+	}
+
+	var decoded map[string]interface{}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	// task_timeout should be present and correct
+	timeout, exists := decoded["task_timeout"]
+	if !exists {
+		t.Fatal("task_timeout should be present when set")
+	}
+	// JSON numbers are decoded as float64
+	if timeoutFloat, ok := timeout.(float64); !ok || int(timeoutFloat) != 3600 {
+		t.Errorf("expected task_timeout 3600, got %v (type %T)", timeout, timeout)
+	}
+}

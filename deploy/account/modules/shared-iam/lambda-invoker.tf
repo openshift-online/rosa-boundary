@@ -1,4 +1,4 @@
-# IAM role for Lambda function URL invocation via OIDC federation.
+# Account-owned IAM role for Lambda function URL invocation via OIDC federation.
 #
 # SREs assume this role using AssumeRoleWithWebIdentity with their Keycloak OIDC
 # token to obtain SigV4 credentials for calling the create-investigation Lambda URL.
@@ -7,7 +7,7 @@
 # performs its own OIDC token validation for application-level authorization.
 
 resource "aws_iam_role" "lambda_invoker" {
-  name                 = "${var.project}-${var.stage}-lambda-invoker"
+  name                 = "${var.role_name_prefix}-lambda-invoker"
   max_session_duration = 3600 # AWS minimum; actual sessions are short-lived
 
   assume_role_policy = jsonencode({
@@ -16,7 +16,7 @@ resource "aws_iam_role" "lambda_invoker" {
       [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.keycloak.arn
+          Federated = var.keycloak_provider_arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",
@@ -39,7 +39,7 @@ resource "aws_iam_role" "lambda_invoker" {
       var.stage_keycloak_issuer_url != "" ? [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.stage_keycloak[0].arn
+          Federated = var.stage_keycloak_provider_arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",
@@ -62,7 +62,7 @@ resource "aws_iam_role" "lambda_invoker" {
       var.prod_keycloak_issuer_url != "" ? [{
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.prod_keycloak[0].arn
+          Federated = var.prod_keycloak_provider_arn
         }
         Action = [
           "sts:AssumeRoleWithWebIdentity",
@@ -86,22 +86,6 @@ resource "aws_iam_role" "lambda_invoker" {
   })
 
   tags = merge(local.common_tags, {
-    Name = "${var.project}-${var.stage}-lambda-invoker"
-  })
-}
-
-resource "aws_iam_role_policy" "lambda_invoker" {
-  name = "invoke-create-investigation"
-  role = aws_iam_role.lambda_invoker.id
-
-  # Uses lambda:InvokeFunction (direct SDK invocation) rather than lambda:InvokeFunctionUrl
-  # because org-level SCPs block InvokeFunctionUrl from OIDC-assumed role sessions.
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = "lambda:InvokeFunction"
-      Resource = local.create_investigation_function_arn
-    }]
+    Name = "${var.role_name_prefix}-lambda-invoker"
   })
 }

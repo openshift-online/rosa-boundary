@@ -75,7 +75,7 @@ resource "aws_efs_file_system_policy" "sre_home" {
         Sid    = "EnforceAccessViaAccessPoint"
         Effect = "Allow"
         Principal = {
-          AWS = aws_iam_role.task.arn
+          AWS = data.aws_iam_role.task.arn
         }
         Action = [
           "elasticfilesystem:ClientMount",

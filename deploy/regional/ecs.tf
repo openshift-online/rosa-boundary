@@ -65,8 +65,8 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
   network_mode             = "awsvpc"
   cpu                      = var.container_cpu
   memory                   = var.container_memory
-  execution_role_arn       = aws_iam_role.execution.arn
-  task_role_arn            = aws_iam_role.task.arn
+  execution_role_arn       = data.aws_iam_role.execution.arn
+  task_role_arn            = data.aws_iam_role.task.arn
 
   # EFS volume for /home/sre
   volume {

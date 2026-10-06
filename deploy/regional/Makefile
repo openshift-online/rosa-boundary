@@ -10,6 +10,7 @@ SHELL := /bin/bash
 # Find repository root (two levels up from this Makefile)
 REPO_ROOT := $(shell cd ../.. && pwd)
 ENV_FILE := $(REPO_ROOT)/.env
+TF_ARGS ?=
 
 # Check if .env exists
 ifeq ($(wildcard $(ENV_FILE)),)
@@ -68,6 +69,13 @@ init:
 validate:
 	@echo "Validating Terraform configuration..."
 	terraform validate
+
+.PHONY: test fmt
+test:
+	terraform test $(TF_ARGS)
+
+fmt:
+	terraform fmt $(TF_ARGS)
 
 .PHONY: plan
 plan:

@@ -9,20 +9,29 @@
 # subnet_outbound_routing check assert on, so each run fails (or passes) only on
 # the input-variable validation under test.
 
-mock_provider "aws" {}
+mock_provider "aws" {
+  # IAM is now read via data sources, so supply valid ARNs at plan time.
+  mock_data "aws_iam_role" {
+    defaults = { arn = "arn:aws:iam::123456789012:role/rosa-boundary-test" }
+  }
+  mock_data "aws_iam_openid_connect_provider" {
+    defaults = { arn = "arn:aws:iam::123456789012:oidc-provider/auth.example.com/auth/realms/EmployeeIDP" }
+  }
+}
 
-# Baseline inputs. Each run sets bedrock_model_agreements, claude_default_model,
-# and an override for the matching agreement-offers data source (#316).
+# Baseline inputs. The approved manifest remains a read-only validation contract;
+# account Terraform now owns agreements and offer lookups.
 variables {
-  aws_account_id      = "123456789012"
-  aws_region          = "us-east-1"
-  container_image     = "example.com/rosa-boundary:test"
-  vpc_id              = "vpc-00000000000000000"
-  subnet_ids          = ["subnet-00000000000000000", "subnet-11111111111111111"]
-  keycloak_issuer_url = "https://auth.example.com/auth/realms/EmployeeIDP"
-  keycloak_thumbprint = "0000000000000000000000000000000000000000"
-  required_groups     = ["ai-sd-sre"]
-  enable_kube_proxy   = false
+  aws_account_id       = "123456789012"
+  aws_region           = "us-east-1"
+  legacy_policy_region = "us-east-1"
+  container_image      = "example.com/rosa-boundary:test"
+  vpc_id               = "vpc-00000000000000000"
+  subnet_ids           = ["subnet-00000000000000000", "subnet-11111111111111111"]
+  keycloak_issuer_url  = "https://auth.example.com/auth/realms/EmployeeIDP"
+  keycloak_thumbprint  = "0000000000000000000000000000000000000000"
+  required_groups      = ["ai-sd-sre"]
+  enable_kube_proxy    = false
 }
 
 # Real partition so interpolated IAM policy ARNs are valid under mocking.
@@ -75,12 +84,6 @@ run "approved_sonnet5_profile_succeeds" {
     claude_default_model     = "us.anthropic.claude-sonnet-5"
   }
 
-  override_data {
-    target = data.aws_bedrock_foundation_model_agreement_offers.approved["anthropic.claude-sonnet-5"]
-    values = {
-      offers = [{ offer_id = "offer-test", offer_token = "token-test" }]
-    }
-  }
 }
 
 # Strictness: a bare foundation model ID is not an inference profile in the
@@ -93,12 +96,6 @@ run "bare_foundation_model_rejected" {
     claude_default_model     = "anthropic.claude-sonnet-5"
   }
 
-  override_data {
-    target = data.aws_bedrock_foundation_model_agreement_offers.approved["anthropic.claude-sonnet-5"]
-    values = {
-      offers = [{ offer_id = "offer-test", offer_token = "token-test" }]
-    }
-  }
 
   expect_failures = [var.claude_default_model]
 }
@@ -113,12 +110,6 @@ run "unapproved_foundation_model_fails" {
     claude_default_model     = "us.anthropic.claude-sonnet-5"
   }
 
-  override_data {
-    target = data.aws_bedrock_foundation_model_agreement_offers.approved["anthropic.claude-opus-5"]
-    values = {
-      offers = [{ offer_id = "offer-test", offer_token = "token-test" }]
-    }
-  }
 
   expect_failures = [var.claude_default_model]
 }

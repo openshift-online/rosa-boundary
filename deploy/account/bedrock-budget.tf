@@ -1,4 +1,4 @@
-# Public Terraform Registry (hashicorp/aws): aws_budgets_budget.
+# Public Terraform Registry (hashicorp/aws): aws_budgets_budget (account singleton).
 # Cost visibility only: these notifications do not limit or stop inference.
 # The service filter covers all Bedrock charges in this AWS account, including
 # callers outside ROSA Boundary.

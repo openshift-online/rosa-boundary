@@ -8,92 +8,6 @@ resource "aws_cloudwatch_log_group" "create_investigation_lambda" {
   tags = local.common_tags
 }
 
-# IAM role for Lambda execution
-resource "aws_iam_role" "create_investigation_lambda" {
-  name = "${var.project}-${var.stage}-create-investigation-lambda"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
-
-  tags = local.common_tags
-}
-
-# Lambda basic execution permissions (CloudWatch Logs)
-resource "aws_iam_role_policy_attachment" "create_investigation_lambda_basic" {
-  role       = aws_iam_role.create_investigation_lambda.name
-  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-# Lambda permissions for ECS task operations
-resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
-  name = "ecs-task-management"
-  role = aws_iam_role.create_investigation_lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ecs:RunTask",
-          "ecs:StopTask",
-          "ecs:ListTasks",
-          "ecs:DescribeTasks",
-          "ecs:DescribeTaskDefinition",
-          "ecs:RegisterTaskDefinition",
-          "ecs:DeregisterTaskDefinition",
-          "ecs:TagResource"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = ["iam:PassRole"]
-        Resource = [
-          aws_iam_role.task.arn,
-          aws_iam_role.execution.arn,
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = ["ssm:DescribeSessions"]
-        # DescribeSessions does not support resource-level scoping
-        Resource = "*"
-      }
-    ]
-  })
-}
-
-# Lambda permissions for EFS access point management
-resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
-  name = "efs-access-point-management"
-  role = aws_iam_role.create_investigation_lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "elasticfilesystem:CreateAccessPoint",
-          "elasticfilesystem:DeleteAccessPoint",
-          "elasticfilesystem:DescribeAccessPoints",
-          "elasticfilesystem:TagResource"
-        ]
-        Resource = aws_efs_file_system.sre_home.arn
-      }
-    ]
-  })
-}
-
 # Packaging mode: container image when lambda_package_type is "Image", ZIP otherwise.
 # This allows existing deployments (staging) to continue using ZIP packaging
 # while dev/new deployments can opt-in to container image packaging for HCP
@@ -143,16 +57,16 @@ locals {
     KEYCLOAK_URL              = regex("^(.+)/realms/", var.keycloak_issuer_url)[0]
     KEYCLOAK_REALM            = regex("/realms/(.+)$", var.keycloak_issuer_url)[0]
     KEYCLOAK_CLIENT_ID        = var.oidc_client_id
-    OIDC_PROVIDER_ARN         = aws_iam_openid_connect_provider.keycloak.arn
+    OIDC_PROVIDER_ARN         = data.aws_iam_openid_connect_provider.keycloak.arn
     ECS_CLUSTER               = aws_ecs_cluster.main.name
     TASK_DEFINITION           = aws_ecs_task_definition.rosa_boundary.family
-    TASK_ROLE_ARN             = aws_iam_role.task.arn
-    EXECUTION_ROLE_ARN        = aws_iam_role.execution.arn
+    TASK_ROLE_ARN             = data.aws_iam_role.task.arn
+    EXECUTION_ROLE_ARN        = data.aws_iam_role.execution.arn
     SUBNETS                   = join(",", var.subnet_ids)
     SECURITY_GROUP            = aws_security_group.fargate.id
     EFS_FILESYSTEM_ID         = aws_efs_file_system.sre_home.id
-    SHARED_ROLE_ARN           = aws_iam_role.sre_shared.arn
-    INVOKER_ROLE_ARN          = aws_iam_role.lambda_invoker.arn
+    SHARED_ROLE_ARN           = data.aws_iam_role.sre_shared.arn
+    INVOKER_ROLE_ARN          = data.aws_iam_role.lambda_invoker.arn
     S3_AUDIT_BUCKET           = aws_s3_bucket.audit.id
     AWS_ACCOUNT_ID            = data.aws_caller_identity.current.account_id
     PROJECT_NAME              = var.project
@@ -174,7 +88,7 @@ resource "aws_lambda_function" "create_investigation_zip" {
 
   filename         = data.archive_file.create_investigation_lambda[0].output_path
   function_name    = "${var.project}-${var.stage}-create-investigation"
-  role             = aws_iam_role.create_investigation_lambda.arn
+  role             = data.aws_iam_role.create_investigation_lambda.arn
   handler          = "handler.lambda_handler"
   source_code_hash = data.archive_file.create_investigation_lambda[0].output_base64sha256
   runtime          = "python3.11"
@@ -187,7 +101,8 @@ resource "aws_lambda_function" "create_investigation_zip" {
 
   depends_on = [
     aws_cloudwatch_log_group.create_investigation_lambda,
-    aws_iam_role_policy_attachment.create_investigation_lambda_basic
+    aws_iam_role_policy.create_investigation_lambda_ecs,
+    aws_iam_role_policy.create_investigation_lambda_efs,
   ]
 
   tags = local.common_tags
@@ -198,9 +113,9 @@ resource "aws_lambda_function" "create_investigation_image" {
   count = local.lambda_use_image ? 1 : 0
 
   function_name = "${var.project}-${var.stage}-create-investigation"
-  role          = aws_iam_role.create_investigation_lambda.arn
+  role          = data.aws_iam_role.create_investigation_lambda.arn
   package_type  = "Image"
-  image_uri = local.lambda_ecr_image_uri
+  image_uri     = local.lambda_ecr_image_uri
   timeout       = 300
   memory_size   = 256
 
@@ -221,7 +136,8 @@ resource "aws_lambda_function" "create_investigation_image" {
 
   depends_on = [
     aws_cloudwatch_log_group.create_investigation_lambda,
-    aws_iam_role_policy_attachment.create_investigation_lambda_basic,
+    aws_iam_role_policy.create_investigation_lambda_ecs,
+    aws_iam_role_policy.create_investigation_lambda_efs,
     aws_ecr_pull_through_cache_rule.quay
   ]
 
@@ -264,6 +180,6 @@ resource "aws_lambda_permission" "create_investigation_url" {
   statement_id           = "AllowFunctionURLInvoke"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = local.create_investigation_function_name
-  principal              = aws_iam_role.lambda_invoker.arn
+  principal              = data.aws_iam_role.lambda_invoker.arn
   function_url_auth_type = "AWS_IAM"
 }

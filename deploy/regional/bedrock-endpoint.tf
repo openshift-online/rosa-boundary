@@ -41,7 +41,7 @@ resource "aws_vpc_endpoint" "bedrock_runtime" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { AWS = aws_iam_role.task.arn }
+      Principal = { AWS = data.aws_iam_role.task.arn }
       Action = [
         "bedrock:InvokeModel",
         "bedrock:InvokeModelWithResponseStream"

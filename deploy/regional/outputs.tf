@@ -30,12 +30,12 @@ output "task_definition_family" {
 
 output "task_role_arn" {
   description = "ARN of the ECS task IAM role"
-  value       = aws_iam_role.task.arn
+  value       = data.aws_iam_role.task.arn
 }
 
 output "execution_role_arn" {
   description = "ARN of the ECS task execution IAM role"
-  value       = aws_iam_role.execution.arn
+  value       = data.aws_iam_role.execution.arn
 }
 
 output "efs_filesystem_id" {
@@ -100,12 +100,12 @@ output "ssm_session_log_group" {
 
 output "oidc_provider_arn" {
   description = "ARN of the Keycloak OIDC provider"
-  value       = aws_iam_openid_connect_provider.keycloak.arn
+  value       = data.aws_iam_openid_connect_provider.keycloak.arn
 }
 
 output "sre_shared_role_arn" {
   description = "ARN of the shared SRE IAM role (ABAC, assumed via OIDC session tags)"
-  value       = aws_iam_role.sre_shared.arn
+  value       = data.aws_iam_role.sre_shared.arn
 }
 
 output "lambda_function_url" {
@@ -125,7 +125,7 @@ output "lambda_function_arn" {
 
 output "lambda_role_arn" {
   description = "ARN of the create-investigation Lambda execution role"
-  value       = aws_iam_role.create_investigation_lambda.arn
+  value       = data.aws_iam_role.create_investigation_lambda.arn
 }
 
 output "reaper_lambda_function_name" {
@@ -140,10 +140,10 @@ output "reaper_lambda_function_arn" {
 
 output "audit_replication_role_arn" {
   description = "ARN of the S3 replication IAM role. The audit account destination bucket policy must grant this role s3:ReplicateObject, s3:ReplicateDelete, s3:ReplicateTags, and s3:ObjectOwnerOverrideToBucketOwner on the destination bucket."
-  value       = var.audit_replication_bucket_arn != "" ? aws_iam_role.s3_replication[0].arn : null
+  value       = var.audit_replication_bucket_arn != "" ? data.aws_iam_role.s3_replication[0].arn : null
 }
 
 output "lambda_invoker_role_arn" {
   description = "ARN of the IAM role SREs assume to invoke the Lambda function URL via SigV4"
-  value       = aws_iam_role.lambda_invoker.arn
+  value       = data.aws_iam_role.lambda_invoker.arn
 }

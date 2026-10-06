@@ -81,7 +81,7 @@ resource "aws_s3_bucket_policy" "audit" {
 resource "aws_s3_bucket_replication_configuration" "audit" {
   count  = var.audit_replication_bucket_arn != "" ? 1 : 0
   bucket = aws_s3_bucket.audit.id
-  role   = aws_iam_role.s3_replication[0].arn
+  role   = data.aws_iam_role.s3_replication[0].arn
 
   lifecycle {
     precondition {

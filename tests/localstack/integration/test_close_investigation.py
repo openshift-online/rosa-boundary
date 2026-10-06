@@ -11,17 +11,19 @@ def _load_sre_policy_source():
     """Load the Terraform source for the shared SRE permissions policy."""
     test_dir = Path(__file__).resolve().parent
     repo_root = test_dir.parents[2]
-    oidc_path = repo_root / 'deploy' / 'regional' / 'oidc.tf'
-    return oidc_path.read_text(encoding='utf-8')
+    policy_path = repo_root / 'deploy' / 'regional' / 'iam.tf'
+    # HCL aligns attributes within each object; assertions must not depend on
+    # alignment changing when policy definitions are reorganized.
+    return re.sub(r'[ \t]+', ' ', policy_path.read_text(encoding='utf-8'))
 
 
 @pytest.mark.integration
 def test_sre_policy_allows_task_definition_cleanup():
     """Ensure the shared SRE role can list and deregister task definitions."""
     policy_source = _load_sre_policy_source()
-    statement_start = policy_source.index('Sid    = "DescribeListAndCleanupECS"')
+    statement_start = policy_source.index('Sid = "DescribeListAndCleanupECS"')
     statement_end = policy_source.index(
-        'Sid      = "EFSReadAccessPoints"', statement_start
+        'Sid = "EFSReadAccessPoints"', statement_start
     )
     statement = policy_source[statement_start:statement_end]
 
@@ -29,7 +31,7 @@ def test_sre_policy_allows_task_definition_cleanup():
     assert 'Resource = "*"' in statement
     assert '"ecs:ListTaskDefinitions"' in statement
     assert '"ecs:DeregisterTaskDefinition"' in statement
-    assert 'Sid    = "DeregisterTaskDefinition"' not in policy_source
+    assert 'Sid = "DeregisterTaskDefinition"' not in policy_source
 
 
 @pytest.mark.integration
@@ -44,14 +46,14 @@ def test_sre_policy_allows_scoped_access_point_deletion():
     """
     policy_source = _load_sre_policy_source()
 
-    statement_start = policy_source.index('Sid      = "EFSDeleteManagedAccessPoints"')
+    statement_start = policy_source.index('Sid = "EFSDeleteManagedAccessPoints"')
     # The statement ends at the next Sid or the closing of the Statement list.
     statement_end = policy_source.index('Sid ', statement_start + 1)
     statement = policy_source[statement_start:statement_end]
 
     # DeleteAccessPoint is granted...
     assert 'elasticfilesystem:DeleteAccessPoint' in statement
-    assert 'Effect   = "Allow"' in statement
+    assert 'Effect = "Allow"' in statement
 
     # ...but NOT against every access point in the account. It must target the
     # access-point resource type (not the file-system ARN, not "*") ...

@@ -207,8 +207,7 @@ func TestDeriveLambdaFunctionName(t *testing.T) {
 // Contract test helpers
 //
 // The helpers below locate and parse Terraform .tf files to extract resource
-// naming patterns. They assume the Terraform files live at
-// deploy/regional/ relative to the repository root.
+// naming patterns. They read the regional and account stacks under deploy/.
 //
 // If the Terraform files are moved or reorganised, these helpers (and the
 // contract tests that use them) will need to be updated to reflect the new
@@ -236,11 +235,11 @@ func repoRoot(t *testing.T) string {
 	}
 }
 
-// readTerraformFile reads a Terraform file relative to deploy/regional/.
+// readTerraformFile reads a Terraform file relative to the specified deploy stack.
 // If the Terraform directory is relocated, update the path here.
-func readTerraformFile(t *testing.T, name string) string {
+func readTerraformFile(t *testing.T, stack, name string) string {
 	t.Helper()
-	path := filepath.Join(repoRoot(t), "deploy", "regional", name)
+	path := filepath.Join(repoRoot(t), "deploy", stack, name)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("cannot read %s: %v", path, err)
@@ -256,11 +255,11 @@ func readTerraformFile(t *testing.T, name string) string {
 // The attribute parameter matches the HCL attribute name (e.g. "function_name" or "name").
 func extractTerraformPattern(t *testing.T, content, attribute string) string {
 	t.Helper()
-	// Match:  attribute  =  "...${var.project}...${var.stage}..."
-	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(attribute) + `\s*=\s*"(\$\{var\.project\}[^"]*)"`)
+	// Match a quoted variable interpolation, including account identity prefixes.
+	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(attribute) + `\s*=\s*"(\$\{var\.[^"]*)"`)
 	matches := re.FindStringSubmatch(content)
 	if matches == nil {
-		t.Fatalf("cannot find %s = \"${var.project}...\" pattern in Terraform content", attribute)
+		t.Fatalf("cannot find %s variable-interpolation pattern in Terraform content", attribute)
 	}
 	return matches[1]
 }
@@ -284,7 +283,7 @@ func expandTerraformVars(pattern, project, environment string) string {
 // NOTE: This test reads Terraform files from deploy/regional/. Moving or
 // renaming those files will break this test.
 func TestContractDeriveLambdaFunctionName_MatchesTerraform(t *testing.T) {
-	content := readTerraformFile(t, "lambda-create-investigation.tf")
+	content := readTerraformFile(t, "regional", "lambda-create-investigation.tf")
 	pattern := extractTerraformPattern(t, content, "function_name")
 
 	for _, tt := range []struct {
@@ -306,17 +305,23 @@ func TestContractDeriveLambdaFunctionName_MatchesTerraform(t *testing.T) {
 
 // Contract: TestContractDeriveInvokerRoleARN_MatchesTerraform verifies that
 // the role name suffix produced by the Go derivation function matches the
-// Terraform resource naming in deploy/regional/lambda-invoker.tf.
+// default account identity naming in deploy/account/modules/shared-iam/.
 //
 // The ARN prefix (arn:aws:iam::<account>:role/) is added by the Go function
 // but not present in Terraform's name attribute, so we compare only the role
 // name portion.
 //
-// NOTE: This test reads Terraform files from deploy/regional/. Moving or
-// renaming those files will break this test.
+// Custom account prefixes require an explicit CLI role configuration. This
+// contract covers the default project-stage prefix derived during configure.
 func TestContractDeriveInvokerRoleARN_MatchesTerraform(t *testing.T) {
-	content := readTerraformFile(t, "lambda-invoker.tf")
+	content := readTerraformFile(t, "account", "modules/shared-iam/lambda-invoker.tf")
 	pattern := extractTerraformPattern(t, content, "name")
+	account := readTerraformFile(t, "account", "main.tf")
+	prefix := regexp.MustCompile(`(?m)^\s*role_name_prefix\s*=\s*var\.role_name_prefix\s*!=\s*""\s*\?\s*var\.role_name_prefix\s*:\s*"([^"]+)"`).FindStringSubmatch(account)
+	if prefix == nil || !regexp.MustCompile(`(?m)^\s*role_name_prefix\s*=\s*local\.role_name_prefix\s*$`).MatchString(account) {
+		t.Fatal("account module must receive the configured prefix with the project-stage default")
+	}
+	pattern = strings.ReplaceAll(pattern, "${var.role_name_prefix}", prefix[1])
 
 	for _, tt := range []struct {
 		accountID   string

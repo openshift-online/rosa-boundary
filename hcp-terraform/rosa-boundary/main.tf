@@ -86,6 +86,8 @@ module "rosa_boundary" {
       github_repo_org   = "openshift-online"
       github_repo_name  = "rosa-boundary"
       # A plan before adoption will propose duplicates of regional-owned objects.
+      # Workspace variable below: adopt_existing_resources = false.
+      # Change its value to true only for the reviewed import handoff.
       # Never apply until the regional release and account imports are reviewed.
       auto_apply             = false
       auto_apply_run_trigger = false

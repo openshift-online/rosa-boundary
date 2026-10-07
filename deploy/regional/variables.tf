@@ -1,3 +1,18 @@
+variable "account_role_name_prefix" {
+  description = "Shared account-owned IAM role prefix. Empty preserves the legacy project-stage prefix; match deploy/account regional_iam_contract.account_role_name_prefix in every region."
+  type        = string
+  default     = ""
+}
+
+variable "legacy_policy_region" {
+  description = "Match deploy/account regional_iam_contract.legacy_policy_region in EVERY regional workspace. Only this region retains legacy inline policy names; all others append -<aws_region>. Never independently designate a second legacy owner."
+  type        = string
+  validation {
+    condition     = can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.legacy_policy_region))
+    error_message = "legacy_policy_region must be an explicit AWS region name."
+  }
+}
+
 variable "aws_account_id" {
   description = "AWS account ID used as a provider deployment guard via allowed_account_ids. Supplied by the HCP Terraform workspace."
   type        = string

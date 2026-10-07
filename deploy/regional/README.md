@@ -1,6 +1,30 @@
 # ROSA Boundary Regional Infrastructure
 
-Terraform configuration for deploying ROSA Boundary container infrastructure on AWS Fargate, including S3 audit storage with WORM compliance, EFS persistent storage, and IAM roles with Bedrock access.
+Terraform configuration for deploying ROSA Boundary container infrastructure on AWS Fargate, including S3 audit storage with WORM compliance and EFS persistent storage, consuming account-owned IAM roles with Bedrock access.
+
+## Account identities and regional grants
+
+Deploy [`../account`](../account/README.md) before a new regional deployment.
+This root now consumes existing IAM roles by name and OIDC providers by issuer
+URL; it no longer owns role/trust definitions or the Bedrock monthly budget.
+It **does own regional inline policies** on those shared roles, referencing the
+actual resources created here. Configure `account_role_name_prefix` to match
+the shared account identity prefix (empty retains the legacy `project-stage`
+prefix). Coordinate the legacy policy region with all other regional stacks:
+set `legacy_policy_region` to that same original region in every workspace.
+Existing names are retained only there; other regions use qualified policy names
+to avoid overwriting another region's grants. Shared roles receive the union of
+regional permissions; this state split does not enforce regional isolation.
+Budget and IAM trust/thumbprint inputs remain
+accepted for compatibility, but account state controls those settings.
+For existing states, follow the account README's non-destructive `removed` plus
+optional import handoff before resuming normal applies. Model agreements are
+account-owned; the regional approved manifest still validates the default model.
+Only identities/common attachments/account singletons transfer ownership;
+existing regional inline policy addresses stay here. Account creation needs no
+regional ARNs or placeholder resource IDs. Tear down all regional consumers and
+policies before deleting shared account roles; there is no cross-state lifecycle
+graph. Older examples below that describe role creation must use the account root.
 
 ## Prerequisites
 
@@ -37,18 +61,19 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 - **EFS Filesystem**: Encrypted persistent storage for `/home/sre`
 - **ECS Cluster**: Fargate cluster with Container Insights
 - **ECS Task Definition**: Complete task definition with EFS mount
-- **IAM Roles**: Execution role and task role with Bedrock, S3, ECS Exec permissions
+- **IAM Roles**: Looked up from account-owned execution/task roles, not created here
+- **IAM permission grants**: Regional inline policies on shared account roles; common AWS-managed attachments remain account-owned
 - **Security Groups**: For Fargate tasks and EFS mount targets
 - **Bedrock Runtime interface endpoint**: Private DNS and an HTTPS-only security group restricted to the Fargate task security group; one endpoint ENI per task AZ
 - **CloudWatch Log Group**: For container logs
-- **Bedrock cost budget**: Monthly account-wide Bedrock spend alerts (no automatic action)
+- **Bedrock cost budget**: Account-owned monthly spend alerts (not created here)
 
 ### Bedrock cost alerts
 
-The budget amount and notification email are configurable; see their defaults
-in `deploy/regional/variables.tf` and the staging overrides in
-`hcp-terraform/rosa-boundary/main.tf`. The alert thresholds and **actual**
-monthly spend setting are defined in `deploy/regional/bedrock-budget.tf`. The
+The budget amount and notification email are configured in `deploy/account`.
+Copy existing active values when transferring ownership; regional compatibility
+variables no longer control the budget. The alert thresholds and **actual**
+monthly spend setting are defined in `deploy/account/bedrock-budget.tf`. The
 Service filter includes all Amazon Bedrock spend in the account, not only ROSA
 Boundary tasks or a single Region. Billing and alert evaluation can lag usage;
 these alerts do not stop or cap inference spending.
@@ -109,11 +134,12 @@ the Bedrock audit destinations, subject to these controls:
 
 These controls limit access and protect storage at rest; they do **not** redact
 prompts or responses, guarantee that sensitive data is absent, or scope the
-account/Region-wide Bedrock configuration to Boundary callers. For subsequent
-deployment changes, review the speculative HCP Terraform plan before merge
-and verify effective log/S3 readers after apply; the staging regional workspace
-auto-applies after merge. Do not assume a merged PR proves that its HCP run
-completed successfully.
+account/Region-wide Bedrock configuration to Boundary callers. Review the
+speculative HCP Terraform plan and the account's effective log/S3 readers
+before the ownership-release apply; confirm the staging regional workspace's
+manual-apply gate is active in HCP Terraform. For subsequent changes, review
+speculative plans before merge and verify readers after apply; a merged PR
+does not prove that its HCP run completed successfully.
 
 ## Execution Modes
 
@@ -140,6 +166,7 @@ directory. Key differences from local execution:
 | `aws_account_id` | string | 12-digit AWS account ID (provider deployment guard) |
 | `aws_region` | string | AWS region for all resources |
 | `stage` | string | Environment stage (`dev`, `stage`, `prod`) |
+| `legacy_policy_region` | string | Match the account workspace's designated original region for legacy inline policy names |
 | `vpc_id` | string | VPC ID where Fargate tasks run |
 | `subnet_ids` | list(string) | Private subnet IDs (minimum 2 for HA) |
 | `container_image` | string | Container image URI |
@@ -151,9 +178,12 @@ directory. Key differences from local execution:
 
 | Variable | Default | Notes |
 |----------|---------|-------|
-| `abac_tag_key` | `"username"` | ECS task tag key for ABAC isolation. The correct value depends on the OIDC provider's principal-tag claim mapping. |
+| `account_role_name_prefix` | `""` | Shared role prefix from the account workspace; staging sets it explicitly. |
+| `abac_tag_key` | `"uuid"` | ECS task tag key for ABAC isolation. The correct value depends on the OIDC provider's principal-tag claim mapping. |
 
-This PR does not create or configure an HCP Terraform workspace.
+The staging regional workspace is configured in the Git-managed meta-workspace.
+Do not apply its ownership-release plan until the non-destructive removals and
+the account import inventory have both been reviewed under the verified gate.
 
 ### Local Development
 
@@ -473,12 +503,17 @@ Claude Code configuration and investigation artifacts persist across task restar
 
 ## IAM Permissions
 
+The account root owns the following role identities and common AWS-managed
+attachments. This regional root owns the inline permission grants referencing
+its resources. Grants from other regions on the same roles are additive, not
+isolated; no root may exclusively reconcile policies on these shared roles.
+
 ### Task Execution Role
 
 Used by ECS to pull images and write logs:
 
-- `AmazonECSTaskExecutionRolePolicy` (AWS managed)
-- Secrets Manager read access (for future token injection)
+- `AmazonECSTaskExecutionRolePolicy` (AWS managed, account-owned attachment)
+- Secrets Manager read access (regional inline policy, for future token injection)
 
 ### Task Role
 

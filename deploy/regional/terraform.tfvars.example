@@ -4,15 +4,23 @@
 aws_account_id = "<12-digit-aws-account-id>"
 aws_region     = "<aws-region>"
 
+# Shared account identities must exist before this stack is applied.
+# Empty uses project-stage; match deploy/account role_name_prefix if overridden.
+account_role_name_prefix = ""
+# REQUIRED: designate the original policy-owning region consistently across
+# every regional stack using these roles. Only it retains legacy policy names;
+# other regions append their region to avoid overwriting existing grants.
+legacy_policy_region = "<original-policy-region>"
+
 project         = "rosa-boundary"
 stage           = "dev"
-# Optional Bedrock cost-alert overrides: see defaults in variables.tf.
+# Budget configuration now belongs to deploy/account, not this regional root.
 retention_days  = 90  # S3 WORM compliance retention period in days
 container_image = "YOUR_ACCOUNT_ID.dkr.ecr.YOUR_REGION.amazonaws.com/rosa-boundary:latest"
 
-# Bedrock foundation-model agreements. Replace the example PUBLIC offer IDs
-# with those returned for this account and Region before applying. For no
-# agreements, use {}. See docs/configuration/bedrock-model-agreements.md for
+# Read-only approved model manifest: copy the account root's approved offer IDs.
+# Agreements are created/imported only in deploy/account. For no agreements,
+# use {}. See docs/configuration/bedrock-model-agreements.md for
 # how to find model IDs, offer IDs, and review the offer terms.
 bedrock_model_agreements = {
   "anthropic.claude-sonnet-5"                = "offer-REPLACE_WITH_APPROVED_ID"

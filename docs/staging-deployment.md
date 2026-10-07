@@ -162,7 +162,16 @@ inventory before approving any import. See [`../deploy/account/README.md`](../de
 | **Purpose** | Core infrastructure: ECS, EFS, Lambda, IAM, KMS, S3, CloudWatch |
 | **Variable sets** | `rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds` |
 
-The primary workload workspace. Deploys the ECS Fargate cluster, EFS filesystem, S3 audit bucket, Lambda functions (create-investigation, reap-tasks), IAM roles and policies, OIDC providers for user authentication, KMS keys, CloudWatch log groups, EventBridge rules, and security groups.
+The primary regional workload workspace. Deploys the ECS Fargate cluster, EFS filesystem, S3 audit bucket, Lambda functions (create-investigation, reap-tasks), regional IAM permission policies, KMS keys, CloudWatch log groups, EventBridge rules, and security groups. After the ownership handoff it looks up the shared IAM roles and OIDC providers managed by the account workspace.
+
+During ROSAENG-68790, the regional root retains resource-scoped IAM policies
+but releases shared roles, OIDC providers, the Bedrock budget, and model
+agreements from its state with `removed { destroy = false }`. This change does
+not delete those AWS resources. Apply the reviewed release only after verifying
+the account workspace's import inventory and the regional manual-apply gate;
+then apply account imports before resuming normal operations. The Git-managed
+regional `account_role_name_prefix` and `legacy_policy_region` variables match
+the account workspace's shared-role and policy-name contract.
 
 The Git-managed workspace definition sets `auto_apply = false` and
 `auto_apply_run_trigger = false` for the regional workspace. Verify that the

@@ -3,11 +3,11 @@ name = "create-investigation"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "PyJWT>=2.15.0",
-    "cryptography>=50.0.1",
+    "PyJWT>=2.15.1",
+    "cryptography>=50.0.2",
     "requests>=2.34.2",
-    "boto3>=1.43.103",
-    "awslambdaric==4.0.4",
+    "boto3>=1.43.108",
+    "awslambdaric==4.1.0",
 ]
 
 [dependency-groups]
@@ -15,5 +15,5 @@ dev = [
     "moto[ecs,efs,iam,kms,s3,sts]>=5.2.3",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
-    "pytest-mock>=3.15.1",
+    "pytest-mock>=3.16.0",
 ]

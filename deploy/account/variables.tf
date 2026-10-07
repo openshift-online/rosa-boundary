@@ -53,8 +53,8 @@ variable "role_name_prefix" {
   type        = string
   default     = ""
   validation {
-    condition     = can(regex("^[A-Za-z0-9_+=,.@-]{1,37}$", var.role_name_prefix != "" ? var.role_name_prefix : "${var.project}-${var.stage}"))
-    error_message = "Role prefixes must use IAM name characters, with at most 37 characters."
+    condition     = can(regex("^[A-Za-z0-9_+=,.@-]{1,36}$", var.role_name_prefix != "" ? var.role_name_prefix : "${var.project}-${var.stage}"))
+    error_message = "Role prefixes must use IAM name characters, with at most 36 characters."
   }
 }
 

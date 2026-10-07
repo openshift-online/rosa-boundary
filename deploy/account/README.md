@@ -83,10 +83,13 @@ make plan
 make apply
 ```
 
-`plan` and `apply` optionally source the repository-root `.env` (override with
-`ENV_FILE`); use explicit `TF_VAR_*` values or a tfvars file. `TF_ARGS` passes
-additional flags. State/backend configuration and HCP workspace wiring are
-outside this baseline. Never reuse the regional backend/state.
+`plan` and `apply` optionally source the trusted repository-root `.env`, as the
+regional Makefile does; do not use an untrusted file there. Use explicit
+`TF_VAR_*` values or a tfvars file. For additional Terraform flags, set
+`TF_CLI_ARGS` or a subcommand-specific variable such as `TF_CLI_ARGS_plan`;
+the Makefile does not interpolate flags into shell commands. State/backend
+configuration and HCP workspace wiring are outside this baseline. Never reuse
+the regional backend/state.
 
 ## Existing deployment handoff
 

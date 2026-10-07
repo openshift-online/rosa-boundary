@@ -5,8 +5,6 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 REPO_ROOT := $(abspath ../..)
-ENV_FILE ?= $(REPO_ROOT)/.env
-TF_ARGS ?=
 
 .PHONY: help init fmt validate test plan apply
 help:
@@ -14,7 +12,7 @@ help:
 	echo "Targets: init, fmt, validate, test, plan, apply"
 
 init:
-	terraform init $(TF_ARGS)
+	terraform init
 
 fmt:
 	terraform fmt -recursive
@@ -23,12 +21,12 @@ validate:
 	terraform validate
 
 test:
-	terraform test $(TF_ARGS)
+	terraform test
 
 plan:
-	@if [[ -f "$(ENV_FILE)" ]]; then set -a; source "$(ENV_FILE)"; set +a; fi
-	terraform plan $(TF_ARGS)
+	@if [[ -f "$(REPO_ROOT)/.env" ]]; then set -a; source "$(REPO_ROOT)/.env"; set +a; fi
+	terraform plan
 
 apply:
-	@if [[ -f "$(ENV_FILE)" ]]; then set -a; source "$(ENV_FILE)"; set +a; fi
-	terraform apply $(TF_ARGS)
+	@if [[ -f "$(REPO_ROOT)/.env" ]]; then set -a; source "$(REPO_ROOT)/.env"; set +a; fi
+	terraform apply

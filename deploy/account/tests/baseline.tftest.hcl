@@ -127,6 +127,21 @@ run "invalid_prefix_rejected" {
   expect_failures = [var.role_name_prefix]
 }
 
+run "longest_valid_prefix" {
+  command = plan
+  variables { role_name_prefix = "123456789012345678901234567890123456" }
+  assert {
+    condition     = output.shared_roles.create_investigation.name == "123456789012345678901234567890123456-create-investigation-lambda"
+    error_message = "The longest valid prefix must produce a 64-character IAM role name."
+  }
+}
+
+run "too_long_prefix_rejected" {
+  command = plan
+  variables { role_name_prefix = "1234567890123456789012345678901234567" }
+  expect_failures = [var.role_name_prefix]
+}
+
 run "model_activation_preserves_manifest" {
   command = plan
   variables { bedrock_model_agreements = { "anthropic.claude-sonnet-5" = "offer-reviewed" } }

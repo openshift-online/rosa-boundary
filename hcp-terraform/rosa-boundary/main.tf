@@ -85,9 +85,10 @@ module "rosa_boundary" {
       working_directory = "deploy/regional"
       github_repo_org   = "openshift-online"
       github_repo_name  = "rosa-boundary"
-      # Apply successful plans automatically, including plans from workspace run triggers.
-      auto_apply             = true
-      auto_apply_run_trigger = true
+      # ROSAENG-68790: hold regional applies before account-level resources move state.
+      # Keep both settings disabled until the migration and smoke tests finish.
+      auto_apply             = false
+      auto_apply_run_trigger = false
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {

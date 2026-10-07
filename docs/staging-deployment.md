@@ -145,7 +145,12 @@ This workspace additionally requires the `rosa-boundary-tfe-creds` variable set 
 
 The primary workload workspace. Deploys the ECS Fargate cluster, EFS filesystem, S3 audit bucket, Lambda functions (create-investigation, reap-tasks), IAM roles and policies, OIDC providers for user authentication, KMS keys, CloudWatch log groups, EventBridge rules, and security groups.
 
-This workspace has `auto_apply = false` and `auto_apply_run_trigger = false`, meaning every apply requires manual confirmation in the HCP Terraform UI. This provides an explicit approval gate before changes reach the staging infrastructure.
+The Git-managed workspace definition sets `auto_apply = false` and
+`auto_apply_run_trigger = false` for the regional workspace. Verify that the
+meta-workspace has reconciled both settings in HCP Terraform and review any
+queued runs before relying on this manual apply gate for the handoff of shared
+IAM/OIDC identities, the Bedrock budget and model agreements. This gate does
+not register or apply the new account workspace.
 
 ### meta-rosa-rosa-boundary (L2)
 

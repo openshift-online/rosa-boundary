@@ -143,13 +143,14 @@ account role deletion must be coordinated with every consuming region. Removing
 one region's grants must not remove another region's policies or common
 attachments. Review a destroy plan with the same care as deployment.
 
-HCP workspace registration, variable redistribution and live migration validation
-remain pending. The staging meta-workspace is configured to disable regional
-auto-apply and auto-apply on run triggers, but the gate must be verified in HCP
-after reconciliation, including any queued runs. This scaffold does not change
-regional ownership of shared identities, the Bedrock budget or model agreements,
-or authorize applying the account root against existing staging resources.
-Mocked tests do not prove live state-transfer safety.
+The Git-managed staging definition registers a separate, manually applied
+account workspace with the existing dynamic AWS credentials variable set and
+staging inputs. Verify the regional apply gate and account credential trust
+in HCP after reconciliation, including any queued runs. The account workspace
+can plan before adoption, but its create plan must **not** be applied against
+the regional-owned shared identities, Bedrock budget or model agreements.
+Workspace registration does not transfer ownership; mocked tests do not prove
+live state-transfer safety.
 
 ## Bedrock model agreement scope
 

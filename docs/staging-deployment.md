@@ -64,7 +64,7 @@ infra-platform repo                    rosa-boundary repo                    ros
 |-------|-----------|-------------------|---------|
 | **L1 -- Bootstrap** | `openshift-online/infra-platform` | `hcp-terraform/tenants/rosa/` | Creates projects, teams, meta-workspaces, and policies |
 | **L2 -- Meta-workspace** | `openshift-online/rosa-boundary` | `hcp-terraform/rosa-boundary/` | Creates and configures the workload workspaces |
-| **L3 -- Workloads** | `openshift-online/rosa-boundary` | `deploy/network/`, `deploy/regional/`, `hcp-terraform/aws-creds/rosa-boundary-stage/` | Actual AWS infrastructure |
+| **L3 -- Workloads** | `openshift-online/rosa-boundary` | `deploy/network/`, `deploy/account/`, `deploy/regional/`, `hcp-terraform/aws-creds/rosa-boundary-stage/` | Actual AWS infrastructure |
 
 Changes cascade downward via run triggers: a successful apply at L1 triggers L2, and L2 triggers L3 workspaces.
 
@@ -74,7 +74,7 @@ Changes cascade downward via run triggers: a successful apply at L1 triggers L2,
 
 ### Infrastructure Changes (Terraform)
 
-All three workload workspaces are VCS-connected to the `openshift-online/rosa-boundary` GitHub repository. The flow from code change to deployed infrastructure is:
+All four workload workspaces are VCS-connected to the `openshift-online/rosa-boundary` GitHub repository. The flow from code change to deployed infrastructure is:
 
 1. **Open a PR** against `openshift-online/rosa-boundary` from an upstream branch (not a fork -- see note below).
 2. **Speculative plan runs automatically** on any workspace whose `working_directory` contains changed files. HCP Terraform posts the plan output as a PR check.
@@ -82,7 +82,7 @@ All three workload workspaces are VCS-connected to the `openshift-online/rosa-bo
 4. **VCS trigger fires** on merge to `main`, queuing a plan on the affected workspace(s).
 5. **Apply behavior** depends on the workspace:
    - `rosa-boundary-stage-network` and `rosa-boundary-stage-aws-creds`: **auto-apply** -- the plan applies automatically after a successful plan.
-   - `rosa-boundary-stage-regional`: **manual apply** -- a team member must confirm the apply in the HCP Terraform UI. This is intentional because the regional workspace manages the production-path infrastructure (ECS, Lambda, IAM).
+   - `rosa-boundary-stage-account` and `rosa-boundary-stage-regional`: **manual apply** -- a team member must confirm the apply in the HCP Terraform UI. In particular, do not apply an account create plan against resources still owned by regional state.
 
 > **Fork PRs do not trigger speculative plans.** HCP Terraform only runs plans for PRs from branches on the connected repository (`openshift-online/rosa-boundary`), not from forks. External contributors must have their changes pushed to an upstream branch for speculative plans to run.
 
@@ -108,7 +108,7 @@ Changes to workspace configuration itself (adding variables, changing auto-apply
 
 ## Workspaces
 
-All workspaces live in the **`rosa-boundary`** project within the **`hp-platform-engineering`** HCP Terraform organization and are connected to the `openshift-online/rosa-boundary` GitHub repository. The three workload workspaces run **Terraform 1.16.0** (an exact, reviewed runtime pin), while the Terraform configurations declare a wider compatibility constraint of **`>= 1.15, < 2.0`**. The `meta-rosa-rosa-boundary` workspace runtime is managed separately by infra-platform.
+All workspaces live in the **`rosa-boundary`** project within the **`hp-platform-engineering`** HCP Terraform organization and are connected to the `openshift-online/rosa-boundary` GitHub repository. The four workload workspaces run **Terraform 1.16.0** (an exact, reviewed runtime pin), while the Terraform configurations declare a wider compatibility constraint of **`>= 1.15, < 2.0`**. The `meta-rosa-rosa-boundary` workspace runtime is managed separately by infra-platform.
 
 ### rosa-boundary-stage-network
 
@@ -134,6 +134,25 @@ Creates the IAM OIDC provider for `app.terraform.io` and the plan/apply IAM role
 
 This workspace additionally requires the `rosa-boundary-tfe-creds` variable set (a `TFE_TOKEN`) because it uses the `tfe` provider to create and manage the dynamic credentials variable set.
 
+### rosa-boundary-stage-account
+
+| Attribute | Value |
+|-----------|-------|
+| **Working directory** | `deploy/account/` |
+| **Auto-apply / run-trigger auto-apply** | No / No |
+| **Purpose** | Future owner of shared IAM/OIDC resources, Bedrock budget and model agreements |
+| **Variable sets** | `rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds` |
+
+The account workspace has **separate state** from regional, but its resources
+remain regional-owned until the reviewed release/import handoff. Its first
+pre-adoption plan may propose creating duplicates of existing resources;
+**do not apply it**. Verify the regional manual-apply gate, the AWS-credentials
+trust allowlist and the account workspace's plan authentication before proceeding.
+If workspace registration runs before the AWS-credentials workspace has applied
+the trust change, retry the account plan after trust is reconciled. Copy actual
+resource tags, trust, budget and agreement settings from the current staging
+inventory before approving any import. See [`../deploy/account/README.md`](../deploy/account/README.md).
+
 ### rosa-boundary-stage-regional
 
 | Attribute | Value |
@@ -158,7 +177,7 @@ not register or apply the new account workspace.
 |-----------|-------|
 | **Project** | `meta-rosa` |
 | **Working directory** | `hcp-terraform/rosa-boundary/` |
-| **Purpose** | Creates and manages the three workload workspaces above |
+| **Purpose** | Creates and manages the four workload workspaces above |
 | **Variable sets** | `rosa-admin-creds`, `rosa-notification-url` |
 
 This is the meta-workspace (L2). It uses the private `terraform-tfe-workspaces` module to declaratively manage the workload workspaces, their VCS connections, variable assignments, and variable set attachments. Changes to this workspace propagate to workload workspaces via run triggers.
@@ -173,7 +192,7 @@ HCP Terraform authenticates to the `rosa-boundary-stage` AWS account (`150100906
 
 1. An IAM OIDC provider in the AWS account trusts `app.terraform.io` as an identity provider.
 2. Dedicated IAM roles (`plan` and `apply`) have trust policies scoped to the specific HCP Terraform organization, project, and workspace, and further restricted by run phase (`plan` or `apply`).
-3. A variable set (`rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds`) containing `TFC_AWS_PROVIDER_AUTH=true`, `TFC_AWS_PLAN_ROLE_ARN`, and `TFC_AWS_APPLY_ROLE_ARN` is attached to all three workload workspaces.
+3. A variable set (`rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds`) containing `TFC_AWS_PROVIDER_AUTH=true`, `TFC_AWS_PLAN_ROLE_ARN`, and `TFC_AWS_APPLY_ROLE_ARN` is attached to all four workload workspaces.
 4. The AWS Terraform provider automatically reads these environment variables and authenticates via `sts:AssumeRoleWithWebIdentity` -- no changes needed in workload Terraform code.
 
 The plan role defaults to `ReadOnlyAccess` and the apply role defaults to `AdministratorAccess`.
@@ -196,9 +215,13 @@ module "aws_dynamic_creds" {
         rosa-boundary = {
           workspace_names = [
             "rosa-boundary-stage-aws-creds",
+            "rosa-boundary-stage-account",
             "rosa-boundary-stage-network",
             "rosa-boundary-stage-regional",
           ]
+        }
+        rosa-trusted-actions = {
+          workspace_names = ["rosa-trusted-actions-stage"]
         }
       }
     }
@@ -206,7 +229,7 @@ module "aws_dynamic_creds" {
 }
 ```
 
-To grant dynamic credentials to a new workspace, add it to the `workspace_names` list and apply.
+To grant dynamic credentials to a new workspace, add it to the `workspace_names` list and apply. Preserve the existing `rosa-trusted-actions` trust entry.
 
 ---
 

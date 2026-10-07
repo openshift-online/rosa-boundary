@@ -11,3 +11,4 @@ All project guidance, coding standards, hard requirements, and pre-PR quality ga
 - Pre-PR quality gates and testing checklist
 - Environment variable documentation
 - CI pipeline documentation
+- Openwiki guidance

@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:a76368b4bc47ef2112744a8e8abee28fe58786cdb27d62ea649eedb208739cee",
+  "claims": [
+    {
+      "id": "claim_6ef5e4d7ea474a2fad1b1d89048ab5ac",
+      "statement": "The ECS cluster routes ECS Exec transcripts to a dedicated CloudWatch log group with CloudWatch encryption enabled; the main container and optional kube-proxy sidecar write to a separate group with distinct stream prefixes.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/ecs.tf#L10-L39",
+          "version": "repo-lines-v1:sha256:cd8e131852bd9d786015edb969befdec0f7618b6b318ce92d540fdf0d5a0ab4a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEwMTJhY2VmNzRmYjE2ZDMwMjIxYjJiYThlM2FmMTQ4YzgzYmRkN2Y2NDRlOTE1YzczNjY4MGI0MGExNjAzOGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNDc3YzRlOTQ0N2NjM2JhZDkyNzMxNjRhYzAyNTRkNzZhNThiNjM4YThjY2FlYWEyODYzMzllOGE2ZGQ0YjAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxZGIzNmU4ZDYzNjJmN2Q4ZWIwNWE3Y2I0YTVmOTc5YTcyMTVkOTEyYmVmMjA5NzZkZmRjZjcyMWRhZTYyNDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZmOGE1MzNkMWQzNDlmYTIxOWZkODk3N2UxYzY1Mzc3NTNkZDE0Y2QyMTZmNzRkNjlkMzFmY2JkNWY3OTg0MTkifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/ecs.tf#L103-L168",
+          "version": "repo-lines-v1:sha256:9ed88bb8254240cb1575cb96fef0a0b22f4a69aed1e8b0f5680f87a9971b3ba6:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmZDg1MGJhOTZhYjMyMTc3NzZiZmNlMDcxMDE1ZGViZDljMzlkN2IxOTJkMTg2Y2FjZjRjMTVkYjg1YzEwMzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3ZDg2MzJlNTRlOTI5OGFiYjk1ODcyN2UyZDUxNDA4YWJhZjEzNjYwMzUzNzkxMDE0MGFiZjY1YjMwYWI2MTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI3YmJhOTc5MjJmZmMwMTcyMjRlMWExNGU3ZmNmNWY0NGU2ZWExNmI3MzBiYTFjZjFhY2U1YWU1OGFiMjJmMGMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d7a6570aa5664277abb4269fcd784c6e",
+      "statement": "The create-investigation and reaper Lambdas have separately named CloudWatch log groups with configurable retention; their handlers log authorization/resource-lifecycle outcomes and task deadline/reaper results, respectively.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L1-L9",
+          "version": "repo-lines-v1:sha256:c60f4ea9a3c202b56c22a9a1e32859d6a979476cdda07652e16ca1f5cb7e2d3b:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmY1NTZkZjEyZWM2MzIzNWZhNjQ2OGY3MDg2M2QxNzA2ZTNlNDNkYTg4NjdlZGQ3MDc3MWJkNGQ0MGJjZDhmNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiN2Q5NGRmNWFiODM5OTM1MmMzZjM0ZjY4OTRmMDkyOTJmY2UyMDQ0MTc3NDAwOTdkNDIxOTg4YmE0NDIxNDgwMCJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L1-L9",
+          "version": "repo-lines-v1:sha256:25b50c3b515089de341771c36f4e09b22d5ede7d8158cab342c6c394d9bc4af0:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjA2MWM2NTRmMDkyN2UwNjkyMDk2ZDE3MmFmZjNmMWQ1ODMwZmM5MjIzY2M3ZGFmZjFjMGZlNjE5ODk0Yjg1NCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWM0ODdiZGY3NzQxMDM0ZWRiYjQ0YWE1N2FkMmIyYWZkOTY5MTJiNzMyZDQ0MTIwMGYxNDA1N2Y1N2I4OTI0MSJ9"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L175-L235",
+          "version": "repo-lines-v1:sha256:84eef2692e325153ea9c050f5a00b40eee15c73aebda9c2bdfa825a6ccaac7bd:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwODg5ZjQ0NGQ1YTg2ZGY3MTZkOTYxNTljNzE2ODE4MmYyYzVlNjEyMjllNjkwOTdjYmRkMjc4ZDk4OWUxOTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwNDcxZDVmNTU1ODZkNDI5M2ViZDk4Y2UzNmFhM2ZkMzIyNDA5YTBiYjk4MjZjMjdjZDlmYzY3MWNmMzE2ZGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJjNTY4ZTQxNmIyOTRiNzY1M2FjZWNjOGRjMWUyYzE2N2YyOWZiY2FmNWQ3ZjJkNzg3ZjQwNTA0OTQ3Nzg5YTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjZTk4M2M1YjFkNGRhZDc1ODFhZjA3YzA2MTE0NzkxMzM0NGYwMWM4MjJjOTQ0YjM5NWExYWJkNjdlZjVlZWEifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L88-L94",
+          "version": "repo-lines-v1:sha256:86368cc9932499e8e0ff1bef8c9ae6cafc233e6dc9a4c5477e8ff3cc6f4f5ff2:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWRhNWM2NmUxN2IxNDUzOTc4MzRiOGM4NTRkYzQxOTNlMjEyNTE4MGE4OTk2YTE0YzMxODgzMzI2YjJlZmJjZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTAwNGJkMDcwNDY1OTQzMDg4MWQ1ZDU4NDdiYzI5ZjM0ZTE2ODE1OWQ3OGMxOWZiMzMwMTVjNGVhZWUzOTI0NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmIzY2QzZjBjNjJkYzI4NDI5M2NhNTVjOTRlNWNkOGJiMjg4NDNhNzJjOGY3NzllMzZjNWJiNWEzNDYxM2NlNiJ9"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/handler.py#L113-L163",
+          "version": "repo-lines-v1:sha256:fda5ef8fe47b7ea0d656701acc9ededa0d7c27da30cdf90efa61acf9afbec9fd:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRhYWM5MjRjNDNjYjhjNTdmOGNjZjg1OGNlMTcxMzc2MjhlYzdhZmNlOTFhNDYwYzljNzdiZTYzYzBkNTUxZWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNlYTMwNDQ2NWEzODRmYzJiMzY0YzYyYzM0OWRlYmQ3NmI0YjNhNWMzODhlZGViODIzMjRiOTcxYmNiMzU3ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdjNzE3MmZhZTYyOGRmYjI2ZmZmOGM5NjkzN2MzNDI4ZmYxZWY4YzI1ZTEwZjM0MzliNWIwZmFhMzFjMTNkM2EifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8c19e03b9e4847a3ab9ed2caec17af27",
+      "statement": "On normal exit and trapped shutdown signals, the entrypoint attempts a bounded S3 sync of eligible /home/sre content to an explicit or task-specific audit prefix; it excludes OCM and kubeconfig subtrees, does not follow symlink targets, and reports failure as a warning rather than guaranteeing persistence.",
+      "evidence": [
+        {
+          "resource": "repo://entrypoint.sh#L167-L183",
+          "version": "repo-lines-v1:sha256:6d98b3b70825d8e8dcc5cc15ae6c24944f1f5d4c1a30d282605377b344e8bafb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkN2RiYzA5YjhkOGNhMzg2NTMyZDJkNTk1YmQxYjRhMzhjMDQ3ZWUxNjFiNzM1NmMyYjg1MTdmMmUwMjA5ZjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3NjlkMjM3Y2Q0MjBiOWQzOGI5ODFhMGE0ZjY3NzAxOTBhNGE4M2RjYTFmZTU2YzRmNWJhMWUyY2JjMGVmNzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlkMjQ2ZTI1N2FlYWU3OTEzMzIyMmU5NjA4ODc5MTA0ZjhjNDY0ZGZhNDg2YTg5ODMxODBiZDAzOTUwOTM5OTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://entrypoint.sh#L3-L34",
+          "version": "repo-lines-v1:sha256:09c825b363dfce5babcf51c497811ae6538f1a6462ab373cba7ca3e617a5e06c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1ZDg1MjE4M2ViNjViNDE2MTNiNTdjY2M2MWFhZDcyYTgwMGEwOWU0ODZkYTk2ZGM1ZTk2OTkwMzVhNzJmMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5NjIyZmFlMmFiMDJmZTM1OWVkMTUwOTY0YTkyNjUzNjk3YmZiMjM1ZTIwOTQ3YWEzYzNmMzg1NDg0ZTk3YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMzZWFjMjNkNzM1YzRiYWE2ODQ1YmUwOTM4NzE1NDg0OTAzOTM4NWQzMGU1NjAzYmFmZDFmYWZiMTE0MDliMzQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_18cb6e9d0dae4d2b85090568a7bee5c2",
+      "statement": "The investigation audit bucket is versioned and uses compliance-mode Object Lock, blocks public access, applies AES-256 encryption, denies non-TLS requests, and can replicate cross-account; the task role is granted PutObject and ListBucket while the operational guidance directs audit retrieval through a separate read-only compliance role.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/iam.tf#L123-L143",
+          "version": "repo-lines-v1:sha256:594b8023aee6961e6d8430286e18053c9409ad3184537cf5e54bc3342685c5f3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc0NGFlMThmODkzOTc5YTI4MTZkZmY5ZWZkYjgyNzRjNWE0YTFiMmJiOTVmYWYxNzgzZGVjNjNhMjBiMjVlOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU4MjQ5YjJjNGU0ZTcyNDVkNDY0M2YwMTc2NjliOTM3NDgyNzE4MDg2NDlhZjgzODU0ZmFlOGI3M2M1Y2Q0ZmIifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/s3.tf#L1-L73",
+          "version": "repo-lines-v1:sha256:4dd26ebddebe47aaa893b2510e790a08eb0ded7faff09dae3f45e54320a73a13:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3Yjk0MzBlZDE0MjcyMGU3NjdiODU4MjNjZWQwZGI1NzVmNjNiMmRjOWEyMjJhNjY4Y2ZlOTBmYzUyOTkxOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc5NTU3MDJmNmJlOTBlY2Q4NTM3NjE5YzIwZGFjOGQ4NTgxNDU3ZTJkMWUyZGY2MDcyODY4NmVhNmE0ODEyNDMifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/s3.tf#L75-L120",
+          "version": "repo-lines-v1:sha256:be4dfb8f0fa5ad4a3675ac98fc2046756cbd2098700f021f4745fdcec93b800e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ5NTQ2MmVkZGVlZmI2MjBhZTU2YjM1MGMxZmFlMGZkZDZkM2ExYjNjMDQ1ZDZkNTRkOWEzZDhjYmJmMjZjN2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc5NWQ2N2UwN2Y1OGJlNjUzZmUxYTE5MWVjZDdmZjQzOTYyNTEzMzdmOGY4MzZhNjk5YWQ5MTkwZjJhYzJkZGEifQ"
+        },
+        {
+          "resource": "repo://docs/configuration/aws-iam-policies.md#L413-L434",
+          "version": "repo-lines-v1:sha256:dd6b035ee65951280ab5657db000d93d992abdb7d70510cf5ad32c79675dfcc6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyYWM5NWU3NTQ3YTY1Y2I2YTc1MDYxOTg4MTUyNmNhN2ZiYTBlZTNhNGVkNmU1N2ZmYzE1MmJlMjM0NjVmZjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI5NzcyYWQxMGM3OGU4NTA0NGQzODI1MDBiMDIxZjVkYzE1Y2YwMGJiNDQ3Njc0OGNiNDQyZjUxYjliYjFkMzciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg1OTk5OGU0Zjc1Y2M3ZDg2MDZmOGE1NzZlMzlmODgxYTE5ZGRkYzBlNWNlNGI5MGFkMzMzMWU3YWU2ZmM0NTAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_04d735cefca74c5b9515a13c401da404",
+      "statement": "Bedrock invocation logging is configured for text payloads across Bedrock Runtime callers in the account and Region, sending payloads up to 100 KB to encrypted CloudWatch Logs and larger payloads to a separate S3 bucket; image, embedding, and video delivery are disabled.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/bedrock-large-payloads.tf#L1-L51",
+          "version": "repo-lines-v1:sha256:9d93c192ecb41f8adb81c70b0e61bcecb01c262cfefe18ed448770add9a9da95:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4ZTNjNjg5MGM1Yjk0NDUzMTZmMjIwMGU0YzhhZmY0MWMyZWRiMjEwNzgzMjc5YTViZGY5NWNiMWFmMzc0MGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyOWJmZWU1Y2ZhNjA2NzJmZjk0YzgyNjU0ZTg2MmRhNzM0MzUzYmJhNmJlZTU1ZTkxOGEyYWRjNmEzZTE4YjgifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/bedrock-logging.tf#L92-L120",
+          "version": "repo-lines-v1:sha256:e4445dad06f327e27944527f9b94413ccfd3fb86d895e3dabfdd50b12f0cbc7d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU5OWRhMjMzMWIxYzk4YWQwMzg5ZjRmNzJjOTJlMTY0NjJhMGNkODUyOGMyNGE0NzZjNThjOWIyMTRjZjFjZTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwNjQ4Zjc3ZmQ1YTljNjNiM2NkZDBhZjQ5ZGFhMTI5OTIyMGI3NTQxZTg4Y2ExN2VmZTFhNmExMTRiOWZmMmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_15b6472a9069424095cf54ce181e17c2",
+      "statement": "The shell and LocalStack tests verify that nested OCM and kubeconfig files are excluded from the S3 sync while unrelated workspace files remain eligible, and use token/account-response canaries to check the simulated uploaded content.",
+      "evidence": [
+        {
+          "resource": "repo://tests/localstack/integration/test_s3_audit.py#L114-L177",
+          "version": "repo-lines-v1:sha256:b25fe33213db0bbeb3e2efd141d94cdb9ae6017da33854cacad4abdd56e5cf0a:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0ODg2YTFjNjI0MTVlZGNjMjkzN2E3ZWZjMTVlMjJmNTk3NTM2ZDY4NTgxMzA0MTVhMmFmY2YxMDdlMmQ4NWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3NzE4NmIwZTk3MjQ4M2NhMjg0NGYzZDY4N2Y3NmNkYjE2YmQ5NjY5ZjM5ODRiMTU3YmNjMjBiN2Y4ZTUyZDMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk0ODhhNmU2ZmQ4YjA4YjlmMGQzMjBhZDJiNGZjMGE0MmFmOTExODk0YjcwZWVhYWFmZjIyOTQ5ZTc5MGM1MjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA4ZjBjOTA5MmU5OWE1NzE3NDdhNWY2MzdjY2JhZmFjOWFmMDFmNWI5YmViNDRhYmQ1NmU1N2NjOTYzZWExOGYifQ"
+        },
+        {
+          "resource": "repo://tests/shell/entrypoint.bats#L88-L174",
+          "version": "repo-lines-v1:sha256:48cb1be86c57fc1210739bdf7dde64ebad47bec5479a9fdec6e7b433f6f8d29a:eyJzZWxlY3RlZExpbmVDb3VudCI6ODcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxNGMzYmVmMTdhY2FkNTJmMmY4MTVhOGIxYTQ4NWU2ZDhlZjZjY2ViMjhlMDUyOTc1MTVkOTA1ZGI5ZWQ0MzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE0N2UyOTJlYzhjM2UyZDBlZDQwMGYyODRkMjk5ZjczMDRhOTMyNDU5NjU1MWIyZjI4ZGMzNGRlNjVmODg3OTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwMWM4MDY1ZGQxMzhkMDA0MzliYjZkYzQ0Y2Q2MTQyMDVhYmU0NThiNzEwYTZkZTEzMzA3NmUyYmNhYzdjMjMifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.0",
+    "at": "2026-10-05T19:18:44.075Z"
+  }
+}

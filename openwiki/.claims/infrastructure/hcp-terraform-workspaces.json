@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:7606c52a1cedeaf9128a78ff1cb5159fafcf56b47dafa1eb055a94c678b21ec6",
+  "claims": [
+    {
+      "id": "claim_7ea425ebadf04e7894f3f138062be6b4",
+      "statement": "The Boundary meta-workspace manages three staging workload workspaces in the rosa-boundary project: network, AWS credentials, and regional runtime, each with its own VCS working directory and exact Terraform version.",
+      "evidence": [
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L16-L41",
+          "version": "repo-lines-v1:sha256:acd03715861a88f8be563caada7b168d37fba8f05c118f7f3239ce556a7b765f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA1NDJjODY1MTBmMzlmOGQzZTgzYTIxMjNkZTUwODhmYTg2OGI3MTJmZmZlZjk3MTg1ODNjM2U1ZTQxZmYwZDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4NjdkNGMzMWRjOTZiMmQxMDIyODk5MGExODNlNDBjYWViYzA5M2Y0M2QwYjc3NzE1NDI4YzE1ZmE2Y2U5ZGYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwNDMyYmZjZjQ1YjZkYjUwYjIwNDQxZjExYmQxMGE0MGUzMGU3NzA3ZDcwYjYxMzYwZTIyNDEwZmU2MGNhZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI3NTIxODQzYWM0ZWY3NWY3ODM4MGEyY2NiODRhMWM2OGIxMTk0YmZkODI5NWY5Njg1NGU1MmVlNWQyOTI5NWQifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L71-L91",
+          "version": "repo-lines-v1:sha256:3be1f8857f49b773096e79762854313f7b4a525ecdc50f784fd1acfc53950b3b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiN2Q3YjY5ODM1ZTMzZDJiZTA4NGU2Y2UxNWZmMzQ3ODFmN2Q0NzViMGZkNmMzMzQ3ZDg5NDkzODU3YjVhMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVmYTU2ZTYwYTEzNDQ3MmQ3YTcyMjg1NmE3MDlmNjgyY2ZlZDI1NWMwZDI5ZGNmOWVmYjY5YjIwYTU4NWU3NTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4ZTQ4NmQyNGRlYWRjZjRiYWU0MzNjYjE2OTA2OGYwMTkzODM4OTRjMTUxYTRhZTRhYmU3NzE5MTYxNGMxNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxYTZkNWY3YjA3YzAwNzlhMjk1NWNmY2YyZWYyNzNjZjJlMjYwM2ZmOGJjZWYyZDJjNDM2NDFlZDM1ZWYzNjEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_69b970eeb3f24186972bc8704a749be8",
+      "statement": "The staging AWS-credentials stack scopes its default role group to the credentials, network and regional workspaces, and the meta-workspace attaches the generated dynamic-credentials variable set to all three.",
+      "evidence": [
+        {
+          "resource": "repo://hcp-terraform/aws-creds/rosa-boundary-stage/main.tf#L25-L45",
+          "version": "repo-lines-v1:sha256:4546e820d0e1bfaa7898383aff21bf8f7b481339fffdae4b9548a175a9deb1f8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiMTM3NjE3YjAwZGY1MWI4MzJhM2Q0ZjQxNWYyMzk3Y2Q3YzlhNDcwMGVmMTIyYmI3MzkwYzhlNWE5YzJlNzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwNDMyYmZjZjQ1YjZkYjUwYjIwNDQxZjExYmQxMGE0MGUzMGU3NzA3ZDcwYjYxMzYwZTIyNDEwZmU2MGNhZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU1YzliMmMzMzk0OTlhNTM4YzliZGM2YTUzOTM0YTRmM2E3ODAxYmNhYWNhNmY3N2M1MjJhMmE0NjljZTZiM2IifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L35-L91",
+          "version": "repo-lines-v1:sha256:19a7fe64b42a7e0966eb8891c6171267662588c503f340702268548fd25f971e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVmYTU2ZTYwYTEzNDQ3MmQ3YTcyMjg1NmE3MDlmNjgyY2ZlZDI1NWMwZDI5ZGNmOWVmYjY5YjIwYTU4NWU3NTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxYTZkNWY3YjA3YzAwNzlhMjk1NWNmY2YyZWYyNzNjZjJlMjYwM2ZmOGJjZWYyZDJjNDM2NDFlZDM1ZWYzNjEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_1df6bfc409ff4c7c9f31d09ef6ac4ec6",
+      "statement": "The AWS-credentials workspace has a separate TFE-token variable set in addition to its own AWS dynamic-credentials set; the network and regional workspaces attach only the latter.",
+      "evidence": [
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L35-L91",
+          "version": "repo-lines-v1:sha256:19a7fe64b42a7e0966eb8891c6171267662588c503f340702268548fd25f971e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVmYTU2ZTYwYTEzNDQ3MmQ3YTcyMjg1NmE3MDlmNjgyY2ZlZDI1NWMwZDI5ZGNmOWVmYjY5YjIwYTU4NWU3NTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxYTZkNWY3YjA3YzAwNzlhMjk1NWNmY2YyZWYyNzNjZjJlMjYwM2ZmOGJjZWYyZDJjNDM2NDFlZDM1ZWYzNjEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_feb15d8989b1433ea62a267fd5de5d89",
+      "statement": "The regional workspace currently explicitly enables auto-apply and auto-apply for run triggers, so a manual regional apply gate is not declared in the current map.",
+      "evidence": [
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L83-L91",
+          "version": "repo-lines-v1:sha256:24737fc0ecf2eb20315c376b815abc2d7d5a19892a9cf1a5fee6d6eeae3b600e:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDZlOGUzZjY1ZjBmYWUxYjVjZTI5OWFmYjE1YTA4NjZmMWIwMDM2MTc0NjEwYmM5MzgxZjZjMmUwNDc0OWU2ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWY0NTkyNGQ4NDUwMjZlMWM3ODk0YzA3YjYxYWFjM2Q2ZmJhZDM0MTFmNjc0NzVkMzIyYWFhZjJjYzZjZjlmZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzFhNmQ1ZjdiMDdjMDA3OWEyOTU1Y2ZjZjJlZjI3M2NmMmUyNjAzZmY4YmNlZjJkMmM0MzY0MWVkMzVlZjM2MSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_417df9ef6245467a96f7da1044addcce",
+      "statement": "Regional receives VPC and subnet IDs as explicit Terraform workspace variables; network exposes VPC and private subnet IDs as outputs, without a remote-state consumer or network source-workspace entry in the Boundary meta-workspace configuration.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/network/outputs.tf#L1-L29",
+          "version": "repo-lines-v1:sha256:159a555ca7c46513bc11e075d56d4ee6955e750078a379bbc4c64196d30ea37d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxNzRkYWI2YzA2Mjc0MTM5OTk4OTg2ZDQyN2UzZWYxZWEyYzliYjc2NDlhZTcwMjg0Zjg3ZGRmODkxZGYwMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMGRmZjBjNDMyMGI1MWU2NjFmMDljODlkMDM0MWVkNTA2NTUzMWM5NjQ3NzYyZmUzNjYwYmJhNjg5Njc3YjYifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L83-L149",
+          "version": "repo-lines-v1:sha256:d7c4d429db9812eb530ac482fc776e705f737789ce4d8203da556797e9e033f1:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2ZThlM2Y2NWYwZmFlMWI1Y2UyOTlhZmIxNWEwODY2ZjFiMDAzNjE3NDYxMGJjOTM4MWY2YzJlMDQ3NDllNmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVmNDU5MjRkODQ1MDI2ZTFjNzg5NGMwN2I2MWFhYzNkNmZiYWQzNDExZjY3NDc1ZDMyMmFhYWYyY2M2Y2Y5ZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNjZWU3YjM0MWJjNWQyNWQ3Nzc5MDM3OTU2NThjZWJmNjc5MzQ5ZjE5YmY3Y2YyYTYyYTkwOGI1OGJkMjljOGIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d597c852df6548ca86993da7faf42d6f",
+      "statement": "The meta-workspace uses the pinned private workspaces module and declares the Git-controlled Terraform variables, notification configuration and variable-set attachments for the three L3 workspaces.",
+      "evidence": [
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L140-L258",
+          "version": "repo-lines-v1:sha256:420f5319921bf2dd89cf53a1f264eea20d053b3099edae2c7f9aad17b037905e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0NGFhYjhhZjhhNjFhZDY3Mjg2N2Y5YTgyMDRiYWE0NjQ4YmYzZDNkMGI2ZDU2MjViOGRkYTMzNzA4ZmNhYWNhIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4Mjk4OTExMGI4NGIxZDkzYWY1Y2NiZmRiNGUxNDZkYWFmNjk4ZjE1M2Q1ZmRmMmEwMjcwOTI2NTdmOTk2M2QzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MiwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJkZjczOWEwNmMxY2JiMTI0NGUzMzYzZDM4YmNmOWZhNTBjZTg0ZmVkMzk5YzIxOTNhM2M3ZjA4ZDU5OTE4YjJhIn0"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L16-L42",
+          "version": "repo-lines-v1:sha256:222e2f90da348c4b7c1f72b61d98042f2b0c25c505850ae27639bc2e6178f4e1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA1NDJjODY1MTBmMzlmOGQzZTgzYTIxMjNkZTUwODhmYTg2OGI3MTJmZmZlZjk3MTg1ODNjM2U1ZTQxZmYwZDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2NTM3NTdkMjZmNjI0OGEyNGFkYjcwNTM2ODZmNWU3ODczNzcyMDQxZWZjNmQ4NGQzOGJjZWZkZGM4ZTgzNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwNDMyYmZjZjQ1YjZkYjUwYjIwNDQxZjExYmQxMGE0MGUzMGU3NzA3ZDcwYjYxMzYwZTIyNDEwZmU2MGNhZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2NzhjYmJhNzk1ZDI4Y2Q3M2U1ZjZiNjE1OGYyMDczNzFjYzM0NmZkNGQ2MTczN2YxZTA1MDliYjIzMTJhMDAifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L71-L104",
+          "version": "repo-lines-v1:sha256:f1380fc1382330c09f599462b5882b81beb5c01e475b4da828585795bd900839:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiN2Q3YjY5ODM1ZTMzZDJiZTA4NGU2Y2UxNWZmMzQ3ODFmN2Q0NzViMGZkNmMzMzQ3ZDg5NDkzODU3YjVhMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2MDEyMjU0YjZkZWU1YTZlMmYxOTMwYzFlYzgxZGI0NWUxZWVhODRkMWJiODExNjI1ZDYxNzIwNzczOTJmMjEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4ZTQ4NmQyNGRlYWRjZjRiYWU0MzNjYjE2OTA2OGYwMTkzODM4OTRjMTUxYTRhZTRhYmU3NzE5MTYxNGMxNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3YTU2YTg0YmM4YmI3Y2UxNWI1OGY0Yzg0ZDQ0NWY3ZGZjOTExY2U1Yzk5ZDRhYTJjNTM5YjUyYTIzODQwNTYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_13635579e11e447686423869cb676568",
+      "statement": "The AWS-credentials stack uses providers bound to the staging AWS account and HCP organization while the network and regional stacks guard against running in the wrong account.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/network/main.tf#L1-L18",
+          "version": "repo-lines-v1:sha256:bb2f4ba536e28ec2d834d202b8de35103ade4b2cd974b6ca24a0b599bbbb5363:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjNjE2MWZiZmU1YjM2ZTA4MGFhOThlMGI4MDQzNGIyZjUzNDczN2EzMzEyYmVhYWNkYjkxMjU5OGYxZDUwZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ5ZjZlZmZkY2UyZDRkZWJlNGRlNjE2YjkxOWU3YjU0OTMxNmU5ODllNWU1NjlkMmNkODdlYjk3MTZlNDIwYWUifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/main.tf#L1-L19",
+          "version": "repo-lines-v1:sha256:817fa4b168b1cb082441c6400df86d2dae35fc5b87ae863b338517d52f9d5dc0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjNjE2MWZiZmU1YjM2ZTA4MGFhOThlMGI4MDQzNGIyZjUzNDczN2EzMzEyYmVhYWNkYjkxMjU5OGYxZDUwZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRhODQ5ZTY4ZTU3NzlkOTdlOGE4OGNhNzMzNjE1Mzg0Y2IyNDgyMGI4MzNmNWE0MThkODA5NzM5OGRjYmMwNjkifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/aws-creds/rosa-boundary-stage/main.tf#L1-L30",
+          "version": "repo-lines-v1:sha256:abfc0ef7e9058b67805bf0727aeb114c44ccc40eca180865ca9e913f19d9bdf4:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjNjE2MWZiZmU1YjM2ZTA4MGFhOThlMGI4MDQzNGIyZjUzNDczN2EzMzEyYmVhYWNkYjkxMjU5OGYxZDUwZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRhZTY3NzdhMDZkZjNiZDhiNWRkNGJlMzAyNDk1Y2NjYWRjMGY5YjBlODY1NGJlNTVjYmU0Y2U3ZGM4NTA3OTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE3MjE4MzY3NTBmYjk4NzA3MzJlYjBhOTM0NzY4MjU0MGI4YTliYWY0NzcwZDVjNmIxZTVmNzJhMmVjYjJiMWQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4da16841f6894c94b571c47271b07863",
+      "statement": "The account-level IAM access stack is not registered among the current three L3 workspaces and its documented ownership is per AWS account rather than per Boundary region.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L1-L8",
+          "version": "repo-lines-v1:sha256:aaf76f339da85d81893b6487f7d208d6f41246def305148ba91d4075b0411260:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWYyYjdjYTQyYWRhMGU0Y2QxNjU3OTU5MDZhNzFlN2JhNTUwMzU2ZjhkNTM2NzU3MTlhZjRiYjNjMWQ3ZWNlMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2Y2MDc3NjVlOTQ2OWNjMTg2ZTI0YmM5N2RhYTNjNGE0OTQ0NTIzNTcxN2JiMjY0OGJmYmIyNGYxYWFkNjFlYSJ9"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L35-L91",
+          "version": "repo-lines-v1:sha256:19a7fe64b42a7e0966eb8891c6171267662588c503f340702268548fd25f971e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVmYTU2ZTYwYTEzNDQ3MmQ3YTcyMjg1NmE3MDlmNjgyY2ZlZDI1NWMwZDI5ZGNmOWVmYjY5YjIwYTU4NWU3NTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxYTZkNWY3YjA3YzAwNzlhMjk1NWNmY2YyZWYyNzNjZjJlMjYwM2ZmOGJjZWYyZDJjNDM2NDFlZDM1ZWYzNjEifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.0",
+    "at": "2026-10-06T17:52:44.901Z"
+  }
+}

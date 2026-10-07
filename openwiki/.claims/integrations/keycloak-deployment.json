@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:a499605273f01d1ec2082c855dd5a8768d194891fd3d007f58330558fe6e28fe",
+  "claims": [
+    {
+      "id": "claim_0fd54466e61444af8b0cc04be2e11a4f",
+      "statement": "The dev Kustomize overlay combines the namespace base, a ClusterSecretStore, and the CNPG and Keycloak components.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/keycloak/base/kustomization.yaml#L1-L4",
+          "version": "repo-lines-v1:sha256:f84e68e7ff348e3194a38eec13d9833d92a4df72912743f4393af2d9c2dfb949:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMThkMjMyMzFmMTI2ZjE1YjNjMzY2MTRhMzQ1ZjU4Yzg1OTA3ZDQyZjc2NWZmZGJlN2MwMWY0YTBmMmZmYjk0NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMmI5ZjcyNDEzMjQ0YzI3NmU4MGE3NzEyYjllMjJmZTAwZjg5ZDMzZGJmNTgzNzVjNTExNWIzNGM2MDJkZWIzZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://deploy/keycloak/overlays/dev/kustomization.yaml#L1-L10",
+          "version": "repo-lines-v1:sha256:84a98d4c78c64112d3a092235889f67001a08c6f0c78be093cab8364790e283e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4ZDIzMjMxZjEyNmYxNWIzYzM2NjE0YTM0NWY1OGM4NTkwN2Q0MmY3NjVmZmRiZTdjMDFmNGEwZjJmZmI5NDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzYmUxZWM0MzMxZDVmOTlhOTk4NGViMTBmZTZlNGE4YTY4OGM2MjZjN2NmMWJkMTllZjhiOTQwZDJmOTk3ZWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8571f0dc1334411c9a45f9066b86e51a",
+      "statement": "The Keycloak database ExternalSecret reads username and password from two AWS Parameter Store keys into keycloak-db-app, which is referenced by both CNPG bootstrap and the Keycloak database configuration.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/keycloak/components/cnpg/cluster.yaml#L1-L17",
+          "version": "repo-lines-v1:sha256:90a023ec6fedc4ea886b77e74bb9f592a270fe6582a1dd58114391199ee3e82a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3ZTQzNzY2MzYwNmFhNzNlNThhMTFmMjAxYjllMWVkOWE4ZTQwZWZjYWI3YmMxMzI4NzIzY2NiOGFlNTRkZWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2NzBlYWY0ZjA5MTY1ZDQzNTQxYzY4ZmIzMDE0NjY2NWFiNDFjMDE0NjJjYzcyMjAxZDAwZjRmMTg5NjlhM2EiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/keycloak/components/cnpg/external-secret-db.yaml#L1-L25",
+          "version": "repo-lines-v1:sha256:70acbe85bfae36bf9d4102107a3dd825990b02863b866ef1b8fbbac3e4da6d39:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4MGFmZjAyYjFiZWQyMmQzMmU2MWFkNzhhMGI2NzZiMWQwYTM3Mzk0ZGFkNTFhMjY5OTM4MzBhZGMzMDY0MTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhMTk5MmQ2NTYwODEzNGZjY2Q3OTY4NzdkYjcxYjhjZjBmY2Q3MjQ1YjgyN2EzNTViNDAxZWY0N2Q4MmZkMzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/keycloak/components/keycloak/keycloak.yaml#L1-L20",
+          "version": "repo-lines-v1:sha256:c2b5a7c79ae092e6e7b66be2305a9bc6a14ebdbf408f9fa4e5e723f6c4042f2e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmNDliNTExNmM2NTNmZmFjMzlkNTk0YzI3ZDRkNmRmZmY3ZWNmYjE5OTQzY2ZjZTcyNWU2YzhlNmNhMjU1YzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE0YTRiZDc3MmRkZGFjZmU4YmZkZDkxNzQyYzQ1ZDZmZjBiYWQzNDZiZDFiZWRhNzM0ZDZkMDM1NWRmMjI2MDMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6eae1122365a4bd59467508234da19c6",
+      "statement": "The Keycloak custom resource enables HTTP and X-Forwarded proxy headers, and the OpenShift Route terminates TLS at the edge while redirecting insecure traffic.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/keycloak/components/keycloak/keycloak.yaml#L21-L28",
+          "version": "repo-lines-v1:sha256:a39bf895c51ea9ed5123c208f60c74c0eb1e367c7d3e1ea341b5be85e3d3275f:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2E3NDgyNDljYmI5YTVmOGE2YjJiM2YyZTgzOTdhMDk1OGE0ZjFjZDM5NzgxNjdiZjA1MDcxMWM3MmJjNGJlMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjkzMDJjODI5ZjJjNWI2OWMyZjYyNTM4ZTNjNTY2ZmJmYWU4N2I5NzYxY2M1YmEzM2I1MWUyOWRhMzIxYzJmNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzE3ZmYyMmNmNTg1Y2M0NjVhODk1NWYwNjI0ZWQxYmI4MGYxODA1OWEzM2Q2MDE4MmM0MDAxOGFlYmI0MDhiMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://deploy/keycloak/components/keycloak/route.yaml#L1-L14",
+          "version": "repo-lines-v1:sha256:3a359ac8d8360a42b6f8c3202454ca15202e56d13a443821a9742b8caf187547:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlkZWZlZTEzMzRlNzgyNjk1NGIwNWMxNzkxZWNjOWJhMTY0Y2Q1ZGZkMzFmYWQ1OTNkN2ZmZjZkODNjYTMzNDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2ODNmNWM4Y2U3ZGZlMzc0YjMzYmU5M2NlMGI1ODkyZjkyZDY0NTkzYTk1M2I2ODAzMGIwZjY5NDhlNWY1OTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9c25b28042004bb4a794fb98fb6e8f33",
+      "statement": "Regional Terraform registers primary OIDC trust and optionally stage and production providers, while the investigation Lambda routes tokens to configured issuer JWKS endpoints and verifies signature, expiration, and audience.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/oidc.tf#L1-L64",
+          "version": "repo-lines-v1:sha256:d45e9c52961ac20b46e3c37bc23e1dcdd28b63a0fc21607a95753df19b450098:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU4ODZmOGNlNmM4NDM3ZjEzOTdkNWYzMDBmNTU5YTVmZDBjNjNiNmRlM2U1ZTE2NzdhNWVlNjIxMzBiNWE0OGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMwOTY3MDNlNzJjOGY0OWQxMWJjOTkyMTdjZWFhODczN2VjNTM3ODU4ZjQ0Y2Q2ZDBjMGYyZWEzMmZkZjhjNmEifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L322-L405",
+          "version": "repo-lines-v1:sha256:460d1b087bb7c060f6debfc6fb5f5929d92304be292b09070624104492d537c0:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlN2M5NTdiY2I0NGZiNjczYzk4YjAwNTBhNzVkMzgwODJkYjgxZDkxOGRlMzEzYTNmMDdjMTIzNTMwNmQ3ZWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwOGZiYWU4NGJmODQ5OTQ2OTliNzRjNzMzOGViNjA5OGYwZWI2MTBlZmZjODJlODJmYzdmZjcwMjFhODk1M2MifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a6026dc342b04965981192411b023db9",
+      "statement": "The CLI constructs its PKCE authorization and token endpoints from the configured Keycloak base URL, realm, and client ID.",
+      "evidence": [
+        {
+          "resource": "repo://internal/auth/oidc.go#L45-L135",
+          "version": "repo-lines-v1:sha256:216404348fd161c92d24bc5150ab3dd88a006343846edcf2f0692acb580e467b:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwOWM3YTExZThjZjE2NzQyYWM5NjY1OTMyYWJiMWMyOTMzMGNlMGE3ZmE4YjAzZTdhNWY2MTA5ZTI5NWRmMTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyODUxODU1NGMzMjk0MGIwY2QyZTQwNjI3YjhkNmYzZjQyYmU1Mzk3MzE4MTIyNWViNDEzYmFiNWE2MWM0YTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhhYjZmOWNjMDU0OWQ4NmNhMzdhYzg0NGY3MmYyNWJiMGVlMzM0ZTE5MzZiZjFhMzIwMTI4YTJhNGYxZDQ0ZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxZjE1MDM4ODJmYTdhODU5ODBmYTVhMzQ5MzY1MmJkOTUwOTljNjQ0MWRiMzc1YjBiODIyMGJjZGFjM2ZjOWYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9c130e21f3cf4ec584ba96eda428e65b",
+      "statement": "The Lambda dispatches get_config before OIDC validation and returns configuration values through an IAM-authenticated invocation path, allowing CLI configuration discovery before OIDC setup.",
+      "evidence": [
+        {
+          "resource": "repo://internal/lambda/client.go#L200-L222",
+          "version": "repo-lines-v1:sha256:5d24310bdd9736b245a870f83076f52c57b88d12e19013e3212c5122b4366d96:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5NjQ2ZGI0NjU4ZTUwNTYxZDExMDA1NWNhMDg5OGU2OTI0YTQ3MmU1ZDZmNzhiMWRjMDRjY2U5OGFjZGQzMGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhmOGMxZDViZjYwYjU2YzE1NjdjOTlkN2YxMTlkM2Q5OWU0MjM1YzU1ZGVjZmE4MTRlZGMwNjc3MDM1ZTRmZGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L1048-L1072",
+          "version": "repo-lines-v1:sha256:fb2d8e12785fcdfc384b4099703936877586a620edc78edd62505b29dafa5d00:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhYzg2NDA4NWZlNTg4MTVmNDgzZTE1ZGUzODRjOWQwY2MyM2U1MDY4NDhjNDQxMDZiZDA1MDVkMDVmNTAxNDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0NzVlOTRhOTA0YWM0OWIzMTU0ZDQ2NzJhNjZlODYyOWI4NmRhYzc0ZTNlMjkzN2JlNjkyN2FlM2RhMTFjNTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM5ZWZkOWUxNzJlNTE2NDhjYzY1N2RiZWEwNDYxM2ZiNzc5M2Q2ZjZjYmViOTIyZjE2YWVkYTZmZDRhMTlmNTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzMjcxOTUwMzc3MzE1ZDRjNzA1YzMyY2FhZmMxYjU0MDgxOTk2OTQ4Mzc3NmNhMmIyZThhNTZlOGE0MDBhYTEifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L88-L117",
+          "version": "repo-lines-v1:sha256:986c3ddfa98312060b5e9d128a921ea9e118a37d3534941566a24e101dbbb8d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjYmMyMDFkNTYyYTM2NDM5ZTg2MTg0NTNkYTNmZmI0Mzk5NDhiZGVjNmMzYjBhZGQzN2E5ODQxYmNiZGQ5NGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUwMDRiZDA3MDQ2NTk0MzA4ODFkNWQ1ODQ3YmMyOWYzNGUxNjgxNTlkNzhjMTlmYjMzMDE1YzRlYWVlMzkyNDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQwMzNkZDQ3ZmJiZmEwYjYyOTI4NmU2YjdiYWYwNWViZTZlMDc0YTIzMGVkOWFlYTc3MzcwYTIyODZjMWQzNjIifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.0",
+    "at": "2026-10-05T19:18:44.075Z"
+  }
+}

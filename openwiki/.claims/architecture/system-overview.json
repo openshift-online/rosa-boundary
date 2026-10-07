@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:120ee88dbe1456dd66ad7deb44a43d9f73ead32a3dc570cf9a2e162d66a3130e",
+  "claims": [
+    {
+      "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
+      "statement": "ROSA Boundary separates CLI orchestration and operator authentication from Lambda-side authorization/resource provisioning and ECS Fargate task execution.",
+      "evidence": [
+        {
+          "resource": "repo://cmd/rosa-boundary/main.go#L7-L9",
+          "version": "repo-lines-v1:sha256:da529ef9e42ad954ac19c4e3d725e9e8916aa5070c148df8d8e7cbbb0ee0a27b:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzE1ZDY0Zjk3MWIyNGY3MDFkMzRjNzdmMTI1YWQ5M2Q3MGI3YjQwYTAyYzAyMzZiMDQ1MzkzZTI0YmY2YjVmZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzUwODYyNmUzMDEwMjZlMjRmM2JmYmNjNjI5OTJiNjE1OGQyYWQ0ZDRjNjgyOWIzM2MyZGQyMzU0MDg0MDZmYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/ecs.tf#L61-L70",
+          "version": "repo-lines-v1:sha256:d90231a74629f6a983c01968376c500f420ff05c83399b177ea84f75edce5ac5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/root.go#L154-L207",
+          "version": "repo-lines-v1:sha256:7abf838c2c3b0d37eb181c5e18565b7f369f5d51dbc477589c2bc0c14887cd5b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2MWViMjMyNjYwZjRiYTU5Nzk3NWUwZjQxOTgxNDRjMmQ3NjIwOGUyMzAzNjE2OGEzYWQ4NGRkYjBkMjZjYjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1NTZhM2NhNWMwY2U1NTllODFhMGU4MGJjYTAyZmM1ZDNhODM0M2Y5OTBmMTNiZmJhZjM0MjY0NmUzNDY4NzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L77-L88",
+          "version": "repo-lines-v1:sha256:fb009524ccab8d978a4b492790d0b3c984f0dfec504ffe7de0795468afedb576:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExZmJkZjk2NzBmMzk3Nzc1NTExNTQ0N2VmNTJjODhmZjYyOGQ3NWM1OTEyOWIxYTlmNWMzN2Y5YzBiYTFkZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNhMjI0NzEyYTFkNzNiMzQ0ZGY4YWRmMWNjM2FiM2FiMjJiMTU5MTA1MTcyMGFmZWJhYTRjZTQ0M2U3ZGRhZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2OTA2ZTMxNjU5NGUxMDZjNDU1MTE5NzJhYzZiZmUwNTdiZTllOWQyZjU5MjZlZjQzMmZkM2E2NmY5MzM4YmQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_3dadbf40d0b0414bb483615e237e52fd",
+      "statement": "The create-investigation Lambda validates OIDC claims, creates or reuses an investigation-specific EFS access point, registers a task definition wired to it, and launches an ECS Fargate task with ECS Exec and investigation/deadline tags.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L175-L281",
+          "version": "repo-lines-v1:sha256:8d207ea1482bb09d98106b99d2d303229d7f17ef2c0a1c06fc2143f79e70683e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzMDg4OWY0NDRkNWE4NmRmNzE2ZDk2MTU5YzcxNjgxODJmMmM1ZTYxMjI5ZTY5MDk3Y2JkZDI3OGQ5ODllMTk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJmOWIxOTgyZThkZDc0ODExODE0NmIzOWEyZDAwNjJmNDA4MWUzNDc3OWI4Njc1YzIzNGM0ZmIxMjRkYzM5MzkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYzU2OGU0MTZiMjk0Yjc2NTNhY2VjYzhkYzFlMmMxNjdmMjlmYmNhZjVkN2YyZDc4N2Y0MDUwNDk0Nzc4OWE2IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2YWM2NGI2ZmM2NDA3MDYxNDVlMjQzMmE4MzQ5YzkyNTExN2M4YTc4MmNkYzZmY2UxMWU1ZDI5NDY4NGQ0Nzg5In0"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L641-L905",
+          "version": "repo-lines-v1:sha256:ea8f7a579ff01c5ce8b0c52d71295a94cdce77dbb605943c6e0d03227f6f0006:eyJzZWxlY3RlZExpbmVDb3VudCI6MjY1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhMzA5YWYwMTMyYjViMTUzM2VhZmU2NTIzN2ZiZjZmNTI1MzE4NmYzNGYwNTIzYmZiNGUzZmVmMTQ1MGM0ZDk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1OTA5YTUzYTYxOGQwMjhlMWQzMDAwYzBhN2FiY2VlY2JlNWZiMzdmNGU1MTFlZmU0NjY0M2ZhZDZlNjY4NzJmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0YTRiZWYyYzg3NWNjMjgyYjY2ZTM1YzZmODc1MjNjMmNiMWJlOWViZTVhMThlZGFjZTA4ZTdjYjljZTkyNDI4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxY2UwZTk0YTVhNGE2OGE3OGVhYjI4NDdiYTkzMjY1ZDE4MDFmOTU0M2MwMTkwMGJkMzViOGNmYmY5MWZlYjYwIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_a6623a4421ac4cea915be946f9763125",
+      "statement": "The regional task definition combines an EFS-backed home with empty task-scoped OCM and kubeconfig overlays, and the entrypoint refuses missing or EFS-backed overlays before launching the workload as sre.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/ecs.tf#L61-L159",
+          "version": "repo-lines-v1:sha256:7ddfa53b24402dca26077f70f2d4256b2b6e71f75614ce6f1e179b79bcf739a0:eyJzZWxlY3RlZExpbmVDb3VudCI6OTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
+        },
+        {
+          "resource": "repo://entrypoint.sh#L167-L173",
+          "version": "repo-lines-v1:sha256:8ecd4489e69a83c512678b90145f3ce6a864d1d023d190a573677c9f6e1062fd:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmQ3ZGJjMDliOGQ4Y2EzODY1MzJkMmQ1OTViZDFiNGEzOGMwNDdlZTE2MWI3MzU2YzJiODUxN2YyZTAyMDlmOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYTI5NDJlMzI3NzQwN2ZlYjZjMzViOWQ0ZDM5OTk3NTZmZWU5ZGY2MTQ4MzNiYWFmNGQ3N2YxMjA5YTU5MzZmYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWQyNDZlMjU3YWVhZTc5MTMzMjIyZTk2MDg4NzkxMDRmOGM0NjRkZmE0ODZhODk4MzE4MGJkMDM5NTA5Mzk5OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDBmM2NkNjU3ZTIwMWRhNThiY2YyNzljZDJiNzY5ZWIzNjExMWFhM2Q5YTQ1MDRhMzE3N2IyNWQ4YTg4NTY0NiJ9"
+        },
+        {
+          "resource": "repo://entrypoint.sh#L46-L80",
+          "version": "repo-lines-v1:sha256:6ad93c21e0e3c201f13701ca177a756231b0733d65bfe6af274ecf600aabae6c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg0ZDNjNTAyMTI1MGUxODhiMzUyZThkMGU3NWZkNmQ0M2EyNjYzZGQ4ZDgyMjc3Yzk1ODVjYTI5YjY1YjNjMTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNjNjdiZTA4ZjQ1N2FiNzAzYTg4YzViNDBjYzg0NTllM2RiOTJhYWMzNGNiZjEyZDllZjk3MjE3Zjg3Njk1ZTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5NDM5ZDVhOTg5ZTYyY2NiMWM0N2JhMjIyNjg5NTY1MDNiZTkyZWZiY2Y5MjQ3NWExZDAxMDU1NjNhZGRlOTAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_cef635918fde49daae5cf0282a34e52b",
+      "statement": "On shutdown the container attempts a bounded S3 sync of /home/sre that excludes OCM and kubeconfig paths and disables symlink following; task deadline enforcement is handled separately by the scheduled reaper Lambda.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L110-L133",
+          "version": "repo-lines-v1:sha256:0ef0987cbd165feddf3836458ff22f2d3fe512373054d5e04bd1bda01aca9ea4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2OWJlNmE2M2Q3NWVlNDY5NDI0Mzg4NGYxY2YyM2ZiMWM1MjU3OGM2MWMxNGI5ZmQ2NTgyNGE4NjE4ZjQ3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://entrypoint.sh#L3-L43",
+          "version": "repo-lines-v1:sha256:fd1d9d8700b1d19dfc9b3a2c68ce6fdc99d5f73afb47f4521745d1e3e0e018a7:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1ZDg1MjE4M2ViNjViNDE2MTNiNTdjY2M2MWFhZDcyYTgwMGEwOWU0ODZkYTk2ZGM1ZTk2OTkwMzVhNzJmMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA3ZTAwYWFlODYwMzEwZTg0OWY5M2Q0ZGE3ZWMwYTM1NmU1OGRjMWUwZTA4MTA0ZGFmMjgyYzYyZWY0OWI2ZTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5NjIyZmFlMmFiMDJmZTM1OWVkMTUwOTY0YTkyNjUzNjk3YmZiMjM1ZTIwOTQ3YWEzYzNmMzg1NDg0ZTk3YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjViOWYxM2I4MDUyOWE3NTRiNDM5NmYwOGJiYjQxMjI3M2QzYjU2NWRiNTllOTBkZDEwMDJjZTJiYjRhZWEyOTYifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/handler.py#L33-L163",
+          "version": "repo-lines-v1:sha256:bd4fc6ead545a4b39e6f90d0dfe9a07d3a9be1a2fdc46f13682d5bfb24d1578a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYmExZmJkMGY4NjBmYTVmOTM2NzRiOGY0MDQ1NDA0ZWMyN2M0MDNlMzhhOWU2ZTEzNTg2N2FhZGZiZDY1MDBlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3YzcxNzJmYWU2MjhkZmIyNmZmZjhjOTY5MzdjMzQyOGZmMWVmOGMyNWUxMGYzNDM5YjViMGZhYTMxYzEzZDNhIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_04026bdf3285412a8ed5638f4674d8c0",
+      "statement": "LocalStack integration tests assert cross-service investigation relationships, while full task-container execution is skipped when the suite uses the local ECS executor.",
+      "evidence": [
+        {
+          "resource": "repo://tests/localstack/integration/test_full_workflow.py#L21-L137",
+          "version": "repo-lines-v1:sha256:0659694de3383749ea838175a6bc72c00a201d25b1be3b2eff9465062808d082:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1Y2Q1Y2EwOTQwZGVjNzhhNjVjYjk5ZWZjMGNlMmUwNzEzM2U3ZWE1OWUxN2QxZDVmODIwN2FlMjg1Njk2YWU1IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmOGEyYTU4MTRmYzEyODk0NjUwODg2ZDk1YTEwZDU2NGZkOTIwNDUyYjVlNWQ5YWQ2NzdmZDFkNGFlODhiNjI3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5MGU1NGI3Y2FjY2Y0YWQ0MmNlNmVkYzhiYmFkMDBiOTM3Yzg3NTdiZmY4MTQ1NjdkODMxMDMxMmI1OWFkNmExIn0"
+        },
+        {
+          "resource": "repo://tests/localstack/integration/test_full_workflow.py#L214-L220",
+          "version": "repo-lines-v1:sha256:5c65f07459b59802bb20f4e1b9aaf6deaca65bb8c246a5cde6540aef75bd3414:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjQ4ODZhMWM2MjQxNWVkY2MyOTM3YTdlZmMxNWUyMmY1OTc1MzZkNjg1ODEzMDQxNWEyYWZjZjEwN2UyZDg1ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZmFmYmEwNTI3YzM5NTNjNGI2ZTBlNWI1NzM5YmE4MzYxMmY4MDUzYmNkYzk0NjY3MzAxOTNjZDFkNTkwYjQwOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDM1YmMyOWIxNGQwNzAwYmJkY2FlYThkN2NkZDE3ZDRjZDViM2U2NGVmM2Q2ZDQ2NTdlOGNlZTY4OTkxYzhiMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjg5MTVhYTk2NTdlZDEzOTRiNjVmZTIzZTJhMTk0YTE4MTJjYmJmNDMxZjVmMWIyYzE4OGM5MjEwN2QwYzE3ZCJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.0",
+    "at": "2026-10-05T19:18:44.075Z"
+  }
+}

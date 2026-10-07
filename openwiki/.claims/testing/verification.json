@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:3c22d5e947f8ece07e8fb1338f0c21af73593c98e6afd0cf0733d3036b9e7e0f",
+  "claims": [
+    {
+      "id": "claim_55b66afc53074753b90d8fe95bdc07fb",
+      "statement": "The root Makefile separates Go, Lambda, build-helper, and LocalStack test targets; fast LocalStack mode requires an existing endpoint, and full mode starts and shuts down the stack.",
+      "evidence": [
+        {
+          "resource": "repo://Makefile#L130-L168",
+          "version": "repo-lines-v1:sha256:ea19d60e83a7333d11bfa9a9fc34e86a69e62f54576301ba8fc3a1a03b8cf4a2:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjN2EyNTRlZjQ0YjM1OGMzOWExNjgyNjUxYzY3MzMyNjVjYTVjZjI4OTM4MWQ2ODkzOTBlYzkxMjQxNTcxYjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM1ZmZjZDQzMTY5NTRlM2FmZDliY2QwNGI1NDFkZjMzNTE1NmQ4MzU3YzI0MGQ4NDYwMDUzNGY0ZWRiOWQ0ZTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjNmUzZmQzMWM5NzdiMGIxODNhMTU3NzIxZTMzZDNjNDdlYWQyMmFlYmFkYzdiMGZjZGUxMGY1OWU3NDk4MDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI1OTk2MmRhM2MyNjM0M2Y0MGFjZDJmMDIwMzQ3ZTQ5ODdhYmNmYTczM2NmZDg5YTU2MTFhMmYxNDk0OTlmMzgifQ"
+        },
+        {
+          "resource": "repo://Makefile#L70-L128",
+          "version": "repo-lines-v1:sha256:966f0fe4f983bd58fcd5dda3ecb83adfcdddf7b7bf4d966701b982651c58940e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmOGZmNjgxNWU2Mjg5MjJmM2RiM2M0MzllNTA5MTVhODk1MzViYmRiNWZiMDBmZWE4ZWMzZjE1MmQ5MWRjOGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliMDczNWMyNGMyYzY5ODY3OWI3MDIxNDVkMmFmNDEyZmY5MTFlY2ZiNGFmNmQ4MDlmNGY5ZmUxYzUxNGMwMWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU1M2JhNGViMzI2NmU4MWVjZmVmOTg0ZjUxNjEyNTRmOWU4MDVmYWRmNjJmOWY1ZjA2N2MwMzkwOGRmMjYzYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI3NDEwNzU0OTIyY2MxODIzZjUxZWEzNzJmNzlmNzFmMTQwMGE0OTBiMjkxMDZkZjhiYzI5ZTEwZjIxODdiNWMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_82e2913944aa44319de555420787389e",
+      "statement": "The investigation Lambda unit suite runs with pytest, the reaper suite runs with unittest, and the aggregate Lambda target runs both suites.",
+      "evidence": [
+        {
+          "resource": "repo://Makefile#L117-L128",
+          "version": "repo-lines-v1:sha256:363317546531f27aa2df9c7b555020df4b9ebd56f81b47e730f65a91a2c1900d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUwNjA4M2EwOTUyYTZhOWE0YTM0MDQ5NWE5NDk0OTgwMDE5MTA1OWNkZWIwY2EyYjlhN2NhNmI4NzYyMGUxNjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliMDczNWMyNGMyYzY5ODY3OWI3MDIxNDVkMmFmNDEyZmY5MTFlY2ZiNGFmNmQ4MDlmNGY5ZmUxYzUxNGMwMWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUzOTNlNmRiZTdlM2YwY2JhMjBjZjRlMjJmODI3YTk5ZTk4NDg5NjgwMGU5ZmUwNzhhMDcyYWYxMTlmYWMyZWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI3NDEwNzU0OTIyY2MxODIzZjUxZWEzNzJmNzlmNzFmMTQwMGE0OTBiMjkxMDZkZjhiYzI5ZTEwZjIxODdiNWMifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/Makefile#L78-L88",
+          "version": "repo-lines-v1:sha256:6beb05fa3c6a7cbe25f2667bc3b3adf495e6ff5a7a203b52ab9ae2a66d5585e0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNlOGZlMDhmYWIwMDI5MTA1NTk2NmE5YTllMjQwMjUzNDZiMzQ4ODhmNzc3ZmNlNzFjOGM3Yzc4NDg1ZGI2ZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5OTg1NmM5NzViMzVlM2QzZTNhNjQ1NjcwYzc4MmEyNzMyMzdmYmVkODMyZDJlMWUzYzU4MjdjOTkwZjNjMzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA0MjlkMWExZDZkNjYyNGY4MDI2YTFmY2Y4ZDBiZGFiZTFjZTkxNTQ1NDk2MDliZTdhNjU3ZTNiMmI5MjI3ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgwNjZjNjY4ODU2Njk4NzcxMjg4MzMyZDAwMmE0MjEwODM2MzUxZDRjYzA4ZGY3MzY1MTkxOTlhYTIzOGRlNzUifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L19-L35",
+          "version": "repo-lines-v1:sha256:c33b460cf9c0019ef5291ad1c00ddc3e9e5c1fcbae542047d16b31e2f0f1813f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNThhM2U2MDEzNWMxMWQzODhjNTVmZWRmOGY5M2VhNDZhZjFkYzEwNmU0ZDFkODM5ZGI0NGY3ZWE5NGQ4YWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiZDgyMDVkYmQ3ZmM4M2Q2ZTMyNzhkM2U0MzYwM2U3YWU2MTZhYTY3ZDMzZDM0NmRlZTk5ODc3ZDc5ZGE2NzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkMDNlNjVmMmE0YjEyOTY3MGU3ZTM4MDVhNTIyNjhmYzcwMWQ3OTRhOGQzMjI4NDJlZDc2Y2Y4YjdkNjU3OGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlMTk0N2UyN2Q3YTZhNmNlZTM2MzMyYjZhZGYyMGNlZjAyOGI5YjBjMWI3NzAyMjYxYTQyZmM5YzMyZWUwOGMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_94da706703a746f6ab637cabf1f87855",
+      "statement": "LocalStack fixtures wait for the health endpoint and configured required services before constructing AWS SDK clients against the local endpoint.",
+      "evidence": [
+        {
+          "resource": "repo://tests/localstack/conftest.py#L21-L99",
+          "version": "repo-lines-v1:sha256:471b3f5725d585c0b1fcb247ebcf1b5b6d599b8a42398291abec963c5cce0326:eyJzZWxlY3RlZExpbmVDb3VudCI6NzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjViMTZkYTg2MTMyZTEwYjQ1YzQ4N2JhOTIxODNlMzA4ZjEwYjYwODlmMDllZTRmYzhiNjgwZDZiNDBmNzFhNzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1YzFjNDYyZTJhMzlkNzQ3NTlmNWUxYjEyNmY3NjgzYTJiNzMwMTE4ZTE4ZjUxMjJiMDhjZWRlZWI2NTBlMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxYzE0MjZiZWE3ZmFiYTA1YTEyYzFlMWM4NjBkYTY3YzYxNzM4ZmZjY2NjYTRmNjc2ZTRiOTI2ZGVhNjZlMDIifQ"
+        },
+        {
+          "resource": "repo://tests/localstack/required_services.py#L1-L6",
+          "version": "repo-lines-v1:sha256:8e16d659fe0bb8a05c20ee98377516f0afa8dae58e9987b30e48f0c21c8371fa:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzEwOWY4ODU4NDkzMzdmZjZkZGRlYjI4MGViZDdhZmNhYjMxYzUyZGMyNjRkYmM2MDJhZjExZTkzMTE3ZDAyYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjhiY2Q2MDk5ZDNhY2EyMmMyMTM4M2M1OWE5OTc3M2I1NmE5ZDJkNDUxMzM2MTVlZTE2ZGFmY2Q0ZjE3YTc2MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_0ecfad2fe82a4be4a8ecb8b85c9c103d",
+      "statement": "Local LocalStack compose uses the local ECS executor, which causes slow task-dependent integration tests to skip; the Prow runner sets a Docker-compatible ECS executor.",
+      "evidence": [
+        {
+          "resource": "repo://tests/localstack/ci-run.sh#L64-L85",
+          "version": "repo-lines-v1:sha256:025e91f20c75d4229b912d47e5b87c670125e96f635887e385080ac6718a5235:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmOWE1YzllYjFhY2U3ZTY2MGNjMjM5NmM1ZjVlZGMxZDU2NDUyMjgzNWQ5YTk1ZmJjZTE0N2FhNmIyMzA4ZmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlN2ViMTA0NjEzMzgzM2I0YzBiNGFlMmE0NmM0OGZmNTE2ZDllNmU4YzIyZmQxNjRhZDMzZWFiYzNmYTE4NTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4YjgwMDhmMWU4YWZjMmUwM2U0MmIwOWRiMDZiNjVhZWVhNDYwZGQ1MWY1YzYwZGYyYjRkNDk0N2Y0NzA0MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3MzI2MGEwNzhiNzZkZjlmNTEyMmExOTU0OTM2ZTI3NWI4YjdhMjhhOTI4YzQ0N2JiN2JhNTQzOTdlZTJkMzQifQ"
+        },
+        {
+          "resource": "repo://tests/localstack/compose.yml#L1-L24",
+          "version": "repo-lines-v1:sha256:49a506d9055cf4d9444bb26f70389499436760ad65cb032182bd5e8e8fb85e8e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhNzNmY2NkYzk5ZWE4MzU5NjdjN2RlZTdlZmJlZDFmM2NhODcyNjBkOTI5MzE4NTBmZGQ2NmRhOGNiMTJmMWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyOWM5NzE0Zjk2YTBiNzI5MTg0MGMzMDE5NWRhMjg1N2I1ZWIzNjYwZmYyNmFkMWQyMzk2YzI5ZmNhZjgzZDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3NGZiOWZmNzU3NDQ3MjAzN2MzMWYwNjYxOWVlM2JkYzgxODM0N2ZhN2Y1MDc1NzBkZjlhNWY5MGU1ZTVmOWUifQ"
+        },
+        {
+          "resource": "repo://tests/localstack/integration/test_task_timeout.py#L16-L78",
+          "version": "repo-lines-v1:sha256:8a98fe8fcf17a486e83d0501752778585bf0ee1873a988de951b4f4851d8d04f:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYWI1OWM1ODY1Mjg1NmUyYjA3MDkxMmFiNmIyY2Q3ZDIyODcyODU1ZTQyNjRiNTllODc1MzcyOWUxMTFiZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NjVkMmIzYjlmNTRmOTY1NzI1MDA5M2RhNzFhZmQxY2Q3YTExM2RhNWIxNDFhZjE1MzYxYjZiMzM4NWFmOTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1YzFjNDYyZTJhMzlkNzQ3NTlmNWUxYjEyNmY3NjgzYTJiNzMwMTE4ZTE4ZjUxMjJiMDhjZWRlZWI2NTBlMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ0ZmE4Nzg4MmJiNTkyNzA4ZTY1ZGQ3MTZlN2NmMmM5ZWY5ZjM5YzExNzQ3MmUwMzk3ZTFiMmUzZTBjMDc5MTYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d4e8e573cffa4f7890ea1fb9de749d89",
+      "statement": "The Prow runner gates pytest on LocalStack service health and initialized SSM state, writes JUnit XML, fails an all-skipped suite, and collects LocalStack logs on exit.",
+      "evidence": [
+        {
+          "resource": "repo://tests/localstack/ci-run.sh#L128-L223",
+          "version": "repo-lines-v1:sha256:63ed694971bbb4804a5efae9d6f048d1d94f807a8a1a5071299409eae70c83ab:eyJzZWxlY3RlZExpbmVDb3VudCI6OTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkZDllZDNlZmM0MjM1YTIzMGJjZjg1MWU5YjBmYWYyNjY0NTYyMjM3MDQyZmY0ZTQxMjNiOWZlMDIxYWYwMTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ2MGQxOThjNDhiZDU4M2I5ZmFjYmQ1MmMwNmM1NGM5MzZlOGU4NmJhMzY3NWQ5MGJkYmY3NTllYzk1OWU4MjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIwMWQwNWZmNjYxZmM3NzZlNjIyOWRkODMzNzFiMDQ0ZmY5NzAyMDRkNjgyMTAwZDkyZjU0MmMzOTk3ZWFlOGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIyODY4ZTNlYzMyMmQ2ODgzMjFjMWM3NjQwN2EyYmJkMWI4NTk1NjQyYzc2MjhjYTM0MGJiMGJiYzA1NGM0ZWMifQ"
+        },
+        {
+          "resource": "repo://tests/localstack/ci-run.sh#L225-L262",
+          "version": "repo-lines-v1:sha256:2792459379f97808c1b0ce3eaf908ef81aff0db363fca94e00577dbafec05d29:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRiMDdhMTVhOGU2ZjE2MDBkOTEzNTZjMzYxZjcyMzhmYmQ0MGU2ZmZiNmQ0NTBjNzliZWJhYjE2M2I4Y2VlYmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhMjFjNWIzYmZmMDI5OWMwMTYxNDcwNDY4ZjM1NWU1YjRhZmNmMTdhNWY1OTNhYjY4Mzk0ZWY3YWYzMTljZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI2ODAwYjdlOTk3MDVhN2JhYjEyNGExYmZjYmIwYmQ5OGE3NWIyNjE0ZmEyMTEwYWI3ZTlmOWNkN2Q5MDgzMjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://tests/localstack/ci-run.sh#L43-L62",
+          "version": "repo-lines-v1:sha256:6719a69808b381f6f082a096c812ffe26a5a5fa719a1fceb6aff363d9a6ad4e0:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYyMTRkNDdmNDUyMWI3N2IwOWRhODI0NWM3ODcxMjg1N2M1NGNiODBiOWMzMDNiMzM2YzM3YTM4NGQ3Mzg2MDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzk3ZTdhMTIzNmZmYWQzNGIxMTc1OWU0OTc1NWI0ODlkZDE0N2Y2ZDY3OWNlNTg0YzdiZGFiZmQwNTY4YjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE0NjM3YTQwZDRlOGNhZDMwZGI2NGE1NWE2NjQ5ODIwNmE5OGZkYjg0N2U1MzYwYmM3OGNiMDE4NGQyY2EwOTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhMGE0YzEyNmQxMDJlMjJmYzA3NmI4NjE3NzM5ZDk0MjE3MjEzYzg0MjhkOGQ1NTcyMjg0YjJhNGVlNzE4ZjYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_af8984f0b4e7452a94da877277f827e4",
+      "statement": "Local-only bats tests exercise the LocalStack CI runner's JUnit gate, log collection, and service readiness helpers without starting LocalStack or Podman.",
+      "evidence": [
+        {
+          "resource": "repo://tests/localstack/ci-run.bats#L1-L22",
+          "version": "repo-lines-v1:sha256:7e2267d5e91eead4dedf2b971c1402c5d90fae40f899ec1e4ec4ca2d2ce8aa95:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjMDIzY2JjOTExY2Y3NzQxMWI3OWIzOTQ0NDM4ZjJlMTExNDViMjY2MWI5NDcyNDgxZDliN2FhOGJkZGRkZDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVkODFhZDFmMzZhYWVjMDJlMmQ5ODQ3Yzk2Njg4OWZlYmJkMDEyZWYyMDM1NjU2MzMxYmNmMzU3MjFmN2FkN2YifQ"
+        },
+        {
+          "resource": "repo://tests/localstack/ci-run.bats#L24-L101",
+          "version": "repo-lines-v1:sha256:b5505a2a3e26fa34041188a8a15c19548acc7368aa340e241cc5a69d21a2d73a:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4Njc5MWJiYmQ3MzNjOWM0YjM3ODg0MWFhNjRhMjA5ODdjYmZlOGIzODVkZTU0Y2FmYzNjNzFjZDY2ZTMwYjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZlMjRlNWI0NjBhMzQ4MTQ5MDdmYTA3YjFmNTgzNjNmMmJkYTllYzZmNmEwM2JhMTBkZTMxNjljMmM2YzI0MTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_20f7ff5a69cd43e8aa9ad2bbc0f4f2ee",
+      "statement": "Terraform's Claude model tests use a mocked AWS provider and test both an approved default inference profile and rejection of bare or unapproved model mappings.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L12-L66",
+          "version": "repo-lines-v1:sha256:7ac4de6249f5d3924a5ccb81f61f834d5dece409ec4b24d5a10fd261fa26c722:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyZmM5Y2RmYjgwYWFmOTc1Yjg2ZGUzNzgwODc1YjFlYzdjZjk0NjgzMzgwZTk5NDIzMTE4MDFmZmU1ODY3ZGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY3Yzc1NDRlYWMyZDlkM2U1MmI5OWYxMzlmMDg0NWE5NWRlNzY0NzQyY2E3ZDNiYTMwODk5NTY0YTcyNTBiOWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFmMWNjNzgyNTdhNWUyZGE0NGQxOTkxM2Y5NTg3ZGZhNTQ5MDFmNzBkYWY4ODBmZTc2MTc0MzVlZDk2MjE5MjAifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L68-L124",
+          "version": "repo-lines-v1:sha256:3459249e0729609bbeaf5e5715b23524db55b0eac346646f851978df68bb0f93:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFjNjYwNmI0OTI2ZjhjYjVkNTg4MWJmZDAwMDI2M2I1ZGNjNGE1ZDhjNTQyNDhjMjAwNzExN2RkNTZmYjBlMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.0",
+    "at": "2026-10-05T19:18:44.075Z"
+  }
+}

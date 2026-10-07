@@ -25,9 +25,36 @@ class TestReaperLambda(unittest.TestCase):
         self.patcher = patch('handler.ecs', self.mock_ecs)
         self.patcher.start()
 
+        self.mock_ssm = MagicMock()
+        self.ssm_patcher = patch('handler.ssm', self.mock_ssm)
+        self.ssm_patcher.start()
+        # Default: no active sessions. Individual tests override as needed.
+        self.mock_ssm.describe_sessions.return_value = {'Sessions': []}
+
     def tearDown(self):
         """Clean up patches"""
         self.patcher.stop()
+        self.ssm_patcher.stop()
+
+    @staticmethod
+    def _exec_task(task_arn, deadline, containers=None):
+        """Build a describe_tasks entry for an ECS Exec-enabled task.
+
+        Mirrors the real DescribeTasks shape: a task-level enableExecuteCommand
+        flag plus a containers array whose RUNNING entries carry a runtimeId.
+        """
+        if containers is None:
+            containers = [{
+                'name': 'rosa-boundary',
+                'lastStatus': 'RUNNING',
+                'runtimeId': 'runtime-abc'
+            }]
+        return {
+            'taskArn': task_arn,
+            'enableExecuteCommand': True,
+            'containers': containers,
+            'tags': [{'key': 'deadline', 'value': deadline}]
+        }
 
     def test_no_running_tasks(self):
         """Test reaper with no running tasks"""
@@ -53,10 +80,11 @@ class TestReaperLambda(unittest.TestCase):
         # Mock task list
         self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
 
-        # Mock describe_tasks
+        # Mock describe_tasks (non-exec task: safe to reap without a session check)
         self.mock_ecs.describe_tasks.return_value = {
             'tasks': [{
                 'taskArn': task_arn,
+                'enableExecuteCommand': False,
                 'tags': [
                     {'key': 'deadline', 'value': past_deadline},
                     {'key': 'oidc_sub', 'value': 'test-user-123'},
@@ -148,15 +176,17 @@ class TestReaperLambda(unittest.TestCase):
         # Mock task list
         self.mock_ecs.list_tasks.return_value = {'taskArns': [task1_arn, task2_arn]}
 
-        # Mock describe_tasks
+        # Mock describe_tasks (non-exec tasks: safe to reap without a session check)
         self.mock_ecs.describe_tasks.return_value = {
             'tasks': [
                 {
                     'taskArn': task1_arn,
+                    'enableExecuteCommand': False,
                     'tags': [{'key': 'deadline', 'value': past_deadline}]
                 },
                 {
                     'taskArn': task2_arn,
+                    'enableExecuteCommand': False,
                     'tags': [{'key': 'deadline', 'value': past_deadline}]
                 }
             ]
@@ -187,8 +217,10 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_ecs.list_tasks.return_value = {'taskArns': [task1_arn, task2_arn]}
         self.mock_ecs.describe_tasks.return_value = {
             'tasks': [
-                {'taskArn': task1_arn, 'tags': [{'key': 'deadline', 'value': past_deadline}]},
-                {'taskArn': task2_arn, 'tags': [{'key': 'deadline', 'value': past_deadline}]},
+                {'taskArn': task1_arn, 'enableExecuteCommand': False,
+                 'tags': [{'key': 'deadline', 'value': past_deadline}]},
+                {'taskArn': task2_arn, 'enableExecuteCommand': False,
+                 'tags': [{'key': 'deadline', 'value': past_deadline}]},
             ]
         }
 
@@ -296,6 +328,294 @@ class TestReaperLambda(unittest.TestCase):
 
         # Verify describe_tasks was called 3 times (batches of 100, 100, 50)
         assert self.mock_ecs.describe_tasks.call_count == 3
+
+    # ------------------------------------------------------------------
+    # ROSAENG-66967: protect active ECS Exec / SSM sessions from reaping
+    # ------------------------------------------------------------------
+
+    def test_expired_task_with_active_session_is_protected(self):
+        """A: expired task with an active SSM session is NOT stopped."""
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/abc123'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [self._exec_task(task_arn, past_deadline)]
+        }
+        # Active session present on the container.
+        self.mock_ssm.describe_sessions.return_value = {
+            'Sessions': [{'SessionId': 'rosa-boundary-0abc', 'Status': 'Connected'}]
+        }
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['checked'] == 1
+        assert result['stopped'] == 0
+        assert result['protected'] == 1
+        assert result['errors'] == 0
+        self.mock_ecs.stop_task.assert_not_called()
+
+        # Session lookup used the create-investigation target convention.
+        self.mock_ssm.describe_sessions.assert_called_once_with(
+            State='Active',
+            Filters=[{'key': 'Target', 'value': 'ecs:test-cluster_abc123_runtime-abc'}]
+        )
+
+    def test_expired_task_without_active_session_is_stopped(self):
+        """B: expired task with no active session is stopped (existing behavior)."""
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/abc123'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [self._exec_task(task_arn, past_deadline)]
+        }
+        self.mock_ssm.describe_sessions.return_value = {'Sessions': []}
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['checked'] == 1
+        assert result['stopped'] == 1
+        assert result['protected'] == 0
+        assert result['errors'] == 0
+        self.mock_ecs.stop_task.assert_called_once_with(
+            cluster='test-cluster',
+            task=task_arn,
+            reason=f'Task deadline exceeded (deadline: {past_deadline})'
+        )
+
+    def test_future_deadline_does_not_query_sessions(self):
+        """C: a task whose deadline has not expired never triggers a session lookup."""
+        future_deadline = (datetime.utcnow() + timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/abc123'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [self._exec_task(task_arn, future_deadline)]
+        }
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['checked'] == 1
+        assert result['stopped'] == 0
+        assert result['skipped'] == 1
+        assert result['protected'] == 0
+        assert result['errors'] == 0
+        self.mock_ecs.stop_task.assert_not_called()
+        self.mock_ssm.describe_sessions.assert_not_called()
+
+    def test_expired_task_session_api_failure_fails_closed(self):
+        """D: SSM DescribeSessions failure must fail closed and record an error."""
+        from botocore.exceptions import ClientError
+
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task1_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/task1'
+        task2_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/task2'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task1_arn, task2_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [
+                self._exec_task(task1_arn, past_deadline,
+                                containers=[{'name': 'rosa-boundary', 'lastStatus': 'RUNNING',
+                                             'runtimeId': 'runtime-1'}]),
+                self._exec_task(task2_arn, past_deadline,
+                                containers=[{'name': 'rosa-boundary', 'lastStatus': 'RUNNING',
+                                             'runtimeId': 'runtime-2'}]),
+            ]
+        }
+        # First task's session check fails; second returns no sessions.
+        self.mock_ssm.describe_sessions.side_effect = [
+            ClientError({'Error': {'Code': 'InternalServerError', 'Message': 'boom'}},
+                        'DescribeSessions'),
+            {'Sessions': []},
+        ]
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['checked'] == 2
+        assert result['stopped'] == 1        # second task still processed and stopped
+        assert result['protected'] == 0
+        assert result['errors'] == 1         # first task's failure recorded
+        # First task never stopped; only the second was stopped.
+        self.mock_ecs.stop_task.assert_called_once_with(
+            cluster='test-cluster',
+            task=task2_arn,
+            reason=f'Task deadline exceeded (deadline: {past_deadline})'
+        )
+
+    def test_expired_task_multiple_containers_any_active_protects(self):
+        """E: an active session on any relevant container protects the task."""
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/multi'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [self._exec_task(task_arn, past_deadline, containers=[
+                {'name': 'rosa-boundary', 'lastStatus': 'RUNNING', 'runtimeId': 'runtime-main'},
+                {'name': 'kube-proxy', 'lastStatus': 'RUNNING', 'runtimeId': 'runtime-proxy'},
+            ])]
+        }
+        # No session on the first container, active session on the second.
+        self.mock_ssm.describe_sessions.side_effect = [
+            {'Sessions': []},
+            {'Sessions': [{'SessionId': 'rosa-boundary-1def'}]},
+        ]
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['protected'] == 1
+        assert result['stopped'] == 0
+        assert result['errors'] == 0
+        self.mock_ecs.stop_task.assert_not_called()
+        assert self.mock_ssm.describe_sessions.call_count == 2
+
+    def test_expired_exec_task_missing_runtime_id_fails_closed(self):
+        """F: exec-enabled task with a RUNNING container but no runtimeId fails closed."""
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/noruntime'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [self._exec_task(task_arn, past_deadline, containers=[
+                {'name': 'rosa-boundary', 'lastStatus': 'RUNNING'},  # no runtimeId
+            ])]
+        }
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['checked'] == 1
+        assert result['stopped'] == 0
+        assert result['protected'] == 0
+        assert result['errors'] == 1
+        self.mock_ecs.stop_task.assert_not_called()
+        # Could not even address a target, so no session lookup was made.
+        self.mock_ssm.describe_sessions.assert_not_called()
+
+    def test_expired_task_missing_exec_flag_fails_closed(self):
+        """F (missing flag): a missing enableExecuteCommand field fails closed.
+
+        An absent flag is NOT treated as 'not exec-capable' — exec capability is
+        unknown, so the task must not be stopped.
+        """
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/noflag'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [{
+                'taskArn': task_arn,
+                # enableExecuteCommand intentionally absent
+                'containers': [{'name': 'rosa-boundary', 'lastStatus': 'RUNNING',
+                                'runtimeId': 'runtime-abc'}],
+                'tags': [{'key': 'deadline', 'value': past_deadline}]
+            }]
+        }
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['checked'] == 1
+        assert result['stopped'] == 0
+        assert result['protected'] == 0
+        assert result['errors'] == 1
+        self.mock_ecs.stop_task.assert_not_called()
+        # Exec capability unknown — no session lookup is attempted.
+        self.mock_ssm.describe_sessions.assert_not_called()
+
+    def test_expired_non_exec_task_is_stopped_without_session_lookup(self):
+        """F (non-exec variant): a task without ECS Exec is reaped, no session lookup."""
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/noexec'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [{
+                'taskArn': task_arn,
+                'enableExecuteCommand': False,
+                'containers': [{'name': 'rosa-boundary', 'lastStatus': 'RUNNING'}],
+                'tags': [{'key': 'deadline', 'value': past_deadline}]
+            }]
+        }
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['stopped'] == 1
+        assert result['protected'] == 0
+        assert result['errors'] == 0
+        self.mock_ecs.stop_task.assert_called_once()
+        self.mock_ssm.describe_sessions.assert_not_called()
+
+    def test_multiple_expired_tasks_mixed_session_states(self):
+        """G: mixed batch — active protected, inactive stopped, API failure isolated."""
+        from botocore.exceptions import ClientError
+
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        active_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/active'
+        inactive_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/inactive'
+        failing_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/failing'
+
+        self.mock_ecs.list_tasks.return_value = {
+            'taskArns': [active_arn, inactive_arn, failing_arn]
+        }
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [
+                self._exec_task(active_arn, past_deadline,
+                                containers=[{'name': 'rosa-boundary', 'lastStatus': 'RUNNING',
+                                             'runtimeId': 'rt-active'}]),
+                self._exec_task(inactive_arn, past_deadline,
+                                containers=[{'name': 'rosa-boundary', 'lastStatus': 'RUNNING',
+                                             'runtimeId': 'rt-inactive'}]),
+                self._exec_task(failing_arn, past_deadline,
+                                containers=[{'name': 'rosa-boundary', 'lastStatus': 'RUNNING',
+                                             'runtimeId': 'rt-failing'}]),
+            ]
+        }
+
+        def describe_sessions(State, Filters):
+            target = Filters[0]['value']
+            if target.endswith('rt-active'):
+                return {'Sessions': [{'SessionId': 'rosa-boundary-2ghi'}]}
+            if target.endswith('rt-inactive'):
+                return {'Sessions': []}
+            raise ClientError(
+                {'Error': {'Code': 'ThrottlingException', 'Message': 'slow down'}},
+                'DescribeSessions'
+            )
+
+        self.mock_ssm.describe_sessions.side_effect = describe_sessions
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['checked'] == 3
+        assert result['protected'] == 1   # active task
+        assert result['stopped'] == 1     # inactive task
+        assert result['errors'] == 1      # failing task fails closed
+        # Only the inactive task was stopped.
+        self.mock_ecs.stop_task.assert_called_once_with(
+            cluster='test-cluster',
+            task=inactive_arn,
+            reason=f'Task deadline exceeded (deadline: {past_deadline})'
+        )
+
+    def test_active_session_detected_across_pagination(self):
+        """An Active session on a later DescribeSessions page still protects the task."""
+        past_deadline = (datetime.utcnow() - timedelta(hours=1)).isoformat()
+        task_arn = 'arn:aws:ecs:us-east-2:123456789012:task/test-cluster/paged'
+
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {
+            'tasks': [self._exec_task(task_arn, past_deadline)]
+        }
+        self.mock_ssm.describe_sessions.side_effect = [
+            {'Sessions': [], 'NextToken': 'page2'},
+            {'Sessions': [{'SessionId': 'rosa-boundary-3jkl'}]},
+        ]
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['protected'] == 1
+        assert result['stopped'] == 0
+        self.mock_ecs.stop_task.assert_not_called()
+        assert self.mock_ssm.describe_sessions.call_count == 2
 
 
 if __name__ == '__main__':

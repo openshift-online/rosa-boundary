@@ -70,6 +70,16 @@ resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
             "ecs:ResourceTag/deadline" = "*"
           }
         }
+      },
+      {
+        # Detect active ECS Exec / SSM sessions before reaping an expired task.
+        # ssm:DescribeSessions does not support resource-level permissions, so it
+        # must be granted on "*" (AWS IAM does not define a resource type for it).
+        Effect = "Allow"
+        Action = [
+          "ssm:DescribeSessions"
+        ]
+        Resource = "*"
       }
     ]
   })

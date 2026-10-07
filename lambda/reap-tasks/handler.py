@@ -26,8 +26,23 @@ ecs = boto3.client(
     config=BotocoreConfig(connect_timeout=5, read_timeout=10, retries={'max_attempts': 3, 'mode': 'standard'})
 )
 
+# SSM client, used to detect active ECS Exec sessions before reaping a task.
+ssm = boto3.client(
+    'ssm',
+    endpoint_url=os.environ.get('LOCALSTACK_ENDPOINT'),
+    config=BotocoreConfig(connect_timeout=5, read_timeout=10, retries={'max_attempts': 3, 'mode': 'standard'})
+)
+
 # Environment variables
 ECS_CLUSTER = os.environ.get('ECS_CLUSTER')
+
+
+class SessionCheckError(Exception):
+    """Raised when active ECS Exec / SSM session state cannot be reliably determined.
+
+    The reaper fails closed on this error: it skips stopping the affected task and
+    records an error, leaving the task to be re-evaluated on a subsequent run.
+    """
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -48,6 +63,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'checked': 0,
             'stopped': 0,
             'skipped': 0,
+            'protected': 0,
             'errors': 0
         }
 
@@ -56,6 +72,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     checked = 0
     stopped = 0
     skipped = 0
+    protected = 0
     errors = 0
     now = datetime.utcnow()
 
@@ -69,6 +86,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'checked': 0,
                 'stopped': 0,
                 'skipped': 0,
+                'protected': 0,
                 'errors': 0
             }
 
@@ -114,6 +132,26 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         if now > deadline:
                             logger.info(f"Task {task_id} deadline exceeded: {deadline_str}")
 
+                            # Protect tasks with an active ECS Exec / SSM session: an SRE
+                            # may still be working in the task when the deadline expires.
+                            # Fail closed - if session state cannot be determined, skip
+                            # reaping so a potentially active session is not interrupted.
+                            try:
+                                if has_active_ssm_session(ECS_CLUSTER, task_id, task):
+                                    protected += 1
+                                    logger.info(
+                                        "Task %s deadline exceeded but has an active ECS Exec "
+                                        "session; skipping reap this run", task_id
+                                    )
+                                    continue
+                            except SessionCheckError as e:
+                                errors += 1
+                                logger.error(
+                                    "Could not verify ECS Exec session state for task %s; "
+                                    "skipping reap (fail-closed): %s", task_id, e
+                                )
+                                continue
+
                             try:
                                 ecs.stop_task(
                                     cluster=ECS_CLUSTER,
@@ -150,15 +188,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'checked': checked,
             'stopped': stopped,
             'skipped': skipped,
+            'protected': protected,
             'errors': errors
         }
 
-    logger.info(f"Reaper completed: checked={checked}, stopped={stopped}, skipped={skipped}, errors={errors}")
+    logger.info(
+        f"Reaper completed: checked={checked}, stopped={stopped}, "
+        f"skipped={skipped}, protected={protected}, errors={errors}"
+    )
 
     return {
         'checked': checked,
         'stopped': stopped,
         'skipped': skipped,
+        'protected': protected,
         'errors': errors
     }
 
@@ -198,3 +241,121 @@ def list_running_tasks(cluster: str) -> List[str]:
             raise
 
     return task_arns
+
+
+def has_active_ssm_session(cluster: str, task_id: str, task: Dict[str, Any]) -> bool:
+    """
+    Return True if the task has at least one active ECS Exec / SSM session.
+
+    Reuses the create-investigation handover convention for the SSM target:
+
+        ecs:{cluster}_{task_id}_{runtime_id}
+
+    The task object is the entry from ecs.describe_tasks (which already includes
+    the ``containers`` array and ``enableExecuteCommand`` flag), so no additional
+    DescribeTasks call is required.
+
+    Args:
+        cluster: ECS cluster name
+        task_id: ECS task ID (last segment of the task ARN)
+        task: Task dict from describe_tasks
+
+    Returns:
+        True if an active session is confirmed on any relevant container,
+        False only when it is confirmed that no active session can exist.
+
+    Raises:
+        SessionCheckError: when the session state cannot be reliably determined
+            (SSM API failure, or an exec-enabled container whose runtimeId is not
+            yet available). Callers must fail closed and skip reaping.
+    """
+    # Distinguish the exec flag's three cases, since this guard decides whether a
+    # task may be stopped:
+    #   - explicit False -> genuinely non-exec-capable, safe to reap.
+    #   - explicit True  -> run the SSM session check below.
+    #   - missing/unexpected -> session state is unknown; fail closed.
+    exec_enabled = task.get('enableExecuteCommand')
+    if exec_enabled is False:
+        return False
+    if exec_enabled is not True:
+        raise SessionCheckError(
+            f"enableExecuteCommand missing or non-boolean ({exec_enabled!r}); "
+            "cannot determine exec capability"
+        )
+
+    containers = task.get('containers', [])
+    if not containers:
+        # Exec is enabled but describe_tasks returned no container detail:
+        # session state is unknown, so fail closed rather than assume inactive.
+        raise SessionCheckError(
+            "execute-command enabled but describe_tasks returned no container detail"
+        )
+
+    checked_any = False
+    for container in containers:
+        # Only a RUNNING container can host an active exec session. A container in
+        # any other state (e.g. a sidecar that already stopped) cannot, so skip it.
+        last_status = container.get('lastStatus')
+        if last_status is not None and last_status != 'RUNNING':
+            continue
+
+        runtime_id = container.get('runtimeId')
+        if not runtime_id:
+            # Exec is enabled and the container is (or may be) RUNNING, but the
+            # runtimeId needed to address the SSM target is missing. The session
+            # state is temporarily unknown - do NOT assume "no active session".
+            raise SessionCheckError(
+                f"execute-command enabled but container "
+                f"{container.get('name', '<unknown>')!r} has no runtimeId"
+            )
+
+        checked_any = True
+        target = f"ecs:{cluster}_{task_id}_{runtime_id}"
+        if _target_has_active_session(target):
+            return True
+
+    if not checked_any:
+        # Exec enabled but no RUNNING container was available to check: inconclusive.
+        raise SessionCheckError(
+            "execute-command enabled but no running container available to check"
+        )
+
+    return False
+
+
+def _target_has_active_session(target: str) -> bool:
+    """
+    Return True if SSM reports any Active session for the given ECS Exec target.
+
+    Paginates DescribeSessions so that a session beyond the first page is still
+    detected. Raises SessionCheckError on any SSM API failure so the caller can
+    fail closed.
+
+    Args:
+        target: ECS Exec SSM target (ecs:{cluster}_{task_id}_{runtime_id})
+
+    Returns:
+        True if at least one Active session exists for the target, else False.
+
+    Raises:
+        SessionCheckError: when the SSM DescribeSessions call fails.
+    """
+    next_token = None
+    try:
+        while True:
+            kwargs = {
+                'State': 'Active',
+                'Filters': [{'key': 'Target', 'value': target}],
+            }
+            if next_token:
+                kwargs['NextToken'] = next_token
+
+            resp = ssm.describe_sessions(**kwargs)
+            if resp.get('Sessions'):
+                return True
+
+            next_token = resp.get('NextToken')
+            if not next_token:
+                return False
+    except (ClientError, BotoCoreError, ConnectionError) as e:
+        raise SessionCheckError(f"SSM DescribeSessions failed: {e}") from e

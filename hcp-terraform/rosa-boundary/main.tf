@@ -109,21 +109,25 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          # ROSAENG-68790: retain role names when identities move to separate account-level state.
           key      = "role_name_prefix"
           value    = "rosa-boundary-stage"
           category = "terraform"
         },
         {
+          # ROSAENG-68790: retain existing policy names during the account-level resource migration.
           key      = "legacy_policy_region"
           value    = "us-east-1"
           category = "terraform"
         },
         {
+          # ROSAENG-68790: retain original IAM role tags in the separate account-level state.
           key      = "legacy_role_tag_region"
           value    = "us-east-1"
           category = "terraform"
         },
         {
+          # ROSAENG-68790: retain the budget's Region tag when moving it to account-level state.
           key      = "bedrock_budget_tag_region"
           value    = "us-east-1"
           category = "terraform"

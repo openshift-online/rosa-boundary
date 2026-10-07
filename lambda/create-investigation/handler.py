@@ -72,6 +72,7 @@ STAGE_KEYCLOAK_ISSUER_URL = os.environ.get('STAGE_KEYCLOAK_ISSUER_URL', '').rstr
 STAGE_OIDC_CLIENT_ID = os.environ.get('STAGE_OIDC_CLIENT_ID', '')
 PROD_KEYCLOAK_ISSUER_URL = os.environ.get('PROD_KEYCLOAK_ISSUER_URL', '').rstrip('/')
 PROD_OIDC_CLIENT_ID = os.environ.get('PROD_OIDC_CLIENT_ID', '')
+BYPASS_OIDC_VALIDATION = os.environ.get('BYPASS_OIDC_VALIDATION', '').lower() == 'true'
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -106,23 +107,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Extract OIDC token: prefer X-OIDC-Token header (SigV4 flow); fall back to
         # Authorization: Bearer for backward compatibility during migration.
-        headers = event.get('headers', {})
-        oidc_token = headers.get('x-oidc-token')
-        if not oidc_token:
-            auth_header = headers.get('authorization') or headers.get('Authorization')
-            if auth_header and auth_header.startswith('Bearer '):
-                oidc_token = auth_header.split(' ', 1)[1]
-        if not oidc_token:
-            logger.warning("Missing OIDC token: no x-oidc-token header or Authorization: Bearer")
-            return response(401, {'error': 'Missing OIDC token. Provide X-OIDC-Token header.'})
+        # In bypass mode (LocalStack testing), use test_claims from request body.
+        if BYPASS_OIDC_VALIDATION:
+            # Parse body early to get test_claims
+            try:
+                body = json.loads(event.get('body', '{}'))
+            except json.JSONDecodeError:
+                logger.warning("Invalid JSON in request body")
+                return response(400, {'error': 'Invalid JSON in request body'})
 
-        token = oidc_token
+            test_claims = body.get('test_claims', {})
+            if not test_claims:
+                logger.warning("BYPASS_OIDC_VALIDATION enabled but no test_claims in request body")
+                return response(400, {'error': 'test_claims required when BYPASS_OIDC_VALIDATION=true'})
+            token = json.dumps(test_claims)
+        else:
+            headers = event.get('headers', {})
+            oidc_token = headers.get('x-oidc-token')
+            if not oidc_token:
+                auth_header = headers.get('authorization') or headers.get('Authorization')
+                if auth_header and auth_header.startswith('Bearer '):
+                    oidc_token = auth_header.split(' ', 1)[1]
+            if not oidc_token:
+                logger.warning("Missing OIDC token: no x-oidc-token header or Authorization: Bearer")
+                return response(401, {'error': 'Missing OIDC token. Provide X-OIDC-Token header.'})
 
-        # Validate environment configuration
+            token = oidc_token
+
+        # Validate environment configuration (skip Keycloak vars in bypass mode)
         missing_vars = []
-        for var_name in ['KEYCLOAK_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID',
-                         'ECS_CLUSTER', 'TASK_DEFINITION',
-                         'SUBNETS', 'SECURITY_GROUP', 'EFS_FILESYSTEM_ID', 'SHARED_ROLE_ARN']:
+        required_vars = ['ECS_CLUSTER', 'TASK_DEFINITION',
+                        'SUBNETS', 'SECURITY_GROUP', 'EFS_FILESYSTEM_ID', 'SHARED_ROLE_ARN']
+        if not BYPASS_OIDC_VALIDATION:
+            required_vars = ['KEYCLOAK_URL', 'KEYCLOAK_REALM', 'KEYCLOAK_CLIENT_ID'] + required_vars
+
+        for var_name in required_vars:
             if not globals()[var_name] or (var_name == 'SUBNETS' and not SUBNETS[0]):
                 missing_vars.append(var_name)
 
@@ -130,16 +149,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.error(f"Missing required environment variables: {missing_vars}")
             return response(500, {'error': 'Lambda configuration error'})
 
-        if not REQUIRED_GROUPS:
+        if not BYPASS_OIDC_VALIDATION and not REQUIRED_GROUPS:
             logger.error("REQUIRED_GROUPS is empty after parsing — check required_groups Terraform variable")
             return response(500, {'error': 'Lambda configuration error'})
 
-        # Parse request body
-        try:
-            body = json.loads(event.get('body', '{}'))
-        except json.JSONDecodeError:
-            logger.warning("Invalid JSON in request body")
-            return response(400, {'error': 'Invalid JSON in request body'})
+        # Parse request body (unless already parsed in bypass mode)
+        if not BYPASS_OIDC_VALIDATION:
+            try:
+                body = json.loads(event.get('body', '{}'))
+            except json.JSONDecodeError:
+                logger.warning("Invalid JSON in request body")
+                return response(400, {'error': 'Invalid JSON in request body'})
 
         investigation_id = body.get('investigation_id')
         cluster_id = body.get('cluster_id')
@@ -224,15 +244,19 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"Token validated for user: {username} (sub: {user_sub}, {ABAC_TAG_KEY}: {abac_tag_value})")
 
         # Check group membership (user must be in at least one of the required groups)
-        matched_groups = [g for g in REQUIRED_GROUPS if g in groups]
-        if not matched_groups:
-            logger.warning(f"User {username} not in any required group {REQUIRED_GROUPS}")
-            return response(403, {
-                'error': f'User not authorized: must be a member of at least one of {REQUIRED_GROUPS}',
-                'groups': groups
-            })
+        # Skip group check in bypass mode for LocalStack testing
+        if not BYPASS_OIDC_VALIDATION:
+            matched_groups = [g for g in REQUIRED_GROUPS if g in groups]
+            if not matched_groups:
+                logger.warning(f"User {username} not in any required group {REQUIRED_GROUPS}")
+                return response(403, {
+                    'error': f'User not authorized: must be a member of at least one of {REQUIRED_GROUPS}',
+                    'groups': groups
+                })
 
-        logger.info(f"User {username} authorized via group(s): {matched_groups}")
+            logger.info(f"User {username} authorized via group(s): {matched_groups}")
+        else:
+            logger.info(f"Group membership check bypassed (BYPASS_OIDC_VALIDATION=true)")
 
         # Use shared ABAC role — session tags from the OIDC token (https://aws.amazon.com/tags
         # claim) propagate automatically during AssumeRoleWithWebIdentity and are matched
@@ -368,8 +392,11 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
     Supports a primary Keycloak issuer and an optional stage OIDC provider
     (configured via STAGE_KEYCLOAK_ISSUER_URL / STAGE_OIDC_CLIENT_ID env vars).
 
+    For LocalStack testing, set BYPASS_OIDC_VALIDATION=true to skip validation
+    and decode the token as a JSON payload containing test claims.
+
     Args:
-        token: JWT token string
+        token: JWT token string (or JSON string in bypass mode)
         keycloak_url: Primary Keycloak server base URL
         realm: Primary Keycloak realm name
         client_id: Primary expected audience claim
@@ -377,6 +404,18 @@ def validate_oidc_token(token: str, keycloak_url: str, realm: str, client_id: st
     Returns:
         Decoded token claims or None if validation fails
     """
+    # Test mode bypass for LocalStack integration testing
+    if BYPASS_OIDC_VALIDATION:
+        logger.warning("OIDC validation bypassed (BYPASS_OIDC_VALIDATION=true) - for testing only!")
+        try:
+            test_claims = json.loads(token)
+            logger.info(f"Using test claims: sub={test_claims.get('sub')}, "
+                       f"preferred_username={test_claims.get('preferred_username')}")
+            return test_claims
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to decode test claims JSON: {str(e)}")
+            return None
+
     # Peek at the 'iss' claim without verifying signature to route to the correct issuer.
     try:
         unverified = jwt.decode(token, options={"verify_signature": False})

@@ -2813,5 +2813,117 @@ class TestGetConfig:
         assert result['statusCode'] == 401
 
 
+class TestBypassOIDCValidation:
+    """Test BYPASS_OIDC_VALIDATION mode for LocalStack integration testing."""
+
+    @patch.dict('os.environ', {
+        'BYPASS_OIDC_VALIDATION': 'true',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+    })
+    def test_bypass_mode_with_test_claims(self):
+        """Test that bypass mode accepts test_claims from request body."""
+        import importlib
+        importlib.reload(handler)
+
+        test_claims = {
+            'sub': 'test-user-123',
+            'email': 'test@localstack.cloud',
+            'preferred_username': 'testuser',
+            'groups': ['sre-team']
+        }
+
+        event = {
+            'headers': {},
+            'body': json.dumps({
+                'cluster_id': 'test-cluster',
+                'investigation_id': 'test-inv',
+                'test_claims': test_claims
+            })
+        }
+        context = Mock()
+
+        with patch('handler.create_investigation_task') as mock_create:
+            mock_create.return_value = {
+                'taskArn': 'arn:aws:ecs:us-east-1:123:task/test/abc',
+                'accessPointId': 'fsap-test',
+                'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'
+            }
+
+            response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 200
+        body = json.loads(response['body'])
+        assert 'task_arn' in body
+
+    @patch.dict('os.environ', {
+        'BYPASS_OIDC_VALIDATION': 'true',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+    })
+    def test_bypass_mode_missing_test_claims(self):
+        """Test that bypass mode requires test_claims in request body."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {},
+            'body': json.dumps({
+                'cluster_id': 'test-cluster',
+                'investigation_id': 'test-inv'
+                # Missing test_claims
+            })
+        }
+        context = Mock()
+
+        response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 400
+        body = json.loads(response['body'])
+        assert 'test_claims required' in body['error']
+
+    @patch.dict('os.environ', {
+        'BYPASS_OIDC_VALIDATION': 'false',
+        'KEYCLOAK_URL': 'https://keycloak.test',
+        'KEYCLOAK_REALM': 'test-realm',
+        'KEYCLOAK_CLIENT_ID': 'test-client',
+        'ECS_CLUSTER': 'test-cluster',
+        'TASK_DEFINITION': 'test-task',
+        'SUBNETS': 'subnet-1,subnet-2',
+        'SECURITY_GROUP': 'sg-123',
+        'EFS_FILESYSTEM_ID': 'fs-123',
+        'SHARED_ROLE_ARN': 'arn:aws:iam::123:role/test-sre-shared',
+        'REQUIRED_GROUPS': 'sre-team'
+    })
+    def test_bypass_mode_disabled_requires_real_token(self):
+        """Test that with bypass disabled, real OIDC token is required."""
+        import importlib
+        importlib.reload(handler)
+
+        event = {
+            'headers': {},
+            'body': json.dumps({
+                'cluster_id': 'test-cluster',
+                'investigation_id': 'test-inv',
+                'test_claims': {'sub': 'test'}  # Should be ignored
+            })
+        }
+        context = Mock()
+
+        response = handler.lambda_handler(event, context)
+
+        assert response['statusCode'] == 401
+        body = json.loads(response['body'])
+        assert 'Missing OIDC token' in body['error']
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

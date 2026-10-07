@@ -19,6 +19,7 @@ services:
       - LOCALSTACK_LOG_DIR=/tmp/localstack-logs
     volumes:
       - "./init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:z"
+      - "../../lambda/create-investigation:/var/lib/localstack/lambda/create-investigation:z"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
       interval: 10s

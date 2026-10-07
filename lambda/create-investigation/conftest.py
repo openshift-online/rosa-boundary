@@ -13,3 +13,6 @@ import sys
 _this_dir = os.path.dirname(os.path.abspath(__file__))
 if _this_dir not in sys.path:
     sys.path.append(_this_dir)
+
+# Set default AWS region for boto3 client initialization at module load time
+os.environ.setdefault('AWS_DEFAULT_REGION', 'us-east-2')

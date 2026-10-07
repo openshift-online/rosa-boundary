@@ -87,11 +87,21 @@ make test-localstack
 # Run fast tests only (skip slow ECS task launches)
 make test-localstack-fast
 
+# Run only start-task tests (requires Lambda dependencies installed)
+cd tests/localstack
+pytest integration/test_start_task.py -v
+
 # View logs
 make localstack-logs
 
 # Stop and cleanup
 make localstack-down
+```
+
+**Note**: `test_start_task.py` requires Lambda dependencies to be installed first:
+```bash
+cd lambda/create-investigation
+make deps  # Install dependencies (requires podman/docker)
 ```
 
 ## Test Organization
@@ -108,6 +118,7 @@ All tests marked with `@pytest.mark.integration`:
 - `test_tag_isolation.py` - Tag-based authorization model testing
 - `test_full_workflow.py` - End-to-end investigation creation
 - `test_task_timeout.py` - Reaper Lambda deadline enforcement and IAM policy simulation
+- `test_start_task.py` - `rosa-boundary start-task` command end-to-end testing with Lambda invocation
 
 ### Test Markers
 
@@ -142,6 +153,20 @@ Both start a single container:
 - Creates Internet Gateway and route table
 - Creates security group for ECS tasks
 - Stores resource IDs in SSM Parameter Store for test discovery
+
+### Lambda Deployment
+
+`init-aws.sh` also deploys the `create-investigation` Lambda function for end-to-end `start-task` testing:
+
+- **OIDC Bypass Mode**: Lambda is configured with `BYPASS_OIDC_VALIDATION=true` to skip real Keycloak authentication
+- **Test Claims**: Requests include `test_claims` in the body instead of a real JWT token
+- **Dependencies**: Handler and required dependencies (PyJWT, cryptography, requests) are packaged from `lambda/create-investigation/`
+- **Auto-deployment**: Lambda deploys automatically if handler source is available (mounted via compose volume)
+
+**Prerequisites for Lambda tests**:
+1. Lambda dependencies must be installed: `cd lambda/create-investigation && make deps`
+2. Start LocalStack: `make localstack-up` (mounts Lambda source automatically)
+3. Lambda function name available in SSM: `/test/lambda-function-name`
 
 ### pytest Fixtures (`conftest.py`)
 

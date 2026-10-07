@@ -98,7 +98,7 @@ if ! CONTAINER_ID=$(podman run --detach \
   --publish 4566:4566 \
   --volume "${PODMAN_SOCK}:/var/run/docker.sock:z" \
   --env LOCALSTACK_AUTH_TOKEN \
-  --env SERVICES=s3,iam,logs,kms,sts,ec2,ecs,efs,ssm \
+  --env SERVICES=s3,iam,lambda,logs,kms,sts,ec2,ecs,efs,ssm \
   --env DEBUG=1 \
   --env AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
   --env PERSISTENCE=0 \

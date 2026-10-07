@@ -1,0 +1,36 @@
+# Documentation placeholders only: replace with explicit target/migration inputs.
+aws_account_id                    = "123456789012"
+aws_region                        = "us-east-1"
+project                           = "rosa-boundary"
+stage                             = "dev"
+adopt_existing_resources          = false
+bedrock_budget_tag_region         = "us-east-1"
+bedrock_monthly_budget_usd         = 1000
+bedrock_budget_notification_email = "alerts@example.com"
+keycloak_issuer_url               = "https://auth.example.com/realms/sre"
+keycloak_thumbprint               = "0000000000000000000000000000000000000000"
+oidc_client_id                    = "rosa-boundary-sre"
+
+# Copy the original activation manifest and retain its management endpoint above.
+bedrock_model_agreements = {}
+
+# One identity set, shared by EVERY regional stack. No resource ARNs required.
+role_name_prefix       = "rosa-boundary-dev"
+legacy_role_tag_region = "us-east-1"
+# Copy account output regional_iam_contract to every regional workspace. Exactly
+# one region keeps old policy names; other regions append -<aws_region>.
+legacy_policy_region = "us-east-1"
+
+# Default [] preserves legacy single-region Bedrock trust. Before enabling logging
+# in more regions, explicitly approve all source regions including the legacy one.
+bedrock_logging_source_regions = []
+# Enable once if any regional workspace configures S3 audit replication.
+enable_s3_replication_role = false
+
+# Match original trust inputs, especially nondefaults. abac_tag_key remains a
+# regional permission-policy input; all regional stacks must match the JWT tags.
+oidc_session_duration         = 3600
+enable_uuid_allowlist         = false
+allowed_uuids                 = []
+enable_oidc_group_enforcement = true
+required_oidc_role            = "ai-sd-sre"

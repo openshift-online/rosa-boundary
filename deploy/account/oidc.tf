@@ -1,8 +1,10 @@
 # Singleton providers retain their original names, tags, audiences and thumbprints.
 resource "aws_iam_openid_connect_provider" "keycloak" {
-  url             = var.keycloak_issuer_url
-  client_id_list  = [var.oidc_client_id]
-  thumbprint_list = [var.keycloak_thumbprint]
+  url            = var.keycloak_issuer_url
+  client_id_list = [var.oidc_client_id]
+  # The public certificate fingerprint must not become a sensitive-only diff
+  # when importing the existing provider into account state.
+  thumbprint_list = [nonsensitive(var.keycloak_thumbprint)]
   tags = merge(var.tags, {
     Name = "${var.project}-${var.stage}-keycloak-oidc"
   })

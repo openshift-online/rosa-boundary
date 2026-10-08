@@ -11,25 +11,31 @@ def _load_sre_policy_source():
     """Load the Terraform source for the shared SRE permissions policy."""
     test_dir = Path(__file__).resolve().parent
     repo_root = test_dir.parents[2]
-    oidc_path = repo_root / 'deploy' / 'regional' / 'oidc.tf'
-    return oidc_path.read_text(encoding='utf-8')
+    iam_path = repo_root / 'deploy' / 'regional' / 'iam.tf'
+    return iam_path.read_text(encoding='utf-8')
+
+
+def _policy_statement(policy_source, sid):
+    """Extract a statement without depending on Terraform's whitespace alignment."""
+    start = re.search(rf'Sid\s*=\s*"{sid}"', policy_source)
+    assert start is not None, f'Missing IAM statement: {sid}'
+    next_sid = re.search(r'\bSid\s*=', policy_source[start.end():])
+    assert next_sid is not None, f'Missing statement after: {sid}'
+    return policy_source[start.start():start.end() + next_sid.start()]
 
 
 @pytest.mark.integration
 def test_sre_policy_allows_task_definition_cleanup():
     """Ensure the shared SRE role can list and deregister task definitions."""
     policy_source = _load_sre_policy_source()
-    statement_start = policy_source.index('Sid    = "DescribeListAndCleanupECS"')
-    statement_end = policy_source.index(
-        'Sid      = "EFSReadAccessPoints"', statement_start
-    )
-    statement = policy_source[statement_start:statement_end]
+    assert 'role = data.aws_iam_role.sre_shared.id' in policy_source
+    statement = _policy_statement(policy_source, 'DescribeListAndCleanupECS')
 
-    assert 'Effect = "Allow"' in statement
-    assert 'Resource = "*"' in statement
+    assert re.search(r'Effect\s*=\s*"Allow"', statement)
+    assert re.search(r'Resource\s*=\s*"\*"', statement)
     assert '"ecs:ListTaskDefinitions"' in statement
     assert '"ecs:DeregisterTaskDefinition"' in statement
-    assert 'Sid    = "DeregisterTaskDefinition"' not in policy_source
+    assert not re.search(r'Sid\s*=\s*"DeregisterTaskDefinition"', policy_source)
 
 
 @pytest.mark.integration
@@ -43,20 +49,16 @@ def test_sre_policy_allows_scoped_access_point_deletion():
     applies at creation time.
     """
     policy_source = _load_sre_policy_source()
-
-    statement_start = policy_source.index('Sid      = "EFSDeleteManagedAccessPoints"')
-    # The statement ends at the next Sid or the closing of the Statement list.
-    statement_end = policy_source.index('Sid ', statement_start + 1)
-    statement = policy_source[statement_start:statement_end]
+    statement = _policy_statement(policy_source, 'EFSDeleteManagedAccessPoints')
 
     # DeleteAccessPoint is granted...
     assert 'elasticfilesystem:DeleteAccessPoint' in statement
-    assert 'Effect   = "Allow"' in statement
+    assert re.search(r'Effect\s*=\s*"Allow"', statement)
 
     # ...but NOT against every access point in the account. It must target the
     # access-point resource type (not the file-system ARN, not "*") ...
     assert ':access-point/*"' in statement
-    assert 'Resource = "*"' not in statement
+    assert not re.search(r'Resource\s*=\s*"\*"', statement)
 
     # ...and it must be restricted to Boundary-managed access points via the
     # authoritative ManagedBy tag (see lambda/create-investigation/handler.py),

@@ -8,83 +8,6 @@ resource "aws_cloudwatch_log_group" "reap_tasks_lambda" {
   tags = local.common_tags
 }
 
-# IAM role for Lambda execution
-resource "aws_iam_role" "reap_tasks_lambda" {
-  name = "${var.project}-${var.stage}-reap-tasks-lambda"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
-
-  tags = local.common_tags
-}
-
-# Lambda basic execution permissions (CloudWatch Logs)
-resource "aws_iam_role_policy_attachment" "reap_tasks_lambda_basic" {
-  role       = aws_iam_role.reap_tasks_lambda.name
-  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-# Lambda permissions for ECS operations
-resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
-  name = "ecs-task-reaping"
-  role = aws_iam_role.reap_tasks_lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ecs:ListTasks"
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "ecs:cluster" = aws_ecs_cluster.main.arn
-          }
-        }
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecs:DescribeTasks"
-        ]
-        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecs:StopTask"
-        ]
-        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
-        Condition = {
-          "ForAnyValue:StringLike" = {
-            "ecs:ResourceTag/deadline" = "*"
-          }
-        }
-      },
-      {
-        # Detect active ECS Exec / SSM sessions before reaping an expired task.
-        # ssm:DescribeSessions does not support resource-level permissions, so it
-        # must be granted on "*" (AWS IAM does not define a resource type for it).
-        Effect = "Allow"
-        Action = [
-          "ssm:DescribeSessions"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
 # Archive the Lambda function code (single file, no dependencies)
 data "archive_file" "reap_tasks_lambda" {
   type        = "zip"
@@ -96,7 +19,7 @@ data "archive_file" "reap_tasks_lambda" {
 resource "aws_lambda_function" "reap_tasks" {
   filename         = data.archive_file.reap_tasks_lambda.output_path
   function_name    = "${var.project}-${var.stage}-reap-tasks"
-  role             = aws_iam_role.reap_tasks_lambda.arn
+  role             = data.aws_iam_role.reap_tasks_lambda.arn
   handler          = "handler.lambda_handler"
   source_code_hash = data.archive_file.reap_tasks_lambda.output_base64sha256
   runtime          = "python3.11"
@@ -111,7 +34,7 @@ resource "aws_lambda_function" "reap_tasks" {
 
   depends_on = [
     aws_cloudwatch_log_group.reap_tasks_lambda,
-    aws_iam_role_policy_attachment.reap_tasks_lambda_basic
+    aws_iam_role_policy.reap_tasks_lambda_ecs,
   ]
 
   tags = local.common_tags

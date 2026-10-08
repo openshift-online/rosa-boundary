@@ -18,6 +18,7 @@ import os
 import logging
 import re
 import shutil
+import hashlib
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta, timezone
 
@@ -47,6 +48,23 @@ EFS_MOUNT_PATH = '/mnt/efs'
 
 # Identifier validation pattern (must match create-investigation Lambda)
 IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
+
+
+def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
+    """
+    Return a deterministic ECS startedBy value for the given investigation.
+
+    Used when querying for existing tasks (list_tasks startedBy=...). Because
+    startedBy is set at task launch time — not asynchronously like tags —
+    filtering by it avoids the tag-propagation race condition and eliminates
+    the need for a cluster-wide describe_tasks scan.
+
+    Must match create-investigation Lambda's implementation.
+
+    ECS startedBy is limited to 36 characters.
+    """
+    key = f"{cluster_id}:{investigation_id}"
+    return hashlib.sha256(key.encode()).hexdigest()[:36]
 
 
 def validate_identifier(value: str, name: str) -> None:
@@ -366,45 +384,30 @@ def list_all_task_definitions() -> List[str]:
 
 def list_tasks_by_investigation(cluster_id: str, investigation_id: str) -> List[str]:
     """
-    List RUNNING tasks tagged with cluster_id and investigation_id.
-    Returns list of task ARNs.
+    List RUNNING tasks for the given investigation.
+
+    Filters by the deterministic startedBy value set at task launch rather than
+    by tags. This avoids the tag-propagation delay and eliminates the need to
+    describe every running task in the cluster.
+
+    Returns:
+        List of task ARNs that are RUNNING for this investigation
     """
+    started_by = investigation_started_by(cluster_id, investigation_id)
     task_arns = []
-    next_token = None
 
-    while True:
-        try:
-            kwargs = {
-                'cluster': ECS_CLUSTER,
-                'desiredStatus': 'RUNNING'
-            }
-
-            if next_token:
-                kwargs['nextToken'] = next_token
-
-            response = ecs.list_tasks(**kwargs)
-
-            if response.get('taskArns'):
-                described = ecs.describe_tasks(
-                    cluster=ECS_CLUSTER,
-                    tasks=response['taskArns'],
-                    include=['TAGS']
-                )
-
-                for task in described.get('tasks', []):
-                    tags = {tag['key']: tag['value'] for tag in task.get('tags', [])}
-                    if (tags.get('cluster_id') == cluster_id and
-                        tags.get('investigation_id') == investigation_id):
-                        task_arns.append(task['taskArn'])
-
-            next_token = response.get('nextToken')
-            if not next_token:
-                break
-
-        except (ClientError, BotoCoreError) as e:
-            logger.error("Failed to list tasks for %s/%s: %s",
-                        cluster_id, investigation_id, e, exc_info=True)
-            raise
+    try:
+        paginator = ecs.get_paginator('list_tasks')
+        for page in paginator.paginate(
+            cluster=ECS_CLUSTER,
+            desiredStatus='RUNNING',
+            startedBy=started_by
+        ):
+            task_arns.extend(page.get('taskArns', []))
+    except (ClientError, BotoCoreError) as e:
+        logger.error("Failed to list tasks for %s/%s: %s",
+                    cluster_id, investigation_id, e, exc_info=True)
+        raise
 
     return task_arns
 

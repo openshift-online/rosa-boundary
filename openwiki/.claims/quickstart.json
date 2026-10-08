@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:4220a6df28a5bd1fbe24f846f4d517d09cece6efa0c8ef8547248a803a9b80dc",
+  "claims": [
+    {
+      "id": "claim_7f2dfd61cb3e4d3eb4577088e2e0533e",
+      "statement": "The CLI sends task-start requests to the create-investigation Lambda, which validates the operator, provisions or reuses an investigation EFS access point, and can launch a Fargate task using the regional task definition.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/ecs.tf#L61-L70",
+          "version": "repo-lines-v1:sha256:d90231a74629f6a983c01968376c500f420ff05c83399b177ea84f75edce5ac5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/start_task.go#L90-L104",
+          "version": "repo-lines-v1:sha256:743209e0073e30abc6fb463732558951b675b19e464740e1fd2ac90ac9d819fa:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmNiMThmOWE5NDk5YTFhYTNkMjU4MGExMDkzZWM5NDkwNmIzYzI4YmU0NWQ2YTA5NDdhNjJkMjVhYzg0ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE5ZDJjMjIzODM4ZThmZmQ2Y2IzNDI1ODA4MGI1NjQ3MTZjZjEwYmY4ZDcyOTkwYTk1MGU2M2QyMzk1MTRkYmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIxZjQ5MGRiMjQwODg2ZTczNmZiNjM2ZTZmM2EzZDFkNWUwOWNkZmYzMzU4Mjk0OTU0ZDEzOTE5MmNlOTIzZDIifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L175-L281",
+          "version": "repo-lines-v1:sha256:8d207ea1482bb09d98106b99d2d303229d7f17ef2c0a1c06fc2143f79e70683e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzMDg4OWY0NDRkNWE4NmRmNzE2ZDk2MTU5YzcxNjgxODJmMmM1ZTYxMjI5ZTY5MDk3Y2JkZDI3OGQ5ODllMTk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJmOWIxOTgyZThkZDc0ODExODE0NmIzOWEyZDAwNjJmNDA4MWUzNDc3OWI4Njc1YzIzNGM0ZmIxMjRkYzM5MzkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYzU2OGU0MTZiMjk0Yjc2NTNhY2VjYzhkYzFlMmMxNjdmMjlmYmNhZjVkN2YyZDc4N2Y0MDUwNDk0Nzc4OWE2IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2YWM2NGI2ZmM2NDA3MDYxNDVlMjQzMmE4MzQ5YzkyNTExN2M4YTc4MmNkYzZmY2UxMWU1ZDI5NDY4NGQ0Nzg5In0"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L676-L905",
+          "version": "repo-lines-v1:sha256:f8f3a6ea3fff03c82cc4c5af93e5052cb0317e9a3d28248add8b0bf38b3db92f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkYjVhY2Y0Y2ZlNzAxZWQ0MzNlMDNlNTliOTIwM2JiZTMxY2Q2MDNjYzljZDVlNzYzNDZjZTllOTBlYTc1MzU5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1OTA5YTUzYTYxOGQwMjhlMWQzMDAwYzBhN2FiY2VlY2JlNWZiMzdmNGU1MTFlZmU0NjY0M2ZhZDZlNjY4NzJmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyY2JiY2I0MDk5NTNkNDVkNjZjMGE2ZDc0ZTQ1ZWRlZDljOGFhM2EwODgwYTk3ODhhYjdlOTg0NTBkYjYwN2JiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxY2UwZTk0YTVhNGE2OGE3OGVhYjI4NDdiYTkzMjY1ZDE4MDFmOTU0M2MwMTkwMGJkMzViOGNmYmY5MWZlYjYwIn0"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.0",
+    "at": "2026-10-06T17:52:44.901Z"
+  }
+}

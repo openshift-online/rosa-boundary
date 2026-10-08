@@ -30,6 +30,12 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_context = MagicMock()
         self.mock_context.get_remaining_time_in_millis.return_value = 300000  # 5 minutes
 
+        # Set up default paginator mock for list_tasks_by_investigation
+        # Individual tests can override this as needed
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = [{'taskArns': []}]
+        self.mock_ecs.get_paginator.return_value = mock_paginator
+
         self.ecs_patcher = patch('handler.ecs', self.mock_ecs)
         self.efs_patcher = patch('handler.efs', self.mock_efs)
         self.shutil_patcher = patch('handler.shutil', self.mock_shutil)
@@ -847,36 +853,30 @@ class TestReaperLambda(unittest.TestCase):
         page1_tasks = [f'arn:aws:ecs:us-east-1:123:task/cluster/task-{i}' for i in range(100)]
         page2_tasks = [f'arn:aws:ecs:us-east-1:123:task/cluster/task-{i}' for i in range(100, 150)]
 
-        # Mock paginated list_tasks responses
-        self.mock_ecs.list_tasks.side_effect = [
-            {'taskArns': page1_tasks, 'nextToken': 'token123'},
-            {'taskArns': page2_tasks}  # No nextToken on last page
+        # Mock paginator to return tasks matching the startedBy value
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = [
+            {'taskArns': page1_tasks},
+            {'taskArns': page2_tasks}
         ]
-
-        # Mock describe_tasks to return tasks matching our investigation
-        def describe_side_effect(cluster, tasks, include):
-            return {
-                'tasks': [
-                    {
-                        'taskArn': arn,
-                        'tags': [
-                            {'key': 'cluster_id', 'value': 'test-cluster'},
-                            {'key': 'investigation_id', 'value': 'test-inv'}
-                        ]
-                    }
-                    for arn in tasks
-                ]
-            }
-
-        self.mock_ecs.describe_tasks.side_effect = describe_side_effect
+        self.mock_ecs.get_paginator.return_value = mock_paginator
 
         # Call list_tasks_by_investigation
         result = handler.list_tasks_by_investigation('test-cluster', 'test-inv')
 
         # Should find all 150 tasks across both pages
         assert len(result) == 150, f"Expected 150 tasks, got {len(result)}"
-        assert self.mock_ecs.list_tasks.call_count == 2, "Should have made 2 paginated calls"
-        assert self.mock_ecs.describe_tasks.call_count == 2, "Should describe both pages"
+
+        # Verify paginator was called with correct parameters
+        self.mock_ecs.get_paginator.assert_called_once_with('list_tasks')
+
+        # Verify paginate was called with startedBy filter
+        expected_started_by = handler.investigation_started_by('test-cluster', 'test-inv')
+        mock_paginator.paginate.assert_called_once_with(
+            cluster=handler.ECS_CLUSTER,
+            desiredStatus='RUNNING',
+            startedBy=expected_started_by
+        )
 
     def test_staleness_just_before_grace_period(self):
         """Test investigation just before grace period expires (should NOT reap)"""
@@ -912,53 +912,31 @@ class TestReaperLambda(unittest.TestCase):
         # The code uses `age > grace_period`, so exactly equal should NOT be stale
         assert result['is_stale'] is False, "Should not be stale at exact boundary"
 
-    def test_task_filtering_by_tags(self):
-        """Test that only tasks matching both cluster_id AND investigation_id are returned"""
-        # Return mixed tasks: some match, some don't
-        self.mock_ecs.list_tasks.return_value = {
-            'taskArns': [
-                'arn:aws:ecs:us-east-1:123:task/cluster/task-match',
-                'arn:aws:ecs:us-east-1:123:task/cluster/task-wrong-cluster',
-                'arn:aws:ecs:us-east-1:123:task/cluster/task-wrong-inv',
-                'arn:aws:ecs:us-east-1:123:task/cluster/task-no-tags',
-            ]
-        }
+    def test_task_filtering_by_started_by(self):
+        """Test that only tasks with matching startedBy value are returned (avoids tag propagation race)"""
+        # Mock paginator to return only tasks matching the deterministic startedBy value
+        # This simulates ECS filtering by startedBy, which avoids tag propagation delays
+        matching_tasks = ['arn:aws:ecs:us-east-1:123:task/cluster/task-match']
 
-        self.mock_ecs.describe_tasks.return_value = {
-            'tasks': [
-                {
-                    'taskArn': 'arn:aws:ecs:us-east-1:123:task/cluster/task-match',
-                    'tags': [
-                        {'key': 'cluster_id', 'value': 'test-cluster'},
-                        {'key': 'investigation_id', 'value': 'test-inv'}
-                    ]
-                },
-                {
-                    'taskArn': 'arn:aws:ecs:us-east-1:123:task/cluster/task-wrong-cluster',
-                    'tags': [
-                        {'key': 'cluster_id', 'value': 'other-cluster'},
-                        {'key': 'investigation_id', 'value': 'test-inv'}
-                    ]
-                },
-                {
-                    'taskArn': 'arn:aws:ecs:us-east-1:123:task/cluster/task-wrong-inv',
-                    'tags': [
-                        {'key': 'cluster_id', 'value': 'test-cluster'},
-                        {'key': 'investigation_id', 'value': 'other-inv'}
-                    ]
-                },
-                {
-                    'taskArn': 'arn:aws:ecs:us-east-1:123:task/cluster/task-no-tags',
-                    'tags': []
-                }
-            ]
-        }
+        mock_paginator = MagicMock()
+        mock_paginator.paginate.return_value = [
+            {'taskArns': matching_tasks}
+        ]
+        self.mock_ecs.get_paginator.return_value = mock_paginator
 
         result = handler.list_tasks_by_investigation('test-cluster', 'test-inv')
 
-        # Only the exact match should be returned
+        # Should return only tasks filtered by startedBy (no tag-based filtering needed)
         assert len(result) == 1, f"Expected 1 matching task, got {len(result)}"
         assert result[0] == 'arn:aws:ecs:us-east-1:123:task/cluster/task-match'
+
+        # Verify the correct startedBy value was used
+        expected_started_by = handler.investigation_started_by('test-cluster', 'test-inv')
+        mock_paginator.paginate.assert_called_once_with(
+            cluster=handler.ECS_CLUSTER,
+            desiredStatus='RUNNING',
+            startedBy=expected_started_by
+        )
 
     def test_validate_identifier_accepts_valid_values(self):
         """Test that validate_identifier accepts valid cluster/investigation IDs"""

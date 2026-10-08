@@ -252,6 +252,12 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
+          # ROSAENG-68790: this original region retains legacy inline policy names.
+          key      = "legacy_policy_region"
+          value    = "us-east-1"
+          category = "terraform"
+        },
+        {
           key      = "aws_account_id"
           value    = "150100906299"
           category = "terraform"

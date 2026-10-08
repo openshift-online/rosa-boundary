@@ -86,8 +86,8 @@ module "rosa_boundary" {
       github_repo_org   = "openshift-online"
       github_repo_name  = "rosa-boundary"
       # A plan before adoption will propose duplicates of regional-owned objects.
-      # Workspace variable below: adopt_existing_resources = false.
-      # Change its value to true only for the reviewed import handoff.
+      # Workspace variable below: adopt_existing_resources = true for the
+      # reviewed import handoff; the account workspace remains manual-apply.
       # Never apply until the regional release and account imports are reviewed.
       auto_apply             = false
       auto_apply_run_trigger = false
@@ -207,9 +207,10 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
-          # Adoption is enabled only in the later, reviewed state-transfer PR.
+          # One-time import after the regional release has been applied.
+          # Do not apply account imports until all 19 releases are confirmed.
           key      = "adopt_existing_resources"
-          value    = "false"
+          value    = "true"
           category = "terraform"
         },
         {

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:a76368b4bc47ef2112744a8e8abee28fe58786cdb27d62ea649eedb208739cee",
+  "pageVersion": "sha256:9c4353a5b118113649188a43c0eb3ff3236bb9d292762fd1a1c3ef22232ff933",
   "claims": [
     {
       "id": "claim_6ef5e4d7ea474a2fad1b1d89048ab5ac",
@@ -18,27 +18,19 @@
     },
     {
       "id": "claim_d7a6570aa5664277abb4269fcd784c6e",
-      "statement": "The create-investigation and reaper Lambdas have separately named CloudWatch log groups with configurable retention; their handlers log authorization/resource-lifecycle outcomes and task deadline/reaper results, respectively.",
+      "statement": "The create-investigation and reaper Lambdas have separately named CloudWatch log groups with configurable retention; their handlers log authorization/resource-lifecycle outcomes and task deadline/reaper results, including active-session deferrals.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/lambda-create-investigation.tf#L1-L9",
-          "version": "repo-lines-v1:sha256:c60f4ea9a3c202b56c22a9a1e32859d6a979476cdda07652e16ca1f5cb7e2d3b:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmY1NTZkZjEyZWM2MzIzNWZhNjQ2OGY3MDg2M2QxNzA2ZTNlNDNkYTg4NjdlZGQ3MDc3MWJkNGQ0MGJjZDhmNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiN2Q5NGRmNWFiODM5OTM1MmMzZjM0ZjY4OTRmMDkyOTJmY2UyMDQ0MTc3NDAwOTdkNDIxOTg4YmE0NDIxNDgwMCJ9"
+          "version": "repo-lines-v1:sha256:c60f4ea9a3c202b56c22a9a1e32859d6a979476cdda07652e16ca1f5cb7e2d3b:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmY1NTZkZjEyZWM2MzIzNWZhNjQ2OGY3MDg2M2QxNzA2ZTNlNDNkYTg4NjdlZGQ3MDc3MWJkNGQ0MGJjZDhmNSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzUzOGU3NzZkMzkyM2Q0ODk3OWI2MDIxZjNmMDRmYzVhNTM5MjY0MTBjYWZjMWE4ODY5NzllZDkwYWRmMzM1MCJ9"
         },
         {
           "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L1-L9",
-          "version": "repo-lines-v1:sha256:25b50c3b515089de341771c36f4e09b22d5ede7d8158cab342c6c394d9bc4af0:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjA2MWM2NTRmMDkyN2UwNjkyMDk2ZDE3MmFmZjNmMWQ1ODMwZmM5MjIzY2M3ZGFmZjFjMGZlNjE5ODk0Yjg1NCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWM0ODdiZGY3NzQxMDM0ZWRiYjQ0YWE1N2FkMmIyYWZkOTY5MTJiNzMyZDQ0MTIwMGYxNDA1N2Y1N2I4OTI0MSJ9"
+          "version": "repo-lines-v1:sha256:25b50c3b515089de341771c36f4e09b22d5ede7d8158cab342c6c394d9bc4af0:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjA2MWM2NTRmMDkyN2UwNjkyMDk2ZDE3MmFmZjNmMWQ1ODMwZmM5MjIzY2M3ZGFmZjFjMGZlNjE5ODk0Yjg1NCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzQ2Mjc1NGQ5NWI2Njc1NTNhZTBmZDYyZGFhNzNjNGQ5YTQ1NTk4ZDQxNjY3NjM4ZGI3OGY2NmM1OWJmYjdlYiJ9"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L175-L235",
-          "version": "repo-lines-v1:sha256:84eef2692e325153ea9c050f5a00b40eee15c73aebda9c2bdfa825a6ccaac7bd:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwODg5ZjQ0NGQ1YTg2ZGY3MTZkOTYxNTljNzE2ODE4MmYyYzVlNjEyMjllNjkwOTdjYmRkMjc4ZDk4OWUxOTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwNDcxZDVmNTU1ODZkNDI5M2ViZDk4Y2UzNmFhM2ZkMzIyNDA5YTBiYjk4MjZjMjdjZDlmYzY3MWNmMzE2ZGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJjNTY4ZTQxNmIyOTRiNzY1M2FjZWNjOGRjMWUyYzE2N2YyOWZiY2FmNWQ3ZjJkNzg3ZjQwNTA0OTQ3Nzg5YTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjZTk4M2M1YjFkNGRhZDc1ODFhZjA3YzA2MTE0NzkxMzM0NGYwMWM4MjJjOTQ0YjM5NWExYWJkNjdlZjVlZWEifQ"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L88-L94",
-          "version": "repo-lines-v1:sha256:86368cc9932499e8e0ff1bef8c9ae6cafc233e6dc9a4c5477e8ff3cc6f4f5ff2:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWRhNWM2NmUxN2IxNDUzOTc4MzRiOGM4NTRkYzQxOTNlMjEyNTE4MGE4OTk2YTE0YzMxODgzMzI2YjJlZmJjZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTAwNGJkMDcwNDY1OTQzMDg4MWQ1ZDU4NDdiYzI5ZjM0ZTE2ODE1OWQ3OGMxOWZiMzMwMTVjNGVhZWUzOTI0NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmIzY2QzZjBjNjJkYzI4NDI5M2NhNTVjOTRlNWNkOGJiMjg4NDNhNzJjOGY3NzllMzZjNWJiNWEzNDYxM2NlNiJ9"
-        },
-        {
-          "resource": "repo://lambda/reap-tasks/handler.py#L113-L163",
-          "version": "repo-lines-v1:sha256:fda5ef8fe47b7ea0d656701acc9ededa0d7c27da30cdf90efa61acf9afbec9fd:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRhYWM5MjRjNDNjYjhjNTdmOGNjZjg1OGNlMTcxMzc2MjhlYzdhZmNlOTFhNDYwYzljNzdiZTYzYzBkNTUxZWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNlYTMwNDQ2NWEzODRmYzJiMzY0YzYyYzM0OWRlYmQ3NmI0YjNhNWMzODhlZGViODIzMjRiOTcxYmNiMzU3ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdjNzE3MmZhZTYyOGRmYjI2ZmZmOGM5NjkzN2MzNDI4ZmYxZWY4YzI1ZTEwZjM0MzliNWIwZmFhMzFjMTNkM2EifQ"
+          "resource": "repo://lambda/reap-tasks/handler.py#L110-L175",
+          "version": "repo-lines-v1:sha256:512d4ce33dd98552547198730d7cda6243194166647431173fa94f9c2fba5305:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5MDNmNGNiMDZhYzAwZjJkYTE3ZjExZTM4ZmY2ODBhMGNiMmE1NmE5ZmZhZmJjYmRhODYxNDUwYzA5NDJmMmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM2ODNlYTQ0OTJhZmQxNTgyN2JiOTk1NjRiMGIwOTJjMjM2MDM5NTZjODVjNzMxNDA0NGNmZWYwNjZlNzUyMTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4NDJjNWRlYzE3ZDc4NTgwZTlhNWEwMTkxMDY3NmQwZTM0NTcyYjg4MDNlMjU5NmQ5MTJiNmM4MzU1NjM0N2QiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQyOGU2ZjIzN2I4MGM3YjUzZjk0ZTgzMzU2ZGNmNDhkZjk4YTE4ODc1ZDk4ZGFjMjhjMzE2NzRmYTg0ODgwZDAifQ"
         }
       ]
     },
@@ -58,19 +50,15 @@
     },
     {
       "id": "claim_18cb6e9d0dae4d2b85090568a7bee5c2",
-      "statement": "The investigation audit bucket is versioned and uses compliance-mode Object Lock, blocks public access, applies AES-256 encryption, denies non-TLS requests, and can replicate cross-account; the task role is granted PutObject and ListBucket while the operational guidance directs audit retrieval through a separate read-only compliance role.",
+      "statement": "The investigation audit bucket is versioned and uses compliance-mode Object Lock, blocks public access, applies AES-256 encryption, denies non-TLS requests, and can replicate cross-account; the task role is granted PutObject and ListBucket while guidance directs audit retrieval through a separate compliance read role.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/iam.tf#L123-L143",
-          "version": "repo-lines-v1:sha256:594b8023aee6961e6d8430286e18053c9409ad3184537cf5e54bc3342685c5f3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc0NGFlMThmODkzOTc5YTI4MTZkZmY5ZWZkYjgyNzRjNWE0YTFiMmJiOTVmYWYxNzgzZGVjNjNhMjBiMjVlOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU4MjQ5YjJjNGU0ZTcyNDVkNDY0M2YwMTc2NjliOTM3NDgyNzE4MDg2NDlhZjgzODU0ZmFlOGI3M2M1Y2Q0ZmIifQ"
+          "resource": "repo://deploy/regional/iam.tf#L42-L58",
+          "version": "repo-lines-v1:sha256:7ddff270ab918d8b96a38ce8f310ac763b9faf472d3553f5719fe6c7a31d906f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNjYzViYWU3MTc4MTkwNDYxMTExMDJhZGEyMzVlODNjZTNkODEzMzM4YTljNzEwNzQzMGQ1NDUxNDdiMjRmMjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMyMGQ3OGE2NTc1ZGE0NTdmMDEyZjUzYWEyZDkyZmJmYzgzMTQ5ODAxYzU4N2M3NjdiZTA2NmQwZGNkMzQ3NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZhZWI2MWU3YTdkNjNmNjk3OWQwYzlkN2MxZDRkZTJhY2ExNzNiMDRhOTE0Mjk3YzhmNGMzN2ZhOGFlODc4YWQifQ"
         },
         {
-          "resource": "repo://deploy/regional/s3.tf#L1-L73",
-          "version": "repo-lines-v1:sha256:4dd26ebddebe47aaa893b2510e790a08eb0ded7faff09dae3f45e54320a73a13:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ3Yjk0MzBlZDE0MjcyMGU3NjdiODU4MjNjZWQwZGI1NzVmNjNiMmRjOWEyMjJhNjY4Y2ZlOTBmYzUyOTkxOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc5NTU3MDJmNmJlOTBlY2Q4NTM3NjE5YzIwZGFjOGQ4NTgxNDU3ZTJkMWUyZGY2MDcyODY4NmVhNmE0ODEyNDMifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/s3.tf#L75-L120",
-          "version": "repo-lines-v1:sha256:be4dfb8f0fa5ad4a3675ac98fc2046756cbd2098700f021f4745fdcec93b800e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ5NTQ2MmVkZGVlZmI2MjBhZTU2YjM1MGMxZmFlMGZkZDZkM2ExYjNjMDQ1ZDZkNTRkOWEzZDhjYmJmMjZjN2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc5NWQ2N2UwN2Y1OGJlNjUzZmUxYTE5MWVjZDdmZjQzOTYyNTEzMzdmOGY4MzZhNjk5YWQ5MTkwZjJhYzJkZGEifQ"
+          "resource": "repo://deploy/regional/s3.tf#L1-L120",
+          "version": "repo-lines-v1:sha256:36ff39ea69e13bf924f9fd8cf639783ae7bd37bae3065f447e522a9b3b9638c9:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkN2I5NDMwZWQxNDI3MjBlNzY3Yjg1ODIzY2VkMGRiNTc1ZjYzYjJkYzlhMjIyYTY2OGNmZTkwZmM1Mjk5MTkxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MCwicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3OTVkNjdlMDdmNThiZTY1M2ZlMWExOTFlY2Q3ZmY0Mzk2MjUxMzM3ZjhmODM2YTY5OWFkOTE5MGYyYWMyZGRhIn0"
         },
         {
           "resource": "repo://docs/configuration/aws-iam-policies.md#L413-L434",
@@ -80,15 +68,15 @@
     },
     {
       "id": "claim_04d735cefca74c5b9515a13c401da404",
-      "statement": "Bedrock invocation logging is configured for text payloads across Bedrock Runtime callers in the account and Region, sending payloads up to 100 KB to encrypted CloudWatch Logs and larger payloads to a separate S3 bucket; image, embedding, and video delivery are disabled.",
+      "statement": "Bedrock invocation logging is configured for text payloads across Bedrock Runtime callers in the account and Region, sending payloads up to 100 KB to encrypted CloudWatch Logs and larger payloads to a separate S3 bucket; image, embedding and video delivery are disabled.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/bedrock-large-payloads.tf#L1-L51",
           "version": "repo-lines-v1:sha256:9d93c192ecb41f8adb81c70b0e61bcecb01c262cfefe18ed448770add9a9da95:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4ZTNjNjg5MGM1Yjk0NDUzMTZmMjIwMGU0YzhhZmY0MWMyZWRiMjEwNzgzMjc5YTViZGY5NWNiMWFmMzc0MGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyOWJmZWU1Y2ZhNjA2NzJmZjk0YzgyNjU0ZTg2MmRhNzM0MzUzYmJhNmJlZTU1ZTkxOGEyYWRjNmEzZTE4YjgifQ"
         },
         {
-          "resource": "repo://deploy/regional/bedrock-logging.tf#L92-L120",
-          "version": "repo-lines-v1:sha256:e4445dad06f327e27944527f9b94413ccfd3fb86d895e3dabfdd50b12f0cbc7d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU5OWRhMjMzMWIxYzk4YWQwMzg5ZjRmNzJjOTJlMTY0NjJhMGNkODUyOGMyNGE0NzZjNThjOWIyMTRjZjFjZTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwNjQ4Zjc3ZmQ1YTljNjNiM2NkZDBhZjQ5ZGFhMTI5OTIyMGI3NTQxZTg4Y2ExN2VmZTFhNmExMTRiOWZmMmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+          "resource": "repo://deploy/regional/bedrock-logging.tf#L56-L85",
+          "version": "repo-lines-v1:sha256:fdad22679b1355b4c55dfc278418e73a396799c19a911429c20825f7b85cd645:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU5OWRhMjMzMWIxYzk4YWQwMzg5ZjRmNzJjOTJlMTY0NjJhMGNkODUyOGMyNGE0NzZjNThjOWIyMTRjZjFjZTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
@@ -109,6 +97,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "at": "2026-10-09T17:13:47.426Z"
   }
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:120ee88dbe1456dd66ad7deb44a43d9f73ead32a3dc570cf9a2e162d66a3130e",
+  "pageVersion": "sha256:83d3297993a895321eafb82ffa90ecd8a4f9e29bbfabc74f267a3b3170e091dc",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
@@ -12,7 +12,7 @@
         },
         {
           "resource": "repo://deploy/regional/ecs.tf#L61-L70",
-          "version": "repo-lines-v1:sha256:d90231a74629f6a983c01968376c500f420ff05c83399b177ea84f75edce5ac5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
+          "version": "repo-lines-v1:sha256:bb9ed57d6d746e1c827a1243809ceee6ae00520dccc5119634a87b43c8ea71a2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
         },
         {
           "resource": "repo://internal/cmd/root.go#L154-L207",
@@ -43,12 +43,8 @@
       "statement": "The regional task definition combines an EFS-backed home with empty task-scoped OCM and kubeconfig overlays, and the entrypoint refuses missing or EFS-backed overlays before launching the workload as sre.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/ecs.tf#L61-L159",
-          "version": "repo-lines-v1:sha256:7ddfa53b24402dca26077f70f2d4256b2b6e71f75614ce6f1e179b79bcf739a0:eyJzZWxlY3RlZExpbmVDb3VudCI6OTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
-        },
-        {
-          "resource": "repo://entrypoint.sh#L167-L173",
-          "version": "repo-lines-v1:sha256:8ecd4489e69a83c512678b90145f3ce6a864d1d023d190a573677c9f6e1062fd:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmQ3ZGJjMDliOGQ4Y2EzODY1MzJkMmQ1OTViZDFiNGEzOGMwNDdlZTE2MWI3MzU2YzJiODUxN2YyZTAyMDlmOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYTI5NDJlMzI3NzQwN2ZlYjZjMzViOWQ0ZDM5OTk3NTZmZWU5ZGY2MTQ4MzNiYWFmNGQ3N2YxMjA5YTU5MzZmYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWQyNDZlMjU3YWVhZTc5MTMzMjIyZTk2MDg4NzkxMDRmOGM0NjRkZmE0ODZhODk4MzE4MGJkMDM5NTA5Mzk5OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDBmM2NkNjU3ZTIwMWRhNThiY2YyNzljZDJiNzY5ZWIzNjExMWFhM2Q5YTQ1MDRhMzE3N2IyNWQ4YTg4NTY0NiJ9"
+          "resource": "repo://deploy/regional/ecs.tf#L62-L159",
+          "version": "repo-lines-v1:sha256:1b6b57be2bb9a7f2ea1833b3480ffd01c83acd24f7b18c5149bedbd3ed979b31:eyJzZWxlY3RlZExpbmVDb3VudCI6OTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkZGQ2NmZkNzJmOGRkZTAwMzY2OGE1MTk5NjFkMmNhNWU1MTA3NWE2YjhlMmMxMWYxMWU5NmNkNjdlOTRmMzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY1YTFlNzhiNTZhZTc5M2JlNGEwYzBiNWEyMmRiM2Q4MWJjYjY4ZTUxYzEzODExNWJhNzYwZjVhYTg5MmJiNTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
         },
         {
           "resource": "repo://entrypoint.sh#L46-L80",
@@ -58,19 +54,15 @@
     },
     {
       "id": "claim_cef635918fde49daae5cf0282a34e52b",
-      "statement": "On shutdown the container attempts a bounded S3 sync of /home/sre that excludes OCM and kubeconfig paths and disables symlink following; task deadline enforcement is handled separately by the scheduled reaper Lambda.",
+      "statement": "On shutdown the container attempts a bounded S3 sync of /home/sre excluding credential overlays without following symlinks; the scheduled reaper checks task deadlines and defers stopping tasks with active Exec sessions.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L110-L133",
-          "version": "repo-lines-v1:sha256:0ef0987cbd165feddf3836458ff22f2d3fe512373054d5e04bd1bda01aca9ea4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2OWJlNmE2M2Q3NWVlNDY5NDI0Mzg4NGYxY2YyM2ZiMWM1MjU3OGM2MWMxNGI5ZmQ2NTgyNGE4NjE4ZjQ3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://entrypoint.sh#L3-L80",
+          "version": "repo-lines-v1:sha256:31c9c955d30e239aa3828a58e324930cdce2af47d0e85e9d3e0e936bd92bf5d7:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1ZDg1MjE4M2ViNjViNDE2MTNiNTdjY2M2MWFhZDcyYTgwMGEwOWU0ODZkYTk2ZGM1ZTk2OTkwMzVhNzJmMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5NjIyZmFlMmFiMDJmZTM1OWVkMTUwOTY0YTkyNjUzNjk3YmZiMjM1ZTIwOTQ3YWEzYzNmMzg1NDg0ZTk3YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5NDM5ZDVhOTg5ZTYyY2NiMWM0N2JhMjIyNjg5NTY1MDNiZTkyZWZiY2Y5MjQ3NWExZDAxMDU1NjNhZGRlOTAifQ"
         },
         {
-          "resource": "repo://entrypoint.sh#L3-L43",
-          "version": "repo-lines-v1:sha256:fd1d9d8700b1d19dfc9b3a2c68ce6fdc99d5f73afb47f4521745d1e3e0e018a7:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1ZDg1MjE4M2ViNjViNDE2MTNiNTdjY2M2MWFhZDcyYTgwMGEwOWU0ODZkYTk2ZGM1ZTk2OTkwMzVhNzJmMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA3ZTAwYWFlODYwMzEwZTg0OWY5M2Q0ZGE3ZWMwYTM1NmU1OGRjMWUwZTA4MTA0ZGFmMjgyYzYyZWY0OWI2ZTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5NjIyZmFlMmFiMDJmZTM1OWVkMTUwOTY0YTkyNjUzNjk3YmZiMjM1ZTIwOTQ3YWEzYzNmMzg1NDg0ZTk3YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjViOWYxM2I4MDUyOWE3NTRiNDM5NmYwOGJiYjQxMjI3M2QzYjU2NWRiNTllOTBkZDEwMDJjZTJiYjRhZWEyOTYifQ"
-        },
-        {
-          "resource": "repo://lambda/reap-tasks/handler.py#L33-L163",
-          "version": "repo-lines-v1:sha256:bd4fc6ead545a4b39e6f90d0dfe9a07d3a9be1a2fdc46f13682d5bfb24d1578a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYmExZmJkMGY4NjBmYTVmOTM2NzRiOGY0MDQ1NDA0ZWMyN2M0MDNlMzhhOWU2ZTEzNTg2N2FhZGZiZDY1MDBlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3YzcxNzJmYWU2MjhkZmIyNmZmZjhjOTY5MzdjMzQyOGZmMWVmOGMyNWUxMGYzNDM5YjViMGZhYTMxYzEzZDNhIn0"
+          "resource": "repo://lambda/reap-tasks/handler.py#L110-L175",
+          "version": "repo-lines-v1:sha256:512d4ce33dd98552547198730d7cda6243194166647431173fa94f9c2fba5305:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5MDNmNGNiMDZhYzAwZjJkYTE3ZjExZTM4ZmY2ODBhMGNiMmE1NmE5ZmZhZmJjYmRhODYxNDUwYzA5NDJmMmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM2ODNlYTQ0OTJhZmQxNTgyN2JiOTk1NjRiMGIwOTJjMjM2MDM5NTZjODVjNzMxNDA0NGNmZWYwNjZlNzUyMTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4NDJjNWRlYzE3ZDc4NTgwZTlhNWEwMTkxMDY3NmQwZTM0NTcyYjg4MDNlMjU5NmQ5MTJiNmM4MzU1NjM0N2QiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQyOGU2ZjIzN2I4MGM3YjUzZjk0ZTgzMzU2ZGNmNDhkZjk4YTE4ODc1ZDk4ZGFjMjhjMzE2NzRmYTg0ODgwZDAifQ"
         }
       ]
     },
@@ -91,6 +83,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "at": "2026-10-09T17:13:47.426Z"
   }
 }

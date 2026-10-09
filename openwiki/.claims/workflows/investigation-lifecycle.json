@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:8b7545154c48c9e6714e7ccbbf24e06716ca64629fe553ce2cd1abbd6e6ec82a",
+  "pageVersion": "sha256:1395dc9bba02115767626cf2249ffa7f7480628e67071c4526a76a621cfabdfd",
   "claims": [
     {
       "id": "claim_4088cba25812498fa6bea3623690d8b6",
@@ -78,19 +78,15 @@
     },
     {
       "id": "claim_c09a0d94314f40d4ad5cba074dabe4f6",
-      "statement": "The scheduled reaper processes RUNNING tasks and stops tasks with expired deadline tags, skipping tasks without deadlines or with future or invalid deadline values.",
+      "statement": "The scheduled reaper processes RUNNING tasks and stops expired tasks only if no active ECS Exec session is detected, skipping tasks without deadlines, with future or invalid deadlines, or with active sessions.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L110-L133",
-          "version": "repo-lines-v1:sha256:0ef0987cbd165feddf3836458ff22f2d3fe512373054d5e04bd1bda01aca9ea4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2OWJlNmE2M2Q3NWVlNDY5NDI0Mzg4NGYxY2YyM2ZiMWM1MjU3OGM2MWMxNGI5ZmQ2NTgyNGE4NjE4ZjQ3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L42-L66",
+          "version": "repo-lines-v1:sha256:a9a388f805a551d0e838bf0e04ebf1a568bcb4908fba7f1df59cd96765f3fb9c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4ZDU0YTIzZGUzOTVlZDU1ZmUwZDBmZjM1OTliZWNlYjBlOTZiMTIyM2ZlYTQ2YzUxNGE5MjM1NWI0M2M5OGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://lambda/reap-tasks/handler.py#L33-L163",
-          "version": "repo-lines-v1:sha256:bd4fc6ead545a4b39e6f90d0dfe9a07d3a9be1a2fdc46f13682d5bfb24d1578a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYmExZmJkMGY4NjBmYTVmOTM2NzRiOGY0MDQ1NDA0ZWMyN2M0MDNlMzhhOWU2ZTEzNTg2N2FhZGZiZDY1MDBlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3YzcxNzJmYWU2MjhkZmIyNmZmZjhjOTY5MzdjMzQyOGZmMWVmOGMyNWUxMGYzNDM5YjViMGZhYTMxYzEzZDNhIn0"
-        },
-        {
-          "resource": "repo://tests/localstack/integration/test_full_workflow.py#L214-L287",
-          "version": "repo-lines-v1:sha256:5c02a3482387ae089d10f8f5e472c59e97f333f4bcb7cfa95181f8345dd56352:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0ODg2YTFjNjI0MTVlZGNjMjkzN2E3ZWZjMTVlMjJmNTk3NTM2ZDY4NTgxMzA0MTVhMmFmY2YxMDdlMmQ4NWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4NzMyMjNiYmMyYmEwMmNmMTU0YjdiZTJkYjJkMzYwYWViZDQ0ZjhjYTNiYmNkZTkxOTA3NjFlNWMzZWJlN2EiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAzNWJjMjliMTRkMDcwMGJiZGNhZWE4ZDdjZGQxN2Q0Y2Q1YjNlNjRlZjNkNmQ0NjU3ZThjZWU2ODk5MWM4YjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://lambda/reap-tasks/handler.py#L48-L175",
+          "version": "repo-lines-v1:sha256:c818144d0bf7c68eadeae1955cd69a0d5028db52df91d1655cd7d6560346bd87:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJjNjgzZWE0NDkyYWZkMTU4MjdiYjk5NTY0YjBiMDkyYzIzNjAzOTU2Yzg1YzczMTQwNDRjZmVmMDY2ZTc1MjE5IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwMmIyNTc4ZDg1ZjA1NDdmYTkxN2RhN2IxOGQyMDc4OTkxODI5YTUzODJjNzkxMjhiZTE2ZjZmMTA4OGY3YWI1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0MjhlNmYyMzdiODBjN2I1M2Y5NGU4MzM1NmRjZjQ4ZGY5OGExODg3NWQ5OGRhYzI4YzMxNjc0ZmE4NDg4MGQwIn0"
         }
       ]
     },
@@ -133,6 +129,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "at": "2026-10-09T17:13:47.426Z"
   }
 }

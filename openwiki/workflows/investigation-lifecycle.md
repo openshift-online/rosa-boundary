@@ -22,12 +22,10 @@ sources:
     resource: repo://lambda/create-investigation/test_handler.py
   - id: openwiki-source-6e447421bb9d1456afb165d9
     resource: repo://lambda/reap-tasks/handler.py
-  - id: openwiki-source-30a9bbeef6a7c1bda59eab80
-    resource: repo://tests/localstack/integration/test_full_workflow.py
-generated: { by: "opencode", at: "2026-10-05T17:22:49.447Z" }
+generated: { by: "opencode", at: "2026-10-09T17:13:47.426Z" }
 verified:
   - by: openwiki/0.7.0
-    at: 2026-10-05T19:18:44.075Z
+    at: 2026-10-09T17:13:47.426Z
 ---
 
 # Investigation lifecycle
@@ -54,7 +52,7 @@ If task-definition registration or task launch fails, the Lambda cleans up a new
 
 ## Stop, timeout, and close
 
-`stop-task` requests ECS termination and can optionally wait for `STOPPED`. Container shutdown is handled by the entrypoint and attempts the S3 audit sync. The reaper Lambda provides independent timeout enforcement: EventBridge invokes it periodically, it paginates RUNNING tasks, describes them in batches of up to 100, and stops tasks whose ISO-8601 `deadline` has passed. Tasks without deadlines, with future deadlines, or with malformed deadline values are skipped; per-task stop/describe failures are counted without abandoning the rest of the batch.
+`stop-task` requests ECS termination and can optionally wait for `STOPPED`. Container shutdown is handled by the entrypoint and attempts the S3 audit sync. The reaper Lambda provides independent timeout enforcement: EventBridge invokes it periodically, it paginates RUNNING tasks, describes them in batches of up to 100, and stops tasks whose ISO-8601 `deadline` has passed **unless an active ECS Exec/SSM session is detected**. Tasks without deadlines, with future deadlines, with malformed deadline values, or with active sessions are skipped; per-task stop/describe failures are counted without abandoning the rest of the batch.
 
 `close-investigation` finds the access point by investigation tag and optional cluster tag; omitting cluster ID is rejected when that investigation ID matches multiple clusters. It refuses to continue if tasks are running unless `--force` is supplied. With force, it stops and waits for matching running tasks, then deregisters active task definitions with a family prefix scoped to the ECS cluster, cluster ID, and investigation ID. It prompts before deleting the access point unless `--yes` is set. Deleting the access point does not delete its underlying EFS directory contents.
 
@@ -68,6 +66,6 @@ Lambda unit tests cover skip-task behavior, access-point reuse, handover guards,
 - Task replacement uses deterministic `startedBy` discovery and checks SSM sessions only for containers with a `runtimeId`; empty task details, detected active sessions, and ECS/SSM API errors fail closed, but missing `runtimeId` skips that session lookup and can allow stopping. The handover tests cover the fail-closed cases but not missing `runtimeId`. [discovery](repo://lambda/create-investigation/handler.py#L31-L45) · [conditional session lookup and stop sequence](repo://lambda/create-investigation/handler.py#L691-L774) · [handover tests](repo://lambda/create-investigation/test_handler.py#L1242-L1517)
 - The Lambda derives a per-investigation task definition with a unique family, investigation-specific EFS and task-scoped credential mounts, and launches Fargate with ECS Exec and investigation/deadline tags. [task definition registration](repo://lambda/create-investigation/handler.py#L469-L637) · [ECS launch and tags](repo://lambda/create-investigation/handler.py#L821-L949)
 - Rollback removes newly created access points, and tag-application failure also stops an already launched task; reused access points are preserved. [registration and launch cleanup](repo://lambda/create-investigation/handler.py#L829-L861) · [tag-failure cleanup](repo://lambda/create-investigation/handler.py#L941-L992) · [reused access-point rollback test](repo://lambda/create-investigation/test_handler.py#L2091-L2157)
-- The reaper periodically processes RUNNING tasks, stopping expired deadlines while skipping absent, future, or malformed values; the integration suite chains task tags into reaper enforcement. [reaper behavior](repo://lambda/reap-tasks/handler.py#L33-L163) · [schedule](repo://deploy/regional/lambda-reap-tasks.tf#L110-L133) · [deadline lifecycle integration](repo://tests/localstack/integration/test_full_workflow.py#L214-L287)
+- The reaper processes RUNNING tasks, stopping expired deadlines only when no active Exec session is detected, and skipping absent, future, or malformed values; the integration suite chains task tags into reaper enforcement. [reaper behavior](repo://lambda/reap-tasks/handler.py#L48-L175) · [schedule](repo://deploy/regional/lambda-reap-tasks.tf#L42-L66) · [deadline lifecycle integration](repo://tests/localstack/integration/test_full_workflow.py#L214-L287)
 - Close requires explicit force to stop running tasks, scopes task-definition cleanup by family prefix, confirms before access-point deletion by default, and leaves EFS data in place. [close workflow](repo://internal/cmd/close_investigation.go#L96-L186) · [tag-based AP lookup](repo://internal/aws/efs.go#L42-L100) · [family scoping and cleanup test](repo://tests/localstack/integration/test_close_investigation.py#L67-L143)
 - Join waits for task and ECS Exec agent readiness before opening the SSM session; LocalStack tests cover task stop and cross-component lifecycle behavior, with actual task launch tests requiring a non-local executor. [join sequence](repo://internal/cmd/join_task.go#L57-L101) · [LocalStack executor gate](repo://tests/localstack/integration/test_task_timeout.py#L16-L78)

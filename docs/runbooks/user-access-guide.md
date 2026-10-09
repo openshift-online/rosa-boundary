@@ -3,10 +3,12 @@
 ## Overview
 
 This guide provides step-by-step instructions for SRE users to create investigations and access containers using the `rosa-boundary` CLI with Keycloak OIDC authentication and AWS ECS Exec.
+Replace all `<...>` placeholders with approved values before running commands;
+angle brackets in a shell command are redirection operators, not literal syntax.
 
 ## Getting Access
 
-The create-investigation Lambda checks that your OIDC token contains membership in at least one group listed in the deployment's `required_groups` configuration. How you obtain that membership depends on the identity provider.
+The create-investigation Lambda checks membership in the deployment's `required_groups`. IAM role trust can impose additional OIDC claim or session-tag requirements *before* Lambda is invoked. Ask the deployment operator which access requirements apply.
 
 ### Red Hat EmployeeIDP (staging and shared deployments)
 
@@ -16,7 +18,7 @@ EmployeeIDP tokens carry group memberships as LDAP-synced realm roles under `rea
 2. **Request membership** — group membership is managed via LDAP. Depending on the group, this is done through either:
    - **[app-interface](https://gitlab.cee.redhat.com/service/app-interface)** — for groups defined in app-interface role files (e.g., [sd-sre/roles/sre.yml](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/data/teams/sd-sre/roles/sre.yml)). Submit an MR adding your rover ID to the appropriate role.
    - **[Rover](https://rover.redhat.com)** — for standalone LDAP groups not managed through app-interface. Request group membership directly through rover.
-3. **Verify** — after group membership propagates, run `rosa-boundary login` and attempt `start-task`. A 403 from the Lambda means your token does not yet contain the required group.
+3. **Verify** — after membership propagates, authenticate and try an approved investigation. An STS denial may indicate a trust/claim problem before Lambda; a Lambda 403 may indicate group or ABAC-claim authorization failure. Ask the operator to identify the failing stage.
 
 ### Self-managed Keycloak (developer deployments)
 
@@ -27,32 +29,14 @@ For deployments using a self-hosted Keycloak instance, groups are created and as
 Before you can access investigation containers, you need:
 
 1. ✅ Membership in a `required_groups` group (see [Getting Access](#getting-access) above)
-2. ✅ AWS CLI installed and configured
-3. ✅ `session-manager-plugin` installed (required for `join-task`)
-4. ✅ `rosa-boundary` CLI built or installed
+2. ✅ `session-manager-plugin` installed (required for `join-task`)
+3. ✅ `rosa-boundary` CLI built or installed
+
+The Boundary CLI uses OIDC to obtain AWS credentials; existing AWS credentials and the AWS CLI are **not** prerequisites for normal CLI use. The separate audit-inspection commands in the [investigation workflow](investigation-workflow.md) require an AWS CLI and an appropriately authorized audit-reader identity.
 
 ## One-Time Setup
 
-### 1. Install AWS CLI
-
-**macOS:**
-```bash
-brew install awscli
-```
-
-**Linux:**
-```bash
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-```
-
-**Verify installation:**
-```bash
-aws --version
-```
-
-### 2. Install session-manager-plugin
+### 1. Install session-manager-plugin
 
 **macOS:**
 ```bash
@@ -70,17 +54,17 @@ sudo dnf install -y session-manager-plugin.rpm
 session-manager-plugin --version
 ```
 
-### 3. Build the rosa-boundary CLI
+### 2. Build the rosa-boundary CLI
 
 ```bash
 # From the repo root
 make build-cli
 
-# Or install to ~/go/bin
+# Or install into the configured Go binary directory
 make install-cli
 ```
 
-### 4. Configure CLI
+### 3. Configure CLI
 
 Run auto-discovery with the deployment's AWS account ID, region, project
 (base name without the stage suffix), and environment. For example, a deployment
@@ -102,29 +86,17 @@ provider, supply `--keycloak-url`, `--realm`, and `--client-id` explicitly (or t
 corresponding `ROSA_BOUNDARY_*` environment variables). To enter all settings
 without auto-discovery, use `configure --auto-discover=false`.
 
-Key fields (get values from your administrator):
-
-```yaml
-lambda_function_name: rosa-boundary-dev-create-investigation
-invoker_role_arn: arn:aws:iam::<account-id>:role/rosa-boundary-dev-lambda-invoker
-sre_role_arn: arn:aws:iam::<account-id>:role/rosa-boundary-dev-sre-shared
-ecs_cluster_name: rosa-boundary-dev
-aws_region: us-east-2
-```
+Confirm the discovered account, region, cluster, role ARNs, Lambda, and EFS filesystem match the intended deployment. If discovery is unavailable, ask the operator for these settings before using interactive configuration.
 
 ## Daily Usage
 
 ### Step 1: Authenticate
 
 ```bash
-./bin/rosa-boundary login \
-  --keycloak-url https://auth.redhat.com/auth \
-  --realm EmployeeIDP \
-  --client-id rosa-boundary-sre
+./bin/rosa-boundary login
 ```
 
-This opens a browser for Keycloak PKCE authentication and caches the token at
-`~/.cache/rosa-boundary/token.json`. The token is reused for subsequent commands.
+This opens a browser for Keycloak PKCE authentication when a fresh token is needed. The token is cached under `${XDG_CACHE_HOME:-$HOME/.cache}/rosa-boundary/token-cache` and reused until shortly before expiry. Use the identity provider saved during `configure` (or override it explicitly for a different deployment).
 
 ### Step 2: Start Investigation
 
@@ -139,7 +111,7 @@ This will:
 2. Invoke the create-investigation Lambda with your cached OIDC token
 3. Lambda validates group membership (against `required_groups`)
 4. Lambda creates an EFS access point and per-investigation task definition
-5. Lambda launches the ECS task tagged with your username
+5. Lambda launches the ECS task with identity and investigation tags (including the deployment's ABAC tag)
 6. CLI prints the task ID — save it for the next steps
 
 ### Step 3: Connect to Investigation Container
@@ -166,7 +138,7 @@ echo $OC_VERSION
 pwd
 # /home/sre
 
-# List OpenShift clusters (if configured)
+# Check OpenShift context (if configured)
 oc config get-contexts
 
 # Run AWS CLI
@@ -176,7 +148,7 @@ aws sts get-caller-identity
 claude
 ```
 
-### Step 5: Exit Cleanly
+### Step 5: Disconnect from ECS Exec
 
 ```bash
 # Exit shell
@@ -185,15 +157,15 @@ exit
 # Or press Ctrl-D
 ```
 
-The container's entrypoint automatically syncs `/home/sre` to S3 on exit.
+This only ends the interactive ECS Exec session. The task continues running; disconnecting does **not** trigger S3 audit sync.
 
-### Step 6: Stop Task (Optional — if not already exited)
+### Step 6: Stop Task and Verify Audit
 
 ```bash
-./bin/rosa-boundary stop-task <task-id>
+./bin/rosa-boundary stop-task <task-id> --wait
 ```
 
-Sends SIGTERM to the task, triggering the S3 sync and graceful shutdown.
+Stopping the task attempts the S3 sync. `--wait` confirms STOPPED, **not** that the upload succeeded. Check container logs for sync warnings and verify the expected S3 audit objects using an authorized audit-reader identity; see [audit retrieval and investigation closure](investigation-workflow.md#verify-audit-evidence). Close the investigation when finished.
 
 ## Working with Multiple Investigations
 
@@ -233,10 +205,9 @@ aws ecs describe-tasks \
 
 ### "Authentication failed" in OIDC flow
 
-1. Clear the token cache and re-authenticate:
+1. Force a fresh login:
    ```bash
-   rm ~/.cache/rosa-boundary/token.json
-   ./bin/rosa-boundary login ...
+   ./bin/rosa-boundary login --force
    ```
 
 2. Verify your Keycloak credentials by logging in at the Keycloak URL
@@ -247,7 +218,7 @@ aws ecs describe-tasks \
 
 1. Verify group membership — see [Getting Access](#getting-access)
 2. Confirm the invoker role ARN in your config matches what the administrator provided
-3. Token may be expired — clear cache and re-login (see above)
+3. If the cached token is stale, force a fresh login (see above); distinguish STS role-trust denials from Lambda authorization errors.
 
 ### "Task not found" or "Task not running"
 
@@ -256,29 +227,26 @@ aws ecs describe-tasks \
    ./bin/rosa-boundary list-tasks
    ```
 
-2. If the task stopped, start a new investigation:
+2. If the task stopped, start a new task in the same investigation (if still open):
    ```bash
    ./bin/rosa-boundary start-task --cluster-id <id> --investigation-id <id>
    ```
 
 ### "AccessDenied" when executing ECS Exec
 
-Your session is ABAC-scoped — you can only exec into tasks tagged with your username.
-Verify:
+ECS Exec is ABAC-scoped by the deployment's configured tag key (for example, `uuid`), not necessarily by username. An operator with permission to inspect tasks can check the tags:
 
 ```bash
 # Check task tags
 aws ecs describe-tasks \
-  --cluster rosa-boundary-dev \
+  --cluster <ecs-cluster> \
   --tasks <task-arn> \
   --include TAGS \
   --query 'tasks[0].tags'
 
-# Check assumed role
-aws sts get-caller-identity
 ```
 
-If the `username` tag doesn't match your session tag, you don't own this task.
+Compare the task's configured ABAC tag with the identity provider's session tag; `aws sts get-caller-identity` on your workstation does not show the CLI's OIDC-assumed role session tags.
 
 ### "ECS Exec is not enabled for this task"
 
@@ -287,13 +255,11 @@ with properly created investigations via the Lambda. Contact the administrator.
 
 ### session-manager-plugin: connection drops immediately
 
-The container exec agent may not have finished opening its WebSocket. The CLI
-waits 8 seconds by default. If it still fails, verify the task has ECS Exec
-enabled:
+The container exec agent may not have finished opening its data channel. If it still fails, verify the task has ECS Exec enabled:
 
 ```bash
 aws ecs describe-tasks \
-  --cluster rosa-boundary-dev \
+  --cluster <ecs-cluster> \
   --tasks <task-arn> \
   --query 'tasks[0].enableExecuteCommand'
 ```
@@ -301,10 +267,10 @@ aws ecs describe-tasks \
 ## Security Best Practices
 
 1. **Lock your workstation** when stepping away (sessions remain active)
-2. **Exit sessions** when done (triggers audit sync to S3)
+2. **Stop tasks** when done and verify audit evidence; merely exiting the shell does not trigger sync
 3. **Rotate passwords** in Keycloak regularly
 4. **Enable MFA** in Keycloak for your account
-5. **Review CloudWatch Logs** periodically (`/ecs/rosa-boundary-*/ssm-sessions`)
+5. **Review CloudWatch session logs** using an authorized audit-reader identity
 6. **Never share credentials** or OIDC tokens
 7. **Use tag-based isolation** — you can only access your own tasks
 

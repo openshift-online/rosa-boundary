@@ -611,11 +611,8 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
                 local_path = os.path.join(root, filename)
 
                 # Use lstat to check file type without following symlinks
-                try:
-                    file_stat = os.lstat(local_path)
-                except OSError:
-                    # Skip files that can't be stat'd (permissions, race conditions)
-                    continue
+                # OSError propagates to outer handler which returns False and retains directory
+                file_stat = os.lstat(local_path)
 
                 # Only upload regular files, skip symlinks and other types
                 if not stat.S_ISREG(file_stat.st_mode):

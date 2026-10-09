@@ -17,6 +17,7 @@ Environment Variables:
 import os
 import logging
 import re
+import stat
 import shutil
 import hashlib
 from typing import Dict, Any, List, Optional
@@ -121,7 +122,21 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         all_task_def_arns = list_all_task_definitions() if TASK_DEFINITION_FAMILY else []
         logger.info("Found %d active task definition(s)", len(all_task_def_arns))
 
+        # Calculate reaping deadline: reserve 30s for final cleanup
+        import time
+        if context:
+            remaining_ms = context.get_remaining_time_in_millis()
+            deadline = time.time() + max(10, (remaining_ms / 1000) - 30)
+        else:
+            # Test environment without context - use a large deadline
+            deadline = time.time() + 3600  # 1 hour
+
         for ap in access_points:
+            # Check deadline before processing each investigation
+            if time.time() >= deadline:
+                logger.warning("Reaping deadline reached - stopping investigation processing")
+                break
+
             checked += 1
             ap_id = ap['AccessPointId']
             tags = {tag['Key']: tag['Value'] for tag in ap.get('Tags', [])}
@@ -524,17 +539,23 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
         ValueError: If configuration is invalid
     """
     if not S3_AUDIT_BUCKET:
-        logger.warning("S3_AUDIT_BUCKET not configured - skipping backup for %s/%s",
-                      cluster_id, investigation_id)
-        return True  # Not configured is not a failure condition
+        logger.error("S3_AUDIT_BUCKET not configured - cannot backup %s/%s",
+                    cluster_id, investigation_id)
+        return False  # Missing S3 configuration prevents deletion
 
     if not os.path.exists(directory_path):
         logger.info("Directory %s does not exist - nothing to backup", directory_path)
         return True
 
-    # Calculate timeout dynamically: reserve 30s for error handling/cleanup
-    remaining_ms = context.get_remaining_time_in_millis()
-    upload_timeout = max(10, (remaining_ms / 1000) - 30)  # Minimum 10s, reserve 30s buffer
+    # Calculate deadline: reserve 30s for error handling/cleanup after backup
+    import time
+    if context:
+        remaining_ms = context.get_remaining_time_in_millis()
+        upload_timeout = max(10, (remaining_ms / 1000) - 30)  # Minimum 10s, reserve 30s buffer
+    else:
+        # Test environment without context - use a large timeout
+        upload_timeout = 300  # 5 minutes
+    deadline = time.time() + upload_timeout
 
     # S3 prefix for uploaded files
     s3_prefix = f"{cluster_id}/{investigation_id}/reaper-final-backup/"
@@ -558,6 +579,12 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
 
         # Walk directory tree (followlinks=False prevents symlink exfiltration)
         for root, dirs, files in os.walk(directory_path, followlinks=False):
+            # Check deadline before processing each directory
+            if time.time() >= deadline:
+                logger.error("Upload deadline reached for %s/%s - directory retained",
+                            cluster_id, investigation_id)
+                return False
+
             # Calculate relative path from investigation directory
             rel_root = os.path.relpath(root, directory_path)
 
@@ -575,10 +602,23 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
 
             # Upload each file in this directory
             for filename in files:
+                # Check deadline before each file upload
+                if time.time() >= deadline:
+                    logger.error("Upload deadline reached for %s/%s - directory retained",
+                                cluster_id, investigation_id)
+                    return False
+
                 local_path = os.path.join(root, filename)
 
-                # Skip if file is a symlink (defense in depth, os.walk already skips with followlinks=False)
-                if os.path.islink(local_path):
+                # Use lstat to check file type without following symlinks
+                try:
+                    file_stat = os.lstat(local_path)
+                except OSError:
+                    # Skip files that can't be stat'd (permissions, race conditions)
+                    continue
+
+                # Only upload regular files, skip symlinks and other types
+                if not stat.S_ISREG(file_stat.st_mode):
                     continue
 
                 # Calculate S3 key: prefix + relative path from investigation directory
@@ -593,7 +633,7 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
                 s3.upload_file(local_path, S3_AUDIT_BUCKET, s3_key)
 
                 file_count += 1
-                bytes_uploaded += os.path.getsize(local_path)
+                bytes_uploaded += file_stat.st_size
 
         logger.info("Successfully backed up %d file(s) (%d bytes) to S3 for %s/%s",
                    file_count, bytes_uploaded, cluster_id, investigation_id)
@@ -720,13 +760,28 @@ def delete_task_definitions(cluster_id: str, investigation_id: str, all_task_def
     logger.info("Searching for task definitions with familyPrefix: %s", family_prefix)
 
     try:
-        # Filter pre-fetched task definitions by family prefix
-        # Match family with timestamp suffix (followed by :revision) to prevent prefix collisions
-        # e.g., match "inv-1-20261005T092000:5" but not "inv-10-20261005T092000:5" when searching for "inv-1"
-        matching_arns = [
-            arn for arn in all_task_def_arns
-            if f'task-definition/{family_prefix}-' in arn
-        ]
+        # Filter pre-fetched task definitions by parsing ARN structure
+        # ARN format: arn:aws:ecs:region:account:task-definition/family-cluster-investigation-timestamp:revision
+        # Must match exact family, cluster_id, and investigation_id to prevent name collisions
+        matching_arns = []
+        for arn in all_task_def_arns:
+            # Extract task definition name from ARN
+            if '/task-definition/' not in arn:
+                continue
+
+            task_def_name = arn.split('/task-definition/')[-1]
+            # Remove revision suffix (:N)
+            family_with_timestamp = task_def_name.rsplit(':', 1)[0]
+
+            # Expected format: {family_prefix}-{timestamp}
+            # Check if it starts with family_prefix followed by '-' and timestamp
+            if not family_with_timestamp.startswith(f'{family_prefix}-'):
+                continue
+
+            # Verify timestamp format follows immediately (YYYYMMDDTHHMMSS pattern)
+            suffix = family_with_timestamp[len(family_prefix) + 1:]  # +1 for the '-'
+            if len(suffix) >= 15 and suffix[0:8].isdigit() and suffix[8] == 'T' and suffix[9:15].isdigit():
+                matching_arns.append(arn)
 
         logger.info("Found %d task definition(s) matching prefix %s",
                    len(matching_arns), family_prefix)

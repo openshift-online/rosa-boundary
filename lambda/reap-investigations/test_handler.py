@@ -84,6 +84,7 @@ class TestReaperLambda(unittest.TestCase):
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
                 {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                 {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
             ]
         }
@@ -129,6 +130,7 @@ class TestReaperLambda(unittest.TestCase):
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
                 {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                 {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
             ]
         }
@@ -164,6 +166,7 @@ class TestReaperLambda(unittest.TestCase):
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
                 {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                 {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
             ]
         }
@@ -216,6 +219,7 @@ class TestReaperLambda(unittest.TestCase):
                 'Tags': [
                     {'Key': 'ClusterID', 'Value': 'test-cluster'},
                     {'Key': 'InvestigationID', 'Value': f'inv-{i}'},
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                     {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
                 ]
             }
@@ -282,7 +286,8 @@ class TestReaperLambda(unittest.TestCase):
             },
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'}
+                {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
             ]
         }
 
@@ -310,7 +315,8 @@ class TestReaperLambda(unittest.TestCase):
             # RootDirectory missing entirely
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'}
+                {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
             ]
         }
 
@@ -339,6 +345,7 @@ class TestReaperLambda(unittest.TestCase):
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
                 {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                 {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
             ]
         }
@@ -379,6 +386,7 @@ class TestReaperLambda(unittest.TestCase):
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
                 {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                 {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
             ]
         }
@@ -416,14 +424,19 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_ecs.list_task_definitions.assert_called_once()
 
     def test_handle_task_definition_error_gracefully(self):
-        """Test that task definition errors don't crash the reaper"""
+        """Test that task definition errors produce run-level error payload"""
         created_at = datetime.utcnow() - timedelta(hours=100)
         access_point = {
             'AccessPointId': 'fsap-123456',
             'CreationTime': created_at,
+            'RootDirectory': {
+                'Path': '/test-cluster/inv-123'
+            },
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'}
+                {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
+                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
             ]
         }
 
@@ -432,12 +445,6 @@ class TestReaperLambda(unittest.TestCase):
         }
         self.mock_ecs.list_tasks.return_value = {'taskArns': []}
 
-        # Mock successful directory and access point deletion
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        # shutil.rmtree returns None on success
-        self.mock_efs.delete_access_point.return_value = {}
-
         # Mock task definition list failure
         from botocore.exceptions import ClientError
         self.mock_ecs.list_task_definitions.side_effect = ClientError(
@@ -445,12 +452,17 @@ class TestReaperLambda(unittest.TestCase):
             'ListTaskDefinitions'
         )
 
-        result = handler.lambda_handler({}, None)
+        # Patch TASK_DEFINITION_FAMILY to trigger list_task_definitions call
+        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
+            result = handler.lambda_handler({}, None)
 
-        assert result['checked'] == 1
+        # Should return run-level error payload when ListTaskDefinitions fails
+        assert 'error' in result
+        assert 'AWS API error' in result['error']
+        assert result['checked'] == 0  # Failed before processing any access points
         assert result['reaped'] == 0
         assert result['skipped'] == 0
-        assert result['errors'] == 1
+        assert result['errors'] == 0
 
     def test_missing_ecs_cluster(self):
         """Test that missing ECS_CLUSTER raises ValueError"""
@@ -480,6 +492,7 @@ class TestReaperLambda(unittest.TestCase):
                 'Tags': [
                     {'Key': 'ClusterID', 'Value': 'test-cluster'},
                     {'Key': 'InvestigationID', 'Value': f'inv-{i}'},
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                     {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
                 ]
             }
@@ -495,6 +508,7 @@ class TestReaperLambda(unittest.TestCase):
                 'Tags': [
                     {'Key': 'ClusterID', 'Value': 'test-cluster'},
                     {'Key': 'InvestigationID', 'Value': f'inv-{i}'},
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                     {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
                 ]
             }
@@ -616,11 +630,11 @@ class TestReaperLambda(unittest.TestCase):
 
     def test_task_definition_deregistration_with_multiple_revisions(self):
         """Test deregistering multiple task definition revisions"""
-        # Simulate multiple revisions of same family
+        # Simulate multiple revisions of same family with timestamp suffix
         task_def_arns = [
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123:1',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123:2',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123:3',
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:1',
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:2',
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:3',
         ]
 
         with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
@@ -631,9 +645,10 @@ class TestReaperLambda(unittest.TestCase):
 
     def test_task_definition_deregistration_failure_continues(self):
         """Test that task def deregistration continues on individual failures"""
+        # Simulate revisions with timestamp suffix
         task_def_arns = [
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123:1',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123:2',
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:1',
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:2',
         ]
 
         # First deregister fails, second succeeds
@@ -758,6 +773,7 @@ class TestReaperLambda(unittest.TestCase):
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'test-cluster'},
                 {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
                 {'Key': 'CreatedAt', 'Value': created_at.isoformat()}  # ISO format with timezone
             ]
         }
@@ -977,11 +993,16 @@ class TestReaperLambda(unittest.TestCase):
         # Stop os.path patcher to use real path operations
         self.os_path_patcher.stop()
 
+        # Mock file stat structure
+        from unittest.mock import MagicMock
+        mock_stat = MagicMock()
+        mock_stat.st_mode = 0o100644  # Regular file
+        mock_stat.st_size = 1024
+
         with patch('handler.boto3.client') as mock_boto3_client, \
              patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.path.getsize', return_value=1024), \
-             patch('handler.os.path.exists', return_value=True), \
-             patch('handler.os.path.islink', return_value=False):
+             patch('handler.os.lstat', return_value=mock_stat), \
+             patch('handler.os.path.exists', return_value=True):
 
             # Mock directory structure
             mock_walk.return_value = [
@@ -1021,11 +1042,16 @@ class TestReaperLambda(unittest.TestCase):
         # Stop os.path patcher to use real path operations
         self.os_path_patcher.stop()
 
+        # Mock file stat structure
+        from unittest.mock import MagicMock
+        mock_stat = MagicMock()
+        mock_stat.st_mode = 0o100644  # Regular file
+        mock_stat.st_size = 1024
+
         with patch('handler.boto3.client') as mock_boto3_client, \
              patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.path.exists', return_value=True), \
-             patch('handler.os.path.islink', return_value=False), \
-             patch('handler.os.path.getsize', return_value=1024):
+             patch('handler.os.lstat', return_value=mock_stat), \
+             patch('handler.os.path.exists', return_value=True):
 
             # Mock directory structure with excluded paths
             mock_walk.return_value = [
@@ -1071,10 +1097,16 @@ class TestReaperLambda(unittest.TestCase):
         # Stop os.path patcher to use real path operations
         self.os_path_patcher.stop()
 
+        # Mock file stat structure
+        from unittest.mock import MagicMock
+        mock_stat = MagicMock()
+        mock_stat.st_mode = 0o100644  # Regular file
+        mock_stat.st_size = 1024
+
         with patch('handler.boto3.client') as mock_boto3_client, \
              patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.path.exists', return_value=True), \
-             patch('handler.os.path.islink', return_value=False):
+             patch('handler.os.lstat', return_value=mock_stat), \
+             patch('handler.os.path.exists', return_value=True):
 
             mock_walk.return_value = [
                 ('/mnt/efs/cluster-1/inv-1', [], ['file1.txt']),
@@ -1098,29 +1130,35 @@ class TestReaperLambda(unittest.TestCase):
 
     @patch('handler.os.path.exists')
     def test_s3_backup_missing_config(self, mock_exists):
-        """Test S3 backup skipped when S3_AUDIT_BUCKET not configured"""
+        """Test S3 backup fails when S3_AUDIT_BUCKET not configured"""
         mock_exists.return_value = True
 
         with patch('handler.S3_AUDIT_BUCKET', ''):
             result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
 
-        # Not configured is not a failure - returns True
-        assert result is True
+        # Missing S3 configuration prevents deletion
+        assert result is False
 
     def test_s3_backup_skips_symlinks(self):
         """Test S3 backup skips symlinks for security"""
         # Stop os.path patcher to use real path operations
         self.os_path_patcher.stop()
 
-        # First file is regular, second is symlink
-        def islink_side_effect(path):
-            return 'symlink' in path
+        # Mock lstat to return different types
+        from unittest.mock import MagicMock
+        def lstat_side_effect(path):
+            mock_stat = MagicMock()
+            if 'symlink' in path:
+                mock_stat.st_mode = 0o120777  # Symlink
+            else:
+                mock_stat.st_mode = 0o100644  # Regular file
+            mock_stat.st_size = 1024
+            return mock_stat
 
         with patch('handler.boto3.client') as mock_boto3_client, \
              patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.path.exists', return_value=True), \
-             patch('handler.os.path.islink', side_effect=islink_side_effect), \
-             patch('handler.os.path.getsize', return_value=1024):
+             patch('handler.os.lstat', side_effect=lstat_side_effect), \
+             patch('handler.os.path.exists', return_value=True):
 
             # Mock directory with symlink
             mock_walk.return_value = [

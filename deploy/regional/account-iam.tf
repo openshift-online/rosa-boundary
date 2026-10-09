@@ -25,6 +25,9 @@ data "aws_iam_role" "create_investigation_lambda" {
 data "aws_iam_role" "reap_tasks_lambda" {
   name = "${local.account_role_name_prefix}-reap-tasks-lambda"
 }
+data "aws_iam_role" "reap_investigations_lambda" {
+  name = "${local.account_role_name_prefix}-reap-investigations-lambda"
+}
 data "aws_iam_role" "bedrock_invocation_logging" {
   name = "${local.account_role_name_prefix}-bedrock-invocation-logging"
 }

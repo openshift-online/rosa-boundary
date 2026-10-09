@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:4220a6df28a5bd1fbe24f846f4d517d09cece6efa0c8ef8547248a803a9b80dc",
+  "pageVersion": "sha256:50b772e419c7c2601cde7fff9b7bb9ba41ba79879b7d870a8086f5284ff85bd5",
   "claims": [
     {
       "id": "claim_7f2dfd61cb3e4d3eb4577088e2e0533e",
       "statement": "The CLI sends task-start requests to the create-investigation Lambda, which validates the operator, provisions or reuses an investigation EFS access point, and can launch a Fargate task using the regional task definition.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/ecs.tf#L61-L70",
-          "version": "repo-lines-v1:sha256:d90231a74629f6a983c01968376c500f420ff05c83399b177ea84f75edce5ac5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
+          "resource": "repo://deploy/regional/ecs.tf#L62-L82",
+          "version": "repo-lines-v1:sha256:caba5d5c0ad13a13b9dc32d6669a0d7c671d18c63df7bc2e9d214f5ca7b7f35d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkZGQ2NmZkNzJmOGRkZTAwMzY2OGE1MTk5NjFkMmNhNWU1MTA3NWE2YjhlMmMxMWYxMWU5NmNkNjdlOTRmMzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY1YTFlNzhiNTZhZTc5M2JlNGEwYzBiNWEyMmRiM2Q4MWJjYjY4ZTUxYzEzODExNWJhNzYwZjVhYTg5MmJiNTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiMGFlMGNlYzAzOGJhMjM1NzkwZmQwZDQ0OTllYmRhYzVhYWI2NmUzNjZhZDUxOTA4ZGU0NjQ5NjlhYTc2MGQifQ"
         },
         {
           "resource": "repo://internal/cmd/start_task.go#L90-L104",
@@ -27,6 +27,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.0",
-    "at": "2026-10-06T17:52:44.901Z"
+    "at": "2026-10-09T17:13:47.426Z"
   }
 }

@@ -2,53 +2,53 @@
   "schemaVersion": 1,
   "pages": {
     "/openwiki/architecture/identity-and-access.md": {
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:3382f76f317200348174103b3066fd161551442c1bcdc53429da16b4102c9362",
-      "pageVersion": "sha256:fe1dff0824881dc2067689be72ac832d507614a29c02851fa40b9ad3c912d05d",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3",
+      "pageVersion": "sha256:f2ffe46b40464271df857d194d25296a982aae2480243d092cd9e3016186e5c6",
       "completedBy": "opencode",
-      "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
+      "completedRunId": "2f34e7ef-6d1b-4a65-ba30-8bb531800fd1"
     },
     "/openwiki/architecture/system-overview.md": {
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:3382f76f317200348174103b3066fd161551442c1bcdc53429da16b4102c9362",
-      "pageVersion": "sha256:120ee88dbe1456dd66ad7deb44a43d9f73ead32a3dc570cf9a2e162d66a3130e",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3",
+      "pageVersion": "sha256:83d3297993a895321eafb82ffa90ecd8a4f9e29bbfabc74f267a3b3170e091dc",
       "completedBy": "opencode",
-      "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
+      "completedRunId": "2f34e7ef-6d1b-4a65-ba30-8bb531800fd1"
     },
     "/openwiki/infrastructure/hcp-terraform-workspaces.md": {
-      "pageVersion": "sha256:7606c52a1cedeaf9128a78ff1cb5159fafcf56b47dafa1eb055a94c678b21ec6",
+      "pageVersion": "sha256:3d1ea189b00afb5d9dce5fd9a32ac48dc8f09bb7b824d8112639ae93f8809763",
       "completedBy": "opencode",
-      "completedRunId": "a53c46d4-e925-4f7d-9406-c2a6a0c8b1e0",
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:5e431668e70f8c6afe1926aba83b00c13e478f7085e6ddbe0f8debc251be8b7f"
+      "completedRunId": "bff39532-f211-48a3-8401-9252741eba66",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3"
     },
     "/openwiki/infrastructure/regional-runtime.md": {
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:3382f76f317200348174103b3066fd161551442c1bcdc53429da16b4102c9362",
-      "pageVersion": "sha256:435ad4ab88eb6d93a5c4892d08081f235248a8ba3b937531802740b5f2c68578",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3",
+      "pageVersion": "sha256:a222261ef040e497bc9af72d1699433861826c88635483028fdb54cedabe4de6",
       "completedBy": "opencode",
-      "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
+      "completedRunId": "2f34e7ef-6d1b-4a65-ba30-8bb531800fd1"
     },
     "/openwiki/integrations/keycloak-deployment.md": {
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:3382f76f317200348174103b3066fd161551442c1bcdc53429da16b4102c9362",
-      "pageVersion": "sha256:a499605273f01d1ec2082c855dd5a8768d194891fd3d007f58330558fe6e28fe",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3",
+      "pageVersion": "sha256:b2f9b9dcc4ebe6302a5f6d36d9ef7d50c6ff3f181488d57a4a7f835cd24d39ed",
       "completedBy": "opencode",
-      "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
+      "completedRunId": "2f34e7ef-6d1b-4a65-ba30-8bb531800fd1"
     },
     "/openwiki/operations/audit-and-logging.md": {
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:3382f76f317200348174103b3066fd161551442c1bcdc53429da16b4102c9362",
-      "pageVersion": "sha256:a76368b4bc47ef2112744a8e8abee28fe58786cdb27d62ea649eedb208739cee",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3",
+      "pageVersion": "sha256:9c4353a5b118113649188a43c0eb3ff3236bb9d292762fd1a1c3ef22232ff933",
       "completedBy": "opencode",
-      "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
+      "completedRunId": "2f34e7ef-6d1b-4a65-ba30-8bb531800fd1"
     },
     "/openwiki/quickstart.md": {
-      "pageVersion": "sha256:4220a6df28a5bd1fbe24f846f4d517d09cece6efa0c8ef8547248a803a9b80dc",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3",
+      "pageVersion": "sha256:50b772e419c7c2601cde7fff9b7bb9ba41ba79879b7d870a8086f5284ff85bd5",
       "completedBy": "opencode",
-      "completedRunId": "a53c46d4-e925-4f7d-9406-c2a6a0c8b1e0",
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:5e431668e70f8c6afe1926aba83b00c13e478f7085e6ddbe0f8debc251be8b7f"
+      "completedRunId": "2f34e7ef-6d1b-4a65-ba30-8bb531800fd1"
     },
     "/openwiki/runtime/container-image.md": {
       "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
@@ -65,18 +65,18 @@
       "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
     },
     "/openwiki/testing/verification.md": {
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:3382f76f317200348174103b3066fd161551442c1bcdc53429da16b4102c9362",
-      "pageVersion": "sha256:3c22d5e947f8ece07e8fb1338f0c21af73593c98e6afd0cf0733d3036b9e7e0f",
+      "pageVersion": "sha256:98d2c5e774e1796c0225db297622f7bd6bb3b11eb054ea04cee315f165c8b97b",
       "completedBy": "opencode",
-      "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
+      "completedRunId": "bff39532-f211-48a3-8401-9252741eba66",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3"
     },
     "/openwiki/workflows/investigation-lifecycle.md": {
-      "gitHead": "91c73fb99c1ec7414fe2af125e5eefaa6dd17a56",
-      "sourceFingerprint": "sha256:3382f76f317200348174103b3066fd161551442c1bcdc53429da16b4102c9362",
-      "pageVersion": "sha256:8b7545154c48c9e6714e7ccbbf24e06716ca64629fe553ce2cd1abbd6e6ec82a",
+      "gitHead": "cf296834e8451036c4dee95dd4201b23ea3da6ab",
+      "sourceFingerprint": "sha256:6195a90a31c4230b096357ad6ad003ae2755b7b2e970e186a2ae44f2b41ebbe3",
+      "pageVersion": "sha256:1395dc9bba02115767626cf2249ffa7f7480628e67071c4526a76a621cfabdfd",
       "completedBy": "opencode",
-      "completedRunId": "6d21fd57-d06f-462f-9b50-406e5d9081c9"
+      "completedRunId": "2f34e7ef-6d1b-4a65-ba30-8bb531800fd1"
     }
   }
 }

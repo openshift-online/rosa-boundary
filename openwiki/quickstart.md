@@ -10,10 +10,10 @@ sources:
     resource: repo://internal/cmd/start_task.go
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
-generated: { by: "opencode", at: "2026-10-06T17:52:44.901Z" }
+generated: { by: "opencode", at: "2026-10-09T17:13:47.426Z" }
 verified:
   - by: openwiki/0.7.0
-    at: 2026-10-06T17:52:44.901Z
+    at: 2026-10-09T17:13:47.426Z
 ---
 
 # OpenWiki quickstart
@@ -27,7 +27,7 @@ Use this page to find the part of ROSA Boundary that matches your question. This
 - **OIDC login, Lambda authorization, and ECS Exec permissions:** [Identity and access](architecture/identity-and-access.md) explains role selection and session-tag ABAC.
 - **Build or troubleshoot the container and its startup/shutdown behavior:** [Container image and task runtime](runtime/container-image.md) covers architecture-specific builds, runtime identity, entrypoint setup, and S3 sync.
 - **Understand AWS resources or Terraform constraints:** [Regional runtime infrastructure](infrastructure/regional-runtime.md) describes ECS, EFS, IAM, audit storage, Lambda, encryption, and Bedrock resources.
-- **Add an HCP Terraform workspace or trace staging plans and applies:** [HCP Terraform workspace integration](infrastructure/hcp-terraform-workspaces.md) follows bootstrap, meta-workspace, AWS credential, network, and regional ownership across repositories, including run triggers and first-run prerequisites.
+- **Reconstruct how staging was onboarded or trace HCP plans and applies:** [HCP Terraform staging onboarding and workspaces](infrastructure/hcp-terraform-workspaces.md) covers the AWS account, app-interface, infra-platform, GitHub App and bot identities, permissions, dynamic credentials, network/account/regional workspaces, Prow distinction, run triggers, and first-run prerequisites.
 - **Find audit records, log groups, retrieval commands, retention, and coverage limits:** [Auditing and logging flows](operations/audit-and-logging.md) distinguishes CloudWatch streams, S3 workspace escrow, Bedrock payload logging, and account-managed CloudTrail.
 - **Trace OCM credential handling:** [Credential lifecycle](security/credential-lifecycle.md) documents access-token acquisition, ECS Exec transfer, task-side validation, ephemeral storage, and cleanup.
 - **Understand the Keycloak deployment and its OIDC consumers:** [Keycloak integration](integrations/keycloak-deployment.md) links OpenShift Kustomize resources to the CLI, Lambda, and IAM configuration.
@@ -39,4 +39,4 @@ The operator CLI obtains OIDC-backed AWS credentials and invokes the create-inve
 
 ## Evidence-backed claim
 
-- The CLI passes task-start requests to the create-investigation Lambda, which provisions investigation state and can launch an ECS task; Terraform defines the Fargate task and its supporting resources. [CLI request path](repo://internal/cmd/start_task.go#L90-L104) · [Lambda dispatch](repo://lambda/create-investigation/handler.py#L243-L281) · [regional task definition](repo://deploy/regional/ecs.tf#L61-L70)
+- The CLI passes task-start requests to the create-investigation Lambda, which provisions investigation state and can launch an ECS task; Terraform defines the Fargate task and its supporting resources. [CLI request path](repo://internal/cmd/start_task.go#L90-L104) · [Lambda dispatch](repo://lambda/create-investigation/handler.py#L243-L281) · [regional task definition](repo://deploy/regional/ecs.tf#L62-L82)

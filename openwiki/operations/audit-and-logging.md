@@ -3,9 +3,6 @@ type: operational-reference
 title: ROSA Boundary auditing and logging flows
 description: Inventories the evidence produced by ROSA Boundary, explains its contents, access paths, retention and protection controls, and identifies audit-coverage boundaries.
 tags: [audit, logging, operations, cloudwatch, s3, cloudtrail, bedrock]
-verified:
-  - by: openwiki/0.7.0
-    at: 2026-10-05T19:18:44.075Z
 sources:
   - id: openwiki-source-43a5f7fe8e3da821d41a4dba
     resource: repo://deploy/regional/bedrock-large-payloads.tf
@@ -25,15 +22,16 @@ sources:
     resource: repo://docs/configuration/aws-iam-policies.md
   - id: openwiki-source-e9906b078522ed0a08c64ff1
     resource: repo://entrypoint.sh
-  - id: openwiki-source-253b57ec87256e726a724093
-    resource: repo://lambda/create-investigation/handler.py
   - id: openwiki-source-6e447421bb9d1456afb165d9
     resource: repo://lambda/reap-tasks/handler.py
   - id: openwiki-source-11b94eb82fd3f4795e9f0e3b
     resource: repo://tests/localstack/integration/test_s3_audit.py
   - id: openwiki-source-b696734e098932f3853bbb51
     resource: repo://tests/shell/entrypoint.bats
-generated: { by: "opencode", at: "2026-10-05T19:18:44.075Z" }
+generated: { by: "opencode", at: "2026-10-09T17:13:47.426Z" }
+verified:
+  - by: openwiki/0.7.0
+    at: 2026-10-09T17:13:47.426Z
 ---
 
 # ROSA Boundary auditing and logging flows
@@ -110,8 +108,8 @@ For Bedrock text payloads, query the dedicated CloudWatch log group with the sam
 ## Evidence-backed claims
 
 - ECS Exec output is overridden to a dedicated CloudWatch group with encryption enabled and the session group uses the configured retention period; container stdout/stderr uses a separate group with `rosa-boundary` and `kube-proxy` stream prefixes. [ECS cluster and groups](repo://deploy/regional/ecs.tf#L1-L40) · [container log drivers](repo://deploy/regional/ecs.tf#L103-L168)
-- Create-investigation and reaper Lambdas each have named CloudWatch groups using `log_retention_days`; the handlers emit identity/authorization/resource lifecycle and reaper task/deadline outcome messages. [create-investigation group](repo://deploy/regional/lambda-create-investigation.tf#L1-L9) · [create-investigation logging](repo://lambda/create-investigation/handler.py#L88-L94) · [reaper group](repo://deploy/regional/lambda-reap-tasks.tf#L1-L9) · [reaper logging](repo://lambda/reap-tasks/handler.py#L54-L65) · [reaper outcomes](repo://lambda/reap-tasks/handler.py#L113-L163)
+- Create-investigation and reaper Lambdas each have named CloudWatch groups using `log_retention_days`; the handlers emit identity/authorization/resource lifecycle and reaper task/deadline outcome messages, including deferred stops for active Exec sessions. [create-investigation group](repo://deploy/regional/lambda-create-investigation.tf#L1-L9) · [create-investigation logging](repo://lambda/create-investigation/handler.py#L88-L94) · [reaper group](repo://deploy/regional/lambda-reap-tasks.tf#L1-L9) · [reaper outcomes](repo://lambda/reap-tasks/handler.py#L110-L175)
 - Entry-point shutdown sync builds a task-specific audit prefix or accepts an explicit URI, excludes OCM/kubeconfig state, avoids following symlinks, and warns rather than blocking indefinitely when sync fails. [sync implementation](repo://entrypoint.sh#L3-L34) · [signals and normal exit](repo://entrypoint.sh#L167-L183) · [task stop timeout](repo://deploy/regional/ecs.tf#L103-L110)
-- The investigation audit bucket combines versioning and compliance Object Lock with public-access blocking, AES-256 encryption, TLS-only access, and optional cross-account replication; task IAM permits writes rather than providing the compliance read path. [bucket controls](repo://deploy/regional/s3.tf#L1-L73) · [replication](repo://deploy/regional/s3.tf#L75-L120) · [task S3 policy](repo://deploy/regional/iam.tf#L123-L143)
-- Bedrock invocation logging sends text payloads account/Region-wide to encrypted CloudWatch Logs and larger text payloads to a separate S3 bucket; other modalities are disabled. [invocation configuration](repo://deploy/regional/bedrock-logging.tf#L92-L120) · [large-payload bucket controls](repo://deploy/regional/bedrock-large-payloads.tf#L1-L51)
+- The investigation audit bucket combines versioning and compliance Object Lock with public-access blocking, AES-256 encryption, TLS-only access, and optional cross-account replication; task IAM permits writes rather than providing the compliance read path. [bucket controls](repo://deploy/regional/s3.tf#L1-L73) · [replication](repo://deploy/regional/s3.tf#L75-L120) · [task S3 policy](repo://deploy/regional/iam.tf#L42-L58)
+- Bedrock invocation logging sends text payloads account/Region-wide to encrypted CloudWatch Logs and larger text payloads to a separate S3 bucket; other modalities are disabled. [invocation configuration](repo://deploy/regional/bedrock-logging.tf#L56-L85) · [large-payload bucket controls](repo://deploy/regional/bedrock-large-payloads.tf#L1-L51)
 - S3 sync tests verify that nested OCM and kubeconfig files are excluded while ordinary workspace controls remain eligible, including checks for token/account-response canaries. [shell sync tests](repo://tests/shell/entrypoint.bats#L88-L174) · [LocalStack audit sync test](repo://tests/localstack/integration/test_s3_audit.py#L114-L177)

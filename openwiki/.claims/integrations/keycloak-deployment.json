@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:a499605273f01d1ec2082c855dd5a8768d194891fd3d007f58330558fe6e28fe",
+  "pageVersion": "sha256:b2f9b9dcc4ebe6302a5f6d36d9ef7d50c6ff3f181488d57a4a7f835cd24d39ed",
   "claims": [
     {
       "id": "claim_0fd54466e61444af8b0cc04be2e11a4f",
@@ -50,11 +50,11 @@
     },
     {
       "id": "claim_9c25b28042004bb4a794fb98fb6e8f33",
-      "statement": "Regional Terraform registers primary OIDC trust and optionally stage and production providers, while the investigation Lambda routes tokens to configured issuer JWKS endpoints and verifies signature, expiration, and audience.",
+      "statement": "Account Terraform registers primary OIDC trust and optional stage and production providers, while the investigation Lambda routes tokens to configured issuer JWKS endpoints and verifies signature, expiration and audience.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/oidc.tf#L1-L64",
-          "version": "repo-lines-v1:sha256:d45e9c52961ac20b46e3c37bc23e1dcdd28b63a0fc21607a95753df19b450098:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU4ODZmOGNlNmM4NDM3ZjEzOTdkNWYzMDBmNTU5YTVmZDBjNjNiNmRlM2U1ZTE2NzdhNWVlNjIxMzBiNWE0OGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMwOTY3MDNlNzJjOGY0OWQxMWJjOTkyMTdjZWFhODczN2VjNTM3ODU4ZjQ0Y2Q2ZDBjMGYyZWEzMmZkZjhjNmEifQ"
+          "resource": "repo://deploy/account/oidc.tf#L1-L51",
+          "version": "repo-lines-v1:sha256:e6e94d6fedf53417fae87c255f5383c417f9a8cdd4116b19d9586bce52d7cc8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNzI4NDkzMzJkODc2MjEzZGFhNTM2ZGI2NWQwN2NlMjNkZjEzOGI3NTVkYWIxN2UwNDQ2OGI1M2M2OGU0NDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
           "resource": "repo://lambda/create-investigation/handler.py#L322-L405",
@@ -93,6 +93,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "at": "2026-10-09T17:13:47.426Z"
   }
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:120ee88dbe1456dd66ad7deb44a43d9f73ead32a3dc570cf9a2e162d66a3130e",
+  "pageVersion": "sha256:bf54e1d60e8bcecb2337a10a9f997fa459452925a2398837fc1baa3093354659",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
@@ -12,7 +12,7 @@
         },
         {
           "resource": "repo://deploy/regional/ecs.tf#L61-L70",
-          "version": "repo-lines-v1:sha256:d90231a74629f6a983c01968376c500f420ff05c83399b177ea84f75edce5ac5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
+          "version": "repo-lines-v1:sha256:bb9ed57d6d746e1c827a1243809ceee6ae00520dccc5119634a87b43c8ea71a2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
         },
         {
           "resource": "repo://internal/cmd/root.go#L154-L207",
@@ -43,8 +43,8 @@
       "statement": "The regional task definition combines an EFS-backed home with empty task-scoped OCM and kubeconfig overlays, and the entrypoint refuses missing or EFS-backed overlays before launching the workload as sre.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/ecs.tf#L61-L159",
-          "version": "repo-lines-v1:sha256:7ddfa53b24402dca26077f70f2d4256b2b6e71f75614ce6f1e179b79bcf739a0:eyJzZWxlY3RlZExpbmVDb3VudCI6OTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
+          "resource": "repo://deploy/regional/ecs.tf#L71-L159",
+          "version": "repo-lines-v1:sha256:762945133a469086f74a499f75b39cca1616766c41713b72292aa922230ea8d0:eyJzZWxlY3RlZExpbmVDb3VudCI6ODksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg3ODQ2YzVkZjc0OGU4Nzc4MDdhMGVkNTUyY2ZmYjU0N2VmY2ZlNzhjMzQzYzU0YzY1NjAxYjRiMTA4OGIyZWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdjMTJmMTc0ZTg1YmM4Yzk4OWEyMmQzZTZkMzMyYzZlMTBjMGIzNzVjZTMzYjE0YTgxNzQxNThkNjliOTlhMjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
         },
         {
           "resource": "repo://entrypoint.sh#L167-L173",
@@ -58,19 +58,23 @@
     },
     {
       "id": "claim_cef635918fde49daae5cf0282a34e52b",
-      "statement": "On shutdown the container attempts a bounded S3 sync of /home/sre that excludes OCM and kubeconfig paths and disables symlink following; task deadline enforcement is handled separately by the scheduled reaper Lambda.",
+      "statement": "On shutdown the container attempts a bounded S3 sync of /home/sre that excludes OCM and kubeconfig paths and disables symlink following; task deadline enforcement is handled separately by a scheduled reaper Lambda, which before stopping an expired task calls has_active_ssm_session to check the task's enableExecuteCommand flag and query SSM DescribeSessions for an active ECS Exec session, failing closed (recording a protected or error outcome instead of stopping the task) when that session state cannot be reliably determined.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L110-L133",
-          "version": "repo-lines-v1:sha256:0ef0987cbd165feddf3836458ff22f2d3fe512373054d5e04bd1bda01aca9ea4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2OWJlNmE2M2Q3NWVlNDY5NDI0Mzg4NGYxY2YyM2ZiMWM1MjU3OGM2MWMxNGI5ZmQ2NTgyNGE4NjE4ZjQ3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L19-L57",
+          "version": "repo-lines-v1:sha256:d5498fe1bec595ba948d58e1829586b2773c564eaf08e33360084350a1855b03:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2NjNkMTI4YmQyZDBiMzUzYmI0MmM3ODZkMGE1ODEzZDJkZDEyMTUyN2Y1MzIyNWY5MTgwZmQ5YTRkZDRmMjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhhMTVhYjFhMzA2ZjMwYThhZDViODk3NjU0MDQ0NzFjMDhlNDQyMDU0ZmViNzYxYzY0NDU0YjhiNjg4MjFlMTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY4OTFjMjljYWJhOTYzYzAwOWE3ODY4NGU5NmQ3N2Y4ZTg5OTRlNTUzZjZhMjc1ZmE3YmU3MWQ5MzM1YjdkNmYifQ"
         },
         {
           "resource": "repo://entrypoint.sh#L3-L43",
           "version": "repo-lines-v1:sha256:fd1d9d8700b1d19dfc9b3a2c68ce6fdc99d5f73afb47f4521745d1e3e0e018a7:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1ZDg1MjE4M2ViNjViNDE2MTNiNTdjY2M2MWFhZDcyYTgwMGEwOWU0ODZkYTk2ZGM1ZTk2OTkwMzVhNzJmMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA3ZTAwYWFlODYwMzEwZTg0OWY5M2Q0ZGE3ZWMwYTM1NmU1OGRjMWUwZTA4MTA0ZGFmMjgyYzYyZWY0OWI2ZTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5NjIyZmFlMmFiMDJmZTM1OWVkMTUwOTY0YTkyNjUzNjk3YmZiMjM1ZTIwOTQ3YWEzYzNmMzg1NDg0ZTk3YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjViOWYxM2I4MDUyOWE3NTRiNDM5NmYwOGJiYjQxMjI3M2QzYjU2NWRiNTllOTBkZDEwMDJjZTJiYjRhZWEyOTYifQ"
         },
         {
-          "resource": "repo://lambda/reap-tasks/handler.py#L33-L163",
-          "version": "repo-lines-v1:sha256:bd4fc6ead545a4b39e6f90d0dfe9a07d3a9be1a2fdc46f13682d5bfb24d1578a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYmExZmJkMGY4NjBmYTVmOTM2NzRiOGY0MDQ1NDA0ZWMyN2M0MDNlMzhhOWU2ZTEzNTg2N2FhZGZiZDY1MDBlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3YzcxNzJmYWU2MjhkZmIyNmZmZjhjOTY5MzdjMzQyOGZmMWVmOGMyNWUxMGYzNDM5YjViMGZhYTMxYzEzZDNhIn0"
+          "resource": "repo://lambda/reap-tasks/handler.py#L131-L206",
+          "version": "repo-lines-v1:sha256:f62783cd278ca055fcc823bdf416b3854b54729a74a68927be51e76a95ae9434:eyJzZWxlY3RlZExpbmVDb3VudCI6NzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRhYWM5MjRjNDNjYjhjNTdmOGNjZjg1OGNlMTcxMzc2MjhlYzdhZmNlOTFhNDYwYzljNzdiZTYzYzBkNTUxZWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNlYTMwNDQ2NWEzODRmYzJiMzY0YzYyYzM0OWRlYmQ3NmI0YjNhNWMzODhlZGViODIzMjRiOTcxYmNiMzU3ZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdjNzE3MmZhZTYyOGRmYjI2ZmZmOGM5NjkzN2MzNDI4ZmYxZWY4YzI1ZTEwZjM0MzliNWIwZmFhMzFjMTNkM2EifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/handler.py#L246-L361",
+          "version": "repo-lines-v1:sha256:fd489bf43f5b3fc9956cb74c1ee36c694ed239c4a464ec887033015469925528:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwNDI5ZWVkODgwZDhiNzExYTUyMzI1NjEyYWI4NTQ4YmFjYjgwNWM0ZGZjZmUxN2ZmOTAyMWNjODgyZTAzNDQzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3YWRjOTFhMGViNjVhMWRmMmU0ZmY4Y2QyNTI4ZmI0MTgyMTZiMzc2ZjE1NDY3MzQ5ZjFkOTBkNmJiYWNkY2NlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhNGRjMjNmNTk5MzEyY2ZlOGFjY2ZkNmUzZmZjYzIwZjI3OTY2OWY2ODU4MWJiMDkyYWY5ODlhNWFlZGZkYWJkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
         }
       ]
     },
@@ -87,10 +91,34 @@
           "version": "repo-lines-v1:sha256:5c65f07459b59802bb20f4e1b9aaf6deaca65bb8c246a5cde6540aef75bd3414:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjQ4ODZhMWM2MjQxNWVkY2MyOTM3YTdlZmMxNWUyMmY1OTc1MzZkNjg1ODEzMDQxNWEyYWZjZjEwN2UyZDg1ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZmFmYmEwNTI3YzM5NTNjNGI2ZTBlNWI1NzM5YmE4MzYxMmY4MDUzYmNkYzk0NjY3MzAxOTNjZDFkNTkwYjQwOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDM1YmMyOWIxNGQwNzAwYmJkY2FlYThkN2NkZDE3ZDRjZDViM2U2NGVmM2Q2ZDQ2NTdlOGNlZTY4OTkxYzhiMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjg5MTVhYTk2NTdlZDEzOTRiNjVmZTIzZTJhMTk0YTE4MTJjYmJmNDMxZjVmMWIyYzE4OGM5MjEwN2QwYzE3ZCJ9"
         }
       ]
+    },
+    {
+      "id": "claim_9676e8de59ea4a4c83871c2c45a0c63c",
+      "statement": "deploy/account is a distinct, separately applied Terraform root and state that owns Boundary's shared IAM role identities, their trust policies, the OIDC providers, the common AWS-managed policy attachments, and the account-wide Bedrock budget and model agreements; these identities are account-global rather than regional.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L1-L21",
+          "version": "repo-lines-v1:sha256:18bc0a97927e3479dde80677b945cfab8f6e274ca076c7542f606ce737d2bb63:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEwZWVkNDY2YTkwZGJmZmRkMjBiZmY1YWM4NzBhNGVjOTBkYTI4ODAyNDBhYjc2NmVjZmFlYThlN2ZlODYzNmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlZmE1ZDEwYjFiMTdlZWMwYjNlNTdiNDI4NjZjYzIzNzQ2MDBkZDJhOTEzMTM3NWJlN2Q3NWQxYjc1YTY0ZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhjNmRjOWQzMjQwY2E0NDZmYTMzNjZhNDc0ODc2ZWM5NzZhMjAzMGU2YTI5OWUwNzRjMjE0OTlhMWM5MTJiYjIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8c6075976ede416890a3214acac8ad41",
+      "statement": "deploy/regional looks up the account-owned IAM roles and OIDC providers via name/issuer-based data sources (no remote-state access) and owns only the regional inline permission grants on those roles together with the ECS, EFS, S3, KMS/logging, and Lambda resources themselves.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L1-L21",
+          "version": "repo-lines-v1:sha256:18bc0a97927e3479dde80677b945cfab8f6e274ca076c7542f606ce737d2bb63:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEwZWVkNDY2YTkwZGJmZmRkMjBiZmY1YWM4NzBhNGVjOTBkYTI4ODAyNDBhYjc2NmVjZmFlYThlN2ZlODYzNmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlZmE1ZDEwYjFiMTdlZWMwYjNlNTdiNDI4NjZjYzIzNzQ2MDBkZDJhOTEzMTM3NWJlN2Q3NWQxYjc1YTY0ZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhjNmRjOWQzMjQwY2E0NDZmYTMzNjZhNDc0ODc2ZWM5NzZhMjAzMGU2YTI5OWUwNzRjMjE0OTlhMWM5MTJiYjIifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/account-iam.tf#L1-L46",
+          "version": "repo-lines-v1:sha256:7fc892af44dd3b7d073966404c834a770dda79bb334a44b89428d5e3a62d8043:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MDNiN2IwOTkzYjA3NTczN2U3OTZiY2FlZGMzNzU3N2QwNDE2MGRhY2FmZDY1ZGI2N2YwYTBmMmQ0OGMyMmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-10-09T17:04:25.482Z"
   }
 }

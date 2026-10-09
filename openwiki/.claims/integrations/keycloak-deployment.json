@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:a499605273f01d1ec2082c855dd5a8768d194891fd3d007f58330558fe6e28fe",
+  "pageVersion": "sha256:f546d85e2d5845b3362b888b2addfeb322c57e9dfcfbdbbe6214795ed667a0f5",
   "claims": [
     {
       "id": "claim_0fd54466e61444af8b0cc04be2e11a4f",
@@ -50,15 +50,19 @@
     },
     {
       "id": "claim_9c25b28042004bb4a794fb98fb6e8f33",
-      "statement": "Regional Terraform registers primary OIDC trust and optionally stage and production providers, while the investigation Lambda routes tokens to configured issuer JWKS endpoints and verifies signature, expiration, and audience.",
+      "statement": "The deploy/account shared-iam module's oidc.tf defines the AWS IAM OIDC providers' consuming trust conditions (primary, optional stage, optional production Keycloak issuers) on the shared SRE role, while deploy/regional/account-iam.tf performs data.aws_iam_openid_connect_provider lookups by issuer URL instead of registering providers itself; the create-investigation Lambda routes tokens to the matching configured issuer's JWKS endpoint and verifies signature, expiration, and audience.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/oidc.tf#L1-L64",
-          "version": "repo-lines-v1:sha256:d45e9c52961ac20b46e3c37bc23e1dcdd28b63a0fc21607a95753df19b450098:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU4ODZmOGNlNmM4NDM3ZjEzOTdkNWYzMDBmNTU5YTVmZDBjNjNiNmRlM2U1ZTE2NzdhNWVlNjIxMzBiNWE0OGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMwOTY3MDNlNzJjOGY0OWQxMWJjOTkyMTdjZWFhODczN2VjNTM3ODU4ZjQ0Y2Q2ZDBjMGYyZWEzMmZkZjhjNmEifQ"
+          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L1-L98",
+          "version": "repo-lines-v1:sha256:6c72f75c206d9446280bdcdf3220bfbe8e99b04cf3bff668114c98dece08a0d6:eyJzZWxlY3RlZExpbmVDb3VudCI6OTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyMzUyNTg5YzM0ZDNjNjA2ODU5MzFiNmVjYzRkNTA5OTFhN2M1NmM4ZmJhMjg5NDExNDY1NzY5MDI3MmNhYzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlmOGJjZWI1YWZmMTA5YjI2NzhjMzkxMzNkMDMzOGQ4MTQ4YjkzYTI0ZDY2MThlOTE1ODNmN2RkMDE2OTViMDQifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L322-L405",
-          "version": "repo-lines-v1:sha256:460d1b087bb7c060f6debfc6fb5f5929d92304be292b09070624104492d537c0:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlN2M5NTdiY2I0NGZiNjczYzk4YjAwNTBhNzVkMzgwODJkYjgxZDkxOGRlMzEzYTNmMDdjMTIzNTMwNmQ3ZWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwOGZiYWU4NGJmODQ5OTQ2OTliNzRjNzMzOGViNjA5OGYwZWI2MTBlZmZjODJlODJmYzdmZjcwMjFhODk1M2MifQ"
+          "resource": "repo://deploy/regional/account-iam.tf#L36-L46",
+          "version": "repo-lines-v1:sha256:67c2840f06570f0579f28fd084c0ea71b5058fbb47789992b078fa2d13089638:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5YzM1N2QyOGZhNTEwY2VhOTU5NWYwNGRmYmE1YWFkYWI5ZjcxNTU4MDdhMDVmZTM4NjRmNWIyZWY0ZGZhMGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZjMzhjNzI2OWRkNmZmOTM0ZjE3NjJjOTkzMWUxMmNkYzdmY2M5MzJkNDFhYzQ4MzdjMzliNWQyZmJmOTgxMDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L322-L406",
+          "version": "repo-lines-v1:sha256:b7a6228f996f2c5a45eb2387399a345412e37e0b12fd431d2d4c88c4002ad743:eyJzZWxlY3RlZExpbmVDb3VudCI6ODUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI3YmY1NjE0MTcxZDRkM2EzOGRkMTc0ZTQwYzMxNDBjYzNhNWI0NmQ1MzdmMGViZjg2YzVjODA0ZDdlYzcxNzkifQ"
         }
       ]
     },
@@ -89,10 +93,38 @@
           "version": "repo-lines-v1:sha256:986c3ddfa98312060b5e9d128a921ea9e118a37d3534941566a24e101dbbb8d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjYmMyMDFkNTYyYTM2NDM5ZTg2MTg0NTNkYTNmZmI0Mzk5NDhiZGVjNmMzYjBhZGQzN2E5ODQxYmNiZGQ5NGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUwMDRiZDA3MDQ2NTk0MzA4ODFkNWQ1ODQ3YmMyOWYzNGUxNjgxNTlkNzhjMTlmYjMzMDE1YzRlYWVlMzkyNDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQwMzNkZDQ3ZmJiZmEwYjYyOTI4NmU2YjdiYWYwNWViZTZlMDc0YTIzMGVkOWFlYTc3MzcwYTIyODZjMWQzNjIifQ"
         }
       ]
+    },
+    {
+      "id": "claim_1a88a61b5c71485886095aac5c85ce9c",
+      "statement": "deploy/regional/oidc.tf was removed; AWS IAM OIDC provider resources for primary, stage, and production Keycloak issuers now live in deploy/account/modules/shared-iam/oidc.tf, owned by the separate deploy/account Terraform root, with deploy/regional/account-iam.tf consuming them only via data-source lookups by issuer URL.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L1-L98",
+          "version": "repo-lines-v1:sha256:6c72f75c206d9446280bdcdf3220bfbe8e99b04cf3bff668114c98dece08a0d6:eyJzZWxlY3RlZExpbmVDb3VudCI6OTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyMzUyNTg5YzM0ZDNjNjA2ODU5MzFiNmVjYzRkNTA5OTFhN2M1NmM4ZmJhMjg5NDExNDY1NzY5MDI3MmNhYzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlmOGJjZWI1YWZmMTA5YjI2NzhjMzkxMzNkMDMzOGQ4MTQ4YjkzYTI0ZDY2MThlOTE1ODNmN2RkMDE2OTViMDQifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/account-iam.tf#L36-L46",
+          "version": "repo-lines-v1:sha256:67c2840f06570f0579f28fd084c0ea71b5058fbb47789992b078fa2d13089638:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5YzM1N2QyOGZhNTEwY2VhOTU5NWYwNGRmYmE1YWFkYWI5ZjcxNTU4MDdhMDVmZTM4NjRmNWIyZWY0ZGZhMGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZjMzhjNzI2OWRkNmZmOTM0ZjE3NjJjOTkzMWUxMmNkYzdmY2M5MzJkNDFhYzQ4MzdjMzliNWQyZmJmOTgxMDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_37be42b376504f87a3096db6a6f36c14",
+      "statement": "The create-investigation Lambda's OIDC_PROVIDER_ARN environment variable, and the Terraform output exposing it, are populated from the regional data.aws_iam_openid_connect_provider.keycloak lookup rather than from a regionally-defined provider resource.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/account-iam.tf#L36-L38",
+          "version": "repo-lines-v1:sha256:b0d24d54d4f6638922e37fe278208245af2677ab28b873b5db7862dc1fe8af5d:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTljMzU3ZDI4ZmE1MTBjZWE5NTk1ZjA0ZGZiYTVhYWRhYjlmNzE1NTgwN2EwNWZlMzg2NGY1YjJlZjRkZmEwYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmMzOGM3MjY5ZGQ2ZmY5MzRmMTc2MmM5OTMxZTEyY2RjN2ZjYzkzMmQ0MWFjNDgzN2MzOWI1ZDJmYmY5ODEwMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjg0NDVlMmZjN2EzYjliZGM5NGQzNzBhMzBhZGEzMTJhYzc5MzYxMzhlZmVhNmE3NjRiYzc3OTlhNjE1YjkyNCJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L54-L60",
+          "version": "repo-lines-v1:sha256:7b68155988831cf2413d3a6c46c27a91a909443ad0f63dbf2df85eb66e071c8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjYyNDg4ZjUwZjM2YWUwM2Q4YzZiZGI0NTA5ODUzMTNiNTYzM2ZmMGQyODU0YjVhNzFjNGVkMDAzMzY0ZmFkMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDE4NjA1YWYyMTVlOWEwMjg5YTg4MTEzNTc1M2Q0MmFiZTYwOGI2MjNkMTgyZGQ2OTgxZmZkYjVhNzE1NzdmOSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYjM4ZDMyOTQxYzliYTQ1YzNlYmNmZjBjOTI2ZDFmZDAxYWJiOWJkNDgwY2FiNzdjZmZjZmE0ZDUwZTYyNDMyOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmU3NWZkY2NhMTg3NGVmNTUxM2VhZjk2NzY0YjBlMjc4YjhlNzY4ODNjYmFiY2U1ZTI5ZTZlNzA0YmNjYWM1ZiJ9"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-10-09T17:04:25.482Z"
   }
 }

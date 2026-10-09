@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:8de89ddafe6970ce409717b2bbbf6f34b248d6d614a39a556b14cb2705ff1302",
+  "claims": [
+    {
+      "id": "claim_cc433ea677d1410eb4cf7f3c3f8e788a",
+      "statement": "The deploy/account Terraform root owns ROSA Boundary's IAM role identities and trust policies, OIDC providers, common AWS-managed policy attachments, and the account-wide Bedrock budget and model agreements, while deploy/regional owns the inline permission grants on those roles plus ECS/EFS/S3/KMS/Lambda/logging resources and resource policies.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L1-L22",
+          "version": "repo-lines-v1:sha256:2ac9496218b6e915d165b72556ef8a9306d13a47bed9a63576a5095c560ffb43:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEwZWVkNDY2YTkwZGJmZmRkMjBiZmY1YWM4NzBhNGVjOTBkYTI4ODAyNDBhYjc2NmVjZmFlYThlN2ZlODYzNmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM1NjBlNjA0ZDI1MTc4MTlkMjBjMzliYjBjOThkMzVmOTRlNjJjOGY4MzE4NjU0NWQ2MGIxOTI3ODg4Mjk1YWQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6ae6f4aa924a4dcfa12153a0b38b85dd",
+      "statement": "Account identity creation in deploy/account has no dependency on regional resource ARNs, temporary ARNs, or regional resources existing, and regional roots look up account-owned roles and OIDC providers by name/issuer URL without remote-state access.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L8-L13",
+          "version": "repo-lines-v1:sha256:5963da2874369b9cfaa86f2100be1ec0e6ae8c5b3a6a63aca0f241732a11f6b2:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDdlNDlkNTc1YjM1NmU3ZWI0YjM5MGNjOGY1N2QzYjcwNTA0OThlNTUyNWRmOTg5OGUyMzY0MGJhZDRmZmVjNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjExZTBlZjJkZTk4NTcxNmE2ODI2MDI5NjM5N2JmNjJiNDdiNzYyOTRhY2VhMzJmZTE5M2E0Nzc0MGQ5NGM5YyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMmY0YjEwMzhmN2RmZGE1YmVhOWNkYzFmOWU4ZDU3N2UyNTlmOGYzNTM0ZmM1YjZiNmU2YmY3YzYzMTIyYWM0OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjljZmYyNmQ5YzUwYjRlMzM5ZTY3MDlmMGFmZTc5NGM3ZWYyN2I3Nzc2ZTFmMmZjNDUyYTc1NmNkNjQ3NjYxNSJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/account-iam.tf#L1-L46",
+          "version": "repo-lines-v1:sha256:7fc892af44dd3b7d073966404c834a770dda79bb334a44b89428d5e3a62d8043:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MDNiN2IwOTkzYjA3NTczN2U3OTZiY2FlZGMzNzU3N2QwNDE2MGRhY2FmZDY1ZGI2N2YwYTBmMmQ0OGMyMmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8e8ca620fccf4608a5ad488b0504f5ba",
+      "statement": "Because IAM identities are account-global, each shared role receives the union of every consuming region's inline grants rather than being isolated per region, and each (role, policy-name) pair and each (role, managed-policy ARN) attachment has exactly one Terraform owner; shared roles must never configure inline_policy, managed_policy_arns, or the *_exclusive IAM resources.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L23-L38",
+          "version": "repo-lines-v1:sha256:b1311a4ff66470541f98672610762994435ca1eb623dc447f6940d5bbc9a3b93:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU1MTc4MTVmOGVmOGJkNDc4MTc1MjYwYTE4Y2JmMmYzZDk1ZjU1OWE5ZGRmZDE0YWJmOWY1Yjk1M2E4Mjc4MzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY5ZjVmOGM0ZTJjNWZhZmU3MzVkMjY2MGRhNjZkODI2MmMxZmNlYTE0YzY5MmMwOWNiNjRiY2I2NWJlZmZkYjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ2NmNlMmQwZDM0OTYwNmU3ODMxZjU5N2I2YWVhODYyZDhjMGFlNTdlMjNlYzJlYzZjYWZkODcyZGQ3ODQ4NWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNjYzMyYWZkMTQzMWVjZTM1NzEwNDY1MmNhMjZmNjdhZmFlNjY3MGRhMGJmNzU3ZTkyNjVkZDRiOWFkYWFkNGYifQ"
+        },
+        {
+          "resource": "repo://deploy/account/main.tf#L40-L42",
+          "version": "repo-lines-v1:sha256:0cba251b556067c458ce952b7ad0e596114f889b8319da3235dba04d5ef84051:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYmQxN2ZkMzIyMTU0OTVlMzBlM2FiYmE1YzdkMzRhODdiZGVmNGVkNDIxZjRiYjZlMmIxMmJlNDkyNzhmY2NiZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYTc1OTBkN2ViMjgzZTViZTBlZDY2ZDJhNGM2MGYxMjZlYTY2NmZkMjU0NGU5ZTJiYTcwY2VmZTdiYzNiODYyNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTJkNjA4MWI0MmFiMTIxNjZjOTY1NDA2OGFlNGYxMmUwMDg2ZmQ1NDI2NzExMmFhYzJlNzYyYjJhODFiZDIyOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzVjOWE3Y2FhODJlZjVmZWQ3NmJmODM3Yjg2NzM2ZDAxNzE5MzYxMWI4MmJmNmY0NjhiODM4Y2Y3Zjc0MzNkOSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_2d707ca211e44bdca3d84268ed877ecd",
+      "statement": "The modules/shared-iam module defines the account-owned execution, task, sre_shared (ABAC), lambda_invoker, create_investigation_lambda, reap_tasks_lambda, bedrock_invocation_logging, and optional s3_replication IAM roles plus the ECS-execution and two Lambda basic-execution managed-policy attachments, with trust policies derived from one or more configured Keycloak OIDC issuers.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/iam.tf#L1-L30",
+          "version": "repo-lines-v1:sha256:f01e079d816e5a7da76120bec346ff1115ec7aed6ae920e60bdf99d6642642b0:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg5ZTA1ODY1OGRlYTJjNTkyNTNjZGI1ZDdhMjYzYWQxOTA1OTU2OTEzNjE4ZTM0YThhNDQ3OWJjNzk3ZjlhOTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/lambda-create-investigation.tf#L1-L13",
+          "version": "repo-lines-v1:sha256:d84b7dd33c28638da80e05474998d54f89f6fef3be7bbf3d43c0188331341f89:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0Y2NmMmZhMmVkYzc3ZjJjYzIwMDkwYmM4ZWVkNGNmOGI5NTkzNzBkNGEyMmJjMjQ1MGUyOWE2ZDU1YWQzNjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L1-L91",
+          "version": "repo-lines-v1:sha256:9be7ea926a4e0839f00c6586ae3c3a554d200a662bab704cc5efcfc2d57d3692:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUxZDkyZTQzOWM0NDM5OGJjOWViNjEzMTM4NzQ5NzRmMWQzMmFhZDcwOTRhMzMyM2RjMzE2NjVmYWRlYjJhNmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/lambda-reap-tasks.tf#L1-L13",
+          "version": "repo-lines-v1:sha256:bcf9b707021950897f2410f997c10dc3a90caa408c6f322a9b858fba375a35b3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ1ODdhMzBhYzZjZmNlMGU3YjIyYjgxYmUzOTFmZjZjMzQ0ZTQyNWIyMWRmZGQzZDJiOTM2YTAzYjgwNmFiYzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L9-L114",
+          "version": "repo-lines-v1:sha256:a8185a7b342f873805b45f3549255f9829d6b9016b85c9bd491cba77e8ad2aa7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJiOTA1NGQ1ZjMzMjAyZmZlNzA3NTM5MWM1MjVlN2Y5YmJkZjA1Njc0OGRmZjA4ZjcwOTFkM2JkN2FiN2EyNjcyIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5MGMyZWRjOGM5ZWE2NDliZGRjYzA0YTVjZmYxMTJlNDkxZTgyYTcwOGVlZmI0NTVkOGEyY2I5Y2MyMTc5ODljIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_c5ac86ed093840f59a9b71fea68c9cf8",
+      "statement": "The bedrock_invocation_logging role's trust policy restricts aws:SourceArn via ArnLike to the explicit regions listed in var.bedrock_logging_source_regions, scoped to the caller account, and encodes a single-region list as a JSON scalar to avoid an unwanted diff against the original trust policy's scalar form.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/bedrock-logging.tf#L1-L27",
+          "version": "repo-lines-v1:sha256:53288cac7a7c5c475ad30c0935be85999a767346125f3bdb2664a13f08795d23:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkNDZkNGI2NjhhMTQ4NTg4YWExMDQ1NjcyNzAzZGU0MzI0OWZjNjAwOGYxMTQ5OTAyODJjNDIwZGUyYTRlMGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNDc3YzRlOTQ0N2NjM2JhZDkyNzMxNjRhYzAyNTRkNzZhNThiNjM4YThjY2FlYWEyODYzMzllOGE2ZGQ0YjAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7b4a4c71548946169d919601628f36fb",
+      "statement": "The account-wide Bedrock budget (aws_budgets_budget.bedrock) is a cost-visibility-only singleton whose Service cost filter covers all Bedrock charges in the AWS account/region, not only charges from ROSA Boundary, and its 50/80/100% threshold notifications never throttle or stop inference.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/bedrock-budget.tf#L1-L30",
+          "version": "repo-lines-v1:sha256:b4d18a8ca02244060840aecc0f917bf683effdf28ceeaca0ad3afa228268dfd8:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIwMjZiZDFjYjkzNWJjMGU1Y2E1NGJmNmQyNWVhYThjM2E0OGI3YmI3MGM3NDc2NzQ4NmI3YjYxZDg2NDNlZDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_933818b06d2d4e9dbae3cea870d68a71",
+      "statement": "Bedrock model agreements are approved via an explicit model_id-to-offer_id manifest; the actual offer_token is looked up from the live aws_bedrock_foundation_model_agreement_offers data source at plan time, validated against the approved offer_id via a precondition, and then ignored on subsequent changes via lifecycle.ignore_changes, since AWS can rotate the token without changing the approved offer.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/bedrock-model-agreements.tf#L1-L39",
+          "version": "repo-lines-v1:sha256:8978a2d582644b11cb9e81e59d0f0652756e268443eef784678ba8e76f00326c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5Zjg2NDg4N2U5OGNhODlmMmQwMmE1MGRkMzgzMGMyMDkyNzM2YzczOGE2NWM5OGY0ZWY5ZTk3YTNlNjUwM2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_349aa9f782194ab39a7a35b03a25811b",
+      "statement": "Regional Terraform receives the same bedrock_model_agreements manifest as the account root and uses it only to validate the configured default model against the approved manifest, without creating, modifying, or revoking any model agreements itself.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L155-L167",
+          "version": "repo-lines-v1:sha256:7cf94ff8395cf74f82bb08fe48a74865bef933f91086b1dddb81d16d1ddcd78c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI1ZWNhMDUxNmVmZTUzYzg2NGQ2YjE4MzQ5YzkwNjZiNTllNDIwMGYxYzk4ZDA0ZTI3N2ZkMTAyNTA1M2M4MmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlNzQxYTIyYjJlNzk5YTM5NmZlY2M5NWRhNTNhOWE2MGUzZTI1YzllYWNiMTI4MjI3MjgyN2RiMGVlZThlOGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZmZmYyNmE5ZGMxNzQzMGJiYmRmMjA4YjFiOTc5NmJhMGQ4ODA3ZGJjMWE5YTAyYWY5OTZjNjEzNDhmNTgzZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/variables.tf#L121-L125",
+          "version": "repo-lines-v1:sha256:7d2c231bc38e6bb73fabca279af38e5465bbfed03ee4b7e96a3c4b5694a46d0b:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzY3MTU1ZTAzY2FhNDY4MjliMmM0ZWI0OWIwNDYxMmZkZWVmOWU1MjNiMmY1ZWIyZTExNjcyMmNmMGUyMWEyNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzQ0NTE5MGYzN2Q5NzFmZmRjYTVlN2VhNThhZTYwNGZjNmYyOGFmODQyZmI5ODAzZTJhMDY2MTk5ZTk1M2Y4YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTliMWVmMDY2ZjQxYmYzMWY2NWMwMTUyNDE4Zjk3N2NhYzk4ZTJjOGIxNjQ3OGEzMzZmZDJmZTNkZGMzZjQ0NSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_3ed0e5bc7c3c4c1aa02468ac4c160e5d",
+      "statement": "deploy/account/tests/baseline.tftest.hcl uses mock_provider with no live AWS calls to assert account singletons (eight shared roles, OIDC providers, budget), the regional_iam_contract output, role_name_prefix validation boundaries, Bedrock model-activation manifest preservation, and bedrock_logging_source_regions validation, plus source-level regex checks that the account root never defines aws_iam_role_policy, never references regional remote-state/resource-ARN variables, never configures exclusive/inline/managed policy reconciliation on shared roles, and never references regional resource types.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L31-L164",
+          "version": "repo-lines-v1:sha256:e61e4d0164fcd2f30a6849347f7a5194752222a46c5c705a39bf65a2a1a740b2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTM0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkZTczNTRmYWJiMDhmNTVhN2I5NDI4NjJiYmY5MWY4ZTZmNWM5OTBjMjZjNGNhZWFlOTBkOWMwZTRhZTdkYzBlIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5ODVjNjY0YzhjYTYxNTkxODkwNGY1MDkxYjM0ZmU1YTQyYjFhODg1NjdkMmUwMzI2NmE2MmNhYzBiZmZlNmViIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_611a82fb03084d168f3faf4c3bf480ff",
+      "statement": "deploy/account/tests/shared-iam.tftest.hcl uses mock_provider with no live AWS calls to exercise modules/shared-iam directly across primary/stage/prod OIDC issuers configured simultaneously, asserting identical trust-policy shape with issuer-specific audience conditions, differing max_session_duration between sre_shared and lambda_invoker, AWS-service trust for execution/task/Lambda roles, Bedrock SourceAccount/SourceArn trust conditions for one and multiple source regions, correct managed-policy attachment role/ARN pairs, and expected Region/Project/Stage/ManagedBy/Name tags; it also verifies the sre_shared role's precondition fails closed when enable_uuid_allowlist is true with an empty allowed_uuids list.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/shared-iam.tftest.hcl#L1-L113",
+          "version": "repo-lines-v1:sha256:f4633bc51bd4a957b4bff034e78ed8e44b52bb653fb03b193061f86089745bdf:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3NmI2ZDZmNjlkOTE3NjNmYmM3NjExMzM4OTA1OWY0ZGM2NGI0Yzk3YjhkODUwZjBkZDBmODBkMzM0N2M4MzkxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2OGJjNjZjZWJhNDMxMmRmMDlmNDhiMjczOTIzODMzYmY1MzEwN2I4OTc3MDM5NTM0ZmY5M2U5YWI1YWVkMGJiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MCwicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MSwiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_c237f90c54e944e6aa4272ab131dbf25",
+      "statement": "role_name_prefix (account) must equal account_role_name_prefix (regional) across every consuming region, since regional Terraform resolves shared role names by string concatenation rather than remote-state reference; legacy_policy_region designates exactly one region that keeps unsuffixed inline policy names while every other region appends -${aws_region}; and the aggregate inline-policy size on each shared role is capped at AWS's 10,240-character-per-role quota, which region-qualified naming avoids collisions for but does not raise.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L40-L63",
+          "version": "repo-lines-v1:sha256:44dee215f40962571763e646f061e7d9974ab6db491f7cb581440d5c5d980854:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4NTI0M2VhYjY2ZTAwNGQzYWI1NjMzODkzZGVlYmY0Y2MwOWMyYWM4NGMxNjQ0ZGVmM2RhZjBiZmZkNjAyMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ2Y2E1OGY5ZDA2NWQ0NmU4ZjEwNWMzNzIyNmYxZmEzMzBlNGYxMzRmMjg3OTdkZDlkMDE1MjZiMTY4NTJkYzUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0YTUzODEzMWZiYTNkMGVlYmU2YzJhYjkzY2U1OGZkODRiZDJlZTk5YTU4ZDY3NDA0MGM2MmEzZDE3Yzk1ZDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiM2FhY2RjNTc2ZTU4NmI3NzdkMDUzNzAzNWYzMTdkYmEzZWY5MzZiNDZkN2Q1ZTEwNTlmNDQ5MTk5MTg1NTQifQ"
+        },
+        {
+          "resource": "repo://deploy/account/outputs.tf#L6-L12",
+          "version": "repo-lines-v1:sha256:03748e0e996ca7df0a687fdd7fefa2bfb18822a8bd7581c690d0cb9e352f3773:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMWMwNjk4NzdiNzU3YWQ4MWVhNTBlMDRlYzg0ZDljZTIwNDU3MDBkNmNlMTM4MDY2MzQyMTc1OGRhNWRiZjZkNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjViMDA1MTc3MDFlYjk2N2MyNmQ4YzA2ZmU4YmY0YzA1YjcwZWM1OGVlNDZhMDhhMGVjODlkNmIyNjY4YjJjMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2YxZjVhNDlmNWY0OWFjNDg0YzAwN2M1YjM0MmQzYTViZTgzMGVhYjBmYjAzZjFiYTMxMTQwMTk1Y2ZiZGYwZSJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/account-iam.tf#L1-L8",
+          "version": "repo-lines-v1:sha256:193c999f897bcdd815397d1c3615f1fab6806ca08f662ee0065225a22e00c38e:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjUwM2I3YjA5OTNiMDc1NzM3ZTc5NmJjYWVkYzM3NTc3ZDA0MTYwZGFjYWZkNjVkYjY3ZjBhMGYyZDQ4YzIyZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWQyMzIyMmJkMGExZDllNzdhYjNmMDQ5NGI3MzI3YzY4OTRlNTU0NmNmNDljMTQ0NjljOTFmYTc3Y2I1M2IyNyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_0c9e47c5b5dc40419a3d4a2703d235b5",
+      "statement": "legacy_role_tag_region preserves the shared roles' original Region tag and defaults the Bedrock logging source-region allowlist when bedrock_logging_source_regions is empty; bedrock_budget_tag_region separately preserves the Bedrock budget's original Region tag with no default, requiring the existing value to be copied explicitly.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/main.tf#L27-L48",
+          "version": "repo-lines-v1:sha256:40a1a9551315ad417a27eb95aae673f070e492b847bfdcf9f7d2d33b26f1c377:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiMzg4ZGQwNzM1OGQ2MGYzNjRiZGI2Yjk0MzA3MDllMTVkYTlkMDA0NTI1YzlkZjNiYmM0YjA3MjkxZjc0NTIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYxZjI3NjIwOGU4NmU0MDI4Yjg2ZDdjMmU0ZDRjYTU2ZTQ1ZTk3NTM3ODlmYzU2M2M2ZTY4ZmVjMGMxMDQ4ZjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVhMzNiNmIwYWUxODU4ZmNlYjJmNTIyZTE0ZDQ0N2M3NTYwNDM2YWNhMjkyNWM3M2JjMWMyNTJjZDUzODE2OGYifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/main.tf#L14-L20",
+          "version": "repo-lines-v1:sha256:3bed33c49b1350601c51c15377aaf4b283d080c70d8d25b1b1ebacf1d2ba4b8b:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDBiMzgzYjE1NDNiOTFhZGU3MjUyYzA5NmNmMGU0NDkwMTA4NDk3NzMwZWE2Y2QxMDIzYWNmMDJmMjdmZjRmZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjIzNTI1ODljMzRkM2M2MDY4NTkzMWI2ZWNjNGQ1MDk5MWE3YzU2YzhmYmEyODk0MTE0NjU3NjkwMjcyY2FjMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzhiYjM4NGQ5M2FlN2Q5ZGU1ODM5ZTBjOWEwNDU4NTNmMWE2Y2MxZjMzOTEzNTY1YjQwYzYzOTRmYzhkMGJlMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjEsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSJ9"
+        },
+        {
+          "resource": "repo://deploy/account/variables.tf#L116-L119",
+          "version": "repo-lines-v1:sha256:1873622ea546fb3196fe4c8f0ea5b3999407faa902917a1c89832a4dc30644e7:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjNkYjU3NDEyMWI4NTg0Yjc2YzgwMDEyZTdkZjJkYzhlZGY0MGQ4OTBiZmFlYzcyZTQwM2E2NTdiY2M2MTMyZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTRkOTc3ZWY4OWIyZTU1YzgxM2U2ZTg2OWNhNmRkNWI5ODFhN2ExMDI4Mjg4MWRmYzBjNTE4NWEyM2JlNzMwYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjc4M2IxMWYwOGE2YmQwNDcxN2YzMzQ0NGYyY2VhYmY3ZjU5OGM4NDBjYmY3Yzc0YzJlZTBlMWU4MTNjN2Y5MCJ9"
+        },
+        {
+          "resource": "repo://deploy/account/variables.tf#L70-L87",
+          "version": "repo-lines-v1:sha256:afefc0545254a7dd8c5ff63173e4559190c0175034529585d069279bbecc6507:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcyM2VmODBmNzc4YWIzM2U3MTMzNjg3ZDA1ODMwNmZjODlmMWY0YzFhNWY3MGViODk4ZTJlMGVhMGY2OWEwNzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMzMDJkYzYxODVkMWNiYmJjNzE5NmZjNzdiYzAwYjQ2ZjEwM2FlZTAxYTM3MGNjMjA3MWU1YmE1YmU1Y2UxZDYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8cd8e59c1a4349bd9c5e612dc1c9d49a",
+      "statement": "Existing deployments migrate shared-identity ownership from deploy/regional to deploy/account using removed blocks with lifecycle.destroy=false in deploy/regional/account-handoff.tf to release IAM roles, managed-policy attachments, OIDC providers, the Bedrock budget, and model agreements from regional state without destroying the underlying AWS objects, followed by declarative import blocks in deploy/account/imports.tf (and a separate import in bedrock-model-agreements.tf) that adopt the same objects by role name, role/policy-arn, OIDC provider ARN, and account:name respectively, gated by var.adopt_existing_resources; regional inline policies are never released or imported and must remain at their original regional addresses.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L94-L130",
+          "version": "repo-lines-v1:sha256:c92b943b45f0a976c7c8d4ca9c9182389d5e15a82bd6fd0f67fecab8a5a99b8c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUzNTE0YzY4MWU0MzBjZDkwOGFlMjAyNDMxMWU4ZDE1OGJiYzVhODRkNTkyNzhlNjBhMzMwYmEwOTMzYzJjMmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiNTlmMTEzODc0NDQwNjRiMjk3NTRlYzIyMDE5ZDA3MmQyYTI3MDVkNjQ3ZTkwOTc1OGQwNDliYjAwMDRkNzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIyYTRlNzYyY2E1ZDYwODAzZGY3ZGE5NTVhMjBmMDFhMDEzOTJlNTA2NDVhN2M3YjI3MTNmOWZlYzNmOWM3MzciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ3MDg5OGY2ZDNjMmJiNDQxNTdmMjBhMzc2ZjdmZjNiZjFmN2Y0ZTRjNTkzMzNmZmMyNGI1MDc0YmUwOTE1MzUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/bedrock-model-agreements.tf#L13-L17",
+          "version": "repo-lines-v1:sha256:ef84f759abef20e99c3eced393607d3002d0b5ecae365cdc0997fd4399d4170a:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTgyMDA5NjRhOTc4NjM1NTIyYjJhYjA5MGM2NTA2NWQ4ZWY4ZTg1YzQ3MzBiYjJlYjA0NjBkMzRjNjc3ZGRiYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTJhZmFkNjgxNDhmNTYxZmEzNzIxNzZiYmYwZWFiZmQzY2I1NTRhNTlmZGFjZGYzZGM4MzE1YTQ5OGNkMzRkYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTE3ZGU1N2RlNWNkZDE5ZjFhODNlYjQwNDQ0M2ZjNmZhMmJlNDQ0NzJmNjdkN2FhMjAyMDczMzNiMjI5MjgzNSJ9"
+        },
+        {
+          "resource": "repo://deploy/account/imports.tf#L1-L77",
+          "version": "repo-lines-v1:sha256:c46e31946f4f50fb8587d65571d0d58fb213af24077301fb89f9961710ccbd50:eyJzZWxlY3RlZExpbmVDb3VudCI6NzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4ZGMwMzFkODEwM2Y5Y2YyNTQwZjE4NDUyZjYzZmFlYzk4NjQ2Y2Q3ZTdhMmEzMTM3MjE2MGMyYWQ5MWU4ZjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/account-handoff.tf#L1-L66",
+          "version": "repo-lines-v1:sha256:304d5299cca187fe0614edc7477bf5a1f7d9e0bd840771e408ed4224aa1d805b:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2YmJjOTgzNTYzMmNlZjFhZjBiNTcxMGZjYWMyNjdjN2M1NmFjZWRjZTczYzM0ZDUzNmY2MDAxMjhlY2ZiMDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d3db407831704e9e9fe12ac73be50f74",
+      "statement": "Plain Terraform moved blocks are not usable for this cross-state ownership transfer because they only operate within a single state; the removed-then-import pair is the supported mechanism, and if multiple existing regional states already share one of these objects it must be released from every one of those states before being imported once into account state, since two states must never manage the same object.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L118-L130",
+          "version": "repo-lines-v1:sha256:238610100be1752106a4ebcbb037b472ae725f0506819f8c9278207b961e9602:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiOTFiMGY2MmQ4OWNmOWE0ZWJiMzI3YjczODI5ZjVhMmEwMTI4MDBjZTVlMTcyZTVlNjI4NTEzM2Y3ZjRkZTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiNTlmMTEzODc0NDQwNjRiMjk3NTRlYzIyMDE5ZDA3MmQyYTI3MDVkNjQ3ZTkwOTc1OGQwNDliYjAwMDRkNzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlMzUwNTdkZjRiNGIyODIwZGM5NjJlYjUzZjI4N2Q0OGIyMDk4ODllMjRjODBjN2QyZjU2NTc2NjE1MTRjYTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ3MDg5OGY2ZDNjMmJiNDQxNTdmMjBhMzc2ZjdmZjNiZjFmN2Y0ZTRjNTkzMzNmZmMyNGI1MDc0YmUwOTE1MzUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a0f8b0214f35422dade80083a33f2fb9",
+      "statement": "The HCP Terraform workspace rosa-boundary-stage-account (working_directory deploy/account) is registered with auto_apply=false and auto_apply_run_trigger=false, kept on manual apply while validating clean post-adoption plans, and carries staging values for role_name_prefix, legacy_policy_region, legacy_role_tag_region, bedrock_budget_tag_region, bedrock_model_agreements, and OIDC settings alongside the rosa-boundary-stage-regional workspace.",
+      "evidence": [
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L83-L239",
+          "version": "repo-lines-v1:sha256:5b3939e6f069c106b9d426cce3f996b4f67accf06d53ea8252a4a0e7cb1e8cf5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0ZTA5YjNkMDA2YmMwZTE2YTcwMDU2NDc2MGRjMWVmYmIxNTk4NWVjZjg1ZDdlYTRjZWYxYTczMjA0ZGRlMmVlIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlZjQ1OTI0ZDg0NTAyNmUxYzc4OTRjMDdiNjFhYWMzZDZmYmFkMzQxMWY2NzQ3NWQzMjJhYWFmMmNjNmNmOWZlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwZjE3NTMxZjk1ZGNmOTA3OTc4Mzk2Nzc2NzVmYzI4NjFjNjU2YjA3ZjQ3NWE5YjI5ZjM5ODM2M2RhY2Y1ZmZhIn0"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.1",
+    "at": "2026-10-09T17:04:25.482Z"
+  }
+}

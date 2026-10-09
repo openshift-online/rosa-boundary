@@ -12,3 +12,11 @@ All project guidance, coding standards, hard requirements, and pre-PR quality ga
 - Environment variable documentation
 - CI pipeline documentation
 - Openwiki guidance
+
+<!-- OPENWIKI:START -->
+
+## OpenWiki
+
+@AGENTS.md
+
+<!-- OPENWIKI:END -->

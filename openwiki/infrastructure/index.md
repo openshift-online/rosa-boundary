@@ -1,4 +1,5 @@
 # Files
 
-- [HCP Terraform workspace integration](hcp-terraform-workspaces.md) - Traces ROSA Boundary's tenant bootstrap, meta-workspace, AWS credentials and staging workload workspaces across repositories, including run scheduling and a checklist for adding workspaces.
-- [Regional AWS runtime infrastructure](regional-runtime.md) - Describes the Terraform-owned regional ECS, EFS, IAM, audit storage, Lambda, encryption, and Bedrock resources and their key configuration constraints.
+- [Account-level IAM identity and budget ownership](account-identity-ownership.md) - Explains how the deploy/account Terraform root and its shared-iam module own ROSA Boundary's IAM role identities, trust policies, OIDC providers, common managed-policy attachments, and the account-wide Bedrock budget/model agreements, and how these were migrated from the former regional-owned identities.
+- [HCP Terraform workspace integration](hcp-terraform-workspaces.md) - Traces ROSA Boundary's tenant bootstrap, meta-workspace, AWS credentials, account, network, and regional workload workspaces across repositories, including run scheduling and a checklist for adding workspaces.
+- [Regional AWS runtime infrastructure](regional-runtime.md) - Describes the Terraform-owned regional ECS, EFS, audit storage, Lambda, encryption, and Bedrock resources in deploy/regional, the inline IAM grants it attaches to account-owned identities via data-source lookups, and the regional_policy_suffix mechanism that lets multiple regions share those roles safely.

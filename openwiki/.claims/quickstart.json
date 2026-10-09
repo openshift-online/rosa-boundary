@@ -1,14 +1,18 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:4220a6df28a5bd1fbe24f846f4d517d09cece6efa0c8ef8547248a803a9b80dc",
+  "pageVersion": "sha256:d4c786565896e8856af15f94a827ede49ecbe8168c6f3ceccf428cc0f488d22c",
   "claims": [
     {
       "id": "claim_7f2dfd61cb3e4d3eb4577088e2e0533e",
-      "statement": "The CLI sends task-start requests to the create-investigation Lambda, which validates the operator, provisions or reuses an investigation EFS access point, and can launch a Fargate task using the regional task definition.",
+      "statement": "The CLI sends task-start requests to the create-investigation Lambda, which validates the operator, provisions or reuses an investigation EFS access point, and can launch a Fargate task using the regional task definition; that task definition looks up its execution and task IAM roles via data.aws_iam_role rather than owning them, since role identities and trust now belong to the separate deploy/account Terraform root.",
       "evidence": [
         {
+          "resource": "repo://deploy/regional/account-iam.tf#L10-L13",
+          "version": "repo-lines-v1:sha256:f5c10e7eaf8f67373fc4024392536cc9da61a298855ad36b60fc10255643bfe9:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzIzY2UyNDA0ZDFkZDQ3NDI5NGYwNmEzZDgwNTQwYWZlNDE1NTQwODYzMmM4OGU2OWZhYmI0NDM3NmUxYzRmMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMWYxMzNlMGQ3N2EzYjlhMDM2NmRlY2FkZjc5NTU4OWMzZWEyMGNlNDQ5MTg2MTZlMmY2MjRlMWYyMmFjN2ZmNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZGFkNTc2Y2M0N2JmZDJmODUyNTE0OTI5ZjNjYjBkMmM1YzkyOWQ5ODYxYjQyM2Y5Y2Y5NjllMzhjYzU4ODI4NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzExMGU5NmQzNDU0NDI0NTliYTkyOGMzMmFjNjVhYzMxNzBkMDRmZmIyOWQ4M2Y4N2I3MDdlMjcyNDk5ZDg1YiJ9"
+        },
+        {
           "resource": "repo://deploy/regional/ecs.tf#L61-L70",
-          "version": "repo-lines-v1:sha256:d90231a74629f6a983c01968376c500f420ff05c83399b177ea84f75edce5ac5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
+          "version": "repo-lines-v1:sha256:bb9ed57d6d746e1c827a1243809ceee6ae00520dccc5119634a87b43c8ea71a2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
         },
         {
           "resource": "repo://internal/cmd/start_task.go#L90-L104",
@@ -26,7 +30,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-10-06T17:52:44.901Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-10-09T17:04:25.482Z"
   }
 }

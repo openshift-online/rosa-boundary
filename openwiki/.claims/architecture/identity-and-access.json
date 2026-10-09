@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:fe1dff0824881dc2067689be72ac832d507614a29c02851fa40b9ad3c912d05d",
+  "pageVersion": "sha256:29fec4e42cee8cd76911dd1b7a521c0200fdd53697b61c06e9f0a95966b86442",
   "claims": [
     {
       "id": "claim_6aa30656a4c94ab4928d40011e47bd4e",
@@ -46,43 +46,71 @@
     },
     {
       "id": "claim_ad1edbc412bb483299acf8f82cb23576",
-      "statement": "The shared SRE role requires OIDC session tagging and limits ECS ExecuteCommand on tasks by matching the configured ECS resource tag to the caller's principal session tag.",
+      "statement": "The shared SRE role's account-owned OIDC trust requires sts:TagSession, while the regionally owned ecs-exec-abac inline policy limits ECS ExecuteCommand on tasks by matching the configured ECS resource tag to the caller's principal session tag, failing closed when the tag is missing.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/oidc.tf#L181-L235",
-          "version": "repo-lines-v1:sha256:5317e32096d78712ee1349025eb87213490816a4e6cda22238cae01b1accee4d:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkNzExYTQ1YjI2ZTExNGMwYWQ1YWRjNTk2MmMwZTRhZDRkYzMxYmJkZWZmODE5Y2QxMTNlN2RhM2U0ZDI5MWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5NzhlMjUwM2I4Y2YzN2EwNmY3ZDZmMGEzYTZiNmZlMzU2OTFmYmNhYjUwYjg3NzVjYWI2ZmFiYzcxYzU5MmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzODlmNjA1NzkxMWFlYTc5ZmMwNzdmOGIzOTkxNmM1M2QwNTA3ZmRmMjZhMDYyMTg3NDM4Yjk5MTA4ZjkzODYifQ"
+          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L9-L98",
+          "version": "repo-lines-v1:sha256:9996de15e50b2fca172b2f555174061c6366e1982180efaa2f58cf4faeb4da40:eyJzZWxlY3RlZExpbmVDb3VudCI6OTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5MDU0ZDVmMzMyMDJmZmU3MDc1MzkxYzUyNWU3ZjliYmRmMDU2NzQ4ZGZmMDhmNzA5MWQzYmQ3YWI3YTI2NzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyMzUyNTg5YzM0ZDNjNjA2ODU5MzFiNmVjYzRkNTA5OTFhN2M1NmM4ZmJhMjg5NDExNDY1NzY5MDI3MmNhYzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkwYzJlZGM4YzllYTY0OWJkZGNjMDRhNWNmZjExMmU0OTFlODJhNzA4ZWVmYjQ1NWQ4YTJjYjljYzIxNzk4OWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlmOGJjZWI1YWZmMTA5YjI2NzhjMzkxMzNkMDMzOGQ4MTQ4YjkzYTI0ZDY2MThlOTE1ODNmN2RkMDE2OTViMDQifQ"
         },
         {
-          "resource": "repo://deploy/regional/oidc.tf#L74-L115",
-          "version": "repo-lines-v1:sha256:b7f5d344ada9ff3a25415252bd0878a0286d3e63cc91cc5cb5dd712a0987dfe1:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5MDU0ZDVmMzMyMDJmZmU3MDc1MzkxYzUyNWU3ZjliYmRmMDU2NzQ4ZGZmMDhmNzA5MWQzYmQ3YWI3YTI2NzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVlMjVlNWUzODA2N2Q4OTJiMjVhYjlmNWVkOTNlM2ViZDIwYzBkMWY4NTFlZGQ0ZjEzZTM0YTgwMjJkMjcxYzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIwMTlhNDI3NTBlYTdlMjMxYjlhOWMxZTE5YTFmNmViM2VjNzk2YTVhM2I3ODE4YjkxZjU5MDY4ZTA2OGY1ZTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAyMjFhY2E3YmRlYTY1ZGQwNGY2MmQyYWI1Yjc5YWVkYWUwNjVmZTcxMjhlYTA4ZWQyMTU2ZjQ0NjY1NTUzZTIifQ"
+          "resource": "repo://deploy/regional/iam.tf#L133-L215",
+          "version": "repo-lines-v1:sha256:589d57c41bb9ddf4e45165948758e24977851d3c8b8c7c1e1a9f7f43e7c76a8a:eyJzZWxlY3RlZExpbmVDb3VudCI6ODMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA1MmVjNTQwYjE4YTg3NWU4ZjQzZjFlODE0ZjMyNWE3MWY2OTczZDdiZjliZTMwOTFiNzYyYWY5MTk5MzZlMjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUyMTljYjlmNzgyMWMwMWZjOTIwN2EzNWJlNjMzNTE4ZDBhMDY5ZTdiYjZhMzQzNzI1N2YyYTAzODQ5OTk5ZTkifQ"
         },
         {
-          "resource": "repo://tests/localstack/integration/test_tag_isolation.py#L20-L98",
-          "version": "repo-lines-v1:sha256:670334971cab5848b6b2c7490f09bfecd5850e7575a5aff48a622f854c36e2cf:eyJzZWxlY3RlZExpbmVDb3VudCI6NzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA5MDNhNmI0NTQwMjlkOGY5MDBlNzUxYzZjNTEyZjM3MWRiODM5Yzc1M2E5MWIzMzg4YWFhNWQyYTViNmU2MzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY0MjA0ZDU5YWY5MDE3NmJhYTRiOTk4NWMwM2VmMWQxMTZlOTQzNGNlZDU0OGU5ZTA4NzUzNGJlZDMwMWY3ODkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIyYzM0ZDBiYjBiMmI3YjFmZTUxNDY0YTdlZmEwNTVhYTkxOTBiMjRjNDBmNDE5MjQ2YjViNGIwOTQ0M2Y1NDYifQ"
+          "resource": "repo://tests/localstack/integration/test_tag_isolation.py#L142-L180",
+          "version": "repo-lines-v1:sha256:b9eab0ca01abde488bec78dd572b8976d66f307dc8b76c1fd3e0add03fde8393:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZlOTExMmY0ZjdkYTJkY2JiYWRmYjhjYjIzNWI0M2Q1Yzk1MjNmMjdjZTc0NzFjZmYxOTJmNTgwMzk5MmQyODQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5NGUxYjhjODg3NGM3NDgzNjhjYzliNTU0ZDlkMmY1ZDE5YmY0NzE4MTIwZGM3ZjIzYzQ5YTk0MjJiNmM0ODQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg3NDQ0MTgwMGE3ZTNkOWVkY2ExYjQ2ZWQ1OWYwNGNhNGFkMGFiNzNhNjRkYTRlMDljMzkzNGY4NDlkYWU2MzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkzMzE4NmY2Njc5MjgxYTNjNTUyMTFmYjFlNzlmNjY2ZjI5Y2JmZWM3YjdkMmMzYjFjZDA4Yjc1MjU3MWI4MDIifQ"
         }
       ]
     },
     {
       "id": "claim_fe30c94e7f4d484fbce00e4c701ed338",
-      "statement": "Lambda invocation has an AWS IAM authorization boundary, while the Lambda separately validates the operator's OIDC token; the configured invoker policy grants direct lambda:InvokeFunction access.",
+      "statement": "Lambda invocation has an AWS IAM authorization boundary, while the Lambda separately validates the operator's OIDC token; the invoker role's trust is defined in account Terraform and its regionally owned policy grants direct lambda:InvokeFunction access against the function ARN.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L245-L269",
-          "version": "repo-lines-v1:sha256:50175479ab8942ab78f0c1e55d0f534c08cfc6fcd84958e9fc5e21b1e38a75e6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlMTg4YmYyYzVkNGMwZTY3MGIyNGNhMTBlNWQ3OTc2ZjEwMmE3NTVhOGY2ZDNlNjY5OGFmNmU5Y2NiMzFhYWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0MGM1ZDNkYzNhNzczMDc5M2M4OTI3OTQ4YjU1OTY2NDIwN2Y3OWJhODc3NzNjMjE1MDA0NDMxOTYyZmQ0ODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L9-L91",
+          "version": "repo-lines-v1:sha256:0b564f01b69c74b626cc173c70fc73c4785876575ba0e7d46df5fc599d275b19:eyJzZWxlY3RlZExpbmVDb3VudCI6ODMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUzZDNlNjU1Y2EyODRhMDUwNGZiNjMyODljNDdjNGRhMjI2ZjkyMTk0YTYwYTE3ZWQwOTU2Yzc2YWJiOTQzOTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNlMTQxNGU1Y2I1MTYxOTU0YmVjNWU1MWM0NTAyZjMxMmY5NmEyMWJiZTM1OTM4ZDFjMDI1ZDBjMzMwZDM4ODkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://deploy/regional/lambda-invoker.tf#L1-L8",
-          "version": "repo-lines-v1:sha256:bf47b9f3c6cdf78eb514fe5d2bf76bb72e1d4d38f67dfd35acaa721edbd6c3fb:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDg1NWY0N2ZkN2RlN2VkYTI5YzZlNzljNWM5NDAxMmI4OWZiNWM5YmIwMzVmZTU2YzQ4MzJhZDY0N2YxODc2MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmZhMjE3ZTc4YjZhMDU0OWZmMDhhMGEwOWU1OTllNDczNjdjMDIxOGM5ZWM5NTMzMjg2ZDljNDYxYTg1NDU1OSJ9"
+          "resource": "repo://deploy/regional/iam.tf#L217-L225",
+          "version": "repo-lines-v1:sha256:4847c4b04dd81459965f77057482e8c26bde1720594310396b7424bd996e1518:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTM5NDI4YWVkMmQxYmQ5MzkyNDQ2OGI3ZjMzYzYxYmM5YzQ2Y2ZiZDgxYmNmNjdkZTNlMGI3ZWM3NTY0ZjI0MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZGNmOTVmMmEyZmY0NTQ0MmUxMzVkMDRmNjZmYjI1NGJhNzAxMGVlMzJiZThiM2FjYTAwMjczZTE3N2QwOWYyMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTViNjg3YzQyMjIxMjRmZjcyNWVmNzcwZGE3YjFlNTY1NTZhOGNmMDIwN2MwZjhmZGU5ZWEzN2U4MWMzMTdkMyJ9"
         },
         {
-          "resource": "repo://deploy/regional/lambda-invoker.tf#L93-L107",
-          "version": "repo-lines-v1:sha256:ef363c73086ba0e6d868bdc95629036011efccedfb9bd76f51aabdfe8bbeac84:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUzOTQyOGFlZDJkMWJkOTM5MjQ0NjhiN2YzM2M2MWJjOWM0NmNmYmQ4MWJjZjY3ZGUzZTBiN2VjNzU2NGYyNDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L161-L185",
+          "version": "repo-lines-v1:sha256:2166e101918871f5b25b7de9e3016c0ed5367c1dd640c2b4c761de781a0806be:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlMTg4YmYyYzVkNGMwZTY3MGIyNGNhMTBlNWQ3OTc2ZjEwMmE3NTVhOGY2ZDNlNjY5OGFmNmU5Y2NiMzFhYWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0MGM1ZDNkYzNhNzczMDc5M2M4OTI3OTQ4YjU1OTY2NDIwN2Y3OWJhODc3NzNjMjE1MDA0NDMxOTYyZmQ0ODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_62a1b603328941fda8f6a267fc928467",
+      "statement": "Account and regional Terraform test suites assert the identity/grant ownership split: deploy/account/tests/shared-iam.tftest.hcl verifies role trust, audience, session-tag conditions, and session duration using mocked IAM/caller-identity data, while deploy/regional/tests/iam-ownership.tftest.hcl mocks data.aws_iam_role and data.aws_iam_openid_connect_provider lookups to verify every regional inline grant attaches to a looked-up role and renders region-scoped ARNs rather than owning identities or copying another region's scopes.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/shared-iam.tftest.hcl#L33-L94",
+          "version": "repo-lines-v1:sha256:bb101f9996d3acceb01fe8a0364356d2d0655ccb9d5b3ef518aae9f77ff75cba:eyJzZWxlY3RlZExpbmVDb3VudCI6NjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczMWQxZjZjZWE0YWFlMzJhZDI3ZDc1MzM3N2MzMWViZmY5NjlhZmU3NDY5MDg2NGMwMGYxMjA1Y2M0MGQyYTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMyZWIyOTM0ZjMwYjI0NGY2MjlkZTBkODdhZjVmNzgzYWJjNjQyMjQxNDJjZTMwMjAwODlkNDMwOTI3ZmJhNjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2ODMzMjgwYTQ3ZGVjZDkzZDc1ZTY1ZTM0YmQ3YWE2ODZiOWQ0MjUwZmJjZWE0NzE2OGNlMDIzM2U0Y2JiZmMifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L77-L170",
+          "version": "repo-lines-v1:sha256:607bf9365c58060988ac423720410fb302d94cb37e0176dc8d52d066992360ac:eyJzZWxlY3RlZExpbmVDb3VudCI6OTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlY2MyMTcyYjNhM2RmM2JmMTVmNjFkN2MyN2Y1M2UxYzE2MjJmNDcwODdiN2Y0NDg0OGEzMjZlODIzNWZlZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNTJlY2M3MWUwNmYwMjAzZjIzYzJhZTlkMzA1NDJiYTY1NjNkNmNmMjg2MjM1YjdjODVhZGI3ZWI4MDdjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjMGFhNDdjNDUwOGRmYTJkMDgzMjFmMmMxOTVmOTAyNGQwMjFmNDIyNWE3NjE4MjI2YzRkYTZhZjRjYzYwNTMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_53255d0ab96f4f499aef64425c7a2d37",
+      "statement": "IAM role identities and OIDC providers used for CLI/Lambda authorization are account-global; Terraform ownership of regional inline grants does not isolate permissions by region, so each shared role's effective permissions are the union of every region's inline policies attached to it.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/README.md#L23-L29",
+          "version": "repo-lines-v1:sha256:2fbdffadc4fd3c63b18b52d5261573ca5f2fed572448512e4179ce6f473df11e:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTUxNzgxNWY4ZWY4YmQ0NzgxNzUyNjBhMThjYmYyZjNkOTVmNTU5YTlkZGZkMTRhYmY5ZjViOTUzYTgyNzgzOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzhlMDAzNzA1MjYzN2Y4NGY0YzY0YTFiMTcyNTQ2MjM4YWNlZDRhMWNmMjQ4ZGMyNTU3MTk0YTc1MDM0ZGE2NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDY2Y2UyZDBkMzQ5NjA2ZTc4MzFmNTk3YjZhZWE4NjJkOGMwYWU1N2UyM2VjMmVjNmNhZmQ4NzJkZDc4NDg1ZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYTA0ZTQ0ODI4YWFhZWNhZjkyNWM2ODU0ODdiNmEzZThiODNkMmU4NzMyYjNkNTQ1OThkNGZhNThmYzkzZjMyMCJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/account-iam.tf#L1-L46",
+          "version": "repo-lines-v1:sha256:7fc892af44dd3b7d073966404c834a770dda79bb334a44b89428d5e3a62d8043:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MDNiN2IwOTkzYjA3NTczN2U3OTZiY2FlZGMzNzU3N2QwNDE2MGRhY2FmZDY1ZGI2N2YwYTBmMmQ0OGMyMmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-10-09T17:04:25.482Z"
   }
 }

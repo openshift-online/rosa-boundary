@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:3c22d5e947f8ece07e8fb1338f0c21af73593c98e6afd0cf0733d3036b9e7e0f",
+  "pageVersion": "sha256:0d0c5564393784994e20a96ab585a70aeb971168722d08b49a3f83fba2023552",
   "claims": [
     {
       "id": "claim_55b66afc53074753b90d8fe95bdc07fb",
@@ -29,8 +29,8 @@
           "version": "repo-lines-v1:sha256:6beb05fa3c6a7cbe25f2667bc3b3adf495e6ff5a7a203b52ab9ae2a66d5585e0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNlOGZlMDhmYWIwMDI5MTA1NTk2NmE5YTllMjQwMjUzNDZiMzQ4ODhmNzc3ZmNlNzFjOGM3Yzc4NDg1ZGI2ZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5OTg1NmM5NzViMzVlM2QzZTNhNjQ1NjcwYzc4MmEyNzMyMzdmYmVkODMyZDJlMWUzYzU4MjdjOTkwZjNjMzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA0MjlkMWExZDZkNjYyNGY4MDI2YTFmY2Y4ZDBiZGFiZTFjZTkxNTQ1NDk2MDliZTdhNjU3ZTNiMmI5MjI3ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgwNjZjNjY4ODU2Njk4NzcxMjg4MzMyZDAwMmE0MjEwODM2MzUxZDRjYzA4ZGY3MzY1MTkxOTlhYTIzOGRlNzUifQ"
         },
         {
-          "resource": "repo://lambda/reap-tasks/test_handler.py#L19-L35",
-          "version": "repo-lines-v1:sha256:c33b460cf9c0019ef5291ad1c00ddc3e9e5c1fcbae542047d16b31e2f0f1813f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNThhM2U2MDEzNWMxMWQzODhjNTVmZWRmOGY5M2VhNDZhZjFkYzEwNmU0ZDFkODM5ZGI0NGY3ZWE5NGQ4YWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiZDgyMDVkYmQ3ZmM4M2Q2ZTMyNzhkM2U0MzYwM2U3YWU2MTZhYTY3ZDMzZDM0NmRlZTk5ODc3ZDc5ZGE2NzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkMDNlNjVmMmE0YjEyOTY3MGU3ZTM4MDVhNTIyNjhmYzcwMWQ3OTRhOGQzMjI4NDJlZDc2Y2Y4YjdkNjU3OGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlMTk0N2UyN2Q3YTZhNmNlZTM2MzMyYjZhZGYyMGNlZjAyOGI5YjBjMWI3NzAyMjYxYTQyZmM5YzMyZWUwOGMifQ"
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L19-L37",
+          "version": "repo-lines-v1:sha256:04c2f777126130911df63b4e250476318b48cb1c71e1b3bfe3c20e76d6e31677:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNThhM2U2MDEzNWMxMWQzODhjNTVmZWRmOGY5M2VhNDZhZjFkYzEwNmU0ZDFkODM5ZGI0NGY3ZWE5NGQ4YWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0NmI4ZDU4YTk5OWNhOTY4MjZkMTU5NzQzYmFhYmEyMWJjNDA3MDBmMzdjZWRiNTNmYzA3ZWI4YmU5MmU4N2MiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkMDNlNjVmMmE0YjEyOTY3MGU3ZTM4MDVhNTIyNjhmYzcwMWQ3OTRhOGQzMjI4NDJlZDc2Y2Y4YjdkNjU3OGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZTYzMzUzNzY5ZjQxNWQ2NjY5Y2IyMTg5YzZkZDg5Mzc5M2E1ODQ3Y2YzMmUzOTY0YTdjYWQ3NGY1OGQ5NDEifQ"
         }
       ]
     },
@@ -100,21 +100,137 @@
     },
     {
       "id": "claim_20f7ff5a69cd43e8aa9ad2bbc0f4f2ee",
-      "statement": "Terraform's Claude model tests use a mocked AWS provider and test both an approved default inference profile and rejection of bare or unapproved model mappings.",
+      "statement": "Terraform's Claude model tests mock data.aws_iam_role and data.aws_iam_openid_connect_provider in addition to the AWS provider, because IAM is read via data sources rather than owned by regional resources, and test both an approved default inference profile and rejection of bare or unapproved model mappings.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L12-L66",
-          "version": "repo-lines-v1:sha256:7ac4de6249f5d3924a5ccb81f61f834d5dece409ec4b24d5a10fd261fa26c722:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyZmM5Y2RmYjgwYWFmOTc1Yjg2ZGUzNzgwODc1YjFlYzdjZjk0NjgzMzgwZTk5NDIzMTE4MDFmZmU1ODY3ZGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY3Yzc1NDRlYWMyZDlkM2U1MmI5OWYxMzlmMDg0NWE5NWRlNzY0NzQyY2E3ZDNiYTMwODk5NTY0YTcyNTBiOWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFmMWNjNzgyNTdhNWUyZGE0NGQxOTkxM2Y5NTg3ZGZhNTQ5MDFmNzBkYWY4ODBmZTc2MTc0MzVlZDk2MjE5MjAifQ"
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L12-L20",
+          "version": "repo-lines-v1:sha256:54c0c13bc0bd65ca52d8fa3c483c98c7ce7f0ca163f23515e24a496a53854c80:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzZiNmQ2ZjY5ZDkxNzYzZmJjNzYxMTMzODkwNTlmNGRjNjRiNGM5N2I4ZDg1MGYwZGQwZjgwZDMzNDdjODM5MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjdjNzU0NGVhYzJkOWQzZTUyYjk5ZjEzOWYwODQ1YTk1ZGU3NjQ3NDJjYTdkM2JhMzA4OTk1NjRhNzI1MGI5YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjYxMTBjYjM5YTBkODMyZjUxYzM4NGIyYzZlNDQ0MThiMzg1NDZjM2Q2OTc5NDBjN2ViMmM0M2I0M2E2MTRmYiJ9"
         },
         {
-          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L68-L124",
-          "version": "repo-lines-v1:sha256:3459249e0729609bbeaf5e5715b23524db55b0eac346646f851978df68bb0f93:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFjNjYwNmI0OTI2ZjhjYjVkNTg4MWJmZDAwMDI2M2I1ZGNjNGE1ZDhjNTQyNDhjMjAwNzExN2RkNTZmYjBlMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L79-L115",
+          "version": "repo-lines-v1:sha256:b2a356442b532c5704255506e63d2f1c288097503e6a7cc58bddd21625c38159:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5OTU4NDVjM2FlNjQ5MGQwMDEzYWNiMzJkYjZhN2Y4YTdlY2M1MTFmODFmNmYxNzhlYjFjMTZjM2M2MDY2NTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFmMWNjNzgyNTdhNWUyZGE0NGQxOTkxM2Y5NTg3ZGZhNTQ5MDFmNzBkYWY4ODBmZTc2MTc0MzVlZDk2MjE5MjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f1f9e8a8562d4fbf8de1e8ff64075f7b",
+      "statement": "The account root's baseline.tftest.hcl suite mocks only AWS data sources (aws_partition, aws_caller_identity, aws_bedrock_foundation_model_agreement_offers) and makes no live AWS calls while asserting account singletons: eight shared role outputs, a Bedrock budget with three notification thresholds (50/80/100) and the original region tag, primary plus optional stage/prod OIDC providers, and a regional_iam_contract output exposing the role-name prefix and legacy policy region.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L1-L66",
+          "version": "repo-lines-v1:sha256:b1b63b2b638905036b68986c9baa7f5785a39fc4ca07144f138ff4be18d71c88:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2ODIwNzAxYTQxZTQ3YmYyMWRiN2QyNDI5YTlmOTVjZGQ1NmEzM2RiNTEzMDIwZDZhMzIzYzRlYzFjNzVhODkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhYzIzNjY1ZTY3ZjBlZjIyYzIzMjBiNDZhZDg0YzA2Y2QzOTQ5MzJlMzczYWMzYTJkOWExMGMzNDE3ODUwMGMifQ"
+        },
+        {
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L84-L122",
+          "version": "repo-lines-v1:sha256:1c76014c4bff4ff8e877d8b21bff94bdf6cba854894bba2f4c902d10f83be7d7:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhYzhjMWQ5Zjc3MzM1MGE2OTZiMmMxMTM4YzJjYzA0ZDExZTgyMDQ1ZjdjODgzOWJhYjc1ZDNhNjM3NzRmYjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM1YzQyZTA0N2I3NTk3MjljYmFiMGM0OWZiOTU4YmJmMGIzNmRkNzM0MTkwMGY5MjllYThhNmU0ZWRlOGFjYzAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a4456109d929477abaf77bd124145eeb",
+      "statement": "Because mocked AWS providers cannot verify real resource ownership, baseline.tftest.hcl greps the account root's own Terraform source to confirm it declares no inline aws_iam_role_policy resources, no dependency on regional remote state or regional resource ARNs, and no exclusive-reconciliation resources that could delete role grants the account root does not own.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L67-L81",
+          "version": "repo-lines-v1:sha256:58fb35f8727f936627c065f873b5827b22afd5e90330d91e6ea69448c8432bd6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliZWE4NWJiM2JiNTUyMWRiNjcyODUzYjJhNzgyMzYyMmVmYTY3OTk5OTc3NDc0NThkN2U2OTMxZDgxOTVhNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNjOTIwYTlkYmEwOTg5ZTVmMTkyYWFkNjI4NTdjZDE5NTlmYjcwMmU0YTk3MzA2OTVhOTBhNTEwMjQ0ODcxMjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ3Mjk1MzY1NzcxMDUxYjg0YjBiMzcxYTA1MGU2N2QzODIwN2E3YzRjYzVhNDUyNmRjNWY4MDdkNzdiODEwZGQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_acbcf80cf2704d05bbd2addea43989de",
+      "statement": "The account root's shared-iam.tftest.hcl module tests confirm all eight legacy IAM role names survive migration, that the SRE-shared and Lambda-invoker roles share one trust-policy statement per configured Keycloak issuer (primary, stage, prod) each scoped to its own audience claim and requiring the uuid allowlist and ai-sd-sre role tag via sts:TagSession conditions, that session duration differs by role (7200s shared vs 3600s default), and that an empty UUID allowlist fails plan-time validation rather than producing an unrestricted trust policy.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/shared-iam.tftest.hcl#L109-L113",
+          "version": "repo-lines-v1:sha256:1887835ce78283262f2161a8f90b6598caa298d1ac58067d5c6d7c9317a42b54:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODIxNWU5MTEzMTE4MjM1Mjk1Mzc3NzA4ZGVlN2U5OGJhNWJhOWIxMDQ5N2I4OGM0NDRlNWRhZTU1MzU2NjY1NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjhiYzY2Y2ViYTQzMTJkZjA5ZjQ4YjI3MzkyMzgzM2JmNTMxMDdiODk3NzAzOTUzNGZmOTNlOWFiNWFlZDBiYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZmI1ODBlOTY0ZjgzYTQ3M2Y0M2Q0NDM4NDYyOTQ5ZDY4YjU2MDBmZGE3ODdmMTYzNzQ1ZDAwZGU4OWNiZjM2YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjEsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSJ9"
+        },
+        {
+          "resource": "repo://deploy/account/tests/shared-iam.tftest.hcl#L33-L93",
+          "version": "repo-lines-v1:sha256:f80979d2a5f0e3331ef548f9237527b641f3084fe970813505d788397d1f1bba:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczMWQxZjZjZWE0YWFlMzJhZDI3ZDc1MzM3N2MzMWViZmY5NjlhZmU3NDY5MDg2NGMwMGYxMjA1Y2M0MGQyYTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMyZWIyOTM0ZjMwYjI0NGY2MjlkZTBkODdhZjVmNzgzYWJjNjQyMjQxNDJjZTMwMjAwODlkNDMwOTI3ZmJhNjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwZTkwNWI1NWMwZDVhOTk4ZTZmMzFmNDcxMTU3MGQwNjFiMTQyMzMzMDE0NDA2MzRjNTA3YTQwZjFmMzkwNmEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_06a6925e58224c9fb82d97c12dd2526d",
+      "statement": "The regional root's iam-ownership.tftest.hcl suite mocks data.aws_iam_role and data.aws_iam_openid_connect_provider plus the AWS resources referenced by inline policies, then asserts every aws_iam_role_policy attaches to a role obtained via data source lookup rather than a regionally-owned role, that the regional root's own Terraform files declare no aws_iam_role/attachment/OIDC-provider resources or exclusive-reconciliation resources, and that policy names gain a region suffix in any region beyond the configured legacy region while still resolving the same shared role names.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L1-L39",
+          "version": "repo-lines-v1:sha256:b97851887276133aa98dc61d8b2c90f95a0d417ba6797e34b9563ad5f6448a2f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk4YWU4OTk0NDMyMWNjY2M1MWMyN2VhNTdjM2Q1NzQyMDVjNTAwYTg4M2IzOTliZDQxNmQzODYyMWUxMDQ1OGEifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L173-L206",
+          "version": "repo-lines-v1:sha256:b67fb7d9fa02cbcf71e275e09e9b2271bac566c282a5f05fd54bcd8bb7b35a8a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliOWFiYjUwMDhhYjgxYjNjNGI3YmY4OGVhMjE3MGVhNThiNjEwMThjYWE0MmNjMGUxMzY2ZGRlNTY1MWMzMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0NmIwYjY5ZDYwNjllZDc1NmNhOWI1OTA2ZWEwNjA5YjA1NDBjNzE5ZjQzOGUyMmY3MTBkNTFiYTAwMTk0YzAifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L77-L115",
+          "version": "repo-lines-v1:sha256:3025142785647870e74c7f54f5ad4ca4150b2b576ce4e0fcaa7a6a280676094f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlY2MyMTcyYjNhM2RmM2JmMTVmNjFkN2MyN2Y1M2UxYzE2MjJmNDcwODdiN2Y0NDg0OGEzMjZlODIzNWZlZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNTJlY2M3MWUwNmYwMjAzZjIzYzJhZTlkMzA1NDJiYTY1NjNkNmNmMjg2MjM1YjdjODVhZGI3ZWI4MDdjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImEyMGQ2MzBlMjNmYTcyMDdiOGM3ZGQ2N2U2ZGVlOWVlZDM1YTkyMDlhMjQ2YjY1NmVkZmQ3NmY4NDIwMTFiNTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f40cfbb634d34c7bbb5b23f7a00c3ff9",
+      "statement": "The iam-ownership.tftest.hcl suite verifies the reaper's ECS inline policy scopes ecs:cluster to the regional cluster ARN and restricts stop/describe permissions to tasks carrying a deadline tag via a ForAnyValue:StringLike condition, and that the task's ECS Exec inline policy grants exactly the four ssmmessages channel actions needed for interactive sessions.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L140-L147",
+          "version": "repo-lines-v1:sha256:10c11ffc32648462ca6ecf5a87b54be8215be5850133ab2415785f6718cf3294:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2EwMzk3Nzc0NzEzNTFmM2M4MTcxNDFmMzkwMWU0MGIyM2I5MmNjZjRhMzljY2M2MTJiYjlkMzg2NThiNjU5NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjdlNTc4OGQ1ZDlkNzNkMjRhODFkYmMwYTVhNzRiZmE4MmM5YzNiM2FmOTllNTJhZjc5NmU5MGI0NjhhOGEzZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTBlMWM1ZDA1YjUwMDUyMGRlZmQ4ZGU0ZGNiNWZiMWQxZWRhYTE1MmZkNWNkMTJkMTA5ODAzZjZiNWQ0ZGI1NCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDMzZmIwOTczZTIyZmJhNmQ1MmU2MDkyYzIyN2RiNzMzODUwNzhkMzM0YTM0M2IxZDE5ZDZjN2E2N2E4ZDMzMiJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L159-L170",
+          "version": "repo-lines-v1:sha256:3a2b98aa063798d7a38fb2b68d86007984b4e653b0dc787fafe8d890123dd732:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI3YWIzZWI5NjZhZTM0ZThhMzEyYzc1NDZmYjBlODdkNGYwYWFjYTU1MmNkMWUzNDAwMjIxZDE3Njk0NWY5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjMGFhNDdjNDUwOGRmYTJkMDgzMjFmMmMxOTVmOTAyNGQwMjFmNDIyNWE3NjE4MjI2YzRkYTZhZjRjYzYwNTMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_017944589bf24cd0acfda0d1e2e34148",
+      "statement": "The reaper Lambda unit suite mocks both the ECS and SSM clients in setUp (patching handler.ecs and handler.ssm, defaulting SSM describe_sessions to no active sessions) and adds a static _exec_task helper that builds ECS Exec-shaped describe_tasks entries reused across the session-aware reaping tests.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L19-L37",
+          "version": "repo-lines-v1:sha256:04c2f777126130911df63b4e250476318b48cb1c71e1b3bfe3c20e76d6e31677:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFmNThhM2U2MDEzNWMxMWQzODhjNTVmZWRmOGY5M2VhNDZhZjFkYzEwNmU0ZDFkODM5ZGI0NGY3ZWE5NGQ4YWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0NmI4ZDU4YTk5OWNhOTY4MjZkMTU5NzQzYmFhYmEyMWJjNDA3MDBmMzdjZWRiNTNmYzA3ZWI4YmU5MmU4N2MiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkMDNlNjVmMmE0YjEyOTY3MGU3ZTM4MDVhNTIyNjhmYzcwMWQ3OTRhOGQzMjI4NDJlZDc2Y2Y4YjdkNjU3OGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZTYzMzUzNzY5ZjQxNWQ2NjY5Y2IyMTg5YzZkZDg5Mzc5M2E1ODQ3Y2YzMmUzOTY0YTdjYWQ3NGY1OGQ5NDEifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L39-L57",
+          "version": "repo-lines-v1:sha256:4fc1d04a8529248e748b6b7e2eb545060f7b6d0ec5ae937b95e351c89ff661ff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxYWJjZDBjYzY5MTNkNGY1MWViMjFlNGY1YWZjMmU5MGY4NmQzNmE0NTBiYjQyY2IwNWM2ZjNlMGQ3MDZmOGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU5MDQ4ZjAzNzI4MThlM2Q3NWU3NGYyZjI0MTlkNGI2YmZkMzY4N2U0OGVkODlmYmExYzg2YzUyNDEwOGVhNjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI2YzU4Yjc4MTBmMTM4MmRlNjE4MDExZGE5MjAyNDJhN2I3NDJmMGUxMmNhMTRlYTIyMzE5MzI1YzcxM2ZlMzgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e6c20ecbf6544cf69669cd8b9d974860",
+      "statement": "The reaper Lambda's session-aware tests confirm an active SSM session protects an expired task from being stopped, an expired task with no active session is stopped as before, and an SSM DescribeSessions failure on one task is recorded as a per-task error (fail-closed) without blocking processing or stopping of other tasks.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L336-L362",
+          "version": "repo-lines-v1:sha256:6059892615203214fcc61e5fbf8b07a04a1d2d8239b32413be38273fd715668f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyNTIyNzVkZTIzOGE0Mjg5NGMwOTM4Nzc4Yzc2OWZiOWExNGFlNDkwMjc3NDg3MTNlZWE4NjJhOTAyOGRlNDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkMWQ5OGMyMzg0OGRlMTQ1M2NkMjEwNjA1MjcyNjYwMmY3YzUzNjA0NmY5MDY1MzlkZTQ4ZDk1NjExZTA2MGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdhNjM0YjY4YjhhNDI0YzgzYzc0YmU2OWU1MzViZWYyZDg2ZjMyZjMzYjM1M2VjNDNiMTVkZGYzMmI5MWUwZWEifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L364-L385",
+          "version": "repo-lines-v1:sha256:dcd28f6ef7b1477f2f410e8d5538b24056a82710db5219db8ec71927da627bcb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2ZDI2NDBhZmNjMjk3YzFiYWVkNzRmN2YxZjA0YWI3YzViM2M1NDE1NjkyN2JjNjcyNzdiZjE3MjY1OTRiNGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjczZjNlZmYxNGY3OWZkZWFmNGFkMWMwNWI4NmY4ZGY2YmVlNWRmYjAyOTYwNTM3OTI5NjRmNGI3ZjNkNTBkODEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIwOTE0ZmM3ZWVhYzgzMDYzMGVmMTQ5ZDNmZjgyYjhkZjE5NTUxNjc5Y2JjMzcwYzc2MzQxOTg4MDcwMjI1NDIifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L407-L444",
+          "version": "repo-lines-v1:sha256:186dbe1163142942f898caa27071d927241085c5f030db3d145c7a92a0c02c19:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlNWIyMTdhYzM3MTRjOGVlOWVhOWQzNTRjNzU4YzhjZWY2MzdjNmRlYmY5NTUxODlmMGJiMzgxZDhmNzhjNjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNiOTI4MGNjYjE5NzM3MDQ1ZjNmYjdmMzVlZDNhMjZjYWQ0ODNlODkwNzYxZTZhNjVmYzliNWYyNDJjYWIyZjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjllY2NkYmJkMzU2MTUwZWEyN2MwMThkYmMwM2MxMDY1MWMyNGU4NTRmNDBjOTMxMDhkOGRlYTIzNDg3ODRiODcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0fa4fa50cfd344d69ef41f1457a3c70b",
+      "statement": "Identity is split across two Terraform roots so that a change touching shared roles, OIDC providers, or inline policy attachment requires a cross-root ownership test proving the account root still owns the role/attachment resources and the regional root only attaches inline policies to a looked-up role, in addition to single-root input validation.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L67-L81",
+          "version": "repo-lines-v1:sha256:58fb35f8727f936627c065f873b5827b22afd5e90330d91e6ea69448c8432bd6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliZWE4NWJiM2JiNTUyMWRiNjcyODUzYjJhNzgyMzYyMmVmYTY3OTk5OTc3NDc0NThkN2U2OTMxZDgxOTVhNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNjOTIwYTlkYmEwOTg5ZTVmMTkyYWFkNjI4NTdjZDE5NTlmYjcwMmU0YTk3MzA2OTVhOTBhNTEwMjQ0ODcxMjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ3Mjk1MzY1NzcxMDUxYjg0YjBiMzcxYTA1MGU2N2QzODIwN2E3YzRjYzVhNDUyNmRjNWY4MDdkNzdiODEwZGQifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L96-L100",
+          "version": "repo-lines-v1:sha256:2d1b28b29f298fd238636e7609af2140b97d969c78051372d67785b61eabbd58:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2EwMzk3Nzc0NzEzNTFmM2M4MTcxNDFmMzkwMWU0MGIyM2I5MmNjZjRhMzljY2M2MTJiYjlkMzg2NThiNjU5NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY4M2NmYjAwNzU4ZTA0N2RkNDY0ODhiYmE4YTdjMzEyZWM4M2VhZmIxYjZiYzlkZDk0ZGNhZWU2Y2YxYTI3ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTgzOTcwYTg0ZWY4MDkxN2UzNWM2ZmU5YTNlY2JiODBiYjE2Yzc5ZWY3ZmQ3Y2MxMGJjNmE3MTI2NjgxMmM5ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODgwZjhmM2RhMmQzYTkzN2ExZWE2NmQxYTc0ZTg3YTlhYzZiZjk4ZWIxYjNlNGRiN2RmMTMxOTI5MmU3Mzk4NCJ9"
         }
       ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-10-09T17:04:25.482Z"
   }
 }

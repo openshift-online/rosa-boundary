@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:8b7545154c48c9e6714e7ccbbf24e06716ca64629fe553ce2cd1abbd6e6ec82a",
+  "pageVersion": "sha256:ba988a941bc87794518dd5ea5e554191da540401dfa2f7801cc147e7e33ca918",
   "claims": [
     {
       "id": "claim_4088cba25812498fa6bea3623690d8b6",
@@ -78,15 +78,15 @@
     },
     {
       "id": "claim_c09a0d94314f40d4ad5cba074dabe4f6",
-      "statement": "The scheduled reaper processes RUNNING tasks and stops tasks with expired deadline tags, skipping tasks without deadlines or with future or invalid deadline values.",
+      "statement": "The scheduled reaper processes RUNNING tasks and identifies tasks with expired deadline tags for possible stopping, skipping tasks without deadlines or with future or invalid deadline values.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L110-L133",
-          "version": "repo-lines-v1:sha256:0ef0987cbd165feddf3836458ff22f2d3fe512373054d5e04bd1bda01aca9ea4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2OWJlNmE2M2Q3NWVlNDY5NDI0Mzg4NGYxY2YyM2ZiMWM1MjU3OGM2MWMxNGI5ZmQ2NTgyNGE4NjE4ZjQ3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/lambda-reap-tasks.tf#L43-L57",
+          "version": "repo-lines-v1:sha256:250221188d4e8b7d9705f500235ee36a1e8040bcf8d77769edae1d855ff76bad:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2OWJlNmE2M2Q3NWVlNDY5NDI0Mzg4NGYxY2YyM2ZiMWM1MjU3OGM2MWMxNGI5ZmQ2NTgyNGE4NjE4ZjQ3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY4OTFjMjljYWJhOTYzYzAwOWE3ODY4NGU5NmQ3N2Y4ZTg5OTRlNTUzZjZhMjc1ZmE3YmU3MWQ5MzM1YjdkNmYifQ"
         },
         {
-          "resource": "repo://lambda/reap-tasks/handler.py#L33-L163",
-          "version": "repo-lines-v1:sha256:bd4fc6ead545a4b39e6f90d0dfe9a07d3a9be1a2fdc46f13682d5bfb24d1578a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYmExZmJkMGY4NjBmYTVmOTM2NzRiOGY0MDQ1NDA0ZWMyN2M0MDNlMzhhOWU2ZTEzNTg2N2FhZGZiZDY1MDBlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3YzcxNzJmYWU2MjhkZmIyNmZmZjhjOTY5MzdjMzQyOGZmMWVmOGMyNWUxMGYzNDM5YjViMGZhYTMxYzEzZDNhIn0"
+          "resource": "repo://lambda/reap-tasks/handler.py#L48-L206",
+          "version": "repo-lines-v1:sha256:a6a13df0abbb3727d9ea1393b06f7a576d3b37a3819275313937bb81a4f747b5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwMmIyNTc4ZDg1ZjA1NDdmYTkxN2RhN2IxOGQyMDc4OTkxODI5YTUzODJjNzkxMjhiZTE2ZjZmMTA4OGY3YWI1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3YzcxNzJmYWU2MjhkZmIyNmZmZjhjOTY5MzdjMzQyOGZmMWVmOGMyNWUxMGYzNDM5YjViMGZhYTMxYzEzZDNhIn0"
         },
         {
           "resource": "repo://tests/localstack/integration/test_full_workflow.py#L214-L287",
@@ -129,10 +129,62 @@
           "version": "repo-lines-v1:sha256:830547ec1b871c4d811916affedeb63d4b9615643ca91f5f4ab60a7ca3c81410:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1NjMxMDE5ZDEzNGE3YmZmZjZhMzVkODIyOGI4ZTdkYmJiZjkyZmIxMDIyN2I3NmU2MGY0MTBmYjBiYzdmMTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTFkNzkxNDgwOWUzNDk5ZDQ1NzNlOGJmZTU4MjZhZTA4MmVhMmUyYTE0ZGI3Y2MxNDE3MjU3N2M2YTczNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM0NjY1NjFjYzNjNDFhNTM0MmNhYWFhNjExZmM4M2MwZmIzYzdlMGIwYTU4Njk1MTRhYWNkYTlmYjRhYTUwNzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
         }
       ]
+    },
+    {
+      "id": "claim_3a8694ef3164419c870da3c662b3bc6c",
+      "statement": "Before stopping an expired task, the reaper's has_active_ssm_session treats an explicit enableExecuteCommand=False as safe-to-reap, queries SSM DescribeSessions (paginated via NextToken, target ecs:{cluster}_{task_id}_{runtime_id}) only when enableExecuteCommand is explicitly True, and raises SessionCheckError for every other case (missing/non-boolean flag, no container detail, a RUNNING-or-ambiguous container missing runtimeId, or no checkable RUNNING container); a detected Active session increments a 'protected' counter and skips the stop while SessionCheckError increments 'errors' and likewise skips the stop rather than reaping the task.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-tasks/handler.py#L135-L166",
+          "version": "repo-lines-v1:sha256:099aab3e975d232dc247eb2b24733b20ce55c33553841c6b7040a87cf1734661:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJiNTEzMWE1NDhlNDNlYzRmYWFiYzU5MDgxYTIzMWE1YzQ2MzJkZDA0MTA1YjYxMThmNDE1MDNhODM1MmYzOWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ1NTIzNmE1ZjVmNjVkZjlhMTVjNTRkYjY2YjZjODk5ZjMwYzMxNjE4MjI2ZmM3ZjhlOTNjNzQzNWU0MDQ5NWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIwZGJiYjVlNDc3MmQ1YzE2ZDZiNjU5NjcwYjM3NDFmOGU3YjdmYTZjYjMxOGQ0YTc4MTg0YWUyNDU5MjYyMTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwYTc4MjRlODk2ODYwNjY1ODJkMDY1MTBmNjZjODNkYjkxM2FjMWY2MjdkMDVlYjM4ODhjYmNkYjA4MDVkNTEifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/handler.py#L246-L361",
+          "version": "repo-lines-v1:sha256:fd489bf43f5b3fc9956cb74c1ee36c694ed239c4a464ec887033015469925528:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwNDI5ZWVkODgwZDhiNzExYTUyMzI1NjEyYWI4NTQ4YmFjYjgwNWM0ZGZjZmUxN2ZmOTAyMWNjODgyZTAzNDQzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3YWRjOTFhMGViNjVhMWRmMmU0ZmY4Y2QyNTI4ZmI0MTgyMTZiMzc2ZjE1NDY3MzQ5ZjFkOTBkNmJiYWNkY2NlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhNGRjMjNmNTk5MzEyY2ZlOGFjY2ZkNmUzZmZjYzIwZjI3OTY2OWY2ODU4MWJiMDkyYWY5ODlhNWFlZGZkYWJkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_d2cb4a637b244cf39bd82acc5e7d473b",
+      "statement": "The reaper Lambda's result/summary reports checked, stopped, skipped, protected, and errors counts, reflecting that expired tasks can now be protected from reaping rather than unconditionally stopped.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-tasks/handler.py#L195-L206",
+          "version": "repo-lines-v1:sha256:fa7d182604dc137bc4df97d1f3c2edd08aa1ee795692f96b0232eaa72bac5e9b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZDhiZGQ4ZWM4NDdiYzE4ZTJlY2QxOTkzMDBiMTAzYTAwMzM3MWJkMDRlMTVlMWYxMjg0MjViODIzMzc0NjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRkNTA1OGExZmI4OGYyMzRhZjg0NGU1YmRiYzU0ZWQ0NzRmNDExMjAxM2EwYWU0ODg5NjJhYWM0NDk5NjQ5ZTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdjNzE3MmZhZTYyOGRmYjI2ZmZmOGM5NjkzN2MzNDI4ZmYxZWY4YzI1ZTEwZjM0MzliNWIwZmFhMzFjMTNkM2EifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/handler.py#L59-L68",
+          "version": "repo-lines-v1:sha256:0ef1fba311576b26a725a930b7a4f122e69900db37db660b2c7d6e6e3d4178fc:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBlMzkwMzlmYTg0YWFiNWQ2ZDkyODM2ZDFlMGM2MDM4YjNmMDg2NWUyZDViNjcyZDJhOTc3MjYzNzExYTdhNjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUzYjBhNjU0YTY2MmFmYTRhMjY1NGQyMjM2YTA2OTc2YWI5ODhlYjRmMDg2ODNhZDdiNzQ5MjExY2M3MmM5NWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNiOWE2NTU3ZmU1NmQxOTY1YzI1YjI0ZjhkYTJiMWE0YjFmNjY3MzRmOTcwZWMwOTllNTUyZTA1NTBjMTM0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_009f73163044483d92ecca112960f7bc",
+      "statement": "The reaper Lambda's unit tests mock handler.ecs and handler.ssm via patch and use an _exec_task fixture helper (enableExecuteCommand, containers with lastStatus/runtimeId) to cover session-protection scenarios: active-session protection, no-session stopping, no lookup on a future deadline, fail-closed SSM API errors isolated per task, multi-container protection, missing-runtimeId and missing/non-boolean enableExecuteCommand fail-closed cases, and an Active session detected on a later DescribeSessions page, alongside existing deadline-parsing, pagination, and stop-error coverage.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L336-L545",
+          "version": "repo-lines-v1:sha256:2496bf082e2bae272a2147048709fbe34bb265286deb6ac2b80a043d8163946b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhMjUyMjc1ZGUyMzhhNDI4OTRjMDkzODc3OGM3NjlmYjlhMTRhZTQ5MDI3NzQ4NzEzZWVhODYyYTkwMjhkZTQ2IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkNWZmMjZhMWMwOTA0ZTQ4MWRmZDhjZDVhODc4YTgzOWE3M2IzMjE5OWNjZjUzNjg5MmEzMjA2OTI1MWMxMWYzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxZDFkOThjMjM4NDhkZTE0NTNjZDIxMDYwNTI3MjY2MDJmN2M1MzYwNDZmOTA2NTM5ZGU0OGQ5NTYxMWUwNjBhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3NjBlMGQwNDgyYmY5ZTRmY2U0M2I2NjE5MmJkNGI0ZmVlNzhlNTI2ZjNlODhlOWU3MDhiMzVkMDFiY2M5NTBlIn0"
+        },
+        {
+          "resource": "repo://lambda/reap-tasks/test_handler.py#L39-L57",
+          "version": "repo-lines-v1:sha256:4fc1d04a8529248e748b6b7e2eb545060f7b6d0ec5ae937b95e351c89ff661ff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxYWJjZDBjYzY5MTNkNGY1MWViMjFlNGY1YWZjMmU5MGY4NmQzNmE0NTBiYjQyY2IwNWM2ZjNlMGQ3MDZmOGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU5MDQ4ZjAzNzI4MThlM2Q3NWU3NGYyZjI0MTlkNGI2YmZkMzY4N2U0OGVkODlmYmExYzg2YzUyNDEwOGVhNjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI2YzU4Yjc4MTBmMTM4MmRlNjE4MDExZGE5MjAyNDJhN2I3NDJmMGUxMmNhMTRlYTIyMzE5MzI1YzcxM2ZlMzgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4dc88d15c05f4f37ba9a784e7ae223c4",
+      "statement": "The reap-tasks Lambda's IAM role grants ssm:DescribeSessions with Resource = \"*\" (DescribeSessions cannot be scoped to a resource ARN), in addition to its existing cluster-scoped ecs:ListTasks, task-scoped ecs:DescribeTasks, and deadline-tag-conditioned ecs:StopTask grants, to support active ECS Exec session checks before reaping.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/iam.tf#L262-L294",
+          "version": "repo-lines-v1:sha256:47df4696bc6119a66d314aa79d49b9bcc8da5723439eb6a2c1e9d5d3d09923eb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3OTgxMjAzZWQxYzY5NGMxMGNhMWMwMDgxM2RlMmQwZjljMDAwNGMwZTdhYjAxNzE1Nzg5NWQxZGM3MDA2Y2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBkYzdkZGJhMDZjYWYwYjdhNjgzMTk3ZjI5YmZjNjlhOGU4NGVjNTUzNzk2OGQyYzg0ZDk4NjBiNDZlYTRjNTQifQ"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-10-05T19:18:44.075Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-10-09T17:04:25.482Z"
   }
 }

@@ -8,40 +8,17 @@ resource "aws_cloudwatch_log_group" "reap_investigations_lambda" {
   tags = local.common_tags
 }
 
-# IAM role for Lambda execution
-resource "aws_iam_role" "reap_investigations_lambda" {
-  name = "${var.project}-${var.stage}-reap-investigations-lambda"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
-
-  tags = local.common_tags
-}
-
-# Lambda basic execution permissions (CloudWatch Logs)
-resource "aws_iam_role_policy_attachment" "reap_investigations_lambda_basic" {
-  role       = aws_iam_role.reap_investigations_lambda.name
-  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
 # Lambda VPC execution permissions (required for VPC-attached Lambda)
+# Regional concern: VPC deployment requires regional managed policy attachment
 resource "aws_iam_role_policy_attachment" "reap_investigations_lambda_vpc" {
-  role       = aws_iam_role.reap_investigations_lambda.name
+  role       = data.aws_iam_role.reap_investigations_lambda.name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 # Lambda permissions for ECS operations
 resource "aws_iam_role_policy" "reap_investigations_lambda_ecs" {
-  name = "ecs-investigation-reaping"
-  role = aws_iam_role.reap_investigations_lambda.id
+  name = "ecs-investigation-reaping${local.regional_policy_suffix}"
+  role = data.aws_iam_role.reap_investigations_lambda.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -75,8 +52,8 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_ecs" {
 
 # Lambda permissions for EFS operations
 resource "aws_iam_role_policy" "reap_investigations_lambda_efs" {
-  name = "efs-investigation-cleanup"
-  role = aws_iam_role.reap_investigations_lambda.id
+  name = "efs-investigation-cleanup${local.regional_policy_suffix}"
+  role = data.aws_iam_role.reap_investigations_lambda.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -118,8 +95,8 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_efs" {
 
 # Lambda permissions for S3 audit backup
 resource "aws_iam_role_policy" "reap_investigations_lambda_s3" {
-  name = "s3-audit-backup"
-  role = aws_iam_role.reap_investigations_lambda.id
+  name = "s3-audit-backup${local.regional_policy_suffix}"
+  role = data.aws_iam_role.reap_investigations_lambda.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -204,7 +181,7 @@ data "archive_file" "reap_investigations_lambda" {
 resource "aws_lambda_function" "reap_investigations" {
   filename         = data.archive_file.reap_investigations_lambda.output_path
   function_name    = "${var.project}-${var.stage}-reap-investigations"
-  role             = aws_iam_role.reap_investigations_lambda.arn
+  role             = data.aws_iam_role.reap_investigations_lambda.arn
   handler          = "handler.lambda_handler"
   source_code_hash = data.archive_file.reap_investigations_lambda.output_base64sha256
   runtime          = "python3.11"
@@ -235,7 +212,6 @@ resource "aws_lambda_function" "reap_investigations" {
 
   depends_on = [
     aws_cloudwatch_log_group.reap_investigations_lambda,
-    aws_iam_role_policy_attachment.reap_investigations_lambda_basic,
     aws_iam_role_policy_attachment.reap_investigations_lambda_vpc,
     aws_efs_mount_target.sre_home # Ensure mount targets exist before Lambda tries to mount
   ]

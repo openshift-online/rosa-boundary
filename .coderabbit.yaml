@@ -18,6 +18,7 @@ reviews:
       - deps
       - "Do Not Merge"
   path_filters:
+    - "!openwiki/**"
     - "!**/*.md"
     - "!**/*.txt"
     - "!**/go.sum"

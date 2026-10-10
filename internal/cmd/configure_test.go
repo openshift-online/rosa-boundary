@@ -306,17 +306,32 @@ func TestContractDeriveLambdaFunctionName_MatchesTerraform(t *testing.T) {
 
 // Contract: TestContractDeriveInvokerRoleARN_MatchesTerraform verifies that
 // the role name suffix produced by the Go derivation function matches the
-// Terraform resource naming in deploy/regional/lambda-invoker.tf.
+// Terraform resource naming in deploy/account/modules/shared-iam/lambda-invoker.tf.
 //
 // The ARN prefix (arn:aws:iam::<account>:role/) is added by the Go function
 // but not present in Terraform's name attribute, so we compare only the role
 // name portion.
 //
-// NOTE: This test reads Terraform files from deploy/regional/. Moving or
-// renaming those files will break this test.
+// NOTE: This test reads Terraform files from deploy/account/modules/shared-iam/.
+// Moving or renaming those files will break this test.
 func TestContractDeriveInvokerRoleARN_MatchesTerraform(t *testing.T) {
-	content := readTerraformFile(t, "lambda-invoker.tf")
-	pattern := extractTerraformPattern(t, content, "name")
+	path := filepath.Join(repoRoot(t), "deploy", "account", "modules", "shared-iam", "lambda-invoker.tf")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("cannot read %s: %v", path, err)
+	}
+	content := string(data)
+
+	// Account-layer uses ${var.role_name_prefix} which defaults to ${var.project}-${var.stage}
+	// Extract the name pattern and expand role_name_prefix
+	re := regexp.MustCompile(`(?m)^\s*name\s*=\s*"(\$\{var\.role_name_prefix\}[^"]*)"`)
+	matches := re.FindStringSubmatch(content)
+	if matches == nil {
+		t.Fatalf("cannot find name = \"${var.role_name_prefix}...\" pattern in Terraform content")
+	}
+	pattern := matches[1]
+	// Expand ${var.role_name_prefix} to ${var.project}-${var.stage}
+	pattern = strings.ReplaceAll(pattern, "${var.role_name_prefix}", "${var.project}-${var.stage}")
 
 	for _, tt := range []struct {
 		accountID   string

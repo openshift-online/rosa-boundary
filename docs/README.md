@@ -14,6 +14,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**System Overview**](architecture/overview.md) - High-level architecture with diagrams
 - [**CLI Authentication**](architecture/cli-authentication.md) - How the CLI authenticates: OIDC-bootstrapped vs ambient AWS credentials
 - [**Investigations and Tasks**](architecture/investigations-and-tasks.md) - Conceptual model, lifecycle, state recording, and FAQ
+- [**Auditing and Logging**](auditing-and-logging.md) - Audit sources, retention, limitations, and retrieval (including Bedrock invocations)
 
 ## Configuration Guides
 

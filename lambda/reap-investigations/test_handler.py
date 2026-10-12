@@ -192,7 +192,9 @@ class TestReaperLambda(unittest.TestCase):
         # Mock task definition list (no task definitions)
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
-        result = handler.lambda_handler({}, None)
+        # Backup is required before deleting a directory; test reaping independently.
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
 
         assert result['checked'] == 1
         assert result['reaped'] == 1
@@ -241,7 +243,8 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_efs.delete_access_point.return_value = {}
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
-        result = handler.lambda_handler({}, None)
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
 
         assert result['checked'] == 3
         assert result['reaped'] == 3
@@ -528,7 +531,8 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_efs.delete_access_point.return_value = {}
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
-        result = handler.lambda_handler({}, None)
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
 
         assert result['checked'] == 100
         assert result['reaped'] == 100
@@ -578,7 +582,8 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_os_path.ismount.return_value = True
         self.mock_os_path.exists.return_value = True
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-large', self.mock_context)
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.delete_investigation_directory('test-cluster', 'inv-large', self.mock_context)
 
         assert result is True
 
@@ -642,6 +647,22 @@ class TestReaperLambda(unittest.TestCase):
 
         assert count == 3
         assert self.mock_ecs.deregister_task_definition.call_count == 3
+
+    def test_task_definition_deregistration_ignores_neighboring_families(self):
+        """Only the exact investigation's timestamped ECS family is deregistered."""
+        target = 'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:1'
+        other_arns = [
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-1234-20261005T120000:1',
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000-extra:1',
+            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000',
+            'arn:aws:ecs:us-east-1:123:service/rosa-boundary-test-cluster-inv-123-20261005T120000:1',
+        ]
+
+        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
+            count = handler.delete_task_definitions('test-cluster', 'inv-123', other_arns + [target])
+
+        assert count == 1
+        self.mock_ecs.deregister_task_definition.assert_called_once_with(taskDefinition=target)
 
     def test_task_definition_deregistration_failure_continues(self):
         """Test that task def deregistration continues on individual failures"""
@@ -790,7 +811,8 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_efs.delete_access_point.return_value = {}
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
-        result = handler.lambda_handler({}, None)
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
 
         # Should successfully reap without timezone comparison errors
         assert result['reaped'] == 1
@@ -822,7 +844,8 @@ class TestReaperLambda(unittest.TestCase):
             'CreationTime': datetime.utcnow(),
             'Tags': [
                 {'Key': 'ClusterID', 'Value': '../../../etc'},  # Path traversal attempt
-                {'Key': 'InvestigationID', 'Value': 'inv-123'}
+                {'Key': 'InvestigationID', 'Value': 'inv-123'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
             ]
         }
 
@@ -846,7 +869,8 @@ class TestReaperLambda(unittest.TestCase):
             'CreationTime': datetime.utcnow(),
             'Tags': [
                 {'Key': 'ClusterID', 'Value': 'valid-cluster'},
-                {'Key': 'InvestigationID', 'Value': '../../secrets'}  # Path traversal attempt
+                {'Key': 'InvestigationID', 'Value': '../../secrets'},  # Path traversal attempt
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
             ]
         }
 

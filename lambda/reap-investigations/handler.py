@@ -763,12 +763,14 @@ def delete_task_definitions(cluster_id: str, investigation_id: str, all_task_def
         matching_arns = []
         for arn in all_task_def_arns:
             # Extract task definition name from ARN
-            if '/task-definition/' not in arn:
+            if ':task-definition/' not in arn:
                 continue
 
-            task_def_name = arn.split('/task-definition/')[-1]
-            # Remove revision suffix (:N)
-            family_with_timestamp = task_def_name.rsplit(':', 1)[0]
+            task_def_name = arn.split(':task-definition/', 1)[1]
+            # Reject malformed ARNs before matching an investigation's family.
+            family_with_timestamp, separator, revision = task_def_name.rpartition(':')
+            if not separator or not revision.isdigit():
+                continue
 
             # Expected format: {family_prefix}-{timestamp}
             # Check if it starts with family_prefix followed by '-' and timestamp
@@ -777,7 +779,7 @@ def delete_task_definitions(cluster_id: str, investigation_id: str, all_task_def
 
             # Verify timestamp format follows immediately (YYYYMMDDTHHMMSS pattern)
             suffix = family_with_timestamp[len(family_prefix) + 1:]  # +1 for the '-'
-            if len(suffix) >= 15 and suffix[0:8].isdigit() and suffix[8] == 'T' and suffix[9:15].isdigit():
+            if re.fullmatch(r'\d{8}T\d{6}', suffix):
                 matching_arns.append(arn)
 
         logger.info("Found %d task definition(s) matching prefix %s",

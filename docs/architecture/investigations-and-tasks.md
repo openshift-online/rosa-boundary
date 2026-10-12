@@ -142,23 +142,27 @@ An SRE can cycle through as many start/stop iterations as needed, but the previo
 
 Note: deleting the access point removes the entry point, but the underlying EFS files at `/{cluster_id}/{investigation_id}/` are preserved on the filesystem. The S3 audit bucket retains per-task snapshots subject to the bucket's retention policy.
 
+If an investigation is left open, the separate [investigation reaper](../../lambda/reap-investigations/handler.py) periodically cleans up eligible stale investigations. Unlike a manual close, it attempts to remove the EFS directory as well as the access point and task definitions.
+
 ### Timeout Enforcement
 
 The reaper Lambda runs on an EventBridge schedule (default: every 15 minutes). It lists all running tasks in the cluster, checks each task's `deadline` tag, and stops any task where the current time exceeds the deadline. Tasks without a `deadline` tag are skipped.
 
 The reaper only stops **tasks** — it does not close investigations or clean up EFS access points.
 
+### Stale Investigation Cleanup
+
+The investigation reaper runs on a separate EventBridge schedule (default: every 8 hours). It checks managed EFS access points for running tasks and a `CreatedAt` tag; an investigation without running tasks becomes eligible once its configured grace period (default: 168 hours) has elapsed. Missing creation time does not bypass the grace period. Before cleanup it checks task activity again, then attempts to delete the EFS directory, access point, and associated task definitions. Failures are logged; remaining tagged access points can be retried on a later run. See the [Lambda implementation](../../lambda/reap-investigations/handler.py) and [regional Terraform](../../deploy/regional/lambda-reap-investigations.tf) for current behavior and configuration.
+
 ## Known Gaps
 
-**No automatic investigation reaping.** Tasks are automatically reaped by the reaper Lambda, but investigations (EFS access points) persist until manually closed. AWS allows a maximum of 10,000 access points per filesystem, creating a hard upper limit on open investigations.
-
-**No EFS directory cleanup.** `close-investigation` deletes the access point but not the underlying files. The EFS directory data at `/{cluster_id}/{investigation_id}/` accumulates indefinitely.
+**Manual close does not clean EFS directories.** `close-investigation` deletes the access point but not the underlying files. The investigation reaper attempts directory cleanup for stale managed investigations; manual close removes the tagged access point the reaper uses for discovery, so those directories can remain.
 
 **No guaranteed final sync.** The S3 audit sync happens on task exit, not on investigation close. If a task was force-killed or the sync timed out, the latest EFS state may not be in S3 before the access point is deleted.
 
 **TOCTOU race in duplicate detection.** The one-task-per-investigation constraint relies on `ecs.list_tasks(desiredStatus='RUNNING')`. If two requests arrive simultaneously before either task reaches `RUNNING` state, both can pass the duplicate check. There is no distributed lock; the `startedBy` check is best-effort. In this unlikely case, both tasks would mount the same EFS directory with the same POSIX UID, and concurrent writes could conflict.
 
-A garbage collection strategy will need to address automatic reaping of stale access points, orphaned task definitions, a final S3 sync before cleanup, and removal of EFS directory contents after successful sync.
+The investigation reaper does not guarantee a final S3 sync before deleting a stale investigation. Verify task audit evidence before manual close or relying on automatic cleanup.
 
 ---
 

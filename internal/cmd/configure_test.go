@@ -206,13 +206,10 @@ func TestDeriveLambdaFunctionName(t *testing.T) {
 // ---------------------------------------------------------------------------
 // Contract test helpers
 //
-// The helpers below locate and parse Terraform .tf files to extract resource
-// naming patterns. They assume the Terraform files live at
-// deploy/regional/ relative to the repository root.
-//
-// If the Terraform files are moved or reorganised, these helpers (and the
-// contract tests that use them) will need to be updated to reflect the new
-// paths. A test failure pointing at readTerraformFile is a likely indicator.
+// These helpers locate and parse Terraform .tf files to extract resource
+// naming patterns. Related resources can live in different modules, so each
+// contract test passes the repository-root-relative path of the file it
+// validates. A failure in readTerraformFile usually means a .tf file moved.
 // ---------------------------------------------------------------------------
 
 // repoRoot returns the repository root by walking up from the test file's
@@ -236,11 +233,11 @@ func repoRoot(t *testing.T) string {
 	}
 }
 
-// readTerraformFile reads a Terraform file relative to deploy/regional/.
-// If the Terraform directory is relocated, update the path here.
-func readTerraformFile(t *testing.T, name string) string {
+// readTerraformFile reads a Terraform file whose path segments are given
+// relative to the repository root (e.g. "deploy", "regional", "foo.tf").
+func readTerraformFile(t *testing.T, relPath ...string) string {
 	t.Helper()
-	path := filepath.Join(repoRoot(t), "deploy", "regional", name)
+	path := filepath.Join(append([]string{repoRoot(t)}, relPath...)...)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("cannot read %s: %v", path, err)
@@ -248,19 +245,16 @@ func readTerraformFile(t *testing.T, name string) string {
 	return string(data)
 }
 
-// extractTerraformPattern finds a line like:
-//
-//	function_name = "${var.project}-${var.stage}-create-investigation"
-//
-// and returns the interpolation expression (e.g. "${var.project}-${var.stage}-create-investigation").
-// The attribute parameter matches the HCL attribute name (e.g. "function_name" or "name").
+// extractTerraformPattern returns the quoted value of the given HCL attribute
+// (e.g. "function_name" or "name"), which must begin with a ${var.<name>}
+// interpolation such as "${var.role_name_prefix}-lambda-invoker".
 func extractTerraformPattern(t *testing.T, content, attribute string) string {
 	t.Helper()
-	// Match:  attribute  =  "...${var.project}...${var.stage}..."
-	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(attribute) + `\s*=\s*"(\$\{var\.project\}[^"]*)"`)
+	// Match:  attribute  =  "${var.<name>}..."
+	re := regexp.MustCompile(`(?m)^\s*` + regexp.QuoteMeta(attribute) + `\s*=\s*"(\$\{var\.[A-Za-z_][A-Za-z0-9_]*\}[^"]*)"`)
 	matches := re.FindStringSubmatch(content)
 	if matches == nil {
-		t.Fatalf("cannot find %s = \"${var.project}...\" pattern in Terraform content", attribute)
+		t.Fatalf("cannot find %s = \"${var....}...\" pattern in Terraform content", attribute)
 	}
 	return matches[1]
 }
@@ -281,10 +275,10 @@ func expandTerraformVars(pattern, project, environment string) string {
 // If the Terraform naming convention changes, this test will fail — alerting
 // developers that the CLI must be updated to match (or vice versa).
 //
-// NOTE: This test reads Terraform files from deploy/regional/. Moving or
-// renaming those files will break this test.
+// NOTE: This test reads Terraform from deploy/regional/. Moving or renaming
+// that file will break this test.
 func TestContractDeriveLambdaFunctionName_MatchesTerraform(t *testing.T) {
-	content := readTerraformFile(t, "lambda-create-investigation.tf")
+	content := readTerraformFile(t, "deploy", "regional", "lambda-create-investigation.tf")
 	pattern := extractTerraformPattern(t, content, "function_name")
 
 	for _, tt := range []struct {
@@ -304,19 +298,39 @@ func TestContractDeriveLambdaFunctionName_MatchesTerraform(t *testing.T) {
 	}
 }
 
+// roleNamePrefixDefault returns the fallback prefix the account root module
+// uses when var.role_name_prefix is unset. Resolving it from Terraform rather
+// than hardcoding project-stage keeps the contract honest if that default ever
+// changes.
+func roleNamePrefixDefault(t *testing.T) string {
+	t.Helper()
+	content := readTerraformFile(t, "deploy", "account", "main.tf")
+	// Match: role_name_prefix = var.role_name_prefix != "" ? var.role_name_prefix : "<default>"
+	re := regexp.MustCompile(`role_name_prefix\s*=\s*var\.role_name_prefix\s*!=\s*""\s*\?\s*var\.role_name_prefix\s*:\s*"([^"]*)"`)
+	matches := re.FindStringSubmatch(content)
+	if matches == nil {
+		t.Fatal("cannot find role_name_prefix default resolution in deploy/account/main.tf")
+	}
+	return matches[1]
+}
+
 // Contract: TestContractDeriveInvokerRoleARN_MatchesTerraform verifies that
-// the role name suffix produced by the Go derivation function matches the
-// Terraform resource naming in deploy/regional/lambda-invoker.tf.
+// DeriveInvokerRoleARN produces the same role name as the Terraform invoker
+// role. Terraform builds the name from var.role_name_prefix, so the test
+// resolves that prefix to its default to compare against the real naming
+// convention. Only the role-name portion is checked: the ARN prefix
+// (arn:aws:iam::<account>:role/) is added by the Go function, not Terraform.
 //
-// The ARN prefix (arn:aws:iam::<account>:role/) is added by the Go function
-// but not present in Terraform's name attribute, so we compare only the role
-// name portion.
-//
-// NOTE: This test reads Terraform files from deploy/regional/. Moving or
-// renaming those files will break this test.
+// Limitation: the CLI has no input for a custom prefix, so it assumes the
+// default. A custom var.role_name_prefix would make DeriveInvokerRoleARN
+// disagree with the deployed role.
 func TestContractDeriveInvokerRoleARN_MatchesTerraform(t *testing.T) {
-	content := readTerraformFile(t, "lambda-invoker.tf")
+	content := readTerraformFile(t, "deploy", "account", "modules", "shared-iam", "lambda-invoker.tf")
 	pattern := extractTerraformPattern(t, content, "name")
+
+	// Resolve ${var.role_name_prefix} to its default so the effective pattern is
+	// expressed in terms of ${var.project}/${var.stage}, which the CLI derives.
+	effectivePattern := strings.ReplaceAll(pattern, "${var.role_name_prefix}", roleNamePrefixDefault(t))
 
 	for _, tt := range []struct {
 		accountID   string
@@ -327,13 +341,13 @@ func TestContractDeriveInvokerRoleARN_MatchesTerraform(t *testing.T) {
 		{"933409759055", "rosa-boundary", "prod"},
 		{"111222333444", "custom-project", "staging"},
 	} {
-		expectedRoleName := expandTerraformVars(pattern, tt.project, tt.environment)
+		expectedRoleName := expandTerraformVars(effectivePattern, tt.project, tt.environment)
 		expectedARN := "arn:aws:iam::" + tt.accountID + ":role/" + expectedRoleName
 
 		got := DeriveInvokerRoleARN(tt.accountID, tt.project, tt.environment)
 		if got != expectedARN {
 			t.Errorf("DeriveInvokerRoleARN(%q, %q, %q) = %q, want %q (from Terraform pattern %q)",
-				tt.accountID, tt.project, tt.environment, got, expectedARN, pattern)
+				tt.accountID, tt.project, tt.environment, got, expectedARN, effectivePattern)
 		}
 	}
 }

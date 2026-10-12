@@ -7,7 +7,7 @@ description: Audits rosa-boundary documentation against actual code, Terraform, 
 
 Compare every factual claim in the project's documentation against the actual source code and configuration. Produce a structured report of findings.
 
-The repository layout is documented in `AGENTS.md` (under "Repository Layout") and `README.md`. Use those as orientation, but verify them against the filesystem.
+Use `README.md` and `docs/README.md` for orientation, but verify their claims against the filesystem.
 
 ## Severity Tiers
 
@@ -68,7 +68,7 @@ Check `internal/auth/`, `deploy/keycloak/`, OIDC-related Terraform, Lambda OIDC 
 
 ### Phase 7: Repository Layout
 
-List the actual directory tree and compare against documented layout trees in `AGENTS.md` and `README.md`. Verify that `docs/README.md` index links point to files that exist. Note directories on disk that aren't in documented trees.
+List the actual directory tree and compare it against any layout claims in the repository documentation. Verify that `docs/README.md` index links point to files that exist. Note documented paths that no longer exist and important directories missing from documentation.
 
 ## Output
 

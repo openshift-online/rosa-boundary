@@ -192,11 +192,11 @@ Ctrl-B P  # Previous window
 ### List your investigations
 
 ```bash
-./bin/rosa-boundary list-tasks --ecs-cluster rosa-boundary-dev
+./bin/rosa-boundary list-tasks --ecs-cluster <ecs-cluster>
 
 # Or via AWS CLI for tag details
 aws ecs describe-tasks \
-  --cluster rosa-boundary-dev \
+  --cluster <ecs-cluster> \
   --tasks <task-arn> \
   --query 'tasks[0].{taskArn:taskArn,lastStatus:lastStatus,tags:tags}'
 ```

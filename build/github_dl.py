@@ -415,9 +415,10 @@ def main():
 
     if token is None:
         if os.environ.get("REQUIRE_GITHUB_TOKEN", "false").lower() == "true":
-            print("Error: No GitHub credentials found. Checked GITHUB_APP_ID/PEM/INSTALL_ID, "
-                  "/run/secrets/GITHUB_TOKEN, /run/secrets/read-only-github-pat/token, "
-                  "/additional-secret/token, and GITHUB_TOKEN env var.", file=sys.stderr)
+            print("Error: No GitHub credentials found. Checked GitHub App secrets "
+                  "(/run/secrets/rosa-boundary-github-app/*), /run/secrets/GITHUB_TOKEN, "
+                  "and GITHUB_TOKEN env var. Export GITHUB_TOKEN in the shell running make; "
+                  "gh login alone does not supply a build secret.", file=sys.stderr)
             sys.exit(1)
         else:
             print("WARNING: No GitHub credentials found. API calls may be rate-limited.", file=sys.stderr)
@@ -427,9 +428,10 @@ def main():
 
     if args.command == "token":
         if token is None:
-            print("Error: No GitHub credentials found. Checked GITHUB_APP_ID/PEM/INSTALL_ID, "
-                  "/run/secrets/GITHUB_TOKEN, /run/secrets/read-only-github-pat/token, "
-                  "/additional-secret/token, and GITHUB_TOKEN env var.", file=sys.stderr)
+            print("Error: No GitHub credentials found. Checked GitHub App secrets "
+                  "(/run/secrets/rosa-boundary-github-app/*), /run/secrets/GITHUB_TOKEN, "
+                  "and GITHUB_TOKEN env var. Export GITHUB_TOKEN in the shell running make; "
+                  "gh login alone does not supply a build secret.", file=sys.stderr)
             sys.exit(1)
         if not validate_token(token):
             sys.exit(1)

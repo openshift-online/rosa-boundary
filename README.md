@@ -224,6 +224,24 @@ Environment variable examples: `ROSA_BOUNDARY_KEYCLOAK_URL`, `ROSA_BOUNDARY_LAMB
 
 ### Container
 
+Export a GitHub token in the shell running `make` (logging in with `gh` or
+setting `GH_TOKEN` alone does not pass it to the image build). The root Makefile
+does not source `.env`. It passes `GITHUB_TOKEN` as a Podman build secret, not a
+build argument. For example, with an authenticated GitHub CLI:
+
+```bash
+export GITHUB_TOKEN="$(gh auth token)"
+make REQUIRE_GITHUB_TOKEN=true build-amd64
+unset GITHUB_TOKEN
+```
+
+If `gh` has multiple accounts configured, select the intended account with
+`gh auth token --user <username>`.
+
+Alternatively, export all three `GITHUB_APP_ID`, `GITHUB_APP_PEM`, and
+`GITHUB_APP_INSTALL_ID` for GitHub App authentication. Do not put tokens on the
+`make` command line or in a committed file.
+
 ```bash
 # Build both architectures and create manifest
 make all

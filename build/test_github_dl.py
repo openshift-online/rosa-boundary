@@ -11,12 +11,26 @@ Tests the authentication priority logic:
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import jwt
 import requests
 
 import github_dl
+
+
+class TestBuildSecretMounts(unittest.TestCase):
+    """Keep local build secret IDs aligned with the Containerfile mounts."""
+
+    def test_github_app_mount_ids_match_makefile(self):
+        root = Path(__file__).resolve().parent.parent
+        makefile = (root / "Makefile").read_text()
+        containerfile = (root / "Containerfile").read_text()
+        for name in github_dl.GITHUB_APP_VARS:
+            secret_id = f"rosa-boundary-github-app/{name}"
+            assert makefile.count(f"--secret id={secret_id},env={name}") == 2
+            assert f"--mount=type=secret,id={secret_id}" in containerfile
 
 
 class TestResolveSecret(unittest.TestCase):

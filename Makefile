@@ -33,9 +33,9 @@ build-amd64:
 
 	podman build --platform linux/amd64 --build-arg REQUIRE_GITHUB_TOKEN=$(REQUIRE_GITHUB_TOKEN) \
 		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
-		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=GITHUB_APP_ID,env=GITHUB_APP_ID") \
-		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
-		$$([ -n "$$GITHUB_APP_INSTALL_ID" ] && echo "--secret id=GITHUB_APP_INSTALL_ID,env=GITHUB_APP_INSTALL_ID") \
+		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_ID,env=GITHUB_APP_ID") \
+		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
+		$$([ -n "$$GITHUB_APP_INSTALL_ID" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID,env=GITHUB_APP_INSTALL_ID") \
 		$(CACHE) -t $(AMD64_IMAGE) -f Containerfile .
 
 # Build ARM64 variant
@@ -44,9 +44,9 @@ build-arm64:
 
 	podman build --platform linux/arm64 --build-arg REQUIRE_GITHUB_TOKEN=$(REQUIRE_GITHUB_TOKEN) \
 		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
-		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=GITHUB_APP_ID,env=GITHUB_APP_ID") \
-		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
-		$$([ -n "$$GITHUB_APP_INSTALL_ID" ] && echo "--secret id=GITHUB_APP_INSTALL_ID,env=GITHUB_APP_INSTALL_ID") \
+		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_ID,env=GITHUB_APP_ID") \
+		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
+		$$([ -n "$$GITHUB_APP_INSTALL_ID" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID,env=GITHUB_APP_INSTALL_ID") \
 		$(CACHE) -t $(ARM64_IMAGE) -f Containerfile .
 
 # Create manifest list combining both architectures

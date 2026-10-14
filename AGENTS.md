@@ -9,10 +9,15 @@ This is a routing guide, not a snapshot of the implementation. Start with the re
 | Architecture, identity, investigations, audit | [docs index](docs/README.md) | Relevant code in `internal/`, `lambda/`, `deploy/`, and the entrypoint |
 | CLI and user workflows | [CLI authentication](docs/architecture/cli-authentication.md), [runbooks](docs/runbooks/investigation-workflow.md) | CLI implementation and tests in `internal/` |
 | Container and shell | [development standards](docs/development-standards.md) | `Containerfile`, `entrypoint.sh`, `skel/`, `build/`, shell tests |
-| Tests and CI | [testing guide](docs/testing.md), [LocalStack guide](tests/localstack/README.md) | Makefiles, test suites, CI configuration |
+| Tests and CI | [testing guide](docs/testing.md), [LocalStack guide](tests/localstack/README.md); use [change verification skill](.agents/skills/boundary-change-verification/SKILL.md) for diff-scoped checks | Makefiles, test suites, CI configuration |
 | Infrastructure and deployments | [regional README](deploy/regional/README.md), [staging guide](docs/staging-deployment.md) | Terraform roots under `deploy/`, workspace definition under `hcp-terraform/` |
 | Keycloak | [realm setup](docs/configuration/keycloak-realm-setup.md) | `deploy/keycloak/` |
 | Cross-cutting questions needing repository context | [OpenWiki](openwiki/quickstart.md) (on demand; see guidance below) | Current source and tests |
+
+Repository skills live in `.agents/skills/`; `.claude/skills` points to the same directory for Claude Code discovery. Use [docs-drift-review](.agents/skills/docs-drift-review/SKILL.md) to audit documentation and [adversary](.agents/skills/adversary/SKILL.md) for security reviews when relevant.
+
+- Use [boundary-change-verification](.agents/skills/boundary-change-verification/SKILL.md) to select and run diff-scoped **local** checks; it does not deploy or create AWS resources. Hand off required live assertions and provenance gaps rather than claiming mocks or plans prove real behavior.
+- Use [boundary-live-verification](.agents/skills/boundary-live-verification/SKILL.md) for an approved test against a contributor's **personal dev** environment. Verify the exact changeset and deployed artifacts before reuse; obtain explicit approval for AWS changes and investigation creation, then record audit evidence and cleanup. Never use it for staging or production.
 
 ## CLI quickstart context
 

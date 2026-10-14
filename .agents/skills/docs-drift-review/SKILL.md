@@ -40,7 +40,7 @@ Features or components that lack documentation entirely:
 
 ## Review Phases
 
-Discover what exists first, then cross-reference documentation against it. Use the Task tool to run phases concurrently.
+Discover what exists first, then cross-reference documentation against it. Run independent phases concurrently when the available tools permit it.
 
 ### Phase 1: CLI
 

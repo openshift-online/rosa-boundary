@@ -5,6 +5,8 @@ approvers:
 - theautoroboto  # Brian Smith
 - clcollins      # Chris Collins
 - xiaoyu74       # Shawn Bai
+- bergmannf      # Florian Bergmann
+- RaphaelBut     # Raphael But
 reviewers:
 - tiwillia       # Tim Williams
 - jhjaggars      # Jesse Jaggars
@@ -12,3 +14,5 @@ reviewers:
 - theautoroboto  # Brian Smith
 - clcollins      # Chris Collins
 - xiaoyu74       # Shawn Bai
+- bergmannf      # Florian Bergmann
+- RaphaelBut     # Raphael But

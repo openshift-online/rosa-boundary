@@ -56,6 +56,7 @@ deps: clean ## Install Lambda dependencies using container runtime (Linux-compat
 		--platform linux/amd64 \
 		--entrypoint "" \
 		-v "$(FUNCTION_DIR)":/var/task:Z \
+		--security-opt label=disable \
 		$(LAMBDA_RUNTIME) \
 		pip install -t /var/task -r /var/task/requirements-lock.txt --no-cache-dir
 	rm -f "$(FUNCTION_DIR)/requirements-lock.txt"

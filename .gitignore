@@ -73,6 +73,8 @@ adversary-findings.sarif
 *.tmp
 *.backup
 .DS_Store
+.spec/
+.playwright-mcp/
 
 # Editor
 .vscode/

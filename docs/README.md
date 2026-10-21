@@ -31,6 +31,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 
 - [**User Access Guide**](runbooks/user-access-guide.md) - Step-by-step guide for end users
 - [**Investigation Workflow**](runbooks/investigation-workflow.md) - Creating and managing investigations
+- [**Audit Log Access**](runbooks/audit-log-access.md) - Retrieve investigation audit logs from S3 without admin access
 - [**Personal Dev Bootstrap**](runbooks/personal-dev-bootstrap.md) - Deploy and validate a contributor-owned dev environment
 - [**Troubleshooting**](runbooks/troubleshooting.md) - Common issues and solutions
 

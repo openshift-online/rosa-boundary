@@ -238,9 +238,15 @@ log for warnings and verify the object in S3 before treating audit escrow as com
 
 Use an **operator/audit-reader AWS identity** with CloudWatch Logs and S3 read
 permissions in the correct account and region. The Boundary SRE role and the task
-role do not provide general audit-read access. Obtain the deployed log group
-names and audit bucket from the operator (or regional Terraform outputs); do not
-guess them from a CLI task ID. In the following examples, supply the actual values:
+role do not provide general audit-read access.
+
+**For detailed audit log retrieval instructions**, including how to add yourself to
+the audit reader role and retrieve S3 artifacts, see the
+[**Audit Log Access**](audit-log-access.md) runbook.
+
+If you already have audit reader access, obtain the deployed log group names and
+audit bucket from the operator (or regional Terraform outputs); do not guess them
+from a CLI task ID. In the following examples, supply the actual values:
 
 ```bash
 aws logs describe-log-streams \

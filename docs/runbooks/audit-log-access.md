@@ -99,10 +99,11 @@ administrator access patterns and will fail with AccessDenied.
 ### List Investigations for a Cluster
 
 ```bash
-CLUSTER_ID="rosa-prod-01"
+CLUSTER_ID="rosa-stage-01"
 REGION="us-east-1"
-ACCOUNT="514903006123"
-BUCKET="${ACCOUNT}-rosa-boundary-prod-${REGION}"
+ACCOUNT="150100906299"
+ENV="stage"
+BUCKET="${ACCOUNT}-rosa-boundary-${ENV}-${REGION}"
 
 # List all investigations for this cluster
 aws s3 ls "s3://${BUCKET}/${CLUSTER_ID}/" --region "${REGION}"
@@ -148,7 +149,7 @@ s3://{account-id}-rosa-boundary-{env}-{region}/{cluster-id}/{investigation-id}/{
 
 Example:
 ```
-s3://514903006123-rosa-boundary-prod-us-east-1/rosa-prod-01/INC-12345/20261021/14e118838eaa4780968abbb4e4bef749/
+s3://150100906299-rosa-boundary-stage-us-east-1/rosa-stage-01/INC-12345/20261021/14e118838eaa4780968abbb4e4bef749/
 ├── .bash_history
 ├── .profile
 ├── workspace/
@@ -175,15 +176,16 @@ Obtain the exact log group names from the deployment's Terraform outputs or regi
 ## Complete Example Workflow
 
 ```bash
-# 1. Authenticate to production
-rh-aws-saml-login rosa-boundary-prod/514903006123-rosa-boundary-audit-reader
+# 1. Authenticate to stage
+rh-aws-saml-login rosa-boundary-stage/150100906299-rosa-boundary-audit-reader
 
 # 2. Set variables
-export AWS_ACCOUNT="514903006123"
+export AWS_ACCOUNT="150100906299"
+export ENV="stage"
 export REGION="us-east-1"
-export CLUSTER_ID="rosa-prod-01"
+export CLUSTER_ID="rosa-stage-01"
 export INVESTIGATION_ID="INC-12345"
-export BUCKET="${AWS_ACCOUNT}-rosa-boundary-prod-${REGION}"
+export BUCKET="${AWS_ACCOUNT}-rosa-boundary-${ENV}-${REGION}"
 
 # 3. List all artifacts for the investigation
 aws s3 ls "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/" --recursive --region "${REGION}"

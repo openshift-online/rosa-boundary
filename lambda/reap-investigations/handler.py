@@ -258,15 +258,19 @@ def is_investigation_stale(cluster_id: str, investigation_id: str,
     Hybrid approach prevents premature deletion:
     1. Active tasks (RUNNING status) → not stale (regardless of age)
     2. No tasks + age > grace period → stale and safe to delete
+    3. No tasks + missing CreatedAt tag → stale (legacy backfill)
 
     This ensures investigations with long-running debug sessions are never
     reaped while the task is active, while cleaning up abandoned investigations
     after the grace period expires.
 
+    Investigations without a CreatedAt tag were created before PR #300 (2026-10-12)
+    and are treated as stale when idle to enable one-time backfill cleanup.
+
     Args:
         cluster_id: Cluster identifier
         investigation_id: Investigation identifier
-        access_point_created_at: Access point creation timestamp (may be None for LocalStack)
+        access_point_created_at: Access point creation timestamp (None for legacy investigations)
         now: Current UTC timestamp
         running_tasks: Pre-fetched list of all running tasks with their tags
 
@@ -287,18 +291,16 @@ def is_investigation_stale(cluster_id: str, investigation_id: str,
         }
 
     if access_point_created_at is None:
-        if GRACE_PERIOD_HOURS == 0:
-            return {
-                'is_stale': True,
-                'reason': 'no tasks, no creation time, zero grace period',
-                'running_tasks': 0
-            }
-        else:
-            return {
-                'is_stale': False,
-                'reason': f'no tasks but creation time unavailable (need {GRACE_PERIOD_HOURS}h grace period)',
-                'running_tasks': 0
-            }
+        # Legacy backfill: investigations created before CreatedAt tag was added (PR #300, 2026-10-12)
+        # lack this tag. Since all such investigations are necessarily old (>11 days), treat them
+        # as stale when idle. The task check above already prevents deletion of active work.
+        # New investigations always have CreatedAt (verified in create-investigation handler),
+        # so this only affects the one-time backfill of pre-tag investigations.
+        return {
+            'is_stale': True,
+            'reason': 'no tasks, legacy investigation (missing CreatedAt tag)',
+            'running_tasks': 0
+        }
 
     grace_period = timedelta(hours=GRACE_PERIOD_HOURS)
     age = now - access_point_created_at

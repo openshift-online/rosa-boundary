@@ -819,23 +819,23 @@ class TestReaperLambda(unittest.TestCase):
         assert result['errors'] == 0
 
     def test_staleness_with_no_creation_time_zero_grace_period(self):
-        """Test investigations with no CreationTime are reaped if grace period is 0"""
+        """Test legacy investigations (no CreatedAt) are reaped when idle, regardless of grace period"""
         with patch('handler.GRACE_PERIOD_HOURS', 0):
             result = handler.is_investigation_stale(
                 'cluster', 'inv', None, datetime.utcnow(), []
             )
 
             assert result['is_stale'] is True
-            assert 'zero grace period' in result['reason']
+            assert 'legacy investigation (missing CreatedAt tag)' in result['reason']
 
     def test_staleness_with_no_creation_time_nonzero_grace_period(self):
-        """Test investigations with no CreationTime are NOT reaped if grace period > 0"""
+        """Test legacy investigations (no CreatedAt) are reaped when idle, regardless of grace period"""
         result = handler.is_investigation_stale(
             'cluster', 'inv', None, datetime.utcnow(), []
         )
 
-        assert result['is_stale'] is False
-        assert 'creation time unavailable' in result['reason']
+        assert result['is_stale'] is True
+        assert 'legacy investigation (missing CreatedAt tag)' in result['reason']
 
     def test_invalid_cluster_id_increments_errors(self):
         """Test that invalid cluster_id in tags increments error count"""

@@ -419,6 +419,11 @@ module "rosa_boundary" {
                 address    = "aws_lambda_function.create_investigation"
                 expires_at = "2026-08-20T23:59:59Z"
                 reason     = "ZIP Lambda replaced by container image (ROSAENG-64685)"
+              },
+              {
+                address    = "aws_iam_role_policy_attachment.reap_investigations_lambda_vpc"
+                expires_at = "2026-11-06T23:59:59Z"
+                reason     = "State migration to account workspace (removed block with destroy=false, resource preserved)"
               }
             ]
           EOT

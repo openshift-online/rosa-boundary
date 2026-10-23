@@ -2,17 +2,17 @@ module github.com/openshift-online/rosa-boundary
 
 go 1.26.0
 
-toolchain go1.27.2
+toolchain go1.27.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.3
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.9
-	github.com/aws/aws-sdk-go-v2/service/ecs v1.100.3
-	github.com/aws/aws-sdk-go-v2/service/efs v1.49.4
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.112.1
+	github.com/aws/aws-sdk-go-v2/service/ecs v1.102.0
+	github.com/aws/aws-sdk-go-v2/service/efs v1.50.0
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.113.1
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.4
 	github.com/aws/smithy-go v1.28.5
-	github.com/dustinkirkland/golang-petname v0.0.0-20260929120758-6e3915f1a6a8
+	github.com/dustinkirkland/golang-petname v0.0.0-20261016130456-fdd95a3d0543
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0

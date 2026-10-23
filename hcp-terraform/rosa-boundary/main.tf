@@ -210,6 +210,7 @@ module "rosa_boundary" {
           key      = "adopt_existing_resources"
           value    = "true"
           category = "terraform"
+          hcl      = true
         },
         {
           key      = "default_tags"

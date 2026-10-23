@@ -13,7 +13,9 @@ resource "aws_iam_role_policy_attachment" "reap_investigations_lambda_basic" {
 }
 
 # VPC execution permissions (required for VPC-attached Lambda in all regions)
-resource "aws_iam_role_policy_attachment" "reap_investigations_lambda_vpc" {
-  role       = aws_iam_role.reap_investigations_lambda.name
-  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
+# Temporarily commented out to allow removed block to clear identity drift from state.
+# Will be restored after state removal completes.
+# resource "aws_iam_role_policy_attachment" "reap_investigations_lambda_vpc" {
+#   role       = aws_iam_role.reap_investigations_lambda.name
+#   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+# }

@@ -99,9 +99,9 @@ run "legacy_policy_names_ownership_and_original_scopes" {
   assert {
     condition = alltrue([for f in fileset(path.module, "*.tf") :
       length(regexall("resource \\\"aws_iam_role\\\"|resource \\\"aws_iam_openid_connect_provider\\\"|aws_iam_role_policies_exclusive|aws_iam_role_policy_attachments_exclusive", file("${path.module}/${f}"))) == 0 &&
-      length(regexall("resource \\\"aws_iam_role_policy_attachment\\\"", file("${path.module}/${f}"))) == (f == "lambda-reap-investigations.tf" ? 1 : 0)
+      length(regexall("resource \\\"aws_iam_role_policy_attachment\\\"", file("${path.module}/${f}"))) == 0
     ]) && length(regexall("from = aws_iam_role_policy\\.", file("${path.module}/account-handoff.tf"))) == 0
-    error_message = "Regional state owns no identities/common attachments except the reaper's regional VPC attachment."
+    error_message = "Regional state owns no identities or managed policy attachments; all shared IAM resources are in account workspace."
   }
   assert {
     condition = (
@@ -113,8 +113,6 @@ run "legacy_policy_names_ownership_and_original_scopes" {
       aws_iam_role_policy.create_investigation_lambda_ecs.role == data.aws_iam_role.create_investigation_lambda.id &&
       aws_iam_role_policy.reap_tasks_lambda_ecs.role == data.aws_iam_role.reap_tasks_lambda.id &&
       aws_iam_role_policy.reap_investigations_lambda_efs.role == data.aws_iam_role.reap_investigations_lambda.id &&
-      aws_iam_role_policy_attachment.reap_investigations_lambda_vpc.role == data.aws_iam_role.reap_investigations_lambda.name &&
-      aws_iam_role_policy_attachment.reap_investigations_lambda_vpc.policy_arn == "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole" &&
       aws_iam_role_policy.bedrock_invocation_logging.role == data.aws_iam_role.bedrock_invocation_logging.id &&
       aws_iam_role_policy.s3_replication[0].role == data.aws_iam_role.s3_replication[0].id
     )

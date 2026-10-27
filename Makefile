@@ -115,9 +115,13 @@ build-lambda-image: ## Build the create-investigation Lambda container image loc
 	$(MAKE) -C lambda/create-investigation build-image
 
 # Lambda unit testing
-.PHONY: test-lambda test-lambda-reap-tasks test-lambda-reap-investigations test-lambda-create-investigation
+.PHONY: test-lambda test-lambda-reap-tasks test-lambda-reap-investigations test-lambda-create-investigation test-unit
 
-test-lambda: test-lambda-reap-tasks test-lambda-reap-investigations test-lambda-create-investigation ## Run all Lambda unit tests
+test-lambda: test-lambda-reap-tasks test-lambda-reap-investigations test-lambda-create-investigation test-unit ## Run all Lambda unit tests
+
+test-unit: ## Run standalone pytest suites under tests/unit/
+	@echo "Running tests/unit..."
+	uv run --with boto3 --with pytest python -m pytest tests/unit/ -v
 
 test-lambda-reap-tasks: ## Run reap-tasks Lambda unit tests
 	@echo "Running reap-tasks unit tests..."

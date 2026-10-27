@@ -81,6 +81,26 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_efs" {
             "elasticfilesystem:AccessPointArn" = aws_efs_access_point.reaper.arn
           }
         }
+      },
+      {
+        # Adoption: stamp CreatedAt on investigation access points that lack it, so an
+        # unknown-age investigation becomes ageable instead of being treated as stale.
+        # Restricted to the CreatedAt key via aws:TagKeys, so this grant cannot be used
+        # to forge ManagedBy, ClusterID or InvestigationID tags that other controls rely on.
+        #
+        # Appended last deliberately: tests/iam-ownership.tftest.hcl asserts the mount
+        # grant's position by index, so inserting ahead of it shifts that assertion.
+        Effect   = "Allow"
+        Action   = "elasticfilesystem:TagResource"
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"
+          }
+          "ForAllValues:StringEquals" = {
+            "aws:TagKeys" = ["CreatedAt"]
+          }
+        }
       }
     ]
   })
@@ -186,6 +206,7 @@ resource "aws_lambda_function" "reap_investigations" {
       ECS_CLUSTER            = aws_ecs_cluster.main.name
       EFS_FILESYSTEM_ID      = aws_efs_file_system.sre_home.id
       GRACE_PERIOD_HOURS     = var.investigation_grace_period_hours
+      MAX_REAPS_PER_RUN      = var.investigation_reaper_max_deletes_per_run
       S3_AUDIT_BUCKET        = aws_s3_bucket.audit.id
       TASK_DEFINITION_FAMILY = aws_ecs_task_definition.rosa_boundary.family
     }

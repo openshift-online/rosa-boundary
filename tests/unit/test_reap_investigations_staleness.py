@@ -68,8 +68,16 @@ class TestIsInvestigationStale:
         assert '1 running task(s)' in result['reason']
         assert result['running_tasks'] == 1
 
-    def test_legacy_investigation_no_tasks_is_stale(self, now, running_tasks_empty):
-        """Legacy investigation (missing CreatedAt) with no tasks should be stale."""
+    def test_untagged_investigation_is_adopted_not_reaped(self, now, running_tasks_empty):
+        """
+        An investigation with no CreatedAt tag has an UNKNOWN age, not a proven
+        old one. Missing metadata must never authorize deletion: the reaper adopts
+        it (stamps CreatedAt=now) so it ages normally under the real grace period.
+
+        Regression test for the staging incident of 2026-10-23, where treating a
+        missing tag as "stale" destroyed 16 live investigations in three days
+        because the deployed create-investigation image predated the tag.
+        """
         result = reaper_handler.is_investigation_stale(
             cluster_id='test-cluster',
             investigation_id='test-inv',
@@ -78,12 +86,17 @@ class TestIsInvestigationStale:
             running_tasks=running_tasks_empty
         )
 
-        assert result['is_stale'] is True
-        assert 'legacy investigation (missing CreatedAt tag)' in result['reason']
+        assert result['is_stale'] is False
+        assert result['needs_adoption'] is True
+        assert 'unknown creation time' in result['reason']
         assert result['running_tasks'] == 0
 
-    def test_legacy_investigation_with_tasks_is_not_stale(self, now, running_tasks_with_match):
-        """Legacy investigation with running tasks should NOT be stale (safety check)."""
+    def test_untagged_investigation_with_tasks_is_adopted_not_reaped(self, now, running_tasks_with_match):
+        """
+        Adoption is driven by missing metadata alone, independent of task state,
+        so a busy untagged investigation is tagged on the first scan rather than
+        waiting to fall idle. It is still never stale while a task runs.
+        """
         result = reaper_handler.is_investigation_stale(
             cluster_id='test-cluster',
             investigation_id='test-inv',
@@ -93,7 +106,7 @@ class TestIsInvestigationStale:
         )
 
         assert result['is_stale'] is False
-        assert '1 running task(s)' in result['reason']
+        assert result['needs_adoption'] is True
         assert result['running_tasks'] == 1
 
     def test_old_investigation_beyond_grace_period_is_stale(self, now, running_tasks_empty, monkeypatch):
@@ -116,6 +129,7 @@ class TestIsInvestigationStale:
         assert 'no tasks' in result['reason']
         assert '200h old' in result['reason']
         assert result['running_tasks'] == 0
+        assert result['needs_adoption'] is False  # Already tagged
 
     def test_new_investigation_within_grace_period_is_not_stale(self, now, running_tasks_empty, monkeypatch):
         """Investigation within grace period should NOT be stale."""
@@ -136,6 +150,7 @@ class TestIsInvestigationStale:
         assert result['is_stale'] is False
         assert 'within grace period' in result['reason']
         assert result['running_tasks'] == 0
+        assert result['needs_adoption'] is False  # Already tagged
 
     def test_tasks_for_different_investigation_dont_affect_staleness(self, now, running_tasks_no_match, monkeypatch):
         """Running tasks for different investigation should not prevent staleness."""

@@ -43,6 +43,9 @@ efs = boto3.client(
 ECS_CLUSTER = os.environ.get('ECS_CLUSTER')
 EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 GRACE_PERIOD_HOURS = int(os.environ.get('GRACE_PERIOD_HOURS', '72'))
+# Circuit breaker: refuse a run that would delete more than this many investigations.
+# 0 disables the check (use for a deliberate, supervised bulk cleanup).
+MAX_REAPS_PER_RUN = int(os.environ.get('MAX_REAPS_PER_RUN', '5'))
 S3_AUDIT_BUCKET = os.environ.get('S3_AUDIT_BUCKET', '')
 TASK_DEFINITION_FAMILY = os.environ.get('TASK_DEFINITION_FAMILY', '')
 EFS_MOUNT_PATH = '/mnt/efs'
@@ -106,7 +109,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     checked = 0
     reaped = 0
     skipped = 0
+    adopted = 0
     errors = 0
+    circuit_breaker_tripped = False
     now = datetime.now(timezone.utc)
 
     try:
@@ -130,6 +135,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             # Test environment without context - use a large deadline
             deadline = time.time() + 3600  # 1 hour
+
+        # Pass 1: classify every access point and perform adoptions. Nothing is
+        # deleted here, so the full set of deletion candidates is known before any
+        # destruction begins - which is what lets the circuit breaker below refuse
+        # a bad run wholesale instead of discovering the problem halfway through.
+        candidates = []
 
         for ap in access_points:
             # Check deadline before processing each investigation
@@ -190,6 +201,27 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
                     staleness = is_investigation_stale(cluster_id, investigation_id, created_at, now, running_tasks)
 
+                # Untagged investigation: stamp CreatedAt so it ages normally from
+                # now on. Since #300 and #382 every producer tags at creation and
+                # create-investigation backfills on reuse, so reaching this branch
+                # means a producer regressed - hence the warning in
+                # adopt_access_point rather than a routine info log.
+                if staleness.get('needs_adoption'):
+                    if adopt_access_point(ap_id, now):
+                        adopted += 1
+                    else:
+                        errors += 1
+
+                    # An untagged investigation is never a deletion candidate,
+                    # whether or not the tag write succeeded. Enforced explicitly
+                    # here rather than relying on is_investigation_stale() having
+                    # returned is_stale=False: unknown age must not authorize
+                    # deletion even if that function's rules later change.
+                    logger.info("Skipping %s/%s: %s",
+                               cluster_id, investigation_id, staleness['reason'])
+                    skipped += 1
+                    continue
+
                 if not staleness['is_stale']:
                     logger.info("Skipping %s/%s: %s",
                                cluster_id, investigation_id, staleness['reason'])
@@ -201,8 +233,30 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 errors += 1
                 continue
 
+            candidates.append((cluster_id, investigation_id, ap_id, staleness['reason']))
+
+        # Circuit breaker: mass deletion is the signature of a logic or deployment
+        # fault, not of routine cleanup. Refuse the entire run and leave the data in
+        # place so a human decides. MAX_REAPS_PER_RUN=0 disables the check.
+        if MAX_REAPS_PER_RUN and len(candidates) > MAX_REAPS_PER_RUN:
+            logger.error(
+                "CIRCUIT BREAKER: run would reap %d investigation(s) of %d checked, "
+                "exceeding MAX_REAPS_PER_RUN=%d. Refusing to delete anything. "
+                "Investigate before raising the limit.",
+                len(candidates), checked, MAX_REAPS_PER_RUN
+            )
+            skipped += len(candidates)
+            circuit_breaker_tripped = True
+            candidates = []
+
+        # Pass 2: delete.
+        for cluster_id, investigation_id, ap_id, reason in candidates:
+            if time.time() >= deadline:
+                logger.warning("Reaping deadline reached - stopping investigation processing")
+                break
+
             logger.info("Reaping stale investigation: %s/%s (%s)",
-                       cluster_id, investigation_id, staleness['reason'])
+                       cluster_id, investigation_id, reason)
 
             # Refresh task state before deletion to ensure current
             try:
@@ -232,20 +286,25 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'checked': checked,
             'reaped': reaped,
             'skipped': skipped,
-            'errors': errors
+            'adopted': adopted,
+            'errors': errors,
+            'circuit_breaker_tripped': circuit_breaker_tripped
         }
     except Exception as e:
         logger.error("Unexpected error during investigation reaping: %s", e, exc_info=True)
         raise  # Re-raise for Lambda to fail properly
 
-    logger.info("Reaper completed: checked=%d, reaped=%d, skipped=%d, errors=%d",
-               checked, reaped, skipped, errors)
+    logger.info("Reaper completed: checked=%d, reaped=%d, skipped=%d, adopted=%d, errors=%d, "
+               "circuit_breaker_tripped=%s",
+               checked, reaped, skipped, adopted, errors, circuit_breaker_tripped)
 
     return {
         'checked': checked,
         'reaped': reaped,
         'skipped': skipped,
-        'errors': errors
+        'adopted': adopted,
+        'errors': errors,
+        'circuit_breaker_tripped': circuit_breaker_tripped
     }
 
 
@@ -258,25 +317,37 @@ def is_investigation_stale(cluster_id: str, investigation_id: str,
     Hybrid approach prevents premature deletion:
     1. Active tasks (RUNNING status) → not stale (regardless of age)
     2. No tasks + age > grace period → stale and safe to delete
-    3. No tasks + missing CreatedAt tag → stale (legacy backfill)
+    3. Missing CreatedAt tag → never stale; flagged for adoption instead
 
     This ensures investigations with long-running debug sessions are never
     reaped while the task is active, while cleaning up abandoned investigations
     after the grace period expires.
 
-    Investigations without a CreatedAt tag were created before PR #300 (2026-10-12)
-    and are treated as stale when idle to enable one-time backfill cleanup.
+    Rule 3 exists because a missing CreatedAt tag proves nothing about age. An
+    earlier revision treated it as "old enough to delete", which destroyed 16 live
+    staging investigations over three days in October 2026: the deployed
+    create-investigation image predated the tag, so every investigation it created
+    was untagged and died on the next scan, with the grace period never consulted.
+    Absent metadata must never authorize deletion of irrecoverable state. The caller
+    adopts these (stamping CreatedAt=now) so they age normally from first sight.
 
     Args:
         cluster_id: Cluster identifier
         investigation_id: Investigation identifier
-        access_point_created_at: Access point creation timestamp (None for legacy investigations)
+        access_point_created_at: Access point creation timestamp (None when untagged)
         now: Current UTC timestamp
         running_tasks: Pre-fetched list of all running tasks with their tags
 
     Returns:
-        dict with 'is_stale' (bool), 'reason' (str), 'running_tasks' (int)
+        dict with 'is_stale' (bool), 'reason' (str), 'running_tasks' (int),
+        and 'needs_adoption' (bool - caller must stamp a CreatedAt tag)
     """
+    # A missing CreatedAt tag means the age is UNKNOWN, not that it is old. Adoption
+    # stamps the tag so the investigation ages normally under the real grace period.
+    # Driven by missing metadata alone, independent of task state, so that even a busy
+    # investigation is tagged on the first scan rather than waiting to fall idle.
+    needs_adoption = access_point_created_at is None
+
     # Filter running tasks for this investigation
     investigation_tasks = [
         task for task in running_tasks
@@ -287,19 +358,16 @@ def is_investigation_stale(cluster_id: str, investigation_id: str,
         return {
             'is_stale': False,
             'reason': f'{len(investigation_tasks)} running task(s)',
-            'running_tasks': len(investigation_tasks)
+            'running_tasks': len(investigation_tasks),
+            'needs_adoption': needs_adoption
         }
 
-    if access_point_created_at is None:
-        # Legacy backfill: investigations created before CreatedAt tag was added (PR #300, 2026-10-12)
-        # lack this tag. Since all such investigations are necessarily old (>11 days), treat them
-        # as stale when idle. The task check above already prevents deletion of active work.
-        # New investigations always have CreatedAt (verified in create-investigation handler),
-        # so this only affects the one-time backfill of pre-tag investigations.
+    if needs_adoption:
         return {
-            'is_stale': True,
-            'reason': 'no tasks, legacy investigation (missing CreatedAt tag)',
-            'running_tasks': 0
+            'is_stale': False,
+            'reason': 'no tasks, unknown creation time (missing CreatedAt tag) - adopting',
+            'running_tasks': 0,
+            'needs_adoption': True
         }
 
     grace_period = timedelta(hours=GRACE_PERIOD_HOURS)
@@ -310,14 +378,16 @@ def is_investigation_stale(cluster_id: str, investigation_id: str,
         return {
             'is_stale': True,
             'reason': f'no tasks, {hours_old}h old (grace: {GRACE_PERIOD_HOURS}h)',
-            'running_tasks': 0
+            'running_tasks': 0,
+            'needs_adoption': False
         }
     else:
         hours_remaining = int((grace_period - age).total_seconds() / 3600)
         return {
             'is_stale': False,
             'reason': f'no tasks but within grace period ({hours_remaining}h remaining)',
-            'running_tasks': 0
+            'running_tasks': 0,
+            'needs_adoption': False
         }
 
 
@@ -709,6 +779,46 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str, conte
         return True
     except OSError as e:
         logger.error("Failed to delete directory %s: %s", directory_path, e, exc_info=True)
+        return False
+
+
+def adopt_access_point(access_point_id: str, now: datetime) -> bool:
+    """
+    Stamp a CreatedAt tag on an untagged investigation access point.
+
+    Adoption makes an unknown-age investigation ageable: from this point it is
+    subject to the normal grace period instead of being indistinguishable from
+    an abandoned one. Deliberately conservative - it resets the clock to now,
+    so an investigation that really is old survives one extra grace period.
+    That is the correct direction to err: the cost is delayed cleanup, whereas
+    the cost of the opposite error is destroyed investigation data.
+
+    This is a safety net, not an expected path. create-investigation tags at
+    creation and backfills on reuse, so an untagged access point means some
+    producer regressed - a stale Lambda image, a new creation path that forgot
+    the tag, or manual resource creation. Logged at WARNING so it is alertable;
+    a non-zero 'adopted' count in the run summary should be investigated rather
+    than treated as normal cleanup.
+
+    Timestamp format matches create-investigation's (naive UTC + 'Z') so both
+    producers write tags the staleness parser reads identically.
+
+    Returns:
+        True if the tag was written, False otherwise (caller must not delete)
+    """
+    try:
+        efs.tag_resource(
+            ResourceId=access_point_id,
+            Tags=[{'Key': 'CreatedAt', 'Value': now.strftime('%Y-%m-%dT%H:%M:%S.%f') + 'Z'}]
+        )
+        logger.warning(
+            "Adopted access point %s: it had no CreatedAt tag, which should not happen. "
+            "Check that create-investigation is current and tagging at creation.",
+            access_point_id
+        )
+        return True
+    except (ClientError, BotoCoreError) as e:
+        logger.error("Failed to adopt access point %s: %s", access_point_id, e, exc_info=True)
         return False
 
 

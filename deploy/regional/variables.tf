@@ -410,10 +410,28 @@ variable "investigation_reaper_schedule_hours" {
   }
 }
 
+variable "investigation_reaper_max_deletes_per_run" {
+  description = "Circuit breaker: if a single reaper run would delete more than this many investigations, it deletes none and logs an error instead. Mass deletion indicates a logic or deployment fault rather than routine cleanup, so clearing a large backlog is a deliberate human action. Set to 0 to disable the check."
+  type        = number
+  default     = 5
+
+  # Must be a whole number: the value is passed through to the Lambda as a string
+  # and parsed with int(), which rejects "2.5" with ValueError at module import -
+  # failing the reaper on cold start rather than at plan time.
+  validation {
+    condition = (
+      var.investigation_reaper_max_deletes_per_run == floor(var.investigation_reaper_max_deletes_per_run) &&
+      var.investigation_reaper_max_deletes_per_run >= 0 &&
+      var.investigation_reaper_max_deletes_per_run <= 1000
+    )
+    error_message = "investigation_reaper_max_deletes_per_run must be an integer between 0 and 1000"
+  }
+}
+
 variable "investigation_grace_period_hours" {
   description = "Maximum investigation lifetime (hours) before automatic cleanup when idle. An investigation is reaped if it has no running tasks AND was created more than this many hours ago. This is measured from creation time, not idle duration. Default 168h (7 days) allows for multi-day investigations with task timeouts."
   type        = number
-  default     = 168  # 7 days
+  default     = 168 # 7 days
 
   validation {
     condition     = var.investigation_grace_period_hours >= 1 && var.investigation_grace_period_hours <= 720

@@ -251,11 +251,30 @@ resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
   role = data.aws_iam_role.create_investigation_lambda.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["elasticfilesystem:CreateAccessPoint", "elasticfilesystem:DeleteAccessPoint", "elasticfilesystem:DescribeAccessPoints", "elasticfilesystem:TagResource"]
-      Resource = aws_efs_file_system.sre_home.arn
-    }]
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["elasticfilesystem:CreateAccessPoint", "elasticfilesystem:DeleteAccessPoint", "elasticfilesystem:DescribeAccessPoints", "elasticfilesystem:TagResource"]
+        Resource = aws_efs_file_system.sre_home.arn
+      },
+      {
+        # Backfill CreatedAt on a reused access point that predates the tag.
+        # TagResource on an access point is evaluated against the access-point ARN,
+        # not the filesystem ARN above, so it needs its own statement. Restricted to
+        # the CreatedAt key so this cannot forge ManagedBy/ClusterID/InvestigationID.
+        Effect   = "Allow"
+        Action   = "elasticfilesystem:TagResource"
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"
+          }
+          "ForAllValues:StringEquals" = {
+            "aws:TagKeys" = ["CreatedAt"]
+          }
+        }
+      }
+    ]
   })
 }
 

@@ -429,6 +429,33 @@ def find_running_tasks_for_investigation(cluster: str, cluster_id: str, investig
     return matching
 
 
+def backfill_created_at_tag(access_point: Dict[str, Any]) -> None:
+    """
+    Stamp CreatedAt on a reused access point that predates the tag.
+
+    Deliberately backfill-only: an existing CreatedAt is never overwritten, so the
+    grace period keeps measuring total investigation lifetime rather than silently
+    becoming idle time. Changing that is a behavior change, not a bugfix.
+
+    Best-effort - a failure here must not fail investigation creation. The reaper
+    adopts untagged access points anyway; this just closes the window before its
+    next scan.
+    """
+    tags = {t['Key']: t['Value'] for t in access_point.get('Tags', [])}
+    if tags.get('CreatedAt'):
+        return
+
+    access_point_id = access_point['AccessPointId']
+    try:
+        efs.tag_resource(
+            ResourceId=access_point_id,
+            Tags=[{'Key': 'CreatedAt', 'Value': datetime.utcnow().isoformat() + 'Z'}]
+        )
+        logger.info(f"Backfilled CreatedAt tag on reused access point: {access_point_id}")
+    except (ClientError, BotoCoreError) as e:
+        logger.warning(f"Failed to backfill CreatedAt on {access_point_id}: {str(e)}")
+
+
 def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[Dict[str, Any]]:
     """
     Find an existing EFS access point by ClusterID and InvestigationID tags.
@@ -776,6 +803,7 @@ def create_investigation_task(
     if existing_ap:
         access_point_id = existing_ap['AccessPointId']
         logger.info(f"Reusing existing EFS access point: {access_point_id}")
+        backfill_created_at_tag(existing_ap)
     else:
         try:
             logger.info(f"Creating EFS access point: {access_point_path}")

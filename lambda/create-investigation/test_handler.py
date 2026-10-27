@@ -2813,5 +2813,54 @@ class TestGetConfig:
         assert result['statusCode'] == 401
 
 
+class TestBackfillCreatedAtTag:
+    """
+    Reused access points created before the CreatedAt tag existed must be
+    backfilled, otherwise the reaper sees an unknown age forever.
+    """
+
+    @patch('handler.efs')
+    def test_backfills_when_tag_missing(self, mock_efs):
+        access_point = {
+            'AccessPointId': 'fsap-legacy',
+            'Tags': [
+                {'Key': 'ClusterID', 'Value': 'cluster-a'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
+            ]
+        }
+
+        handler.backfill_created_at_tag(access_point)
+
+        mock_efs.tag_resource.assert_called_once()
+        kwargs = mock_efs.tag_resource.call_args.kwargs
+        assert kwargs['ResourceId'] == 'fsap-legacy'
+        assert kwargs['Tags'][0]['Key'] == 'CreatedAt'
+
+    @patch('handler.efs')
+    def test_does_not_overwrite_existing_tag(self, mock_efs):
+        """
+        Backfill-only by design: overwriting would silently turn the grace period
+        from total lifetime into idle time, which is a behavior change.
+        """
+        access_point = {
+            'AccessPointId': 'fsap-tagged',
+            'Tags': [{'Key': 'CreatedAt', 'Value': '2026-10-01T00:00:00.000000Z'}]
+        }
+
+        handler.backfill_created_at_tag(access_point)
+
+        mock_efs.tag_resource.assert_not_called()
+
+    @patch('handler.efs')
+    def test_tagging_failure_is_not_fatal(self, mock_efs):
+        """A failed tag write must not fail investigation creation."""
+        mock_efs.tag_resource.side_effect = ClientError(
+            {'Error': {'Code': 'AccessDenied', 'Message': 'denied'}}, 'TagResource'
+        )
+        access_point = {'AccessPointId': 'fsap-legacy', 'Tags': []}
+
+        handler.backfill_created_at_tag(access_point)  # must not raise
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

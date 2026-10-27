@@ -531,7 +531,10 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_efs.delete_access_point.return_value = {}
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
-        with patch('handler.backup_investigation_to_s3', return_value=True):
+        # This test exercises access point pagination, not deletion policy, so the
+        # mass-deletion circuit breaker is explicitly disabled (0 = no limit).
+        with patch('handler.backup_investigation_to_s3', return_value=True), \
+             patch('handler.MAX_REAPS_PER_RUN', 0):
             result = handler.lambda_handler({}, None)
 
         assert result['checked'] == 100
@@ -819,23 +822,184 @@ class TestReaperLambda(unittest.TestCase):
         assert result['errors'] == 0
 
     def test_staleness_with_no_creation_time_zero_grace_period(self):
-        """Test legacy investigations (no CreatedAt) are reaped when idle, regardless of grace period"""
+        """Test untagged investigations are adopted, not reaped, even at zero grace period"""
         with patch('handler.GRACE_PERIOD_HOURS', 0):
             result = handler.is_investigation_stale(
                 'cluster', 'inv', None, datetime.utcnow(), []
             )
 
-            assert result['is_stale'] is True
-            assert 'legacy investigation (missing CreatedAt tag)' in result['reason']
+            assert result['is_stale'] is False
+            assert result['needs_adoption'] is True
 
     def test_staleness_with_no_creation_time_nonzero_grace_period(self):
-        """Test legacy investigations (no CreatedAt) are reaped when idle, regardless of grace period"""
+        """Test untagged investigations are adopted, not reaped, when idle"""
         result = handler.is_investigation_stale(
             'cluster', 'inv', None, datetime.utcnow(), []
         )
 
-        assert result['is_stale'] is True
-        assert 'legacy investigation (missing CreatedAt tag)' in result['reason']
+        assert result['is_stale'] is False
+        assert result['needs_adoption'] is True
+        assert 'unknown creation time' in result['reason']
+
+    def test_untagged_access_point_is_adopted_not_deleted(self):
+        """
+        Regression test for the staging incident of 2026-10-23.
+
+        An access point with no CreatedAt tag must be tagged and left alone. It
+        must NOT have its directory deleted or the access point removed, no matter
+        how long the grace period is, because its age is unknown rather than old.
+        """
+        self.mock_efs.describe_access_points.return_value = {
+            'AccessPoints': [{
+                'AccessPointId': 'fsap-untagged',
+                'RootDirectory': {'Path': '/cluster-a/inv-1'},
+                'Tags': [
+                    {'Key': 'ClusterID', 'Value': 'cluster-a'},
+                    {'Key': 'InvestigationID', 'Value': 'inv-1'},
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
+                    # No CreatedAt - exactly what the pre-#300 Lambda image produced
+                ]
+            }]
+        }
+        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['adopted'] == 1
+        assert result['reaped'] == 0
+        assert result['errors'] == 0
+
+        # The tag was stamped on the right access point
+        self.mock_efs.tag_resource.assert_called_once()
+        kwargs = self.mock_efs.tag_resource.call_args.kwargs
+        assert kwargs['ResourceId'] == 'fsap-untagged'
+        assert kwargs['Tags'][0]['Key'] == 'CreatedAt'
+
+        # Nothing was destroyed
+        self.mock_efs.delete_access_point.assert_not_called()
+        self.mock_shutil.rmtree.assert_not_called()
+
+    def test_adoption_failure_does_not_delete(self):
+        """A failed tag write must never fall through to deletion."""
+        self.mock_efs.describe_access_points.return_value = {
+            'AccessPoints': [{
+                'AccessPointId': 'fsap-untagged',
+                'RootDirectory': {'Path': '/cluster-a/inv-1'},
+                'Tags': [
+                    {'Key': 'ClusterID', 'Value': 'cluster-a'},
+                    {'Key': 'InvestigationID', 'Value': 'inv-1'},
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
+                ]
+            }]
+        }
+        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+        self.mock_efs.tag_resource.side_effect = handler.ClientError(
+            {'Error': {'Code': 'AccessDenied', 'Message': 'denied'}}, 'TagResource'
+        )
+
+        result = handler.lambda_handler({}, None)
+
+        assert result['adopted'] == 0
+        assert result['reaped'] == 0
+        assert result['errors'] == 1
+        self.mock_efs.delete_access_point.assert_not_called()
+        self.mock_shutil.rmtree.assert_not_called()
+
+    def test_untagged_is_never_deleted_even_if_classified_stale(self):
+        """
+        The no-delete guard for untagged investigations is enforced by the handler,
+        not inherited from is_investigation_stale()'s return value.
+
+        Forces the staleness check to report BOTH stale and needs_adoption - a
+        combination the current rules never produce - and asserts nothing is
+        deleted. This pins the invariant so a future change to the staleness rules
+        cannot quietly reintroduce deletion-on-unknown-age.
+        """
+        self.mock_efs.describe_access_points.return_value = {
+            'AccessPoints': [{
+                'AccessPointId': 'fsap-untagged',
+                'RootDirectory': {'Path': '/cluster-a/inv-1'},
+                'Tags': [
+                    {'Key': 'ClusterID', 'Value': 'cluster-a'},
+                    {'Key': 'InvestigationID', 'Value': 'inv-1'},
+                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
+                ]
+            }]
+        }
+        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+
+        # Clear every OTHER obstacle to deletion, so that if the guard were absent
+        # this access point really would be destroyed. Without these the S3 backup
+        # check blocks deletion on its own and the test passes vacuously.
+        self.mock_os_path.ismount.return_value = True
+        self.mock_os_path.exists.return_value = True
+        self.mock_efs.delete_access_point.return_value = {}
+        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
+
+        with patch('handler.is_investigation_stale', return_value={
+            'is_stale': True,            # contradictory on purpose
+            'needs_adoption': True,
+            'reason': 'forced',
+            'running_tasks': 0
+        }), patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
+
+        assert result['reaped'] == 0
+        self.mock_efs.delete_access_point.assert_not_called()
+        self.mock_shutil.rmtree.assert_not_called()
+
+    def _stale_access_point(self, index):
+        """Build an access point that is unambiguously past any grace period."""
+        old = (datetime.utcnow() - timedelta(days=365)).isoformat() + 'Z'
+        return {
+            'AccessPointId': f'fsap-{index}',
+            'RootDirectory': {'Path': f'/cluster-a/inv-{index}'},
+            'Tags': [
+                {'Key': 'ClusterID', 'Value': 'cluster-a'},
+                {'Key': 'InvestigationID', 'Value': f'inv-{index}'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
+                {'Key': 'CreatedAt', 'Value': old}
+            ]
+        }
+
+    def test_circuit_breaker_aborts_mass_deletion(self):
+        """
+        A run that would delete more than MAX_REAPS_PER_RUN investigations is
+        refused wholesale rather than partially executed.
+
+        On 2026-10-23 a single run deleted 12 of 13 checked investigations. Mass
+        deletion is the signature of a logic or deployment fault, not of normal
+        cleanup, so it must require deliberate human action to proceed.
+        """
+        self.mock_efs.describe_access_points.return_value = {
+            'AccessPoints': [self._stale_access_point(i) for i in range(6)]
+        }
+        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+
+        with patch('handler.MAX_REAPS_PER_RUN', 5):
+            result = handler.lambda_handler({}, None)
+
+        assert result['circuit_breaker_tripped'] is True
+        assert result['reaped'] == 0
+        self.mock_efs.delete_access_point.assert_not_called()
+        self.mock_shutil.rmtree.assert_not_called()
+
+    def test_circuit_breaker_allows_normal_cleanup(self):
+        """Routine cleanup below the threshold proceeds untouched."""
+        self.mock_efs.describe_access_points.return_value = {
+            'AccessPoints': [self._stale_access_point(i) for i in range(2)]
+        }
+        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+        self.mock_efs.delete_access_point.return_value = {}
+        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
+
+        with patch('handler.MAX_REAPS_PER_RUN', 5), \
+             patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
+
+        assert result['circuit_breaker_tripped'] is False
+        assert result['reaped'] == 2
+        assert result['errors'] == 0
 
     def test_invalid_cluster_id_increments_errors(self):
         """Test that invalid cluster_id in tags increments error count"""

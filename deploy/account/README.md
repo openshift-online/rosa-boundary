@@ -5,26 +5,26 @@ roles, trust policies, OIDC providers and common AWS-managed policy attachments.
 The account-wide Bedrock monthly budget and model agreements also belong here.
 This baseline adds no audit-reader role and does not manage organization access.
 
-## Staging Lambda publication pilot
+## Staging Lambda image repository
 
-`enable_lambda_ecr_source` (off by default) creates the ordinary, private
-`rosa-boundary/create-investigation-lambda` ECR source repository in the
-provider Region. The staging account workspace opts in in `us-east-1`; its
-manual-apply gate must remain in place. The repository uses AES256 encryption,
-immutable tags, scan-on-push and a 50-tagged-image rollback retention policy;
-`force_delete` is disabled. Same-account publishing requires IAM authorization
-from the generated ECR credential's role; there is no cross-account repository
-policy. Verify that role's push scope before releasing. Check for an existing
-repository in the account/Region before applying, and import rather than create
-if one already exists. Do not apply unrelated account handoff changes without
-their separate migration review.
+`enable_lambda_ecr_source` (off by default) manages the ordinary, private
+`rosa-boundary/create-investigation-lambda` ECR repository in the account
+provider Region. The staging account workspace enables it in `us-east-1` and
+requires manual apply. `us-east-1` is the Git-managed workspace's `aws_region`,
+not an independent Lambda source-region variable: changing it also requires
+coordinated app-interface ECR registration and Konflux release-destination and
+credential changes. The repository uses AES256 encryption, immutable tags,
+scan-on-push and a 25-tagged-image retention policy; `force_delete` is disabled.
+Same-account publication relies on IAM permissions of the generated ECR
+credential's role; no cross-account repository policy is configured.
 
-This only provisions a publication destination. It does **not** change Lambda
-image URIs, create replication rules or destination repositories, or remove the
-existing Quay cache. Verify the account and Region and review the account plan
-before approving any apply. Validate the generated Vault credential, Konflux
-release and ECR SHA/architecture separately; a Terraform plan is not proof of
-a successful push. Keep the existing image and regional Lambda unchanged.
+This account configuration does not manage the regional Lambda image URI,
+destination ECR repositories or ECR registry replication. The existing Quay
+pull-through-cache rule and Lambda image URI remain in the regional root.
+Before applying the account workspace, check for an existing repository in the
+account/Region (import instead of creating a duplicate), verify account and
+Region, review the full plan for unrelated account changes, and confirm the
+credential role's push scope. A Terraform plan does not prove an image push.
 
 [`../regional`](../regional/README.md) owns ECS, EFS, S3, KMS, CloudWatch Logs,
 Lambda functions, resource policies, and the **regional inline permission grants**

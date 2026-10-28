@@ -5,6 +5,27 @@ roles, trust policies, OIDC providers and common AWS-managed policy attachments.
 The account-wide Bedrock monthly budget and model agreements also belong here.
 This baseline adds no audit-reader role and does not manage organization access.
 
+## Staging Lambda publication pilot
+
+`enable_lambda_ecr_source` (off by default) creates the ordinary, private
+`rosa-boundary/create-investigation-lambda` ECR source repository in the
+provider Region. The staging account workspace opts in in `us-east-1`; its
+manual-apply gate must remain in place. The repository uses AES256 encryption,
+immutable tags, scan-on-push and a 50-tagged-image rollback retention policy;
+`force_delete` is disabled. Same-account publishing requires IAM authorization
+from the generated ECR credential's role; there is no cross-account repository
+policy. Verify that role's push scope before releasing. Check for an existing
+repository in the account/Region before applying, and import rather than create
+if one already exists. Do not apply unrelated account handoff changes without
+their separate migration review.
+
+This only provisions a publication destination. It does **not** change Lambda
+image URIs, create replication rules or destination repositories, or remove the
+existing Quay cache. Verify the account and Region and review the account plan
+before approving any apply. Validate the generated Vault credential, Konflux
+release and ECR SHA/architecture separately; a Terraform plan is not proof of
+a successful push. Keep the existing image and regional Lambda unchanged.
+
 [`../regional`](../regional/README.md) owns ECS, EFS, S3, KMS, CloudWatch Logs,
 Lambda functions, resource policies, and the **regional inline permission grants**
 on the account roles. Regional deployments look up roles by name and OIDC

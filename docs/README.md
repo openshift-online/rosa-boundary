@@ -15,6 +15,10 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**CLI Authentication**](architecture/cli-authentication.md) - How the CLI exchanges an OIDC token for temporary AWS credentials
 - [**Investigations and Tasks**](architecture/investigations-and-tasks.md) - Conceptual model, lifecycle, state recording, and FAQ
 
+## Design Proposals
+
+- [**Regional Lambda Image Delivery**](design-proposals/lambda-image-regional-delivery.md) - Proposed Konflux-to-ECR publication and regional replication design
+
 ## Configuration Guides
 
 - [**Keycloak Realm Setup**](configuration/keycloak-realm-setup.md) - Configure Keycloak realm and OIDC client using KeycloakRealmImport CR

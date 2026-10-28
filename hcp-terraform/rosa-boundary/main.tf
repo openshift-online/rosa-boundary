@@ -693,5 +693,18 @@ module "rosa_boundary" {
         },
       ]
     }
+
+    # Bootstrap production OIDC/IAM locally before HCP can assume AWS roles.
+    # Attach variable sets when switching to remote execution.
+    rosa-boundary-prod-aws-creds = {
+      terraform_version      = "1.16.0"
+      working_directory      = "hcp-terraform/aws-creds/rosa-boundary-prod"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      execution_mode         = "local"
+      auto_apply             = false
+      auto_apply_run_trigger = false
+      variables              = []
+    }
   }
 }

@@ -40,6 +40,7 @@ func TestOIDCUseDeviceCodePrecedence(t *testing.T) {
 		{name: "invalid env overridden by explicit flag", env: "not-a-bool", flag: "false", expected: false},
 		{name: "empty env overridden by explicit flag", envSet: true, flag: "false", expected: false},
 		{name: "null file overridden by explicit flag", file: "oidc_use_device_code: null\n", flag: "true", expected: true},
+		{name: "invalid file overridden by explicit flag", file: "oidc_use_device_code: unexpected\n", flag: "false", expected: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

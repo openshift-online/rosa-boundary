@@ -124,12 +124,8 @@ func debugf(format string, args ...any) error {
 	return output.Debug(format, args...)
 }
 
-// assumeRoleWithRetry fetches an OIDC token and assumes the given role.
-// If an auth error occurs with a cached token, it retries once with a fresh login.
-func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, roleARN, sessionName string, forceLogin bool) (string, *awsclient.TemporaryCredentials, error) {
-	return assumeRoleWithRetryOptions(ctx, pkce, region, roleARN, sessionName, forceLogin, auth.Options{})
-}
-
+// assumeRoleWithRetryOptions fetches an OIDC token and assumes the given role.
+// If STS rejects a cached token, retry once with the selected fresh-login flow.
 func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, region, roleARN, sessionName string, forceLogin bool, options auth.Options) (string, *awsclient.TemporaryCredentials, error) {
 	// First attempt: use cached token if available (unless forceLogin)
 	var cached string

@@ -46,13 +46,14 @@ func TestDeviceAuthorizationPKCEPollingAndCache(t *testing.T) {
 				t.Error("invalid device token request")
 			}
 			verifier = r.Form.Get("code_verifier")
-			if polls == 1 {
+			switch polls {
+			case 1:
 				w.WriteHeader(http.StatusBadRequest)
 				_, _ = io.WriteString(w, `{"error":"slow_down"}`)
-			} else if polls == 2 {
+			case 2:
 				w.WriteHeader(http.StatusBadRequest)
 				_, _ = io.WriteString(w, `{"error":"authorization_pending"}`)
-			} else {
+			default:
 				_, _ = fmt.Fprintf(w, `{"id_token":%q,"access_token":"not-the-id-token"}`, token)
 			}
 		default:

@@ -20,14 +20,22 @@ func TestPrintStartSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
 
 	// Capture stderr output
 	old := os.Stderr
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = r.Close() }()
 	os.Stderr = w
 
 	printStartSummary(ecsCluster, rosaClusterID, investigationID, taskID, ocVersion, timeout, accessPointID, roleARN, region)
 
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
 	var buf bytes.Buffer
-	buf.ReadFrom(r)
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatal(err)
+	}
 	os.Stderr = old
 
 	output := buf.String()
@@ -81,14 +89,22 @@ func TestPrintStartSummary_ECSClusterNotConfusedWithClusterID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			old := os.Stderr
-			r, w, _ := os.Pipe()
+			r, w, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = r.Close() }()
 			os.Stderr = w
 
 			printStartSummary(tt.ecsCluster, tt.clusterID, "INV-001", "task-123", "4.20", 3600, "fsap-123", "arn:aws:iam::123:role/r", "us-east-2")
 
-			w.Close()
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
 			var buf bytes.Buffer
-			buf.ReadFrom(r)
+			if _, err := buf.ReadFrom(r); err != nil {
+				t.Fatal(err)
+			}
 			os.Stderr = old
 
 			output := buf.String()

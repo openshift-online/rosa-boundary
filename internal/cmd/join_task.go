@@ -92,11 +92,7 @@ func runJoinWithClientFormat(ctx context.Context, ecsClient *awsclient.ECSClient
 	return runJoinWithClientSession(ctx, ecsClient, region, creds, taskID, container, command, noWait, format)
 }
 
-// runJoinWithClient is shared by join-task and start-task --connect.
-func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool) error {
-	return runJoinWithClientSession(ctx, ecsClient, region, creds, taskID, container, command, noWait, "text")
-}
-
+// runJoinWithClientSession is shared by join-task and start-task --connect.
 func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool, format string) error {
 	// Check task status
 	output.Status("Checking task status...")

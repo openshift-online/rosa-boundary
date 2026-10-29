@@ -1,17 +1,17 @@
 # Dependency Management Automation
 
-This repository uses two complementary tools for automated dependency updates: **Dependabot** (GitHub-native) and **Mintmaker/Renovate** (Konflux-hosted). The strategy was established in [ROSAENG-60067](https://redhat.atlassian.net/browse/ROSAENG-60067) and the Go ownership overlap corrected in [ROSAENG-75132](https://redhat.atlassian.net/browse/ROSAENG-75132).
+This repository uses two tools for automated dependency updates: **Dependabot** (GitHub-native) and **Mintmaker/Renovate** (Konflux-hosted). The strategy began in [ROSAENG-60067](https://redhat.atlassian.net/browse/ROSAENG-60067); the Go ownership overlap was corrected in [ROSAENG-75132](https://redhat.atlassian.net/browse/ROSAENG-75132).
 
 ## Strategy
 
-Each tool owns a distinct set of package managers without overlapping version-update PRs:
+The Python configurations temporarily overlap while ownership moves to Mintmaker:
 
 | Tool | Ecosystems | Config File |
 |------|-----------|-------------|
-| **Mintmaker (Renovate)** | `gomod`, `terraform`, `pre-commit`, `github-actions`, custom regex GitHub releases | `renovate.json` |
+| **Mintmaker (Renovate)** | `gomod`, `pep621` (Python Lambda), `terraform`, `pre-commit`, `github-actions`, custom regex GitHub releases | `renovate.json` |
 | **Dependabot** | `pip` (create-investigation Python Lambda) | `.github/dependabot.yml` |
 
-Mintmaker is the sole version updater for the root Go modules. Its `gomod dependencies` group includes `github.com/aws/aws-sdk-go-v2` and its submodules alongside other Go minor/patch updates in one PR; major updates remain separate. Mintmaker also groups GitHub Actions updates. Dependabot updates only the create-investigation Python Lambda dependencies.
+Mintmaker is the sole version updater for the root Go modules. Its `gomod dependencies` group includes `github.com/aws/aws-sdk-go-v2` and its submodules alongside other Go minor/patch updates in one PR; major updates remain separate. Mintmaker also groups GitHub Actions updates. Both bots can propose Python updates during validation; Dependabot remains enabled until Mintmaker's Lambda coverage is verified.
 
 ## Dependabot
 
@@ -32,6 +32,19 @@ Key settings:
 ## Mintmaker (Renovate)
 
 Mintmaker is a Konflux-hosted service built on [Renovate](https://docs.renovatebot.com/). It runs on a 4-hour base schedule and opens PRs signed by the `red-hat-konflux` GitHub app. Configuration lives in `renovate.json` at the repository root.
+
+### Python dependency migration
+
+Mintmaker's `pep621` manager is enabled for the create-investigation Lambda's
+`pyproject.toml` and `uv.lock`. It groups non-major Python updates and leaves
+major updates separate. Python updates are **not automerged** during the
+migration, despite the repository-wide Renovate automerge setting.
+
+Dependabot's `pip` entry remains enabled until we verify that Mintmaker opens
+Python update PRs, updates both the manifest and lockfile when applicable,
+and passes the Lambda build and tests. Both bots may propose the same Python
+update in the interim; review these PRs rather than merging duplicates.
+Only after this validation should a follow-up remove Dependabot's `pip` entry.
 
 ### Backplane-tools release pin
 

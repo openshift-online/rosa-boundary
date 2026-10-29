@@ -709,5 +709,17 @@ module "rosa_boundary" {
       ]
       variables = []
     }
+
+    # Registered inert: no inputs and no AWS authorization until follow-up PRs.
+    rosa-boundary-prod-account = {
+      terraform_version      = "1.16.0"
+      working_directory      = "deploy/account"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      execution_mode         = "remote"
+      auto_apply             = false
+      auto_apply_run_trigger = false
+      variables              = []
+    }
   }
 }

@@ -48,6 +48,10 @@ func init() {
 }
 
 func runJoinTask(cmd *cobra.Command, args []string) error {
+	format, err := commandOutput(cmd)
+	if err != nil {
+		return err
+	}
 	taskID := args[0]
 
 	authRes := cachedAuthResult
@@ -62,10 +66,8 @@ func runJoinTask(cmd *cobra.Command, args []string) error {
 	output.Status("ECS Cluster: %s", clusterName)
 	output.Status("Task:        %s", taskID)
 
-	return runJoinWithClientFormat(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, taskID, joinContainer, joinCommand, joinNoWait, joinOutputFormat(cmd))
+	return runJoinWithClientFormat(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, taskID, joinContainer, joinCommand, joinNoWait, format)
 }
-
-func joinOutputFormat(cmd *cobra.Command) string { format, _ := commandOutput(cmd); return format }
 
 // A JSON result stream cannot carry arbitrary shell bytes. A controlling
 // terminal is mandatory and belongs to the plugin, not command stdout/stderr.

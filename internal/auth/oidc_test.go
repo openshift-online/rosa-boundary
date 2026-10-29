@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -13,7 +14,28 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 )
+
+func TestInvalidIDTokenReportsInvalidResponse(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	var events bytes.Buffer
+	_, err := getTokenWithOptionsAndDeps(context.Background(), PKCEConfig{KeycloakURL: "https://example.test", Realm: "test", ClientID: "boundary"}, true,
+		Options{Reporter: &authstatus.Reporter{Format: "json", Writer: &events}}, oidcDependencies{
+			browserOpener:         func(string) error { return nil },
+			callbackServerStarter: func(context.Context, string) (string, error) { return "code", nil },
+			codeExchanger: func(context.Context, string, string, string, string, string) (string, error) {
+				return "invalid-id-token", nil
+			},
+		})
+	if err == nil || !strings.Contains(err.Error(), "invalid or expired ID token") {
+		t.Fatalf("token error = %v", err)
+	}
+	if got := events.String(); !strings.Contains(got, `"reason":"invalid_response"`) || strings.Contains(got, "invalid-id-token") {
+		t.Fatalf("unexpected auth event: %s", got)
+	}
+}
 
 func TestGetTokenReturnsValidCachedToken(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())

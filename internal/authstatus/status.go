@@ -58,6 +58,13 @@ func (r *Reporter) Failure(provider string, err error) error {
 
 // Reason maps authentication errors to safe, stable script-facing categories.
 func Reason(err error) string {
+	var typed interface{ Reason() string }
+	if errors.As(err, &typed) {
+		switch reason := typed.Reason(); reason {
+		case "denied", "expired", "canceled", "network", "invalid_response", "other":
+			return reason
+		}
+	}
 	if errors.Is(err, context.Canceled) {
 		return "canceled"
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -48,5 +49,30 @@ func TestReporterPropagatesWriteError(t *testing.T) {
 	r := &Reporter{Format: "json", Writer: failingWriter{}}
 	if err := r.Emit("boundary", "device_authorization", nil); !errors.Is(err, io.ErrClosedPipe) {
 		t.Fatalf("error = %v", err)
+	}
+}
+
+type typedFailure struct {
+	reason string
+	text   string
+}
+
+func (e typedFailure) Error() string  { return e.text }
+func (e typedFailure) Reason() string { return e.reason }
+
+func TestReasonPrefersBoundedTypedCategory(t *testing.T) {
+	err := fmt.Errorf("OIDC authentication failed: %w", typedFailure{"invalid_response", "OIDC provider returned an invalid or expired ID token"})
+	if got := Reason(err); got != "invalid_response" {
+		t.Fatalf("Reason() = %q, want invalid_response", got)
+	}
+	var events bytes.Buffer
+	if err := (&Reporter{Format: "json", Writer: &events}).Failure("boundary", err); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(events.String(), `"reason":"invalid_response"`) {
+		t.Fatalf("wrong failure reason: %s", events.String())
+	}
+	if got := Reason(typedFailure{"untrusted", "opaque error"}); got != "other" {
+		t.Fatalf("unbounded reason = %q", got)
 	}
 }

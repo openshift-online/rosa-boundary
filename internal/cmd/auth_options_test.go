@@ -99,6 +99,17 @@ func TestJSONJoinRequiresTerminalBeforeAuthentication(t *testing.T) {
 	}
 }
 
+func TestJoinRejectsInvalidOutputEvenWithoutArgsValidation(t *testing.T) {
+	command := &cobra.Command{Use: "join-task"}
+	addOutputFlag(command, false)
+	if err := command.Flags().Set("output", "xml"); err != nil {
+		t.Fatal(err)
+	}
+	if err := runJoinTask(command, []string{"task-1"}); err == nil || !strings.Contains(err.Error(), "invalid --output") {
+		t.Fatalf("join error = %v", err)
+	}
+}
+
 func TestSTSCacheRejectionRetriesWithDeviceFlow(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	fresh := testJWT(time.Now().Add(time.Hour))

@@ -65,14 +65,7 @@ func (a *Authenticator) Acquire(ctx context.Context, flow Flow) (token Token, er
 	if a.Reporter != nil {
 		defer func() {
 			if err != nil {
-				var failure authFailure
-				var reportErr error
-				if errors.As(err, &failure) {
-					reportErr = a.Reporter.Emit("ocm", "authentication_failed", map[string]any{"reason": failure.Reason()})
-				} else {
-					reportErr = a.Reporter.Failure("ocm", err)
-				}
-				if reportErr != nil {
+				if reportErr := a.Reporter.Failure("ocm", err); reportErr != nil {
 					token, err = Token{}, fmt.Errorf("write OCM authentication status: %w", reportErr)
 				}
 				return

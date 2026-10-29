@@ -3,6 +3,7 @@
   "automerge": true,
   "enabledManagers": [
     "gomod",
+    "pep621",
     "terraform",
     "pre-commit",
     "github-actions",
@@ -22,6 +23,17 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Review Python updates while validating Mintmaker coverage before retiring Dependabot",
+      "matchManagers": ["pep621"],
+      "automerge": false
+    },
+    {
+      "description": "Group non-major Python dependency updates for the uv-locked Lambda",
+      "matchManagers": ["pep621"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "python dependencies"
+    },
     {
       "description": "Group all Go module patch/minor updates, including AWS SDK modules, into a single PR",
       "matchManagers": ["gomod"],

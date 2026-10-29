@@ -37,6 +37,7 @@ module "aws_dynamic_creds" {
           # Authorize workload workspaces separately after registration.
           workspace_names = [
             "rosa-boundary-prod-aws-creds",
+            "rosa-boundary-prod-account",
           ]
         }
       }

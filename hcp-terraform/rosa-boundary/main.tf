@@ -15,7 +15,7 @@ provider "tfe" {
 
 module "rosa_boundary" {
   source  = "app.terraform.io/hp-platform-engineering/workspaces/tfe"
-  version = "0.0.15"
+  version = "0.0.23"
 
   organization      = "hp-platform-engineering"
   project_name      = "rosa-boundary"

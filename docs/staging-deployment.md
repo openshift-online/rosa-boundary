@@ -80,7 +80,17 @@ The workload workspaces are VCS-connected to the `openshift-online/rosa-boundary
 2. **Speculative plan runs automatically** on any workspace whose `working_directory` contains changed files. HCP Terraform posts the plan output as a PR check.
 3. **Review and merge** the PR through normal GitHub review.
 4. **VCS trigger fires** on merge to `main`, queuing a plan on the affected workspace(s).
-5. **Staging workspaces auto-apply** successful plans, including plans triggered by the meta-workspace. Review speculative plans before merging: the account/regional state migration and the second staging region are complete, so the temporary manual gates have been removed. Production rollout workspaces retain manual apply gates.
+5. **Staging workspaces auto-apply** successful plans, including plans triggered by the meta-workspace. The account/regional state migration and the second staging region are complete, so the temporary manual gates have been removed. Production rollout workspaces retain manual apply gates.
+
+For a PR changing `hcp-terraform/rosa-boundary/main.tf`, the meta-workspace
+speculative plan shows changes to HCP workspace settings or variables, **not**
+the downstream AWS resource plan. Review that meta plan before merging. If an
+AWS resource plan needs human approval before apply, first gate the affected
+staging workload workspace through a separate reviewed PR setting both
+`auto_apply = false` and `auto_apply_run_trigger = false`. Verify HCP has
+reconciled both settings and inspect queued runs before relying on the gate;
+restore auto-apply after reviewing and applying the downstream change. Do not
+assume a post-merge run can be held once auto-apply is enabled.
 
 A meta-workspace apply can still trigger no-change runs in workload workspaces;
 auto-apply does not suppress those runs. Notification triggers are configured
@@ -99,7 +109,7 @@ To deploy a new container image version:
 
 1. Merge the container/Lambda code change to `main`. Konflux builds and pushes the image.
 2. Update the image tag in `hcp-terraform/rosa-boundary/main.tf` (the `container_image`, `lambda_image_tag` variables in the `rosa-boundary-stage-regional` workspace definition).
-3. Open a PR with the tag update. The speculative plan shows the ECS task definition or Lambda function changing.
+3. Open a PR with the tag update. The meta-workspace speculative plan shows the workspace variable changing, not the ECS task definition or Lambda function resource plan. If that downstream plan needs review before apply, gate the regional workspace first as described above.
 4. Merge. The staging regional workspace queues a plan and auto-applies it if successful.
 
 ### Workspace Definition Changes (L2)
@@ -284,7 +294,7 @@ To change a variable for `rosa-boundary-stage-regional`:
 
 1. Update the matching entry in the `rosa-boundary-stage-regional.variables` list in [`hcp-terraform/rosa-boundary/main.tf`](../hcp-terraform/rosa-boundary/main.tf). Add an entry there when introducing a new workspace variable.
 2. Open, review, and merge a PR. The `meta-rosa-rosa-boundary` workspace applies the definition and reconciles the regional workspace through the HCP Terraform API.
-3. Review the speculative plan before merge and the resulting regional run; staging plans with changes auto-apply when successful.
+3. Review the meta-workspace speculative plan before merge and the resulting regional run; staging plans with changes auto-apply when successful. Gate the regional workspace first if the downstream AWS resource plan needs approval before apply.
 
 Do **not** create, edit, or delete these variables directly in the HCP Terraform UI, API, or Terraform HCP MCP tools. Direct edits create drift from the Git source of truth and can be reverted by the next meta-workspace apply. HCP Terraform access may be used to inspect the current state and to review or approve runs; when inspection finds drift, correct `main.tf` rather than the live workspace.
 

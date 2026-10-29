@@ -1,17 +1,17 @@
 # Dependency Management Automation
 
-This repository uses two complementary tools for automated dependency updates: **Dependabot** (GitHub-native) and **Mintmaker/Renovate** (Konflux-hosted). The strategy was established in [ROSAENG-60067](https://redhat.atlassian.net/browse/ROSAENG-60067) to eliminate PR duplication while maintaining coverage across all dependency ecosystems.
+This repository uses two complementary tools for automated dependency updates: **Dependabot** (GitHub-native) and **Mintmaker/Renovate** (Konflux-hosted). The strategy was established in [ROSAENG-60067](https://redhat.atlassian.net/browse/ROSAENG-60067) and the Go ownership overlap corrected in [ROSAENG-75132](https://redhat.atlassian.net/browse/ROSAENG-75132).
 
 ## Strategy
 
-Each tool owns a distinct set of package managers with minimal overlap:
+Each tool owns a distinct set of package managers without overlapping version-update PRs:
 
 | Tool | Ecosystems | Config File |
 |------|-----------|-------------|
 | **Mintmaker (Renovate)** | `gomod`, `terraform`, `pre-commit`, `github-actions`, custom regex GitHub releases | `renovate.json` |
-| **Dependabot** | `pip`, `gomod` (AWS SDK grouping) | `.github/dependabot.yml` |
+| **Dependabot** | `pip` (create-investigation Python Lambda) | `.github/dependabot.yml` |
 
-Mintmaker handles the bulk of code dependency updates with broad grouping (all Go minor/patch updates in one PR, all GitHub Actions in one PR). Dependabot covers the Python Lambda dependencies and provides targeted grouping for `aws-sdk-go-v2` modules, which are the highest-volume source of individual Go dependency PRs.
+Mintmaker is the sole version updater for the root Go modules. Its `gomod dependencies` group includes `github.com/aws/aws-sdk-go-v2` and its submodules alongside other Go minor/patch updates in one PR; major updates remain separate. Mintmaker also groups GitHub Actions updates. Dependabot updates only the create-investigation Python Lambda dependencies.
 
 ## Dependabot
 
@@ -25,7 +25,7 @@ Full configuration reference: [Dependabot configuration options](https://docs.gi
 
 Key settings:
 
-- **`groups`**: Batches related dependency updates into a single PR instead of one per package. The `aws-sdk` group collapses 5-6 individual `aws-sdk-go-v2` sub-package PRs into one.
+- **`groups`**: Batches the Python Lambda dependency updates into a single PR (`all-pip`). Go updates, including AWS SDK modules, are grouped by Mintmaker instead.
 - **`open-pull-requests-limit`**: Caps the number of open Dependabot PRs per ecosystem. Keeps the PR queue manageable.
 - **`schedule.interval`**: How often Dependabot checks for updates (`daily`, `weekly`, or `monthly`).
 
@@ -59,7 +59,7 @@ Mintmaker-specific documentation: [Mintmaker user guide](https://konflux.pages.r
 Key settings:
 
 - **`enabledManagers`**: Restricts which package managers Mintmaker runs. Without this, Mintmaker enables all default managers, which can cause overlap with Dependabot.
-- **`packageRules`**: Groups related updates into single PRs. The `gomod dependencies` group batches all minor/patch Go updates; the `github-actions` group batches all Actions version bumps.
+- **`packageRules`**: Groups related updates into single PRs. The `gomod dependencies` group batches all minor/patch Go updates (including AWS SDK modules) and pin/digest updates; major Go updates are not part of this group. The `github-actions` group batches all Actions version bumps.
 - **`custom.regex`**: Enables narrowly scoped custom managers for dependencies that do not have a built-in file manager.
 
 
@@ -69,7 +69,7 @@ Key settings:
 
 Three options, in order of impact:
 
-1. **Add `groups`** to batch related dependencies into single PRs. Use `patterns` to match package name prefixes (e.g., `"github.com/aws/aws-sdk-go-v2*"`). A catch-all `"*"` pattern groups everything in an ecosystem into one PR.
+1. **Add `groups`** to batch related dependencies into single PRs. The existing `all-pip` group uses a catch-all `"*"` pattern. Keep Go grouping in `renovate.json`, not Dependabot.
 
 2. **Lower `open-pull-requests-limit`** to cap how many PRs Dependabot keeps open per ecosystem. Default is 5. Set it to 1-3 for low-volume ecosystems.
 
@@ -85,7 +85,7 @@ Dependabot does not have an API endpoint for triggering runs. Use the GitHub UI:
 2. Navigate to **Settings** > **Code security** > **Dependabot**
 3. Under "Dependabot version updates", click **Check for updates** next to the ecosystem you want to re-trigger
 
-Each ecosystem (pip, gomod, etc.) must be triggered separately.
+Only the Python Lambda `pip` ecosystem is configured here; trigger Go updates through Mintmaker instead.
 
 ### How can I manually re-trigger a Renovate run?
 

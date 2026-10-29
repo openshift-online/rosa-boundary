@@ -9,13 +9,3 @@ updates:
       all-pip:
         patterns:
           - "*"
-
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 3
-    groups:
-      aws-sdk:
-        patterns:
-          - "github.com/aws/aws-sdk-go-v2*"

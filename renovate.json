@@ -23,7 +23,7 @@
   ],
   "packageRules": [
     {
-      "description": "Group all Go module patch/minor updates into a single PR",
+      "description": "Group all Go module patch/minor updates, including AWS SDK modules, into a single PR",
       "matchManagers": ["gomod"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "gomod dependencies"

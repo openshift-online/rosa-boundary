@@ -147,8 +147,12 @@ func TestGetTokenAuthenticatesAndCachesToken(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read token cache: %v", err)
 	}
-	if got := string(data); got != freshToken {
-		t.Errorf("cached token = %q, want %q", got, freshToken)
+	var entry scopedToken
+	if err := json.Unmarshal(data, &entry); err != nil {
+		t.Fatalf("decode scoped cache: %v", err)
+	}
+	if entry.Token != freshToken || entry.Issuer != "https://keycloak.example/realms/test" || entry.ClientID != "client-id" {
+		t.Error("cached token is not scoped to the expected issuer and client")
 	}
 }
 

@@ -10,7 +10,7 @@ This baseline adds no audit-reader role and does not manage organization access.
 `enable_lambda_ecr_source` (off by default) manages the ordinary, private
 `rosa-boundary/create-investigation-lambda` ECR repository in the account
 provider Region. The staging account workspace enables it in `us-east-1` and
-requires manual apply. `us-east-1` is the Git-managed workspace's `aws_region`,
+auto-applies successful plans. `us-east-1` is the Git-managed workspace's `aws_region`,
 not an independent Lambda source-region variable: changing it also requires
 coordinated app-interface ECR registration and Konflux release-destination and
 credential changes. The repository uses AES256 encryption, immutable tags,
@@ -164,14 +164,13 @@ account role deletion must be coordinated with every consuming region. Removing
 one region's grants must not remove another region's policies or common
 attachments. Review a destroy plan with the same care as deployment.
 
-The Git-managed staging definition registers a separate, manually applied
-account workspace with the existing dynamic AWS credentials variable set and
-staging inputs. Verify the regional apply gate and account credential trust
-in HCP after reconciliation, including any queued runs. The account workspace
-can plan before adoption, but its create plan must **not** be applied against
-the regional-owned shared identities, Bedrock budget or model agreements.
-Workspace registration does not transfer ownership; mocked tests do not prove
-live state-transfer safety.
+The staging account workspace now owns the imported shared identities and
+account-wide resources and auto-applies successful plans. The handoff procedure
+above is historical for staging; do not run it again against the current state.
+For a new deployment with existing resources still in regional state, keep both
+workspaces gated until the reviewed release/import is complete. Workspace
+registration does not transfer ownership; mocked tests do not prove live
+state-transfer safety.
 
 ## Bedrock model agreement scope
 

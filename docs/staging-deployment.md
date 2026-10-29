@@ -74,15 +74,17 @@ Changes cascade downward via run triggers: a successful apply at L1 triggers L2,
 
 ### Infrastructure Changes (Terraform)
 
-All four workload workspaces are VCS-connected to the `openshift-online/rosa-boundary` GitHub repository. The flow from code change to deployed infrastructure is:
+The workload workspaces are VCS-connected to the `openshift-online/rosa-boundary` GitHub repository. The flow from code change to deployed infrastructure is:
 
 1. **Open a PR** against `openshift-online/rosa-boundary` from an upstream branch (not a fork -- see note below).
 2. **Speculative plan runs automatically** on any workspace whose `working_directory` contains changed files. HCP Terraform posts the plan output as a PR check.
 3. **Review and merge** the PR through normal GitHub review.
 4. **VCS trigger fires** on merge to `main`, queuing a plan on the affected workspace(s).
-5. **Apply behavior** depends on the workspace:
-   - `rosa-boundary-stage-network` and `rosa-boundary-stage-aws-creds`: **auto-apply** -- the plan applies automatically after a successful plan.
-   - `rosa-boundary-stage-account` and `rosa-boundary-stage-regional`: **manual apply** -- a team member must confirm the apply in the HCP Terraform UI. In particular, do not apply an account create plan against resources still owned by regional state.
+5. **Staging workspaces auto-apply** successful plans, including plans triggered by the meta-workspace. Review speculative plans before merging: the account/regional state migration and the second staging region are complete, so the temporary manual gates have been removed. Production rollout workspaces retain manual apply gates.
+
+A meta-workspace apply can still trigger no-change runs in workload workspaces;
+auto-apply does not suppress those runs. Notification triggers are configured
+separately in the meta-workspace.
 
 > **Fork PRs do not trigger speculative plans.** HCP Terraform only runs plans for PRs from branches on the connected repository (`openshift-online/rosa-boundary`), not from forks. External contributors must have their changes pushed to an upstream branch for speculative plans to run.
 
@@ -98,7 +100,7 @@ To deploy a new container image version:
 1. Merge the container/Lambda code change to `main`. Konflux builds and pushes the image.
 2. Update the image tag in `hcp-terraform/rosa-boundary/main.tf` (the `container_image`, `lambda_image_tag` variables in the `rosa-boundary-stage-regional` workspace definition).
 3. Open a PR with the tag update. The speculative plan shows the ECS task definition or Lambda function changing.
-4. Merge. The regional workspace queues a plan, and a team member confirms the apply.
+4. Merge. The staging regional workspace queues a plan and auto-applies it if successful.
 
 ### Workspace Definition Changes (L2)
 
@@ -139,46 +141,33 @@ This workspace additionally requires the `rosa-boundary-tfe-creds` variable set 
 | Attribute | Value |
 |-----------|-------|
 | **Working directory** | `deploy/account/` |
-| **Auto-apply / run-trigger auto-apply** | No / No |
-| **Purpose** | Future owner of shared IAM/OIDC resources, Bedrock budget and model agreements |
+| **Auto-apply / run-trigger auto-apply** | Yes / Yes |
+| **Purpose** | Shared IAM/OIDC resources, Bedrock budget and model agreements |
 | **Variable sets** | `rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds` |
 
-The account workspace has **separate state** from regional, but its resources
-remain regional-owned until the reviewed release/import handoff. Its first
-pre-adoption plan may propose creating duplicates of existing resources;
-**do not apply it**. Verify the regional manual-apply gate, the AWS-credentials
-trust allowlist and the account workspace's plan authentication before proceeding.
-If workspace registration runs before the AWS-credentials workspace has applied
-the trust change, retry the account plan after trust is reconciled. Copy actual
-resource tags, trust, budget and agreement settings from the current staging
-inventory before approving any import. See [`../deploy/account/README.md`](../deploy/account/README.md).
+The account workspace has **separate state** from regional and now owns the
+shared IAM/OIDC identities, Bedrock budget and model agreements. The staging
+release/import handoff is complete. See [`../deploy/account/README.md`](../deploy/account/README.md)
+for the ownership contract and the historical migration procedure; do not
+repeat that procedure against the current staging state.
 
 ### rosa-boundary-stage-regional
 
 | Attribute | Value |
 |-----------|-------|
 | **Working directory** | `deploy/regional/` |
-| **Auto-apply** | No (manual confirmation required) |
+| **Auto-apply / run-trigger auto-apply** | Yes / Yes |
 | **Purpose** | Core infrastructure: ECS, EFS, Lambda, IAM, KMS, S3, CloudWatch |
 | **Variable sets** | `rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds` |
 
 The primary regional workload workspace. Deploys the ECS Fargate cluster, EFS filesystem, S3 audit bucket, Lambda functions (create-investigation, reap-tasks), regional IAM permission policies, KMS keys, CloudWatch log groups, EventBridge rules, and security groups. After the ownership handoff it looks up the shared IAM roles and OIDC providers managed by the account workspace.
 
-During ROSAENG-68790, the regional root retains resource-scoped IAM policies
-but releases shared roles, OIDC providers, the Bedrock budget, and model
-agreements from its state with `removed { destroy = false }`. This change does
-not delete those AWS resources. Apply the reviewed release only after verifying
-the account workspace's import inventory and the regional manual-apply gate;
-then apply account imports before resuming normal operations. The Git-managed
-regional `account_role_name_prefix` and `legacy_policy_region` variables match
-the account workspace's shared-role and policy-name contract.
-
-The Git-managed workspace definition sets `auto_apply = false` and
-`auto_apply_run_trigger = false` for the regional workspace. Verify that the
-meta-workspace has reconciled both settings in HCP Terraform and review any
-queued runs before relying on this manual apply gate for the handoff of shared
-IAM/OIDC identities, the Bedrock budget and model agreements. This gate does
-not register or apply the new account workspace.
+The regional root retains resource-scoped IAM policies; shared roles, OIDC
+providers, the Bedrock budget, and model agreements were released to the account
+workspace under ROSAENG-68790. The Git-managed regional
+`account_role_name_prefix` and `legacy_policy_region` variables preserve the
+shared-role and policy-name contract. Both staging regional workspaces now
+auto-apply successful VCS and run-trigger plans.
 
 ### meta-rosa-rosa-boundary (L2)
 
@@ -186,7 +175,7 @@ not register or apply the new account workspace.
 |-----------|-------|
 | **Project** | `meta-rosa` |
 | **Working directory** | `hcp-terraform/rosa-boundary/` |
-| **Purpose** | Creates and manages the four workload workspaces above |
+| **Purpose** | Creates and manages the workload workspaces |
 | **Variable sets** | `rosa-admin-creds`, `rosa-notification-url` |
 
 This is the meta-workspace (L2). It uses the private `terraform-tfe-workspaces` module to declaratively manage the workload workspaces, their VCS connections, variable assignments, and variable set attachments. Changes to this workspace propagate to workload workspaces via run triggers.
@@ -295,7 +284,7 @@ To change a variable for `rosa-boundary-stage-regional`:
 
 1. Update the matching entry in the `rosa-boundary-stage-regional.variables` list in [`hcp-terraform/rosa-boundary/main.tf`](../hcp-terraform/rosa-boundary/main.tf). Add an entry there when introducing a new workspace variable.
 2. Open, review, and merge a PR. The `meta-rosa-rosa-boundary` workspace applies the definition and reconciles the regional workspace through the HCP Terraform API.
-3. Review the resulting regional plan and approve its apply in HCP Terraform when required.
+3. Review the speculative plan before merge and the resulting regional run; staging plans with changes auto-apply when successful.
 
 Do **not** create, edit, or delete these variables directly in the HCP Terraform UI, API, or Terraform HCP MCP tools. Direct edits create drift from the Git source of truth and can be reverted by the next meta-workspace apply. HCP Terraform access may be used to inspect the current state and to review or approve runs; when inspection finds drift, correct `main.tf` rather than the live workspace.
 
@@ -405,7 +394,7 @@ This pattern applies at every layer -- bootstrap workspaces, meta-workspaces, an
 | **Variables** | `.env` + `terraform.tfvars` (gitignored) | Defined as code in `hcp-terraform/rosa-boundary/main.tf` |
 | **AWS credentials** | Local AWS CLI profile or env vars | OIDC dynamic credentials via variable set |
 | **Lambda packaging** | ZIP (built locally by `make apply` via `build-lambda`) | Container image from Quay (HCP Terraform cannot run local build scripts) |
-| **Apply gate** | Immediate | Manual confirmation required for regional workspace |
+| **Apply gate** | Immediate | Successful staging plans auto-apply; production rollout workspaces require manual confirmation |
 | **Backend config** | `cloud.tf` or local state | Set externally by meta-workspace; no `cloud.tf` in workload directories |
 | **Container image** | ECR (manually pushed) | Quay (Konflux pipeline, pinned by commit SHA) |
 

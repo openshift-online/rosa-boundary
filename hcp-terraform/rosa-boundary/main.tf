@@ -69,15 +69,12 @@ module "rosa_boundary" {
     }
 
     rosa-boundary-stage-network-us-west-2 = {
-      terraform_version = "1.16.0"
-      working_directory = "deploy/network"
-      github_repo_org   = "openshift-online"
-      github_repo_name  = "rosa-boundary"
-      # T2-PR1: Dedicated staging us-west-2 network workspace.
-      # AWS OIDC access is authorized separately via aws-creds (T2-PR2).
-      # Network infrastructure deployment requires manual plan/apply review.
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      terraform_version      = "1.16.0"
+      working_directory      = "deploy/network"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
@@ -154,18 +151,16 @@ module "rosa_boundary" {
     }
 
     rosa-boundary-stage-account = {
-      terraform_version = "1.16.0"
-      working_directory = "deploy/account"
-      github_repo_org   = "openshift-online"
-      github_repo_name  = "rosa-boundary"
-      # Shared resources were released from regional state and imported here.
-      # Keep manual apply while validating clean post-adoption plans.
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      terraform_version      = "1.16.0"
+      working_directory      = "deploy/account"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
-          # Source-only Lambda image publication pilot; account workspace is manual apply.
+          # Source-only Lambda image publication pilot.
           key      = "enable_lambda_ecr_source"
           value    = "true"
           category = "terraform"
@@ -325,14 +320,12 @@ module "rosa_boundary" {
     }
 
     rosa-boundary-stage-regional = {
-      terraform_version = "1.16.0"
-      working_directory = "deploy/regional"
-      github_repo_org   = "openshift-online"
-      github_repo_name  = "rosa-boundary"
-      # ROSAENG-68790: hold regional applies before account-level resources move state.
-      # Keep both settings disabled until the migration and smoke tests finish.
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      terraform_version      = "1.16.0"
+      working_directory      = "deploy/regional"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
@@ -520,14 +513,12 @@ module "rosa_boundary" {
     }
 
     rosa-boundary-stage-regional-us-west-2 = {
-      terraform_version = "1.16.0"
-      working_directory = "deploy/regional"
-      github_repo_org   = "openshift-online"
-      github_repo_name  = "rosa-boundary"
-      # T2-PR3: Create the staging us-west-2 regional workspace without AWS access.
-      # T2-PR4 will authorize AWS OIDC access and deploy regional infrastructure.
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      terraform_version      = "1.16.0"
+      working_directory      = "deploy/regional"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {

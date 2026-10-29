@@ -40,9 +40,14 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	viper.Set("keycloak_url", "https://keycloak.example.test/auth")
 	t.Cleanup(func() { viper.Set("keycloak_url", nil) })
+	viper.Set("keycloak_realm", "EmployeeIDP")
+	viper.Set("oidc_client_id", "rosa-boundary-sre")
+	viper.Set("oidc_use_device_code", false)
+	t.Cleanup(func() { viper.Set("keycloak_realm", nil); viper.Set("oidc_client_id", nil) })
+	t.Cleanup(func() { viper.Set("oidc_use_device_code", nil) })
 
 	token := testJWT(time.Now().Add(time.Hour))
-	if err := auth.SaveToken(token); err != nil {
+	if err := auth.SaveTokenForConfig(token, auth.PKCEConfig{KeycloakURL: "https://keycloak.example.test/auth", Realm: "EmployeeIDP", ClientID: "rosa-boundary-sre"}); err != nil {
 		t.Fatalf("SaveToken() error = %v", err)
 	}
 

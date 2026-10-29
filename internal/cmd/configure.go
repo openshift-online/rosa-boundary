@@ -38,6 +38,12 @@ from the Lambda. You only need to provide an AWS account ID and region.
 
 Use --auto-discover=false for interactive prompting.
 
+Pass --use-device-code=true to bootstrap auto-discovery without a local
+browser or callback and save oidc_use_device_code: true. Without an explicit
+true, configure uses browser bootstrap and saves false, regardless of an old
+config or ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE. Manual mode saves the selected
+boolean without authenticating. -o json emits auth events on stderr only.
+
 Auto-discovery flags:
 
   --account-id    AWS account ID (prompted if not provided)
@@ -57,13 +63,15 @@ Configuration fields:
 
   keycloak_url          Base URL of your Keycloak instance.
                         Default: https://auth.redhat.com/auth.
-                        Used for OIDC authentication via the browser-based
-                        PKCE flow.
+                         Used for OIDC authentication.
 
   keycloak_realm        Keycloak realm name. Default: EmployeeIDP.
 
   oidc_client_id        OIDC client ID registered in Keycloak for this
-                        application. Default: rosa-boundary-sre.
+                         application. Default: rosa-boundary-sre.
+
+  oidc_use_device_code  Select device approval instead of browser login for
+                         Boundary and OCM. Default: false.
 
   lambda_function_name  Name of the AWS Lambda function that creates
                         investigation tasks. Must match the function
@@ -96,10 +104,14 @@ func init() {
 	configureCmd.Flags().StringVar(&configRegion, "region", "", "AWS region (prompted if not provided; default: us-east-2)")
 	configureCmd.Flags().StringVar(&configProject, "project", "rosa-boundary", "Project name for naming convention")
 	configureCmd.Flags().StringVar(&configEnvironment, "environment", "prod", "Deployment environment for naming convention")
+	addOutputFlag(configureCmd, false)
 	rootCmd.AddCommand(configureCmd)
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
+	if _, err := commandOutput(cmd); err != nil {
+		return err
+	}
 	if configAutoDiscover {
 		return runConfigureAuto(cmd)
 	}
@@ -293,7 +305,11 @@ func runConfigureAuto(cmd *cobra.Command) error {
 		ClientID:    oidcClientID,
 	}
 	// The shared token cache may contain an ID token from another OIDC issuer.
-	idToken, err := auth.GetToken(cmd.Context(), pkce, true)
+	reporter, err := authReporter(cmd)
+	if err != nil {
+		return err
+	}
+	idToken, err := auth.GetTokenWithOptions(cmd.Context(), pkce, true, auth.Options{UseDeviceCode: configureDeviceCode(cmd), Reporter: reporter})
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
@@ -387,6 +403,7 @@ func runConfigureAuto(cmd *cobra.Command) error {
 	output.Status("  %-25s %s", "keycloak_url :", finalKeycloakURL)
 	output.Status("  %-25s %s", "keycloak_realm :", finalKeycloakRealm)
 	output.Status("  %-25s %s", "oidc_client_id :", finalOIDCClientID)
+	output.Status("  %-25s %t", "oidc_use_device_code :", configureDeviceCode(cmd))
 	fmt.Fprintln(os.Stderr)
 
 	// Build config entries and write config.yaml
@@ -397,6 +414,7 @@ func runConfigureAuto(cmd *cobra.Command) error {
 	configPath := filepath.Join(configDir, "config.yaml")
 
 	entries := []config.ConfigEntry{
+		{Key: "oidc_use_device_code", BoolValue: configureBoolPtr(configureDeviceCode(cmd)), Comment: "Use human-approved device authorization for Boundary and OCM."},
 		{
 			Key:     "keycloak_url",
 			Value:   finalKeycloakURL,
@@ -513,6 +531,7 @@ func runConfigureInteractive(cmd *cobra.Command) error {
 	configPath := filepath.Join(configDir, "config.yaml")
 
 	entries := []config.ConfigEntry{
+		{Key: "oidc_use_device_code", BoolValue: configureBoolPtr(configureDeviceCode(cmd)), Comment: "Use human-approved device authorization for Boundary and OCM."},
 		{
 			Key:     "keycloak_url",
 			Value:   keycloakURL,
@@ -567,3 +586,5 @@ func runConfigureInteractive(cmd *cobra.Command) error {
 	fmt.Fprintf(os.Stderr, "\nConfiguration saved to %s\n", configPath)
 	return nil
 }
+
+func configureBoolPtr(value bool) *bool { return &value }

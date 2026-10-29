@@ -25,7 +25,12 @@ assume the returned SRE role, and wait for the task to reach RUNNING state.
 If --investigation-id is omitted, a random three-word name is generated
 (e.g. "swift-dance-party").
 
-Prints connection info and the join-task command upon completion.`,
+Prints connection info and the join-task command upon completion.
+With -o json, the result is a single stdout JSON document; authentication
+events are prefixed JSON lines on stderr. --connect remains an interactive
+terminal session, not JSON shell output, and requires a controlling terminal.
+The explicit --ocm-auth-flow overrides the global device preference for OCM
+only; an auth-code override requires a local browser callback.`,
 	Args: validateStartTaskArgs,
 	RunE: runStartTask,
 }
@@ -53,10 +58,10 @@ func init() {
 	startTaskCmd.Flags().BoolVar(&startConnect, "connect", false, "Automatically join the task after it is RUNNING")
 	startTaskCmd.Flags().BoolVar(&startNoWait, "no-wait", false, "Return immediately without waiting for RUNNING")
 	startTaskCmd.Flags().BoolVar(&startForceLogin, "force-login", false, "Force fresh OIDC authentication")
-	startTaskCmd.Flags().StringVar(&startOutputFormat, "output", "text", "Output format: text or json")
+	addOutputFlag(startTaskCmd, true, &startOutputFormat)
 	startTaskCmd.Flags().StringSliceVar(&startCredentials, "with-credentials", nil, fmt.Sprintf("Configure a credential provider after startup (supported: %s)", strings.Join(supportedCredentialProviders, ", ")))
 	startTaskCmd.Flags().StringVar(&startOCMURL, "ocm-url", "", "OCM environment alias or approved canonical API URL")
-	startTaskCmd.Flags().StringVar(&startOCMFlow, "ocm-auth-flow", string(ocmcredentials.FlowAuthCode), "OCM authentication flow: auth-code or device")
+	startTaskCmd.Flags().StringVar(&startOCMFlow, "ocm-auth-flow", "", "OCM-only override: auth-code or device (default: from --use-device-code/config; auth-code if unset)")
 	rootCmd.AddCommand(startTaskCmd)
 }
 
@@ -67,13 +72,16 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("invalid --output %q: must be text or json", startOutputFormat)
 	}
 
-	configureOCM, ocmEnvironment, ocmFlow, err := validateStartCredentials()
+	configureOCM, ocmEnvironment, ocmFlow, err := validateStartCredentials(cmd.Flags().Changed("ocm-auth-flow"))
 	if err != nil {
 		return err
 	}
 
 	authRes := cachedAuthResult
 	cfg := authRes.Config
+	if configureOCM && !cmd.Flags().Changed("ocm-auth-flow") && startOCMFlow == "" {
+		ocmFlow = defaultOCMFlow(cfg.OIDCUseDeviceCode)
+	}
 
 	clusterID := startClusterID
 
@@ -140,7 +148,11 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 
 	// We use assumeRoleWithRetry to do the second assumption (SRE role) using the same OIDC token (which should be cached).
 	// This also handles a retry if for some reason the token was invalidated in the split second since the last call.
-	_, creds, err := assumeRoleWithRetry(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, false)
+	options, err := tokenOptions(cmd, cfg)
+	if err != nil {
+		return err
+	}
+	_, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, false, options)
 	if err != nil {
 		return fmt.Errorf("role assumption failed: %w", err)
 	}
@@ -169,7 +181,7 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	// the freshly issued OCM token's useful lifetime as long as possible.
 	if configureOCM {
 		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
-		if err := configureOCMForTask(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, ocmEnvironment, ocmFlow); err != nil {
+		if err := configureOCMForTask(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, ocmEnvironment, ocmFlow, cmd); err != nil {
 			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, ocmEnvironment, ocmFlow, err)
 		}
 	}
@@ -204,7 +216,7 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 			step = 5
 		}
 		output.Status("\n=== Step %d: Connecting to Task ===", step)
-		return runJoinWithClient(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, "rosa-boundary", defaultExecCommand, false)
+		return runJoinWithClientFormat(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, "rosa-boundary", defaultExecCommand, false, startOutputFormat)
 	}
 
 	return nil
@@ -216,11 +228,22 @@ func validateStartTaskArgs(cmd *cobra.Command, args []string) error {
 	if err := cobra.NoArgs(cmd, args); err != nil {
 		return err
 	}
-	_, _, _, err := validateStartCredentials()
+	if startConnect && !startNoWait {
+		if err := requireInteractiveTerminal(cmd); err != nil {
+			return err
+		}
+	}
+	_, _, _, err := validateStartCredentials(cmd.Flags().Changed("ocm-auth-flow"))
 	return err
 }
 
-func validateStartCredentials() (bool, ocmcredentials.Environment, ocmcredentials.Flow, error) {
+func validateStartCredentials(explicit ...bool) (bool, ocmcredentials.Environment, ocmcredentials.Flow, error) {
+	flowExplicit := len(explicit) != 0 && explicit[0]
+	if startOCMFlow != "" || flowExplicit {
+		if _, err := parseOCMFlow(startOCMFlow); err != nil {
+			return false, ocmcredentials.Environment{}, "", err
+		}
+	}
 	if len(startCredentials) == 0 {
 		return false, ocmcredentials.Environment{}, "", nil
 	}
@@ -241,17 +264,24 @@ func validateStartCredentials() (bool, ocmcredentials.Environment, ocmcredential
 	if err != nil {
 		return false, ocmcredentials.Environment{}, "", err
 	}
-	flow, err := parseOCMFlow(startOCMFlow)
-	if err != nil {
-		return false, ocmcredentials.Environment{}, "", err
+	flow := ocmcredentials.Flow("")
+	if startOCMFlow != "" || flowExplicit {
+		flow, err = parseOCMFlow(startOCMFlow)
+		if err != nil {
+			return false, ocmcredentials.Environment{}, "", err
+		}
 	}
 	return true, environment, flow, nil
 }
 
 func startCredentialFailure(investigationID, taskID, ecsCluster, region string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, cause error) error {
+	callbackNotice := ""
+	if flow == ocmcredentials.FlowAuthCode {
+		callbackNotice = "; auth-code retry requires a local browser callback (omit --auth-flow for the saved preference)"
+	}
 	return fmt.Errorf(
-		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; retry with: rosa-boundary --ecs-cluster %s --region %s credentials configure ocm --ocm-url %s --auth-flow %s %s; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
-		investigationID, taskID, cause, ecsCluster, region, environment.Name, flow, taskID, ecsCluster, region, taskID,
+		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; retry with: rosa-boundary --ecs-cluster %s --region %s credentials configure ocm --ocm-url %s --auth-flow %s %s%s; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
+		investigationID, taskID, cause, ecsCluster, region, environment.Name, flow, taskID, callbackNotice, ecsCluster, region, taskID,
 	)
 }
 

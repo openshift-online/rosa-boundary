@@ -39,7 +39,7 @@ func init() {
 	_ = createInvestigationCmd.MarkFlagRequired("cluster-id")
 	createInvestigationCmd.Flags().StringVar(&createInvestigationID, "investigation-id", "", "Investigation ID (auto-generated if omitted)")
 	createInvestigationCmd.Flags().BoolVar(&createForceLogin, "force-login", false, "Force fresh OIDC authentication")
-	createInvestigationCmd.Flags().StringVar(&createOutputFormat, "output", "text", "Output format: text or json")
+	addOutputFlag(createInvestigationCmd, true, &createOutputFormat)
 	rootCmd.AddCommand(createInvestigationCmd)
 }
 

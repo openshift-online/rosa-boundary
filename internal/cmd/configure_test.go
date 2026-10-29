@@ -4,6 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"github.com/openshift-online/rosa-boundary/internal/config"
+	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"path/filepath"
@@ -43,6 +46,65 @@ func TestBootstrapOIDCValue(t *testing.T) {
 	}
 	if got := get(); got != "https://flag.example" {
 		t.Errorf("flag URL = %q", got)
+	}
+}
+
+func TestConfigureManualPersistsExplicitYAMLBoolean(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE", "true") // configure ignores env mode
+	if err := config.Load(); err != nil {
+		t.Fatal(err)
+	}
+	parent := &cobra.Command{Use: "rosa-boundary"}
+	parent.PersistentFlags().Bool("use-device-code", false, "")
+	child := &cobra.Command{Use: "configure"}
+	parent.AddCommand(child)
+	for _, tc := range []struct {
+		value string
+		want  bool
+	}{{"true", true}, {"false", false}} {
+		if err := parent.PersistentFlags().Set("use-device-code", tc.value); err != nil {
+			t.Fatal(err)
+		}
+		old := os.Stdin
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Manual prompts: URL, realm, client, Lambda, invoker, SRE, region, cluster, EFS.
+		_, _ = io.WriteString(w, "\n\n\nexample-lambda\nexample-invoker\nexample-sre\n\n\nexample-fs\n")
+		_ = w.Close()
+		os.Stdin = r
+		err = runConfigureInteractive(child)
+		os.Stdin = old
+		_ = r.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "rosa-boundary", "config.yaml")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc yaml.Node
+		if err := yaml.Unmarshal(data, &doc); err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for i := 0; i+1 < len(doc.Content[0].Content); i += 2 {
+			if doc.Content[0].Content[i].Value == "oidc_use_device_code" {
+				value := doc.Content[0].Content[i+1]
+				if value.Tag != "!!bool" || value.Value != tc.value {
+					t.Fatalf("device key = %q %s; want YAML bool %s", value.Value, value.Tag, tc.value)
+				}
+				found = true
+			}
+		}
+		if !found {
+			t.Fatal("device preference omitted")
+		}
 	}
 }
 

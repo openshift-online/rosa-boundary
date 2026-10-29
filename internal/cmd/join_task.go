@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"golang.org/x/term"
 	"os"
 	"time"
 
@@ -18,8 +19,17 @@ var joinTaskCmd = &cobra.Command{
 	Long: `Connect to a running ECS Fargate task using ECS Exec and the
 AWS Session Manager plugin. Requires session-manager-plugin to be installed.
 
-The task must be in RUNNING state and have ECS Exec enabled.`,
-	Args: cobra.ExactArgs(1),
+The task must be in RUNNING state and have ECS Exec enabled.
+
+-o json emits authentication events on stderr, not a JSON shell result.
+The session still requires a controlling terminal; its raw I/O is sent to
+that terminal rather than stdout. The plugin's exit status is preserved.`,
+	Args: func(cmd *cobra.Command, args []string) error {
+		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
+			return err
+		}
+		return requireInteractiveTerminal(cmd)
+	},
 	RunE: runJoinTask,
 }
 
@@ -33,6 +43,7 @@ func init() {
 	joinTaskCmd.Flags().StringVar(&joinContainer, "container", "rosa-boundary", "Container name to connect to")
 	joinTaskCmd.Flags().StringVar(&joinCommand, "command", defaultExecCommand, "Command to run in the container")
 	joinTaskCmd.Flags().BoolVar(&joinNoWait, "no-wait", false, "Do not wait for RUNNING state before connecting")
+	addOutputFlag(joinTaskCmd, false)
 	rootCmd.AddCommand(joinTaskCmd)
 }
 
@@ -51,11 +62,42 @@ func runJoinTask(cmd *cobra.Command, args []string) error {
 	output.Status("ECS Cluster: %s", clusterName)
 	output.Status("Task:        %s", taskID)
 
-	return runJoinWithClient(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, taskID, joinContainer, joinCommand, joinNoWait)
+	return runJoinWithClientFormat(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, taskID, joinContainer, joinCommand, joinNoWait, joinOutputFormat(cmd))
+}
+
+func joinOutputFormat(cmd *cobra.Command) string { format, _ := commandOutput(cmd); return format }
+
+// A JSON result stream cannot carry arbitrary shell bytes. A controlling
+// terminal is mandatory and belongs to the plugin, not command stdout/stderr.
+func requireInteractiveTerminal(cmd *cobra.Command) error {
+	format, err := commandOutput(cmd)
+	if err != nil {
+		return err
+	}
+	if format != "json" {
+		return nil
+	}
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("-o json with an interactive session requires a controlling terminal: %w", err)
+	}
+	defer func() { _ = tty.Close() }()
+	if !term.IsTerminal(int(tty.Fd())) {
+		return fmt.Errorf("-o json with an interactive session requires a controlling terminal")
+	}
+	return nil
+}
+
+func runJoinWithClientFormat(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool, format string) error {
+	return runJoinWithClientSession(ctx, ecsClient, region, creds, taskID, container, command, noWait, format)
 }
 
 // runJoinWithClient is shared by join-task and start-task --connect.
 func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool) error {
+	return runJoinWithClientSession(ctx, ecsClient, region, creds, taskID, container, command, noWait, "text")
+}
+
+func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool, format string) error {
 	// Check task status
 	output.Status("Checking task status...")
 	task, err := ecsClient.DescribeTask(ctx, taskID)
@@ -97,5 +139,13 @@ func runJoinWithClient(ctx context.Context, ecsClient *awsclient.ECSClient, regi
 	}
 
 	// Hand off to session-manager-plugin (replaces the process)
+	if format == "json" {
+		tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+		if err != nil {
+			return fmt.Errorf("interactive session requires a controlling terminal: %w", err)
+		}
+		defer func() { _ = tty.Close() }()
+		return awsclient.RunSessionManagerPluginWithStreams(ctx, region, session, creds, tty, tty, tty)
+	}
 	return awsclient.StartSessionManagerPlugin(region, session, creds)
 }

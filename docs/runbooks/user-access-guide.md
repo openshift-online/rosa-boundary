@@ -86,6 +86,27 @@ provider, supply `--keycloak-url`, `--realm`, and `--client-id` explicitly (or t
 corresponding `ROSA_BOUNDARY_*` environment variables). To enter all settings
 without auto-discovery, use `configure --auto-discover=false`.
 
+For a server without a local browser or callback port, add **explicit**
+`--use-device-code` to `configure`: it displays a verification URL and user code
+on stderr; open the URL on another device, enter the code, and approve as the
+authorized SRE while the CLI waits. For example:
+
+```bash
+./bin/rosa-boundary configure \
+  --account-id <account-id> --region <region> \
+  --project rosa-boundary --environment stage --use-device-code
+```
+
+This writes `oidc_use_device_code: true` (a YAML boolean) to
+`${XDG_CONFIG_HOME:-$HOME/.config}/rosa-boundary/config.yaml` and uses device
+approval for future fresh Boundary **and OCM** authentication. Without an
+explicit true flag (including `--use-device-code=false`), `configure` uses
+browser bootstrap and **writes `oidc_use_device_code: false`**, even if the
+previous config or `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` says true. This is an
+intentional exception to normal command precedence. With `--auto-discover=false`,
+it writes the selected boolean but does not attempt OIDC login; manual setup
+may still prompt for configuration fields.
+
 Confirm the discovered account, region, cluster, role ARNs, Lambda, and EFS filesystem match the intended deployment. If discovery is unavailable, ask the operator for these settings before using interactive configuration.
 
 ## Daily Usage
@@ -96,7 +117,107 @@ Confirm the discovered account, region, cluster, role ARNs, Lambda, and EFS file
 ./bin/rosa-boundary login
 ```
 
-This opens a browser for Keycloak PKCE authentication when a fresh token is needed. The token is cached under `${XDG_CACHE_HOME:-$HOME/.cache}/rosa-boundary/token-cache` and reused until shortly before expiry. Use the identity provider saved during `configure` (or override it explicitly for a different deployment).
+By default this opens a browser for Keycloak PKCE authentication when a fresh
+Boundary ID token is needed. With the saved device preference it instead shows
+a URL and code on stderr and waits for human approval on another device; it
+does not open a browser or bind a callback port on the server. The token is
+cached under `${XDG_CACHE_HOME:-$HOME/.cache}/rosa-boundary/token-cache` and
+reused until shortly before the token's actual expiry (`exp`), regardless of
+the selected flow. `login --force` or global `--force-login` requests a fresh
+token; ordinary commands can also request fresh approval after cache expiry or
+STS rejection. The selected flow is retained for retries, with no automatic
+fallback to a browser. Use the identity provider saved during `configure` (or
+override it explicitly for a different deployment).
+
+For **normal commands**, flow selection is explicit `--use-device-code=true|false`
+(bare flag means true) > `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` > saved YAML
+`oidc_use_device_code` > default `false`. An explicit false overrides a saved
+true for both Boundary and OCM; invalid environment or config booleans fail
+instead of falling back. This setting chooses the login flow, not the provider.
+
+### Script-driven, human-approved login
+
+Automation can surface approval challenges, but **cannot issue user credentials
+unattended**: a human must approve each fresh device request. For every command
+that might authenticate, pass `-o json` (or `--output json`) to that **leaf
+command**, even after a successful `login -o json`; another command may see
+an expired token or an STS retry. Auth events are prefixed JSON lines on
+**stderr**, while existing operation result JSON (for example, `start-task`)
+remains a single document on **stdout**. Other stderr diagnostics can coexist.
+`login`, `configure`, `stop-task`, and OCM credential commands have no JSON
+result on stdout; `join-task` remains an interactive terminal session, not a
+JSON shell. Do not capture a device challenge into a shared CI log or file.
+
+For a noninteractive auth-bearing command, this Python example inherits its
+stdout (so result JSON is unchanged), drains stderr **while it runs**, and
+shows both provider challenges only on the operator's private terminal. Invoke
+it with an approved channel to the SRE and a command such as
+`python3 approve_boundary.py ./bin/rosa-boundary start-task --cluster-id CLUSTER --with-credentials ocm -o json`.
+Do not use this example for interactive `join-task`, `start-task --connect`, or
+manual `configure` (those need terminal input/session I/O).
+
+```python
+#!/usr/bin/env python3
+import json
+import subprocess
+import sys
+
+PREFIX = "ROSA_BOUNDARY_AUTH_EVENT "
+args = sys.argv[2:]
+json_output = any(
+    (arg in ("-o", "--output") and i + 1 < len(args) and args[i + 1] == "json")
+    or arg in ("-o=json", "--output=json")
+    for i, arg in enumerate(args)
+)
+if not json_output:
+    sys.exit("Pass a noninteractive rosa-boundary command with -o json")
+
+with open("/dev/tty", "w", encoding="utf-8") as terminal:
+    child = subprocess.Popen(
+        sys.argv[1:], stdin=subprocess.DEVNULL, stdout=sys.stdout,
+        stderr=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1,
+    )
+    for line in child.stderr:
+        if not line.startswith(PREFIX):
+            sys.stderr.write(line)  # Other diagnostics are not auth events.
+            continue
+        event = json.loads(line[len(PREFIX):])
+        provider = event["provider"]  # "boundary" and "ocm" are separate approvals.
+        if event["event"] == "device_authorization":
+            terminal.write(
+                f"{provider}: open {event['verification_uri']} on another device "
+                f"and enter {event['user_code']} (expires in {event['expires_in']}s).\n"
+            )
+            terminal.flush()  # Do not wait for process exit before notifying the SRE.
+        elif event["event"] == "authentication_failed":
+            terminal.write(f"{provider} authentication failed: {event['reason']}\n")
+            terminal.flush()
+        # "authenticated" is token acquisition, not command success.
+    sys.exit(child.wait())  # Check exit status before acting on stdout results.
+```
+
+Each `device_authorization` event has `version: 1`, `provider`,
+`verification_uri`, `user_code`, and `expires_in`; `authenticated` has a
+`source` (`cache`, `device`, or `browser`; cache is Boundary-only), and
+`authentication_failed` has a sanitized reason. A cached Boundary success
+can be followed by a fresh Boundary challenge on STS rejection; OCM approval
+can follow in the same command. The process may fail **after** either
+`authenticated` event. Handle the short-lived URL and code as sensitive
+operational information; never pass them in arguments, store them in logs,
+or print tokens. Do not retry denied or expired requests indefinitely. See
+the [authentication model](../architecture/cli-authentication.md#authentication-events-for-scripts)
+for the complete event and stream contract.
+
+For OCM credentials, `start-task --with-credentials ocm` and
+`credentials configure ocm <task-id>` use the same saved/global device
+preference by default but request a **different issuer/client's OCM access
+token**, never the Boundary ID token. Explicit `--ocm-auth-flow auth-code|device`
+on `start-task` or `--auth-flow auth-code|device` on `credentials configure ocm`
+overrides **OCM only** for that invocation. An explicit `auth-code` requires a
+local callback even when Boundary uses device mode; explicit `device` remains
+headless. If both providers require fresh authentication, expect **two separate
+human approvals**. OCM tokens are transferred to task-scoped, audit-excluded
+storage; they are not printed or stored in the Boundary token cache.
 
 ### Step 2: Start Investigation
 
@@ -213,6 +334,16 @@ aws ecs describe-tasks \
 2. Verify your Keycloak credentials by logging in at the Keycloak URL
 
 3. Check group membership — see [Getting Access](#getting-access)
+
+4. On a headless host, verify that the saved YAML boolean or explicit flag
+   selects device mode; `configure` does **not** inherit the environment/file
+   preference for its bootstrap. If a challenge expires, is denied, or is
+   canceled, request a new login after addressing the cause; check that the
+   operator approved the correct provider (`boundary` or `ocm`). Device mode
+   does not fall back to browser mode. For OCM, check whether an explicit
+   `--ocm-auth-flow auth-code` / `--auth-flow auth-code` requested a callback.
+   If OCM configuration fails after task creation, retain the reported task ID
+   and follow the cleanup/retry guidance; a failed command does not stop the task.
 
 ### "AccessDenied" from Lambda
 

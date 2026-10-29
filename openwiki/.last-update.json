@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-10-27T13:46:36.513Z",
+  "updatedAt": "2026-10-29T16:23:00.528Z",
   "command": "update",
-  "gitHead": "c1641c6b4ee2a73d627e89e519eca5e2dc0b1298",
-  "model": "host-agent/pi",
+  "gitHead": "cfd108e12adfd65ad855201ea2275e21ad432c79",
+  "model": "claude-sonnet-5",
   "status": "complete",
   "language": "en"
 }

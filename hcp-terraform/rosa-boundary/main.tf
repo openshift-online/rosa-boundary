@@ -165,6 +165,12 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
+          # Source-only Lambda image publication pilot; account workspace is manual apply.
+          key      = "enable_lambda_ecr_source"
+          value    = "true"
+          category = "terraform"
+        },
+        {
           key      = "aws_account_id"
           value    = "150100906299"
           category = "terraform"

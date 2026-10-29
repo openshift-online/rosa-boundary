@@ -12,6 +12,12 @@ variable "aws_region" {
   type        = string
 }
 
+variable "enable_lambda_ecr_source" {
+  description = "Create the ordinary Lambda publication source in this account/region; does not change any deployed Lambda or configure replication."
+  type        = bool
+  default     = false
+}
+
 variable "project" {
   type    = string
   default = "rosa-boundary"

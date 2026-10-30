@@ -39,6 +39,7 @@ module "aws_dynamic_creds" {
             "rosa-boundary-prod-aws-creds",
             "rosa-boundary-prod-account",
             "rosa-boundary-prod-network-us-east-1",
+            "rosa-boundary-prod-regional-us-east-1",
           ]
         }
       }

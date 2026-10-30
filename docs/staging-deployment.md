@@ -100,6 +100,23 @@ separately in the meta-workspace.
 
 ### Container Image Updates
 
+The Lambda-only ordinary ECR publication pilot has a source repository in the
+account workspace (`us-east-1`). The `us-west-2` regional workspace is configured
+to create a matching destination repository, and the account workspace is
+configured to own the filtered ECR replication rule after reviewed applies.
+These resources do **not** change the running Lambda images:
+the regional configurations below still reference the Quay pull-through cache.
+Before promoting a Lambda URI/tag through Git, verify the approved image is
+present in every intended Region. Replication is asynchronous and does not copy
+images pushed before the rule was enabled. Review account-wide replication
+rules before merging a registry-wide configuration: a successful staging plan
+auto-applies, and a new resource can overwrite rules owned by another workload.
+Apply the destination repository first, then enable account replication with
+`lambda_ecr_replication_regions = ["us-west-2"]` in a **separate** PR. Both
+workspaces auto-apply after a meta-workspace reconciliation, so enabling both
+at once could let replication create the destination with default settings
+before regional Terraform can create its managed repository.
+
 The staging deployment references container images from Quay.io, built by Konflux:
 
 - **rosa-boundary container**: `quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:<commit-sha>`

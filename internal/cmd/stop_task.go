@@ -24,6 +24,7 @@ var (
 )
 
 func init() {
+	addOutputFlag(stopTaskCmd, false)
 	stopTaskCmd.Flags().StringVar(&stopReason, "reason", "Investigation complete", "Reason for stopping the task")
 	stopTaskCmd.Flags().BoolVar(&stopWait, "wait", false, "Wait for the task to reach STOPPED state")
 	rootCmd.AddCommand(stopTaskCmd)

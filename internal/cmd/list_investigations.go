@@ -31,7 +31,7 @@ var (
 
 func init() {
 	listInvestigationsCmd.Flags().StringVar(&listInvClusterID, "cluster-id", "", "Filter by cluster ID (lists all clusters if omitted)")
-	listInvestigationsCmd.Flags().StringVar(&listInvOutputFormat, "output", "text", "Output format: text or json")
+	addOutputFlag(listInvestigationsCmd, true, &listInvOutputFormat)
 	rootCmd.AddCommand(listInvestigationsCmd)
 }
 

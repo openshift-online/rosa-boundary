@@ -24,8 +24,8 @@ stateDiagram-v2
     InvestigationClosed --> [*]
 
     note right of LoggedIn
-        - Keycloak PKCE browser flow
-        - Token cached under XDG cache directory
+        - Browser PKCE by default; optional human-approved device flow
+        - Boundary ID token cached under XDG cache directory
     end note
 
     note right of TaskRunning
@@ -76,6 +76,14 @@ configuration using the operator-supplied account, region, project, and
 environment. Check the discovered Lambda, role ARNs, cluster, and EFS filesystem
 before proceeding. For a non-default identity provider supply its OIDC settings;
 `login` alone does not configure the roles needed by the other commands.
+On a headless server, pass `--use-device-code` explicitly to `configure` to
+use device approval during auto-discovery and save `oidc_use_device_code: true`.
+Without an explicit true flag, `configure` uses a browser and writes `false`
+even if an old config or environment variable says true. Manual
+`configure --auto-discover=false` writes the selected boolean without login.
+Ordinary commands use explicit `--use-device-code=true|false` (bare means true)
+> `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` > saved boolean > default `false`.
+Explicit false overrides true for both providers; invalid booleans are errors.
 
 ## Phase 1: Authenticate
 
@@ -84,9 +92,20 @@ before proceeding. For a non-default identity provider supply its OIDC settings;
 ```
 
 What it does:
-- Opens a browser for Keycloak PKCE authentication when a fresh token is needed
-- Caches the OIDC token under `${XDG_CACHE_HOME:-$HOME/.cache}/rosa-boundary/token-cache`
-- Reuses a valid token until shortly before its expiry
+- Opens a browser for Keycloak PKCE authentication by default when a fresh
+  Boundary ID token is needed; with device mode, displays a URL and code on
+  stderr to approve on another device while the CLI waits, without a local
+  browser or callback port
+- Caches the ID token under `${XDG_CACHE_HOME:-$HOME/.cache}/rosa-boundary/token-cache`
+- Reuses a valid token until shortly before its actual `exp`, regardless of flow;
+  `login --force` or global `--force-login` requests a fresh approval. An
+  expired cache or STS rejection during a later command can also request
+  fresh approval in the selected mode, with no automatic browser fallback.
+
+Device approval is **per-user and human-in-the-loop**: it does not provide an
+unattended service credential. Scripts must handle a challenge during **any**
+auth-bearing command, not just a preceding `login`. See the
+[user access guide's concurrent event-draining example](user-access-guide.md#script-driven-human-approved-login).
 
 ## Phase 2: Start Investigation
 
@@ -102,12 +121,32 @@ Optional flags:
   --oc-version 4.20       # OpenShift CLI version to lock; check CLI help for default
   --with-credentials ocm  # configure a fresh OCM token before returning
   --ocm-url production    # production, staging, integration, or canonical URL
-  --ocm-auth-flow device  # headless fallback; auth-code is the default
+  --ocm-auth-flow device  # explicit OCM-only override; otherwise follows global device preference
 ```
 
 `--with-credentials` cannot be combined with `--no-wait`. If configuration
 fails after task creation, the CLI reports the still-running task ID and the
 exact `stop-task` cleanup command.
+With `--with-credentials ocm`, the CLI separately requests a fresh OCM access
+token from the OCM issuer/client, not the cached Boundary ID token. The saved
+device preference (or explicit global flag/env override) applies to both
+providers by default, so a fresh Boundary token **and** OCM credentials may
+require **two distinct human approvals** in one `start-task`. A cached Boundary
+token may eliminate only the Boundary challenge. An explicitly specified
+`--ocm-auth-flow auth-code|device` overrides OCM only; `auth-code` still
+requires a browser callback even if Boundary uses device mode. Any device
+flow remains browser-free. OCM credential transfer uses task-scoped,
+audit-excluded storage, not the Boundary token cache or EFS home.
+
+For scripted operation, use `start-task ... -o json`: stdout retains the
+single existing task-result JSON document; stderr carries prefixed,
+provider-tagged auth-event lines, possibly alongside ordinary diagnostics.
+Read stderr **as the CLI runs** and show each URL/code privately to the SRE,
+not in shared CI logs. `authenticated` means token acquisition only: check
+the **process exit status** before trusting the result. If OCM approval or
+transfer fails after task creation, note the task ID and explicitly retry
+credential configuration or stop the task and verify cleanup; a nonzero exit
+does not prove that the task was not created.
 
 What it does:
 1. **CLI assumes the invoker role** via STS using the OIDC ID token (no existing AWS credentials)
@@ -140,7 +179,14 @@ What it does:
 1. Assumes the shared SRE ABAC role (using the deployment's configured tag key)
 2. Calls `ecs:ExecuteCommand` — IAM compares the task's ABAC tag with the caller's OIDC-derived session tag
 3. Waits for the container exec agent to open its data channel
-4. Replaces the current process with `session-manager-plugin` for a seamless terminal
+4. Hands the interactive session to `session-manager-plugin` for a seamless terminal
+
+`join-task -o json` can provide authentication events on stderr if it needs
+fresh login, but its raw session I/O remains on a terminal, **not** a JSON
+result on stdout. Likewise `start-task --connect -o json` may produce a task
+JSON result before connection but does not encode the shell as JSON. Use a
+suitable terminal for interactive commands; a script consuming JSON should
+not treat session bytes as a machine-readable result.
 
 Inside the container (as `sre` user):
 ```bash
@@ -197,10 +243,10 @@ are task-scoped, excluded from S3 sync, and destroyed when the task stops.
 ### Configure or clear OCM on an existing task
 
 ```bash
-# Uses a fresh authorization-code-with-PKCE token
+# Uses a fresh OCM token; auth-code is the default unless device mode is selected
 ./bin/rosa-boundary credentials configure ocm <task-id> --ocm-url production
 
-# Headless/device fallback
+# Explicit OCM-only headless override (also works with browser-mode Boundary)
 ./bin/rosa-boundary credentials configure ocm <task-id> \
   --ocm-url staging \
   --auth-flow device
@@ -213,6 +259,14 @@ If `--ocm-url` is omitted, only the non-secret `url` field is read from the
 workstation's `${XDG_CONFIG_HOME:-$HOME/.config}/ocm/ocm.json`. No local token
 is reused or copied. Re-running configure atomically replaces an expired token.
 Stopping the task remains authoritative cleanup even if clear is not run.
+An explicitly supplied `--auth-flow auth-code|device` overrides only the OCM
+flow, not Boundary's; otherwise the saved/global device preference selects
+the OCM flow. Each OCM credential injection gets a new OCM access token and
+can request human approval even if Boundary is cached. In JSON mode use
+`credentials configure ocm <task-id> -o json` to receive OCM (and, if needed,
+Boundary) auth events on stderr; it has no JSON result on stdout. Check exit
+status before assuming the credential transfer succeeded. `credentials clear
+ocm ... -o json` likewise has auth events but no JSON result.
 
 To exercise workspace persistence and audit without customer data, create a
 harmless file such as `printf 'boundary smoke test\n' > ~/boundary-smoke-test.txt`
@@ -339,6 +393,18 @@ For log retrieval use [Verify Audit Evidence](#verify-audit-evidence), not the t
 ```bash
 ./bin/rosa-boundary login --force
 ```
+
+On a headless host, confirm `oidc_use_device_code: true` is a YAML boolean
+or pass `--use-device-code` to the command. `--use-device-code=false` selects
+browser flow for both providers even if saved true; an explicit OCM
+`--ocm-auth-flow auth-code` / `--auth-flow auth-code` selects a browser callback
+for OCM only. If a device request expires, is denied, or is canceled, verify
+the SRE approved the **correct provider's** URL and code and start a new,
+bounded attempt; do not expect a browser fallback. In JSON mode, inspect only
+`ROSA_BOUNDARY_AUTH_EVENT `-prefixed stderr lines for versioned provider events;
+other stderr is diagnostics and stdout result JSON is separate. An
+`authenticated` event is not evidence of STS success, task creation,
+credential transfer, or audit sync; check exit status and the steps below.
 
 ### AccessDeniedException on join-task
 - Possible cause: task and OIDC-derived principal tags do not match for the deployment's ABAC key. Ask an operator with ECS read access to inspect the task tags and check the identity provider mapping and IAM policy.

@@ -10,14 +10,17 @@ import (
 
 var loginCmd = &cobra.Command{
 	Use:   "login",
-	Short: "Authenticate with Keycloak and cache the OIDC token",
-	Long: `Perform PKCE authentication with Keycloak.
+	Short: "Authenticate with the OIDC provider and cache an ID token",
+	Long: `Authenticate with the configured OIDC provider and cache an ID token.
 
-Opens a browser window for login, starts a local callback server on port 8400,
-and caches the resulting ID token for 4 minutes.
+By default, opens a browser and receives the login callback locally. With
+device authorization, open the displayed URL on another device, enter the
+code and approve the request; no browser or callback is used on this host.
+Set oidc_use_device_code in config or override it with --use-device-code.
+A valid cached token is reused unless --force or --force-login is set.
 
 The ID token is cached locally and is never written to stdout; status messages
-go to stderr.`,
+go to stderr. -o json emits prefixed auth events on stderr, not a JSON result.`,
 	RunE: runLogin,
 }
 
@@ -25,10 +28,14 @@ var loginForce bool
 
 func init() {
 	loginCmd.Flags().BoolVar(&loginForce, "force", false, "Force fresh authentication, ignoring cache")
+	addOutputFlag(loginCmd, false)
 	rootCmd.AddCommand(loginCmd)
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
+	if _, err := commandOutput(cmd); err != nil {
+		return err
+	}
 	cfg, err := getConfig(true)
 	if err != nil {
 		return err
@@ -50,7 +57,11 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		ClientID:    cfg.OIDCClientID,
 	}
 
-	_, err = auth.GetToken(cmd.Context(), pkce, forceFreshLogin(forceLogin, loginForce))
+	options, err := tokenOptions(cmd, cfg)
+	if err != nil {
+		return err
+	}
+	_, err = auth.GetTokenWithOptions(cmd.Context(), pkce, forceFreshLogin(forceLogin, loginForce), options)
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

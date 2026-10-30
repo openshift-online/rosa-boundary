@@ -25,7 +25,7 @@ var (
 
 func init() {
 	listTasksCmd.Flags().StringVar(&listStatus, "status", "RUNNING", "Task status filter: RUNNING, STOPPED, or all")
-	listTasksCmd.Flags().StringVar(&listOutputFormat, "output", "text", "Output format: text or json")
+	addOutputFlag(listTasksCmd, true, &listOutputFormat)
 	rootCmd.AddCommand(listTasksCmd)
 }
 

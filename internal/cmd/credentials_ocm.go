@@ -44,6 +44,7 @@ var newOCMCredentialTransfer = func() ocmCredentialTransfer {
 var credentialsConfigureOCMCmd = &cobra.Command{
 	Use:   "ocm <task-id>",
 	Short: "Issue and configure a fresh OCM access token",
+	Long:  "Issue a fresh OCM access token and transfer it to task-scoped storage. -o json emits auth events on stderr, with no JSON result on stdout. The explicit --auth-flow overrides --use-device-code/config for OCM only; auth-code requires a local callback, while device never opens a browser.",
 	Args:  validateCredentialsConfigureOCMArgs,
 	RunE:  runCredentialsConfigureOCM,
 }
@@ -51,13 +52,16 @@ var credentialsConfigureOCMCmd = &cobra.Command{
 var credentialsClearOCMCmd = &cobra.Command{
 	Use:   "ocm <task-id>",
 	Short: "Clear OCM and derived kubeconfig credentials",
+	Long:  "Clear task-scoped OCM credentials. -o json emits Boundary auth events on stderr when login is required; no JSON result is written to stdout.",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runCredentialsClearOCM,
 }
 
 func init() {
 	credentialsConfigureOCMCmd.Flags().StringVar(&credentialsOCMURL, "ocm-url", "", "OCM environment alias or approved canonical API URL")
-	credentialsConfigureOCMCmd.Flags().StringVar(&credentialsOCMFlow, "auth-flow", string(ocmcredentials.FlowAuthCode), "OCM authentication flow: auth-code or device")
+	credentialsConfigureOCMCmd.Flags().StringVar(&credentialsOCMFlow, "auth-flow", "", "OCM-only override: auth-code or device (default: from --use-device-code/config; auth-code if unset)")
+	addOutputFlag(credentialsConfigureOCMCmd, false)
+	addOutputFlag(credentialsClearOCMCmd, false)
 	credentialsConfigureCmd.AddCommand(credentialsConfigureOCMCmd)
 	credentialsClearCmd.AddCommand(credentialsClearOCMCmd)
 }
@@ -67,13 +71,16 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	flow, err := parseOCMFlow(credentialsOCMFlow)
-	if err != nil {
-		return err
-	}
 	authResult := getAuthResult(cmd)
+	flow := defaultOCMFlow(authResult.Config.OIDCUseDeviceCode)
+	if credentialsOCMFlow != "" || cmd.Flags().Changed("auth-flow") {
+		flow, err = parseOCMFlow(credentialsOCMFlow)
+		if err != nil {
+			return err
+		}
+	}
 	ecsClient := newCredentialECSClient(authResult)
-	return configureOCMForTask(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow)
+	return configureOCMForTask(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow, cmd)
 }
 
 // validateCredentialsConfigureOCMArgs validates provider flags before Cobra runs
@@ -85,8 +92,11 @@ func validateCredentialsConfigureOCMArgs(cmd *cobra.Command, args []string) erro
 	if _, err := resolveConfigureOCMEnvironment(); err != nil {
 		return err
 	}
-	_, err := parseOCMFlow(credentialsOCMFlow)
-	return err
+	if credentialsOCMFlow != "" || cmd.Flags().Changed("auth-flow") {
+		_, err := parseOCMFlow(credentialsOCMFlow)
+		return err
+	}
+	return nil
 }
 
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
@@ -117,12 +127,22 @@ func newCredentialECSClient(authResult *AuthResult) *awsclient.ECSClient {
 	return awsclient.NewECSClient(authResult.Config.AWSRegion, authResult.Config.ClusterName, provider)
 }
 
-func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, taskID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow) error {
+func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, taskID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, invocation ...*cobra.Command) error {
 	if err := prepareCredentialTask(ctx, ecsClient, taskID); err != nil {
 		return err
 	}
 	output.Status("Requesting a fresh OCM access token for %s...", environment.Name)
-	token, err := newOCMTokenAcquirer().Acquire(ctx, flow)
+	acquirer := newOCMTokenAcquirer()
+	if len(invocation) != 0 {
+		reporter, reportErr := authReporter(invocation[0])
+		if reportErr != nil {
+			return reportErr
+		}
+		if authenticator, ok := acquirer.(*ocmcredentials.Authenticator); ok {
+			authenticator.Reporter = reporter
+		}
+	}
+	token, err := acquirer.Acquire(ctx, flow)
 	if err != nil {
 		return fmt.Errorf("OCM authentication failed: %w", err)
 	}
@@ -210,4 +230,11 @@ func parseOCMFlow(value string) (ocmcredentials.Flow, error) {
 		return "", fmt.Errorf("unsupported OCM authentication flow %q; use auth-code or device", value)
 	}
 	return flow, nil
+}
+
+func defaultOCMFlow(device bool) ocmcredentials.Flow {
+	if device {
+		return ocmcredentials.FlowDevice
+	}
+	return ocmcredentials.FlowAuthCode
 }

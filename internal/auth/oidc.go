@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -15,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
@@ -42,10 +42,26 @@ type oidcDependencies struct {
 	codeExchanger         func(context.Context, string, string, string, string, string) (string, error)
 }
 
+// Options selects the fresh ID-token flow and the invocation's status stream.
+// An absent Reporter preserves the original text-mode behavior.
+type Options struct {
+	UseDeviceCode bool
+	Reporter      *authstatus.Reporter
+	// httpClient and wait are injectable only from auth tests; production uses
+	// bounded HTTP requests and context-aware polling.
+	httpClient *http.Client
+	wait       func(context.Context, time.Duration) error
+}
+
 // GetToken obtains an OIDC ID token using the PKCE flow.
 // It checks the cache first (unless force is true), then opens the browser.
 func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
-	return getTokenWithDeps(ctx, cfg, force, oidcDependencies{
+	return GetTokenWithOptions(ctx, cfg, force, Options{})
+}
+
+// GetTokenWithOptions shares cache and status reporting across browser and device flows.
+func GetTokenWithOptions(ctx context.Context, cfg PKCEConfig, force bool, opts Options) (string, error) {
+	return getTokenWithOptionsAndDeps(ctx, cfg, force, opts, oidcDependencies{
 		browserOpener:         openBrowser,
 		callbackServerStarter: startCallbackServer,
 		codeExchanger:         exchangeCode,
@@ -54,12 +70,52 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 
 // getTokenWithDeps runs the PKCE flow with explicitly supplied side-effecting operations.
 func getTokenWithDeps(ctx context.Context, cfg PKCEConfig, force bool, deps oidcDependencies) (string, error) {
+	return getTokenWithOptionsAndDeps(ctx, cfg, force, Options{}, deps)
+}
+
+func getTokenWithOptionsAndDeps(ctx context.Context, cfg PKCEConfig, force bool, opts Options, deps oidcDependencies) (string, error) {
 	if !force {
-		cached, err := CachedToken()
+		cached, err := CachedTokenForConfig(cfg)
 		if err == nil && cached != "" {
+			if err := opts.Reporter.Emit("boundary", "authenticated", map[string]any{"source": "cache"}); err != nil {
+				return "", err
+			}
 			return cached, nil
 		}
 	}
+	var token string
+	var err error
+	source := "browser"
+	if opts.UseDeviceCode {
+		source = "device"
+		token, err = acquireDeviceToken(ctx, cfg, opts)
+	} else {
+		token, err = acquireBrowserToken(ctx, cfg, deps)
+	}
+	if err != nil {
+		if writeErr := opts.Reporter.Failure("boundary", err); writeErr != nil {
+			return "", fmt.Errorf("authentication status write failed: %w", writeErr)
+		}
+		return "", err
+	}
+	expiration, expiryErr := parseTokenExpiration(token)
+	if expiryErr != nil || !expiration.After(time.Now().Add(expirationBuffer)) {
+		err = &deviceError{reason: "invalid_response", text: "OIDC provider returned an invalid or expired ID token"}
+		if writeErr := opts.Reporter.Failure("boundary", err); writeErr != nil {
+			return "", fmt.Errorf("authentication status write failed: %w", writeErr)
+		}
+		return "", err
+	}
+	if err := SaveTokenForConfig(token, cfg); err != nil {
+		output.Warning("could not cache token: %v", err)
+	}
+	if err := opts.Reporter.Emit("boundary", "authenticated", map[string]any{"source": source}); err != nil {
+		return "", err
+	}
+	return token, nil
+}
+
+func acquireBrowserToken(ctx context.Context, cfg PKCEConfig, deps oidcDependencies) (string, error) {
 
 	if err := output.Debug("No cached token, authenticating..."); err != nil {
 		return "", fmt.Errorf("debug output failed: %w", err)
@@ -123,10 +179,6 @@ func getTokenWithDeps(ctx context.Context, cfg PKCEConfig, force bool, deps oidc
 	token, err := deps.codeExchanger(ctx, tokenEndpoint, cfg.ClientID, redirectURI, code, verifier)
 	if err != nil {
 		return "", fmt.Errorf("token exchange failed: %w", err)
-	}
-
-	if err := SaveToken(token); err != nil {
-		output.Warning("could not cache token: %v", err)
 	}
 
 	if err := output.Debug("ID token obtained successfully"); err != nil {
@@ -195,17 +247,16 @@ func exchangeCode(ctx context.Context, tokenEndpoint, clientID, redirectURI, cod
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 200))
-		return "", fmt.Errorf("token endpoint returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return "", fmt.Errorf("token endpoint returned HTTP %d", resp.StatusCode)
 	}
 
 	var tr tokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tr); err != nil {
-		return "", fmt.Errorf("cannot decode token response: %w", err)
+		return "", fmt.Errorf("cannot decode token response")
 	}
 
 	if tr.Error != "" {
-		return "", fmt.Errorf("%s: %s", tr.Error, tr.ErrorDesc)
+		return "", fmt.Errorf("token exchange rejected by provider")
 	}
 
 	if tr.IDToken == "" {

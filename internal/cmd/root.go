@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -32,11 +34,13 @@ var (
 	// Version is set at build time via -ldflags.
 	Version = "dev"
 
-	verbose    bool
-	forceLogin bool
+	verbose       bool
+	forceLogin    bool
+	useDeviceCode bool
 
 	// cachedAuthResult stores the authentication result populated by PersistentPreRunE
-	cachedAuthResult *AuthResult
+	cachedAuthResult  *AuthResult
+	assumeWebIdentity = awsclient.AssumeRoleWithWebIdentity
 )
 
 // rootCmd is the base command.
@@ -53,6 +57,10 @@ on AWS Fargate with OIDC-authenticated access control.`,
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
+		var child *exec.ExitError
+		if errors.As(err, &child) && child.ExitCode() > 0 {
+			os.Exit(child.ExitCode())
+		}
 		os.Exit(1)
 	}
 }
@@ -62,6 +70,7 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable debug output (warnings and status messages are always shown)")
 	rootCmd.PersistentFlags().BoolVar(&forceLogin, "force-login", false, "Force re-authentication with Keycloak OIDC provider")
+	rootCmd.PersistentFlags().BoolVar(&useDeviceCode, "use-device-code", false, "Use device authorization instead of a local browser callback (Boundary and OCM)")
 	rootCmd.PersistentFlags().String("keycloak-url", "", "Keycloak base URL")
 	rootCmd.PersistentFlags().String("realm", "", "Keycloak realm (default: EmployeeIDP)")
 	rootCmd.PersistentFlags().String("client-id", "", "OIDC client ID (default: rosa-boundary-sre)")
@@ -76,6 +85,7 @@ func init() {
 	_ = viper.BindPFlag("keycloak_url", rootCmd.PersistentFlags().Lookup("keycloak-url"))
 	_ = viper.BindPFlag("keycloak_realm", rootCmd.PersistentFlags().Lookup("realm"))
 	_ = viper.BindPFlag("oidc_client_id", rootCmd.PersistentFlags().Lookup("client-id"))
+	_ = viper.BindPFlag("oidc_use_device_code", rootCmd.PersistentFlags().Lookup("use-device-code"))
 	_ = viper.BindPFlag("aws_region", rootCmd.PersistentFlags().Lookup("region"))
 	_ = viper.BindPFlag("ecs_cluster_name", rootCmd.PersistentFlags().Lookup("ecs-cluster"))
 	_ = viper.BindPFlag("sre_role_arn", rootCmd.PersistentFlags().Lookup("role-arn"))
@@ -97,7 +107,7 @@ func initConfig() {
 
 // getConfig is a helper that loads and validates config, printing a useful error if required fields are missing.
 func getConfig(requireKeycloakURL bool) (*config.Config, error) {
-	cfg, err := config.Get()
+	cfg, err := config.Get(rootCmd.PersistentFlags().Lookup("use-device-code").Changed)
 	if err != nil {
 		return nil, err
 	}
@@ -114,19 +124,23 @@ func debugf(format string, args ...any) error {
 	return output.Debug(format, args...)
 }
 
-// assumeRoleWithRetry fetches an OIDC token and assumes the given role.
-// If an auth error occurs with a cached token, it retries once with a fresh login.
-func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, roleARN, sessionName string, forceLogin bool) (string, *awsclient.TemporaryCredentials, error) {
+// assumeRoleWithRetryOptions fetches an OIDC token and assumes the given role.
+// If STS rejects a cached token, retry once with the selected fresh-login flow.
+func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, region, roleARN, sessionName string, forceLogin bool, options auth.Options) (string, *awsclient.TemporaryCredentials, error) {
 	// First attempt: use cached token if available (unless forceLogin)
-	idToken, err := auth.GetToken(ctx, pkce, forceLogin)
+	var cached string
+	if !forceLogin {
+		cached, _ = auth.CachedTokenForConfig(pkce)
+	}
+	idToken, err := auth.GetTokenWithOptions(ctx, pkce, forceLogin, options)
 	if err != nil {
 		return "", nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
-	creds, err := awsclient.AssumeRoleWithWebIdentity(ctx, region, roleARN, idToken, sessionName)
+	creds, err := assumeWebIdentity(ctx, region, roleARN, idToken, sessionName)
 
 	// Auto-retry once if we got an auth error (token expired server-side)
-	if err != nil && isAuthError(err) && !forceLogin {
+	if err != nil && isAuthError(err) && !forceLogin && cached != "" && idToken == cached {
 		if debugErr := debugf("Auth failed with cached token, retrying with fresh login"); debugErr != nil {
 			return "", nil, fmt.Errorf("debug output failed: %w", debugErr)
 		}
@@ -136,12 +150,12 @@ func assumeRoleWithRetry(ctx context.Context, pkce auth.PKCEConfig, region, role
 			}
 		}
 
-		idToken, err = auth.GetToken(ctx, pkce, true)
+		idToken, err = auth.GetTokenWithOptions(ctx, pkce, true, options)
 		if err != nil {
 			return "", nil, fmt.Errorf("authentication failed on retry: %w", err)
 		}
 
-		creds, err = awsclient.AssumeRoleWithWebIdentity(ctx, region, roleARN, idToken, sessionName)
+		creds, err = assumeWebIdentity(ctx, region, roleARN, idToken, sessionName)
 	}
 
 	if err != nil {
@@ -159,8 +173,15 @@ func authenticateIfNeeded(cmd *cobra.Command, args []string) error {
 	if !requiresAuth(cmd) {
 		return nil
 	}
+	if _, err := commandOutput(cmd); err != nil {
+		return err
+	}
 
 	cfg, err := getConfig(true)
+	if err != nil {
+		return err
+	}
+	options, err := tokenOptions(cmd, cfg)
 	if err != nil {
 		return err
 	}
@@ -176,7 +197,7 @@ func authenticateIfNeeded(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	idToken, creds, err := assumeRoleWithRetry(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, forceLogin)
+	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, forceLogin, options)
 	if err != nil {
 		return err
 	}

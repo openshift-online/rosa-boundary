@@ -41,7 +41,7 @@ func init() {
 	closeInvestigationCmd.Flags().StringVar(&closeInvestigationID, "investigation-id", "", "Investigation ID (required)")
 	closeInvestigationCmd.Flags().BoolVar(&closeForce, "force", false, "Stop running tasks before deleting (default: error if tasks are running)")
 	closeInvestigationCmd.Flags().BoolVar(&closeYes, "yes", false, "Skip confirmation prompt for EFS access point deletion")
-	closeInvestigationCmd.Flags().StringVar(&closeOutputFormat, "output", "text", "Output format: text or json")
+	addOutputFlag(closeInvestigationCmd, true, &closeOutputFormat)
 	_ = closeInvestigationCmd.MarkFlagRequired("investigation-id")
 	rootCmd.AddCommand(closeInvestigationCmd)
 }

@@ -38,6 +38,7 @@ module "aws_dynamic_creds" {
           workspace_names = [
             "rosa-boundary-prod-aws-creds",
             "rosa-boundary-prod-account",
+            "rosa-boundary-prod-network-us-east-1",
           ]
         }
       }

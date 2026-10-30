@@ -930,5 +930,176 @@ module "rosa_boundary" {
         },
       ]
     }
+
+    # Region A regional stack. Clean deployment -- no state migration, so no
+    # removed{} blocks, imports, or _deletion_approvals from the staging rollout.
+    rosa-boundary-prod-regional-us-east-1 = {
+      terraform_version      = "1.16.0"
+      working_directory      = "deploy/regional"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      execution_mode         = "remote"
+      auto_apply             = false
+      auto_apply_run_trigger = false
+      variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
+      variables = [
+        {
+          # Matches deploy/account regional_iam_contract.account_role_name_prefix.
+          key      = "account_role_name_prefix"
+          value    = "rosa-boundary-prod"
+          category = "terraform"
+        },
+        {
+          # Region A owns the unsuffixed inline policy names. Every other
+          # production region must keep this same value so its policies take a
+          # -<aws_region> suffix instead of overwriting Region A's.
+          key      = "legacy_policy_region"
+          value    = "us-east-1"
+          category = "terraform"
+        },
+        {
+          key      = "aws_account_id"
+          value    = "514903006123"
+          category = "terraform"
+        },
+        {
+          key      = "aws_region"
+          value    = "us-east-1"
+          category = "terraform"
+        },
+        {
+          # Validation input only: regional asserts claude_default_model resolves
+          # to a subscribed model. The agreements themselves are account-owned.
+          key      = "bedrock_model_agreements"
+          value    = <<-EOT
+            {
+              "anthropic.claude-sonnet-5" = "offer-2ykemehpsyf7g"
+              "anthropic.claude-opus-4-6-v1" = "offer-ee7a27hh4hr62"
+              "anthropic.claude-opus-4-8" = "offer-wdkl4yk6s7uu4"
+              "anthropic.claude-opus-5" = "offer-f3u6lgbrem3zs"
+              "anthropic.claude-haiku-4-5-20251001-v1:0" = "offer-fudwqbphlos64"
+              "openai.gpt-6-sol" = "offer-pycji3sz5gpcc"
+              "openai.gpt-6-luna" = "offer-gmo53nkzc5or6"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "claude_default_model"
+          value    = "us.anthropic.claude-sonnet-5"
+          category = "terraform"
+        },
+        {
+          # Root default is "dev"; overriding drives rosa-boundary-prod-* naming.
+          key      = "stage"
+          value    = "prod"
+          category = "terraform"
+        },
+        {
+          # T3-PR6 (#408) network apply output.
+          key      = "vpc_id"
+          value    = "vpc-0f7b78f35f6edd98b"
+          category = "terraform"
+        },
+        {
+          # T3-PR6 (#408) PRIVATE subnets in us-east-1a/us-east-1b.
+          key      = "subnet_ids"
+          value    = "[\"subnet-07b28f6e5fb8d80c6\", \"subnet-0af708edfc074a605\"]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "container_image"
+          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:884fc38ddc1e4d31f922cf13ad954984f53fa8c3"
+          category = "terraform"
+        },
+        {
+          key      = "keycloak_issuer_url"
+          value    = "https://auth.redhat.com/auth/realms/EmployeeIDP"
+          category = "terraform"
+        },
+        {
+          key       = "keycloak_thumbprint"
+          value     = "6541cf7958127d300fe86fd7ff324e836c75b53b"
+          category  = "terraform"
+          sensitive = true
+        },
+        {
+          key      = "required_groups"
+          value    = "[\"ai-sd-sre\"]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "abac_tag_key"
+          value    = "uuid"
+          category = "terraform"
+        },
+        {
+          # allowed_uuids intentionally unset: the allowlist is disabled, so no
+          # UUID values are carried into production.
+          key      = "enable_uuid_allowlist"
+          value    = "false"
+          category = "terraform"
+        },
+        {
+          key      = "enable_oidc_group_enforcement"
+          value    = "true"
+          category = "terraform"
+        },
+        {
+          key      = "required_oidc_role"
+          value    = "ai-sd-sre"
+          category = "terraform"
+        },
+        {
+          # Image packaging is required for HCP Terraform remote execution.
+          key      = "lambda_package_type"
+          value    = "Image"
+          category = "terraform"
+        },
+        {
+          key      = "lambda_image_repository"
+          value    = "redhat-user-workloads/rosa-tenant/create-investigation-lambda"
+          category = "terraform"
+        },
+        {
+          key      = "lambda_image_tag"
+          value    = "d9c5746ebee2a2e2f93ff618377f13a7aa0d9c30"
+          category = "terraform"
+        },
+        {
+          key      = "default_tags"
+          value    = <<-EOT
+            {
+              owner         = "app-sre"
+              service-phase = "prod"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "ignored_tag_keys"
+          value    = <<-EOT
+            [
+              "app",
+              "app-code",
+              "cost-center",
+              "managed_by_integration",
+              "organization",
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "log_retention_days"
+          value    = "90"
+          category = "terraform"
+        },
+      ]
+    }
   }
 }

@@ -166,6 +166,15 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          # Keep disabled in this PR: regional destination must apply before
+          # account replication. Enable ["us-west-2"] in a follow-up PR once
+          # destination exists; these auto-apply workspaces can run concurrently.
+          key      = "lambda_ecr_replication_regions"
+          value    = "[]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
           key      = "aws_account_id"
           value    = "150100906299"
           category = "terraform"
@@ -521,6 +530,12 @@ module "rosa_boundary" {
       auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
+        {
+          # Account root owns the ordinary source repository in us-east-1.
+          key      = "lambda_ecr_destination_source_region"
+          value    = "us-east-1"
+          category = "terraform"
+        },
         {
           # ROSAENG-68790: match the account workspace's shared IAM role prefix.
           key      = "account_role_name_prefix"

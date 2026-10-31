@@ -18,6 +18,17 @@ variable "enable_lambda_ecr_source" {
   default     = false
 }
 
+variable "lambda_ecr_replication_regions" {
+  description = "Destination Regions for source-region Lambda ECR image replication. Empty disables replication; the account root owns the whole registry-wide configuration."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition     = length(distinct(var.lambda_ecr_replication_regions)) == length(var.lambda_ecr_replication_regions) && alltrue([for region in var.lambda_ecr_replication_regions : can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", region)) && region != var.aws_region])
+    error_message = "Replication destinations must be unique explicit Regions other than the source aws_region."
+  }
+}
+
 variable "project" {
   type    = string
   default = "rosa-boundary"

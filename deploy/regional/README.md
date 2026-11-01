@@ -2,6 +2,20 @@
 
 Terraform configuration for deploying ROSA Boundary container infrastructure on AWS Fargate, including S3 audit storage with WORM compliance and EFS persistent storage, consuming account-owned IAM roles with Bedrock access.
 
+## Ordinary Lambda ECR destination repository
+
+`lambda_ecr_destination_source_region` is empty by default. Set it to the
+account root's Lambda publication Region only in a *different* Region to create
+`rosa-boundary/create-investigation-lambda` with the same immutable-tag,
+encryption, scanning and 25-tag retention settings as the source. In staging,
+only the `us-west-2` regional workspace enables it; `us-east-1` continues to
+use the account-owned source repository. The account root owns filtered,
+registry-wide image replication, not this state. New source-region pushes after
+replication is enabled can verify delivery; older images require a separate
+backfill if they will be needed at the destination. Neither repository
+provisioning nor replication changes the running Lambda's existing Quay-cache
+image URI. Promote a new URI only after an approved SHA exists in every Region.
+
 ## Account identities and regional grants
 
 Deploy [`../account`](../account/README.md) before a new regional deployment.

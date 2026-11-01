@@ -14,6 +14,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**System Overview**](architecture/overview.md) - High-level architecture with diagrams
 - [**CLI Authentication**](architecture/cli-authentication.md) - How the CLI exchanges an OIDC token for temporary AWS credentials
 - [**Investigations and Tasks**](architecture/investigations-and-tasks.md) - Conceptual model, lifecycle, state recording, and FAQ
+- [**Optional kube-proxy sidecar**](kube-proxy-sidecar.md) - Disabled-by-default cluster API proxy, limitations, and prerequisites
 
 ## Design Proposals
 

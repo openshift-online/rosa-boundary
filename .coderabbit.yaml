@@ -40,21 +40,21 @@ reviews:
       instructions: |
         - Review AWS SDK usage for correct error handling and retries
         - Verify IAM role assumption chains (invoker role -> SRE ABAC role)
-        - Check that session tags are correctly propagated for ABAC enforcement
+        - Check that session tags are propagated through every role assumption for ABAC enforcement
         - Ensure ECS Exec and SSM interactions are secure
     - path: "internal/lambda/**/*.go"
       instructions: |
-        - Verify Lambda invocation payloads are properly structured
+        - Verify Lambda invocation payloads match the handler's expected schema
         - Check error handling for Lambda-specific failure modes (throttling, timeout, payload limits)
         - Ensure sensitive data is not included in invocation payloads unnecessarily
     - path: "internal/config/**/*.go"
       instructions: |
         - Verify XDG base directory compliance for config and cache paths
-        - Check that viper binding correctly maps env vars and config keys
+        - Check that viper binding maps env vars and config keys
         - Ensure no credentials are written to config files
     - path: "**/*_test.go"
       instructions: |
-        - Verify mocks/stubs properly simulate AWS service behavior
+        - Verify mocks/stubs simulate AWS service behavior
         - Do not remove tests; update them to work against changes
     - path: "lambda/**/*.py"
       instructions: |
@@ -62,10 +62,10 @@ reviews:
         - Verify OIDC token validation logic (signature, claims, expiry, group membership)
         - Ensure ECS task creation uses correct tags for ABAC enforcement (username, oidc_sub, deadline)
         - Verify EFS access point creation with correct POSIX permissions
-        - Check that task timeout deadlines are computed correctly (created_at + task_timeout)
+        - Check that task timeout deadlines use the expected formula (created_at + task_timeout)
     - path: "lambda/**/test_*.py"
       instructions: |
-        - Verify moto/unittest.mock usage correctly simulates AWS services
+        - Verify moto/unittest.mock usage simulates AWS services
         - Check that OIDC validation edge cases are tested (expired tokens, wrong groups, invalid signatures)
         - Do not remove tests; update them to work against changes
     - path: "deploy/regional/**/*.tf"
@@ -81,7 +81,7 @@ reviews:
         - Review signal handling for correct trap behavior
         - Verify S3 sync logic handles credentials and path construction safely
         - Ensure no secrets are logged during startup
-        - Verify the background process pattern correctly preserves trap handling
+        - Verify the background process pattern preserves trap handling
     - path: "Containerfile"
       instructions: |
         - Verify multi-architecture build logic is correct for both amd64 and arm64
@@ -90,5 +90,5 @@ reviews:
     - path: "tests/localstack/**/*.py"
       instructions: |
         - Verify LocalStack resource creation matches production AWS behavior
-        - Verify mock OIDC server correctly simulates Keycloak token behavior
+        - Verify mock OIDC server simulates Keycloak token behavior
         - Do not remove tests; update them to work against changes

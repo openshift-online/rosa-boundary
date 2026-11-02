@@ -28,7 +28,7 @@ Combined reference for CI/CD pipeline security, git/GitHub workflow security, an
 
 | Check | Pattern | Severity | Remediation |
 |-------|---------|----------|-------------|
-| `pull_request_target` | Runs with repo write access on PR code | CRITICAL | Use `pull_request` instead. If needed, never checkout PR code in same job |
+| `pull_request_target` | Runs with repository write access on PR code | CRITICAL | Use `pull_request` instead. If needed, never checkout PR code in same job |
 | `pull_request_target` + checkout PR | Checking out PR head ref in `pull_request_target` | CRITICAL | Split: one `pull_request_target` (labels only), one `pull_request` (builds/tests) |
 | `workflow_dispatch` without auth | Manual trigger without required approvals | MEDIUM | Use Environments with required reviewers |
 
@@ -56,7 +56,7 @@ Use `actionlint` in CI to detect expression injection.
 
 | Check | Pattern | Severity | Remediation |
 |-------|---------|----------|-------------|
-| Self-hosted on public repos | `runs-on: self-hosted` in public repo | CRITICAL | Use GitHub-hosted runners, or ephemeral runners (ARC) |
+| Self-hosted on public repositories | `runs-on: self-hosted` in public repository | CRITICAL | Use GitHub-hosted runners, or ephemeral runners (ARC) |
 | Persistent self-hosted runners | No ephemeral configuration | HIGH | Use `--ephemeral` flag or Actions Runner Controller |
 
 ## General CI/CD Patterns
@@ -101,7 +101,7 @@ Use `actionlint` in CI to detect expression injection.
 |-------|---------|----------|-------------|
 | Plaintext credentials | `withCredentials` logging values | HIGH | Never echo credentials |
 | Groovy sandbox bypass | `@NonCPS` or script approval bypasses | HIGH | Use declarative pipeline, minimize `@NonCPS` |
-| Shared library trust | Libraries from untrusted sources | HIGH | Pin to specific versions/commits, use internal repos only |
+| Shared library trust | Libraries from untrusted sources | HIGH | Pin to specific versions/commits, use internal repositories only |
 
 ---
 
@@ -111,7 +111,7 @@ Use `actionlint` in CI to detect expression injection.
 
 | Check | Pattern | Severity | Remediation |
 |-------|---------|----------|-------------|
-| Public repo with sensitive code | Private/internal code exposed | CRITICAL | Change visibility, audit for leaked secrets, rotate credentials |
+| Public repository with sensitive code | Private/internal code exposed | CRITICAL | Change visibility, audit for leaked secrets, rotate credentials |
 | No branch protection on main | Unprotected default branch | HIGH | Require PR reviews, status checks, signed commits |
 | Admin bypass on branch protection | Bypass setting unchecked | HIGH | Enable for admins too |
 | No CODEOWNERS enforcement | Missing or not required | MEDIUM | Create CODEOWNERS, require code owner reviews |
@@ -122,9 +122,9 @@ Use `actionlint` in CI to detect expression injection.
 |-------|---------|----------|-------------|
 | No 2FA enforcement | Org without required 2FA | HIGH | Enable in org settings |
 | Classic PAT without expiration | No expiry set | HIGH | Set max 90-day expiration, migrate to fine-grained PATs |
-| Overly broad PAT scope | `repo`, `admin:org` when not needed | HIGH | Use fine-grained PATs scoped to specific repos/permissions |
+| Overly broad PAT scope | `repo`, `admin:org` when not needed | HIGH | Use fine-grained PATs scoped to specific repositories/permissions |
 | `credential.helper store` | Plaintext at `~/.git-credentials` | CRITICAL | Use `osxkeychain` (macOS), `libsecret` (Linux), `manager` (Windows) |
-| `.git-credentials` committed | Credential file in repo | CRITICAL | Remove, add to `.gitignore`, rotate all credentials, purge history |
+| `.git-credentials` committed | Credential file in repository | CRITICAL | Remove, add to `.gitignore`, rotate all credentials, purge history |
 
 ## Branch & Tag Security
 
@@ -150,7 +150,7 @@ Use `actionlint` in CI to detect expression injection.
 |-------|---------|----------|-------------|
 | Pushing to main directly | No PR required | HIGH | Enable branch protection requiring PRs |
 | Clone over HTTP | `git clone http://` | HIGH | Use HTTPS or SSH |
-| Submodule from untrusted source | External repo in `.gitmodules` | HIGH | Audit sources, pin to commits, prefer vendoring |
+| Submodule from untrusted source | External repository in `.gitmodules` | HIGH | Audit sources, pin to commits, prefer vendoring |
 | Shallow clone for security scanning | `--depth 1` before secret scan | MEDIUM | Full clone for scanning (shallow misses historical secrets) |
 
 ## Commit History Security
@@ -168,15 +168,15 @@ Use `actionlint` in CI to detect expression injection.
 | 2FA not required | No enforcement | HIGH | Enable in org authentication settings |
 | Base permissions too broad | Default is `Write` or `Admin` | HIGH | Set to `No permission` or `Read`, grant per-team |
 | Single org owner | No redundancy | HIGH | At least 2 owners |
-| Outside collaborators unreviewed | External access to private repos | MEDIUM | Quarterly audit, remove inactive |
+| Outside collaborators unreviewed | External access to private repositories | MEDIUM | Quarterly audit, remove inactive |
 | Audit log not monitored | No alerting on security events | MEDIUM | Monitor role changes, visibility changes, branch protection changes |
 
 ## Deploy Keys, Webhooks & GitHub Apps
 
 | Check | Pattern | Severity | Remediation |
 |-------|---------|----------|-------------|
-| Deploy key with write access | Push permissions when not needed | HIGH | Recreate as read-only, unique per repo |
-| Deploy key shared across repos | Same key in multiple repos | HIGH | Generate unique key per repo |
+| Deploy key with write access | Push permissions when not needed | HIGH | Recreate as read-only, unique per repository |
+| Deploy key shared across repositories | Same key in multiple repositories | HIGH | Generate unique key per repository |
 | Webhook without secret | No `X-Hub-Signature-256` verification | HIGH | Set secret, verify signature on every delivery |
 | Webhook over HTTP | Unencrypted payload URL | HIGH | Use HTTPS |
 | GitHub App with excessive permissions | Unnecessary `Administration` or `Contents: Write` | MEDIUM | Grant minimum required |
@@ -203,7 +203,7 @@ Use `actionlint` in CI to detect expression injection.
 | Test credentials in release | Demo accounts, sandbox tokens shipped | HIGH | CI grep for test/sandbox patterns before upload |
 | Unsigned or ad-hoc signing | Missing distribution certificate | CRITICAL | Use proper distribution profile, enroll in Play App Signing |
 | Missing ProGuard/R8 | `minifyEnabled=false` in release | HIGH | Enable minification and shrink resources |
-| Upload key in repo | `*.keystore`/`*.jks` committed | CRITICAL | Remove, add to `.gitignore`, use CI secret storage |
+| Upload key in repository | `*.keystore`/`*.jks` committed | CRITICAL | Remove, add to `.gitignore`, use CI secret storage |
 | Signing config hardcoded | `storePassword` in build.gradle | CRITICAL | Use env vars via `System.getenv()` |
 | 100% rollout without monitoring | No staged percentage | HIGH | Start 1-5% → 25% → 50% → 100% with monitoring |
 
@@ -267,4 +267,4 @@ Common mistakes: accepting "both" on auth middleware (CRITICAL), accepting "thei
 |-------|---------|----------|-------------|
 | Unsigned release artifacts | No signature on binaries/containers | HIGH | Sign with cosign/GPG/Sigstore, verify in deployment |
 | Missing provenance | No SLSA provenance | MEDIUM | Use `slsa-github-generator` |
-| Signing key in repo | Key committed to VCS | CRITICAL | Remove, rotate, store in CI vault or HSM |
+| Signing key in repository | Key committed to VCS | CRITICAL | Remove, rotate, store in CI vault or HSM |

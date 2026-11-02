@@ -93,7 +93,7 @@ checkov -d . --framework terraform
 | Cluster-admin RBAC | `policy.csv` granting `*` on all resources | CRITICAL | Scope to specific projects and resources: `p, role:dev, applications, *, dev-project/*, allow` |
 | Plaintext secrets in Application manifests | Secret values in `spec.source.helm.parameters` | CRITICAL | Use SealedSecrets, External Secrets Operator, or Vault. Never put secrets in ArgoCD Application manifests |
 | Auto-sync without prune protection | `automated.prune: true` without safeguards | MEDIUM | Add `automated.selfHeal: true` with `syncOptions: [PrunePropagationPolicy=foreground]`. Use sync windows for production |
-| Unknown/external repos | `spec.source.repoURL` pointing to untrusted sources | HIGH | Restrict allowed repos in ArgoCD settings. Use organization's Git server only |
+| Unknown/external repositories | `spec.source.repoURL` pointing to untrusted sources | HIGH | Restrict allowed repositories in ArgoCD settings. Use organization's Git server only |
 
 ## Helm Chart Security Checks
 
@@ -274,7 +274,7 @@ securityContext:
 | Check | Pattern | Severity | Remediation |
 |-------|---------|----------|-------------|
 | Unpinned chart versions | `version: "*"` or missing version in Chart.yaml dependencies | MEDIUM | Pin to specific versions: `version: "1.2.3"`. Run `helm dependency update` to generate Chart.lock |
-| Untrusted repositories | Dependencies from non-official Helm repos | MEDIUM | Use official repos (bitnami, stable). Verify chart source and maintainer. Mirror charts to internal registry |
+| Untrusted repositories | Dependencies from non-official Helm repositories | MEDIUM | Use official repositories (bitnami, stable). Verify chart source and maintainer. Mirror charts to internal registry |
 | Missing Chart.lock | Dependencies defined but no Chart.lock committed | MEDIUM | Run `helm dependency build` and commit `Chart.lock` |
 
 ## OpenShift-Specific Checks
@@ -305,7 +305,7 @@ Security checks for AWS, GCP, Azure services, serverless functions, managed data
 |-------|---------|----------|-------------|
 | Root account usage | Code using root account credentials | CRITICAL | Create IAM users/roles. Enable MFA on root. Use root only for billing and account-level changes |
 | Long-lived access keys | `AKIA*` keys in code or config | CRITICAL | Use IAM roles with temporary credentials (STS). Use OIDC federation for CI/CD |
-| Overly permissive policies | `"Action": "*"` or `"Resource": "*"` | HIGH | Follow least privilege. Use IAM Access Analyzer to right-size permissions. Start with zero permissions and add as needed |
+| Overly permissive policies | `"Action": "*"` or `"Resource": "*"` | HIGH | Follow least privilege. Use IAM Access Analyzer to right-size permissions. Start with zero permissions and add only actions required by the workload |
 | Missing condition keys | Policies without condition constraints | MEDIUM | Add conditions: `aws:SourceIp`, `aws:PrincipalOrgID`, `aws:RequestedRegion` |
 | Cross-account trust without ExternalId | AssumeRole without `sts:ExternalId` condition | HIGH | Require ExternalId in cross-account trust policies to prevent confused deputy attacks |
 

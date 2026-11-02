@@ -131,7 +131,7 @@ grep -E '(token|key|password|secret)' .mcp.json
 
 | Check | Pattern | Severity | Remediation |
 |-------|---------|----------|-------------|
-| External source trust | Marketplace entries with `source.type: "github"` pointing to unverified repos | HIGH | Verify the source repository is from a trusted organization. Check commit history and contributors |
+| External source trust | Marketplace entries with `source.type: "github"` pointing to unverified repositories | HIGH | Verify the source repository is from a trusted organization. Check commit history and contributors |
 | Missing OWNERS | Plugin without OWNERS file — no clear accountability | MEDIUM | Add an OWNERS file listing responsible maintainers and review requirements |
 | Inconsistent naming | Marketplace `name` doesn't match `plugin.json` `name` | MEDIUM | Synchronize names across marketplace entry and plugin.json |
 

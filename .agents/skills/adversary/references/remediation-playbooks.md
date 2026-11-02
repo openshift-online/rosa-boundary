@@ -9,7 +9,7 @@ Condensed remediation guidance for every finding category. For each finding, app
 | Finding | Fix | Verify | Prevent | Harden |
 |---------|-----|--------|---------|--------|
 | Hardcoded secret | Move to env var or secret manager | `git grep` for pattern; confirm app works with env var | `detect-secrets`, `git-secrets`, GitHub secret scanning | Rotate credential, purge from git history with `git filter-repo` |
-| Secret in git history | `bfg --replace-text` or `git filter-repo --invert-paths` | `git log --all -p \| grep` should find 0 matches | Same as above | Rotate credential, audit access logs, team re-clones repo |
+| Secret in git history | `bfg --replace-text` or `git filter-repo --invert-paths` | `git log --all -p \| grep` should find 0 matches | Same as above | Rotate credential, audit access logs, team re-clones repository |
 
 ## Injection Vulnerabilities
 
@@ -70,7 +70,7 @@ Condensed remediation guidance for every finding category. For each finding, app
 |---------|-----|--------|---------|--------|
 | Force push overwrote shared history | Recover from reflog: `git push origin origin/main@{1}:main --force-with-lease` | All expected commits present; team members pull restored branch | Branch protection: `allow_force_pushes=false` | Admin bypass disabled, pre-push hook warning, audit log monitoring |
 | Unsigned commits merged | If recent/unshared: amend with `-S`; if shared: enforce going forward | `git log --show-signature` shows valid signatures | Branch protection: `required_signatures=true`; global `commit.gpgsign=true` | Signed commit CI check, SSH signing (simpler than GPG) |
-| Deploy key with write access | Delete key, audit access logs, recreate as read-only | `gh api repos/.../keys` confirms `read_only=true`; push attempt fails | Quarterly deploy key audit, document read-only-default policy | Rotate every 90 days, unique per repo, use GitHub Apps when possible |
+| Deploy key with write access | Delete key, audit access logs, recreate as read-only | `gh api repos/.../keys` confirms `read_only=true`; push attempt fails | Quarterly deploy key audit, document read-only-default policy | Rotate every 90 days, unique per repository, use GitHub Apps when possible |
 
 ---
 

@@ -4,7 +4,7 @@ This is an operator workflow, **not an unattended deployment script**. Confirm c
 
 ## Local profile and run ledger
 
-From repo root, initialize a per-contributor profile once (do not pass passwords or tokens):
+From repository root, initialize a per-contributor profile once (do not pass passwords or tokens):
 
 ```bash
 python3 .agents/skills/boundary-live-verification/scripts/dev_state.py profile add \
@@ -13,7 +13,7 @@ python3 .agents/skills/boundary-live-verification/scripts/dev_state.py profile a
 python3 .agents/skills/boundary-live-verification/scripts/dev_state.py profile show --name my-dev
 ```
 
-The profile lives at `${XDG_CONFIG_HOME:-~/.config}/rosa-boundary-live-verification/profiles/<name>.json` (0600). Runs live at `${XDG_STATE_HOME:-~/.local/state}/rosa-boundary-live-verification/<name>/runs/<uuid>.json` (0600). Avoid pointing XDG directories into a checkout or cloud-synced folder; neither profile nor ledger belongs in Git or EFS. The `profile show` output omits the OIDC URL. The ledger records *claims* supplied by the operator; it performs no AWS calls or deployment. It never acts as a pass/fail oracle or source of current AWS truth.
+The profile lives at `${XDG_CONFIG_HOME:-~/.config}/rosa-boundary-live-verification/profiles/<name>.json` (0600). Runs live at `${XDG_STATE_HOME:-~/.local/state}/rosa-boundary-live-verification/<name>/runs/<uuid>.json` (0600). Avoid pointing XDG directories into a checkout or cloud-synced directory; neither profile nor ledger belongs in Git or EFS. The `profile show` output omits the OIDC URL. The ledger records *claims* supplied by the operator; it performs no AWS calls or deployment. It never acts as a pass/fail oracle or source of current AWS truth.
 
 At the start of an authorized run, create a record with a SHA-256 fingerprint of the **actual build inputs** (include relevant untracked changes explicitly; a Git commit alone is not enough for a dirty tree), revision, and independently observed metadata:
 
@@ -40,6 +40,9 @@ Finish it even on failure (`--result blocked|failed|passed`, `--cleanup complete
 
 1. Verify AWS caller identity, explicitly selected Region and account guard; read-only ECS cluster/base and per-investigation task definitions, ECR image manifest/digest and platform, Lambda function package/hash/status, EFS, audit bucket/log groups, IAM identity/grants and OIDC providers. Compare with local account/network/regional state ownership and effective `.env`/tfvars values without dumping secrets. Check whether the regional stack and account root share an unresolved IAM handoff; never run automatic import/adoption. Local Terraform state is sensitive; inspect only the needed addresses/outputs safely.
 2. Inspect `deploy/account/Makefile`, `deploy/network/Makefile`, `deploy/regional/Makefile`, variables and backend definitions. Do **not** run regional `show-env` or `lambda` (targeted auto-approve). In the regional Makefile, `.env` exports `TF_VAR_abac_tag_key` and `TF_VAR_enable_kube_proxy` with fallbacks; these may override `terraform.tfvars`. The dev profile does not override these variables and cannot validate their effective values by itself. Confirm effective values during review.
+
+### Artifact provenance and CLI isolation
+
 3. If the existing account deployment matches every required component, **reuse it only if artifact provenance is established**. `:latest` is mutable: an ECR tag digest, a registered task definition, and a locally built image are three separate facts. A newly launched task may pull a different digest from an older task, and a running task will not update. Prefer a unique source-fingerprint tag plus digest-pinned `container_image`; for Lambda Zip compare built artifact SHA-256 (AWS `CodeSha256` is base64 of raw SHA-256) after apply. When a proof is unavailable, mark it unverified and redeploy with reviewed provenance rather than assuming equality.
    Run the optional **read-only** metadata matcher once expected values are obtained from the approved build, not from the current AWS environment itself:
 

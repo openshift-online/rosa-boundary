@@ -41,13 +41,7 @@ Installed via native installer. Configured to use Amazon Bedrock via IAM for aut
 
 ## ROSA Cluster Context
 
-<!-- Update this section with cluster-specific information -->
-
-**Cluster Name**: [TODO: Fill in]
-**AWS Account**: [TODO: Fill in]
-**Region**: [TODO: Fill in]
-**Version**: [TODO: Fill in]
-**API Endpoint**: [TODO: Fill in]
+Before investigating, confirm the cluster name, AWS account, region, OpenShift version, and API endpoint from the authorized investigation request and cluster metadata. Record non-secret identifiers in investigation notes; do not assume this template identifies a target.
 
 **Authentication**:
 ```bash

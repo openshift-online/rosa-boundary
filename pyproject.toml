@@ -1,0 +1,22 @@
+[project]
+name = "rosa-boundary"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "George Adams", email = "oss@geowa4.software" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "podman-compose>=1.6.0",
+    "pre-commit>=4.7.0",
+    "skillsaw>=0.22.0",
+    "tool>=0.8.0",
+]
+
+[project.scripts]
+rosa-boundary = "rosa_boundary:main"
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"

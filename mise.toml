@@ -1,0 +1,12 @@
+[tools]
+terraform = "v1.17.0"
+
+[settings]
+experimental = true
+python.uv_venv_auto = "create|source"
+
+[deps.uv]
+auto = true
+
+[deps.go]
+auto = true

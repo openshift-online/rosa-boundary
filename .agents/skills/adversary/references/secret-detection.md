@@ -36,12 +36,12 @@ These patterns have low false-positive rates and should always be flagged.
 
 | Secret Type | Regex Pattern | Severity | Remediation |
 |-------------|---------------|----------|-------------|
-| RSA Private Key | `-----BEGIN RSA PRIVATE KEY-----` | CRITICAL | Regenerate the key pair. Revoke associated certificates. Never commit private keys |
-| EC Private Key | `-----BEGIN EC PRIVATE KEY-----` | CRITICAL | Same as RSA — regenerate and revoke |
-| OpenSSH Private Key | `-----BEGIN OPENSSH PRIVATE KEY-----` | CRITICAL | Generate new key: `ssh-keygen -t ed25519`. Remove old public key from all authorized_keys files |
-| PGP Private Key | `-----BEGIN PGP PRIVATE KEY BLOCK-----` | CRITICAL | Revoke the key on keyservers. Generate new PGP key pair |
-| PKCS8 Private Key | `-----BEGIN PRIVATE KEY-----` | CRITICAL | Regenerate key pair. Reissue certificates. Update all services using this key |
-| Certificate (not secret but verify) | `-----BEGIN CERTIFICATE-----` | LOW | Not a secret itself, but verify the corresponding private key isn't also committed |
+| RSA Private Key | `-{5}BEGIN RSA PRIVATE KEY-{5}` | CRITICAL | Regenerate the key pair. Revoke associated certificates. Never commit private keys |
+| EC Private Key | `-{5}BEGIN EC PRIVATE KEY-{5}` | CRITICAL | Same as RSA — regenerate and revoke |
+| OpenSSH Private Key | `-{5}BEGIN OPENSSH PRIVATE KEY-{5}` | CRITICAL | Generate new key: `ssh-keygen -t ed25519`. Remove old public key from all authorized_keys files |
+| PGP Private Key | `-{5}BEGIN PGP PRIVATE KEY BLOCK-{5}` | CRITICAL | Revoke the key on keyservers. Generate new PGP key pair |
+| PKCS8 Private Key | `-{5}BEGIN PRIVATE KEY-{5}` | CRITICAL | Regenerate key pair. Reissue certificates. Update all services using this key |
+| Certificate (not secret but verify) | `-{5}BEGIN CERTIFICATE-{5}` | LOW | Not a secret itself, but verify the corresponding private key isn't also committed |
 
 ### Database & Connection Strings
 

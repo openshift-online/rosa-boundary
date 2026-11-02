@@ -14,6 +14,8 @@ This is a routing guide, not a snapshot of the implementation. Start with the re
 | Keycloak | [realm setup](docs/configuration/keycloak-realm-setup.md) | `deploy/keycloak/` |
 | Cross-cutting questions needing repository context | [OpenWiki](openwiki/quickstart.md) (on demand; see guidance below) | Current source and tests |
 
+## Verification skills
+
 Repository skills live in `.agents/skills/`; `.claude/skills` points to the same directory for Claude Code discovery. Use [docs-drift-review](.agents/skills/docs-drift-review/SKILL.md) to audit documentation and [adversary](.agents/skills/adversary/SKILL.md) for security reviews when relevant.
 
 - Use [boundary-change-verification](.agents/skills/boundary-change-verification/SKILL.md) to select and run diff-scoped **local** checks; it does not deploy or create AWS resources. Hand off required live assertions and provenance gaps rather than claiming mocks or plans prove real behavior.
@@ -45,7 +47,7 @@ This repository has a generated `openwiki/` evidence index. It is optional just-
 - Do not enumerate, preload, or search wikis at task start. Use retrieval when the user asks for it, when unfamiliar architecture or dependency behavior materially affects the task, or when source inspection leaves an important uncertainty. Stop once the question is grounded.
 - When those conditions apply and OpenWiki retrieval tools are available, use `openwiki_search` for just-in-time context and `openwiki_read` for the relevant complete sections. If search returns `workspace_required`, ask which listed workspace to use and retry with its ID.
 - Use `openwiki_list_workspaces` or `openwiki_list_wikis` when workspace membership itself needs to be discovered.
-- If the retrieval tools are unavailable, read `openwiki/quickstart.md` and follow its links to the relevant pages.
+- If the retrieval tools are unavailable, read [openwiki/quickstart.md](openwiki/quickstart.md) and follow its links to the relevant pages.
 - Treat source code and tests as authoritative. A brief's unknowns and review items are verification gaps, not automatic requirements.
 - Prefer the narrowest quiet validation that proves the changed behavior. Preserve complete failure output.
 

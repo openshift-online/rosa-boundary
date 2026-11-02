@@ -45,7 +45,7 @@ Perform analysis across four dimensions using checklists below, then run the ver
 | A1 | Component boundaries | Modules, responsibilities, public APIs | Directory structure, exports |
 | A2 | Layer identification | Presentation, business, data access, infra | Import direction patterns |
 | A3 | Entry points | All external input paths | `main.*`, routes, CLI parsers, cron |
-| A4 | Execution flows | Request lifecycle end-to-end | Route → middleware → handler → service → repo |
+| A4 | Execution flows | Request lifecycle end-to-end | Route → middleware → handler → service → repository |
 | A5 | Trust boundaries | Where data crosses privilege levels | Public→auth, user input→DB, external→internal |
 | A6 | Shared state | Globals, singletons, caches, sessions | Module-level vars, cache init |
 | A7 | Error propagation | Error flow across boundaries | Try/catch patterns, error middleware |
@@ -79,7 +79,7 @@ Perform analysis across four dimensions using checklists below, then run the ver
 | C3 | Data models | Entities, relationships, constraints | ORM models, SQL schemas |
 | C4 | Sensitive data fields | PII, credentials, financial data | Field names, type annotations |
 | C5 | External integrations | Third-party APIs, webhooks, queues | HTTP clients, SDK usage |
-| C6 | Data flow mapping | Sensitive data paths (input→storage) | Handler → service → repo chain |
+| C6 | Data flow mapping | Sensitive data paths (input→storage) | Handler → service → repository chain |
 | C7 | Pagination & limits | How large result sets are handled | Query builders |
 | C8 | File handling | Upload/download, storage, size limits | Multipart handlers |
 | C9 | Caching strategy | What's cached, TTL, invalidation | Cache middleware |

@@ -303,7 +303,7 @@ Comprehensive mapping of file patterns to technology stacks. Supplements `script
 
 ## Security Implications by Stack
 
-Maps detected stack components to security domains that should be activated, with key risks to watch for.
+Maps stack components to security domains and key risks.
 
 | Stack Component | Security Domains | Key Risks |
 |----------------|------------------|-----------|

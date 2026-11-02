@@ -15,7 +15,7 @@ Choose checks that exercise the behavior changed by a diff, not a generic full-r
 
 ## Choose and verify checks
 
-Use this routing table as a starting point, not a substitute for reading current recipes and tests. Find tests by the behavior they assert; do not infer coverage from a filename alone.
+Start with this routing table, then read current recipes and tests. Select tests by their assertions, not filenames.
 
 | Changed behavior | Candidate checks and limits |
 |---|---|
@@ -26,6 +26,8 @@ Use this routing table as a starting point, not a substitute for reading current
 | Containerfile, build helper, skel | Focused build-helper tests where present, Makefile image build for affected architectures, and an interactive runtime check for affected tools or entrypoint behavior. For architecture-sensitive changes, test both amd64 and arm64. An image build does not prove exit-time audit sync. |
 | Docs, guidance, CI | Check affected links, references, formatting, and CI/test commands against current source; run shell/CI fixture tests where present. Do not require unrelated runtime suites solely for documentation changes. |
 
+### Check prerequisites and recipes
+
 Read the root `Makefile` and any affected `deploy/*/Makefile` before invoking targets. There is no root `make test` or `make test-shell`. Check what `make test-lambda` currently includes rather than repeating an old inventory. For LocalStack, inspect prerequisites and `tests/localstack/README.md`; `make test-localstack-fast` expects LocalStack already running, while `make test-localstack` starts it. Inspect skips and executor requirements in the test output; a green run with skipped ECS tests does not validate task execution. Run `pre-commit run --all-files` before a PR as required by development standards; report if unavailable or not run.
 
 ## Execution boundaries
@@ -33,6 +35,8 @@ Read the root `Makefile` and any affected `deploy/*/Makefile` before invoking ta
 - Default to a **plan and safe local checks**. Explain prerequisites and side effects before running formatting/fixers, image builds, LocalStack startup, network-dependent downloads, or tests that create local resources. Preserve unrelated working-tree changes and generated artifacts; review any changed files after fixers. Run broad mutating hooks such as `pre-commit run --all-files` only in a clean checkout, or first resolve how to protect unrelated work.
 - Do not run `apply`, `destroy`, the regional `lambda` target, image publication, ECS task creation, or other live AWS/HCP mutations under this skill. Obtain explicit authorization through the deployment workflow for any such action. For staging changes, inspect `hcp-terraform/rosa-boundary/main.tf` for workspace ownership and apply settings, then review the Git/PR-triggered speculative plan; never use the dev regional Makefile or edit HCP regional variables directly.
 - If the diff requires real AWS/Fargate/OIDC/audit evidence, offer a **separate handoff** to [boundary-live-verification](../boundary-live-verification/SKILL.md) for an approved personal dev environment. State the exact revision and source fingerprint (include relevant untracked changes), affected boundaries, proposed live assertions and negative cases, architecture, required target/identity, evidence, cleanup, and deployment/provenance gaps. Do not invoke the live skill or treat this handoff as approval to deploy/create a task; ask for target and explicit live-action authorization first. The live skill must re-check account, region and artifact provenance itself.
+### Sensitive data and failed checks
+
 - Do not print `.env`, Terraform variable values, LocalStack tokens, AWS credentials, OIDC tokens, or raw logs likely to contain them. If prerequisites are missing, record the blocked check and reason rather than manufacturing a pass or attempting a live substitute.
 - If a check fails, retain enough output to diagnose it, distinguish a regression from a prerequisite failure, and report the result. Do not silently skip failed checks or broaden scope merely to claim a green build.
 

@@ -104,7 +104,7 @@ curl -s "https://api.securityscorecards.dev/projects/github.com/{owner}/{repo}"
 
 ### Mapping Packages to Repositories
 
-| Ecosystem | How to Find Source Repo |
+| Ecosystem | How to Find Source Repository |
 |-----------|----------------------|
 | Go | Module path starting with `github.com/` maps directly |
 | Python | PyPI page `repository` or `homepage` URL |

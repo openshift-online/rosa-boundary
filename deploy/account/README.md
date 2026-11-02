@@ -18,8 +18,18 @@ scan-on-push and a 25-tagged-image retention policy; `force_delete` is disabled.
 Same-account publication relies on IAM permissions of the generated ECR
 credential's role; no cross-account repository policy is configured.
 
-This account configuration does not manage the regional Lambda image URI,
-destination ECR repositories or ECR registry replication. The existing Quay
+`lambda_ecr_replication_regions` (empty by default) configures a single
+registry-wide, prefix-filtered ECR replication rule from the source repository
+to the listed Regions in the same account. Stage the `us-west-2` destination
+repository first; only after that workspace applies, set the account workspace
+variable to `["us-west-2"]` in a separate PR. Staging workspaces auto-apply and
+cannot be assumed to run in order within a single meta-workspace change.
+The filter is a **prefix**, not an exact repository-name match. ECR replication
+configuration is a whole-registry singleton: before merging an enabling change,
+confirm its plan does not replace unrelated rules. If other rules already exist,
+import the existing configuration into this account state and model all rules
+together instead of overwriting them. This configuration does not manage the
+regional Lambda image URI or destination ECR repositories. The existing Quay
 pull-through-cache rule and Lambda image URI remain in the regional root.
 For a new account or repository, check for an existing repository in the
 account/Region (import instead of creating a duplicate), verify account and

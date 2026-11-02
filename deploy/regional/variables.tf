@@ -143,6 +143,17 @@ variable "lambda_image_tag" {
   default     = ""
 }
 
+variable "lambda_ecr_destination_source_region" {
+  description = "Source Region for the ordinary Lambda ECR image repository. When nonempty, create a matching destination repository in this Region; leave empty in the source Region, where the account root owns the repository. Does not switch the Lambda image URI."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.lambda_ecr_destination_source_region == "" || can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.lambda_ecr_destination_source_region))
+    error_message = "Specify an explicit source Region or leave empty to disable the destination repository."
+  }
+}
+
 variable "container_cpu" {
   description = "CPU units for the Fargate task (256, 512, 1024, 2048, 4096)"
   type        = number

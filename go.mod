@@ -6,10 +6,10 @@ toolchain go1.27.3
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.47.5
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.12
-	github.com/aws/aws-sdk-go-v2/service/ecs v1.103.0
-	github.com/aws/aws-sdk-go-v2/service/efs v1.51.1
-	github.com/aws/aws-sdk-go-v2/service/lambda v1.113.4
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.13
+	github.com/aws/aws-sdk-go-v2/service/ecs v1.103.1
+	github.com/aws/aws-sdk-go-v2/service/efs v1.51.2
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.114.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.6
 	github.com/aws/smithy-go v1.28.7
 	github.com/dustinkirkland/golang-petname v0.0.0-20261016130456-fdd95a3d0543

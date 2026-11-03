@@ -73,6 +73,14 @@ LocalStack test dependencies are managed by the root `pyproject.toml`'s
 version (currently Python 3.13); no separate test-package installation, system-wide
 pip install, or virtualenv activation is needed.
 
+The small `pyproject.toml`/`setup.py` in this directory is a compatibility adapter
+for the external Prow image build, which runs
+`uv pip install --python python3.11 --system .` here. It reads dependencies from
+the root group without installing the Python 3.13 root project. It requires the
+complete repository checkout and is not a separately published package. Keep
+this directory-install contract until the external job is migrated; local
+contributors should continue using the root uv commands below.
+
 ```bash
 # From the repository root (macOS and Linux)
 uv sync --group localstack

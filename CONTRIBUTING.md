@@ -40,6 +40,8 @@ uv run --group localstack pre-commit install
 - `uv sync --group localstack` explicitly includes the optional integration-test
   dependencies from the root [pyproject.toml](pyproject.toml) and [uv.lock](uv.lock).
   No separate `pip install` or virtualenv activation is needed for the test targets.
+  The nested LocalStack project remains only as a Python 3.11 CI-install adapter;
+  it reads this same dependency group and is not another local setup step.
 - Pre-commit installation enables the repository's hooks for future commits.
   Hooks can rewrite files; review the resulting diff.
 

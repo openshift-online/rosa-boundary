@@ -174,6 +174,11 @@ Tests in `tests/localstack/integration/` that run against [LocalStack Pro](https
 - `uv` and the root project's Python version (currently 3.13). LocalStack test
   dependencies are declared in the root `localstack` dependency group and pinned
   by the root `uv.lock`; install with `uv sync --group localstack`.
+  The nested `tests/localstack/pyproject.toml` and `setup.py` retain the external
+  CI image's Python 3.11 directory-install contract, sourcing the same root group
+  without installing the root project. That existing CI install resolves the
+  group's constraints rather than using the root lockfile; it is not the local
+  setup command.
 - Podman with socket enabled (Linux: `systemctl --user enable --now podman.socket`)
 
 ### Running

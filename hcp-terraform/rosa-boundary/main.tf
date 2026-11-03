@@ -1116,5 +1116,89 @@ module "rosa_boundary" {
         },
       ]
     }
+
+    # Region B network. Every topology input is explicit here: the
+    # deploy/network root defaults describe Region A (10.80.0.0/20, us-east-1).
+    rosa-boundary-prod-network-us-west-2 = {
+      terraform_version      = "1.16.0"
+      working_directory      = "deploy/network"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      execution_mode         = "remote"
+      auto_apply             = false
+      auto_apply_run_trigger = false
+      variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
+      variables = [
+        {
+          # The root default is the staging account; overriding this is mandatory.
+          key      = "aws_account_id"
+          value    = "514903006123"
+          category = "terraform"
+        },
+        {
+          key      = "aws_region"
+          value    = "us-west-2"
+          category = "terraform"
+        },
+        {
+          key      = "stage"
+          value    = "prod"
+          category = "terraform"
+        },
+        {
+          key      = "availability_zones"
+          value    = "[\"us-west-2a\", \"us-west-2b\"]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "vpc_cidr"
+          value    = "10.81.0.0/20"
+          category = "terraform"
+        },
+        {
+          key      = "public_subnet_cidrs"
+          value    = "[\"10.81.0.0/24\", \"10.81.1.0/24\"]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "private_subnet_cidrs"
+          value    = "[\"10.81.8.0/24\", \"10.81.9.0/24\"]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "nat_strategy"
+          value    = "single"
+          category = "terraform"
+        },
+        {
+          key      = "default_tags"
+          value    = <<-EOT
+            {
+              owner         = "app-sre"
+              service-phase = "prod"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "ignored_tag_keys"
+          value    = <<-EOT
+            [
+              "app",
+              "app-code",
+              "cost-center",
+              "managed_by_integration",
+              "organization",
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+      ]
+    }
   }
 }

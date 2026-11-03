@@ -8,6 +8,7 @@ combinations of running tasks, CreatedAt timestamps, and grace periods.
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -16,7 +17,8 @@ lambda_dir = Path(__file__).parent.parent.parent / 'lambda' / 'reap-investigatio
 sys.path.insert(0, str(lambda_dir))
 
 # Import the entire handler module to ensure consistent patching
-import handler as reaper_handler
+with patch('boto3.client'):
+    import handler as reaper_handler
 
 
 class TestIsInvestigationStale:

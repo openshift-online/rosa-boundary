@@ -16,7 +16,17 @@ from unittest.mock import Mock, patch, MagicMock
 from botocore.exceptions import ClientError, WaiterError
 
 # Import the handler
-import handler
+# Mock client construction before import: unit tests must not resolve workstation
+# AWS regions/credentials or contact AWS. Tests replace these clients per case.
+with patch('boto3.client'):
+    import handler
+
+
+@pytest.fixture(autouse=True)
+def mock_aws_client_construction():
+    """Keep handler reloads independent of local AWS configuration."""
+    with patch("boto3.client"):
+        yield
 
 
 class TestInputValidation:

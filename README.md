@@ -16,6 +16,9 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 
 ## Getting Started
 
+Contributors: start with [CONTRIBUTING.md](CONTRIBUTING.md) for mise setup,
+LocalStack access, and the complete local test command.
+
 ### Prerequisites
 
 - Go 1.23+ (to build the CLI from source)

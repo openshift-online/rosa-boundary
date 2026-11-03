@@ -43,27 +43,49 @@ uv pip install --system podman-compose
 # OR use distribution package: dnf install podman-compose
 ```
 
+### Podman socket discovery
+
+The root `make localstack-up`, `make localstack-down`, and `make localstack-logs`
+targets use `compose.sh`, which queries `podman info` for the server-side socket
+path. On macOS this is a path **inside the Podman VM**, not a socket on the Mac.
+On Linux it follows the active rootless/rootful engine. No user ID or
+`XDG_RUNTIME_DIR` configuration is needed.
+
+For direct Compose operations, run `bash compose.sh ...` from this directory
+instead of `podman-compose ...`. The wrapper passes all arguments through.
+For an engine that cannot report its socket, explicitly set
+`LOCALSTACK_PODMAN_SOCKET` to its absolute server-side socket path. This override
+also takes precedence over discovery; it does not select a different Podman
+connection. Start the engine before invoking the wrapper directly.
+
+The wrapper does not grant socket permissions or fix license activation. Access
+to the engine socket grants container-management privileges; use only a trusted
+LocalStack image and your intended development engine.
+
 ### Python Environment (for running tests)
 
-**macOS - Use virtual environment**:
-```bash
-# Create and activate venv
-uv venv
-source .venv/bin/activate
+LocalStack test dependencies are managed by the root `pyproject.toml`'s
+`localstack` dependency group and root `uv.lock`. Use the root project's Python
+version (currently Python 3.13); no separate test-package installation, system-wide
+pip install, or virtualenv activation is needed.
 
-# Install test dependencies (includes PyJWT and other Lambda dependencies)
-uv pip install -e .
+```bash
+# From the repository root (macOS and Linux)
+uv sync --group localstack
 ```
 
-**Linux - System-wide or venv**:
-```bash
-# Option 1: System-wide (requires --system flag)
-sudo uv pip install --system -e .
+The Make test targets invoke `uv run --group localstack`, which also syncs the
+required environment automatically. To test an already-running LocalStack
+without restarting or tearing it down:
 
-# Option 2: Virtual environment (recommended)
-uv venv && source .venv/bin/activate
-uv pip install -e .
+```bash
+uv run --group localstack pytest tests/localstack/integration/ -v --tb=short -ra
 ```
+
+Make targets and `test-all` assert live health before launching integration tests.
+Direct pytest runs fail dependent fixture setup if LocalStack is down or required
+services are unhealthy; this is not an accepted skip, even with `--allow-skips`.
+The local ECS executor still does not exercise real task-container execution.
 
 ### Configuration
 
@@ -79,9 +101,10 @@ echo "LOCALSTACK_AUTH_TOKEN=your-token-here" >> .env
 
 ```bash
 # From project root
+uv sync --group localstack
 make localstack-up
 
-# Run all tests
+# Run all tests (runs startup, then tears down with down -v afterward)
 make test-localstack
 
 # Run fast tests only (skip slow ECS task launches)
@@ -112,14 +135,14 @@ All tests marked with `@pytest.mark.integration`:
 ### Test Markers
 
 ```bash
-# Run all integration tests
-pytest -m integration
+# From the repository root: run all integration tests
+uv run --group localstack pytest tests/localstack/integration/ -m integration -ra
 
 # Skip slow tests (>30s)
-pytest -m "integration and not slow"
+uv run --group localstack pytest tests/localstack/integration/ -m "integration and not slow" -ra
 
 # Run only end-to-end tests
-pytest -m e2e
+uv run --group localstack pytest tests/localstack/integration/ -m e2e -ra
 ```
 
 ## Architecture
@@ -145,10 +168,15 @@ Both start a single container:
 
 ### pytest Fixtures (`conftest.py`)
 
-- `localstack_available` - Skips tests if LocalStack not running or services not ready
+- `localstack_available` - Fails dependent fixture setup before resource creation if LocalStack or required services are not ready
 - `s3_client`, `iam_client`, `ecs_client`, etc. - Boto3 clients for LocalStack
 - `test_vpc` - VPC and subnets created by init-aws.sh (session-scoped)
 - `test_efs` - EFS filesystem with automatic cleanup
+- `localstack_cli_binary` - Temporary CLI compiled with the `localstack` build tag;
+  STS/ECS/EFS endpoints are loopback-only. Normal builds retain AWS endpoints.
+- `localstack_cli_env` - Isolated synthetic ID-token cache, LocalStack SRE role,
+  dummy credentials, and consistent region; never reuses your real SSO state.
+  This exercises close-investigation workflow behavior, not real OIDC/IAM security.
 
 ## Testing Approach
 
@@ -250,9 +278,12 @@ To add the secret:
 **Local verification (Prow-mode):**
 ```bash
 cd tests/localstack
-LOCALSTACK_AUTH_TOKEN=<your-token> podman-compose -f compose.ci.yml up -d
-LAMBDA_EXECUTOR=local pytest integration/ -v
-podman-compose -f compose.ci.yml down -v
+# Configure LOCALSTACK_AUTH_TOKEN in .env; do not put secrets in shell history.
+bash compose.sh -f compose.ci.yml up -d
+cd ../..
+LAMBDA_EXECUTOR=local uv run --group localstack pytest tests/localstack/integration/ -v -ra
+cd tests/localstack
+bash compose.sh -f compose.ci.yml down -v
 ```
 
 ## Troubleshooting
@@ -260,11 +291,13 @@ podman-compose -f compose.ci.yml down -v
 ### LocalStack not starting
 
 ```bash
-# Check podman socket
+# Query the active engine and its server-side socket
+podman info --format '{{.Host.RemoteSocket.Path}}'
+
+# Linux only: check the rootless socket service
 systemctl --user status podman.socket
 
-# Check LocalStack auth token
-cat .env | grep LOCALSTACK_AUTH_TOKEN
+# Verify .env contains a valid LOCALSTACK_AUTH_TOKEN without printing it.
 
 # View LocalStack logs
 make localstack-logs
@@ -280,17 +313,18 @@ curl http://localhost:4566/_localstack/health | jq
 ### Podman permission issues
 
 ```bash
-# Ensure XDG_RUNTIME_DIR is set
-echo $XDG_RUNTIME_DIR
+# Inspect the active connection and server-side socket
+podman system connection list
+podman info --format '{{.Host.RemoteSocket.Path}}'
 
-# Check podman socket permissions
-ls -l $XDG_RUNTIME_DIR/podman/podman.sock
+# On macOS, inspect sockets inside the VM, not with a host-side ls:
+podman machine ssh 'ls -l /run/user/$(id -u)/podman/podman.sock'
 ```
 
 ## Development Workflow
 
 1. Start LocalStack: `make localstack-up`
-2. Run tests during development: `pytest tests/localstack/integration/test_*.py -v`
+2. Run tests during development from the root: `uv run --group localstack pytest tests/localstack/integration/ -v -ra`
 3. Run full suite before commit: `make test-localstack`
 4. Run staticcheck before commit: `make staticcheck`
 5. Stop LocalStack: `make localstack-down`

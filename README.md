@@ -420,6 +420,13 @@ The manifest list automatically selects the appropriate image for your platform:
 
 ## Testing
 
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) for tool and license setup, then the
+[testing guide](docs/testing.md) for complete coverage and limitations.
+`make test` runs offline unit/regression suites; `make check` adds quality gates.
+With LocalStack running, `make test-all` also attempts Terraform, integration,
+and image-build checks. Skipped integration coverage is reported as INCOMPLETE;
+use `TEST_ALL_ARGS=--require-complete` to make it nonzero.
+
 ### LocalStack Integration Tests
 
 Test AWS functionality locally before production deployment:
@@ -451,9 +458,14 @@ make test
 
 Prow presubmit and postsubmit jobs run on PRs and merges to `main` (job definitions in `openshift/release`):
 
-- **LocalStack Integration Tests** - AWS service validation (`pytest integration/ -m "not slow"`) in a single-container job using LocalStack host mode
+- **LocalStack Integration Tests** - The repository's `tests/localstack/ci-run.sh`
+  starts LocalStack in Podman with a container-runtime socket and runs the full
+  integration selection with JUnit output. External job triggers/configuration
+  are managed in `openshift/release`.
 - **Lambda Unit Tests** - Handler function validation with moto (`make test-lambda-create-investigation`)
 
-**Required secret**: `LOCALSTACK_AUTH_TOKEN` stored in Vault at `secret/rosa-boundary/localstack` (key: `auth-token`).
+**Required secret input**: `LOCALSTACK_AUTH_TOKEN`. Confirm its current Vault and
+cluster-secret mapping with the CI/platform administrators and the authoritative
+`openshift/release` secret-sync configuration; local setup does not change it.
 
 See [`tests/localstack/README.md`](tests/localstack/README.md) for full CI and local testing documentation.

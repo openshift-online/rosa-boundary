@@ -4,7 +4,9 @@ Comprehensive LocalStack Pro-based testing infrastructure for rosa-boundary AWS 
 
 ## Overview
 
-This testing infrastructure validates all AWS functionality locally before production deployment:
+These tests exercise emulated AWS APIs, policy structure, and selected CLI
+workflows. They do not prove real AWS authorization, container execution, or
+production behavior:
 
 - **S3**: Audit bucket with WORM compliance and Object Lock
 - **IAM**: Roles, policies, OIDC providers, tag-based authorization
@@ -20,27 +22,27 @@ This testing infrastructure validates all AWS functionality locally before produ
 Required for full ECS Fargate and EFS support. Get your auth token from:
 https://app.localstack.cloud/workspace/auth-tokens
 
-**Version requirement**: LocalStack Pro ≥ 4.4.0 (we use `latest` tag)
+The image is pinned in `compose.yml` and `compose.ci.yml`; `ci-run.sh` selects
+its default through `LOCALSTACK_VERSION`. Consult those files for the current
+version rather than substituting `latest`.
 
 ### Podman Setup
 
-**macOS**:
-```bash
-# Install podman-compose via Homebrew
-brew install podman-compose
+Start with [contributor setup](../../CONTRIBUTING.md) for mise, Podman, GNU
+utilities, and the root uv environment. `podman-compose` is already a root Python
+dependency; no separate system-wide installation is needed.
 
-# Ensure podman machine is running
-podman machine list  # Should show "Currently running"
+On macOS, initialize a Podman machine once if needed, then start it:
+
+```bash
+podman machine init  # Only if no machine exists
+podman machine start
 ```
 
-**Linux**:
-```bash
-# Enable podman socket
-systemctl --user enable --now podman.socket
+On rootless Linux, enable the socket:
 
-# Install podman-compose
-uv pip install --system podman-compose
-# OR use distribution package: dnf install podman-compose
+```bash
+systemctl --user enable --now podman.socket
 ```
 
 ### Podman socket discovery
@@ -51,8 +53,10 @@ path. On macOS this is a path **inside the Podman VM**, not a socket on the Mac.
 On Linux it follows the active rootless/rootful engine. No user ID or
 `XDG_RUNTIME_DIR` configuration is needed.
 
-For direct Compose operations, run `bash compose.sh ...` from this directory
-instead of `podman-compose ...`. The wrapper passes all arguments through.
+For direct Compose operations from the repository root, use
+`uv run --group localstack bash tests/localstack/compose.sh ...` instead of raw
+`podman-compose`. This also supplies the uv-managed executable when the virtualenv
+is not activated. The wrapper passes all arguments through.
 For an engine that cannot report its socket, explicitly set
 `LOCALSTACK_PODMAN_SOCKET` to its absolute server-side socket path. This override
 also takes precedence over discovery; it does not select a different Podman
@@ -91,33 +95,41 @@ The local ECS executor still does not exercise real task-container execution.
 
 ### Configuration
 
-```bash
-# Copy environment template
-cp .env.example .env
+From the repository root:
 
-# Add your LocalStack Pro token
-echo "LOCALSTACK_AUTH_TOKEN=your-token-here" >> .env
+```bash
+cp tests/localstack/.env.example tests/localstack/.env
 ```
+
+Edit the ignored file to set `LOCALSTACK_AUTH_TOKEN`; do not put the token in
+shell history or shared logs. An exported shell value overrides the file.
 
 ## Quick Start
 
 ```bash
 # From project root
 uv sync --group localstack
-make localstack-up
+uv run --group localstack make localstack-up
 
-# Run all tests (runs startup, then tears down with down -v afterward)
-make test-localstack
-
-# Run fast tests only (skip slow ECS task launches)
+# Run fast tests while LocalStack remains running
 make test-localstack-fast
 
-# View logs
-make localstack-logs
+# View logs before teardown (Ctrl-C stops following logs)
+uv run --group localstack make localstack-logs
 
-# Stop and cleanup
-make localstack-down
+# All local gates, including full integration; leaves LocalStack running
+make test-all
+
+# Stop without requesting volume deletion
+uv run --group localstack bash tests/localstack/compose.sh down
 ```
+
+On macOS, if GNU `timeout` is not on PATH, use the startup invocation in
+[CONTRIBUTING.md](../../CONTRIBUTING.md#2-request-localstack-access).
+For full integration only, `make test-localstack` starts LocalStack and tears it
+down afterward using `down -v`. Treat that as an alternative workflow, not a step
+before commands that need the same running service. `make localstack-down` also
+requests removal of Compose-managed volumes.
 
 ## Test Organization
 
@@ -132,7 +144,11 @@ All tests marked with `@pytest.mark.integration`:
 - `test_ecs_tasks.py` - ECS cluster, task definitions, task lifecycle
 - `test_tag_isolation.py` - Tag-based authorization model testing
 - `test_full_workflow.py` - End-to-end investigation creation
-- `test_task_timeout.py` - Reaper Lambda deadline enforcement and IAM policy simulation
+- `test_task_timeout.py` - Reaper deadline checks and policy assertions, with explicit platform skips
+- `test_close_investigation.py` - CLI discovery/cleanup using the test-built Go binary
+- `test_reap_investigations_directory.py` - Investigation directory contracts
+- `test_efs_filesystem_policy.py`, `test_terraform_efs_policy.py` - EFS policy API/source contracts
+- `test_kube_proxy_sidecar.py` - Multi-container task-definition contracts
 
 ### Test Markers
 
@@ -153,7 +169,8 @@ uv run --group localstack pytest tests/localstack/integration/ -m e2e -ra
 
 Two compose files are provided:
 - **compose.yml** - Local development (macOS compatible)
-- **compose.ci.yml** - Local Prow simulation (no Docker socket required)
+- **compose.ci.yml** - Alternative local configuration with a Podman socket mount;
+  not a reproduction of the complete Prow job
 
 Both start a single container:
 
@@ -193,33 +210,26 @@ This approach tests infrastructure components without requiring containers to ru
 
 ### Tag-Based Authorization
 
-Tests verify IAM policy conditions without executing tasks:
-
-- Create roles with tag-based policies
-- Run tasks with different username tags
-- Verify IAM policy evaluation logic
-- Test cross-user access prevention
-
+Tests create roles and tasks with username tags and inspect trust/policy
+structure. Some policy-simulation cases are explicitly skipped because LocalStack
+does not evaluate the required ECS resource-tag conditions. A passing local run
+is not evidence of real cross-user isolation or IAM enforcement; those assertions
+require separately approved live verification.
 
 ## Terraform Testing
 
-```bash
-cd deploy/regional
+Use `make test-all` for isolated Terraform initialization/validation and mocked
+account/regional tests; see the [testing guide](../../docs/testing.md). The runner
+copies source into disposable directories, disables backends, and rejects test
+files without a mocked AWS provider.
 
-# Initialize with LocalStack provider
-terraform init
-
-# Validate configuration
-terraform validate
-
-# Plan against LocalStack
-terraform plan -var-file=../../tests/localstack/terraform/localstack.tfvars
-
-# Apply (LocalStack Pro only, experimental)
-terraform apply -var-file=../../tests/localstack/terraform/localstack.tfvars
-```
-
-**Note**: Full Terraform apply may not work due to LocalStack limitations with complex resources.
+There is no supported LocalStack Terraform apply recipe here.
+`terraform/override.tf` is an endpoint-override reference, not automatically loaded
+by the regional root. Running Terraform in `deploy/regional` uses its normal AWS
+provider, not LocalStack. Do not run plan/apply there expecting emulator isolation.
+Real infrastructure changes use the approved [personal dev workflow](../../docs/runbooks/personal-dev-bootstrap.md)
+or [staging delivery path](../../docs/staging-deployment.md), with target review
+and explicit approval.
 
 ## Known Limitations
 
@@ -252,41 +262,39 @@ Prow presubmit job runs in `openshift/release` at
 
 **Job name:** `pull-ci-openshift-online-rosa-boundary-main-localstack-integration-tests` (presubmit)
 
-**Triggers:** PRs touching `lambda/`, `deploy/regional/`, or `tests/localstack/`.
+**Triggers and secret provisioning:** the external `openshift/release` job and
+secret-sync configuration are authoritative. The CI entrypoint requires
+`LOCALSTACK_AUTH_TOKEN` and `ARTIFACT_DIR`; confirm the current Vault path, key,
+and cluster-secret mapping with the platform/CI administrators rather than
+copying an unverified mapping from this guide. Do not change existing secret
+infrastructure as part of local onboarding.
 
-**Architecture:** CI entrypoint is `ci-run.sh`. It starts LocalStack Pro in a podman container,
-mounts `init-aws.sh` as an init hook (auto-runs on ready), waits for the ECS service,
-then runs `pytest integration/ -v --tb=short` against the full suite.
+**Architecture:** `ci-run.sh` starts a Podman API service, mounts its socket and
+`init-aws.sh` into LocalStack, checks required-service readiness, and runs the full
+`pytest integration/ --verbose --tb=short --junit-xml=...` selection. It exports
+`ECS_EXECUTOR=docker` to enable executor-dependent test cases and retains its own
+JUnit completion guard. The local aggregate's optional completeness policy does
+not change that CI guard.
 
-**Executor-dependent test skips:** Three tests in `test_task_timeout.py` and `test_full_workflow.py` are gated on `ECS_EXECUTOR != 'local'`. In Prow CI, `ci-run.sh` exports `ECS_EXECUTOR=docker` before invoking pytest, so these tests run. Locally, `make test-localstack` does not set `ECS_EXECUTOR`, so they are silently skipped — this is intentional since they require a live container runtime socket. To replicate CI behavior locally:
+**Executor-dependent skips:** three cases in `test_task_timeout.py` and
+`test_full_workflow.py` skip when the pytest environment uses `ECS_EXECUTOR=local`.
+Local `compose.yml` also explicitly configures the *server* with that executor.
+Setting `ECS_EXECUTOR=docker` only on the host changes test selection, not the
+server configuration, and is not a supported shortcut to reproducing CI.
+
+**Alternative local Compose configuration:** from the repository root, with the
+engine running and the ignored `.env` configured:
+
 ```bash
-ECS_EXECUTOR=docker make test-localstack
+uv run --group localstack bash tests/localstack/compose.sh -f compose.ci.yml up -d
+# Retry this check until required services are ready; do not test before it passes.
+make localstack-ready
+uv run --group localstack pytest tests/localstack/integration/ -v -ra
+uv run --group localstack bash tests/localstack/compose.sh -f compose.ci.yml down
 ```
 
-**Executor-dependent test skips:** Three tests in `test_task_timeout.py` and `test_full_workflow.py` are gated on `ECS_EXECUTOR != 'local'`. In Prow CI, `ci-run.sh` exports `ECS_EXECUTOR=docker` before invoking pytest, so these tests run. Locally, `make test-localstack` does not set `ECS_EXECUTOR`, so they are silently skipped — this is intentional since they require a live container runtime socket. To replicate CI behavior locally:
-```bash
-ECS_EXECUTOR=docker make test-localstack
-```
-
-**Secret bootstrap (one-time setup):**
-Vault path: `selfservice/rosa-boundary/ci` → key: `localstack-token`
-CI cluster secret: `localstack-token` → key: `localstack-token`
-
-To add the secret:
-1. Store `LOCALSTACK_AUTH_TOKEN` in Vault at the path above
-2. Open a PR to `openshift/release` adding a secret sync rule for `rosa-boundary-localstack-auth-token`
-3. Coordinate with DPTP via `#forum-ocp-testplatform`
-
-**Local verification (Prow-mode):**
-```bash
-cd tests/localstack
-# Configure LOCALSTACK_AUTH_TOKEN in .env; do not put secrets in shell history.
-bash compose.sh -f compose.ci.yml up -d
-cd ../..
-LAMBDA_EXECUTOR=local uv run --group localstack pytest tests/localstack/integration/ -v -ra
-cd tests/localstack
-bash compose.sh -f compose.ci.yml down -v
-```
+This does not recreate the CI job environment or prove executor-dependent tests
+ran. Inspect skips; configuring a real container executor is a separate task.
 
 ## Troubleshooting
 
@@ -325,11 +333,13 @@ podman machine ssh 'ls -l /run/user/$(id -u)/podman/podman.sock'
 
 ## Development Workflow
 
-1. Start LocalStack: `make localstack-up`
-2. Run tests during development from the root: `uv run --group localstack pytest tests/localstack/integration/ -v -ra`
-3. Run full suite before commit: `make test-localstack`
-4. Run staticcheck before commit: `make staticcheck`
-5. Stop LocalStack: `make localstack-down`
+1. Follow [CONTRIBUTING.md](../../CONTRIBUTING.md) for tools and licensing.
+2. Use `make test` or `make check` for offline iteration.
+3. Start LocalStack, then run focused integration tests from the root.
+4. Use `make test-all` for the broader local gates; inspect INCOMPLETE coverage.
+   Add `TEST_ALL_ARGS=--require-complete` when an unskipped run is required.
+5. Stop with `uv run --group localstack bash tests/localstack/compose.sh down`.
+   Use `make localstack-down` only when requesting volume deletion is intended.
 
 ## Adding New Tests
 

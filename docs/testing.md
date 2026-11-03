@@ -1,13 +1,16 @@
 # ROSA-Boundary Testing
 
 This document describes the testing strategy, test suites, and how to run them.
+Start with [CONTRIBUTING.md](../CONTRIBUTING.md) for mise/uv setup and access.
+Package-manager examples below are alternatives when tools are not already
+provided by mise, not additional installs required on top of that setup.
 
 ## Overview
 
 | Suite | Framework | Scope |
 |-------|-----------|-------|
 | Go unit tests | `go test` | CLI commands, Lambda client, config derivation |
-| Lambda unit tests | pytest / unittest | `create-investigation` and `reap-tasks` Lambdas |
+| Lambda unit tests | pytest / unittest | `create-investigation`, `reap-tasks`, and `reap-investigations` Lambdas |
 | LocalStack integration | pytest | AWS service interactions end-to-end |
 | Linting | shellcheck, golangci-lint, staticcheck | Code quality and static analysis |
 | Pre-commit | pre-commit hooks | Formatting, YAML, merge conflicts |
@@ -133,7 +136,7 @@ Tests for the `rosa-boundary` CLI live alongside the code in `internal/`.
 
 ```bash
 make test-cli       # go test ./...
-make fmt            # gofmt (must produce no diff)
+make fmt            # writes Go/shell formatting; review the diff
 make lint           # golangci-lint (falls back to go vet)
 make staticcheck    # staticcheck ./...
 ```
@@ -146,17 +149,20 @@ make staticcheck    # staticcheck ./...
 
 ## Lambda Unit Tests
 
-Each Lambda (`create-investigation`, `reap-tasks`) has a `test_handler.py` co-located with its `handler.py`.
+Each Lambda (`create-investigation`, `reap-tasks`, `reap-investigations`) has a
+`test_handler.py` co-located with its `handler.py`.
 
 ```bash
 make test-lambda-create-investigation   # pytest (via uv)
 make test-lambda-reap-tasks             # unittest (via uv)
+make test-lambda-reap-investigations    # unittest (via uv)
 make test-lambda                        # all three Lambda suites
 ```
 
 **Patterns**:
 - `create-investigation` uses pytest with `moto` for AWS mocking and `unittest.mock` for OIDC/JWKS stubs. Tests are grouped into classes by feature area (e.g. input validation, tagging, sidecar config).
-- `reap-tasks` uses `unittest` with `unittest.mock` patches for the ECS client. No moto dependency since the Lambda only calls `list_tasks`, `describe_tasks`, and `stop_task`.
+- `reap-tasks` and `reap-investigations` use `unittest` with mocked AWS clients;
+  the latter covers investigation garbage collection and audit cleanup.
 
 ## LocalStack Integration Tests
 
@@ -219,7 +225,11 @@ tests. A passing local run is not proof of live AWS/Fargate behavior.
 - `@pytest.mark.slow` — ECS task launches (>30s)
 - `@pytest.mark.e2e` — end-to-end investigation workflows
 
-Tests are organized one file per AWS service or feature area (e.g. ECS tasks, EFS access points, IAM roles, ABAC tag isolation). Each test validates API-level behavior against LocalStack rather than testing application code directly.
+Tests are organized by service or feature area. Some exercise emulated AWS APIs,
+others inspect source/policy/task-definition contracts, and close-investigation
+cases execute the temporary, endpoint-restricted Go CLI. The investigation
+workflow cases emulate resource creation; they do not invoke a deployed Lambda.
+None of these replaces live OIDC/IAM, Fargate, or audit verification.
 
 ## Linting and Formatting
 

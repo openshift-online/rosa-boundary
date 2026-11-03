@@ -41,6 +41,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 
 ## Development
 
+- [**Contributing**](../CONTRIBUTING.md) - Local tool setup, LocalStack access, and validation workflows (no live AWS account required)
 - [**Development Standards**](development-standards.md) - Contribution rules and pre-PR quality gates
 - [**Dependency Management Automation**](dependency-management-automation.md) - Dependabot and Mintmaker/Renovate configuration and strategy
 

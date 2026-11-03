@@ -21,7 +21,11 @@ Apply these requirements to new and changed code in [Containerfile](../Container
 
 ## Verification before a PR
 
-Use the narrowest relevant checks, then expand to affected integration gates. Do not claim a target covers a tool unless its Make recipe does. The root `make test` runs unit/regression suites, while `make check` adds lint, Staticcheck, and pre-commit. `make test-shell` runs Bats suites; `make lint-shell` is strict ShellCheck and is included in `make lint`. Neither aggregate starts LocalStack.
+Use the narrowest relevant checks, then expand to affected integration gates. Do not claim a target covers a tool unless its Make recipe does. The root `make test` runs unit/regression suites, while `make check` adds lint, Staticcheck, and pre-commit. `make test-shell` runs Bats suites; `make lint-shell` is strict ShellCheck and is included in `make lint`. Neither aggregate starts LocalStack. With the additional prerequisites in
+[CONTRIBUTING.md](../CONTRIBUTING.md), `make test-all` attempts the broader local
+gates against an already-running LocalStack. It reports skips as INCOMPLETE;
+`TEST_ALL_ARGS=--require-complete` makes incomplete coverage nonzero. This does
+not alter the separate CI entrypoint's JUnit guard.
 
 | Changed surface | Required checks / references |
 |-----------------|------------------------------|
@@ -32,4 +36,4 @@ Use the narrowest relevant checks, then expand to affected integration gates. Do
 | Containerfile, entrypoint, skel | `make build` (or both architecture targets), verify affected tools and an interactive runtime with `podman run`; see root Makefile and [README.md](../README.md) |
 | Security findings | `make validate-findings`, `make convert-sarif`; schema and converter are in `scripts/findings-to-sarif.py` |
 
-Run `pre-commit run --all-files` before a PR. For Prow's LocalStack entrypoint itself, run `bats tests/localstack/ci-run.bats` locally (it cannot self-test in CI). If prerequisites prevent a gate, state which check was not run and why. Do not commit credentials or generated artifacts.
+Run `make pre-commit` (uv-managed hooks) before a PR. For Prow's LocalStack entrypoint itself, run `bats tests/localstack/ci-run.bats` locally (it cannot self-test in CI). If prerequisites prevent a gate, state which check was not run and why. Do not commit credentials or generated artifacts.

@@ -80,6 +80,6 @@ def test_test_all_never_launches_integration_when_down(tmp_path):
     spec.loader.exec_module(module)
     runner = module.Runner(tmp_path)
     with patch.object(module, "require_ready", side_effect=check_ready.NotReady("down")), patch.object(runner, "run") as run:
-        module.localstack_check(runner, allow_skips=True)
+        module.localstack_check(runner)
         run.assert_not_called()
     assert not runner.results[0]["passed"]

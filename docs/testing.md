@@ -58,16 +58,27 @@ Podman/LocalStack Pro, registry/network access needed by image builds, and HCP
 Terraform private-module registry access (`terraform login app.terraform.io`).
 Terraform initialization and dependency/build setup may download packages.
 
-**Skips are not silently accepted.** By default, LocalStack skips make the overall
-result fail, even if pytest exits zero. Current tests include unsupported-service
-and deployed-infrastructure skips, and `ECS_EXECUTOR=local` skips task-container
-execution tests. For a deliberately partial local run, explicitly opt in:
+**Test failures and incomplete coverage are different outcomes.** The console
+and `summary.json` use explicit `status` values:
+
+- `PASS`: the gate passed without a reported coverage gap.
+- `FAIL`: a test, command, or required prerequisite failed, or a JUnit report was
+  missing, invalid, or empty. This always makes the aggregate exit nonzero.
+- `INCOMPLETE`: the integration report contains skips but no test failures.
+  The count and report location remain prominent in the summary. This does not
+  make a normal local run nonzero and never means the skipped tests were verified.
+
+Current tests include unsupported-service and deployed-infrastructure skips, and
+`ECS_EXECUTOR=local` skips task-container execution tests. To require every selected
+test to execute as well as pass:
 
 ```bash
-make test-all TEST_ALL_ARGS=--allow-skips
+make test-all TEST_ALL_ARGS=--require-complete
 ```
 
-This still reports the skips and does not turn them into exercised coverage.
+This also exits nonzero for `INCOMPLETE`, without mislabeling it as a test failure.
+In JSON, `passed` is true only for `PASS`;
+use `status`, not `passed` alone, to distinguish failures from incomplete coverage.
 Changing the pytest executor variable alone does not configure the LocalStack
 server's executor. A completely unskipped run may not be possible in LocalStack.
 
@@ -197,7 +208,7 @@ uv run --group localstack pytest tests/localstack/integration/ -v --tb=short -ra
 All Make integration entry points and `test-all` run the same check before pytest;
 direct pytest runs also check before session-client initialization and before
 each dependent test, failing fixture setup if readiness is lost. No
-tracker file is trusted, and `--allow-skips` cannot bypass this guard.
+tracker file is trusted, and the completion policy cannot bypass this guard.
 
 Review skip reasons: the local ECS executor intentionally skips task-container
 tests. A passing local run is not proof of live AWS/Fargate behavior.

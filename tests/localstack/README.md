@@ -84,7 +84,9 @@ uv run --group localstack pytest tests/localstack/integration/ -v --tb=short -ra
 
 Make targets and `test-all` assert live health before launching integration tests.
 Direct pytest runs fail dependent fixture setup if LocalStack is down or required
-services are unhealthy; this is not an accepted skip, even with `--allow-skips`.
+services are unhealthy; this is always a failure, independent of completion policy.
+`make test-all` reports skipped coverage as `INCOMPLETE` without a nonzero exit by
+default; use `TEST_ALL_ARGS=--require-complete` to require an unskipped run.
 The local ECS executor still does not exercise real task-container execution.
 
 ### Configuration

@@ -24,15 +24,18 @@ def source_files(root=ROOT):
     return sorted({name for name in names if name and (root / name).is_file() and not (root / name).is_symlink()})
 
 
-def junit_status(path, allow_skips=False):
-    """Do not mistake missing reports, zero tests, or skipped tests for coverage."""
+def junit_status(path):
+    """Distinguish test failures from incomplete execution, independently of policy."""
     cases = ET.parse(path).getroot().findall(".//testcase")
     skipped = sum(case.find("skipped") is not None for case in cases)
+    failed = sum(case.find("failure") is not None or case.find("error") is not None for case in cases)
     if not cases:
-        return False, "no tests recorded"
-    if skipped and not allow_skips:
-        return False, f"{skipped}/{len(cases)} tests skipped (see JUnit report)"
-    return True, f"{len(cases)} tests recorded, {skipped} skipped"
+        return "FAIL", "no tests recorded"
+    if failed:
+        return "FAIL", f"{failed}/{len(cases)} tests failed or errored (see JUnit report)"
+    if skipped:
+        return "INCOMPLETE", f"{skipped}/{len(cases)} tests skipped; not verified (see JUnit report)"
+    return "PASS", f"{len(cases)} tests recorded, none skipped"
 
 
 class Runner:
@@ -50,13 +53,16 @@ class Runner:
         except OSError as error:
             log.write_text(str(error) + "\n")
             ok = False
-        self.results.append({"name": name, "passed": ok, "log": str(log)})
+        self.results.append({"name": name, "status": "PASS" if ok else "FAIL", "passed": ok, "log": str(log)})
         print(f"  {'PASS' if ok else 'FAIL'}: {log}", flush=True)
         return ok
 
+    def report(self, name, status, message):
+        self.results.append({"name": name, "status": status, "passed": status == "PASS", "detail": message})
+        print(f"{status} {name}: {message}", flush=True)
+
     def problem(self, name, message):
-        self.results.append({"name": name, "passed": False, "detail": message})
-        print(f"FAIL {name}: {message}", flush=True)
+        self.report(name, "FAIL", message)
 
 
 def terraform_checks(runner, files):
@@ -93,7 +99,7 @@ def terraform_checks(runner, files):
                 runner.run(f"terraform-test-{module}", ["terraform", "test", "-no-color"], cwd=directory, env=env)
 
 
-def localstack_check(runner, allow_skips):
+def localstack_check(runner):
     endpoint = os.environ.get("LOCALSTACK_ENDPOINT", "http://localhost:4566")
     try:
         require_ready(endpoint)
@@ -105,18 +111,15 @@ def localstack_check(runner, allow_skips):
     env.update(AWS_ACCESS_KEY_ID="test", AWS_SECRET_ACCESS_KEY="test", AWS_DEFAULT_REGION="us-east-2", AWS_EC2_METADATA_DISABLED="true", AWS_ENDPOINT_URL=endpoint, LOCALSTACK_ENDPOINT=endpoint)
     runner.run("localstack", ["uv", "run", "--group", "localstack", "pytest", "tests/localstack/integration/", "-v", "-ra", f"--junitxml={report}"], env=env)
     try:
-        ok, message = junit_status(report, allow_skips)
-        if not ok:
-            runner.problem("localstack-coverage", message)
-        else:
-            print("LocalStack: " + message, flush=True)
+        status, message = junit_status(report)
+        runner.report("localstack-coverage", status, message)
     except (OSError, ET.ParseError):
         runner.problem("localstack-coverage", "missing or invalid JUnit report")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--allow-skips", action="store_true", help="explicitly accept LocalStack skips; report still records them")
+    parser.add_argument("--require-complete", action="store_true", help="exit nonzero for incomplete coverage as well as failures")
     args = parser.parse_args()
     artifacts = Path(tempfile.mkdtemp(prefix="rosa-test-all-"))
     print(f"Private logs and summary: {artifacts}", flush=True)
@@ -138,7 +141,7 @@ def main():
     runner.run("shellcheck-all", ["shellcheck", *shell_files])
     runner.run("terraform-format", ["terraform", "fmt", "-check", "-recursive", "deploy", "hcp-terraform", "tests/localstack/terraform"])
     terraform_checks(runner, files)
-    localstack_check(runner, args.allow_skips)
+    localstack_check(runner)
     runner.run("python-syntax", [sys.executable, "-c", "import pathlib, sys; [compile(pathlib.Path(p).read_bytes(), p, 'exec') for p in sys.argv[1:]]", *[name for name in files if name.endswith(".py")]])
     if (ROOT / "adversary-findings.json").is_file():
         runner.run("validate-findings", [make, "validate-findings"])
@@ -151,10 +154,15 @@ def main():
     (artifacts / "summary.json").write_text(json.dumps(runner.results, indent=2) + "\n")
     print("\nSummary:")
     for result in runner.results:
-        print(f"  {'PASS' if result['passed'] else 'FAIL'} {result['name']}")
+        detail = f": {result['detail']}" if "detail" in result else ""
+        print(f"  {result['status']} {result['name']}{detail}")
+    if any(result["status"] == "INCOMPLETE" for result in runner.results):
+        print("Coverage is incomplete: skipped tests are NOT verified.")
+        if args.require_complete:
+            print("--require-complete: incomplete coverage makes this run nonzero.")
     print(f"Full logs: {artifacts}")
     print("Not included: deployments/publication, coverage/SARIF uploads, external CI scanners, or live AWS verification.")
-    return int(any(not result["passed"] for result in runner.results))
+    return int(any(result["status"] == "FAIL" or (args.require_complete and result["status"] == "INCOMPLETE") for result in runner.results))
 
 
 if __name__ == "__main__":

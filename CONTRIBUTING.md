@@ -49,12 +49,13 @@ there must still be installed separately. In particular, check that you have:
 
 - Python and `uv` available for dependency installation.
 - Podman for LocalStack and container builds.
-- `jq`, `shfmt`, `staticcheck`, and `golangci-lint` for the full quality gates.
+- `staticcheck` and `golangci-lint` for the full quality gates.
+  `jq` and `shfmt` are already included in the mise tool list.
 - GNU coreutils and GNU sed for the Linux-oriented shell tests. On macOS,
   `make test-shell` expects their Homebrew installations and sets their PATH only
   for the test process:
   ```bash
-  brew install coreutils gnu-sed jq shfmt
+  brew install coreutils gnu-sed
   ```
 
 The root Python dependencies include `podman-compose`, `pre-commit`, and Skillsaw.
@@ -82,7 +83,10 @@ You still need `uv`: the Make targets invoke it directly. After installing the
 required runtimes/tools, run `go mod download`, `uv sync --group localstack`, and
 `uv run --group localstack pre-commit install`. Lambda test targets manage their
 own dependency setup. You do not need real AWS credentials for unit tests or
-LocalStack integration.
+LocalStack integration. CLI integration fixtures use an isolated synthetic
+identity and emulated STS, not a running Keycloak server or your personal SSO
+cache. See the [testing guide](docs/testing.md) for these fixtures and their
+identity/authorization verification limits.
 
 ## 2. Request LocalStack access
 
@@ -126,6 +130,13 @@ Start LocalStack from the repository root:
 
 ```bash
 make localstack-up
+```
+
+On macOS, if GNU `timeout` is not on your shell's PATH, use this invocation
+instead (unlike `make test-shell`, startup does not adjust PATH automatically):
+
+```bash
+PATH="$(brew --prefix coreutils)/libexec/gnubin:$PATH" make localstack-up
 ```
 
 Integration tests check live HTTP health and required-service readiness before
@@ -180,15 +191,17 @@ even after failures, saves complete logs and a JSON summary in a private tempora
 directory, and exits nonzero for failed or blocked gates. Builds can take time
 and download substantial data; pre-commit may modify files.
 
-**LocalStack skips fail the aggregate by default.** Some tests require a container
-executor, unsupported LocalStack features, or deployed infrastructure. To accept
-a deliberately partial local run while retaining skip reports:
+**LocalStack skips are reported as INCOMPLETE, not failed tests.** Some tests
+require a container executor, unsupported LocalStack features, or deployed
+infrastructure. These gaps remain prominent in the console and JSON summary but
+do not make a normal local run nonzero. To require complete coverage:
 
 ```bash
-make test-all TEST_ALL_ARGS=--allow-skips
+make test-all TEST_ALL_ARGS=--require-complete
 ```
 
-This does not turn skipped tests into verified coverage. The aggregate never
+Failed tests, missing/invalid/empty reports, and unavailable services always fail the
+run. Skipped tests never count as verified coverage. The aggregate never
 deploys AWS resources, publishes images, uploads coverage/SARIF, or runs external
 CI scanners/live AWS verification. It does create emulated LocalStack resources
 and local images; it leaves LocalStack running. See [testing](docs/testing.md)

@@ -128,7 +128,7 @@ test: ## Run Go coverage, Lambda, build-helper, and Bats tests
 	$(MAKE) test-shell
 
 # Run all independent gates and preserve their logs, including failures.
-# LocalStack must already be running; TEST_ALL_ARGS=--allow-skips is explicit.
+# LocalStack must already be running; TEST_ALL_ARGS=--require-complete rejects skips.
 TEST_ALL_ARGS ?=
 test-all: ## All local suites, lint/format, Terraform, and LocalStack checks
 	python3 scripts/test_all.py $(TEST_ALL_ARGS)

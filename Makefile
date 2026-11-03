@@ -68,7 +68,7 @@ clean:
 	@echo "Cleanup complete"
 
 # LocalStack integration testing
-.PHONY: localstack-up localstack-down localstack-logs test-localstack test-localstack-fast
+.PHONY: localstack-up localstack-down localstack-logs test-localstack test-localstack-fast test-localstack-ci
 
 localstack-up: ## Start LocalStack Pro with all services (podman)
 	@if [ ! -f tests/localstack/.env ]; then \
@@ -106,6 +106,10 @@ test-localstack-fast: ## Run LocalStack tests without slow tests (faster)
 		exit 1; \
 	fi
 	pytest tests/localstack/integration/ -v -m "not slow" --tb=short
+
+# Requires the Prow/nested-Podman environment, LOCALSTACK_AUTH_TOKEN, and ARTIFACT_DIR.
+test-localstack-ci: ## Run the LocalStack CI entrypoint (includes startup and JUnit output)
+	exec ./tests/localstack/ci-run.sh
 
 # Lambda container image build
 .PHONY: build-lambda-image
@@ -244,6 +248,7 @@ help:
 	@echo "  make localstack-logs       - View LocalStack logs"
 	@echo "  make test-localstack       - Run all LocalStack integration tests"
 	@echo "  make test-localstack-fast  - Run LocalStack tests (skip slow tests)"
+	@echo "  make test-localstack-ci    - Run CI entrypoint (requires nested Podman, token, ARTIFACT_DIR)"
 	@echo ""
 	@echo "Lambda Targets:"
 	@echo "  make build-lambda-image                  - Build create-investigation Lambda container image"

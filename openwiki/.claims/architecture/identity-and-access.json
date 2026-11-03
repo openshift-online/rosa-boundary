@@ -1,32 +1,36 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:f2ffe46b40464271df857d194d25296a982aae2480243d092cd9e3016186e5c6",
+  "pageVersion": "sha256:b2cd39f47c2d5f132e865baebbed4887ef6d0f8bc4dfcbbf3b662a26c4faa568",
   "claims": [
     {
       "id": "claim_6aa30656a4c94ab4928d40011e47bd4e",
-      "statement": "The CLI obtains Keycloak ID tokens with authorization-code PKCE, caches the token with restrictive file permissions, and considers it unusable within 30 seconds of expiry.",
+      "statement": "The CLI obtains Keycloak ID tokens via a browser-based authorization-code PKCE flow (or a separate device-authorization flow), caches the token with restrictive 0600 file permissions, and treats a token as unusable if it is within 30 seconds of expiry either on cache read or immediately after acquisition.",
       "evidence": [
         {
-          "resource": "repo://internal/auth/oidc.go#L45-L135",
-          "version": "repo-lines-v1:sha256:216404348fd161c92d24bc5150ab3dd88a006343846edcf2f0692acb580e467b:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwOWM3YTExZThjZjE2NzQyYWM5NjY1OTMyYWJiMWMyOTMzMGNlMGE3ZmE4YjAzZTdhNWY2MTA5ZTI5NWRmMTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyODUxODU1NGMzMjk0MGIwY2QyZTQwNjI3YjhkNmYzZjQyYmU1Mzk3MzE4MTIyNWViNDEzYmFiNWE2MWM0YTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhhYjZmOWNjMDU0OWQ4NmNhMzdhYzg0NGY3MmYyNWJiMGVlMzM0ZTE5MzZiZjFhMzIwMTI4YTJhNGYxZDQ0ZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxZjE1MDM4ODJmYTdhODU5ODBmYTVhMzQ5MzY1MmJkOTUwOTljNjQ0MWRiMzc1YjBiODIyMGJjZGFjM2ZjOWYifQ"
+          "resource": "repo://internal/auth/device.go#L42-L131",
+          "version": "repo-lines-v1:sha256:71d3e37da3bcd00e62f1cec7ec42455a6ac46f5c9d1b8b857bc9c5e1c1359bb5:eyJzZWxlY3RlZExpbmVDb3VudCI6OTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZjMDZiY2MwYWMxY2Q1YWYwMjQwNGM2YjJjYjQ3OGI1MzM5Y2JhOGI1ZjRlMTE1ZTljMDhmNzc4ZGU3YTQ4ZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxZDcwNjQ2MmNlMGZlM2ZiNzgzNTUzYTg1NGQxMjI3NjBiYzAwYWY2NTQxNzE5M2E5Zjg0NWFkYmM3NGFlMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVhMzNmMjA5ZGNmYmU2YjFhYThjNTUyNDhmYzVkZjAyNWU4NmZkMGRiNjY0N2I0NDM2NGQxNTYzYjEzNDdiMjkifQ"
         },
         {
-          "resource": "repo://internal/auth/token.go#L16-L85",
-          "version": "repo-lines-v1:sha256:4f9a2555d789316eebc907a1f548cb012768373d677a7f0c058706169ff8479a:eyJzZWxlY3RlZExpbmVDb3VudCI6NzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwZDk4NmIwZGY3ZTljNDdhYTc4MmIwNjYwOTQ2OWJjOGVlY2E0NzYxMmI4MzhjZjgyOWRkYTRiY2RkZDMzMjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTFkNzkxNDgwOWUzNDk5ZDQ1NzNlOGJmZTU4MjZhZTA4MmVhMmUyYTE0ZGI3Y2MxNDE3MjU3N2M2YTczNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzZGMzNjVkMDAxZWY1YWMyNzczZjBhMjhjNDkyM2NlMzgyNzdlZDBlNjc0MDBhZDllMjQ5OWM4NTZjMDg2ZTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhYTJmN2U4ODdjYjlmNDRjYzJlYjBiZGU5MWRlNjdmODdiODU2YjA5MzlhMjAyYTBlODczYjRhMTU1N2U3ZDYifQ"
+          "resource": "repo://internal/auth/oidc.go#L58-L188",
+          "version": "repo-lines-v1:sha256:3a42e88efeccf8db927f68103cc6a97e269b207bc33c92302510efba75f09b30:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3YjEyMDJiMDcxOWVlMTQ2YzFhZTAxYTFiOGFlNjUwOGRjMzMxM2ViYTZjODNjYzhkMGNhNzY3Y2UzNTZmOWM4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1NmI1N2Y4YWVjMDZkZmQxYWYyNzU4MGY0YzFhMzczNzgzZGYyYTdkMTU2ZjMxMGRlNmFmN2FkMTcxNjdmOTQ1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjNGMxNjFkMmQ3Y2JhNTYzZjdiOTNmMDdlZWRhNTkxMTYzZGRhYTFhYzRiNzRjN2MxOTJhYTNkNmZhMjBjZjE4In0"
+        },
+        {
+          "resource": "repo://internal/auth/token.go#L16-L138",
+          "version": "repo-lines-v1:sha256:2be45ff383220b1061b929658217fd894a56c63eefce0e050c99bc0a02dee4af:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkMGQ5ODZiMGRmN2U5YzQ3YWE3ODJiMDY2MDk0NjliYzhlZWNhNDc2MTJiODM4Y2Y4MjlkZGE0YmNkZGQzMzI5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2RjMzY1ZDAwMWVmNWFjMjc3M2YwYTI4YzQ5MjNjZTM4Mjc3ZWQwZTY3NDAwYWQ5ZTI0OTljODU2YzA4NmUyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhYzQzYzI4MmI5MGI3ZWI0Zjg0M2E0YzFjMjY0ZTExOTU1OTcwZWU1NzkxN2YzNzdjZjgzODVkMWIzM2Q4ODdkIn0"
         }
       ]
     },
     {
       "id": "claim_5b9359a9ceed4258bc9292683b25daca",
-      "statement": "Investigation creation and task start authenticate with an invoker role, while start-task then assumes the shared SRE role for ECS task access; other operational commands select the SRE role directly.",
+      "statement": "Investigation creation and task start authenticate with an invoker role, while start-task then assumes the shared SRE role for ECS task access via a second assumeRoleWithRetryOptions call after invoking the Lambda; other operational commands select the SRE role directly as their initial authentication role.",
       "evidence": [
         {
-          "resource": "repo://internal/cmd/root.go#L154-L207",
-          "version": "repo-lines-v1:sha256:7abf838c2c3b0d37eb181c5e18565b7f369f5d51dbc477589c2bc0c14887cd5b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2MWViMjMyNjYwZjRiYTU5Nzk3NWUwZjQxOTgxNDRjMmQ3NjIwOGUyMzAzNjE2OGEzYWQ4NGRkYjBkMjZjYjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1NTZhM2NhNWMwY2U1NTllODFhMGU4MGJjYTAyZmM1ZDNhODM0M2Y5OTBmMTNiZmJhZjM0MjY0NmUzNDY4NzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
+          "resource": "repo://internal/cmd/root.go#L171-L228",
+          "version": "repo-lines-v1:sha256:d40bcc20030c860ba4e34af0a6d684771328de7ee0b06c6acc2437c97f766b8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5ZmQ5MjRjMzgwYjUwZWQ0YzQ1OGIyZTgyNzVhZTUwNWFhMzkxZjg4MzFmYmJkOTZkMjJjZjI5YjQyYTRlNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU2ZTA3OWVhYTU5NDlkMTBjM2U3M2FlNjZhYjg4ZjJiMTg1NTYzMGE3OTRmNjQ3NjE0ZDZlNmZjNGJiNDdkODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
         },
         {
-          "resource": "repo://internal/cmd/start_task.go#L90-L156",
-          "version": "repo-lines-v1:sha256:4d308ff705093caa92c3b7af0f0d6c8b228459e9a7137e1bf67a9666893f3760:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmNiMThmOWE5NDk5YTFhYTNkMjU4MGExMDkzZWM5NDkwNmIzYzI4YmU0NWQ2YTA5NDdhNjJkMjVhYzg0ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE5ZDJjMjIzODM4ZThmZmQ2Y2IzNDI1ODA4MGI1NjQ3MTZjZjEwYmY4ZDcyOTkwYTk1MGU2M2QyMzk1MTRkYmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVmYTNmMjhiY2QwMDllOGMxMzljMDQ3MGZmMzRmNjBmYTIwZjU3MzY3ZWU4MmFhN2ExMzg2NDZjMmJkZWNiODQifQ"
+          "resource": "repo://internal/cmd/start_task.go#L98-L159",
+          "version": "repo-lines-v1:sha256:964b4801fbe1420acd752e43ff3a140a0ffe75193b87c7371b965aab2f4a9d73:eyJzZWxlY3RlZExpbmVDb3VudCI6NjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmNiMThmOWE5NDk5YTFhYTNkMjU4MGExMDkzZWM5NDkwNmIzYzI4YmU0NWQ2YTA5NDdhNjJkMjVhYzg0ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4NTQ1ZjgxNGIwMDBhZmQyMTM3ZGJhZmI5NDBkY2MxZjY5NmM4YThiZWRhYjBiMjkxOGI1ZjA2MTgzOTVmMDMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE5ZDJjMjIzODM4ZThmZmQ2Y2IzNDI1ODA4MGI1NjQ3MTZjZjEwYmY4ZDcyOTkwYTk1MGU2M2QyMzk1MTRkYmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ2ZDU1YWY1NTU0YzI0ZDMxYzVjOTFhOTBjZDJjNTdmOTk4ZjE4MjE1YmNkOWI3Y2IwMDkwYWFiNTRkNjE3NzgifQ"
         }
       ]
     },
@@ -78,7 +82,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-10-09T17:13:47.426Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-03T16:15:29.447Z"
   }
 }

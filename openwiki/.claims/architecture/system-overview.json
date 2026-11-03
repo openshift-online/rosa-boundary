@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:801da8a9fad92b685784dcdeba2ee454b98c8b4b0067b7ef84cae95da359cb26",
+  "pageVersion": "sha256:01a28165b7920b1fdef3cc8e606622bcaac0f12ad4eb76c7eb0a411bdac68a9b",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
-      "statement": "ROSA Boundary separates CLI orchestration and operator authentication from Lambda-side authorization/resource provisioning and ECS Fargate task execution.",
+      "statement": "ROSA Boundary separates CLI orchestration and operator authentication from Lambda-side authorization/resource provisioning and ECS Fargate task execution; the CLI's centralized pre-run hook performs OIDC-to-STS authentication and selects the Lambda invoker role for create/start commands versus the shared SRE role for other commands.",
       "evidence": [
         {
           "resource": "repo://cmd/rosa-boundary/main.go#L7-L9",
@@ -15,8 +15,8 @@
           "version": "repo-lines-v1:sha256:bb9ed57d6d746e1c827a1243809ceee6ae00520dccc5119634a87b43c8ea71a2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
         },
         {
-          "resource": "repo://internal/cmd/root.go#L154-L207",
-          "version": "repo-lines-v1:sha256:7abf838c2c3b0d37eb181c5e18565b7f369f5d51dbc477589c2bc0c14887cd5b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2MWViMjMyNjYwZjRiYTU5Nzk3NWUwZjQxOTgxNDRjMmQ3NjIwOGUyMzAzNjE2OGEzYWQ4NGRkYjBkMjZjYjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1NTZhM2NhNWMwY2U1NTllODFhMGU4MGJjYTAyZmM1ZDNhODM0M2Y5OTBmMTNiZmJhZjM0MjY0NmUzNDY4NzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
+          "resource": "repo://internal/cmd/root.go#L171-L228",
+          "version": "repo-lines-v1:sha256:d40bcc20030c860ba4e34af0a6d684771328de7ee0b06c6acc2437c97f766b8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5ZmQ5MjRjMzgwYjUwZWQ0YzQ1OGIyZTgyNzVhZTUwNWFhMzkxZjg4MzFmYmJkOTZkMjJjZjI5YjQyYTRlNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU2ZTA3OWVhYTU5NDlkMTBjM2U3M2FlNjZhYjg4ZjJiMTg1NTYzMGE3OTRmNjQ3NjE0ZDZlNmZjNGJiNDdkODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
         },
         {
           "resource": "repo://lambda/create-investigation/handler.py#L77-L88",
@@ -183,10 +183,24 @@
           "version": "repo-lines-v1:sha256:abb64a0a147e7677f24f53f5fe9e82003fb99100273fb36204c91501bf1fbee9:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTQ5OTliZDAxMDU0YzQ3YWE5ODM4OTY4OWQyM2Y5OTk1NDFhOWU5YjIyODAzOTQxNmNlYmY2ZTFmZTI5M2JiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNDE1Y2QxMDI0ZmQ3ZmE5YzUwMGRmZGZmZGZkYWQxNWQ1Y2Y2MGVkMzUyYTc5ODBlNzdiMmY0YTE1NWUwYTQ4NCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmVjMTc5MWQ4ZWFiMTdmOWExN2M4Nzg1NTUzMmQzOTUyY2U5NjEwNjA5NWYzMDBiZWUwMTZhOGU5NmU4ODllYSJ9"
         }
       ]
+    },
+    {
+      "id": "claim_e819d502dcdc4516a878085bbb3dfec1",
+      "statement": "The reap-investigations Lambda's GRACE_PERIOD_HOURS defaults to 72 hours in the handler when the environment variable is unset, while the Terraform variable investigation_grace_period_hours that normally supplies it defaults to 168 hours (7 days); operators relying on the Lambda's built-in fallback outside Terraform-managed deployment get a materially shorter grace period than the documented default.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/variables.tf#L424-L433",
+          "version": "repo-lines-v1:sha256:c17d1975e12bfd74c8ea00b55d9d28a8add2aeae5fa0c712118f5349fa269a9e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU1N2Y2ZGEwNmNmMzljODBhOWE5ZDNiNDI0ZTA2Zjc2NDMzYmI2MmYzNjQ4MjNjZTA3ZjcyYTM3OGI0OTVhYWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-investigations/handler.py#L43-L47",
+          "version": "repo-lines-v1:sha256:a5b9c8b6892c76a6c1beae057628f6adc6df94639c7900a729dc1a5a372b3fe6:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjNjMDI3ZTQ2MTYwMzMxZDJkZGRhMWJhMDlhNzViOWE5MDZlYmMwYmQzNTgwNmMwMTliZDNkMjg5ZmI4YWIzMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDE4YjJjODI0NGUxOWIxNGMyYjg0ZDc1NzM5MjEyOTU3ZWEyYTIzMWI3NzBiZGRmYzc5MzNlZjA2N2JhZTI4ZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTNmZDgxMWFhN2QwZGUwMTUwNmEzZmZlZGQ1NTY3NTA2ZTE4YzU0ZDFmNGM0OWJlNzY5ODYxYjU0ODFlYjAxYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGE4ZmY0NzM4YThjMGNlYjI5MGRkODMxNmJhNDM4YjljNjUzMTk5ZWNkMjk5ZmE4ZTFiNDA1ZWI0Yzg3MDgyYSJ9"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.2",
-    "at": "2026-10-27T13:26:37.491Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-03T16:15:29.447Z"
   }
 }

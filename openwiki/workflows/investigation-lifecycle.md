@@ -32,10 +32,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-80fcaf58926aeda8dd2be405
     resource: repo://tests/unit/test_reap_investigations_staleness.py
-generated: { by: "pi", at: "2026-10-27T13:26:37.491Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-03T16:15:29.447Z" }
 verified:
-  - by: openwiki/0.7.2
-    at: 2026-10-27T13:26:37.491Z
+  - by: openwiki/0.7.1
+    at: 2026-11-03T16:15:29.447Z
 ---
 
 # Investigation lifecycle
@@ -91,7 +91,7 @@ sequenceDiagram
 
 ## Connect and inspect
 
-`join-task` describes the task, waits for `RUNNING` unless configured not to, then waits up to 30 seconds for the chosen container's ECS Exec agent before requesting a session and handing control to `session-manager-plugin`. `start-task --connect` uses the same connection path after optional credential setup succeeds. `list-tasks` queries ECS and presents task tags; `list-investigations` discovers workspaces from EFS access point tags, so a workspace remains listed even when no task is running.
+`join-task` resolves to `runJoinTask`, which looks up the cached authentication result, builds an ECS client for the configured cluster, and delegates to the shared `runJoinWithClientFormat`/`runJoinWithClientSession` pair. That shared path describes the task, waits for `RUNNING` unless `--no-wait` is set, then polls up to 30 seconds for the chosen container's ECS Exec agent (the SSM data channel closes immediately if the agent has not registered yet) before calling `ExecuteCommand` and handing control to `session-manager-plugin`. `start-task --connect` calls `runJoinWithClientFormat` directly after optional credential setup succeeds, reusing the identical wait/connect logic. `list-tasks` queries ECS and presents task tags; `list-investigations` discovers workspaces from EFS access point tags, so a workspace remains listed even when no task is running.
 
 ## Stop, timeout, and close
 
@@ -138,7 +138,7 @@ Lambda unit tests cover skip-task behavior, access-point reuse, handover guards,
 - Rollback removes newly created access points, and tag-application failure also stops an already launched task; reused access points are preserved. [registration-failure cleanup](repo://lambda/create-investigation/handler.py#L843-L862) · [tag-failure cleanup](repo://lambda/create-investigation/handler.py#L951-L993) · [reused access-point rollback test](repo://lambda/create-investigation/test_handler.py#L2091-L2157)
 - The reaper processes RUNNING tasks, stopping expired deadlines only when no active Exec session is detected, and skipping absent, future, or malformed values; the integration suite chains task tags into reaper enforcement. [reaper behavior](repo://lambda/reap-tasks/handler.py#L48-L175) · [schedule](repo://deploy/regional/lambda-reap-tasks.tf#L42-L66) · [deadline lifecycle integration](repo://tests/localstack/integration/test_full_workflow.py#L214-L287)
 - Close requires explicit force to stop running tasks, scopes task-definition cleanup by family prefix, confirms before access-point deletion by default, and leaves EFS data in place. [close workflow](repo://internal/cmd/close_investigation.go#L96-L186) · [tag-based AP lookup](repo://internal/aws/efs.go#L42-L100) · [family scoping and cleanup test](repo://tests/localstack/integration/test_close_investigation.py#L67-L143)
-- Join waits for task and ECS Exec agent readiness before opening the SSM session; LocalStack tests cover task stop and cross-component lifecycle behavior, with actual task launch tests requiring a non-local executor. [join sequence](repo://internal/cmd/join_task.go#L57-L101) · [LocalStack executor gate](repo://tests/localstack/integration/test_task_timeout.py#L16-L78)
+- `join-task` and `start-task --connect` share one connect implementation: `runJoinTask` resolves ECS client/credentials from the cached auth result and calls `runJoinWithClientFormat`, a thin wrapper over `runJoinWithClientSession`, which waits for task and ECS Exec agent readiness before opening the SSM session and handing off to `session-manager-plugin`; LocalStack tests cover task stop and cross-component lifecycle behavior, with actual task launch tests requiring a non-local executor. [join entrypoint](repo://internal/cmd/join_task.go#L50-L70) · [shared wait/connect sequence](repo://internal/cmd/join_task.go#L93-L149) · [LocalStack executor gate](repo://tests/localstack/integration/test_task_timeout.py#L16-L78)
 - Investigation GC is independently scheduled and filters tagged, path-verified access points. The initial task snapshot is tag-based; eligibility requires no match plus strict creation age or missing `CreatedAt`, followed by a final `startedBy` task recheck. [schedule](repo://deploy/regional/lambda-reap-investigations.tf#L216-L239) · [tag/path validation](repo://lambda/reap-investigations/handler.py#L134-L180) · [eligibility](repo://lambda/reap-investigations/handler.py#L179-L223) · [age and legacy branch](repo://lambda/reap-investigations/handler.py#L252-L321) · [initial task snapshot](repo://lambda/reap-investigations/handler.py#L324-L367) · [final query](repo://lambda/reap-investigations/handler.py#L402-L429)
 - Successful backup is required before deleting an existing directory; access-point deletion depends on directory cleanup, while exact-family task-definition deregistration is still attempted after earlier failures. [ordered steps](repo://lambda/reap-investigations/handler.py#L464-L520) · [backup guard and path validation](repo://lambda/reap-investigations/handler.py#L662-L712) · [exact-family filtering](repo://lambda/reap-investigations/handler.py#L739-L804)
 - Stop, close, and GC have different triggers/scopes and do not invoke one another, but share ECS/EFS resource state. Close preserves directory data and deleting its last matching access point removes the investigation reaper's discovery record. [close workflow](repo://internal/cmd/close_investigation.go#L96-L186) · [access-point-only discovery](repo://lambda/reap-investigations/handler.py#L119-L180) · [access-point listing](repo://lambda/reap-investigations/handler.py#L432-L461)

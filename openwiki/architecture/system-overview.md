@@ -3,6 +3,9 @@ type: architecture
 title: System overview and boundaries
 description: Maps the ROSA Boundary CLI, AWS identity, investigation Lambda, Fargate runtime, persistent and task-scoped storage, and the two independent scheduled reaper Lambdas by responsibility.
 tags: [architecture, system-overview, aws, ecs, investigations]
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-03T16:15:29.447Z
 sources:
   - id: openwiki-source-40c7b4fa49977c539f479848
     resource: repo://cmd/rosa-boundary/main.go
@@ -16,6 +19,8 @@ sources:
     resource: repo://deploy/regional/ecs.tf
   - id: openwiki-source-81b84da9542934c33f2e42d7
     resource: repo://deploy/regional/lambda-reap-investigations.tf
+  - id: openwiki-source-a055ff9a3fcbd2c0a0fc4ee2
+    resource: repo://deploy/regional/variables.tf
   - id: openwiki-source-e9906b078522ed0a08c64ff1
     resource: repo://entrypoint.sh
   - id: openwiki-source-7a5e071b6b6192c80a6918aa
@@ -28,10 +33,7 @@ sources:
     resource: repo://lambda/reap-tasks/handler.py
   - id: openwiki-source-30a9bbeef6a7c1bda59eab80
     resource: repo://tests/localstack/integration/test_full_workflow.py
-verified:
-  - by: openwiki/0.7.2
-    at: 2026-10-27T13:26:37.491Z
-generated: { by: "pi", at: "2026-10-27T13:26:37.491Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-03T16:15:29.447Z" }
 ---
 
 # System overview and boundaries
@@ -94,11 +96,11 @@ LocalStack integration tests create representative IAM, ECS, and EFS resources a
 
 ## Evidence-backed claims
 
-- The CLI uses a centralized OIDC/STS pre-run hook and selects the Lambda invoker role for create/start commands, with a separate SRE role for operational commands. [CLI root](repo://internal/cmd/root.go#L154-L207) · [task-start orchestration](repo://internal/cmd/start_task.go#L90-L207)
+- The CLI uses a centralized OIDC/STS pre-run hook and selects the Lambda invoker role for create/start commands, with a separate SRE role for operational commands. [CLI root](repo://internal/cmd/root.go#L171-L228) · [task-start orchestration](repo://internal/cmd/start_task.go#L68-L223)
 - The Lambda validates the user, creates/reuses an investigation EFS access point, performs a session-checked handover of any existing running task, registers a per-investigation task definition with task-scoped credential overlays, and launches a Fargate task with ECS Exec and identifying/deadline tags. [authorization and dispatch](repo://lambda/create-investigation/handler.py#L175-L281) · [handover preflight and stop](repo://lambda/create-investigation/handler.py#L682-L774) · [task-definition registration](repo://lambda/create-investigation/handler.py#L469-L638) · [task launch and tagging](repo://lambda/create-investigation/handler.py#L886-L999)
 - ECS task infrastructure mounts persistent EFS home plus task-scoped OCM and kubeconfig overlays; entrypoint rejects missing or EFS-backed overlays and uses a protected S3 sync on exit. [task mounts](repo://deploy/regional/ecs.tf#L62-L159) · [mount verification and sync](repo://entrypoint.sh#L3-L80)
 - The reap-tasks Lambda lists RUNNING tasks and stops expired tasks without an active Exec session; missing or malformed deadlines are skipped. [reaper implementation](repo://lambda/reap-tasks/handler.py#L48-L175)
-- The independently scheduled reap-investigations Lambda garbage-collects whole investigations rather than enforcing task deadlines. A matching RUNNING task blocks eligibility; otherwise creation age must exceed the grace period, or `CreatedAt` must be missing. Task absence is rechecked immediately before cleanup. [schedule](repo://deploy/regional/lambda-reap-investigations.tf#L216-L239) · [eligibility](repo://lambda/reap-investigations/handler.py#L252-L321) · [final task check](repo://lambda/reap-investigations/handler.py#L204-L223) · [Terraform defaults](repo://deploy/regional/variables.tf#L402-L422)
+- The independently scheduled reap-investigations Lambda garbage-collects whole investigations rather than enforcing task deadlines. A matching RUNNING task blocks eligibility; otherwise creation age must exceed the grace period, or `CreatedAt` must be missing. Task absence is rechecked immediately before cleanup. [schedule](repo://deploy/regional/lambda-reap-investigations.tf#L216-L239) · [eligibility](repo://lambda/reap-investigations/handler.py#L252-L321) · [final task check](repo://lambda/reap-investigations/handler.py#L204-L223) · [Terraform defaults](repo://deploy/regional/variables.tf#L424-L433)
 - Handover blocks on active sessions, empty task details, and ECS/SSM errors, but skips the SSM lookup for containers without a `runtimeId`; it stops tasks and waits for termination only after preflight. [handover guard and ordering](repo://lambda/create-investigation/handler.py#L682-L774)
 - Account Terraform owns the shared investigation-reaper role and its basic/VPC execution managed-policy attachments; regional roots look up shared roles and use region-suffixed inline policies outside the one legacy region. [shared reaper identity and attachments](repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf#L1-L19) · [regional lookup and suffix contract](repo://deploy/regional/account-iam.tf#L1-L35) · [account handoff outputs](repo://deploy/account/outputs.tf#L1-L12)
 - LocalStack integration tests verify relationships between provisioned task tags, shared-role ABAC, access points, and task-definition mounts; execution of actual task containers is conditionally skipped for the local executor. [full workflow assertions](repo://tests/localstack/integration/test_full_workflow.py#L21-L137) · [container-execution condition](repo://tests/localstack/integration/test_full_workflow.py#L214-L220)

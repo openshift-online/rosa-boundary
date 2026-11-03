@@ -14,6 +14,15 @@ dependencies = [
     "tool>=0.8.0",
 ]
 
+[dependency-groups]
+localstack = [
+    "pytest>=9.1.1",
+    "boto3>=1.43.67",
+    "requests>=2.34.2",
+    "PyJWT>=2.13.0",
+    "cryptography>=50.0.0",
+]
+
 [project.scripts]
 rosa-boundary = "rosa_boundary:main"
 

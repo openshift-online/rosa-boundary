@@ -1,5 +1,10 @@
 [tools]
+bats = "latest"
+lstk = "latest"
 terraform = "v1.17.0"
+go = "1.27.3"
+shellcheck = "0.11.0"
+shfmt = "3.14.1"
 
 [settings]
 experimental = true

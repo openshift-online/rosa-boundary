@@ -424,7 +424,7 @@ variable "investigation_reaper_schedule_hours" {
 variable "investigation_grace_period_hours" {
   description = "Maximum investigation lifetime (hours) before automatic cleanup when idle. An investigation is reaped if it has no running tasks AND was created more than this many hours ago. This is measured from creation time, not idle duration. Default 168h (7 days) allows for multi-day investigations with task timeouts."
   type        = number
-  default     = 168  # 7 days
+  default     = 168 # 7 days
 
   validation {
     condition     = var.investigation_grace_period_hours >= 1 && var.investigation_grace_period_hours <= 720

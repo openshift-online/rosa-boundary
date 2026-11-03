@@ -62,6 +62,20 @@ make test-localstack          # Full suite
 make localstack-down          # Tear down
 ```
 
+### CI entrypoint
+
+`make test-localstack-ci` runs `tests/localstack/ci-run.sh`, the entrypoint used by
+Prow. Unlike the Compose-based local targets above, it starts its own Podman API
+socket and LocalStack container, enables Docker-backed ECS tests, and writes JUnit
+results and diagnostic logs to `ARTIFACT_DIR`. It requires the prepared Linux
+nested-Podman CI environment with test dependencies installed, an exported
+`LOCALSTACK_AUTH_TOKEN`, and an existing writable `ARTIFACT_DIR`. It does not load
+`tests/localstack/.env`.
+
+The other direct test command in Prow, `uv run pytest test_handler.py -v` in
+`lambda/create-investigation`, is covered by `make test-lambda-create-investigation`.
+Run both Make targets from the repository root (or use `make -C /path/to/rosa-boundary`).
+
 ### Test markers
 
 - `@pytest.mark.integration` — all tests

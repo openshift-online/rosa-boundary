@@ -158,10 +158,8 @@ push-image: check-ecr-registry build-image ## Push Lambda container image to ECR
 	$(CONTAINER_RUNTIME) push $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)
 	@echo "Pushed: $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)"
 
-test-localstack: ## Run Lambda tests against LocalStack
-	$(MAKE) -C ../.. localstack-ready
-	cd ../.. && uv run --group localstack pytest tests/localstack/integration/test_lambda_handler.py -v -ra
+test-localstack: test-e2e-localstack ## Compatibility alias for investigation workflow integration tests
 
-test-e2e-localstack: ## Run full E2E test against LocalStack
+test-e2e-localstack: ## Run investigation resource workflow tests against LocalStack
 	$(MAKE) -C ../.. localstack-ready
 	cd ../.. && uv run --group localstack pytest tests/localstack/integration/test_full_workflow.py -v -ra

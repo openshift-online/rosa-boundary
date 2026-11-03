@@ -83,3 +83,24 @@ def test_test_all_never_launches_integration_when_down(tmp_path):
         module.localstack_check(runner)
         run.assert_not_called()
     assert not runner.results[0]["passed"]
+
+
+@pytest.mark.parametrize('target', ['test-localstack', 'test-e2e-localstack'])
+def test_lambda_integration_targets_keep_readiness_and_select_existing_workflow(tmp_path, target):
+    # Execute Make's wiring with harmless stubs, not AWS/LocalStack calls.
+    python = tmp_path / 'python3'
+    python.write_text('#!/bin/sh\nexit 0\n')
+    python.chmod(0o755)
+    uv = tmp_path / 'uv'
+    uv.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$UV_ARGS_FILE"\npwd > "$UV_CWD_FILE"\n')
+    uv.chmod(0o755)
+    args_file = tmp_path / 'args'
+    cwd_file = tmp_path / 'cwd'
+    env = dict(os.environ, PATH=f"{tmp_path}:{os.environ['PATH']}", UV_ARGS_FILE=str(args_file), UV_CWD_FILE=str(cwd_file))
+    result = subprocess.run([shutil.which('make'), '-C', 'lambda/create-investigation', target], cwd=ROOT, env=env, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    args = args_file.read_text().splitlines()
+    assert args[:5] == ['run', '--group', 'localstack', 'pytest', 'tests/localstack/integration/test_full_workflow.py']
+    assert (ROOT / args[4]).is_file()
+    assert cwd_file.read_text().strip() == str(ROOT)
+    assert 'localstack-ready' in result.stdout

@@ -21,7 +21,7 @@ Apply these requirements to new and changed code in [Containerfile](../Container
 
 ## Verification before a PR
 
-Use the narrowest relevant checks, then expand to affected integration gates. Do not claim a target covers a tool unless its Make recipe does; in particular, the root `make lint` currently tolerates shellcheck failures and there are no root `test-shell` or `lint-shell` targets.
+Use the narrowest relevant checks, then expand to affected integration gates. Do not claim a target covers a tool unless its Make recipe does. The root `make test` runs unit/regression suites, while `make check` adds lint, Staticcheck, and pre-commit. `make test-shell` runs Bats suites; `make lint-shell` is strict ShellCheck and is included in `make lint`. Neither aggregate starts LocalStack.
 
 | Changed surface | Required checks / references |
 |-----------------|------------------------------|

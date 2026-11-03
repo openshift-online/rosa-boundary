@@ -68,7 +68,7 @@ clean:
 	@echo "Cleanup complete"
 
 # LocalStack integration testing
-.PHONY: localstack-up localstack-down localstack-logs test-localstack test-localstack-fast test-localstack-ci
+.PHONY: localstack-up localstack-down localstack-logs localstack-ready test-localstack test-localstack-fast test-localstack-ci
 
 localstack-up: ## Start LocalStack Pro with all services (podman)
 	@if [ ! -f tests/localstack/.env ]; then \
@@ -79,33 +79,33 @@ localstack-up: ## Start LocalStack Pro with all services (podman)
 	@echo "Ensuring podman is ready..."
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Detected macOS - checking podman machine..."; \
-		podman machine list 2>/dev/null | grep -q "Currently running" || \
-			(echo "Starting podman machine..."; podman machine start || true); \
+		podman info >/dev/null 2>&1 || \
+			(echo "Starting podman machine..."; podman machine start); \
 	else \
 		echo "Detected Linux - checking podman socket..."; \
-		systemctl --user is-active podman.socket >/dev/null 2>&1 || systemctl --user start podman.socket; \
+		podman info >/dev/null 2>&1 || systemctl --user start podman.socket; \
 	fi
-	cd tests/localstack && podman-compose up -d
+	bash tests/localstack/compose.sh up -d
 	@echo "Waiting for LocalStack to be ready..."
-	@timeout 120 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "\"ecs\""; do sleep 5; done' || (echo "LocalStack startup timed out"; exit 1)
+	@timeout 120 bash -c 'until python3 tests/localstack/check_ready.py >/dev/null 2>&1; do sleep 5; done' || { python3 tests/localstack/check_ready.py; exit 1; }
 	@echo "LocalStack Pro ready with ECS and EFS support"
 
 localstack-down: ## Stop LocalStack and clean up
-	cd tests/localstack && podman-compose down -v
+	bash tests/localstack/compose.sh down -v
 
 localstack-logs: ## View LocalStack logs
-	cd tests/localstack && podman-compose logs -f localstack
+	bash tests/localstack/compose.sh logs -f localstack
+
+localstack-ready: ## Assert live LocalStack health and required service readiness
+	python3 tests/localstack/check_ready.py
 
 test-localstack: localstack-up ## Run all LocalStack integration tests
-	pytest tests/localstack/integration/ -v --tb=short || (make localstack-down; exit 1)
+	$(MAKE) localstack-ready
+	uv run --group localstack pytest tests/localstack/integration/ -v --tb=short -ra || (make localstack-down; exit 1)
 	$(MAKE) localstack-down
 
-test-localstack-fast: ## Run LocalStack tests without slow tests (faster)
-	@if ! curl -s http://localhost:4566/_localstack/health > /dev/null 2>&1; then \
-		echo "ERROR: LocalStack not running. Start with: make localstack-up"; \
-		exit 1; \
-	fi
-	pytest tests/localstack/integration/ -v -m "not slow" --tb=short
+test-localstack-fast: localstack-ready ## Run LocalStack tests without slow tests (faster)
+	uv run --group localstack pytest tests/localstack/integration/ -v -m "not slow" --tb=short -ra
 
 # Requires the Prow/nested-Podman environment, LOCALSTACK_AUTH_TOKEN, and ARTIFACT_DIR.
 test-localstack-ci: ## Run the LocalStack CI entrypoint (includes startup and JUnit output)

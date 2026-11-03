@@ -3,7 +3,6 @@ pytest fixtures for LocalStack integration tests.
 Provides boto3 clients configured for LocalStack endpoints.
 """
 
-import json
 import logging
 import os
 import time
@@ -11,10 +10,9 @@ import types
 
 import boto3
 import pytest
-import requests
 from botocore.config import Config
 
-from required_services import REQUIRED
+from check_ready import NotReady, require_ready
 
 logger = logging.getLogger(__name__)
 
@@ -26,29 +24,25 @@ AWS_REGION = os.getenv('AWS_DEFAULT_REGION', 'us-east-2')
 MOCK_OIDC_URL = os.getenv('MOCK_OIDC_URL', 'http://localhost:8080/realms/sre-ops')
 
 
+def assert_localstack_ready():
+    """Block dependent tests before client/resource creation if services are down."""
+    try:
+        require_ready(LOCALSTACK_ENDPOINT)
+    except NotReady as error:
+        pytest.fail(f'{error}. Start LocalStack with make localstack-up.', pytrace=False)
+    return True
+
+
 @pytest.fixture(scope='session')
 def localstack_available():
-    """Check if LocalStack is running and skip tests if not"""
-    try:
-        response = requests.get(f'{LOCALSTACK_ENDPOINT}/_localstack/health', timeout=5)
-        response.raise_for_status()
-        health = response.json()
-        if not isinstance(health, dict):
-            pytest.skip(f'LocalStack health endpoint returned unexpected type ({type(health).__name__}). Check: podman logs localstack')
+    return assert_localstack_ready()
 
-        # Check required services are in a healthy state
-        for service in REQUIRED:
-            status = (health.get('services') or {}).get(service)
-            if status not in ('available', 'running'):
-                pytest.skip(f'LocalStack service not ready: {service} (status={status})')
 
-        return True
-    except (requests.ConnectionError, requests.Timeout):
-        pytest.skip('LocalStack not running. Start with: make localstack-up')
-    except (requests.HTTPError, json.JSONDecodeError) as e:
-        pytest.skip(f'LocalStack health check failed ({type(e).__name__}). Check: podman logs localstack')
-    except requests.exceptions.RequestException as e:
-        pytest.skip(f'LocalStack health check failed ({type(e).__name__}). Start with: make localstack-up')
+@pytest.fixture(autouse=True)
+def localstack_ready_for_each_test(request):
+    """Recheck before each dependent test, even when session clients are cached."""
+    if 'localstack_available' in request.fixturenames:
+        assert_localstack_ready()
 
 
 @pytest.fixture(scope='session')
@@ -361,3 +355,62 @@ def ecs_cleanup(ecs_client, iam_client, efs_client):
     tracker = ECSCleanupTracker(ecs_client, iam_client, efs_client)
     yield tracker
     tracker.cleanup()
+
+
+@pytest.fixture(scope='session')
+def localstack_cli_binary(tmp_path_factory):
+    """Compile an endpoint-restricted test binary without replacing bin/rosa-boundary."""
+    import shutil
+    import subprocess
+    from pathlib import Path
+
+    go = shutil.which('go')
+    if go is None:
+        pytest.fail('Go is required for CLI integration tests')
+    binary = tmp_path_factory.mktemp('boundary-cli') / 'rosa-boundary'
+    subprocess.run([go, 'build', '-tags', 'localstack', '-o', str(binary), './cmd/rosa-boundary'], cwd=Path(__file__).resolve().parents[2], check=True)
+    return binary
+
+
+@pytest.fixture
+def localstack_cli_env(tmp_path, iam_client, boto_config, ecs_cleanup):
+    """Private synthetic identity for tagged CLI workflow tests, never real SSO."""
+    import json
+    import secrets
+    import uuid
+    import jwt
+
+    role_name = 'boundary-cli-test-' + uuid.uuid4().hex[:12]
+    role = iam_client.create_role(
+        RoleName=role_name,
+        AssumeRolePolicyDocument=json.dumps({
+            'Version': '2012-10-17',
+            'Statement': [{'Effect': 'Allow', 'Principal': {'Federated': 'arn:aws:iam::000000000000:oidc-provider/localstack.invalid/realms/test'}, 'Action': 'sts:AssumeRoleWithWebIdentity'}],
+        }),
+    )['Role']
+    ecs_cleanup.register_role(role_name)
+    issuer = 'http://localstack.invalid/realms/test'
+    client_id = 'boundary-integration-test'
+    token = jwt.encode({'iss': issuer, 'aud': client_id, 'sub': 'localstack-test-sre', 'preferred_username': 'localstack-test-sre', 'exp': int(time.time()) + 3600}, secrets.token_bytes(32), algorithm='HS256')
+    cache = tmp_path / 'cache' / 'rosa-boundary'
+    cache.mkdir(parents=True, mode=0o700)
+    token_file = cache / 'token-cache'
+    token_file.write_text(json.dumps({'issuer': issuer, 'client_id': client_id, 'token': token}))
+    token_file.chmod(0o600)
+    config = tmp_path / 'config'
+    config.mkdir(mode=0o700)
+    # Remove personal credentials/config overrides before applying test settings.
+    aliases = {'KEYCLOAK_URL', 'KEYCLOAK_REALM', 'OIDC_CLIENT_ID', 'SRE_ROLE_ARN', 'INVOKER_ROLE_ARN', 'EFS_FILESYSTEM_ID', 'LOCALSTACK_HOSTNAME'}
+    env = {k: v for k, v in os.environ.items() if not k.startswith(('AWS_', 'ROSA_BOUNDARY_')) and k not in aliases}
+    env.update(
+        XDG_CONFIG_HOME=str(config), XDG_CACHE_HOME=str(tmp_path / 'cache'),
+        AWS_ACCESS_KEY_ID='test', AWS_SECRET_ACCESS_KEY='test',
+        AWS_EC2_METADATA_DISABLED='true', AWS_DEFAULT_REGION=boto_config.region_name,
+        AWS_ENDPOINT_URL=LOCALSTACK_ENDPOINT, LOCALSTACK_ENDPOINT=LOCALSTACK_ENDPOINT,
+        ROSA_BOUNDARY_AWS_REGION=boto_config.region_name,
+        ROSA_BOUNDARY_SRE_ROLE_ARN=role['Arn'],
+        ROSA_BOUNDARY_KEYCLOAK_URL='http://localstack.invalid',
+        ROSA_BOUNDARY_KEYCLOAK_REALM='test', ROSA_BOUNDARY_OIDC_CLIENT_ID=client_id,
+        ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE='true',
+    )
+    return env

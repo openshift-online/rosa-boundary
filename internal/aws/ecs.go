@@ -22,8 +22,9 @@ type ECSClient struct {
 // NewECSClient creates a new ECS client using the provided credentials provider.
 func NewECSClient(region string, cluster string, credProvider aws.CredentialsProvider) *ECSClient {
 	client := ecs.New(ecs.Options{
-		Region:      region,
-		Credentials: credProvider,
+		BaseEndpoint: integrationEndpoint(),
+		Region:       region,
+		Credentials:  credProvider,
 	})
 	return &ECSClient{client: client, cluster: cluster}
 }

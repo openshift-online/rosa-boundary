@@ -159,8 +159,9 @@ push-image: check-ecr-registry build-image ## Push Lambda container image to ECR
 	@echo "Pushed: $(ECR_REGISTRY)/$(LAMBDA_IMAGE_NAME):$(LAMBDA_IMAGE_TAG)"
 
 test-localstack: ## Run Lambda tests against LocalStack
-	@echo "Ensure LocalStack is running: make localstack-up (from project root)"
-	uv run pytest ../../tests/localstack/integration/test_lambda_handler.py -v
+	$(MAKE) -C ../.. localstack-ready
+	cd ../.. && uv run --group localstack pytest tests/localstack/integration/test_lambda_handler.py -v -ra
 
 test-e2e-localstack: ## Run full E2E test against LocalStack
-	uv run pytest ../../tests/localstack/integration/test_full_workflow.py -v
+	$(MAKE) -C ../.. localstack-ready
+	cd ../.. && uv run --group localstack pytest tests/localstack/integration/test_full_workflow.py -v -ra

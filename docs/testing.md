@@ -1,16 +1,134 @@
 # ROSA-Boundary Testing
 
 This document describes the testing strategy, test suites, and how to run them.
+Start with [CONTRIBUTING.md](../CONTRIBUTING.md) for mise/uv setup and access.
+Package-manager examples below are alternatives when tools are not already
+provided by mise, not additional installs required on top of that setup.
 
 ## Overview
 
 | Suite | Framework | Scope |
 |-------|-----------|-------|
 | Go unit tests | `go test` | CLI commands, Lambda client, config derivation |
-| Lambda unit tests | pytest / unittest | `create-investigation` and `reap-tasks` Lambdas |
+| Lambda unit tests | pytest / unittest | `create-investigation`, `reap-tasks`, and `reap-investigations` Lambdas |
 | LocalStack integration | pytest | AWS service interactions end-to-end |
 | Linting | shellcheck, golangci-lint, staticcheck | Code quality and static analysis |
 | Pre-commit | pre-commit hooks | Formatting, YAML, merge conflicts |
+
+## Exhaustive Local Validation
+
+With LocalStack already running, the single entry point is:
+
+```bash
+make test-all
+```
+
+Unlike the smaller `make test` and `make check`, this attempts independent gates
+sequentially **even when an earlier gate fails**. It writes complete logs and
+`summary.json` into a private temporary directory whose path is printed at start
+and finish. Logs can contain test diagnostics; review/redact before sharing.
+It exits nonzero if any gate fails or a required dependency is missing.
+
+Coverage includes:
+
+- Go tests/coverage; all three Lambda suites and create-investigation coverage;
+  build-helper tests; every Bats suite, including socket-discovery regressions.
+- `tests/unit/` (including the test-all runner tests) and offline live-verification
+  tooling tests. These tooling tests do not run live AWS verification.
+- Go lint, Staticcheck, ShellCheck on all repository shell scripts and the
+  credential helper, Python syntax, Go formatting, existing shell formatting,
+  and Terraform formatting checks.
+- Initialization/validation of every Terraform root under `deploy/` and
+  `hcp-terraform/`, plus all account/regional Terraform tests. These use a
+  disposable source-only copy, disabled backends, and mocked AWS test providers;
+  they do not use your live Terraform state or apply infrastructure.
+- Endpoint-isolation unit tests for the explicitly `localstack`-tagged CLI build.
+  CLI integration fixtures build this binary in a temporary directory and use
+  private synthetic identity/cache data plus LocalStack STS. The STS/ECS/EFS
+  endpoint override is loopback-only and absent from normal builds; these tests
+  do not verify real OIDC signatures, trust policies, or IAM enforcement.
+- The complete LocalStack integration selection, including slow tests, with
+  health preflight and a JUnit report. The runner accepts only a loopback HTTP
+  endpoint and supplies dummy AWS credentials for these tests. Tests create
+  local emulated resources; the runner does not restart or tear down LocalStack.
+- Both-architecture workspace-image builds and the Lambda image build through
+  their Make targets (no image push).
+- Findings validation/SARIF conversion when root `adversary-findings.json` exists,
+  and all pre-commit hooks. Pre-commit may rewrite files; review the diff.
+
+**Prerequisites:** those for `make check`, plus `shfmt`, Terraform, running
+Podman/LocalStack Pro, registry/network access needed by image builds, and HCP
+Terraform private-module registry access (`terraform login app.terraform.io`).
+Terraform initialization and dependency/build setup may download packages.
+
+**Test failures and incomplete coverage are different outcomes.** The console
+and `summary.json` use explicit `status` values:
+
+- `PASS`: the gate passed without a reported coverage gap.
+- `FAIL`: a test, command, or required prerequisite failed, or a JUnit report was
+  missing, invalid, or empty. This always makes the aggregate exit nonzero.
+- `INCOMPLETE`: the integration report contains skips but no test failures.
+  The count and report location remain prominent in the summary. This does not
+  make a normal local run nonzero and never means the skipped tests were verified.
+
+Current tests include unsupported-service and deployed-infrastructure skips, and
+`ECS_EXECUTOR=local` skips task-container execution tests. To require every selected
+test to execute as well as pass:
+
+```bash
+make test-all TEST_ALL_ARGS=--require-complete
+```
+
+This also exits nonzero for `INCOMPLETE`, without mislabeling it as a test failure.
+In JSON, `passed` is true only for `PASS`;
+use `status`, not `passed` alone, to distinguish failures from incomplete coverage.
+Changing the pytest executor variable alone does not configure the LocalStack
+server's executor. A completely unskipped run may not be possible in LocalStack.
+
+Not included: AWS deployments/investigation creation, live identity/network/audit
+assertions, image publication, coverage/SARIF uploads, and external Konflux/Prow
+security scanners. Those require their approved workflows; no local aggregate can
+prove they passed. `tests/oidc-token-debug.py` is a manual diagnostic, not an
+unattended test suite, and is not invoked.
+
+## Local Test Suite
+
+From the repository root:
+
+```bash
+make test
+```
+
+This runs `make test-coverage`, `make test-lambda`, `make test-github-dl`, and
+`make test-shell` sequentially and stops on failure. It requires the Go toolchain,
+`uv`, Python 3 with venv/pip support, and Bats (`brew install bats-core` on macOS
+or `dnf install bats` on Fedora), plus `jq` and GNU coreutils/sed. On macOS,
+install these with `brew install bats-core jq coreutils gnu-sed`; `make test-shell`
+adds Homebrew's GNU tools to PATH only for the test process. This matches the
+Linux container's GNU command behavior without changing your shell environment.
+Dependency setup may download packages.
+
+`make test-shell` runs `tests/shell/`, `tests/localstack/ci-run.bats`, and
+`tests/localstack/compose.bats`, including mocked socket-discovery tests. No
+LocalStack license, running containers, AWS credentials, or AWS region are needed.
+Lambda unit tests mock boto3 client construction before handler imports/reloads.
+
+For the combined local quality gate:
+
+```bash
+make check
+```
+
+This runs `make test`, `make lint`, `make staticcheck`, and `make pre-commit`
+sequentially, stopping on failure. Also install `shellcheck`, `staticcheck`, and
+`golangci-lint` (the pre-commit hook pins its own golangci-lint version).
+`make lint` includes strict `make lint-shell`: missing ShellCheck or findings
+fail rather than being silently ignored. `make pre-commit` uses the root uv
+environment and may rewrite files; review your diff afterward.
+
+LocalStack integration, image builds/runtime checks, Terraform validation, and
+live AWS verification remain separate. Neither `make test` nor `make check`
+starts or tears down LocalStack.
 
 ## Go Unit Tests
 
@@ -18,7 +136,7 @@ Tests for the `rosa-boundary` CLI live alongside the code in `internal/`.
 
 ```bash
 make test-cli       # go test ./...
-make fmt            # gofmt (must produce no diff)
+make fmt            # writes Go/shell formatting; review the diff
 make lint           # golangci-lint (falls back to go vet)
 make staticcheck    # staticcheck ./...
 ```
@@ -31,17 +149,20 @@ make staticcheck    # staticcheck ./...
 
 ## Lambda Unit Tests
 
-Each Lambda (`create-investigation`, `reap-tasks`) has a `test_handler.py` co-located with its `handler.py`.
+Each Lambda (`create-investigation`, `reap-tasks`, `reap-investigations`) has a
+`test_handler.py` co-located with its `handler.py`.
 
 ```bash
 make test-lambda-create-investigation   # pytest (via uv)
 make test-lambda-reap-tasks             # unittest (via uv)
-make test-lambda                        # both suites
+make test-lambda-reap-investigations    # unittest (via uv)
+make test-lambda                        # all three Lambda suites
 ```
 
 **Patterns**:
 - `create-investigation` uses pytest with `moto` for AWS mocking and `unittest.mock` for OIDC/JWKS stubs. Tests are grouped into classes by feature area (e.g. input validation, tagging, sidecar config).
-- `reap-tasks` uses `unittest` with `unittest.mock` patches for the ECS client. No moto dependency since the Lambda only calls `list_tasks`, `describe_tasks`, and `stop_task`.
+- `reap-tasks` and `reap-investigations` use `unittest` with mocked AWS clients;
+  the latter covers investigation garbage collection and audit cleanup.
 
 ## LocalStack Integration Tests
 
@@ -50,15 +171,23 @@ Tests in `tests/localstack/integration/` that run against [LocalStack Pro](https
 ### Prerequisites
 
 - LocalStack Pro token in `tests/localstack/.env` as `LOCALSTACK_AUTH_TOKEN`
-- Python deps: `pytest`, `boto3`, `requests`
+- `uv` and the root project's Python version (currently 3.13). LocalStack test
+  dependencies are declared in the root `localstack` dependency group and pinned
+  by the root `uv.lock`; install with `uv sync --group localstack`.
+  The nested `tests/localstack/pyproject.toml` and `setup.py` retain the external
+  CI image's Python 3.11 directory-install contract, sourcing the same root group
+  without installing the root project. That existing CI install resolves the
+  group's constraints rather than using the root lockfile; it is not the local
+  setup command.
 - Podman with socket enabled (Linux: `systemctl --user enable --now podman.socket`)
 
 ### Running
 
 ```bash
-make localstack-up            # Start LocalStack + mock OIDC server
+uv sync --group localstack   # Optional: test targets sync automatically
+make localstack-up            # Start LocalStack and its AWS initialization hook
 make test-localstack-fast     # Skip @slow ECS task launches
-make test-localstack          # Full suite
+make test-localstack          # Full selection; starts and tears down LocalStack
 make localstack-down          # Tear down
 ```
 
@@ -76,20 +205,45 @@ The other direct test command in Prow, `uv run pytest test_handler.py -v` in
 `lambda/create-investigation`, is covered by `make test-lambda-create-investigation`.
 Run both Make targets from the repository root (or use `make -C /path/to/rosa-boundary`).
 
+### Local integration readiness
+
+The Make test targets use `uv run --group localstack`; virtualenv activation
+and manual `uv pip install` are not required. To run against an already-started
+LocalStack and leave it running:
+
+```bash
+uv run --group localstack pytest tests/localstack/integration/ -v --tb=short -ra
+```
+
+`make localstack-ready` asserts live HTTP health and required-service readiness.
+All Make integration entry points and `test-all` run the same check before pytest;
+direct pytest runs also check before session-client initialization and before
+each dependent test, failing fixture setup if readiness is lost. No
+tracker file is trusted, and the completion policy cannot bypass this guard.
+
+Review skip reasons: the local ECS executor intentionally skips task-container
+tests. A passing local run is not proof of live AWS/Fargate behavior.
+
 ### Test markers
 
 - `@pytest.mark.integration` — all tests
 - `@pytest.mark.slow` — ECS task launches (>30s)
 - `@pytest.mark.e2e` — end-to-end investigation workflows
 
-Tests are organized one file per AWS service or feature area (e.g. ECS tasks, EFS access points, IAM roles, ABAC tag isolation). Each test validates API-level behavior against LocalStack rather than testing application code directly.
+Tests are organized by service or feature area. Some exercise emulated AWS APIs,
+others inspect source/policy/task-definition contracts, and close-investigation
+cases execute the temporary, endpoint-restricted Go CLI. The investigation
+workflow cases emulate resource creation; they do not invoke a deployed Lambda.
+None of these replaces live OIDC/IAM, Fargate, or audit verification.
 
 ## Linting and Formatting
 
 ```bash
 make fmt            # gofmt + shfmt (if installed)
-make lint           # golangci-lint + shellcheck
+make lint           # Go lint (falls back to go vet) + strict ShellCheck
+make lint-shell     # strict ShellCheck only
 make staticcheck    # Go static analysis
+make pre-commit     # all pre-commit hooks via uv; may modify files
 ```
 
 ## Pre-commit Hooks
@@ -99,9 +253,10 @@ Configured in `.pre-commit-config.yaml`:
 - Trailing whitespace, end-of-file fixer, YAML check
 - Large file check (>500KB), merge conflict detection
 - golangci-lint
+- Skillsaw
 
 ```bash
-pre-commit run --all-files
+make pre-commit
 ```
 
 ## CI
@@ -126,13 +281,11 @@ Presubmit jobs run on every PR (`always_run: true`). The coverage presubmit is e
 ## Quick Reference
 
 ```bash
-# Run everything locally before a PR
-make test-cli
-make test-lambda
+# Unit/regression suites plus quality checks before a PR
+make check
+
+# Optional formatter (writes files); review the diff and rerun make check
 make fmt
-make lint
-make staticcheck
-pre-commit run --all-files
 
 # If changing infrastructure (Lambda, Terraform, ECS)
 make localstack-up

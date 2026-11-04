@@ -1,3 +1,5 @@
+# Compatibility project for openshift/release's Python 3.11 CI image build.
+# Local development uses the root uv project; dependencies come from its group.
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
@@ -6,15 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "rosa-boundary-localstack-tests"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = [
-    # Test framework
-    "pytest>=9.1.1",
-    "boto3>=1.43.67",
-    "requests>=2.34.2",
-    # Lambda handler dependencies (required when tests import from handler.py)
-    "PyJWT>=2.13.0",
-    "cryptography>=50.0.0",
-]
+dynamic = ["dependencies"]
 
 [tool.setuptools]
 py-modules = []

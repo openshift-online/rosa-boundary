@@ -144,20 +144,12 @@ def test_close_cleanup_family_prefix_excludes_other_investigations(ecs_client, e
     assert other_family not in listed_families
 
 @pytest.mark.integration
-def test_close_investigation_finds_cluster_dynamically(ecs_client, efs_client, test_efs, ecs_cleanup):
+def test_close_investigation_finds_cluster_dynamically(ecs_client, efs_client, test_efs, ecs_cleanup, localstack_cli_env, localstack_cli_binary):
     """
     Verify that invoking the actual close-investigation CLI command works
     and correctly derives the cluster ID from the EFS access point.
     """
     import subprocess
-    import os
-    import platform
-    import shutil
-    from pathlib import Path
-
-    go_path = shutil.which("go")
-    if go_path is None:
-        pytest.skip("Go compiler not found in PATH")
 
     investigation_id = f"test-inv-{int(datetime.now().timestamp())}"
     cluster_id = f"test-cluster-{int(datetime.now().timestamp())}"
@@ -183,27 +175,12 @@ def test_close_investigation_finds_cluster_dynamically(ecs_client, efs_client, t
     ap_id = response['AccessPointId']
     ecs_cleanup.register_access_point(ap_id)
 
-    # Set up environment variables to point the CLI to localstack
-    env = os.environ.copy()
+    # Use the isolated synthetic identity and local endpoint fixture.
+    env = localstack_cli_env.copy()
     env["ROSA_BOUNDARY_EFS_FILESYSTEM_ID"] = test_efs
     env["ROSA_BOUNDARY_ECS_CLUSTER_NAME"] = cluster_name
 
-    # We need to compile the Go CLI first to make sure it's up to date
-    repo_root = Path(__file__).resolve().parents[3]
-    bin_path = repo_root / "bin" / "rosa-boundary"
-    subprocess.run([go_path, "build", "-o", str(bin_path), "./cmd/rosa-boundary"], cwd=repo_root, check=True)
-
-    # Setup AWS endpoints to point to LocalStack
-    endpoint_url = "http://localhost:4566"
-    if "LOCALSTACK_HOSTNAME" in env:
-        endpoint_url = f"http://{env['LOCALSTACK_HOSTNAME']}:4566"
-
-    env["AWS_ENDPOINT_URL"] = endpoint_url
-
-    # We need dummy credentials for the CLI
-    env["AWS_ACCESS_KEY_ID"] = "test"
-    env["AWS_SECRET_ACCESS_KEY"] = "test"
-    env["AWS_DEFAULT_REGION"] = "us-east-1"
+    bin_path = localstack_cli_binary
 
     # Run the close-investigation command
     cmd = [
@@ -227,19 +204,12 @@ def test_close_investigation_finds_cluster_dynamically(ecs_client, efs_client, t
 
 
 @pytest.mark.integration
-def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_client, test_efs, ecs_cleanup):
+def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_client, test_efs, ecs_cleanup, localstack_cli_env, localstack_cli_binary):
     """
     Verify that close-investigation errors when the same investigation ID exists
     across multiple clusters and --cluster-id is not provided.
     """
     import subprocess
-    import os
-    import shutil
-    from pathlib import Path
-
-    go_path = shutil.which("go")
-    if go_path is None:
-        pytest.skip("Go compiler not found in PATH")
 
     investigation_id = f"ambiguous-inv-{int(datetime.now().timestamp())}"
     cluster_id_1 = f"cluster-1-{int(datetime.now().timestamp())}"
@@ -269,20 +239,10 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
         ap_ids.append(ap_id)
         ecs_cleanup.register_access_point(ap_id)
 
-    # Set up environment
-    env = os.environ.copy()
+    env = localstack_cli_env.copy()
     env["ROSA_BOUNDARY_EFS_FILESYSTEM_ID"] = test_efs
     env["ROSA_BOUNDARY_ECS_CLUSTER_NAME"] = cluster_name
-    env["AWS_ENDPOINT_URL"] = "http://localhost:4566"
-    if "LOCALSTACK_HOSTNAME" in env:
-        env["AWS_ENDPOINT_URL"] = f"http://{env['LOCALSTACK_HOSTNAME']}:4566"
-    env["AWS_ACCESS_KEY_ID"] = "test"
-    env["AWS_SECRET_ACCESS_KEY"] = "test"
-    env["AWS_DEFAULT_REGION"] = "us-east-1"
-
-    repo_root = Path(__file__).resolve().parents[3]
-    bin_path = repo_root / "bin" / "rosa-boundary"
-    subprocess.run([go_path, "build", "-o", str(bin_path), "./cmd/rosa-boundary"], cwd=repo_root, check=True)
+    bin_path = localstack_cli_binary
 
     # Attempt to close without --cluster-id should fail with ambiguity error
     cmd_without_cluster = [
@@ -319,21 +279,14 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
 
 
 @pytest.mark.integration
-def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test_efs, test_vpc, efs_client, ecs_cleanup):
+def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test_efs, test_vpc, efs_client, ecs_cleanup, localstack_cli_env, localstack_cli_binary):
     """
     Verify that close-investigation with --force only stops tasks matching both
     the investigation ID and cluster ID, not tasks from other clusters with the
     same investigation ID.
     """
     import subprocess
-    import os
-    import shutil
-    from pathlib import Path
     import time
-
-    go_path = shutil.which("go")
-    if go_path is None:
-        pytest.skip("Go compiler not found in PATH")
 
     timestamp = int(datetime.now().timestamp())
     investigation_id = f"shared-inv-{timestamp}"
@@ -431,20 +384,10 @@ def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test
             f"Task {task_arn} should have cluster_id={expected_cluster}, got {tags.get('cluster_id')}"
         assert tags.get('investigation_id') == investigation_id
 
-    # Set up environment
-    env = os.environ.copy()
+    env = localstack_cli_env.copy()
     env["ROSA_BOUNDARY_EFS_FILESYSTEM_ID"] = test_efs
     env["ROSA_BOUNDARY_ECS_CLUSTER_NAME"] = cluster_name
-    env["AWS_ENDPOINT_URL"] = "http://localhost:4566"
-    if "LOCALSTACK_HOSTNAME" in env:
-        env["AWS_ENDPOINT_URL"] = f"http://{env['LOCALSTACK_HOSTNAME']}:4566"
-    env["AWS_ACCESS_KEY_ID"] = "test"
-    env["AWS_SECRET_ACCESS_KEY"] = "test"
-    env["AWS_DEFAULT_REGION"] = "us-east-1"
-
-    repo_root = Path(__file__).resolve().parents[3]
-    bin_path = repo_root / "bin" / "rosa-boundary"
-    subprocess.run([go_path, "build", "-o", str(bin_path), "./cmd/rosa-boundary"], cwd=repo_root, check=True)
+    bin_path = localstack_cli_binary
 
     # Close investigation for cluster_id_1 only with --force to stop tasks
     cmd = [
@@ -456,7 +399,9 @@ def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test
         "--yes"
     ]
 
-    result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=15)
+    # ECS StopTask and the SDK waiter are asynchronous; 15s is shorter than
+    # normal container shutdown plus waiter polling. Keep a bounded E2E budget.
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=120)
 
     assert result.returncode == 0, f"Command should succeed: {result.stderr}\nStdout: {result.stdout}"
 

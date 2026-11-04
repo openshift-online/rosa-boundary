@@ -429,7 +429,7 @@ make output
 # Run LocalStack integration tests
 make localstack-up
 make test-localstack-fast   # skip slow ECS task launch tests
-make test-localstack        # full suite
+make test-localstack        # full integration; starts LocalStack, tears down with down -v
 make localstack-down
 
 # Run Lambda unit tests

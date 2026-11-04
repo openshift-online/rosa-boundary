@@ -285,90 +285,66 @@ JWKS URL format:
 
 ## Testing Locally
 
-### Install Dependencies
+Start with [CONTRIBUTING.md](../../CONTRIBUTING.md) for development tools and the
+[testing guide](../../docs/testing.md) for suite boundaries.
+
+### Unit Tests (no AWS account or Keycloak server required)
+
+From the repository root:
 
 ```bash
-pip install -r requirements.txt
+make test-lambda-create-investigation
+make test-lambda  # All three Lambda suites, including both reapers
 ```
 
-### Set Environment Variables
+Or from this directory:
 
 ```bash
-export KEYCLOAK_URL="https://keycloak.example.com"
-export KEYCLOAK_REALM="rosa-boundary"
-export KEYCLOAK_CLIENT_ID="rosa-boundary-sre"
-export OIDC_PROVIDER_ARN="arn:aws:iam::123456789012:oidc-provider/keycloak.example.com"
-export ECS_CLUSTER="rosa-boundary-cluster"
-export TASK_DEFINITION="rosa-boundary-base:1"
-export SUBNETS="subnet-abc123,subnet-def456"
-export SECURITY_GROUP="sg-abc12345"
-export EFS_FILESYSTEM_ID="fs-abc12345"
-export S3_AUDIT_BUCKET="rosa-boundary-audit"
-export AWS_REGION="us-east-1"
+make test
+make test-coverage
 ```
 
-### Test Token Validation
+The Make targets use `uv run` with this directory's `pyproject.toml` and `uv.lock`,
+including the dev group. No `requirements.txt`, system-wide pip installation, or
+real OIDC token is needed. Fixtures mock client construction before handler import;
+individual tests use moto and/or `unittest.mock` for AWS and identity behavior.
 
-```python
-import json
-from handler import validate_oidc_token
+### LocalStack Workflow Tests
 
-token = "eyJhbGciOiJSUzI1NiIs..."
-claims = validate_oidc_token(
-    token,
-    "https://keycloak.example.com",
-    "rosa-boundary",
-    "rosa-boundary-sre"
-)
-print(json.dumps(claims, indent=2))
-```
-
-### Test Lambda Handler
-
-```python
-import json
-from handler import lambda_handler
-
-event = {
-    "headers": {
-        "Authorization": "Bearer eyJhbGciOiJSUzI1NiIs..."
-    },
-    "body": json.dumps({
-        "investigation_id": "test-001",
-        "cluster_id": "rosa-dev-001",
-        "oc_version": "4.19"
-    })
-}
-
-response = lambda_handler(event, None)
-print(json.dumps(response, indent=2))
-```
-
-### Mock AWS Services
-
-For local testing without AWS credentials, use moto:
+With LocalStack already healthy, from the repository root:
 
 ```bash
-pip install moto[iam,ecs,efs]
+make -C lambda/create-investigation test-localstack
 ```
 
-```python
-from moto import mock_aws
+`test-localstack` is a compatibility alias for `test-e2e-localstack`: both select
+`tests/localstack/integration/test_full_workflow.py` using the root uv group and
+readiness guard. These emulate investigation resource workflows, not a deployed
+Lambda invocation or real OIDC/IAM enforcement. See the [LocalStack guide](../../tests/localstack/README.md)
+for licensing, executors, cleanup, and skipped coverage. These targets leave
+LocalStack running; `make test-all` additionally reports overall completeness.
 
-@mock_aws
-def test_create_investigation():
-    # Your test code here
-    pass
-```
+### Live Verification
+
+Calling `lambda_handler` directly with real configuration can create AWS resources;
+it is not an offline test. Real identity and deployed Lambda verification require
+an approved personal dev environment, target/artifact checks, explicit permission,
+audit evidence, and cleanup. Follow the [personal dev runbook](../../docs/runbooks/personal-dev-bootstrap.md)
+and [live-verification procedure](../../.agents/skills/boundary-live-verification/SKILL.md).
 
 ## Deployment
 
 ### Lambda Configuration
 
-- **Runtime**: Python 3.12
-- **Memory**: 512 MB (adjust based on load)
-- **Timeout**: 30 seconds
-- **Handler**: `handler.lambda_handler`
+The current regional Terraform configuration is authoritative
+([lambda-create-investigation.tf](../../deploy/regional/lambda-create-investigation.tf)):
+
+- **ZIP runtime**: Python 3.11
+- **Memory**: 256 MB
+- **Timeout**: 300 seconds
+- **ZIP handler**: `handler.lambda_handler`
+- **Image packaging**: supported through the regional packaging configuration;
+  the image supplies its runtime/entrypoint.
 
 ### IAM Permissions
 
@@ -417,12 +393,19 @@ Lambda execution role needs:
 
 ### Package Lambda
 
+Use this directory's Makefile for packaging rather than installing host-platform
+dependencies into a hand-built ZIP. From the repository root:
+
 ```bash
-cd lambda/create-investigation
-pip install -r requirements.txt -t .
-zip -r function.zip . -x "*.pyc" -x "__pycache__/*"
-aws lambda update-function-code --function-name create-investigation --zip-file fileb://function.zip
+make -C lambda/create-investigation build  # Container-compatible ZIP dependencies
+make build-lambda-image                   # Alternative: local Lambda image build
 ```
+
+Builds may download dependencies/images; they do not publish or deploy. For an
+actual deployment, inspect the current recipes and follow the approved
+[personal dev](../../docs/runbooks/personal-dev-bootstrap.md) or
+[staging](../../docs/staging-deployment.md) workflow. Do not bypass Terraform and
+artifact review with an ad hoc `aws lambda update-function-code` command.
 
 ## Security Considerations
 

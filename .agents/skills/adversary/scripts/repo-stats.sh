@@ -84,7 +84,7 @@ git log --format=format: --name-only HEAD 2>/dev/null \
 echo ""
 echo "=== RECENT HOTSPOTS (last ${DAYS} days) ==="
 
-since_date=$(date -d "${DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-${DAYS}d +%Y-%m-%d 2>/dev/null || echo "")
+since_date=$(date -d "${DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-"${DAYS}"d +%Y-%m-%d 2>/dev/null || echo "")
 
 if [ -n "$since_date" ]; then
     git log --since="$since_date" --format=format: --name-only HEAD 2>/dev/null \

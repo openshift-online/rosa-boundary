@@ -16,7 +16,7 @@ aws ec2 describe-vpcs \
   --output table
 
 echo ""
-read -p "Enter VPC ID to use: " VPC_ID
+read -r -p "Enter VPC ID to use: " VPC_ID
 
 # Get subnets in the selected VPC
 echo ""

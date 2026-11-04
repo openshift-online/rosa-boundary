@@ -91,23 +91,23 @@ main() {
     # Trap signals for cleanup
     trap cleanup SIGTERM SIGINT SIGHUP
 
-# Switch OpenShift CLI version if OC_VERSION is set
-if [ -n "${OC_VERSION}" ]; then
-    if [ -x "/opt/openshift/${OC_VERSION}/oc" ]; then
-        alternatives --set oc "/opt/openshift/${OC_VERSION}/oc"
-    else
-        echo "Warning: OC version ${OC_VERSION} not found, using default" >&2
+    # Switch OpenShift CLI version if OC_VERSION is set
+    if [ -n "${OC_VERSION}" ]; then
+        if [ -x "/opt/openshift/${OC_VERSION}/oc" ]; then
+            alternatives --set oc "/opt/openshift/${OC_VERSION}/oc"
+        else
+            echo "Warning: OC version ${OC_VERSION} not found, using default" >&2
+        fi
     fi
-fi
 
-# Empty Fargate volumes are normally root-owned. Prepare both nested mounts
-# before writing proxy configuration or starting any process as sre.
-verify_credential_mounts
-initialize_credential_mounts
+    # Empty Fargate volumes are normally root-owned. Prepare both nested mounts
+    # before writing proxy configuration or starting any process as sre.
+    verify_credential_mounts
+    initialize_credential_mounts
 
-# Configure kubectl/oc to use the kube-proxy sidecar
-if [ -n "${KUBE_PROXY_PORT}" ]; then
-    cat >/home/sre/.kube/config <<KUBECONFIG
+    # Configure kubectl/oc to use the kube-proxy sidecar
+    if [ -n "${KUBE_PROXY_PORT}" ]; then
+        cat >/home/sre/.kube/config <<KUBECONFIG
 apiVersion: v1
 kind: Config
 clusters:
@@ -120,62 +120,62 @@ contexts:
   name: investigation
 current-context: investigation
 KUBECONFIG
-    chown sre:sre /home/sre/.kube /home/sre/.kube/config
-    echo "Configured oc/kubectl to use proxy at localhost:${KUBE_PROXY_PORT}"
-fi
-
-# Copy skeleton config to /home/sre, running as sre so files are created
-# with correct ownership. cp -rn (no clobber) skips existing files, making
-# this fast and idempotent on subsequent runs without needing chown -R.
-if [ -d /etc/skel-sre ]; then
-    runuser -u sre -- cp -rn /etc/skel-sre/. /home/sre/
-fi
-
-# Set Bedrock defaults if CLAUDE_CODE_USE_BEDROCK is enabled
-if [ "${CLAUDE_CODE_USE_BEDROCK:-1}" = "1" ]; then
-    export CLAUDE_CODE_USE_BEDROCK=1
-
-    # Auto-detect region from ECS task metadata if AWS_REGION not set
-    if [ -z "${AWS_REGION}" ] && [ -n "${ECS_CONTAINER_METADATA_URI_V4}" ]; then
-        # Extract region from task ARN in metadata
-        TASK_METADATA=$(curl -s "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null || true)
-        if [ -n "${TASK_METADATA}" ]; then
-            # Task ARN format: arn:aws:ecs:REGION:ACCOUNT:task/CLUSTER/TASKID
-            DETECTED_REGION=$(echo "${TASK_METADATA}" | grep -o '"TaskARN":"arn:aws:ecs:[^:]*' | cut -d: -f4)
-            if [ -n "${DETECTED_REGION}" ]; then
-                export AWS_REGION="${DETECTED_REGION}"
-                echo "Auto-detected AWS_REGION=${AWS_REGION} from ECS task metadata"
-            fi
-        fi
+        chown sre:sre /home/sre/.kube /home/sre/.kube/config
+        echo "Configured oc/kubectl to use proxy at localhost:${KUBE_PROXY_PORT}"
     fi
 
-    # Fallback to us-east-1 if still not set
-    export AWS_REGION="${AWS_REGION:-us-east-1}"
-fi
+    # Copy skeleton config to /home/sre, running as sre so files are created
+    # with correct ownership. cp -rn (no clobber) skips existing files, making
+    # this fast and idempotent on subsequent runs without needing chown -R.
+    if [ -d /etc/skel-sre ]; then
+        runuser -u sre -- cp -rn /etc/skel-sre/. /home/sre/
+    fi
 
-# Warn if S3 audit is not configured
-if [ -z "${S3_AUDIT_ESCROW}" ] && { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INVESTIGATION_ID}" ]; }; then
-    echo "Warning: S3 audit not configured. /home/sre will not be backed up on exit." >&2
-    echo "  Set either S3_AUDIT_ESCROW or (S3_AUDIT_BUCKET + CLUSTER_ID + INVESTIGATION_ID)" >&2
-fi
+    # Set Bedrock defaults if CLAUDE_CODE_USE_BEDROCK is enabled
+    if [ "${CLAUDE_CODE_USE_BEDROCK:-1}" = "1" ]; then
+        export CLAUDE_CODE_USE_BEDROCK=1
 
-# Display task timeout if configured (informational only - enforced by periodic reaper Lambda)
-if [ -n "${TASK_TIMEOUT}" ] && [ "${TASK_TIMEOUT}" != "0" ]; then
-    echo "Task will be automatically stopped after ${TASK_TIMEOUT} seconds (enforced by periodic reaper)"
-fi
+        # Auto-detect region from ECS task metadata if AWS_REGION not set
+        if [ -z "${AWS_REGION}" ] && [ -n "${ECS_CONTAINER_METADATA_URI_V4}" ]; then
+            # Extract region from task ARN in metadata
+            TASK_METADATA=$(curl -s "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null || true)
+            if [ -n "${TASK_METADATA}" ]; then
+                # Task ARN format: arn:aws:ecs:REGION:ACCOUNT:task/CLUSTER/TASKID
+                DETECTED_REGION=$(echo "${TASK_METADATA}" | grep -o '"TaskARN":"arn:aws:ecs:[^:]*' | cut -d: -f4)
+                if [ -n "${DETECTED_REGION}" ]; then
+                    export AWS_REGION="${DETECTED_REGION}"
+                    echo "Auto-detected AWS_REGION=${AWS_REGION} from ECS task metadata"
+                fi
+            fi
+        fi
 
-# Run the command as the sre user in the background and wait for it.
-# This allows the root shell to remain and handle signals (cleanup/S3 sync).
-# The entrypoint runs as root for privileged setup (alternatives --set, chown,
-# runuser); the actual workload drops to sre here.
-runuser -u sre -- "${@:-sleep infinity}" &
-CHILD_PID=$!
-wait ${CHILD_PID}
-EXIT_CODE=$?
+        # Fallback to us-east-1 if still not set
+        export AWS_REGION="${AWS_REGION:-us-east-1}"
+    fi
 
-# Sync on normal exit too
-sync_to_s3
-exit ${EXIT_CODE}
+    # Warn if S3 audit is not configured
+    if [ -z "${S3_AUDIT_ESCROW}" ] && { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INVESTIGATION_ID}" ]; }; then
+        echo "Warning: S3 audit not configured. /home/sre will not be backed up on exit." >&2
+        echo "  Set either S3_AUDIT_ESCROW or (S3_AUDIT_BUCKET + CLUSTER_ID + INVESTIGATION_ID)" >&2
+    fi
+
+    # Display task timeout if configured (informational only - enforced by periodic reaper Lambda)
+    if [ -n "${TASK_TIMEOUT}" ] && [ "${TASK_TIMEOUT}" != "0" ]; then
+        echo "Task will be automatically stopped after ${TASK_TIMEOUT} seconds (enforced by periodic reaper)"
+    fi
+
+    # Run the command as the sre user in the background and wait for it.
+    # This allows the root shell to remain and handle signals (cleanup/S3 sync).
+    # The entrypoint runs as root for privileged setup (alternatives --set, chown,
+    # runuser); the actual workload drops to sre here.
+    runuser -u sre -- "${@:-sleep infinity}" &
+    CHILD_PID=$!
+    wait ${CHILD_PID}
+    EXIT_CODE=$?
+
+    # Sync on normal exit too
+    sync_to_s3
+    exit ${EXIT_CODE}
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

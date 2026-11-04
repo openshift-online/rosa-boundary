@@ -33,8 +33,9 @@ type EFSClient struct {
 // NewEFSClient creates a new EFS client using the provided credentials provider.
 func NewEFSClient(region, filesystemID string, credProvider aws.CredentialsProvider) *EFSClient {
 	client := efs.New(efs.Options{
-		Region:      region,
-		Credentials: credProvider,
+		BaseEndpoint: integrationEndpoint(),
+		Region:       region,
+		Credentials:  credProvider,
 	})
 	return &EFSClient{client: client, filesystemID: filesystemID}
 }

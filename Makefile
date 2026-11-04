@@ -19,7 +19,7 @@ CLI_LDFLAGS := -ldflags "-X github.com/openshift-online/rosa-boundary/internal/c
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
         build-cli install-cli test-cli test-coverage codecov fmt lint \
         validate-findings convert-sarif upload-sarif \
-        test-github-dl
+        test-github-dl test test-shell test-all check lint-shell pre-commit
 
 # Default target: build both architectures and create manifest
 all: build manifest
@@ -68,7 +68,7 @@ clean:
 	@echo "Cleanup complete"
 
 # LocalStack integration testing
-.PHONY: localstack-up localstack-down localstack-logs test-localstack test-localstack-fast test-localstack-ci
+.PHONY: localstack-up localstack-down localstack-logs localstack-ready test-localstack test-localstack-fast test-localstack-ci
 
 localstack-up: ## Start LocalStack Pro with all services (podman)
 	@if [ ! -f tests/localstack/.env ]; then \
@@ -79,33 +79,33 @@ localstack-up: ## Start LocalStack Pro with all services (podman)
 	@echo "Ensuring podman is ready..."
 	@if [ "$$(uname)" = "Darwin" ]; then \
 		echo "Detected macOS - checking podman machine..."; \
-		podman machine list 2>/dev/null | grep -q "Currently running" || \
-			(echo "Starting podman machine..."; podman machine start || true); \
+		podman info >/dev/null 2>&1 || \
+			(echo "Starting podman machine..."; podman machine start); \
 	else \
 		echo "Detected Linux - checking podman socket..."; \
-		systemctl --user is-active podman.socket >/dev/null 2>&1 || systemctl --user start podman.socket; \
+		podman info >/dev/null 2>&1 || systemctl --user start podman.socket; \
 	fi
-	cd tests/localstack && podman-compose up -d
+	bash tests/localstack/compose.sh up -d
 	@echo "Waiting for LocalStack to be ready..."
-	@timeout 120 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q "\"ecs\""; do sleep 5; done' || (echo "LocalStack startup timed out"; exit 1)
+	@timeout 120 bash -c 'until python3 tests/localstack/check_ready.py >/dev/null 2>&1; do sleep 5; done' || { python3 tests/localstack/check_ready.py; exit 1; }
 	@echo "LocalStack Pro ready with ECS and EFS support"
 
 localstack-down: ## Stop LocalStack and clean up
-	cd tests/localstack && podman-compose down -v
+	bash tests/localstack/compose.sh down -v
 
 localstack-logs: ## View LocalStack logs
-	cd tests/localstack && podman-compose logs -f localstack
+	bash tests/localstack/compose.sh logs -f localstack
+
+localstack-ready: ## Assert live LocalStack health and required service readiness
+	python3 tests/localstack/check_ready.py
 
 test-localstack: localstack-up ## Run all LocalStack integration tests
-	pytest tests/localstack/integration/ -v --tb=short || (make localstack-down; exit 1)
+	$(MAKE) localstack-ready
+	uv run --group localstack pytest tests/localstack/integration/ -v --tb=short -ra || (make localstack-down; exit 1)
 	$(MAKE) localstack-down
 
-test-localstack-fast: ## Run LocalStack tests without slow tests (faster)
-	@if ! curl -s http://localhost:4566/_localstack/health > /dev/null 2>&1; then \
-		echo "ERROR: LocalStack not running. Start with: make localstack-up"; \
-		exit 1; \
-	fi
-	pytest tests/localstack/integration/ -v -m "not slow" --tb=short
+test-localstack-fast: localstack-ready ## Run LocalStack tests without slow tests (faster)
+	uv run --group localstack pytest tests/localstack/integration/ -v -m "not slow" --tb=short -ra
 
 # Requires the Prow/nested-Podman environment, LOCALSTACK_AUTH_TOKEN, and ARTIFACT_DIR.
 test-localstack-ci: ## Run the LocalStack CI entrypoint (includes startup and JUnit output)
@@ -117,6 +117,44 @@ test-localstack-ci: ## Run the LocalStack CI entrypoint (includes startup and JU
 build-lambda-image: ## Build the create-investigation Lambda container image locally
 	@echo "Building create-investigation Lambda container image..."
 	$(MAKE) -C lambda/create-investigation build-image
+
+# Local unit/regression suite. Run sequentially even with make -j: uv commands
+# can sync shared environments. LocalStack, image builds, and lint are separate.
+test: ## Run Go coverage, Lambda, build-helper, and Bats tests
+	@command -v bats >/dev/null 2>&1 || { echo "ERROR: bats is required (macOS: brew install bats-core; Fedora: dnf install bats)"; exit 1; }
+	$(MAKE) test-coverage
+	$(MAKE) test-lambda
+	$(MAKE) test-github-dl
+	$(MAKE) test-shell
+
+# Run all independent gates and preserve their logs, including failures.
+# LocalStack must already be running; TEST_ALL_ARGS=--require-complete rejects skips.
+TEST_ALL_ARGS ?=
+test-all: ## All local suites, lint/format, Terraform, and LocalStack checks
+	python3 scripts/test_all.py $(TEST_ALL_ARGS)
+
+# Keep quality gates sequential: pre-commit may rewrite files and uv may sync.
+check: ## Run tests, strict lint, Staticcheck, and pre-commit (may modify files)
+	$(MAKE) test
+	$(MAKE) lint
+	$(MAKE) staticcheck
+	$(MAKE) pre-commit
+
+pre-commit: ## Run all pre-commit hooks (may modify files)
+	uv run --group localstack pre-commit run --all-files
+
+test-shell: ## Run shell runtime and LocalStack startup regression tests (no containers)
+	@set -eu; \
+		test_path="$$PATH"; \
+		if [ "$$(uname)" = Darwin ]; then \
+			command -v brew >/dev/null 2>&1 || { echo "ERROR: shell tests need Homebrew coreutils and gnu-sed on macOS"; exit 1; }; \
+			for formula in coreutils gnu-sed; do \
+				prefix=$$(brew --prefix "$$formula"); \
+				[ -d "$$prefix/libexec/gnubin" ] || { echo "ERROR: run brew install coreutils gnu-sed"; exit 1; }; \
+				test_path="$$prefix/libexec/gnubin:$$test_path"; \
+			done; \
+		fi; \
+		PATH="$$test_path" bats tests/shell/ tests/localstack/ci-run.bats tests/localstack/compose.bats
 
 # Lambda unit testing
 .PHONY: test-lambda test-lambda-reap-tasks test-lambda-reap-investigations test-lambda-create-investigation
@@ -196,12 +234,11 @@ lint: ## Lint Go code and shell scripts
 		echo "golangci-lint not installed, running go vet instead"; \
 		go vet ./...; \
 	fi
-	@echo "Linting shell scripts..."
-	@if command -v shellcheck > /dev/null 2>&1; then \
-		shellcheck deploy/regional/examples/*.sh entrypoint.sh 2>/dev/null || true; \
-	else \
-		echo "shellcheck not installed, skipping shell linting"; \
-	fi
+	$(MAKE) lint-shell
+
+lint-shell: ## Run strict ShellCheck on entrypoint, examples, and Compose wrapper
+	@command -v shellcheck >/dev/null 2>&1 || { echo "ERROR: shellcheck is required"; exit 1; }
+	shellcheck entrypoint.sh deploy/regional/examples/*.sh tests/localstack/compose.sh
 
 # Security findings
 validate-findings: ## Validate adversary-findings.json schema
@@ -235,6 +272,11 @@ help:
 	@echo "  make manifest     - Create multi-arch manifest list"
 	@echo "  make clean        - Remove all images and manifests"
 	@echo ""
+	@echo "Local Test Suite (no LocalStack or AWS required):"
+	@echo "  make test-all        - All local checks; requires running LocalStack and Terraform access"
+	@echo "  make test            - Go coverage, Lambda, build-helper, and Bats tests"
+	@echo "  make test-shell      - Shell runtime and startup regression tests"
+	@echo ""
 	@echo "Go CLI Targets:"
 	@echo "  make build-cli       - Build the rosa-boundary CLI binary (./bin/rosa-boundary)"
 	@echo "  make install-cli     - Install CLI to GOBIN (~/go/bin)"
@@ -261,6 +303,9 @@ help:
 	@echo "  make test-github-dl  - Run github_dl.py unit tests"
 	@echo ""
 	@echo "Code Quality Targets:"
+	@echo "  make check        - Tests, strict lint, Staticcheck, and pre-commit (may modify files)"
+	@echo "  make lint-shell   - Strict ShellCheck on entrypoint, examples, and Compose wrapper"
+	@echo "  make pre-commit   - All pre-commit hooks (may modify files)"
 	@echo "  make fmt          - Format Go code (gofmt) and shell scripts (shfmt)"
 	@echo "  make lint         - Lint Go (golangci-lint/go vet) and shell (shellcheck)"
 	@echo "  make staticcheck  - Run staticcheck static analysis"

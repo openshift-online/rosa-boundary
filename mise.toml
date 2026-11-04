@@ -1,0 +1,19 @@
+[tools]
+bats = "latest"
+lstk = "latest"
+terraform = "v1.17.0"
+go = "1.27.3"
+python = "3.13.18"
+shellcheck = "0.11.0"
+shfmt = "3.14.1"
+jq = "latest"
+
+[settings]
+experimental = true
+python.uv_venv_auto = "create|source"
+
+[deps.uv]
+auto = true
+
+[deps.go]
+auto = true

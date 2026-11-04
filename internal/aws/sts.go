@@ -46,8 +46,9 @@ type TemporaryCredentials struct {
 func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, sessionName string) (*TemporaryCredentials, error) {
 	// Use anonymous credentials since AssumeRoleWithWebIdentity doesn't require them.
 	client := sts.New(sts.Options{
-		Region:      region,
-		Credentials: aws.AnonymousCredentials{},
+		BaseEndpoint: integrationEndpoint(),
+		Region:       region,
+		Credentials:  aws.AnonymousCredentials{},
 	})
 
 	out, err := client.AssumeRoleWithWebIdentity(ctx, &sts.AssumeRoleWithWebIdentityInput{

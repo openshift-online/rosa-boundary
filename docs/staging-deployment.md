@@ -80,7 +80,7 @@ The workload workspaces are VCS-connected to the `openshift-online/rosa-boundary
 2. **Speculative plan runs automatically** on any workspace whose `working_directory` contains changed files. HCP Terraform posts the plan output as a PR check.
 3. **Review and merge** the PR through normal GitHub review.
 4. **VCS trigger fires** on merge to `main`, queuing a plan on the affected workspace(s).
-5. **Staging workspaces auto-apply** successful plans, including plans triggered by the meta-workspace. The account/regional state migration and the second staging region are complete, so the temporary manual gates have been removed. Production rollout workspaces retain manual apply gates.
+5. **Staging workspaces auto-apply** successful plans, including plans triggered by the meta-workspace. The account/regional state migration and the second staging region are complete, so the temporary manual gates have been removed. The production Account, Network, and Regional workspaces auto-apply on the same terms in both regions; `rosa-boundary-prod-aws-creds` deliberately keeps manual apply as an extra approval gate for production AWS credential and IAM trust changes.
 
 For a PR changing `hcp-terraform/rosa-boundary/main.tf`, the meta-workspace
 speculative plan shows changes to HCP workspace settings or variables, **not**
@@ -421,7 +421,7 @@ This pattern applies at every layer -- bootstrap workspaces, meta-workspaces, an
 | **Variables** | `.env` + `terraform.tfvars` (gitignored) | Defined as code in `hcp-terraform/rosa-boundary/main.tf` |
 | **AWS credentials** | Local AWS CLI profile or env vars | OIDC dynamic credentials via variable set |
 | **Lambda packaging** | ZIP (built locally by `make apply` via `build-lambda`) | Container image from Quay (HCP Terraform cannot run local build scripts) |
-| **Apply gate** | Immediate | Successful staging plans auto-apply; production rollout workspaces require manual confirmation |
+| **Apply gate** | Immediate | Successful plans auto-apply in staging and production; only `rosa-boundary-prod-aws-creds` requires manual confirmation |
 | **Backend config** | `cloud.tf` or local state | Set externally by meta-workspace; no `cloud.tf` in workload directories |
 | **Container image** | ECR (manually pushed) | Quay (Konflux pipeline, pinned by commit SHA) |
 

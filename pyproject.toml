@@ -3,9 +3,6 @@ name = "rosa-boundary"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "George Adams", email = "oss@geowa4.software" }
-]
 requires-python = ">=3.13"
 dependencies = [
     "podman-compose>=1.6.0",

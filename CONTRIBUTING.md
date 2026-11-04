@@ -32,8 +32,8 @@ uv sync --group localstack
 uv run --group localstack pre-commit install
 ```
 
-- `mise install` installs the tool versions selected in [mise.toml](mise.toml)
-  and applicable version files, including [.python-version](.python-version).
+- `mise install` installs the tool versions selected in [mise.toml](mise.toml),
+  including Python.
 - `mise deps` installs project dependencies through the configured uv and Go
   providers. This command is experimental; use a recent mise release that
   supports it. The repository enables the required experimental setting.
@@ -49,7 +49,7 @@ uv run --group localstack pre-commit install
 selectors currently use `latest`, rather than an exact version. Tools not declared
 there must still be installed separately. In particular, check that you have:
 
-- Python and `uv` available for dependency installation.
+- `uv` available for dependency installation; Python is managed by mise.
 - Podman for LocalStack and container builds.
 - `staticcheck` and `golangci-lint` for the full quality gates.
   `jq` and `shfmt` are already included in the mise tool list.
@@ -74,7 +74,7 @@ these files as the source of truth instead of guessing versions:
 | What to install | Where to find the requirements |
 |---|---|
 | Tool versions | [mise.toml](mise.toml); `latest` entries are not exact pins |
-| Python | [.python-version](.python-version) and root [pyproject.toml](pyproject.toml) |
+| Python | [mise.toml](mise.toml) selects the version; root [pyproject.toml](pyproject.toml) declares compatibility |
 | Go toolchain and modules | [go.mod](go.mod), including its `toolchain` directive |
 | Python tools and LocalStack test dependencies | Root [pyproject.toml](pyproject.toml) and [uv.lock](uv.lock) |
 | Lambda-specific Python dependencies | [lambda/create-investigation/pyproject.toml](lambda/create-investigation/pyproject.toml) and its lockfile |

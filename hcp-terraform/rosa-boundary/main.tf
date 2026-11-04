@@ -166,11 +166,10 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
-          # Keep disabled in this PR: regional destination must apply before
-          # account replication. Enable ["us-west-2"] in a follow-up PR once
-          # destination exists; these auto-apply workspaces can run concurrently.
+          # The us-west-2 destination repository is deployed. Enable filtered
+          # account-owned replication after reviewing registry-wide rules.
           key      = "lambda_ecr_replication_regions"
-          value    = "[]"
+          value    = "[\"us-west-2\"]"
           category = "terraform"
           hcl      = true
         },

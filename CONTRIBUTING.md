@@ -226,6 +226,34 @@ uv run --group localstack bash tests/localstack/compose.sh down
 `make localstack-down` instead uses `down -v`, requesting removal of Compose-managed
 volumes. Never include credentials or unredacted investigation data in a PR.
 
+## 5. Open a PR from an upstream branch
+
+Create feature branches directly in `openshift-online/rosa-boundary` and open PRs
+from those branches against its `main` branch, **not from a fork**. HCP Terraform
+only runs speculative plans for PRs from branches in the connected upstream
+repository; fork PRs do not trigger those plans.
+
+For example, if your `upstream` remote points to
+`git@github.com:openshift-online/rosa-boundary.git`:
+
+```bash
+git fetch upstream
+git switch -c my-change upstream/main
+# Make your changes, run checks, and commit them.
+git push -u upstream my-change
+gh pr create --repo openshift-online/rosa-boundary --base main --head my-change
+```
+
+Use your configured remote name if it differs, and verify its URL with
+`git remote -v` before pushing. If you do not have upstream write access, ask a
+maintainer to push the reviewed changes to an upstream branch and open the PR
+there so speculative plans can run.
+
+For infrastructure changes, review the applicable HCP Terraform plan checks
+before merging. Local Terraform validation is not a substitute for these plans.
+See the [staging delivery workflow](docs/staging-deployment.md#how-a-code-change-becomes-live)
+for plan, review, and apply behavior.
+
 ## Further reading
 
 - [Testing guide](docs/testing.md): complete suite coverage, prerequisites, skip

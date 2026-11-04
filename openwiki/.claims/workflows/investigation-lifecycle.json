@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:68f6ceacd42307792db573d9b90a79923cdfdee05e5b21c0eca51a75cd125c7a",
+  "pageVersion": "sha256:8595b054242fd9ef6f6cf35aa0d7a1d7db00d17d60ecce1c24eba368a6d89b28",
   "claims": [
     {
       "id": "claim_4088cba25812498fa6bea3623690d8b6",
@@ -110,19 +110,23 @@
     },
     {
       "id": "claim_87bf9c76d9ba4c9bac5927f9db77fb29",
-      "statement": "Joining a task waits for RUNNING status and an available ECS Exec agent before starting the Session Manager session; stop-task requests task termination separately from investigation closure.",
+      "statement": "Joining a task waits for RUNNING status and an available ECS Exec agent before starting the Session Manager session; join-task and start-task --connect share this logic via runJoinTask/runJoinWithClientFormat/runJoinWithClientSession in internal/cmd/join_task.go; stop-task requests task termination separately from investigation closure.",
       "evidence": [
         {
           "resource": "repo://internal/cmd/close_investigation.go#L96-L186",
           "version": "repo-lines-v1:sha256:7fd16aea35a34079ef1758d6096da84c2bb68240fab31cbe0367baad38fbce54:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyMDIzODQ1MGE3YTRiYmFjNjRhYmVjZTA3YmM4N2UxYWQ0MjhjNDI4NWM4YzYyOTU1NTAwYTMwN2Y0NTAxYTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTFkNzkxNDgwOWUzNDk5ZDQ1NzNlOGJmZTU4MjZhZTA4MmVhMmUyYTE0ZGI3Y2MxNDE3MjU3N2M2YTczNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImEyYWM0ZTFiOTc4MWVlY2ViYzAyYjJiZWRkMzI4Njk1MDQ2NzU5YzBiNjhiZjQ4ZjQ4ZGI4NGUyNmExODVhZmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5ZGNmZmNmZDAwZGM3OGU4MjM0OGY1MjI4NmRmNzZjOTY1NWU2OWI3ODgzZTM5YjE1ZjA4N2Q4ZDcwZjM1MDgifQ"
         },
         {
-          "resource": "repo://internal/cmd/join_task.go#L57-L101",
-          "version": "repo-lines-v1:sha256:b63c4083fe62a647538f8c6b779b7270358b5cc49cc5a4f75325f0234657ca5a:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY1ZWE5M2RjN2VhMjZhZDRiYmY2MjM4MjI3MmNmMzk0NGY3NWNhZmFlMGJhNTIyZDc3YjNkYzI0OTE0MjNiYmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5OTczZTc3YmI0M2YxOTM3ZWNkYTYwOWIyZDI3YjM1MTRiOGVmNzYyOGZjZmY4ZTA2ZTc0MmJlNzFlMTMyY2QiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://internal/cmd/join_task.go#L50-L70",
+          "version": "repo-lines-v1:sha256:27b8917f1a81122a327f46ed1f2d98dc6d03e7d65c3db397a1fb8c1994ae66fb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiY2ExZGMxMDU3YTE2YzgxNTMwMmIyMzAyZDZjMjNjYzZlYWE3YjU0MDMyZjFmZDNlMzIxNDVhNjFhNjMwOTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgwNTEyNWEyNjhjZjE2NjA1NDZlYWEwOGI4N2NhMmExOTkxMzVjZTZjZmYxMzQ0ZWExN2M2M2JhMjdlZTkwYWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkxNDc5MGY1ODc0ZDBmN2Q2MTQ0ZDc3OTEwODVjNDc0ZjM5MTA4OWI1ZDIwZTBkMDNiOTBmNTRmYmNjMjY5NzIifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/join_task.go#L93-L149",
+          "version": "repo-lines-v1:sha256:2cf6079f42c38cacf304a1dd47d1c8e2cb49d95410fdec49bfa6c6212f241ec7:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg3OGM1NGFlNTMxMzIyM2EzZDUwZDE4ZTYxN2FjOTBkZjY0NTk2N2ExZTdlYjlkMWQyN2JkNTUxMTM3NzE5NzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE2MzFiNmUyY2EwN2Q4YmFmMGViNDRlNzQ5ZGJmNDkwYjM5MmUzYTUzNGVmNjEwMjI3NzExNDZjZGY5YWYxYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
           "resource": "repo://internal/cmd/stop_task.go#L32-L68",
-          "version": "repo-lines-v1:sha256:830547ec1b871c4d811916affedeb63d4b9615643ca91f5f4ab60a7ca3c81410:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1NjMxMDE5ZDEzNGE3YmZmZjZhMzVkODIyOGI4ZTdkYmJiZjkyZmIxMDIyN2I3NmU2MGY0MTBmYjBiYzdmMTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTFkNzkxNDgwOWUzNDk5ZDQ1NzNlOGJmZTU4MjZhZTA4MmVhMmUyYTE0ZGI3Y2MxNDE3MjU3N2M2YTczNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM0NjY1NjFjYzNjNDFhNTM0MmNhYWFhNjExZmM4M2MwZmIzYzdlMGIwYTU4Njk1MTRhYWNkYTlmYjRhYTUwNzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+          "version": "repo-lines-v1:sha256:9392d3fe5406ac2553732602fb10c61626b212e28f9f4f7a2c9f5933440d9ad8:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFkOTkyNzRkYzE4MDdlZWFjMWU0MDQ3N2MxMGNjZDdmODg5NDY1MjFmYzZjMzI0YTFjM2E0MzAyNWRiYmE0MDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMyOGZiMjk0MzAwOTFlNDZhZDdiYzM4ODk1YmNmZGVhNjlmYzI5NmY5ZTc1MjlmZjJlOWNmYTRiNTRjYjFmZGQifQ"
         }
       ]
     },
@@ -288,7 +292,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.2",
-    "at": "2026-10-27T13:26:37.491Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-03T16:15:29.447Z"
   }
 }

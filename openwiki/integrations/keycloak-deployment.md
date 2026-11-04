@@ -18,16 +18,20 @@ sources:
     resource: repo://deploy/keycloak/components/keycloak/route.yaml
   - id: openwiki-source-e0b6878ee330d7f6ee18b18e
     resource: repo://deploy/keycloak/overlays/dev/kustomization.yaml
+  - id: openwiki-source-d8e76337d241d645fdbde114
+    resource: repo://internal/auth/device.go
   - id: openwiki-source-f3c901cd7f81495d7b85597f
     resource: repo://internal/auth/oidc.go
+  - id: openwiki-source-872fbb99e33ba1498c5790f0
+    resource: repo://internal/auth/token.go
   - id: openwiki-source-a6037a5955153e01dc60d90b
     resource: repo://internal/lambda/client.go
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
-generated: { by: "opencode", at: "2026-10-09T17:13:47.426Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-03T16:15:29.447Z" }
 verified:
-  - by: openwiki/0.7.0
-    at: 2026-10-09T17:13:47.426Z
+  - by: openwiki/0.7.1
+    at: 2026-11-03T16:15:29.447Z
 ---
 
 # Keycloak and OIDC provider integration
@@ -44,7 +48,7 @@ The dev ClusterSecretStore reads Parameter Store in `us-east-2` using the extern
 
 ## OIDC consumption by the application
 
-The CLI configures a Keycloak base URL, realm, and OIDC client ID, then performs the browser-based PKCE authorization-code flow. Account Terraform registers the primary issuer URL/client ID as an AWS IAM OIDC provider and uses audience conditions in the invoker and shared SRE role trust policies. Optional stage and production issuers each require their own client IDs and thumbprints when configured.
+The CLI configures a Keycloak base URL, realm, and OIDC client ID, then obtains an ID token through either a browser-based PKCE authorization-code flow (`internal/auth/oidc.go`) or an OAuth device-code flow (`internal/auth/device.go`), selected via `Options.UseDeviceCode`. Both flows share the same cache lookup/store, expiration validation, and status reporting in `GetTokenWithOptions`; tokens are cached on disk scoped to the configured issuer and client ID (`internal/auth/token.go`), so switching Keycloak URL, realm, or client invalidates any previously cached token. Account Terraform registers the primary issuer URL/client ID as an AWS IAM OIDC provider and uses audience conditions in the invoker and shared SRE role trust policies. Optional stage and production issuers each require their own client IDs and thumbprints when configured.
 
 The create-investigation Lambda receives issuer/client settings as environment variables. It routes an incoming token by its issuer to the matching configured JWKS endpoint and verifies its signature, expiry, and audience before interpreting identity/group/session-tag claims. Stage and production issuers are accepted only when configured. The Lambda's `get_config` action is a separate bootstrap path authenticated by the AWS invoker role; it returns configuration identifiers before the CLI has completed OIDC setup.
 
@@ -54,5 +58,6 @@ The create-investigation Lambda receives issuer/client settings as environment v
 - The database ExternalSecret reads two SSM Parameter Store entries and creates `keycloak-db-app`, which is referenced by CNPG initialization and the Keycloak database settings. [ExternalSecret](repo://deploy/keycloak/components/cnpg/external-secret-db.yaml#L1-L25) · [CNPG cluster](repo://deploy/keycloak/components/cnpg/cluster.yaml#L1-L17) · [Keycloak resource](repo://deploy/keycloak/components/keycloak/keycloak.yaml#L1-L28)
 - The Keycloak resource enables HTTP and X-Forwarded proxy headers, while its OpenShift Route uses edge TLS termination and redirects insecure traffic. [Keycloak settings](repo://deploy/keycloak/components/keycloak/keycloak.yaml#L21-L28) · [Route](repo://deploy/keycloak/components/keycloak/route.yaml#L1-L14)
 - Account Terraform registers primary OIDC provider audience trust and supports optional stage and production OIDC providers; the Lambda routes tokens to issuer-specific JWKS and validates signature, expiry, and audience. [OIDC providers](repo://deploy/account/oidc.tf#L1-L51) · [Lambda issuer validation](repo://lambda/create-investigation/handler.py#L322-L405)
-- The CLI derives its authorization and token endpoints from the configured Keycloak base URL, realm, and client ID and runs the PKCE callback flow. [PKCE flow](repo://internal/auth/oidc.go#L45-L135)
+- The CLI derives its authorization and token endpoints from the configured Keycloak base URL, realm, and client ID, starts a local callback server before opening the browser, and exchanges the returned authorization code with a PKCE code verifier for an ID token. [PKCE flow](repo://internal/auth/oidc.go#L118-L188)
+- The CLI also supports an OAuth device-code flow as an alternative to the browser flow, sharing the same token cache, expiration check, and status-reporting path as the PKCE flow. [device flow](repo://internal/auth/device.go#L42-L131) · [shared orchestration](repo://internal/auth/oidc.go#L76-L116)
 - Lambda's `get_config` action is dispatched before OIDC validation and returns only configuration identifiers through the IAM-authenticated invocation path. [early dispatch](repo://lambda/create-investigation/handler.py#L88-L117) · [config response](repo://lambda/create-investigation/handler.py#L1048-L1072) · [CLI invocation](repo://internal/lambda/client.go#L200-L222)

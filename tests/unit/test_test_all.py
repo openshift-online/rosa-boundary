@@ -29,6 +29,8 @@ def test_full_entrypoint_attempts_all_gates_after_failure(tmp_path, monkeypatch)
 
     def fake_run(self, name, command, **kwargs):
         commands.append((name, command))
+        if name == 'python-unit':
+            (artifacts / 'python-unit.xml').write_text('<testsuites><testsuite><testcase/></testsuite></testsuites>')
         log = artifacts / f"{name}.log"
         log.write_text("")
         ok = name != "test-coverage"
@@ -36,7 +38,8 @@ def test_full_entrypoint_attempts_all_gates_after_failure(tmp_path, monkeypatch)
         return ok
 
     monkeypatch.setattr(runner_module.Runner, "run", fake_run)
-    monkeypatch.setattr(runner_module, "source_files", lambda: [])
+    files = ['entrypoint.sh', 'tests/localstack/ci-run.sh', 'utils/rosa-boundary-credential-helper', 'scripts/test_all.py']
+    monkeypatch.setattr(runner_module, "source_files", lambda: files)
     monkeypatch.setattr(runner_module.tempfile, "mkdtemp", lambda **kwargs: str(artifacts))
     monkeypatch.setattr(runner_module, "terraform_checks", lambda runner, files: runner.problem("terraform", "fixture failure"))
     monkeypatch.setattr(runner_module, "localstack_check", lambda runner: runner.problem("localstack", "fixture failure"))
@@ -44,6 +47,11 @@ def test_full_entrypoint_attempts_all_gates_after_failure(tmp_path, monkeypatch)
     assert runner_module.main() == 1
     names = [name for name, _ in commands]
     assert names[-1] == "pre-commit"
+    gates = dict(commands)
+    assert gates['pre-commit'] == ['uv', 'run', '--group', 'localstack', 'pre-commit', 'run', '--files', *files]
+    assert gates['shell-format'] == ['shfmt', '-d', '-i', '4', *files[:3]]
+    assert gates['shellcheck-all'] == ['shellcheck', *files[:3]]
+    assert gates['python-unit'][-1] == f'--junitxml={artifacts / "python-unit.xml"}'
     assert "python-unit" in names
     assert "live-tooling-unit" in names
     assert "container-build-both-architectures" in names
@@ -52,6 +60,7 @@ def test_full_entrypoint_attempts_all_gates_after_failure(tmp_path, monkeypatch)
     assert "python-syntax" in names
     summary = json.loads((artifacts / "summary.json").read_text())
     assert any(not result["passed"] for result in summary)
+    assert next(result for result in summary if result['name'] == 'python-unit-coverage')['status'] == 'PASS'
 
 
 def test_missing_executable_is_a_recorded_failure(tmp_path):
@@ -98,11 +107,25 @@ def test_terraform_failure_blocks_module_tests_but_attempts_next_root(tmp_path):
         assert not call.kwargs["cwd"].exists()  # disposable directory cleaned up
 
 
-def test_terraform_tests_without_mocked_aws_are_not_executed(tmp_path):
+@pytest.mark.parametrize('source', [
+    'run "unsafe" { command = apply }',
+    '# mock_provider "aws" {}\nrun "unsafe" { command = apply }',
+    '// mock_provider "aws" {}',
+    '/* mock_provider "aws" {} */',
+    'variables { marker = "mock_provider \\"aws\\" {}" }',
+    'mock_provider "aws" { alias = "fake" }',
+    'mock_provider "aws" {}\nprovider "aws" { alias = "real" }',
+    'mock_provider "aws" {}\nprovider aws { alias = "real" }',
+    r'mock_provider "aws" {} provider "\u0061ws" { alias = "real" }',
+    'variables { marker = <<EOF\nmock_provider "aws" {}\nEOF\n}',
+    'run "nested" { mock_provider "aws" {} }',
+    'mock_provider "aws" {',
+])
+def test_terraform_tests_without_mocked_aws_are_not_executed(tmp_path, source):
     module = tmp_path / "deploy/account"
     (module / "tests").mkdir(parents=True)
     (module / "main.tf").write_text('terraform {}')
-    (module / "tests/unsafe.tftest.hcl").write_text('run "unsafe" { command = apply }')
+    (module / "tests/unsafe.tftest.hcl").write_text(source)
     runner = runner_module.Runner(tmp_path)
     with patch.object(runner_module, "ROOT", tmp_path), patch.object(runner, "run", return_value=True) as run:
         runner_module.terraform_checks(runner, ["deploy/account/main.tf", "deploy/account/tests/unsafe.tftest.hcl"])
@@ -110,6 +133,33 @@ def test_terraform_tests_without_mocked_aws_are_not_executed(tmp_path):
     assert "refusing" in runner.results[0]["detail"]
 
 
+@pytest.mark.parametrize('source', [
+    'mock_provider "aws" {}',
+    'mock_provider\t"aws"\n{\n}',
+    'mock_provider  /* explanation */ "aws" // explanation\n {}',
+    '# ignored\nmock_provider\n"aws"\t{ mock_data "aws_caller_identity" { defaults = { account_id = "test" } } }',
+])
+def test_terraform_mock_whitespace_variations_are_executed(tmp_path, source):
+    module = tmp_path / 'deploy/account'
+    (module / 'tests').mkdir(parents=True)
+    (module / 'main.tf').write_text('terraform {}')
+    (module / 'tests/safe.tftest.hcl').write_text(source)
+    runner = runner_module.Runner(tmp_path)
+    with patch.object(runner_module, 'ROOT', tmp_path), patch.object(runner, 'run', return_value=True) as run:
+        runner_module.terraform_checks(runner, ['deploy/account/main.tf', 'deploy/account/tests/safe.tftest.hcl'])
+    assert run.call_count == 3
+    assert run.call_args.args[1] == ['terraform', 'test', '-no-color']
+    assert not runner.results
+
+
+def test_current_terraform_suites_pass_mock_guard():
+    suites = list(runner_module.ROOT.glob('deploy/**/tests/*.tftest.hcl'))
+    assert suites
+    for suite in suites:
+        assert runner_module.mocked_aws_only(suite.read_text()), suite
+
+
+@pytest.mark.parametrize('coverage_gate', ['localstack-coverage', 'python-unit-coverage'])
 @pytest.mark.parametrize("flags,coverage,failed,expected", [
     ([], 'PASS', False, 0),
     ([], 'INCOMPLETE', False, 0),
@@ -119,10 +169,16 @@ def test_terraform_tests_without_mocked_aws_are_not_executed(tmp_path):
     (['--require-complete'], 'INCOMPLETE', True, 1),
     ([], 'FAIL', False, 1),
 ])
-def test_completion_policy_preserves_status_and_real_failures(tmp_path, monkeypatch, capsys, flags, coverage, failed, expected):
+def test_completion_policy_preserves_status_and_real_failures(tmp_path, monkeypatch, capsys, flags, coverage, failed, expected, coverage_gate):
     def fake_run(self, name, command, **kwargs):
         log = tmp_path / f'{name}.log'
         log.write_text('')
+        if name == 'python-unit':
+            report = next(arg.split('=', 1)[1] for arg in command if arg.startswith('--junitxml='))
+            case = '<skipped/>' if coverage_gate == 'python-unit-coverage' and coverage == 'INCOMPLETE' else ''
+            if coverage_gate == 'python-unit-coverage' and coverage == 'FAIL':
+                case = '<failure/>'
+            Path(report).write_text(f'<testsuites><testsuite><testcase>{case}</testcase></testsuite></testsuites>')
         ok = not (failed and name == 'test-coverage')
         self.results.append({'name': name, 'status': 'PASS' if ok else 'FAIL', 'passed': ok, 'log': str(log)})
         return ok
@@ -131,18 +187,19 @@ def test_completion_policy_preserves_status_and_real_failures(tmp_path, monkeypa
     monkeypatch.setattr(runner_module, 'source_files', lambda: [])
     monkeypatch.setattr(runner_module.tempfile, 'mkdtemp', lambda **kwargs: str(tmp_path))
     monkeypatch.setattr(runner_module, 'terraform_checks', lambda runner, files: None)
-    monkeypatch.setattr(runner_module, 'localstack_check', lambda runner: runner.report('localstack-coverage', coverage, 'fixture coverage detail'))
+    monkeypatch.setattr(runner_module, 'localstack_check', lambda runner: runner.report('localstack-coverage', coverage if coverage_gate == 'localstack-coverage' else 'PASS', 'fixture coverage detail'))
     monkeypatch.setattr(sys, 'argv', ['test_all.py', *flags])
     assert runner_module.main() == expected
     summary = json.loads((tmp_path / 'summary.json').read_text())
-    result = next(item for item in summary if item['name'] == 'localstack-coverage')
+    assert not any(item['name'] == 'pre-commit' for item in summary)
+    result = next(item for item in summary if item['name'] == coverage_gate)
     assert result['status'] == coverage
     assert result['passed'] == (coverage == 'PASS')
     output = capsys.readouterr().out
-    assert f'{coverage} localstack-coverage: fixture coverage detail' in output
+    assert f'{coverage} {coverage_gate}:' in output
     if coverage == 'INCOMPLETE':
         assert 'NOT verified' in output
-        assert 'FAIL localstack-coverage' not in output
+        assert f'FAIL {coverage_gate}' not in output
 
 
 @pytest.mark.parametrize('contents', [None, '<broken', '<testsuites><testsuite/></testsuites>'])

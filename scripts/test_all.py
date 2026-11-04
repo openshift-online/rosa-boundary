@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -65,6 +66,51 @@ class Runner:
         self.report(name, "FAIL", message)
 
 
+def mocked_aws_only(source):
+    """Conservative HCL scan: require a default mock and reject AWS overrides.
+
+    Tokenize comments and quoted strings atomically, so neither can impersonate
+    a block. Unsupported heredocs fail closed rather than risk template content
+    being mistaken for configuration. Terraform validate/test checks HCL syntax.
+    Named-only mocks do not protect the default provider; real provider blocks
+    (including named overrides or escaped labels) are conservatively rejected.
+    """
+    pattern = re.compile(r'\s+|\#[^\n]*|//[^\n]*|/\*.*?\*/|"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z_0-9-]*|.', re.S)
+    tokens = []
+    for match in pattern.finditer(source):
+        token = match.group()
+        if token.isspace() or token.startswith(("#", "//", "/*")):
+            continue
+        tokens.append(token)
+    depth = 0
+    default_mock = False
+    for index, token in enumerate(tokens):
+        # Reject unterminated comments/strings and heredocs conservatively.
+        if token in ('"', '/') or tokens[index:index + 2] == ['<', '<']:
+            return False
+        if token == 'provider' and tokens[index + 2:index + 3] == ['{']:
+            return False
+        if token == 'mock_provider' and tokens[index + 1:index + 3] in (['"aws"', '{'], ['aws', '{']):
+            if depth != 0:
+                return False
+            # Any alias attribute is rejected: named mocks alone are unsafe,
+            # and accepting mappings would require full HCL evaluation.
+            end = index + 3
+            level = 1
+            while end < len(tokens) and level:
+                level += (tokens[end] == '{') - (tokens[end] == '}')
+                if tokens[end] == 'alias':
+                    return False
+                end += 1
+            if level:
+                return False
+            default_mock = True
+        depth += (token == '{') - (token == '}')
+        if depth < 0:
+            return False
+    return default_mock and depth == 0
+
+
 def terraform_checks(runner, files):
     """Initialize/validate in a disposable source-only copy; never use live state."""
     with tempfile.TemporaryDirectory(prefix="rosa-terraform-check-") as temp:
@@ -93,8 +139,8 @@ def terraform_checks(runner, files):
             if tests:
                 # Every existing test uses mocked AWS. Reject future real-provider
                 # tests rather than accidentally creating AWS resources here.
-                if any('mock_provider "aws"' not in test.read_text() for test in tests):
-                    runner.problem(f"terraform-test-{module}", "refusing test file without mocked AWS provider")
+                if any(not mocked_aws_only(test.read_text()) for test in tests):
+                    runner.problem(f"terraform-test-{module}", "refusing test file without an unambiguous default AWS mock or with AWS provider overrides")
                     continue
                 runner.run(f"terraform-test-{module}", ["terraform", "test", "-no-color"], cwd=directory, env=env)
 
@@ -129,15 +175,21 @@ def main():
     for target in ("test-coverage", "test-lambda-reap-tasks", "test-lambda-reap-investigations", "test-lambda-create-investigation", "test-github-dl", "test-shell", "lint", "staticcheck"):
         runner.run(target, [make, target])
     runner.run("localstack-endpoint-unit", ["go", "test", "-tags", "localstack", "./internal/aws", "-run", "^TestIntegrationEndpoint", "-count=1"])
-    runner.run("python-unit", ["uv", "run", "--group", "localstack", "pytest", "tests/unit/", "-v", "-ra"])
+    unit_report = artifacts / "python-unit.xml"
+    runner.run("python-unit", ["uv", "run", "--group", "localstack", "pytest", "tests/unit/", "-v", "-ra", f"--junitxml={unit_report}"])
+    try:
+        status, message = junit_status(unit_report)
+        runner.report("python-unit-coverage", status, message)
+    except (OSError, ET.ParseError):
+        runner.problem("python-unit-coverage", "missing or invalid JUnit report")
     runner.run("live-tooling-unit", [sys.executable, "-m", "unittest", "discover", "-s", ".agents/skills/boundary-live-verification/scripts", "-p", "test_*.py", "-v"])
     runner.run("lambda-coverage", [make, "-C", "lambda/create-investigation", "test-coverage"])
     if runner.run("go-format", ["gofmt", "-d", *[name for name in files if name.endswith(".go")]]):
         # gofmt -d exits zero for differences, so inspect its captured output.
         if Path(runner.results[-1]["log"]).stat().st_size:
             runner.problem("go-format-differences", "unformatted Go files; see go-format log")
-    runner.run("shell-format", ["shfmt", "-d", "-i", "4", "entrypoint.sh", "deploy/regional/examples/"])
     shell_files = [name for name in files if name.endswith(".sh") or name == "utils/rosa-boundary-credential-helper"]
+    runner.run("shell-format", ["shfmt", "-d", "-i", "4", *shell_files])
     runner.run("shellcheck-all", ["shellcheck", *shell_files])
     runner.run("terraform-format", ["terraform", "fmt", "-check", "-recursive", "deploy", "hcp-terraform", "tests/localstack/terraform"])
     terraform_checks(runner, files)
@@ -150,7 +202,8 @@ def main():
         print("No root adversary-findings.json: findings validation/conversion not applicable.", flush=True)
     runner.run("container-build-both-architectures", [make, "build"])
     runner.run("lambda-container-build", [make, "build-lambda-image"])
-    runner.run("pre-commit", [make, "pre-commit"])
+    if files:
+        runner.run("pre-commit", ["uv", "run", "--group", "localstack", "pre-commit", "run", "--files", *files])
     (artifacts / "summary.json").write_text(json.dumps(runner.results, indent=2) + "\n")
     print("\nSummary:")
     for result in runner.results:

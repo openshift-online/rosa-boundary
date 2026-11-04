@@ -11,6 +11,25 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tests/localstack"))
 
 
+def test_cli_binary_build_is_tagged_and_temporary(tmp_path, monkeypatch):
+    spec = importlib.util.spec_from_file_location("cli_binary_fixtures", ROOT / "tests/localstack/conftest.py")
+    fixtures = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fixtures)
+    which = Mock(return_value='/test/bin/go')
+    run = Mock()
+    monkeypatch.setattr('shutil.which', which)
+    monkeypatch.setattr('subprocess.run', run)
+    factory = Mock()
+    factory.mktemp.return_value = tmp_path
+    binary = fixtures.localstack_cli_binary.__wrapped__(factory)
+    which.assert_called_once_with('go')
+    assert binary == tmp_path / 'rosa-boundary'
+    run.assert_called_once_with(
+        ['/test/bin/go', 'build', '-tags', 'localstack', '-o', str(binary), './cmd/rosa-boundary'],
+        cwd=ROOT, check=True,
+    )
+
+
 def test_cli_identity_is_private_synthetic_and_region_consistent(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("cli_integration_fixtures", ROOT / "tests/localstack/conftest.py")
     fixtures = importlib.util.module_from_spec(spec)

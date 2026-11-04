@@ -8,6 +8,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import textwrap
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -34,6 +35,25 @@ def test_bad_health_blocks_tests(health):
             check_ready.require_ready("http://localhost:4566")
 
 
+@pytest.mark.parametrize("service", check_ready.REQUIRED)
+def test_each_required_service_must_be_ready(service):
+    services = {required: "available" for required in check_ready.REQUIRED}
+    services[service] = "starting"
+    with patch.object(check_ready.urllib.request, "build_opener") as factory:
+        factory.return_value.open.return_value = io.StringIO(json.dumps({"services": services}))
+        with pytest.raises(check_ready.NotReady) as error:
+            check_ready.require_ready("http://localhost:4566")
+        assert str(error.value) == f"LocalStack services not ready: {service}"
+
+
+def test_malformed_ipv6_blocks_tests_without_http_call():
+    with patch.object(check_ready.urllib.request, "build_opener") as factory:
+        with pytest.raises(check_ready.NotReady, match="LOCALSTACK_ENDPOINT must be a valid loopback HTTP URL") as error:
+            check_ready.require_ready("http://[::1:4566")
+        assert isinstance(error.value.__cause__, ValueError)
+        factory.assert_not_called()
+
+
 def test_connection_failure_blocks_tests():
     with patch.object(check_ready.urllib.request, "build_opener") as factory:
         factory.return_value.open.side_effect = ConnectionRefusedError()
@@ -52,6 +72,54 @@ def test_direct_pytest_fixture_fails_instead_of_skipping():
         with pytest.raises(pytest.fail.Exception, match="down"):
             fixtures.localstack_ready_for_each_test.__wrapped__(SimpleNamespace(fixturenames=['ecs_client', 'localstack_available']))
         client.assert_not_called()
+
+
+def test_autouse_guard_detects_readiness_lost_between_tests(tmp_path):
+    # Exercise real pytest discovery and session caching, not __wrapped__ calls.
+    # Only readiness and client construction are stubbed; no network is used.
+    conftest = (ROOT / "tests/localstack/conftest.py").read_text()
+    (tmp_path / "conftest.py").write_text(conftest + textwrap.dedent("""
+
+        ready = True
+        client_calls = []
+
+        def fake_require_ready(endpoint):
+            if not ready:
+                raise NotReady("readiness lost between tests")
+
+        def fake_client(*args, **kwargs):
+            client_calls.append(args)
+            return object()
+
+        require_ready = fake_require_ready
+        boto3.client = fake_client
+    """))
+    (tmp_path / "test_readiness_loss.py").write_text(textwrap.dedent("""
+        from pathlib import Path
+        import conftest
+
+        def test_first(ecs_client):
+            assert len(conftest.client_calls) == 1
+            Path("first-ran").touch()
+            conftest.ready = False
+
+        def test_second(ecs_client):
+            Path("second-ran").touch()
+    """))
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "test_readiness_loss.py"],
+        cwd=tmp_path,
+        env=dict(os.environ, PYTHONPATH=str(ROOT / "tests/localstack"), PYTEST_ADDOPTS="",
+                 PYTEST_DISABLE_PLUGIN_AUTOLOAD="1", PYTHONDONTWRITEBYTECODE="1"),
+        capture_output=True, text=True, timeout=30,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode == pytest.ExitCode.TESTS_FAILED, output
+    assert "1 passed, 1 error" in output, output
+    assert "ERROR at setup of test_second" in output, output
+    assert "readiness lost between tests" in output, output
+    assert (tmp_path / "first-ran").exists()
+    assert not (tmp_path / "second-ran").exists()
 
 
 @pytest.mark.parametrize("arguments", [

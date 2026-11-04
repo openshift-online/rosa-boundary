@@ -108,11 +108,11 @@ echo ""
 
 # Check 5: Podman setup
 echo "Checking podman setup..."
-if command -v podman &> /dev/null; then
+if command -v podman &>/dev/null; then
     pass "podman installed"
 
     # Check podman socket
-    if systemctl --user is-active podman.socket &> /dev/null; then
+    if systemctl --user is-active podman.socket &>/dev/null; then
         pass "podman.socket is active"
     else
         warn "podman.socket is not running"
@@ -123,7 +123,7 @@ else
     ((ERRORS++))
 fi
 
-if command -v podman-compose &> /dev/null; then
+if command -v podman-compose &>/dev/null; then
     pass "podman-compose installed"
 else
     warn "podman-compose not installed"
@@ -133,7 +133,7 @@ echo ""
 
 # Check 6: uv package manager
 echo "Checking uv package manager..."
-if command -v uv &> /dev/null; then
+if command -v uv &>/dev/null; then
     pass "uv is installed"
 else
     warn "uv not installed (recommended for this project)"

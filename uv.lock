@@ -691,19 +691,19 @@ localstack = [
 
 [package.metadata]
 requires-dist = [
-    { name = "podman-compose", specifier = ">=1.6.0" },
-    { name = "pre-commit", specifier = ">=4.7.0" },
-    { name = "skillsaw", specifier = ">=0.22.0" },
-    { name = "tool", specifier = ">=0.8.0" },
+    { name = "podman-compose", specifier = "==1.6.0" },
+    { name = "pre-commit", specifier = "==4.7.0" },
+    { name = "skillsaw", specifier = "==0.22.0" },
+    { name = "tool", specifier = "==0.8.0" },
 ]
 
 [package.metadata.requires-dev]
 localstack = [
-    { name = "boto3", specifier = ">=1.43.67" },
-    { name = "cryptography", specifier = ">=50.0.0" },
-    { name = "pyjwt", specifier = ">=2.13.0" },
-    { name = "pytest", specifier = ">=9.1.1" },
-    { name = "requests", specifier = ">=2.34.2" },
+    { name = "boto3", specifier = "==1.43.123" },
+    { name = "cryptography", specifier = "==50.0.2" },
+    { name = "pyjwt", specifier = "==2.15.1" },
+    { name = "pytest", specifier = "==9.2.0" },
+    { name = "requests", specifier = "==2.34.2" },
 ]
 
 [[package]]

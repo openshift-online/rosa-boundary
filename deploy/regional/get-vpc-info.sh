@@ -10,10 +10,10 @@ echo ""
 # Get VPCs
 echo "=== Available VPCs ==="
 aws ec2 describe-vpcs \
-  --profile "$PROFILE" \
-  --region "$REGION" \
-  --query 'Vpcs[*].[VpcId,Tags[?Key==`Name`].Value|[0],CidrBlock,IsDefault]' \
-  --output table
+    --profile "$PROFILE" \
+    --region "$REGION" \
+    --query 'Vpcs[*].[VpcId,Tags[?Key==`Name`].Value|[0],CidrBlock,IsDefault]' \
+    --output table
 
 echo ""
 read -r -p "Enter VPC ID to use: " VPC_ID
@@ -22,11 +22,11 @@ read -r -p "Enter VPC ID to use: " VPC_ID
 echo ""
 echo "=== Subnets in $VPC_ID ==="
 aws ec2 describe-subnets \
-  --profile "$PROFILE" \
-  --region "$REGION" \
-  --filters "Name=vpc-id,Values=$VPC_ID" \
-  --query 'Subnets[*].[SubnetId,AvailabilityZone,CidrBlock,Tags[?Key==`Name`].Value|[0]]' \
-  --output table
+    --profile "$PROFILE" \
+    --region "$REGION" \
+    --filters "Name=vpc-id,Values=$VPC_ID" \
+    --query 'Subnets[*].[SubnetId,AvailabilityZone,CidrBlock,Tags[?Key==`Name`].Value|[0]]' \
+    --output table
 
 echo ""
 echo "Select at least 2 subnets (preferably in different AZs)"

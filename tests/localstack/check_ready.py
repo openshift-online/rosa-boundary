@@ -21,7 +21,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def require_ready(endpoint=None):
     endpoint = endpoint or os.environ.get("LOCALSTACK_ENDPOINT", "http://localhost:4566")
-    url = urllib.parse.urlsplit(endpoint)
+    try:
+        url = urllib.parse.urlsplit(endpoint)
+    except ValueError as error:
+        raise NotReady("LOCALSTACK_ENDPOINT must be a valid loopback HTTP URL") from error
     if url.scheme != "http" or url.hostname not in ("localhost", "127.0.0.1", "::1") or url.username or url.password or url.query or url.fragment:
         raise NotReady("LOCALSTACK_ENDPOINT must be a loopback HTTP endpoint")
     try:

@@ -119,7 +119,7 @@ run "custom_shared_prefix" {
   command = apply
   variables { role_name_prefix = "boundary-shared" }
   assert {
-    condition     = output.shared_roles.task.name == "boundary-shared-task-role" && output.regional_iam_contract.account_role_name_prefix == "boundary-shared"
+    condition     = output.shared_roles.task.name == "boundary-shared-task-role" && output.shared_roles.reap_investigations.name == "boundary-shared-reap-investigations-lambda" && output.regional_iam_contract.account_role_name_prefix == "boundary-shared"
     error_message = "A deliberate custom prefix must be exposed consistently to all regions."
   }
 }

@@ -38,16 +38,16 @@ awslocal ec2 associate-route-table --subnet-id "$SUBNET2_ID" --route-table-id "$
 
 # Create security group for ECS tasks
 SG_ID=$(awslocal ec2 create-security-group \
-  --group-name test-ecs-sg \
-  --description "Security group for ECS testing" \
-  --vpc-id "$VPC_ID" \
-  --query 'GroupId' --output text)
+    --group-name test-ecs-sg \
+    --description "Security group for ECS testing" \
+    --vpc-id "$VPC_ID" \
+    --query 'GroupId' --output text)
 echo "Created Security Group: $SG_ID"
 
 # Allow all outbound traffic
 awslocal ec2 authorize-security-group-egress \
-  --group-id "$SG_ID" \
-  --ip-permissions IpProtocol=-1,FromPort=-1,ToPort=-1,IpRanges='[{CidrIp=0.0.0.0/0}]' 2>/dev/null || true
+    --group-id "$SG_ID" \
+    --ip-permissions IpProtocol=-1,FromPort=-1,ToPort=-1,IpRanges='[{CidrIp=0.0.0.0/0}]' 2>/dev/null || true
 
 # Store resource IDs in SSM Parameter Store for test discovery
 awslocal ssm put-parameter --name /test/vpc-id --value "$VPC_ID" --type String --overwrite

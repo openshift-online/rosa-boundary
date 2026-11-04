@@ -672,7 +672,7 @@ wheels = [
 [[package]]
 name = "rosa-boundary"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "podman-compose" },
     { name = "pre-commit" },

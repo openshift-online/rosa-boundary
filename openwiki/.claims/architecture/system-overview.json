@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:01a28165b7920b1fdef3cc8e606622bcaac0f12ad4eb76c7eb0a411bdac68a9b",
+  "pageVersion": "sha256:c4d03867b1beada14b400198f5aa545385ac5920fb4addd5382942430b6058e2",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
@@ -189,8 +189,8 @@
       "statement": "The reap-investigations Lambda's GRACE_PERIOD_HOURS defaults to 72 hours in the handler when the environment variable is unset, while the Terraform variable investigation_grace_period_hours that normally supplies it defaults to 168 hours (7 days); operators relying on the Lambda's built-in fallback outside Terraform-managed deployment get a materially shorter grace period than the documented default.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/variables.tf#L424-L433",
-          "version": "repo-lines-v1:sha256:c17d1975e12bfd74c8ea00b55d9d28a8add2aeae5fa0c712118f5349fa269a9e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU1N2Y2ZGEwNmNmMzljODBhOWE5ZDNiNDI0ZTA2Zjc2NDMzYmI2MmYzNjQ4MjNjZTA3ZjcyYTM3OGI0OTVhYWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/variables.tf#L424-L432",
+          "version": "repo-lines-v1:sha256:1f08ff33ef1e3492c2a244f6a4566b6d4a2cabe4a33c19d7233fa68350ee61d1:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTU3ZjZkYTA2Y2YzOWM4MGE5YTlkM2I0MjRlMDZmNzY0MzNiYjYyZjM2NDgyM2NlMDdmNzJhMzc4YjQ5NWFhYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjdlNTc4OGQ1ZDlkNzNkMjRhODFkYmMwYTVhNzRiZmE4MmM5YzNiM2FmOTllNTJhZjc5NmU5MGI0NjhhOGEzZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZmI1ODBlOTY0ZjgzYTQ3M2Y0M2Q0NDM4NDYyOTQ5ZDY4YjU2MDBmZGE3ODdmMTYzNzQ1ZDAwZGU4OWNiZjM2YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjEsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSJ9"
         },
         {
           "resource": "repo://lambda/reap-investigations/handler.py#L43-L47",
@@ -201,6 +201,6 @@
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-03T16:15:29.447Z"
+    "at": "2026-11-05T16:02:21.720Z"
   }
 }

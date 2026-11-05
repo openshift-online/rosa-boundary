@@ -18,10 +18,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-b696734e098932f3853bbb51
     resource: repo://tests/shell/entrypoint.bats
-generated: { by: "openwiki/0.7.1", at: "2026-10-15T16:03:34.007Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-10-15T16:03:34.007Z
+    at: 2026-11-05T16:02:21.720Z
+generated: { by: "openwiki/0.7.1", at: "2026-11-05T16:02:21.720Z" }
 ---
 
 # Container image and task runtime
@@ -30,7 +30,7 @@ The image built from `Containerfile` is the operator environment run by ECS Farg
 
 ## Build and architecture selection
 
-The root Makefile builds AMD64 and ARM64 variants with Podman and can assemble them into one manifest list. `platform_convert` resolves architecture placeholders from the target build platform (`x86_64`/`aarch64`); the Containerfile uses this for the backplane-tools and Claude release assets. The backplane-tools installer and Claude Code are downloaded in independent builder stages through `github_dl`, which locates release assets and validates the selected asset against a published checksum. GitHub credentials are passed through build secret mounts. tmux is built separately from a pinned source tarball and checked against its SHA256 before compilation.
+The root Makefile builds AMD64 and ARM64 variants with Podman and can assemble them into one manifest list. `platform_convert` resolves architecture placeholders from the target build platform: it reads `uname -m` (`x86_64`/`amd64` or `aarch64`/`arm64`) and substitutes a caller-supplied ARM or x86 string into either a positional URL fragment or a file in place; the Containerfile uses this for the backplane-tools and Claude release assets. The backplane-tools installer and Claude Code are downloaded in independent builder stages through `github_dl`, which locates release assets and validates the selected asset against a published checksum. GitHub credentials are passed through build secret mounts. tmux is built separately from a pinned source tarball and checked against its SHA256 before compilation.
 
 The final stage installs runtime packages, copies only selected outputs from the builder stages, sets up alternatives and shell completions, creates the `sre` user, and places the skeleton home under `/etc/skel-sre` for first-run initialization. OpenShift client versions are installed under `/opt/openshift` and selected by the entrypoint when `OC_VERSION` names an installed version.
 
@@ -42,9 +42,49 @@ The Terraform task definition can include a `kube-proxy` sidecar. It writes the 
 
 After setup, the entrypoint backgrounds the requested command (default `sleep infinity`) as `sre` and waits so the root shell can handle signals. On normal exit and trapped shutdown it attempts an S3 sync of `/home/sre`, bounded by `SYNC_TIMEOUT`; sync excludes OCM and kubeconfig state and uses `--no-follow-symlinks`. This audit copy is best-effort: a missing destination warns, and a failed or timed-out sync does not block the container's exit indefinitely.
 
+```mermaid
+flowchart TD
+    Start["entrypoint starts as root\n(HOME=/root, traps installed)"]
+    OcVersion{"OC_VERSION set and installed?"}
+    SwitchOc["alternatives --set oc"]
+    VerifyMounts{"OCM/.kube paths are\ntask-scoped, non-EFS mounts?"}
+    FailClosed["print error, exit nonzero\n(no workload started)"]
+    InitMounts["mkdir/chown sre/chmod 0700\nfor OCM and kube paths"]
+    KubeProxy{"KUBE_PROXY_PORT set?"}
+    WriteKubeconfig["write localhost kubeconfig"]
+    CopySkel["copy /etc/skel-sre to\n/home/sre (no clobber)"]
+    DropPriv["runuser -u sre -- COMMAND &\nCHILD_PID=$!"]
+    WaitChild["wait CHILD_PID\n(root shell blocks here)"]
+    Signal["SIGTERM/SIGINT/SIGHUP\ntrapped -> cleanup()"]
+    NormalExit["child exits normally"]
+    SyncS3["sync_to_s3\n(bounded by SYNC_TIMEOUT,\nexcludes OCM/.kube, no-follow-symlinks)"]
+    KillChild["kill -TERM CHILD_PID"]
+    Exit["exit with child's exit code\n(or 0 from signal path)"]
+
+    Start --> OcVersion
+    OcVersion -- yes --> SwitchOc --> VerifyMounts
+    OcVersion -- no --> VerifyMounts
+    VerifyMounts -- no --> FailClosed
+    VerifyMounts -- yes --> InitMounts --> KubeProxy
+    KubeProxy -- yes --> WriteKubeconfig --> CopySkel
+    KubeProxy -- no --> CopySkel
+    CopySkel --> DropPriv --> WaitChild
+    WaitChild -- normal exit --> NormalExit --> SyncS3 --> Exit
+    Signal -.-> SyncS3
+    SyncS3 -.-> KillChild -.-> Exit
+```
+*Entrypoint control flow: privileged setup and mount verification happen before the privilege drop; the root shell then blocks on `wait` so a trapped signal or the workload's own exit both reach the same bounded S3 sync before the container exits.*
+
 ## Tests and operational linkage
 
 The bats suite sources the entrypoint without running it, checks that startup rejects missing or EFS-backed credential overlays, and verifies both explicit and auto-generated S3 destinations retain credential exclusions and symlink protections. ECS task-definition source supplies the mount paths, stop timeout, Bedrock variables, and optional sidecar behavior consumed by the script.
+
+## Related pages
+
+- [System overview and boundaries](../architecture/system-overview.md) places the container within the CLI/Lambda/ECS request flow.
+- [ROSA Boundary auditing and logging flows](../operations/audit-and-logging.md) covers the S3 audit escrow alongside CloudWatch and CloudTrail evidence.
+- [Verification and testing](../testing/verification.md) describes how the bats suite fits the broader test strategy.
+- [Investigation lifecycle](../workflows/investigation-lifecycle.md) covers how a task reaches this container and how it is torn down.
 
 ## Evidence-backed claims
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:2a35621f1df5841e74919df41af5cc9dfa9132680bfdecaee85710576fae533f",
+  "pageVersion": "sha256:d2df8765e5811702e8d8edbe4685b23b34682e7eed778cf191071da460813c1b",
   "claims": [
     {
       "id": "claim_4191e613a2324557823afcf516dae80a",
@@ -148,7 +148,7 @@
     },
     {
       "id": "claim_462a24d55cb749a7a879c8bcd922fc57",
-      "statement": "The investigation reaper mounts its dedicated EFS root access point at /mnt/efs and runs on an independent EventBridge schedule, defaulting in Terraform to eight hours. With no matching running task, creation age beyond the grace period or missing CreatedAt makes an investigation eligible; a final task check precedes cleanup, and an existing directory requires a successful S3 backup under cluster/investigation/reaper-final-backup before directory deletion, access-point removal, and task-definition deregistration.",
+      "statement": "The investigation reaper mounts its dedicated EFS root access point at /mnt/efs and runs on an independent EventBridge schedule set by the investigation_reaper_schedule_hours Terraform variable (default 8 hours). With no matching running task, creation age beyond the grace period (investigation_grace_period_hours, default 168 hours) or missing CreatedAt makes an investigation eligible; a final task check precedes cleanup, and an existing directory requires a successful S3 backup under cluster/investigation/reaper-final-backup before directory deletion, access-point removal, and task-definition deregistration.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/lambda-reap-investigations.tf#L120-L143",
@@ -159,8 +159,8 @@
           "version": "repo-lines-v1:sha256:c531ede38f5ee0bcd90ea45622fe2f2f971e336d64f194e5a29bcaed74df20f7:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3MDVlNjE5YjMzMmFjYmUxNzRkYjkxY2QxMjRiYTdiODYyYzlmNzFhM2YzOGI2Mzk0MjBkNDk2MWQ2YzRmOTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhhMTVhYjFhMzA2ZjMwYThhZDViODk3NjU0MDQ0NzFjMDhlNDQyMDU0ZmViNzYxYzY0NDU0YjhiNjg4MjFlMTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://deploy/regional/variables.tf#L402-L422",
-          "version": "repo-lines-v1:sha256:e7ca78a39ff752251ecef312d03db0bc44875f431310632b670e6200549b58ae:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyZmI2YTA4NTg1NmI2Nzc5MDlmMjZkZmRmMjkyNGI1NzA1ZTU4YzM4YzIyZmYxZWMxYjczNDY4ZDMzMWUwZjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/variables.tf#L402-L411",
+          "version": "repo-lines-v1:sha256:2be537f8bfbc8b808982b735fb6598d73cfb4804116ac33664a4c18df7fc81a1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlYmRiNzYxZjVjNTgxZjQ5ODI0Mjk3YmM2N2I1OTkwYTY3YjhmMzZjNDU3M2Q1NTQ2MzZiMDI1ODZmNWJlOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNlNWU2NTIyMTllNjYxMTM4Yjc0YTIxNmMzYjlmMmNiMzkzNzMxMzc2YmE5YTk3ZDdhYjcyOTRhZWFhOWEyNzcifQ"
         },
         {
           "resource": "repo://lambda/reap-investigations/handler.py#L179-L223",
@@ -231,14 +231,14 @@
           "version": "repo-lines-v1:sha256:e4bd723238a34a5cc3bef6b25331137fe0baa485937621a19dcaf83559fae0cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcyMjQ0Y2NmNzliNjkyM2U2ZDY0ZGJmYTMxZGQ4NTdhMzg2Y2NlNGY3ZDVhOThkYzJhOWUwMGQzY2Q2MGJjNWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L197-L207",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L206-L216",
           "version": "repo-lines-v1:sha256:5e36e00ebc35295244deaea36e06e6c786500ed31b1e3081b58e53b55027f941:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyOWQ4MTRhOGQwMTM3MzBiOTZkYzQ0Y2FlY2RhYjk1NTI1NmFmYzA4MWRmMWFmMDFiYTVhMzhiMmU5NmE1MTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA2ZDYzZTdmMDAwMWUzZDEyMDM2YjlhNjVhNzE2ZjBkZmRiOGYxM2Y2ZDhjODdjZDUxMmNjYjZkZTBiNmFiYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFkNzMwZjhjZDA2MGNmNjA1YzJmYjA4YWJkY2IyMDJhN2MwZDQ0OWZjNjc2YmM4ZTFhODFhNzkyOGNjNjcwM2YifQ"
         }
       ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.2",
-    "at": "2026-10-27T13:26:37.491Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-05T16:02:21.720Z"
   }
 }

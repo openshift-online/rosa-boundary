@@ -734,6 +734,13 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
+          # Bootstrap the ordinary production publication repository; Lambda
+          # still uses the existing Quay cache until a separate cutover.
+          key      = "enable_lambda_ecr_source"
+          value    = "true"
+          category = "terraform"
+        },
+        {
           key      = "aws_account_id"
           value    = "514903006123"
           category = "terraform"

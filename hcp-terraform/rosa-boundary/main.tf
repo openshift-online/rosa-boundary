@@ -1219,6 +1219,13 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
+          # Account workspace owns the source repository in us-east-1. Create
+          # this destination before enabling account-wide replication.
+          key      = "lambda_ecr_destination_source_region"
+          value    = "us-east-1"
+          category = "terraform"
+        },
+        {
           # Matches deploy/account regional_iam_contract.account_role_name_prefix.
           key      = "account_role_name_prefix"
           value    = "rosa-boundary-prod"

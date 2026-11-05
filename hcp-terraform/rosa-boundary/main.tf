@@ -741,6 +741,14 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
+          # The source repository must already exist and the west destination
+          # must have applied before the registry-wide rule is enabled.
+          key      = "lambda_ecr_replication_regions"
+          value    = "[\"us-west-2\"]"
+          category = "terraform"
+          hcl      = true
+        },
+        {
           key      = "aws_account_id"
           value    = "514903006123"
           category = "terraform"

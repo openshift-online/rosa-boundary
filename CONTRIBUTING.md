@@ -226,7 +226,143 @@ uv run --group localstack bash tests/localstack/compose.sh down
 `make localstack-down` instead uses `down -v`, requesting removal of Compose-managed
 volumes. Never include credentials or unredacted investigation data in a PR.
 
-## 5. Open a PR from an upstream branch
+## 5. Deploy and verify in your personal AWS development account
+
+**Required after local tests and checks pass, and before opening a PR:** deploy
+your changes to your personal AWS development account and verify the affected
+behavior there. Local tests and LocalStack are prerequisites, not substitutes for
+a real AWS deployment and live verification. If access, configuration, or a local
+check blocks you, resolve it before proceeding; do not treat the live step as
+optional or report unverified behavior as passed.
+
+Follow the [personal-dev bootstrap guide](docs/runbooks/personal-dev-bootstrap.md)
+for the complete sequence: account IAM/OIDC → network → image build/publication
+→ regional infrastructure → isolated CLI configuration and an approved smoke test.
+Bootstrap once, then update the affected components for each changeset; reuse
+existing infrastructure only after verifying the target account/region and
+deployed artifact provenance. Review plans and obtain explicit approval before
+AWS changes or investigation creation. Record the tested revision/artifacts,
+live results, audit evidence and cleanup status for your PR.
+See also the [account infrastructure guide](deploy/account/README.md) and
+[regional infrastructure guide](deploy/regional/README.md). Staging instead uses
+the [Git/PR → HCP delivery path](docs/staging-deployment.md); never use these
+local commands against staging or production.
+
+### Populate account-specific tfvars from your AWS session
+
+First authenticate into **your personal account**, then run this block from the
+repository root using Bash. Set `REGION` explicitly (or configure your AWS CLI
+region). Optionally set `BUDGET_EMAIL` to override email discovery. The block
+preserves an existing notification email, otherwise uses your Red Hat Git email
+when available, falling back to `$(whoami)@redhat.com`. It does not require access
+to AWS Organizations or the account owner's email.
+It makes only an STS identity request, writes a private, gitignored local file,
+and never runs Terraform or creates AWS resources.
+
+Use this only for a **new personal dev installation**, before any applies. It
+preserves existing OIDC, trust, budget amount, and model settings, but sets the
+initial region/region-tag fields together. Do not use it to migrate an existing
+state between regions. An existing file for a different account or a non-dev
+stage is rejected rather than silently retargeted.
+
+```bash
+set -euo pipefail
+export REGION="${REGION:-$(aws configure get region || true)}"
+: "${REGION:?Set REGION to your approved personal-dev AWS region}"
+export ACCOUNT="$(aws sts get-caller-identity --region "$REGION" --query Account --output text)"
+
+python3 - <<'PY'
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+
+path = Path("deploy/account/terraform.tfvars")
+existing = path.exists()
+source = path if existing else path.with_name("terraform.tfvars.example")
+content = source.read_text()
+account, region = os.environ["ACCOUNT"], os.environ["REGION"]
+if not re.fullmatch(r"[0-9]{12}", account):
+    raise SystemExit("STS did not return a valid AWS account ID")
+if not re.fullmatch(r"[a-z]{2}(?:-[a-z]+)+-[0-9]+", region):
+    raise SystemExit("Invalid AWS region")
+
+def current(key):
+    match = re.search(r'^\s*' + re.escape(key) + r'\s*=\s*("[^"\n]*")', content, re.M)
+    return json.loads(match[1]) if match else None
+
+if existing and current("aws_account_id") != account:
+    raise SystemExit("Existing tfvars account differs from AWS session; review it manually")
+if existing and current("stage") != "dev":
+    raise SystemExit("Existing tfvars is not explicitly dev; refusing to retarget it")
+
+email = os.environ.get("BUDGET_EMAIL")
+if not email:
+    saved = current("bedrock_budget_notification_email") if existing else None
+    git = subprocess.run(["git", "config", "user.email"], capture_output=True, text=True)
+    candidate = git.stdout.strip()
+    username = subprocess.check_output(["whoami"], text=True).strip()
+    email = saved or (candidate if candidate.endswith("@redhat.com") else username + "@redhat.com")
+if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+    raise SystemExit("Set BUDGET_EMAIL to a valid notification address")
+
+values = dict(aws_account_id=account, aws_region=region, stage="dev",
+              legacy_policy_region=region, legacy_role_tag_region=region,
+              bedrock_budget_tag_region=region, bedrock_budget_notification_email=email)
+for key, value in values.items():
+    pattern = r"(?m)^" + re.escape(key) + r"[ \t]*=[^\n]*$"
+    if len(re.findall(pattern, content)) != 1:
+        raise SystemExit("Expected exactly one assignment for " + key + "; review tfvars manually")
+    content = re.sub(pattern, lambda _: key + " = " + json.dumps(value), content)
+
+os.umask(0o077)
+path.write_text(content)
+path.chmod(0o600)
+print("Updated", path, "for account", account, "in", region, "(no AWS resources created)")
+PY
+```
+
+Review the file privately before planning. Confirm access to the example dev
+Keycloak provider, verify its current TLS thumbprint and client configuration
+(or replace them with your approved provider), choose your budget amount, and
+confirm notification delivery. Budget alerts do **not**
+cap spending. Never commit tfvars, `.env`, Terraform state, or credentials.
+
+### Provision and connect the layers
+
+Use a dedicated checkout/state for your account. Inspect each root's Makefile,
+then initialize and plan the account baseline:
+
+```bash
+make -C deploy/account init
+make -C deploy/account validate
+make -C deploy/account plan
+# Only after reviewing/approving the plan:
+make -C deploy/account apply
+```
+
+If you have no suitable VPC, follow the bootstrap guide's **Network** step to
+create `deploy/network/terraform.tfvars` with your account/region, `stage = "dev"`,
+non-overlapping CIDRs and at least two availability zones in your region. Override
+the network root's account/stage defaults. Run `make -C deploy/network init plan`,
+review before `make -C deploy/network apply`, then use
+`make -C deploy/network output` for the VPC and **private** subnet IDs. A single
+NAT gateway is the cost-optimized dev option, but still incurs hourly/data charges
+and is not highly available. Do not automatically adopt an existing default VPC.
+
+Build/publish a revision-specific image **before** regional apply. Populate
+`deploy/regional/terraform.tfvars` with those network outputs and your image digest,
+matching account identity settings. The regional Makefile also requires a trusted
+root `.env`; explicitly set `KEYCLOAK_ISSUER_URL`, `TF_VAR_abac_tag_key` and
+`TF_VAR_enable_kube_proxy` as described in the bootstrap guide, since its defaults
+can override tfvars. Review each plan before applying. Audit retention locks and
+account/region-wide Bedrock invocation logging require particular attention.
+
+Continue with the guide's CLI setup, smoke-test evidence and cleanup steps;
+leaving an ECS Exec shell does not stop its task or prove audit upload succeeded.
+
+## 6. Open a PR from an upstream branch
 
 Create feature branches directly in `openshift-online/rosa-boundary` and open PRs
 from those branches against its `main` branch, **not from a fork**. HCP Terraform
@@ -256,6 +392,8 @@ for plan, review, and apply behavior.
 
 ## Further reading
 
+- [Personal-dev bootstrap](docs/runbooks/personal-dev-bootstrap.md): fresh-account
+  IAM/OIDC, VPC, image publication, regional deployment, CLI setup and live cleanup.
 - [Testing guide](docs/testing.md): complete suite coverage, prerequisites, skip
   handling, synthetic identity and test-only CLI fixtures, and the boundary
   between local checks and live AWS verification.

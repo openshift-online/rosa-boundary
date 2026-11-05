@@ -7,8 +7,10 @@ adopt_existing_resources          = false
 bedrock_budget_tag_region         = "us-east-1"
 bedrock_monthly_budget_usd         = 1000
 bedrock_budget_notification_email = "alerts@example.com"
-keycloak_issuer_url               = "https://auth.example.com/realms/sre"
-keycloak_thumbprint               = "0000000000000000000000000000000000000000"
+# Development Keycloak provider; confirm access and verify the current top CA
+# SHA-1 TLS thumbprint before applying. Replace both for a different provider.
+keycloak_issuer_url               = "https://keycloak-keycloak.apps.rosa.tsw-boundary.e5fo.p3.openshiftapps.com/realms/rosa-boundary"
+keycloak_thumbprint               = "859d0de987308d5b84f09190044ee3e3108fad79"
 oidc_client_id                    = "rosa-boundary-sre"
 
 # Copy the original activation manifest and retain its management endpoint above.

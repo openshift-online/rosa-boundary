@@ -133,7 +133,7 @@ uv run --group localstack bash tests/localstack/compose.sh down
 ```
 
 On macOS, if GNU `timeout` is not on PATH, use the startup invocation in
-[CONTRIBUTING.md](../../CONTRIBUTING.md#2-request-localstack-access).
+[local setup guide](../../docs/runbooks/contributor-local-setup.md#2-request-localstack-access).
 For full integration only, `make test-localstack` starts LocalStack and tears it
 down afterward using `down -v`. Treat that as an alternative workflow, not a step
 before commands that need the same running service. `make localstack-down` also

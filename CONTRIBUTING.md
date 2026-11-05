@@ -90,6 +90,64 @@ identity and emulated STS, not a running Keycloak server or your personal SSO
 cache. See the [testing guide](docs/testing.md) for these fixtures and their
 identity/authorization verification limits.
 
+### Install workstation-wide CLI tools
+
+`mise install` and `mise deps` do **not** install every CLI used by contributors.
+Install the following workstation tools separately and ensure their executables
+are on your shell's PATH; they are not Boundary container/runtime dependencies.
+This step applies whether or not you use mise for the repository toolchain.
+
+#### OpenWiki
+
+Install [OpenWiki](https://docs.langchain.com/oss/openwiki/overview#get-started)
+for working with the repository's generated `openwiki/` evidence index and
+coding-agent integrations. The upstream
+[quickstart](https://docs.langchain.com/oss/openwiki/quickstart) requires
+**Node.js 22.22.0 or later**. Node.js and OpenWiki are not currently declared in
+`mise.toml`. With mise, install a current Node.js 22 release globally, then install
+the OpenWiki CLI using npm:
+
+```bash
+mise use --global node@22
+node --version
+npm install --global openwiki
+openwiki --version
+```
+
+Without mise, install a supported Node.js version using its official installation
+instructions, then run the same npm installation and version check. Use a
+user-owned Node/npm installation rather than `sudo npm install`. The upstream
+command installs the current OpenWiki release; this repository does not yet pin
+its version. Global npm packages belong to the selected Node installation, so
+reinstall/check OpenWiki if you switch Node versions.
+
+This repository already has a wiki: **do not run `openwiki --init` as an onboarding
+step**, because it regenerates existing documentation. Follow the OpenWiki
+retrieval guidance in [AGENTS.md](AGENTS.md) and read current source/tests to verify
+claims. For an intentional regeneration, use the approved CI workflow; consult
+the upstream quickstart for provider credentials and
+[coding-agent integrations](https://docs.langchain.com/oss/openwiki/integrations)
+for your agent's setup. Installing the CLI does not configure model credentials
+or automatically enable an agent integration. Keep credentials out of Git.
+
+#### AWS and GitHub tooling
+
+For the required personal-AWS deployment later in this guide, also install:
+
+- **AWS CLI v2** and authenticate through your approved account-access tooling.
+  Verify the selected account with `aws sts get-caller-identity`.
+- **AWS Session Manager plugin** (`session-manager-plugin`) for interactive
+  ECS Exec sessions through the Boundary CLI.
+- **GitHub CLI** (`gh`) if using the documented PR commands or obtaining an image
+  build token from an authenticated GitHub session.
+
+See the [personal-dev bootstrap guide](docs/runbooks/personal-dev-bootstrap.md)
+for deployment/build prerequisites and the
+[user access guide](docs/runbooks/user-access-guide.md) for CLI access setup.
+These tools do not replace the Podman, lint tools, or platform-specific utilities
+listed above. OpenWiki installation is separate from the automated local tests;
+`make test-all` does not install or configure it.
+
 ## 2. Request LocalStack access
 
 The integration suite uses **LocalStack Pro** for ECS and EFS support. Ask your

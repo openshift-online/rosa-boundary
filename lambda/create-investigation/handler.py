@@ -12,6 +12,7 @@ import os
 import json
 import logging
 import posixpath
+import time
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 
@@ -85,6 +86,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         API Gateway response with status code and body
     """
+    task_creation_outcome = None
     try:
         # Debug: log event structure (redact sensitive headers)
         logger.info(f"Event keys: {list(event.keys())}")
@@ -242,6 +244,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Create investigation task
         logger.info(f"Creating investigation: {investigation_id} for cluster {cluster_id} (skip_task={skip_task})")
+        if not skip_task:
+            task_creation_outcome = 'failure'
         task_info = create_investigation_task(
             cluster=ECS_CLUSTER,
             task_def=TASK_DEFINITION,
@@ -258,6 +262,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             task_timeout=task_timeout,
             skip_task=skip_task
         )
+        if not skip_task:
+            task_creation_outcome = 'success'
 
         if skip_task:
             logger.info(f"Investigation created (no task launched): {task_info['accessPointId']}")
@@ -281,6 +287,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         })
 
     except HandoverFailedError as e:
+        if task_creation_outcome is not None and e.status_code == 409:
+            task_creation_outcome = 'blocked'
         logger.error(f"Investigation handover failed: {str(e)}")
         return response(e.status_code, {
             'error': str(e),
@@ -290,6 +298,35 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
         return response(500, {'error': 'Internal server error'})
+    finally:
+        if task_creation_outcome is not None:
+            emit_task_creation_metric(task_creation_outcome)
+
+
+def emit_task_creation_metric(outcome: str) -> None:
+    """Emit a bounded EMF count without affecting the task-creation response."""
+    try:
+        metric = {
+            '_aws': {
+                'Timestamp': time.time_ns() // 1_000_000,
+                'CloudWatchMetrics': [{
+                    'Namespace': 'ROSABoundary',
+                    'Dimensions': [['ECSCluster', 'Outcome']],
+                    'Metrics': [{
+                        'Name': 'TaskCreationRequests',
+                        'Unit': 'Count',
+                        'StorageResolution': 60
+                    }]
+                }]
+            },
+            'ECSCluster': ECS_CLUSTER,
+            'Outcome': outcome,
+            'TaskCreationRequests': 1
+        }
+        # EMF requires a standalone JSON log event, without a logger prefix.
+        print(json.dumps(metric), flush=True)
+    except Exception:
+        logger.warning('Failed to emit task-creation metric')
 
 
 def validate_identifier(identifier: str, field_name: str) -> bool:

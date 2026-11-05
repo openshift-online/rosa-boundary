@@ -29,6 +29,130 @@ def mock_aws_client_construction():
         yield
 
 
+class TestTaskCreationMetrics:
+    """Verify outcome semantics, log format, privacy, and telemetry isolation."""
+
+    @pytest.fixture
+    def metric_event(self, monkeypatch):
+        for name, value in {
+            'KEYCLOAK_URL': 'https://keycloak.test',
+            'KEYCLOAK_REALM': 'test',
+            'KEYCLOAK_CLIENT_ID': 'test',
+            'ECS_CLUSTER': 'boundary-test',
+            'TASK_DEFINITION': 'test-task',
+            'SUBNETS': ['subnet-test'],
+            'SECURITY_GROUP': 'sg-test',
+            'EFS_FILESYSTEM_ID': 'fs-test',
+            'SHARED_ROLE_ARN': 'test-role',
+            'REQUIRED_GROUPS': ['sre-team'],
+            'ABAC_TAG_KEY': 'username',
+            'TASK_TIMEOUT_MINIMUM': 30,
+        }.items():
+            monkeypatch.setattr(handler, name, value)
+        monkeypatch.setattr(handler, 'validate_oidc_token', Mock(return_value={
+            'sub': 'private-subject',
+            'preferred_username': 'private-user',
+            'groups': ['sre-team'],
+        }))
+        monkeypatch.setattr(handler, 'create_investigation_task', Mock(return_value={
+            'taskArn': 'private-task-arn',
+            'accessPointId': 'private-access-point',
+        }))
+        return {
+            'headers': {'authorization': 'Bearer private-token'},
+            'body': json.dumps({
+                'cluster_id': 'private-cluster',
+                'investigation_id': 'private-investigation',
+            }),
+        }
+
+    @pytest.mark.parametrize('error,status,outcome', [
+        (None, 200, 'success'),
+        (RuntimeError('private-error'), 500, 'failure'),
+        (ClientError({'Error': {'Code': 'AccessDenied'}}, 'RunTask'), 500, 'failure'),
+        (handler.HandoverFailedError('locked', status_code=409), 409, 'blocked'),
+        (handler.HandoverFailedError('AWS unavailable'), 500, 'failure'),
+    ])
+    def test_creation_outcome(self, metric_event, capsys, error, status, outcome):
+        handler.create_investigation_task.side_effect = error
+        with patch('handler.time.time_ns', return_value=1_800_000_000_123_000_000):
+            result = handler.lambda_handler(metric_event, None)
+
+        assert result['statusCode'] == status
+        # Exactly one standalone JSON event, with no request/identity properties.
+        lines = capsys.readouterr().out.splitlines()
+        assert len(lines) == 1
+        metric = json.loads(lines[0])
+        assert set(metric) == {'_aws', 'ECSCluster', 'Outcome', 'TaskCreationRequests'}
+        assert metric['ECSCluster'] == 'boundary-test'
+        assert metric['Outcome'] == outcome
+        assert metric['TaskCreationRequests'] == 1
+        assert metric['_aws'] == {
+            'Timestamp': 1_800_000_000_123,
+            'CloudWatchMetrics': [{
+                'Namespace': 'ROSABoundary',
+                'Dimensions': [['ECSCluster', 'Outcome']],
+                'Metrics': [{
+                    'Name': 'TaskCreationRequests', 'Unit': 'Count', 'StorageResolution': 60,
+                }],
+            }],
+        }
+        assert 'private-' not in lines[0]
+
+    @pytest.mark.parametrize('excluded', [
+        'get_config', 'skip_task', 'skip_task_failure', 'missing_token',
+        'invalid_token', 'unauthorized', 'invalid_input', 'configuration_error',
+    ])
+    def test_excluded_requests(self, metric_event, capsys, excluded):
+        expected_status = 200
+        if excluded == 'get_config':
+            metric_event['body'] = json.dumps({'action': 'get_config'})
+        elif excluded.startswith('skip_task'):
+            metric_event['body'] = json.dumps({**json.loads(metric_event['body']), 'skip_task': True})
+            if excluded == 'skip_task_failure':
+                handler.create_investigation_task.side_effect = RuntimeError('failed')
+                expected_status = 500
+        elif excluded == 'missing_token':
+            metric_event['headers'] = {}
+            expected_status = 401
+        elif excluded == 'invalid_token':
+            handler.validate_oidc_token.return_value = None
+            expected_status = 401
+        elif excluded == 'unauthorized':
+            handler.validate_oidc_token.return_value['groups'] = []
+            expected_status = 403
+        elif excluded == 'invalid_input':
+            metric_event['body'] = '{}'
+            expected_status = 400
+        else:
+            handler.ECS_CLUSTER = ''
+            expected_status = 500
+
+        assert handler.lambda_handler(metric_event, None)['statusCode'] == expected_status
+        assert capsys.readouterr().out == ''
+
+    @pytest.mark.parametrize('creation_fails', [False, True])
+    def test_metric_write_failure_preserves_response(self, metric_event, creation_fails):
+        if creation_fails:
+            handler.create_investigation_task.side_effect = RuntimeError('creation failed')
+        with patch('handler.print', create=True, side_effect=OSError('log write failed')):
+            result = handler.lambda_handler(metric_event, None)
+        assert result['statusCode'] == (500 if creation_fails else 200)
+        if creation_fails:
+            assert json.loads(result['body']) == {'error': 'Internal server error'}
+        else:
+            assert json.loads(result['body'])['task_arn'] == 'private-task-arn'
+
+    def test_outcome_does_not_leak_between_warm_invocations(self, metric_event, capsys):
+        handler.create_investigation_task.side_effect = RuntimeError('failed')
+        assert handler.lambda_handler(metric_event, None)['statusCode'] == 500
+        handler.create_investigation_task.side_effect = None
+        assert handler.lambda_handler({'body': '{"action":"get_config"}'}, None)['statusCode'] == 200
+        assert handler.lambda_handler(metric_event, None)['statusCode'] == 200
+        metrics = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+        assert [metric['Outcome'] for metric in metrics] == ['failure', 'success']
+
+
 class TestInputValidation:
     """Test input validation for investigation_id and cluster_id."""
 

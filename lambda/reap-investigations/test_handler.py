@@ -15,7 +15,10 @@ os.environ['ECS_CLUSTER'] = 'test-cluster'
 os.environ['EFS_FILESYSTEM_ID'] = 'fs-12345678'
 os.environ['GRACE_PERIOD_HOURS'] = '72'
 
-import handler
+# Mock client construction before import: unit tests must not resolve workstation
+# AWS regions/credentials or contact AWS. Tests replace these clients per case.
+with patch('boto3.client'):
+    import handler
 
 
 class TestReaperLambda(unittest.TestCase):
@@ -23,6 +26,10 @@ class TestReaperLambda(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
+        # Keep reload(handler) isolated from real AWS client construction too.
+        client_patcher = patch("boto3.client")
+        client_patcher.start()
+        self.addCleanup(client_patcher.stop)
         self.mock_ecs = MagicMock()
         self.mock_efs = MagicMock()
         self.mock_shutil = MagicMock()

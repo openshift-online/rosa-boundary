@@ -38,9 +38,10 @@ run "legacy_identity_trust_tags_and_common_attachments" {
       "rosa-boundary-dev-execution-role", "rosa-boundary-dev-task-role",
       "rosa-boundary-dev-sre-shared", "rosa-boundary-dev-lambda-invoker",
       "rosa-boundary-dev-create-investigation-lambda", "rosa-boundary-dev-reap-tasks-lambda",
+      "rosa-boundary-dev-reap-investigations-lambda",
       "rosa-boundary-dev-bedrock-invocation-logging", "rosa-boundary-dev-s3-replication-role"
     ])
-    error_message = "All eight legacy identity names must survive migration."
+    error_message = "All nine shared identity names, including the investigation reaper, must survive migration."
   }
   assert {
     condition = (
@@ -67,6 +68,7 @@ run "legacy_identity_trust_tags_and_common_attachments" {
       jsondecode(aws_iam_role.task.assume_role_policy) == jsondecode(aws_iam_role.execution.assume_role_policy) &&
       jsondecode(aws_iam_role.create_investigation_lambda.assume_role_policy).Statement[0].Principal.Service == "lambda.amazonaws.com" &&
       jsondecode(aws_iam_role.reap_tasks_lambda.assume_role_policy) == jsondecode(aws_iam_role.create_investigation_lambda.assume_role_policy) &&
+      jsondecode(aws_iam_role.reap_investigations_lambda.assume_role_policy) == jsondecode(aws_iam_role.create_investigation_lambda.assume_role_policy) &&
       jsondecode(aws_iam_role.s3_replication[0].assume_role_policy).Statement[0].Principal.Service == "s3.amazonaws.com" &&
       jsondecode(aws_iam_role.bedrock_invocation_logging.assume_role_policy).Statement[0].Condition == {
         StringEquals = { "aws:SourceAccount" = "123456789012" }
@@ -83,7 +85,11 @@ run "legacy_identity_trust_tags_and_common_attachments" {
       aws_iam_role_policy_attachment.create_investigation_lambda_basic.role == aws_iam_role.create_investigation_lambda.name &&
       aws_iam_role_policy_attachment.reap_tasks_lambda_basic.policy_arn == aws_iam_role_policy_attachment.create_investigation_lambda_basic.policy_arn &&
       aws_iam_role_policy_attachment.reap_tasks_lambda_basic.role == aws_iam_role.reap_tasks_lambda.name &&
-      alltrue([for r in [aws_iam_role.execution, aws_iam_role.task, aws_iam_role.sre_shared, aws_iam_role.lambda_invoker, aws_iam_role.create_investigation_lambda, aws_iam_role.reap_tasks_lambda, aws_iam_role.bedrock_invocation_logging, aws_iam_role.s3_replication[0]] :
+      aws_iam_role_policy_attachment.reap_investigations_lambda_basic.policy_arn == aws_iam_role_policy_attachment.create_investigation_lambda_basic.policy_arn &&
+      aws_iam_role_policy_attachment.reap_investigations_lambda_basic.role == aws_iam_role.reap_investigations_lambda.name &&
+      aws_iam_role_policy_attachment.reap_investigations_lambda_vpc.policy_arn == "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole" &&
+      aws_iam_role_policy_attachment.reap_investigations_lambda_vpc.role == aws_iam_role.reap_investigations_lambda.name &&
+      alltrue([for r in [aws_iam_role.execution, aws_iam_role.task, aws_iam_role.sre_shared, aws_iam_role.lambda_invoker, aws_iam_role.create_investigation_lambda, aws_iam_role.reap_tasks_lambda, aws_iam_role.reap_investigations_lambda, aws_iam_role.bedrock_invocation_logging, aws_iam_role.s3_replication[0]] :
         r.tags.Region == "us-west-2" && r.tags.Project == "rosa-boundary" && r.tags.Stage == "dev" && r.tags.ManagedBy == "Terraform" && r.tags.Owner == "sre"
       ]) &&
       aws_iam_role.sre_shared.tags.Name == "rosa-boundary-dev-sre-shared" &&

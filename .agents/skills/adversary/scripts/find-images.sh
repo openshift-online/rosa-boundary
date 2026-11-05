@@ -34,18 +34,18 @@ find . -type f \
 
     category="other"
     case "$filepath" in
-        */docs/*|*/documentation/*|*/wiki/*|*/doc/*)
-            category="documentation"
-            ;;
-        */diagrams/*|*/architecture/*|*/design/*|*/adr/*)
-            category="diagram"
-            ;;
-        */assets/*|*/static/*|*/public/*|*/images/*|*/img/*)
-            category="asset"
-            ;;
-        */.github/*)
-            category="documentation"
-            ;;
+    */docs/* | */documentation/* | */wiki/* | */doc/*)
+        category="documentation"
+        ;;
+    */diagrams/* | */architecture/* | */design/* | */adr/*)
+        category="diagram"
+        ;;
+    */assets/* | */static/* | */public/* | */images/* | */img/*)
+        category="asset"
+        ;;
+    */.github/*)
+        category="documentation"
+        ;;
     esac
 
     ext="${filepath##*.}"

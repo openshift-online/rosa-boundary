@@ -1,0 +1,24 @@
+[project]
+name = "rosa-boundary"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "podman-compose==1.6.0",
+    "pre-commit==4.7.0",
+    "skillsaw==0.22.0",
+    "tool==0.8.0",
+]
+
+[dependency-groups]
+localstack = [
+    "pytest==9.2.0",
+    "boto3==1.43.123",
+    "requests==2.34.2",
+    "PyJWT==2.15.1",
+    "cryptography==50.0.2",
+]
+
+[tool.uv]
+package = false

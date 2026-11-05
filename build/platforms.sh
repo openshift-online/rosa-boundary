@@ -17,7 +17,7 @@
 set -o pipefail
 
 usage() {
-  cat >&2 <<EOF
+    cat >&2 <<EOF
   usage: $0 [-i path/to/file | stringWith@@PLATFORM@@toReplace] --ARMARCH --X86ARCH [ OPTIONS ]
 
   requires either -i and a path to a file to replace, or a positional string to replace
@@ -38,8 +38,8 @@ EOF
 }
 
 if [ $# -lt 3 ]; then
-  usage
-  exit 1
+    usage
+    exit 1
 fi
 
 REPLACESTR=
@@ -47,66 +47,71 @@ REPLACEFILE=
 VERBOSE=false
 
 while [ "$1" != "" ]; do
-  case $1 in
-    --aarch64 )         ARMARCH=aarch64
-                        ;;
-    --arm64 )           ARMARCH=arm64
-                        ;;
-    --amd64 )           X86ARCH=amd64
-                        ;;
-    --x86_64 )          X86ARCH=x86_64
-                        ;;
-    --custom-arm64)     shift
-                        ARMARCH=$1
-                        ;;
-    --custom-amd64)     shift
-                        X86ARCH=$1
-                        ;;
-    -i | --file )       shift
-                        REPLACEFILE=$1
-                        ;;
-    -v | --verbose )    VERBOSE=true
-                        ;;
-    --* )               echo "Unexpected parameter $1" >&2
-                        usage
-                        exit 1
-                        ;;
-    * )                 if [[ -z $REPLACESTR ]];
-                        then
-                            REPLACESTR=$1
-                        else
-                            echo "Too many positional arguments." >&2
-                            usage
-                            exit 1
-                        fi
-                        ;;
-  esac
-  shift
+    case $1 in
+    --aarch64)
+        ARMARCH=aarch64
+        ;;
+    --arm64)
+        ARMARCH=arm64
+        ;;
+    --amd64)
+        X86ARCH=amd64
+        ;;
+    --x86_64)
+        X86ARCH=x86_64
+        ;;
+    --custom-arm64)
+        shift
+        ARMARCH=$1
+        ;;
+    --custom-amd64)
+        shift
+        X86ARCH=$1
+        ;;
+    -i | --file)
+        shift
+        REPLACEFILE=$1
+        ;;
+    -v | --verbose)
+        VERBOSE=true
+        ;;
+    --*)
+        echo "Unexpected parameter $1" >&2
+        usage
+        exit 1
+        ;;
+    *)
+        if [[ -z $REPLACESTR ]]; then
+            REPLACESTR=$1
+        else
+            echo "Too many positional arguments." >&2
+            usage
+            exit 1
+        fi
+        ;;
+    esac
+    shift
 done
 
-if [[ -z $REPLACESTR ]] && [[ -z $REPLACEFILE ]]
-then
+if [[ -z $REPLACESTR ]] && [[ -z $REPLACEFILE ]]; then
     echo "Missing required string or file" >&2
     usage
     exit 1
 fi
 
-if [[ -n $REPLACESTR ]] && [[ $(grep --count "@@PLATFORM@@" <<< "$REPLACESTR") -eq 0 ]]
-then
+if [[ -n $REPLACESTR ]] && [[ $(grep --count "@@PLATFORM@@" <<<"$REPLACESTR") -eq 0 ]]; then
     echo "Replacement string needs '@@PLATFORM@@' to replace." >&2
     usage
     exit 1
 fi
 
-if [[ -z $ARMARCH ]]
-then
+if [[ -z $ARMARCH ]]; then
     echo "Missing ARMARCH parameter." >&2
     usage
     exit 1
 fi
 
-if [[ -z $X86ARCH ]]
-then
+if [[ -z $X86ARCH ]]; then
     echo "Missing X86ARCH parameter." >&2
     usage
     exit 1
@@ -122,15 +127,13 @@ replace_str() {
     echo "${1//@@PLATFORM@@/$2}"
 }
 
-if [[ $arch == "arm64" ]] || [[ $arch == "aarch64" ]];
-then
+if [[ $arch == "arm64" ]] || [[ $arch == "aarch64" ]]; then
     if [[ -n $REPLACEFILE ]]; then replace_file "$REPLACEFILE" "$ARMARCH"; fi
     if [[ -n $REPLACESTR ]]; then replace_str "$REPLACESTR" "$ARMARCH"; fi
     exit 0
 fi
 
-if [[ $arch == "amd64" ]] || [[ $arch == "x86_64" ]];
-then
+if [[ $arch == "amd64" ]] || [[ $arch == "x86_64" ]]; then
     if [[ -n $REPLACEFILE ]]; then replace_file "$REPLACEFILE" "$X86ARCH"; fi
     if [[ -n $REPLACESTR ]]; then replace_str "$REPLACESTR" "$X86ARCH"; fi
     exit 0

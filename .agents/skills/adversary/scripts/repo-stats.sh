@@ -11,7 +11,7 @@ fi
 
 cd "$PROJECT_ROOT"
 
-if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "ERROR: Not a git repository: $PROJECT_ROOT" >&2
     exit 1
 fi
@@ -71,29 +71,29 @@ fi
 echo ""
 echo "=== HOTSPOTS (most modified files, all time) ==="
 
-git log --format=format: --name-only HEAD 2>/dev/null \
-    | grep -v '^$' \
-    | sort \
-    | uniq -c \
-    | sort -rn \
-    | head -20 \
-    | while read -r count file; do
+git log --format=format: --name-only HEAD 2>/dev/null |
+    grep -v '^$' |
+    sort |
+    uniq -c |
+    sort -rn |
+    head -20 |
+    while read -r count file; do
         echo "  ${count}  ${file}"
     done
 
 echo ""
 echo "=== RECENT HOTSPOTS (last ${DAYS} days) ==="
 
-since_date=$(date -d "${DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-${DAYS}d +%Y-%m-%d 2>/dev/null || echo "")
+since_date=$(date -d "${DAYS} days ago" +%Y-%m-%d 2>/dev/null || date -v-"${DAYS}"d +%Y-%m-%d 2>/dev/null || echo "")
 
 if [ -n "$since_date" ]; then
-    git log --since="$since_date" --format=format: --name-only HEAD 2>/dev/null \
-        | grep -v '^$' \
-        | sort \
-        | uniq -c \
-        | sort -rn \
-        | head -20 \
-        | while read -r count file; do
+    git log --since="$since_date" --format=format: --name-only HEAD 2>/dev/null |
+        grep -v '^$' |
+        sort |
+        uniq -c |
+        sort -rn |
+        head -20 |
+        while read -r count file; do
             echo "  ${count}  ${file}"
         done
 else
@@ -104,10 +104,10 @@ echo ""
 echo "=== CODE CHURN (last ${DAYS} days) ==="
 
 if [ -n "${since_date:-}" ]; then
-    git log --since="$since_date" --numstat --format="" HEAD 2>/dev/null \
-        | awk '{ added[$3]+=$1; removed[$3]+=$2 } END { for(f in added) if(f != "") printf "  +%-6d -%-6d %s\n", added[f], removed[f], f }' \
-        | sort -t'+' -k2 -rn \
-        | head -15
+    git log --since="$since_date" --numstat --format="" HEAD 2>/dev/null |
+        awk '{ added[$3]+=$1; removed[$3]+=$2 } END { for(f in added) if(f != "") printf "  +%-6d -%-6d %s\n", added[f], removed[f], f }' |
+        sort -t'+' -k2 -rn |
+        head -15
 else
     echo "  (date calculation unavailable on this platform)"
 fi

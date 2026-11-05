@@ -15,21 +15,21 @@ echo "=== LANGUAGE DETECTION ==="
 declare -A lang_counts=()
 while IFS= read -r ext; do
     case "$ext" in
-        go)   lang_counts[go]=$(( ${lang_counts[go]:-0} + 1 )) ;;
-        py)   lang_counts[python]=$(( ${lang_counts[python]:-0} + 1 )) ;;
-        js)   lang_counts[javascript]=$(( ${lang_counts[javascript]:-0} + 1 )) ;;
-        ts)   lang_counts[typescript]=$(( ${lang_counts[typescript]:-0} + 1 )) ;;
-        tsx)  lang_counts[typescript]=$(( ${lang_counts[typescript]:-0} + 1 )) ;;
-        jsx)  lang_counts[javascript]=$(( ${lang_counts[javascript]:-0} + 1 )) ;;
-        java) lang_counts[java]=$(( ${lang_counts[java]:-0} + 1 )) ;;
-        cs)   lang_counts[csharp]=$(( ${lang_counts[csharp]:-0} + 1 )) ;;
-        rb)   lang_counts[ruby]=$(( ${lang_counts[ruby]:-0} + 1 )) ;;
-        rs)   lang_counts[rust]=$(( ${lang_counts[rust]:-0} + 1 )) ;;
-        swift) lang_counts[swift]=$(( ${lang_counts[swift]:-0} + 1 )) ;;
-        kt)   lang_counts[kotlin]=$(( ${lang_counts[kotlin]:-0} + 1 )) ;;
-        dart) lang_counts[dart]=$(( ${lang_counts[dart]:-0} + 1 )) ;;
-        php)  lang_counts[php]=$(( ${lang_counts[php]:-0} + 1 )) ;;
-        sh|bash) lang_counts[shell]=$(( ${lang_counts[shell]:-0} + 1 )) ;;
+    go) lang_counts[go]=$((${lang_counts[go]:-0} + 1)) ;;
+    py) lang_counts[python]=$((${lang_counts[python]:-0} + 1)) ;;
+    js) lang_counts[javascript]=$((${lang_counts[javascript]:-0} + 1)) ;;
+    ts) lang_counts[typescript]=$((${lang_counts[typescript]:-0} + 1)) ;;
+    tsx) lang_counts[typescript]=$((${lang_counts[typescript]:-0} + 1)) ;;
+    jsx) lang_counts[javascript]=$((${lang_counts[javascript]:-0} + 1)) ;;
+    java) lang_counts[java]=$((${lang_counts[java]:-0} + 1)) ;;
+    cs) lang_counts[csharp]=$((${lang_counts[csharp]:-0} + 1)) ;;
+    rb) lang_counts[ruby]=$((${lang_counts[ruby]:-0} + 1)) ;;
+    rs) lang_counts[rust]=$((${lang_counts[rust]:-0} + 1)) ;;
+    swift) lang_counts[swift]=$((${lang_counts[swift]:-0} + 1)) ;;
+    kt) lang_counts[kotlin]=$((${lang_counts[kotlin]:-0} + 1)) ;;
+    dart) lang_counts[dart]=$((${lang_counts[dart]:-0} + 1)) ;;
+    php) lang_counts[php]=$((${lang_counts[php]:-0} + 1)) ;;
+    sh | bash) lang_counts[shell]=$((${lang_counts[shell]:-0} + 1)) ;;
     esac
 done < <(find . -type f \
     -not -path '*/node_modules/*' \
@@ -132,8 +132,11 @@ databases=""
 
 add_db() {
     case ",$databases," in
-        *",$1,"*) ;; # already added
-        *) [ -n "$databases" ] && databases="${databases},$1"; databases="${databases:-$1}" ;;
+    *",$1,"*) ;; # already added
+    *)
+        [ -n "$databases" ] && databases="${databases},$1"
+        databases="${databases:-$1}"
+        ;;
     esac
 }
 
@@ -150,11 +153,11 @@ for compose in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; 
 done
 
 # From config/source files
-grep -rql "sqlite" --include="*.py" --include="*.js" --include="*.ts" --include="*.go" --include="*.rb" . 2>/dev/null | head -1 > /dev/null && add_db "sqlite"
-grep -rql "DATABASE_URL.*postgres" --include="*.env*" --include="*.yml" --include="*.yaml" --include="*.toml" . 2>/dev/null | head -1 > /dev/null && add_db "postgresql"
-grep -rql "DATABASE_URL.*mysql" --include="*.env*" --include="*.yml" --include="*.yaml" . 2>/dev/null | head -1 > /dev/null && add_db "mysql"
-grep -rql "REDIS_URL\|redis://" --include="*.env*" --include="*.yml" --include="*.yaml" --include="*.toml" . 2>/dev/null | head -1 > /dev/null && add_db "redis"
-grep -rql "MONGO.*URI\|mongodb://" --include="*.env*" --include="*.yml" --include="*.yaml" . 2>/dev/null | head -1 > /dev/null && add_db "mongodb"
+grep -rql "sqlite" --include="*.py" --include="*.js" --include="*.ts" --include="*.go" --include="*.rb" . 2>/dev/null | head -1 >/dev/null && add_db "sqlite"
+grep -rql "DATABASE_URL.*postgres" --include="*.env*" --include="*.yml" --include="*.yaml" --include="*.toml" . 2>/dev/null | head -1 >/dev/null && add_db "postgresql"
+grep -rql "DATABASE_URL.*mysql" --include="*.env*" --include="*.yml" --include="*.yaml" . 2>/dev/null | head -1 >/dev/null && add_db "mysql"
+grep -rql "REDIS_URL\|redis://" --include="*.env*" --include="*.yml" --include="*.yaml" --include="*.toml" . 2>/dev/null | head -1 >/dev/null && add_db "redis"
+grep -rql "MONGO.*URI\|mongodb://" --include="*.env*" --include="*.yml" --include="*.yaml" . 2>/dev/null | head -1 >/dev/null && add_db "mongodb"
 
 echo "DATABASES=${databases:-none}"
 

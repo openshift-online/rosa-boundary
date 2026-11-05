@@ -52,11 +52,11 @@ collect_localstack_logs() {
         echo "Podman socket daemon not started; skipping kill."
     fi
     echo "Collecting LocalStack container logs..."
-    timeout 60 podman logs localstack > "${ARTIFACT_DIR}/localstack.log" 2>&1 \
-        || echo "WARN: podman logs timed out or failed" >&2
+    timeout 60 podman logs localstack >"${ARTIFACT_DIR}/localstack.log" 2>&1 ||
+        echo "WARN: podman logs timed out or failed" >&2
     echo "Copying LocalStack internal log directory..."
-    timeout 60 podman cp localstack:/tmp/localstack-logs "${ARTIFACT_DIR}/localstack-logs" 2>&1 \
-        || echo "WARN: podman cp timed out or failed (no internal logs; see above for reason)" >&2
+    timeout 60 podman cp localstack:/tmp/localstack-logs "${ARTIFACT_DIR}/localstack-logs" 2>&1 ||
+        echo "WARN: podman cp timed out or failed (no internal logs; see above for reason)" >&2
     echo "Log collection complete."
 }
 trap collect_localstack_logs EXIT
@@ -78,7 +78,10 @@ for i in $(seq 1 30); do
     [ -S "${PODMAN_SOCK}" ] && break
     sleep 1
 done
-[ -S "${PODMAN_SOCK}" ] || { echo "ERROR: Podman socket not ready after 30s"; exit 1; }
+[ -S "${PODMAN_SOCK}" ] || {
+    echo "ERROR: Podman socket not ready after 30s"
+    exit 1
+}
 echo "Podman socket ready."
 
 # Signal to pytest that Docker is available — ECS task tests should not skip.
@@ -93,18 +96,18 @@ fi
 echo "Pull complete."
 
 if ! CONTAINER_ID=$(podman run --detach \
-  --name localstack \
-  --user root \
-  --publish 4566:4566 \
-  --volume "${PODMAN_SOCK}:/var/run/docker.sock:z" \
-  --env LOCALSTACK_AUTH_TOKEN \
-  --env SERVICES=s3,iam,logs,kms,sts,ec2,ecs,efs,ssm \
-  --env DEBUG=1 \
-  --env AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
-  --env PERSISTENCE=0 \
-  --env LOCALSTACK_LOG_DIR=/tmp/localstack-logs \
-  --volume "${SCRIPT_DIR}/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro,z" \
-  "${LOCALSTACK_IMAGE}"); then
+    --name localstack \
+    --user root \
+    --publish 4566:4566 \
+    --volume "${PODMAN_SOCK}:/var/run/docker.sock:z" \
+    --env LOCALSTACK_AUTH_TOKEN \
+    --env SERVICES=s3,iam,logs,kms,sts,ec2,ecs,efs,ssm \
+    --env DEBUG=1 \
+    --env AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION}" \
+    --env PERSISTENCE=0 \
+    --env LOCALSTACK_LOG_DIR=/tmp/localstack-logs \
+    --volume "${SCRIPT_DIR}/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh:ro,z" \
+    "${LOCALSTACK_IMAGE}"); then
     echo "ERROR: failed to start LocalStack container from ${LOCALSTACK_IMAGE}" >&2
     echo "  Possible causes: invalid LOCALSTACK_AUTH_TOKEN, stale 'localstack' container," >&2
     echo "  SELinux denial on socket volume, or insufficient memory." >&2
@@ -127,11 +130,11 @@ print(f'Pre-flight: {len(REQUIRED)} required services: {REQUIRED}')
 
 echo "Waiting for LocalStack services (timeout: 180s)..."
 TIMEOUT=180
-_ready_deadline=$(( SECONDS + TIMEOUT ))
+_ready_deadline=$((SECONDS + TIMEOUT))
 while true; do
-  _ready_rc=0
-  { curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null | \
-      $PYTHON -c "
+    _ready_rc=0
+    { curl --silent --fail --connect-timeout 5 --max-time 10 http://localhost:4566/_localstack/health 2>/dev/null |
+        $PYTHON -c "
 import sys, json
 try:
     sys.path.insert(0, '${SCRIPT_DIR}')
@@ -154,16 +157,19 @@ if not_ready:
     print('  not ready: ' + ', '.join(not_ready), file=sys.stderr)
     sys.exit(1)
 "; } || _ready_rc=$?
-  [ $_ready_rc -eq 0 ] && break
-  [ $_ready_rc -eq 2 ] && { echo "FATAL: required_services.py import failed — see stderr above" >&2; exit 1; }
-  _ready_remaining=$(( _ready_deadline - SECONDS ))
-  [ $_ready_remaining -le 0 ] && {
-    echo "ERROR: LocalStack did not become ready after ${TIMEOUT}s" >&2
-    exit 1
-  }
-  _ready_sleep=$(( _ready_remaining < 5 ? _ready_remaining : 5 ))
-  printf "  waiting... (%ds elapsed)\n" "$(( TIMEOUT - _ready_remaining ))"
-  sleep "$_ready_sleep"
+    [ $_ready_rc -eq 0 ] && break
+    [ $_ready_rc -eq 2 ] && {
+        echo "FATAL: required_services.py import failed — see stderr above" >&2
+        exit 1
+    }
+    _ready_remaining=$((_ready_deadline - SECONDS))
+    [ $_ready_remaining -le 0 ] && {
+        echo "ERROR: LocalStack did not become ready after ${TIMEOUT}s" >&2
+        exit 1
+    }
+    _ready_sleep=$((_ready_remaining < 5 ? _ready_remaining : 5))
+    printf "  waiting... (%ds elapsed)\n" "$((TIMEOUT - _ready_remaining))"
+    sleep "$_ready_sleep"
 done
 echo "LocalStack ready."
 
@@ -177,10 +183,10 @@ $PYTHON -c "import boto3, botocore.config, botocore.exceptions" || {
     exit 1
 }
 INIT_TIMEOUT=120
-_ssm_deadline=$(( SECONDS + INIT_TIMEOUT ))
+_ssm_deadline=$((SECONDS + INIT_TIMEOUT))
 while true; do
-  _ssm_rc=0
-  $PYTHON -c "
+    _ssm_rc=0
+    $PYTHON -c "
 import sys, os, boto3, botocore.config, botocore.exceptions
 c = boto3.client('ssm', endpoint_url=os.environ['LOCALSTACK_ENDPOINT'],
     region_name=os.environ['AWS_DEFAULT_REGION'],
@@ -208,17 +214,23 @@ except Exception as e:
     print(f'FATAL: unexpected error in SSM readiness check ({type(e).__name__}): {e}', file=sys.stderr)
     sys.exit(2)
 " || _ssm_rc=$?
-  [ $_ssm_rc -eq 0 ] && break
-  [ $_ssm_rc -ge 128 ] && { echo "ERROR: Python poll interrupted (signal, rc=${_ssm_rc})" >&2; exit 1; }
-  [ $_ssm_rc -eq 2 ] && { echo "ERROR: Fatal SSM error — see stderr above" >&2; exit 1; }
-  _ssm_remaining=$(( _ssm_deadline - SECONDS ))
-  [ $_ssm_remaining -le 0 ] && {
-    echo "ERROR: /test/security-group-id not found in SSM after ${INIT_TIMEOUT}s — init-aws.sh may have failed" >&2
-    exit 1
-  }
-  _ssm_sleep=$(( _ssm_remaining < 5 ? _ssm_remaining : 5 ))
-  printf "  waiting for SSM parameters... (%ds elapsed)\n" "$(( INIT_TIMEOUT - _ssm_remaining ))"
-  sleep "$_ssm_sleep"
+    [ $_ssm_rc -eq 0 ] && break
+    [ $_ssm_rc -ge 128 ] && {
+        echo "ERROR: Python poll interrupted (signal, rc=${_ssm_rc})" >&2
+        exit 1
+    }
+    [ $_ssm_rc -eq 2 ] && {
+        echo "ERROR: Fatal SSM error — see stderr above" >&2
+        exit 1
+    }
+    _ssm_remaining=$((_ssm_deadline - SECONDS))
+    [ $_ssm_remaining -le 0 ] && {
+        echo "ERROR: /test/security-group-id not found in SSM after ${INIT_TIMEOUT}s — init-aws.sh may have failed" >&2
+        exit 1
+    }
+    _ssm_sleep=$((_ssm_remaining < 5 ? _ssm_remaining : 5))
+    printf "  waiting for SSM parameters... (%ds elapsed)\n" "$((INIT_TIMEOUT - _ssm_remaining))"
+    sleep "$_ssm_sleep"
 done
 echo "SSM parameters ready."
 

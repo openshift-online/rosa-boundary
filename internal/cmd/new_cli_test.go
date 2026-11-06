@@ -139,12 +139,43 @@ func TestNewCLIRejectsInvalidConfigWithoutOverwrite(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := runNewTestCLI(t, "config", "list"); err == nil || !strings.Contains(err.Error(), "field aws_region not found") {
-		t.Fatalf("invalid config error: %v", err)
+	for _, args := range [][]string{{"config", "list"}, {"config", "init", "--auto-discover=false"}, {"login"}, {"session", "list"}} {
+		_, err := runNewTestCLI(t, args...)
+		if err == nil {
+			t.Fatalf("%v accepted invalid config", args)
+		}
+		for _, want := range []string{"could not read Boundary configuration file", path, "old flat config", "back it up or move it aside", "rosa-boundary config init", "Details:", "field aws_region not found"} {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%v error %q missing %q", args, err, want)
+			}
+		}
 	}
 	actual, err := os.ReadFile(path)
 	if err != nil || string(actual) != string(data) {
 		t.Fatalf("invalid config modified: %q, %v", actual, err)
+	}
+}
+
+func TestNewCLIUserErrorsSuggestRecoveryBeforeAuth(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	for _, tc := range []struct {
+		args []string
+		want []string
+	}{
+		{[]string{"session", "list"}, []string{"no active profile", "config list", "config init"}},
+		{[]string{"--profile", "missing", "session", "list"}, []string{"unknown profile", "config list"}},
+		{[]string{"session", "start", "cluster", "--with-credentials", "bad"}, []string{"unsupported credential provider", "--with-credentials ocm"}},
+		{[]string{"session", "credentials", "configure", "ocm", "task", "--auth-flow", "bad"}, []string{"invalid --auth-flow", "auth-code or device"}},
+	} {
+		_, err := runNewTestCLI(t, tc.args...)
+		if err == nil {
+			t.Fatalf("%v unexpectedly succeeded", tc.args)
+		}
+		for _, want := range tc.want {
+			if !strings.Contains(err.Error(), want) {
+				t.Errorf("%v: error %q missing %q", tc.args, err, want)
+			}
+		}
 	}
 }
 

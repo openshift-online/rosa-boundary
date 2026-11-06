@@ -67,8 +67,9 @@ make install-cli
 ### 3. Configure CLI
 
 The CLI stores **named profiles** for Boundary deployments. If you have an old
-flat `config.yaml`, delete or move it before running `config init` to create
-profiles from scratch. There is no migration. Ask the operator
+flat `config.yaml`, the CLI reports a configuration-file error with the YAML
+details. Back up or move the old file before running `config init` to create
+profiles from scratch; the CLI does not overwrite or migrate it. Ask the operator
 for the account and region. For example, a deployment named
 `rosa-boundary-stage` uses project `rosa-boundary` and environment `stage`:
 

@@ -123,32 +123,32 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	// Re-discover rather than acting on resources which changed during a prompt.
 	check, err := resolveClosePlan(cmd.Context(), efsClient, ecsClient, plan.ClusterID, plan.InvestigationID, plan.ECSCluster, plan.FilesystemID, subject)
 	if err != nil {
-		return fmt.Errorf("close plan changed before mutation: %w", err)
+		return fmt.Errorf("close plan changed before mutation; rerun the --dry-run preview and investigate the resources before retrying: %w", err)
 	}
 	if !sameClosePlan(plan, check) {
-		return fmt.Errorf("close plan changed before mutation; preview and confirm again")
+		return fmt.Errorf("close plan changed before mutation; rerun 'rosa-boundary investigation close <cluster-id> <investigation-id> --dry-run' and review the new plan before retrying")
 	}
 	stopped := 0
 	for _, taskID := range plan.SessionIDs {
 		if err := ecsClient.StopTask(cmd.Context(), taskID, "Investigation closed via rosa-boundary"); err != nil {
-			return fmt.Errorf("stopped %d/%d sessions; failed to stop %s (remaining sessions: %v; task definitions: %v; access point: %s): %w", stopped, len(plan.SessionIDs), taskID, plan.SessionIDs[stopped:], plan.TaskDefinitions, plan.AccessPointID, err)
+			return fmt.Errorf("stopped %d/%d sessions; failed to stop %s (remaining sessions: %v; task definitions: %v; access point: %s); inspect 'rosa-boundary session list --status all' and ask the deployment operator to reconcile partial cleanup before retrying: %w", stopped, len(plan.SessionIDs), taskID, plan.SessionIDs[stopped:], plan.TaskDefinitions, plan.AccessPointID, err)
 		}
 		stopped++
 	}
 	for _, taskID := range append(slices.Clone(plan.SessionIDs), plan.SessionsWaiting...) {
 		if err := ecsClient.WaitForStopped(cmd.Context(), taskID); err != nil {
-			return fmt.Errorf("stopped %d/%d sessions but %s did not reach STOPPED; task definitions %v and access point %s remain: %w", stopped, len(plan.SessionIDs), taskID, plan.TaskDefinitions, plan.AccessPointID, err)
+			return fmt.Errorf("stopped %d/%d sessions but %s did not reach STOPPED; task definitions %v and access point %s remain; check session status and audit evidence before retrying cleanup: %w", stopped, len(plan.SessionIDs), taskID, plan.TaskDefinitions, plan.AccessPointID, err)
 		}
 	}
 	// A new task may start during the stop wait. Never delete its access point.
 	remaining, err := ecsClient.ListTasksByInvestigation(cmd.Context(), plan.ClusterID, plan.InvestigationID)
 	if err != nil || len(remaining) != 0 {
-		return fmt.Errorf("cannot verify investigation has no active sessions after stops (remaining: %d): %v", len(remaining), err)
+		return fmt.Errorf("cannot verify investigation has no active sessions after stops (remaining: %d); check 'rosa-boundary session list --status all' and ask the deployment operator to reconcile before retrying: %v", len(remaining), err)
 	}
 	removed := 0
 	for _, arn := range plan.TaskDefinitions {
 		if err := ecsClient.DeregisterTaskDefinition(cmd.Context(), arn); err != nil {
-			return fmt.Errorf("deregistered %d/%d task definitions; remaining: %v; access point %s remains: %w", removed, len(plan.TaskDefinitions), plan.TaskDefinitions[removed:], plan.AccessPointID, err)
+			return fmt.Errorf("deregistered %d/%d task definitions; remaining: %v; access point %s remains; ask the deployment operator to reconcile partial cleanup before retrying: %w", removed, len(plan.TaskDefinitions), plan.TaskDefinitions[removed:], plan.AccessPointID, err)
 		}
 		removed++
 	}
@@ -156,10 +156,10 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	// best-effort; ECS/EFS do not provide an atomic close-and-create lock.
 	remaining, err = ecsClient.ListTasksByInvestigation(cmd.Context(), plan.ClusterID, plan.InvestigationID)
 	if err != nil || len(remaining) != 0 {
-		return fmt.Errorf("deregistered %d definitions but cannot safely delete access point %s (active sessions: %d): %v", removed, plan.AccessPointID, len(remaining), err)
+		return fmt.Errorf("deregistered %d definitions but cannot safely delete access point %s (active sessions: %d); check session status and ask the deployment operator to reconcile before retrying: %v", removed, plan.AccessPointID, len(remaining), err)
 	}
 	if err := efsClient.DeleteAccessPoint(cmd.Context(), plan.AccessPointID); err != nil {
-		return fmt.Errorf("stopped %d sessions and deregistered %d definitions, but access point %s remains: %w", stopped, removed, plan.AccessPointID, err)
+		return fmt.Errorf("stopped %d sessions and deregistered %d definitions, but access point %s remains; ask the deployment operator to reconcile partial cleanup before retrying: %w", stopped, removed, plan.AccessPointID, err)
 	}
 
 	if closeOutputFormat == "json" {
@@ -216,7 +216,7 @@ func authenticatedSubject(token string) (string, error) {
 
 func checkInvestigationOwner(tags map[string]string, subject string) error {
 	if subject == "" || tags["oidc_sub"] == "" || tags["oidc_sub"] != subject {
-		return fmt.Errorf("only the investigation owner may close this workspace (owner subject missing or does not match authenticated identity)")
+		return fmt.Errorf("only the investigation owner may close this workspace (owner subject missing or does not match authenticated identity); sign in as the owner, or ask the deployment operator to investigate the access-point tags")
 	}
 	return nil
 }
@@ -227,13 +227,13 @@ func resolveClosePlan(ctx context.Context, efsClient *awsclient.EFSClient, ecsCl
 		return closePlan{}, fmt.Errorf("find EFS access point: %w", err)
 	}
 	if ap == nil {
-		return closePlan{}, fmt.Errorf("investigation %s/%s not found", clusterID, investigationID)
+		return closePlan{}, fmt.Errorf("investigation %s/%s not found; check the cluster/investigation IDs and selected profile with 'rosa-boundary investigation list --cluster-id %q'", clusterID, investigationID, clusterID)
 	}
 	if ap.Tags["ClusterID"] != clusterID || ap.Tags["InvestigationID"] != investigationID || ap.AccessPointID == "" {
-		return closePlan{}, fmt.Errorf("investigation access point has missing or conflicting identity tags")
+		return closePlan{}, fmt.Errorf("investigation access point has missing or conflicting identity tags; cleanup was refused, ask the deployment operator to inspect the access point")
 	}
 	if ap.Tags["ManagedBy"] != "rosa-boundary-lambda" {
-		return closePlan{}, fmt.Errorf("investigation access point is not marked as Lambda-managed; refusing cleanup")
+		return closePlan{}, fmt.Errorf("investigation access point is not marked as Lambda-managed; cleanup was refused, ask the deployment operator to verify its origin")
 	}
 	if err := checkInvestigationOwner(ap.Tags, subject); err != nil {
 		return closePlan{}, err

@@ -70,7 +70,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 
 	investigations, err := efsClient.ListInvestigations(cmd.Context(), listInvClusterID)
 	if err != nil {
-		return fmt.Errorf("failed to list investigations: %w", err)
+		return fmt.Errorf("failed to list investigations; verify the selected profile's account, region, EFS filesystem and access permissions: %w", err)
 	}
 
 	if listInvOutputFormat == "json" {

@@ -50,16 +50,16 @@ func runStopTask(cmd *cobra.Command, args []string) error {
 	}
 	task, err := ecsClient.DescribeTask(cmd.Context(), taskID)
 	if err != nil {
-		return fmt.Errorf("cannot resolve session before stopping: %w", err)
+		return fmt.Errorf("cannot resolve session before stopping; verify the session ID and selected deployment with 'rosa-boundary session list --status all': %w", err)
 	}
 	if task.Status == "STOPPED" {
-		return fmt.Errorf("session %s is already STOPPED", taskID)
+		return fmt.Errorf("session %s is already STOPPED; verify its audit evidence, then use 'rosa-boundary investigation close' if the workspace is no longer needed", taskID)
 	}
 	output.Status("Profile: %s Account: %s Region: %s", newSelectedProfile, authRes.Config.AccountID, authRes.Config.AWSRegion)
 	output.Status("Session %s (cluster %s; investigation %s; owner %s)", taskID, task.Tags["cluster_id"], task.Tags["investigation_id"], task.Tags["username"])
 	if !stopYes {
 		if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
-			return fmt.Errorf("--yes is required without a terminal")
+			return fmt.Errorf("--yes is required without a terminal; run interactively or pass --yes only after confirming the session ID")
 		}
 		fmt.Fprint(os.Stderr, "Stop this session? [y/N]: ")
 		scanner := bufio.NewScanner(os.Stdin)
@@ -82,7 +82,7 @@ func runStopTask(cmd *cobra.Command, args []string) error {
 	if stopWait {
 		output.Status("Waiting for session to reach STOPPED state...")
 		if err := ecsClient.WaitForStopped(cmd.Context(), taskID); err != nil {
-			return fmt.Errorf("task did not reach STOPPED state: %w", err)
+			return fmt.Errorf("task did not reach STOPPED state; check 'rosa-boundary session list --status all' for the selected profile and verify audit evidence before closing: %w", err)
 		}
 		output.Status("Session stopped")
 	} else {

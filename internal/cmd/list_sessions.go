@@ -15,7 +15,7 @@ var (
 	listOutputFormat string
 )
 
-func validateListTasksStatus(status string) (string, error) {
+func validateListSessionsStatus(status string) (string, error) {
 	desiredStatus := strings.ToUpper(status)
 	switch desiredStatus {
 	case "RUNNING", "STOPPED", "ALL":
@@ -25,8 +25,8 @@ func validateListTasksStatus(status string) (string, error) {
 	}
 }
 
-func runListTasks(cmd *cobra.Command, args []string) error {
-	desiredStatus, err := validateListTasksStatus(listStatus)
+func runListSessions(cmd *cobra.Command, args []string) error {
+	desiredStatus, err := validateListSessionsStatus(listStatus)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	credProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
-	if err := debugf("Listing tasks in ECS cluster %s with status %q", clusterName, desiredStatus); err != nil {
+	if err := debugf("Listing sessions in ECS cluster %s with status %q", clusterName, desiredStatus); err != nil {
 		return fmt.Errorf("debug output failed: %w", err)
 	}
 
@@ -105,7 +105,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	tbl.Flush()
 
 	if len(tasks) == 0 {
-		output.Status("No tasks found")
+		output.Status("No sessions found")
 	}
 
 	return nil

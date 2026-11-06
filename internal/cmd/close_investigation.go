@@ -100,15 +100,15 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("close plan changed before mutation; rerun 'rosa-boundary investigation close <cluster-id> <investigation-id> --dry-run' and review the new plan before retrying")
 	}
 	stopped := 0
-	for _, taskID := range plan.SessionIDs {
-		if err := ecsClient.StopTask(cmd.Context(), taskID, "Investigation closed via rosa-boundary"); err != nil {
-			return fmt.Errorf("stopped %d/%d sessions; failed to stop %s (remaining sessions: %v; task definitions: %v; access point: %s); inspect 'rosa-boundary session list --status all' and ask the deployment operator to reconcile partial cleanup before retrying: %w", stopped, len(plan.SessionIDs), taskID, plan.SessionIDs[stopped:], plan.TaskDefinitions, plan.AccessPointID, err)
+	for _, sessionID := range plan.SessionIDs {
+		if err := ecsClient.StopTask(cmd.Context(), sessionID, "Investigation closed via rosa-boundary"); err != nil {
+			return fmt.Errorf("stopped %d/%d sessions; failed to stop %s (remaining sessions: %v; task definitions: %v; access point: %s); inspect 'rosa-boundary session list --status all' and ask the deployment operator to reconcile partial cleanup before retrying: %w", stopped, len(plan.SessionIDs), sessionID, plan.SessionIDs[stopped:], plan.TaskDefinitions, plan.AccessPointID, err)
 		}
 		stopped++
 	}
-	for _, taskID := range append(slices.Clone(plan.SessionIDs), plan.SessionsWaiting...) {
-		if err := ecsClient.WaitForStopped(cmd.Context(), taskID); err != nil {
-			return fmt.Errorf("stopped %d/%d sessions but %s did not reach STOPPED; task definitions %v and access point %s remain; check session status and audit evidence before retrying cleanup: %w", stopped, len(plan.SessionIDs), taskID, plan.TaskDefinitions, plan.AccessPointID, err)
+	for _, sessionID := range append(slices.Clone(plan.SessionIDs), plan.SessionsWaiting...) {
+		if err := ecsClient.WaitForStopped(cmd.Context(), sessionID); err != nil {
+			return fmt.Errorf("stopped %d/%d sessions but %s did not reach STOPPED; task definitions %v and access point %s remain; check session status and audit evidence before retrying cleanup: %w", stopped, len(plan.SessionIDs), sessionID, plan.TaskDefinitions, plan.AccessPointID, err)
 		}
 	}
 	// A new task may start during the stop wait. Never delete its access point.
@@ -255,7 +255,7 @@ func printClosePlan(p closePlan) {
 }
 
 // printCloseInvestigationSummary writes the text result to stdout.
-func printCloseInvestigationSummary(cluster, investigationID, accessPointID string, tasksStopped, taskDefsRemoved int) error {
-	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s closed (profile %s; access point %s deleted).\nSessions stopped: %d; task definitions removed: %d. EFS data remains; verify audit evidence separately.\n", cluster, investigationID, selectedProfile, accessPointID, tasksStopped, taskDefsRemoved)
+func printCloseInvestigationSummary(cluster, investigationID, accessPointID string, sessionsStopped, taskDefsRemoved int) error {
+	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s closed (profile %s; access point %s deleted).\nSessions stopped: %d; task definitions removed: %d. EFS data remains; verify audit evidence separately.\n", cluster, investigationID, selectedProfile, accessPointID, sessionsStopped, taskDefsRemoved)
 	return err
 }

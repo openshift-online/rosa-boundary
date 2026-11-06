@@ -115,7 +115,7 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
           }
         ] : []
 
-        environment = [
+        environment = concat([
           {
             name  = "CLAUDE_CODE_USE_BEDROCK"
             value = "1"
@@ -133,12 +133,13 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
           {
             name  = "TASK_TIMEOUT"
             value = tostring(var.task_timeout_default)
-          },
+          }
+          ], var.enable_kube_proxy ? [
           {
             name  = "KUBE_PROXY_PORT"
             value = tostring(var.kube_proxy_port)
           }
-        ]
+        ] : [])
 
         mountPoints = [
           {

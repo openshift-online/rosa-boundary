@@ -26,7 +26,7 @@ export TF_VAR_stage_keycloak_thumbprint  := $(shell source $(ENV_FILE) 2>/dev/nu
 # ABAC tag key: defaults to 'uuid' matching OIDC principal_tags.uuid and Terraform variables.tf.
 # Legacy deployments using 'username' tag can override via .env: TF_VAR_abac_tag_key=username
 export TF_VAR_abac_tag_key               := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_abac_tag_key:-uuid})
-export TF_VAR_enable_kube_proxy          := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_enable_kube_proxy:-true})
+export TF_VAR_enable_kube_proxy          := $(shell source $(ENV_FILE) 2>/dev/null && echo $${TF_VAR_enable_kube_proxy:-false})
 
 .PHONY: help
 help:

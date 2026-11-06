@@ -223,7 +223,7 @@ What happens:
 The user is now in an interactive shell with:
 - `/home/sre` mounted from the investigation's EFS access point
 - `/home/sre/.config/ocm` and `/home/sre/.kube` mounted from separate task-scoped Fargate volumes
-- `oc` pointing at the target cluster via the ephemeral `~/.kube/config` when `KUBE_PROXY_PORT` is enabled
+- `oc` pointing at the target cluster via the ephemeral `~/.kube/config` only when the optional, [disabled-by-default kube-proxy sidecar](../kube-proxy-sidecar.md) is enabled; otherwise use a separately configured credential flow
 - `claude` CLI configured for Bedrock
 
 The nested mounts prevent OCM and kubeconfig state from reaching EFS and destroy

@@ -31,7 +31,6 @@ variables {
   keycloak_issuer_url  = "https://auth.example.com/auth/realms/EmployeeIDP"
   keycloak_thumbprint  = "0000000000000000000000000000000000000000"
   required_groups      = ["ai-sd-sre"]
-  enable_kube_proxy    = false
 }
 
 # Real partition so interpolated IAM policy ARNs are valid under mocking.
@@ -71,6 +70,32 @@ override_data {
   target = data.aws_route_table.subnet[1]
   values = {
     routes = [{ cidr_block = "0.0.0.0/0", gateway_id = "igw-0", nat_gateway_id = "" }]
+  }
+}
+
+# Default task has no proxy or proxy-only environment; opting in restores both.
+run "proxy_disabled_by_default" {
+  command = plan
+
+  assert {
+    condition = (
+      length(jsondecode(aws_ecs_task_definition.rosa_boundary.container_definitions)) == 1 &&
+      length([for env in jsondecode(aws_ecs_task_definition.rosa_boundary.container_definitions)[0].environment : env if env.name == "KUBE_PROXY_PORT"]) == 0
+    )
+    error_message = "The default task must not include a proxy or advertise a proxy port."
+  }
+}
+
+run "proxy_explicit_opt_in" {
+  command = plan
+  variables { enable_kube_proxy = true }
+
+  assert {
+    condition = (
+      length(jsondecode(aws_ecs_task_definition.rosa_boundary.container_definitions)) == 2 &&
+      length([for env in jsondecode(aws_ecs_task_definition.rosa_boundary.container_definitions)[0].environment : env if env.name == "KUBE_PROXY_PORT" && env.value == "8001"]) == 1
+    )
+    error_message = "Opting in must retain the proxy and its port configuration."
   }
 }
 

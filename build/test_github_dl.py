@@ -369,5 +369,227 @@ class TestResolveToken(unittest.TestCase):
         assert result == "ghp_fallback"
 
 
+class TestDownloadVerification(unittest.TestCase):
+    digest = "a" * 64
+    name = "tool_linux_amd64.tar.gz"
+
+    def checksum(self, content, **kwargs):
+        assets = [{"name": "checksums", "browser_download_url": "https://github.com/checksums"}]
+        response = MagicMock(content=content)
+        with patch("github_dl.get_url_with_authentication", return_value=response):
+            return github_dl.get_checksum(assets, "checksums", **kwargs)
+
+    def test_gnu_and_bsd_exact_name(self):
+        for line in [f"{self.digest}  {self.name}", f"{self.digest} *{self.name}",
+                     f"SHA256 ({self.name}) = {self.digest.upper()}"]:
+            with self.subTest(line=line):
+                self.assertEqual(self.checksum(line.encode(), asset_name=self.name),
+                                 f"{self.digest}  {self.name}")
+
+    def test_exact_name_not_substring(self):
+        content = f"{self.digest}  {self.name}.sig\n{self.digest}  {self.name}\n"
+        self.assertEqual(self.checksum(content.encode(), asset_name=self.name),
+                         f"{self.digest}  {self.name}")
+        self.assertEqual(self.checksum(content.encode(), asset_name="tool"), "")
+
+    def test_legacy_claude_platform(self):
+        content = f"{self.digest}  claude-code-linux-x64.tar.gz\n"
+        self.assertEqual(self.checksum(content.encode(), platform="linux-x64"), content.strip())
+
+    def test_legacy_platform_ambiguous(self):
+        content = f"{self.digest}  tool-linux-x64\n{self.digest}  other-linux-x64"
+        self.assertEqual(self.checksum(content.encode(), platform="linux-x64"), "")
+
+    def test_duplicates_even_identical_or_mixed_format(self):
+        for second in [f"{self.digest}  {self.name}", f"SHA256 ({self.name}) = {self.digest}"]:
+            content = f"{self.digest}  {self.name}\n{second}"
+            self.assertEqual(self.checksum(content.encode(), asset_name=self.name), "")
+
+    def test_malformed_records_fail_closed(self):
+        lines = [f"{'a' * 63}  {self.name}", f"{'z' * 64}  {self.name}",
+                 f"{self.digest}  ../{self.name}", f"{self.digest}  /{self.name}",
+                 f"{self.digest}  sub/{self.name}", f"{self.digest}  sub\\{self.name}",
+                 f"{self.digest}  {self.name} extra", f"{self.digest} {self.name}",
+                 f"SHA256 ({self.name}) = bad", f"SHA256 ({self.name}) = {self.digest} trailing",
+                 f"{self.digest}  .", f"{self.digest}  ..", f"{self.digest}  -option",
+                 f"\\{self.digest}  {self.name}"]
+        for line in lines:
+            with self.subTest(line=line):
+                self.assertEqual(self.checksum(line.encode(), asset_name=self.name), "")
+                # A valid requested entry must not mask a malformed record.
+                content = f"{self.digest}  {self.name}\n{line}"
+                self.assertEqual(self.checksum(content.encode(), asset_name=self.name), "")
+
+    def test_bsd_other_algorithms_not_used_as_sha256(self):
+        # yq's rhash output pads short algorithm names and uses base32 for TTH.
+        content = (f"MD5   ({self.name}) = {'b' * 32}\n"
+                   f"TTH   ({self.name}) = vzro2kfsphsx75pjehbuxo5sfugxyfmuqnfipqi\n"
+                   f"SHA3-256 ({self.name}) = {self.digest}\n")
+        self.assertEqual(self.checksum(content.encode(), asset_name=self.name), "")
+        content += f"SHA256 ({self.name}) = {self.digest}"
+        self.assertEqual(self.checksum(content.encode(), asset_name=self.name),
+                         f"{self.digest}  {self.name}")
+
+    def test_missing_empty_or_non_utf8_response(self):
+        assets = [{"name": "checksums", "browser_download_url": "https://github.com/checksums"}]
+        with patch("github_dl.get_url_with_authentication", return_value=None):
+            self.assertEqual(github_dl.get_checksum(assets, "checksums", "linux"), "")
+        for content in [b"", b"\xff", b"\n"]:
+            self.assertEqual(self.checksum(content, asset_name=self.name), "")
+
+    def test_exact_release_asset_unique(self):
+        asset = {"name": self.name, "browser_download_url": "https://github.com/tool"}
+        self.assertEqual(github_dl.extract_browser_download_url([asset], self.name), asset["browser_download_url"])
+        for assets in [[], [asset, asset], [None], [{"name": self.name}]]:
+            self.assertEqual(github_dl.extract_browser_download_url(assets, self.name), "")
+
+    def test_get_binary_rejects_paths_and_handles_no_response(self):
+        with patch("github_dl.get_url_with_authentication", return_value=None) as get:
+            self.assertEqual(github_dl.get_binary([], f"{self.digest}  ../tool"), b"")
+            get.assert_not_called()
+            assets = [{"name": self.name, "browser_download_url": "https://github.com/tool"}]
+            self.assertEqual(github_dl.get_binary(assets, f"{self.digest}  {self.name}"), b"")
+
+    def test_validate_binary_sha256(self):
+        import hashlib
+        digest = hashlib.sha256(b"binary").hexdigest()
+        for line in [f"{digest}  tool", f"SHA256 (tool) = {digest}"]:
+            self.assertTrue(github_dl.validate_binary(b"binary", line))
+            self.assertFalse(github_dl.validate_binary(b"different", line))
+        self.assertFalse(github_dl.validate_binary(b"binary", "malformed"))
+
+    @patch("github_dl.requests.get")
+    def test_rate_limit_threshold_and_no_auth_redirect(self, get):
+        for remaining, expected in [(49, False), (50, True)]:
+            get.return_value = MagicMock(status_code=200, json=lambda: {"rate": {"remaining": remaining}})
+            self.assertEqual(github_dl.validate_token("secret"), expected)
+            self.assertFalse(get.call_args.kwargs["allow_redirects"])
+
+    def test_malformed_release_json(self):
+        for payload in [None, [], {"assets": {}}, {"assets": None}]:
+            with patch("github_dl.get_url_with_authentication", return_value=MagicMock(json=lambda: payload)):
+                self.assertEqual(github_dl.list_assets("https://api.github.com/release"), [])
+        with patch("github_dl.get_url_with_authentication", return_value=MagicMock(json=MagicMock(side_effect=ValueError))):
+            self.assertEqual(github_dl.list_assets("https://api.github.com/release"), [])
+
+
+class TestDownloadCLI(unittest.TestCase):
+    def run_download(self, selection, root, *, wrong_hash=False):
+        import hashlib
+        digest = hashlib.sha256(b"binary").hexdigest() if not wrong_hash else "0" * 64
+        assets = [
+            {"name": "checksums", "browser_download_url": "https://github.com/checksums"},
+            {"name": "claude-linux-x64", "browser_download_url": "https://github.com/binary"},
+        ]
+        def fetch(url, *args, **kwargs):
+            if url.endswith("checksums"):
+                return MagicMock(content=f"{digest}  claude-linux-x64\n".encode())
+            return MagicMock(content=b"binary")
+        previous = os.getcwd()
+        try:
+            os.chdir(root)
+            with patch("sys.argv", ["github_dl", "download", "--url", "https://api.github.com/release",
+                                    "--checksum_file", "checksums", *selection]), \
+                 patch("github_dl.resolve_token", return_value=None), \
+                 patch.dict(os.environ, {"REQUIRE_GITHUB_TOKEN": "false"}), \
+                 patch("github_dl.list_assets", return_value=assets), \
+                 patch("github_dl.get_url_with_authentication", side_effect=fetch):
+                github_dl.main()
+        finally:
+            os.chdir(previous)
+
+    def test_legacy_and_exact_cli_write_verified_basename(self):
+        for selection in [["--platform", "linux-x64"], ["--asset_name", "claude-linux-x64"],
+                          ["--exact_asset", "claude-linux-x64"]]:
+            with tempfile.TemporaryDirectory() as root:
+                self.run_download(selection, root)
+                self.assertEqual((Path(root) / "claude-linux-x64").read_bytes(), b"binary")
+
+    def test_bad_checksum_does_not_write(self):
+        with tempfile.TemporaryDirectory() as root:
+            with self.assertRaises(SystemExit):
+                self.run_download(["--asset_name", "claude-linux-x64"], root, wrong_hash=True)
+            self.assertEqual(list(Path(root).iterdir()), [])
+
+    def test_existing_file_or_symlink_not_overwritten(self):
+        for symlink in [False, True]:
+            with tempfile.TemporaryDirectory() as root:
+                target = Path(root) / "target"
+                target.write_bytes(b"keep")
+                output = Path(root) / "claude-linux-x64"
+                if symlink:
+                    output.symlink_to(target)
+                else:
+                    output.write_bytes(b"keep")
+                with self.assertRaises(SystemExit):
+                    self.run_download(["--asset-name", "claude-linux-x64"], root)
+                self.assertEqual(target.read_bytes(), b"keep")
+                self.assertEqual(output.read_bytes(), b"keep")
+
+    def test_require_token_still_fails_before_network(self):
+        with patch("sys.argv", ["github_dl", "download", "--url", "https://api.github.com/release",
+                                "--checksum_file", "checksums", "--asset_name", "tool"]), \
+             patch("github_dl.resolve_token", return_value=None), \
+             patch.dict(os.environ, {"REQUIRE_GITHUB_TOKEN": "true"}), \
+             patch("github_dl.list_assets") as listing:
+            with self.assertRaises(SystemExit):
+                github_dl.main()
+            listing.assert_not_called()
+
+
+class TestBoundedDownloads(unittest.TestCase):
+    @patch("github_dl.time.sleep")
+    @patch("github_dl.requests.get")
+    def test_server_errors_and_transport_errors_bounded(self, get, sleep):
+        for failure in [MagicMock(status_code=503), requests.Timeout("secret URL")]:
+            get.reset_mock()
+            sleep.reset_mock()
+            get.side_effect = failure if isinstance(failure, Exception) else None
+            get.return_value = failure
+            self.assertIsNone(github_dl.get_url_with_authentication("https://github.com/tool", max_retries=100))
+            self.assertEqual(get.call_count, 6)
+            self.assertEqual(sleep.call_count, 5)
+
+    @patch("github_dl.time.sleep")
+    @patch("github_dl.requests.get")
+    def test_client_errors_not_retried(self, get, sleep):
+        for code in [401, 403, 404, 429]:
+            get.return_value = MagicMock(status_code=code)
+            self.assertIsNone(github_dl.get_url_with_authentication("https://github.com/tool"))
+        self.assertEqual(get.call_count, 4)
+        sleep.assert_not_called()
+
+    @patch("github_dl.requests.get")
+    def test_redirect_credentials_not_sent_to_cdn_or_external_hosts(self, get):
+        get.side_effect = [MagicMock(status_code=302, headers={"Location": "https://release-assets.githubusercontent.com/tool?signature=secret"}),
+                           MagicMock(status_code=200)]
+        self.assertIsNotNone(github_dl.get_url_with_authentication("https://github.com/tool", "secret"))
+        self.assertEqual(get.call_args_list[0].kwargs["headers"]["Authorization"], "Bearer secret")
+        self.assertNotIn("Authorization", get.call_args_list[1].kwargs["headers"])
+        self.assertFalse(get.call_args_list[0].kwargs["allow_redirects"])
+        for host in ["awscli.amazonaws.com", "mirror.openshift.com", "github.com.evil.test"]:
+            get.side_effect = None
+            get.return_value = MagicMock(status_code=200)
+            github_dl.get_url_with_authentication(f"https://{host}/tool", "secret", {"authorization": "secret"})
+            self.assertNotIn("Authorization", get.call_args.kwargs["headers"])
+            self.assertNotIn("authorization", get.call_args.kwargs["headers"])
+
+    @patch("github_dl.requests.get")
+    def test_redirect_downgrade_and_loop_fail(self, get):
+        get.return_value = MagicMock(status_code=302, headers={"Location": "http://github.com/tool"})
+        self.assertIsNone(github_dl.get_url_with_authentication("https://github.com/tool", "secret"))
+        self.assertEqual(get.call_count, 1)
+        get.reset_mock()
+        get.return_value = MagicMock(status_code=302, headers={"Location": "/tool"})
+        self.assertIsNone(github_dl.get_url_with_authentication("https://github.com/tool", "secret"))
+        self.assertEqual(get.call_count, 6)
+
+    @patch("github_dl.requests.get")
+    def test_invalid_urls_never_requested(self, get):
+        for url in ["http://github.com/x", "file:///tmp/tool", "https://user:pass@github.com/x", "https://github.com:bad/x"]:
+            self.assertIsNone(github_dl.get_url_with_authentication(url, "secret"))
+        get.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -8,13 +8,13 @@ GitHub Dependabot alerts are a separate repository security feature. Removing De
 
 | Tool | Ecosystems | Config File |
 |------|-----------|-------------|
-| **Mintmaker (Renovate)** | `gomod`, `pep621` (Python Lambda), `terraform`, `pre-commit`, `github-actions`, custom regex GitHub releases | `renovate.json` |
+| **Mintmaker (Renovate)** | `gomod`, `pep621` (Python Lambda), `terraform`, `pre-commit`, `github-actions`, `custom.regex` | `renovate.json` |
 
 Mintmaker is the sole version updater for the root Go modules and the Python Lambda. Its `gomod dependencies` group includes `github.com/aws/aws-sdk-go-v2` and its submodules alongside other Go minor/patch updates in one PR; major updates remain separate. Mintmaker also groups GitHub Actions updates.
 
 ## Mintmaker (Renovate)
 
-Mintmaker is a Konflux-hosted service built on [Renovate](https://docs.renovatebot.com/). It runs on a 4-hour base schedule and opens PRs signed by the `red-hat-konflux` GitHub app. Configuration lives in `renovate.json` at the repository root.
+Mintmaker is a Konflux-hosted service built on [Renovate](https://docs.renovatebot.com/). The documented base schedule is four hours, with PRs signed by the `red-hat-konflux` GitHub app. Configuration lives in [`renovate.json`](../renovate.json). Actual cadence, deployed Renovate version, inherited release-age policy, and service-side enforcement need service evidence; local configuration alone does not prove them.
 
 ### Python dependency updates
 
@@ -25,24 +25,88 @@ repository-wide Renovate automerge setting.
 
 Mintmaker's Python coverage was verified in [PR #411](https://github.com/openshift-online/rosa-boundary/pull/411): it updated both the manifest and lockfile, and the Lambda build, unit tests, and integration tests passed. Dependabot's Python version-update configuration has therefore been retired. This does not affect GitHub Dependabot alerts, which remain controlled by repository security settings.
 
-### Backplane-tools release pin
+### Six-tool exact-pin contract (ROSAENG-67158)
 
-`Containerfile` pins the `openshift/backplane-tools` installer to an exact GitHub
-release tag. Its custom regex manager uses the `github-releases` datasource, so
-Mintmaker proposes only published releases with the archives and `checksums.txt`
-needed by the image build. The rule matches only the annotated
-`BACKPLANE_TOOLS_VERSION` ARG in the root `Containerfile`.
+The reduced migration scope is direct installation of **ocm, ocm-backplane,
+osdctl, yq, oc, and AWS CLI v2**, without the backplane-tools installer or
+ocm-addons.
 
-Mintmaker checks approximately every four hours and retains its inherited
-three-day minimum release age. It opens a normal, signed update PR for a newer
-eligible release; the dependency is not automerged and requires the usual human
-review and image build checks. The installer release is pinned, while
-`backplane-tools install all` still resolves the individual SRE tools during the
-image build.
+#### One editable pin source
+
+At implementation time, select the latest published stable releases of these six
+tools and record the lookup date in the PR. Exclude drafts, prereleases, and
+release candidates; AWS must remain CLI v2. “Latest” is the selection/update
+policy, not dynamic discovery on every build.
+
+Exact defaults belong only in annotated ARGs in the root
+[Containerfile](../Containerfile), next to their consuming installation steps.
+Read that file for values; do not duplicate pins in docs or a second editable
+manifest. Builds must consume exactly those versions, never silently substitute
+a release or use a self-refreshing installer.
+
+| Tool | Containerfile ARG | Update source | Required integrity |
+|------|-------------------|---------------|--------------------|
+| ocm | `OCM_VERSION` | `github-releases`: `openshift-online/ocm-cli` | Exact binary's `.sha256` asset |
+| ocm-backplane | `BACKPLANE_CLI_VERSION` | `github-releases`: `openshift/backplane-cli` | Exact archive entry in `checksums.txt` |
+| osdctl | `OSDCTL_VERSION` | `github-releases`: `openshift/osdctl` | Exact archive entry in `sha256sum.txt` |
+| yq | `YQ_VERSION` | `github-releases`: `mikefarah/yq` | Exact binary's SHA256 entry in `checksums-bsd`; do not execute upstream checksum scripts |
+| oc | `OC_VERSION` | OpenShift stable release mirror; current rule uses `custom.openshift-stable` | Pinned Red Hat signer verifies the versioned `sha256sum.txt.gpg`, then verify archive SHA256 |
+| AWS CLI v2 | `AWSCLI_VERSION` | `github-tags`: `aws/aws-cli`, v2 only | Pinned AWS signer verifies the versioned ZIP's detached signature before extraction |
+
+Preserve existing integrity checks. A computed SHA256 is useful inventory data,
+not a substitute for AWS signature verification; plain GitHub checksums are not
+independent publisher signatures. Missing assets or integrity metadata, invalid
+signatures/checksums, unexpected signers, and wrong executable versions must fail
+closed, not trigger an unsigned or different-version fallback.
+
+Keep reviewed public trust anchors and signer fingerprints in `build/keys/`;
+see [key provenance](../build/keys/PROVENANCE.txt). Do not fetch replacement keys
+alongside artifacts. Key changes require reviewed provenance and negative tests.
+Download/verification dependencies stay in builder stages. Reuse authenticated
+GitHub downloads and secret mounts; never execute downloaded tools while token
+or private-key mounts are accessible.
+
+Do not download or vendor license texts, introduce `build/licenses/`, or add
+bespoke notice extraction. Preserve files needed by normal tool distributions,
+including the AWS distribution layout.
+
+#### Update PRs
+
+Limit tool update rules to these six ARGs, with explicit `automerge: false` and
+normal human review. No installer refresh rule, removed-tool rule, approval
+bypass, or second editable pin source belongs in this change.
+
+Validate the six rules and their lookups. The oc custom datasource supplies no
+reliable publication timestamp. An approved exception sets
+`minimumReleaseAgeBehaviour: "timestamp-optional"` **only** for `openshift/oc`,
+using `custom.regex` and `custom.openshift-stable` in the root `Containerfile`.
+This allows oc updates without a timestamp instead of keeping them pending
+forever. It does not override the inherited release-age interval: if the
+datasource supplies a timestamp later, that interval applies normally. The other
+five tools retain `timestamp-required`; all six retain human review and
+`automerge: false`.
+
+Local tests exercise rule matching and the real Renovate age gate with an
+inherited three-day delay, including negative scope checks. They do not establish
+deployed Mintmaker behavior; confirm service compatibility and hosted update PRs.
+If the updater cannot track a tool reliably, explain that narrow limitation
+rather than adding updater infrastructure.
+
+#### Evidence boundaries
+
+See [focused acceptance](testing.md#sre-tool-pin-migration-acceptance). Earlier draft lookup,
+test, and build results do **not** validate the reduced six-tool change. Recheck
+latest stable selections and rerun affected checks against the revised source.
+
+ARM enablement, base-image changes, pipeline platform requests, promotion
+redesign, operational ownership projects, and deployments are outside this
+tool-installation scope. Report architecture and hosted-service limitations
+honestly; neither a local build nor these docs proves ARM support, deployed
+Mintmaker behavior, staging, or production validation.
 
 ### Configuration Guide
 
-Edit `renovate.json` on the default branch. Changes take effect on the next Mintmaker cycle (every 4 hours).
+Change `renovate.json` through a reviewed PR to the default branch. The service should consume it on a subsequent Mintmaker cycle; verify the actual run rather than assuming a four-hour delivery guarantee.
 
 Full configuration reference: [Renovate configuration options](https://docs.renovatebot.com/configuration-options/)
 
@@ -59,7 +123,7 @@ Key settings:
 
 ### How can I manually re-trigger a Renovate run?
 
-Mintmaker runs on a fixed 4-hour schedule and cannot be triggered on-demand from outside Konflux. However, you can force Renovate to re-evaluate a specific PR by closing and reopening it -- Renovate will rebase and update the PR on its next cycle.
+Mintmaker documents a four-hour base schedule; actual timing and supported retrigger behavior require service confirmation. Closing and reopening a PR is not evidence that a new dependency lookup or validation ran. Inspect the subsequent service run and PR checks.
 
 To request an immediate run, contact the Mintmaker team or use the Konflux UI to check component status.
 
@@ -82,4 +146,4 @@ See: [Mintmaker scheduling](https://konflux.pages.redhat.com/docs/users/mintmake
 
 On GitHub, the `red-hat-konflux` app must be added to a bypass list in the repository's ruleset to skip approval requirements for automerged PRs. See the [Mintmaker automerge documentation](https://konflux.pages.redhat.com/docs/users/mintmaker/user.html#automerge) for details.
 
-Automerge should be paired with good test coverage to avoid introducing regressions from unreviewed dependency changes.
+This generic example does **not** apply to the six SRE tools: their required policy is explicit `automerge: false` and normal human review. Do not add an approval bypass for this migration. Confirm the effective service and repository merge policy separately; configuration alone does not prove enforcement.

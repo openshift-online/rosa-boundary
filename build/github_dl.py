@@ -29,6 +29,8 @@ import sys
 import time
 import argparse
 import hashlib
+import re
+from urllib.parse import urlsplit, urljoin
 
 import jwt
 import requests
@@ -59,14 +61,16 @@ GITHUB_APP_VARS = ["GITHUB_APP_ID", "GITHUB_APP_PEM", "GITHUB_APP_INSTALL_ID"]
 def validate_binary(binary, checksum, raw_algorithm="sha256") -> bool:
     """Validate a downloaded binary against a checksum line."""
     hash_function = None
-    expected_hash, _ = checksum.split()
+    try:
+        expected_hash, _ = parse_sha256_line(checksum)
+    except ValueError:
+        print("Invalid SHA256 checksum line")
+        return False
 
     algorithm = raw_algorithm.removesuffix("sum").lower()
 
     if algorithm == "sha256":
         hash_function = hashlib.sha256
-    elif algorithm == "md5":
-        hash_function = hashlib.md5
     else:
         print(f"Unsupported hash algorithm: {raw_algorithm}")
         return False
@@ -90,7 +94,7 @@ def validate_token(token) -> bool:
     }
 
     try:
-        response = requests.get("https://api.github.com/rate_limit", headers=headers, timeout=30)
+        response = requests.get("https://api.github.com/rate_limit", headers=headers, timeout=30, allow_redirects=False)
     except requests.RequestException as e:
         print(f"Error: Failed to validate GitHub token: {e}")
         return False
@@ -112,10 +116,8 @@ def validate_token(token) -> bool:
     except (ValueError, AttributeError):
         print("Error: Malformed response from GitHub rate_limit API")
         return False
-    # A full build makes ~32 GitHub API calls: 2 per github_dl invocation
-    # (validate_token + list_assets) x2 stages, plus ~28 from backplane-tools
-    # install all (10 GitHub-sourced tools x ~3 calls each). The threshold
-    # of 50 provides headroom for retries and future tool additions.
+    # Direct tool adapters and Claude each validate tokens and list releases.
+    # Keep 50 calls of headroom for the complete build and bounded retries.
     if remaining < 50:
         print(f"Error: GitHub API rate limit nearly exhausted ({remaining} remaining, need at least 50 for a full build)")
         return False
@@ -124,31 +126,50 @@ def validate_token(token) -> bool:
 
 
 def get_url_with_authentication(url, token=None, additional_headers=None, retry=0, max_retries=5) -> requests.Response:
-    """Fetch a URL with optional bearer token authentication and retry on server errors."""
-    if retry > max_retries:
-        print("max retries reached. Exiting")
-        return None
+    """Bounded HTTPS GET; credentials go only to GitHub, never asset CDN hosts.
 
-    headers = {}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    if additional_headers:
-        headers.update(additional_headers)
-
-    response = requests.get(url, headers=headers, timeout=120)
-
-    if response.status_code == 200:
-        return response
-
-    if response.status_code >= 500:
-        print(f"Got {response.status_code}. Backing-off and retrying...")
-        retry += 1
-        time.sleep(3 * retry)
-
-        return get_url_with_authentication(url, token, additional_headers, retry, max_retries)
-
-    print(f"Failed to fetch data from {url}: {response.status_code} {response.text}")
+    Redirects are explicit so even same-host HTTPS-to-HTTP downgrades fail.
+    Do not log response bodies or exception URLs (signed CDN URLs are secrets).
+    """
+    retries = max(0, min(max_retries, 5))
+    redirects = 0
+    attempt = max(0, retry)
+    while attempt <= retries:
+        try:
+            parsed = urlsplit(url)
+            valid = (parsed.scheme == "https" and parsed.hostname and not parsed.username
+                     and not parsed.password and parsed.port in (None, 443))
+        except ValueError:
+            valid = False
+        if not valid:
+            print("Refusing unsafe download URL")
+            return None
+        headers = {k: v for k, v in (additional_headers or {}).items()
+                   if k.lower() != "authorization"}
+        if token and parsed.hostname in ("api.github.com", "github.com"):
+            headers["Authorization"] = f"Bearer {token}"
+        try:
+            response = requests.get(url, headers=headers, timeout=120, allow_redirects=False)
+        except requests.RequestException:
+            response = None
+        if response is not None and response.status_code == 200:
+            return response
+        if response is not None and response.status_code in (301, 302, 303, 307, 308):
+            location = response.headers.get("Location")
+            if not location or redirects >= 5:
+                print("Missing redirect location or redirect limit reached")
+                return None
+            url = urljoin(url, location)
+            redirects += 1
+            continue
+        if response is not None and not (500 <= response.status_code < 600):
+            print(f"Download failed (HTTP {response.status_code})")
+            return None
+        if attempt == retries:
+            break
+        attempt += 1
+        time.sleep(3 * attempt)
+    print("Download failed: retry limit reached")
     return None
 
 
@@ -158,74 +179,114 @@ def list_assets(url, token=None) -> list:
     if response is None:
         print(f"Failed to fetch content from {url}")
         return []
-    content = response.json()
-    if not content:
-        print(f"Failed to fetch content from {url}")
+    try:
+        content = response.json()
+    except ValueError:
+        print("Malformed release response")
         return []
-
-    if "assets" not in content:
-        print(f"No assets found in the release at {url}")
+    if not isinstance(content, dict) or not isinstance(content.get("assets"), list):
+        print("Malformed release assets")
         return []
+    return content["assets"]
 
-    return content.get("assets", [])
+
+def safe_asset_name(name):
+    """Accept only flat, unambiguous release filenames, never output paths."""
+    return (isinstance(name, str) and name not in (".", "..")
+            and re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*", name) is not None)
+
+
+def parse_sha256_line(line):
+    """Parse one GNU (text/binary) or BSD SHA256 record, without path rewriting."""
+    match = re.fullmatch(r"([0-9a-fA-F]{64}) [ *](\S+)", line)
+    if match:
+        digest, name = match.groups()
+    else:
+        match = re.fullmatch(r"SHA256[ \t]+\(([^)]+)\) = ([0-9a-fA-F]{64})", line)
+        if not match:
+            raise ValueError("Malformed SHA256 record")
+        name, digest = match.groups()
+    if not safe_asset_name(name):
+        raise ValueError("Unsafe checksum filename")
+    return digest.lower(), name
 
 
 def extract_browser_download_url(assets, asset) -> str:
-    """Find the browser_download_url for a named asset."""
-    for item in assets:
-        if item.get("name") == asset:
-            return item.get("browser_download_url")
-
-    print(f"Asset '{asset}' not found in the release")
-    print("Available assets:")
-    for item in assets:
-        print(f"\t{item.get('name')}")
-
-    return ""
+    """Require exactly one release asset with the literal requested name."""
+    if not safe_asset_name(asset):
+        return ""
+    matches = [item for item in assets if isinstance(item, dict) and item.get("name") == asset]
+    if len(matches) != 1 or not isinstance(matches[0].get("browser_download_url"), str):
+        print(f"Expected exactly one release asset: {asset}")
+        return ""
+    return matches[0]["browser_download_url"]
 
 
-def get_checksum(assets, checksum_file, platform, token=None) -> str:
-    """Download and parse the checksum file for a specific platform."""
-    checksum = None
+def get_checksum(assets, checksum_file, platform=None, token=None, *, asset_name=None) -> str:
+    """Return canonical 'hash  filename'; exact asset_name supersedes platform.
+
+    Legacy Claude callers can continue selecting a unique platform substring.
+    BSD manifests may contain other algorithms, but only SHA256 is selected.
+    """
+    if asset_name is not None and not safe_asset_name(asset_name):
+        return ""
+    if asset_name is None and not platform:
+        return ""
     checksum_download_url = extract_browser_download_url(assets, checksum_file)
     if not checksum_download_url:
         print(f"{checksum_file} not found")
         return ""
 
-    print(f"Downloading checksum file from {checksum_download_url}")
+    print(f"Downloading checksum file: {checksum_file}")
     response = get_url_with_authentication(checksum_download_url, token)
-    if not response.content:
+    if response is None or not response.content:
         print(f"No content found in {checksum_file}")
         return ""
 
-    checksum_file_content = response.content.decode('utf-8')
-    checksum = list(filter(lambda line: platform in line, checksum_file_content.splitlines()))
-
-    if not checksum:
-        print(f"No checksum found for platform '{platform}' in {checksum_file}")
+    try:
+        records = []
+        seen = set()
+        for line in response.content.decode('utf-8').splitlines():
+            if not line:
+                continue
+            # yq publishes several BSD algorithms in the same manifest.
+            # Ignore only well-formed non-SHA256 records, never malformed SHA256.
+            other = re.fullmatch(r"([A-Za-z][A-Za-z0-9_/-]*)[ \t]+\(([^)]+)\) = ([A-Za-z0-9+/=]+)", line)
+            if other and not other[1].upper().replace("-", "").replace("_", "").startswith("SHA256"):
+                if not safe_asset_name(other[2]):
+                    raise ValueError("Unsafe checksum filename")
+                continue
+            digest, name = parse_sha256_line(line)
+            if name in seen:
+                raise ValueError("Duplicate checksum filename")
+            seen.add(name)
+            matches = name == asset_name if asset_name is not None else platform in name
+            if matches:
+                records.append(f"{digest}  {name}")
+        if len(records) != 1:
+            raise ValueError("Expected exactly one checksum")
+        return records[0]
+    except (UnicodeError, ValueError):
+        print("Invalid, missing, or ambiguous SHA256 checksum")
         return ""
-
-    if len(checksum) > 1:
-        print(f"Multiple checksums found for platform '{platform}' in {checksum_file}:")
-        for item in checksum:
-            print(f"\t{item}")
-        return ""
-
-    return checksum[0].strip()
 
 
 def get_binary(assets, checksum, token=None) -> bytes:
     """Download the binary identified by the checksum line."""
-    binary_name = checksum.split()[1]
+    try:
+        _, binary_name = parse_sha256_line(checksum)
+    except ValueError:
+        print("Invalid binary checksum record")
+        return b""
     binary_download_url = extract_browser_download_url(assets, binary_name)
     if not binary_download_url:
         print(f"{binary_name} not found")
         return b""
 
-    print(f"Downloading binary from {binary_download_url}")
+    print(f"Downloading binary: {binary_name}")
     response = get_url_with_authentication(binary_download_url, token)
     if response is None:
-        print(f"Failed to download binary from {binary_download_url}")
+        print(f"Failed to download binary: {binary_name}")
         return b""
 
     if not response.content:
@@ -314,7 +375,7 @@ def generate_github_app_token(app_id, pem_key, install_id) -> str:
 
     url = f"https://api.github.com/app/installations/{install_id}/access_tokens"
     try:
-        response = requests.post(url, headers=headers, timeout=30)
+        response = requests.post(url, headers=headers, timeout=30, allow_redirects=False)
     except requests.RequestException as e:
         print(f"Error: Failed to generate GitHub App installation token: {e}")
         return None
@@ -401,7 +462,9 @@ def main():
     download_parser.add_argument("--url", required=True, help="GitHub Releases API URL")
     download_parser.add_argument("--checksum_file", required=True, help="Name of the checksum file in the release")
     download_parser.add_argument("--checksum_algorithm", default="sha256", help="Checksum algorithm (default: sha256)")
-    download_parser.add_argument("--platform", required=True, help="Platform string to match in checksums")
+    selection = download_parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--platform", help="Legacy platform substring to match in checksum filenames")
+    selection.add_argument("--asset_name", "--asset-name", "--exact_asset", help="Exact release asset filename")
     args = parser.parse_args()
 
     token = resolve_token()
@@ -449,7 +512,7 @@ def main():
     if not assets:
         sys.exit(1)
 
-    checksum = get_checksum(assets, args.checksum_file, args.platform, token)
+    checksum = get_checksum(assets, args.checksum_file, args.platform, token, asset_name=args.asset_name)
     if not checksum:
         sys.exit(1)
 
@@ -461,8 +524,14 @@ def main():
         sys.exit(1)
 
     output_filename = checksum.split()[1]
-    with open(output_filename, "wb") as f:
-        f.write(binary)
+    # Exclusive creation rejects existing files and symlinks in the caller's
+    # controlled working directory. Remote names are flat validated basenames.
+    try:
+        with open(output_filename, "xb") as f:
+            f.write(binary)
+    except OSError:
+        print("Unable to create output file exclusively in the working directory", file=sys.stderr)
+        sys.exit(1)
 
     print(f"Binary '{output_filename}' downloaded and validated successfully.")
 

@@ -5,12 +5,12 @@
 #
 # Stages:
 #   tools-base       — shared build environment (curl, python3, helpers)
-#   backplane-tools  — SRE CLI tools via github_dl (SHA256 verified)
+#   sre-tools        — directly pinned SRE tools (SHA256/signature verified)
 #   claude-builder   — Claude Code via github_dl (SHA256 verified)
 #   tmux-builder     — tmux built from source (not in UBI9 repos)
 #   final            — production image (only this stage ships)
 #
-# backplane-tools and claude-builder, depend on tools-base.
+# sre-tools and claude-builder depend on tools-base.
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
 # stages 2-5 run in parallel once their dependencies complete.
 
@@ -43,58 +43,81 @@ COPY build/platforms.sh /usr/local/bin/platform_convert
 COPY build/github_dl.py /usr/local/bin/github_dl
 RUN chmod +x /usr/local/bin/platform_convert /usr/local/bin/github_dl
 
+# Fail instead of labeling host-architecture binaries as another platform.
+# The pinned base must actually support the requested target architecture.
+ARG TARGETARCH
+RUN test "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" = "${TARGETARCH}"
 
-# Stage 2: backplane-tools
-# SRE CLI toolchain: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
-FROM tools-base AS backplane-tools
 
-# renovate: datasource=github-releases depName=openshift/backplane-tools
-ARG BACKPLANE_TOOLS_VERSION="v1.6.1"
-ENV BACKPLANE_TOOLS_URL_SLUG="openshift/backplane-tools"
-ENV BACKPLANE_TOOLS_URL="https://api.github.com/repos/${BACKPLANE_TOOLS_URL_SLUG}/releases/tags/${BACKPLANE_TOOLS_VERSION}"
-ENV BACKPLANE_TOOLS_CHECKSUM_FILE="checksums.txt"
-ENV BACKPLANE_TOOLS_CHECKSUM_ALGORITHM="sha256"
-ENV BACKPLANE_TOOLS_PLATFORM_PREFIX="linux_"
-ENV BACKPLANE_BIN_DIR="/root/.local/bin/backplane"
-ARG OUTPUT_DIR="/opt"
+# Stage 2: sre-tools
+# Exact, verified SRE releases. Keys and verification tooling never ship.
+FROM tools-base AS sre-tools
 
-RUN mkdir --parents /backplane-tools
-WORKDIR /backplane-tools
+RUN dnf install --assumeyes --nodocs gnupg2 \
+    && dnf clean all \
+    && rm --recursive --force /var/cache/yum
+COPY build/sre_tools.py build/verify_sre_tools.py /usr/local/share/sre-tools/
+COPY build/keys/ /usr/local/share/sre-tools/keys/
 
+# renovate: datasource=github-releases depName=openshift-online/ocm-cli
+ARG OCM_VERSION="v1.0.17"
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
-    github_dl download \
-        --url "${BACKPLANE_TOOLS_URL}" \
-        --checksum_file "${BACKPLANE_TOOLS_CHECKSUM_FILE}" \
-        --checksum_algorithm "${BACKPLANE_TOOLS_CHECKSUM_ALGORITHM}" \
-        --platform "${BACKPLANE_TOOLS_PLATFORM_PREFIX}$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+    python3 /usr/local/share/sre-tools/sre_tools.py ocm \
+        --version "${OCM_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py ocm \
+        --version "${OCM_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
 
-RUN tar --extract --gunzip --no-same-owner --directory /usr/local/bin --file ./*.tar.gz
-
-# backplane-tools install all fetches the SRE toolchain (ocm, oc, osdctl, etc.)
-# github_dl print-token resolves the token (app or PAT) so backplane-tools
-# gets authenticated GitHub API access regardless of which auth method is configured.
-#
-# One-time refresh trigger: backplane-tools resolves the latest upstream
-# backplane-cli release at build time, but a new backplane-cli release does not
-# itself trigger the path-filtered rosa-boundary-on-push build. This comment is
-# an intentional Containerfile change to force a fresh image build so the
-# externally resolved Backplane toolset picks up backplane-cli v1.1.0 (ROSA
-# Boundary multi-region NAT egress trusted-IP support, backplane-cli#1025).
-# Runtime behavior is unchanged.
+# renovate: datasource=github-releases depName=openshift/backplane-cli
+ARG BACKPLANE_CLI_VERSION="v1.1.0"
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
-    GITHUB_TOKEN=$(github_dl print-token) /usr/local/bin/backplane-tools install all
+    python3 /usr/local/share/sre-tools/sre_tools.py ocm-backplane \
+        --version "${BACKPLANE_CLI_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py ocm-backplane \
+        --version "${BACKPLANE_CLI_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
 
-# -H follows symlinks (backplane installs as symlinks in latest/)
-RUN cp -Hv "${BACKPLANE_BIN_DIR}/latest/"* "${OUTPUT_DIR}/"
+# renovate: datasource=github-releases depName=openshift/osdctl
+ARG OSDCTL_VERSION="v0.67.0"
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
+    python3 /usr/local/share/sre-tools/sre_tools.py osdctl \
+        --version "${OSDCTL_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py osdctl \
+        --version "${OSDCTL_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
 
-# AWS CLI dist is a directory, not a single binary
-RUN cp --recursive "${BACKPLANE_BIN_DIR}"/aws/*/aws-cli/dist "${OUTPUT_DIR}/aws_dist"
+# renovate: datasource=github-releases depName=mikefarah/yq
+ARG YQ_VERSION="v4.54.2"
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
+    python3 /usr/local/share/sre-tools/sre_tools.py yq \
+        --version "${YQ_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py yq \
+        --version "${YQ_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
+
+# renovate: datasource=custom.openshift-stable depName=openshift/oc
+ARG OC_VERSION="4.22.18"
+RUN python3 /usr/local/share/sre-tools/sre_tools.py oc \
+        --version "${OC_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py oc \
+        --version "${OC_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
+
+# renovate: datasource=github-tags depName=aws/aws-cli
+ARG AWSCLI_VERSION="2.39.5"
+RUN python3 /usr/local/share/sre-tools/sre_tools.py aws \
+        --version "${AWSCLI_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
+RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py aws \
+        --version "${AWSCLI_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
+
+RUN python3 /usr/local/share/sre-tools/verify_sre_tools.py combine /opt/inventory /opt/tool-versions.json
 
 
 # Stage 3: claude-builder
@@ -194,14 +217,15 @@ RUN dnf install --assumeyes --nodocs \
     && dnf clean all \
     && rm --recursive --force /var/cache/yum
 
-# Backplane tools: ocm, ocm-backplane, oc, osdctl, ocm-addons, yq, AWS CLI v2
-COPY --from=backplane-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
-COPY --from=backplane-tools /opt/ocm                /usr/local/bin/
-COPY --from=backplane-tools /opt/ocm-backplane      /usr/local/bin/
-COPY --from=backplane-tools /opt/oc                 /usr/local/bin/
-COPY --from=backplane-tools /opt/osdctl             /usr/local/bin/
-COPY --from=backplane-tools /opt/ocm-addons         /usr/local/bin/
-COPY --from=backplane-tools /opt/yq                 /usr/local/bin/
+# Directly installed tools: ocm, ocm-backplane, oc, osdctl, yq, AWS CLI v2
+COPY --from=sre-tools /opt/aws_dist           /usr/local/aws-cli/v2/current
+COPY --from=sre-tools /opt/ocm                /usr/local/bin/
+COPY --from=sre-tools /opt/ocm-backplane      /usr/local/bin/
+COPY --from=sre-tools /opt/oc                 /usr/local/bin/
+COPY --from=sre-tools /opt/osdctl             /usr/local/bin/
+COPY --from=sre-tools /opt/yq                 /usr/local/bin/
+
+COPY --from=sre-tools /opt/tool-versions.json /usr/local/share/rosa-boundary/tool-versions.json
 
 # Claude Code binary
 COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
@@ -209,8 +233,7 @@ COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
 # tmux built from source (not in UBI9 repos)
 COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
 
-# Register tools with alternatives. OC 4.20 is default (priority 100).
-# backplane-tools OC is fallback (priority 10).
+# Register the verified AWS distribution with alternatives.
 RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/aws 20 \
     && ln --symbolic /usr/local/lib/claude-code/claude /usr/local/bin/claude
 
@@ -218,8 +241,7 @@ RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/
 RUN ocm completion bash > /etc/bash_completion.d/ocm \
     && ocm backplane completion bash > /etc/bash_completion.d/ocm-backplane \
     && oc completion bash > /etc/bash_completion.d/oc \
-    && osdctl completion bash --skip-version-check > /etc/bash_completion.d/osdctl \
-    && ocm addons completion bash > /etc/bash_completion.d/ocm-addons
+    && osdctl completion bash --skip-version-check > /etc/bash_completion.d/osdctl
 
 # Non-root user for ECS Exec sessions
 RUN useradd --create-home --shell /bin/bash sre \
@@ -237,6 +259,13 @@ COPY --chmod=755 utils/rosa-boundary-credential-helper /usr/local/bin/
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV HOME=/home/sre
+
+# Test the final filesystem offline as sre; helper and pins are read-only mounts,
+# not runtime contents. External acceptance must also reconcile both inventories.
+RUN --network=none --mount=type=bind,source=build,target=/verify \
+    --mount=type=bind,source=Containerfile,target=/verify-Containerfile \
+    runuser --user sre -- python3 /verify/verify_sre_tools.py runtime \
+        --containerfile /verify-Containerfile
 
 # The entrypoint runs as root for privileged setup (alternatives --set, chown,
 # runuser). ECS Exec sessions drop to the sre user via the CLI's default

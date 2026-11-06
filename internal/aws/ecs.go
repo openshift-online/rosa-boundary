@@ -265,7 +265,7 @@ func ecsExecTarget(cluster, taskIdentifier, runtimeID string) string {
 func (c *ECSClient) ListTaskDefinitionsByFamily(ctx context.Context, familyPrefix string) ([]string, error) {
 	var arns []string
 	paginator := ecs.NewListTaskDefinitionsPaginator(c.client, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: aws.String(familyPrefix),
+		FamilyPrefix: taskDefinitionFamilyPrefix(familyPrefix),
 		Status:       types.TaskDefinitionStatusActive,
 	})
 	for paginator.HasMorePages() {
@@ -273,7 +273,11 @@ func (c *ECSClient) ListTaskDefinitionsByFamily(ctx context.Context, familyPrefi
 		if err != nil {
 			return nil, fmt.Errorf("ListTaskDefinitions failed: %w", err)
 		}
-		arns = append(arns, page.TaskDefinitionArns...)
+		for _, arn := range page.TaskDefinitionArns {
+			if strings.HasPrefix(path.Base(arn), familyPrefix) {
+				arns = append(arns, arn)
+			}
+		}
 	}
 	return arns, nil
 }

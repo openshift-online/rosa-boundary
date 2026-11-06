@@ -200,7 +200,10 @@ Both start a single container:
 - `test_vpc` - VPC and subnets created by init-aws.sh (session-scoped)
 - `test_efs` - EFS filesystem with automatic cleanup
 - `localstack_cli_binary` - Temporary CLI compiled with the `localstack` build tag;
-  STS/ECS/EFS endpoints are loopback-only. Normal builds retain AWS endpoints.
+  STS/ECS/EFS endpoints are loopback-only. LocalStack's ECS familyPrefix matches
+  only complete family names, so this tagged build scans ACTIVE task definitions
+  and filters the investigation prefix locally; normal builds use the AWS
+  server-side prefix. Neither build trusts the family name alone for cleanup.
 - `localstack_cli_env` - Isolated synthetic ID-token cache, LocalStack SRE role,
   dummy credentials, and consistent region. The close tests save a named profile
   in this isolated config directory; they never reuse your real SSO state.

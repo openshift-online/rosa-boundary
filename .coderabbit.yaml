@@ -54,8 +54,10 @@ reviews:
         - Ensure no credentials are written to config files
     - path: "**/*_test.go"
       instructions: |
-        - Verify mocks/stubs simulate AWS service behavior
         - Do not remove tests; update them to work against changes
+    - path: "internal/aws/**/*_test.go"
+      instructions: |
+        - Verify mocks/stubs simulate AWS service behavior
     - path: "lambda/**/*.py"
       instructions: |
         - Review Lambda handler for correct event parsing and error responses
@@ -92,3 +94,26 @@ reviews:
         - Verify LocalStack resource creation matches production AWS behavior
         - Verify mock OIDC server simulates Keycloak token behavior
         - Do not remove tests; update them to work against changes
+    - path: "components/trusted-actions/{cmd,internal}/**/*.go"
+      instructions: |
+        - This is the separate Trusted Actions Go module, not the Boundary CLI/Lambda/ECS Exec workflow.
+        - Review API request validation, account-scoped authorization, action allowlists, and audit coverage.
+        - Review credential handling and whether logs or audit records expose sensitive action output.
+        - Do not edit generated internal/openapi/api.go by hand; change the OpenAPI sources and regenerate.
+    - path: "components/trusted-actions/internal/{auth,authorization,backplane,executor,worker,store,audit}/**/*.go"
+      instructions: |
+        - Check that authorization targets reflect the actual action resources and account/cluster scope.
+        - Check worker claims and failures cannot silently repeat mutations or strand executions.
+        - Check that database queries and audit/output reads cannot cross account boundaries.
+    - path: "components/trusted-actions/**/*_test.go"
+      instructions: |
+        - Verify isolation, denied access, audit failures, and worker lifecycle edge cases are covered.
+        - Do not remove tests; update them to work against changes.
+    - path: "components/trusted-actions/terraform/{global,regional}/**/*.tf"
+      instructions: |
+        - Review Trusted Actions IAM, network, secrets, and audit resources for least privilege.
+        - These are separate Terraform roots and states from Boundary; do not assume a shared deployment.
+    - path: "components/trusted-actions/Containerfile"
+      instructions: |
+        - Check the nested image build context, secret exclusion, and non-root runtime user.
+        - Do not apply Boundary's multi-architecture SRE container and EFS requirements to this image.

@@ -1,0 +1,354 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
+
+	"github.com/openshift-online/rosa-trusted-actions/internal/authorization"
+)
+
+type AuthPolicy string
+
+const (
+	EnabledAuthPolicy   AuthPolicy = "enabled"
+	DisabledAuthPolicy  AuthPolicy = "disabled"
+	OcmConfigAuthPolicy AuthPolicy = "ocmconfig"
+)
+
+// RoleMapping maps a role ID to its AMS resource type for AccessReview checks.
+type RoleMapping struct {
+	ID          string `yaml:"id"`
+	AMSResource string `yaml:"amsResource"`
+}
+
+// Config holds the application configuration
+type Config struct {
+	// Server configuration (CLI flags)
+	ListenAddr string
+	LogLevel   string
+	LogJSON    bool
+
+	// AWS Configuration (environment variables)
+	AWSRegion          string
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
+	AWSSessionToken    string
+	// AWSEndpointURL overrides the AWS service endpoint. Set it to point at a
+	// local AWS emulator (LocalStack) instead of real AWS. Setting it also
+	// selects the static AWS client provider over the backplane one, because a
+	// single emulator is the only thing a single fixed endpoint can mean.
+	AWSEndpointURL string
+	// AWSProxyURL is the proxy AWS traffic goes through. Empty falls back to
+	// BackplaneProxyURL, matching backplane-cli.
+	AWSProxyURL string
+
+	// Storage Configuration (environment variables)
+	S3Bucket    string
+	S3KeyPrefix string
+
+	// Security Configuration (environment variables)
+	AllowedAccounts []string
+	Roles           []RoleMapping
+	JWKCertFile     string
+	JWKCertURL      string
+
+	// OCM Client Configuration (environment variables)
+	OCMBaseURL      string
+	OCMClientID     string
+	OCMClientSecret string
+	OCMToken        string
+
+	// Database Configuration (environment variables)
+	DatabaseURL       string
+	DBMaxOpenConns    int
+	DBMaxIdleConns    int
+	DBConnMaxLifetime time.Duration
+
+	// Workers Configuration (environment variables)
+	// WorkerConcurrency is the number of goroutines dequeuing and running
+	// executions concurrently.
+	WorkerConcurrency int
+	// WorkerPollInterval is the fallback poll interval a worker uses to check
+	// for pending executions when it hasn't been notified of new work.
+	WorkerPollInterval time.Duration
+	// WorkerExecutionTimeout bounds how long a single claimed execution may
+	// run before it is cancelled, so a hung backplane/cluster call can't
+	// block a worker indefinitely.
+	WorkerExecutionTimeout time.Duration
+
+	// Backplane Configuration. BackplaneURL is shared by two distinct flows
+	// against the same service: the HMAC-signed trusted-action endpoint in
+	// internal/backplane, and backplane-cli's cloud-credential flow used by
+	// awsapi.CloudCredentialsProvider. The settings below belong only to the
+	// latter.
+	BackplaneURL          string
+	BackplaneClientID     string
+	BackplaneClientSecret string
+	// BackplaneAssumeInitialARN overrides the payer-account role the AWS
+	// assume-role chain starts from. Normally left empty: backplane-cli infers
+	// it from the OCM URL, and rejects anything that is not one of the three
+	// known SRE support roles.
+	BackplaneAssumeInitialARN string
+	// BackplaneProxyURL is the proxy used to reach the backplane API.
+	BackplaneProxyURL string
+
+	// Kubernetes Configuration (local testing only)
+	Kubeconfig string
+
+	// Actions Configuration
+	AllowedNamespaces []string
+	AllowedSecrets    []string
+	// AWSAllowedRegions restricts which AWS regions actions may read from, the
+	// AWS counterpart of AllowedNamespaces. Unlike that one, empty denies
+	// everything rather than allowing it; left unconfigured it defaults to
+	// authorization.DefaultAllowedRegions.
+	AWSAllowedRegions []string
+	// AWSAllowedOperations names the AWS mutations actions may perform
+	// ("reboot", "terminate"). It has no default to fall back to: unset means
+	// empty, and empty refuses every write while still permitting reads. A
+	// deployment acquires the ability to change a cluster's cloud
+	// infrastructure by naming the operations, not by omitting the setting.
+	AWSAllowedOperations []string
+
+	// Development / local-testing flags
+	// EnableAuth controls whether OCM JWT validation and AMS role checks are
+	// enforced. Defaults to true. Set ROSA_TA_AUTH=disabled to use the
+	// hardcoded mock identity ("dev-user" / SREP role) — never use in production.
+	AuthPolicy AuthPolicy
+}
+
+type configFile struct {
+	Workers struct {
+		Concurrency      int           `yaml:"concurrency"`
+		PollInterval     time.Duration `yaml:"poll_interval"`
+		ExecutionTimeout time.Duration `yaml:"execution_timeout"`
+	} `yaml:"workers"`
+
+	Actions struct {
+		AllowedNamespaces    []string `yaml:"allowed_namespaces"`
+		AllowedSecrets       []string `yaml:"allowed_secrets"`
+		AWSAllowedRegions    []string `yaml:"aws_allowed_regions"`
+		AWSAllowedOperations []string `yaml:"aws_allowed_operations"`
+	} `yaml:"actions"`
+
+	// AWS and Backplane hold the connection settings for the two AWS client
+	// providers. They are grouped by the thing they configure rather than
+	// listed flat, so which provider a setting belongs to is visible from the
+	// file. Credentials are deliberately absent: those stay environment-only,
+	// because the config file is committed.
+	AWS struct {
+		EndpointURL string `yaml:"endpoint_url"`
+		ProxyURL    string `yaml:"proxy_url"`
+	} `yaml:"aws"`
+
+	Backplane struct {
+		AssumeInitialARN string `yaml:"assume_initial_arn"`
+		ProxyURL         string `yaml:"proxy_url"`
+	} `yaml:"backplane"`
+
+	Roles []RoleMapping `yaml:"roles"`
+}
+
+func readConfigFile(configFilePath string) (*configFile, error) {
+	configFile := &configFile{}
+
+	configFile.Workers.Concurrency = 4
+	configFile.Workers.PollInterval = 5 * time.Second
+	configFile.Workers.ExecutionTimeout = 2 * time.Minute
+
+	if configFilePath != "" {
+		data, err := os.ReadFile(configFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read '%s' config file: %w", configFilePath, err)
+		}
+		err = yaml.Unmarshal(data, configFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal '%s' config file: %w", configFilePath, err)
+		}
+	}
+	return configFile, nil
+}
+
+// Load loads configuration from environment variables with defaults
+func Load(configFilePath string) (*Config, error) {
+	if os.Getenv("ROSA_TA_ROLES_CONFIG") != "" {
+		fmt.Fprintln(os.Stderr, "WARNING: ROSA_TA_ROLES_CONFIG is no longer supported — configure roles in the config file under the 'roles' key instead")
+	}
+
+	configFile, err := readConfigFile(configFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// The default lives in the package that enforces the allowlist rather than
+	// here, so config cannot be pointed at a wider set of regions than the
+	// authorizer would permit. It is empty, so configuring nothing yields
+	// nothing — which cmd/server turns into a startup failure rather than a
+	// server that denies every AWS request.
+	awsAllowedRegions := configFile.Actions.AWSAllowedRegions
+	if len(awsAllowedRegions) == 0 {
+		awsAllowedRegions = authorization.DefaultAllowedRegions
+	}
+
+	envAuthPolicy := getEnv("ROSA_TA_AUTH", "")
+	authPolicy := EnabledAuthPolicy
+	if len(envAuthPolicy) > 0 {
+		switch envAuthPolicy {
+		case string(EnabledAuthPolicy):
+			authPolicy = EnabledAuthPolicy
+		case string(DisabledAuthPolicy):
+			authPolicy = DisabledAuthPolicy
+		case string(OcmConfigAuthPolicy):
+			authPolicy = OcmConfigAuthPolicy
+		default:
+			return nil, fmt.Errorf("invalid ROSA_TA_AUTH value: %s", envAuthPolicy)
+		}
+	} else {
+		if !getBoolEnv("ROSA_TA_ENABLE_AUTH", true) {
+			authPolicy = DisabledAuthPolicy
+		}
+	}
+
+	return &Config{
+		// Server config (set via CLI flags, defaults here for reference)
+		ListenAddr: getEnv("ROSA_TA_LISTEN_ADDR", ":8080"),
+		LogLevel:   getEnv("ROSA_TA_LOG_LEVEL", "info"),
+		LogJSON:    getBoolEnv("ROSA_TA_LOG_JSON", false),
+
+		// AWS Configuration
+		AWSRegion:          getEnv("AWS_REGION", ""),
+		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
+		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
+		AWSSessionToken:    getEnv("AWS_SESSION_TOKEN", ""),
+		AWSEndpointURL:     getEnv("ROSA_TA_AWS_ENDPOINT_URL", configFile.AWS.EndpointURL),
+		AWSProxyURL:        getEnv("ROSA_TA_AWS_PROXY_URL", configFile.AWS.ProxyURL),
+
+		// Storage Configuration
+		S3Bucket:    getEnv("ROSA_TA_S3_BUCKET", ""),
+		S3KeyPrefix: getEnv("ROSA_TA_S3_KEY_PREFIX", "trusted-actions"),
+
+		// Security Configuration
+		AllowedAccounts: getStringSliceEnv("ROSA_TA_ALLOWED_ACCOUNTS", nil),
+		Roles:           configFile.Roles,
+		JWKCertFile:     getEnv("ROSA_TA_JWK_CERT_FILE", ""),
+		JWKCertURL:      getEnv("ROSA_TA_JWK_CERT_URL", "https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/certs"),
+
+		// OCM Client Configuration
+		OCMBaseURL:      getEnv("ROSA_TA_OCM_BASE_URL", "https://api.openshift.com"),
+		OCMClientID:     getEnv("ROSA_TA_OCM_CLIENT_ID", ""),
+		OCMClientSecret: getEnv("ROSA_TA_OCM_CLIENT_SECRET", ""),
+		OCMToken:        getEnv("ROSA_TA_OCM_TOKEN", ""),
+
+		// Database Configuration
+		DatabaseURL:       getEnv("DATABASE_URL", ""),
+		DBMaxOpenConns:    getPositiveIntEnv("ROSA_TA_DB_MAX_OPEN_CONNS", 10),
+		DBMaxIdleConns:    getPositiveIntEnv("ROSA_TA_DB_MAX_IDLE_CONNS", 5),
+		DBConnMaxLifetime: getPositiveDurationEnv("ROSA_TA_DB_CONN_MAX_LIFETIME", 5*time.Minute),
+
+		// Workers Configuration
+		WorkerConcurrency:      getPositiveIntEnv("ROSA_TA_WORKER_CONCURRENCY", configFile.Workers.Concurrency),
+		WorkerPollInterval:     getPositiveDurationEnv("ROSA_TA_WORKER_POLL_INTERVAL", configFile.Workers.PollInterval),
+		WorkerExecutionTimeout: getPositiveDurationEnv("ROSA_TA_WORKER_EXECUTION_TIMEOUT", configFile.Workers.ExecutionTimeout),
+
+		// Backplane Configuration
+		BackplaneURL:          getEnv("ROSA_TA_BACKPLANE_URL", ""),
+		BackplaneClientID:     getEnv("ROSA_TA_BACKPLANE_CLIENT_ID", ""),
+		BackplaneClientSecret: getEnv("ROSA_TA_BACKPLANE_CLIENT_SECRET", ""),
+
+		BackplaneAssumeInitialARN: getEnv("ROSA_TA_BACKPLANE_ASSUME_INITIAL_ARN", configFile.Backplane.AssumeInitialARN),
+		BackplaneProxyURL:         getEnv("ROSA_TA_BACKPLANE_PROXY_URL", configFile.Backplane.ProxyURL),
+
+		// Kubernetes Configuration (local testing only)
+		Kubeconfig: getEnv("ROSA_TA_KUBECONFIG", ""),
+
+		// Actions Configuration
+		AllowedNamespaces: getStringSliceEnv("ROSA_TA_ALLOWED_NAMESPACES", configFile.Actions.AllowedNamespaces),
+		AllowedSecrets:    getStringSliceEnv("ROSA_TA_ALLOWED_SECRETS", configFile.Actions.AllowedSecrets),
+		AWSAllowedRegions: getStringSliceEnv("ROSA_TA_AWS_ALLOWED_REGIONS", awsAllowedRegions),
+		// No fallback to a built-in default, unlike the regions above: there is
+		// nothing to fall back to, because the default is to permit no writes.
+		AWSAllowedOperations: getStringSliceEnv("ROSA_TA_AWS_ALLOWED_OPERATIONS", configFile.Actions.AWSAllowedOperations),
+
+		// Development flags
+		AuthPolicy: authPolicy,
+	}, nil
+}
+
+// getEnv gets an environment variable with a default value
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getBoolEnv gets a boolean environment variable with a default value
+func getBoolEnv(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
+// getIntEnv gets an integer environment variable with a default value
+func getIntEnv(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.Atoi(value); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
+// getDurationEnv gets a duration environment variable (e.g. "5s") with a default value
+func getDurationEnv(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := time.ParseDuration(value); err == nil {
+			return parsed
+		}
+	}
+	return defaultValue
+}
+
+// getPositiveIntEnv gets an integer environment variable with a default
+// value, falling back to the default when the parsed value is not positive
+// (e.g. a misconfigured worker concurrency of 0).
+func getPositiveIntEnv(key string, defaultValue int) int {
+	if v := getIntEnv(key, defaultValue); v > 0 {
+		return v
+	}
+	return defaultValue
+}
+
+// getPositiveDurationEnv gets a duration environment variable with a default
+// value, falling back to the default when the parsed value is not positive
+// (time.NewTicker panics on a non-positive duration).
+func getPositiveDurationEnv(key string, defaultValue time.Duration) time.Duration {
+	if v := getDurationEnv(key, defaultValue); v > 0 {
+		return v
+	}
+	return defaultValue
+}
+
+// getStringSliceEnv gets a comma-separated string as a slice with a default value
+func getStringSliceEnv(key string, defaultValue []string) []string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parts := strings.Split(value, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}

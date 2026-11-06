@@ -1,0 +1,59 @@
+type: object
+required:
+  - id
+  - username
+  - method
+  - path
+  - status_code
+  - timestamp
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Unique audit entry ID
+    example: e2f91a3b-...
+  username:
+    type: string
+    description: OCM username of caller
+    example: 'srep-user'
+  method:
+    type: string
+    enum:
+      - GET
+      - POST
+    description: HTTP method
+  path:
+    type: string
+    description: Full request URI (path + query parameters)
+    example: /api/v0/trusted-actions/get_pods/run
+  action:
+    type: string
+    description: TA name (populated for POST /run calls; empty otherwise)
+    example: get_pods
+  target_cluster:
+    type: string
+    description: Target cluster (populated for POST /run calls; empty otherwise)
+    example: mc-useast1-1
+  execution_id:
+    type: string
+    description: >-
+      Execution ID. For POST /run: the created ID.
+      For GET /runs/{id}: the accessed ID. Empty otherwise.
+    example: 1a2cc9ec-fac0-43eb-ba2b-b3f1124f6aea
+  jira:
+    type: string
+    description: Jira ticket (populated for POST /run calls; empty otherwise)
+    example: ROSAENG-1234
+  approval_state:
+    type: string
+    description: Approval state at time of POST (populated for POST /run calls; empty otherwise)
+    example: not_required
+  status_code:
+    type: integer
+    description: HTTP response status code
+    example: 202
+  timestamp:
+    type: string
+    format: date-time
+    description: When the API call was made (nanosecond precision)
+    example: '2026-06-12T10:00:00.123456789Z'

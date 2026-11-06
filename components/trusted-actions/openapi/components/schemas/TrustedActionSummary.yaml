@@ -1,0 +1,19 @@
+type: object
+required:
+  - name
+  - scope
+  - type
+  - description
+properties:
+  name:
+    type: string
+    description: Trusted Action name
+    example: get_pods
+  scope:
+    $ref: ./Scope.yaml
+  type:
+    $ref: ./ActionType.yaml
+  description:
+    type: string
+    description: Human-readable description of the action
+    example: List pods with status, restarts, age, and node placement

@@ -1,0 +1,5 @@
+type: string
+enum:
+  - kube-api
+  - aws-api
+description: Where the Trusted Action executes (Kubernetes API or AWS API)

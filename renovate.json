@@ -7,8 +7,12 @@
     "terraform",
     "pre-commit",
     "github-actions",
+    "tekton",
     "custom.regex"
   ],
+  "tekton": {
+    "managerFilePatterns": ["/^\\.tekton\\/rosa-trusted-actions-.*\\.yaml$/"]
+  },
   "customManagers": [
     {
       "customType": "regex",
@@ -37,8 +41,34 @@
     {
       "description": "Group all Go module patch/minor updates, including AWS SDK modules, into a single PR",
       "matchManagers": ["gomod"],
+      "matchFileNames": ["go.mod"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "gomod dependencies"
+    },
+    {
+      "description": "Review all Trusted Actions dependency updates, including Terraform, instead of inheriting Boundary automerge",
+      "matchFileNames": ["components/trusted-actions/**"],
+      "automerge": false
+    },
+    {
+      "description": "Keep non-major Trusted Actions Go updates separate from Boundary",
+      "matchManagers": ["gomod"],
+      "matchFileNames": ["components/trusted-actions/go.mod"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "groupName": "trusted-actions gomod dependencies"
+    },
+    {
+      "description": "Do not update Trusted Actions' pinned go-yit dependency",
+      "matchManagers": ["gomod"],
+      "matchFileNames": ["components/trusted-actions/go.mod"],
+      "matchPackageNames": ["github.com/dprotaso/go-yit"],
+      "enabled": false
+    },
+    {
+      "description": "Review Trusted Actions Tekton updates rather than automerging them",
+      "matchManagers": ["tekton"],
+      "matchFileNames": [".tekton/rosa-trusted-actions-*.yaml"],
+      "automerge": false
     },
     {
       "description": "Group all GitHub Actions updates into a single PR",

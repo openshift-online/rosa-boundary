@@ -1,0 +1,8 @@
+type: string
+enum:
+  - pending
+  - running
+  - succeeded
+  - failed
+  - timed_out
+description: Lifecycle state of a Trusted Action execution

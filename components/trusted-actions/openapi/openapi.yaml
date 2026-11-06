@@ -1,0 +1,62 @@
+openapi: 3.0.2
+info:
+  version: 0.0.1
+  title: Trusted Actions API
+  description: >
+    The Trusted Actions API provides a controlled interface for executing
+    **Trusted Actions** (TAs) against Red Hat managed clusters and AWS
+    resources.
+
+
+    Operators submit actions through the API; each execution is tracked,
+    dispatched, and produces artifacts (output and logs) that can be
+    retrieved through the API.
+
+
+    ## Typical Workflow
+
+
+    1. Discover available actions — `GET /` (catalog) or `GET /{action}` (describe)
+
+    2. Execute an action — `POST /{action}/run` (returns `202 Accepted` with execution ID)
+
+    3. Poll for completion — `GET /runs/{id}` (metadata only by default)
+
+    4. Retrieve results — `GET /runs/{id}?include=output,logs` (opt-in content)
+
+    5. Audit and reporting — `GET /runs` (filter executions) or `GET /audit` (API call log)
+servers:
+  - url: '{gateway}/api/v0/trusted-actions'
+    description: Trusted Actions API Gateway
+    variables:
+      gateway:
+        default: 'https://api.example.com'
+        description: API Gateway base URL
+tags:
+  - name: Catalog
+    description: Discover and describe available Trusted Actions
+  - name: Executions
+    description: Execute Trusted Actions and retrieve results
+  - name: Audit
+    description: API call audit log
+paths:
+  /:
+    $ref: paths/catalog.yaml
+  '/{action}':
+    $ref: 'paths/{action}.yaml'
+  '/{action}/run':
+    $ref: 'paths/{action}@run.yaml'
+  '/runs/{id}':
+    $ref: 'paths/runs@{id}.yaml'
+  '/runs/{exec_id}/output':
+    $ref: 'paths/runs@{exec_id}@output.yaml'
+  /runs:
+    $ref: paths/runs.yaml
+  /audit:
+    $ref: paths/audit.yaml
+components:
+  securitySchemes:
+    ocm_jwt:
+      $ref: components/securitySchemes/ocm_jwt.yaml
+security:
+  - ocm_jwt: []

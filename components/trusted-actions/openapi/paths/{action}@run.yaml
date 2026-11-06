@@ -1,0 +1,109 @@
+post:
+  tags:
+    - Executions
+  summary: Execute a Trusted Action
+  description: >-
+    Execute a Trusted Action on a target cluster. Returns 202 Accepted
+    with an execution ID. The execution is dispatched for processing and
+    can be polled via GET /runs/{id}.
+  operationId: createExecution
+  parameters:
+    - name: action
+      in: path
+      required: true
+      description: Trusted Action name (e.g. get_pods, rollout_restart)
+      schema:
+        type: string
+  requestBody:
+    required: true
+    content:
+      application/json:
+        schema:
+          $ref: ../components/schemas/ExecutionRequest.yaml
+  responses:
+    '202':
+      description: Execution created and dispatched
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Execution.yaml
+    '400':
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            invalid-params:
+              summary: Invalid parameters
+              value:
+                kind: Error
+                code: invalid-params
+                reason: specify namespace or set all_namespaces=true
+            missing-target-cluster:
+              summary: Missing target cluster
+              value:
+                kind: Error
+                code: missing-target-cluster
+                reason: target_cluster is required
+            missing-jira:
+              summary: Missing Jira ticket
+              value:
+                kind: Error
+                code: missing-jira
+                reason: jira is required
+            invalid-jira:
+              summary: Invalid Jira format
+              value:
+                kind: Error
+                code: invalid-jira
+                reason: 'jira does not have correct format; expected PROJECT-NUMBER (e.g. ROSAENG-1234)'
+    '404':
+      description: Trusted Action not found
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            kind: Error
+            code: unknown-action
+            reason: 'Trusted action not found: get_secretz'
+    '429':
+      description: Rate limited (write cooldown or max concurrent)
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          examples:
+            write-cooldown:
+              summary: Write cooldown active
+              value:
+                kind: Error
+                code: write-cooldown
+                reason: "action 'rollout_restart' was executed on 'mc-useast1-1' recently (cooldown: 300s); use force=true to bypass"
+            max-concurrent:
+              summary: Max concurrent limit reached
+              value:
+                kind: Error
+                code: max-concurrent
+                reason: "target 'mc-useast1-1' has 10 active executions (max: 10); wait for some to complete"
+    '500':
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            kind: Error
+            code: store-error
+            reason: Failed to create execution
+    '502':
+      description: Dispatch failed
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            kind: Error
+            code: dispatch-error
+            reason: Failed to dispatch trusted action

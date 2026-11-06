@@ -1,0 +1,28 @@
+allOf:
+  - $ref: ./TrustedActionSummary.yaml
+  - type: object
+    properties:
+      authorization:
+        type: object
+        description: >-
+          Authorization policy for this TA. The approval field is "none"
+          (no approval needed) or a structured object defining approval
+          requirements.
+        properties:
+          approval:
+            type: string
+            description: 'Approval policy: "none" or structured approval requirements'
+            example: none
+      write_cooldown_seconds:
+        type: integer
+        description: Per-TA write cooldown override in seconds (0 uses global default)
+        example: 0
+      dry_run_action:
+        type: string
+        description: Name of a read TA to execute when dry_run is set
+        example: ''
+      params:
+        type: array
+        items:
+          $ref: ./TrustedActionParam.yaml
+        description: Full parameter definitions

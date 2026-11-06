@@ -254,6 +254,12 @@ Configured in `.pre-commit-config.yaml`:
 - Large file check (>500KB), merge conflict detection
 - golangci-lint
 - Skillsaw
+- Trusted Actions: secret scan and Go build when component files are changed.
+  The copied component-local config is not run by the root Git hook (a direct
+  pre-commit command from the component directory does select it); run TA's lint
+  and tests separately from `components/trusted-actions/`. Lint is not yet a
+  root hook: the imported baseline has existing findings, and its old pinned
+  linter cannot handle the current Go toolchain.
 
 ```bash
 make pre-commit

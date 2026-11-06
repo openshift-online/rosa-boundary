@@ -1,0 +1,83 @@
+type: object
+required:
+  - id
+  - action
+  - target_cluster
+  - status
+  - created_at
+  - updated_at
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Execution ID
+    example: fa65418c-f4eb-4f5c-8314-baaeb695ba7d
+  username:
+    type: string
+    description: OCM username of caller
+    example: 'srep-user'
+  action:
+    type: string
+    description: Trusted Action name
+    example: get_pods
+  target_cluster:
+    type: string
+    description: Target cluster identifier
+    example: id-12345
+  scope:
+    $ref: ./Scope.yaml
+  type:
+    $ref: ./ActionType.yaml
+  jira:
+    type: string
+    description: Associated Jira ticket
+    example: ROSAENG-1234
+  approval_state:
+    $ref: ./ApprovalState.yaml
+  status:
+    $ref: ./ExecutionStatus.yaml
+  revision:
+    type: string
+    description: Git SHA of TA definition
+    example: a1b2c3d
+  params:
+    type: object
+    additionalProperties:
+      type: string
+    description: Parameters passed at submission time
+  manifest_work_name:
+    type: string
+    description: Dispatch resource name
+    example: ta-fa65418c-...
+  dry_run:
+    type: boolean
+    description: Whether this was a dry-run execution
+  force:
+    type: boolean
+    description: Whether safety checks were bypassed
+  created_at:
+    type: string
+    format: date-time
+    description: When the execution was requested
+  updated_at:
+    type: string
+    format: date-time
+    description: Last time the execution record changed
+  completed_at:
+    type: string
+    format: date-time
+    description: When the reconciler detected both Jobs done
+  runner_seconds:
+    type: integer
+    description: Runner Job wall-clock time in seconds
+    example: 5
+  upload_seconds:
+    type: integer
+    description: Time from runner completion to uploader completion in seconds
+    example: 12
+  duration_seconds:
+    type: integer
+    description: 'Total wall-clock time (completed_at - created_at) in seconds'
+    example: 29
+  _links:
+    $ref: ./ExecutionLinks.yaml

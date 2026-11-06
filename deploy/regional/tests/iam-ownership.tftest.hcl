@@ -271,3 +271,55 @@ run "custom_identity_contract_and_optional_replication" {
     error_message = "Every regional lookup must honor the shared prefix contract; disabled regional replication adds no identity lookup or grant."
   }
 }
+
+# ROSAENG-68823: the metrics-read grant. The role identity is account-owned;
+# this root owns only its permissions, and only in the designated region.
+
+run "metrics_read_grant_is_opt_in_and_does_not_look_up_the_role" {
+  command = apply
+  assert {
+    condition     = length(aws_iam_role_policy.metrics_read) == 0 && length(data.aws_iam_role.metrics_read) == 0
+    error_message = "With the grant disabled this root must create no policy and must not even look the account role up, so a regional apply never depends on the account role existing."
+  }
+}
+
+run "metrics_read_grant_scope_owner_and_target" {
+  command = apply
+  variables { enable_metrics_read_grant = true }
+  assert {
+    condition = (
+      aws_iam_role_policy.metrics_read[0].name == "metrics-read" &&
+      aws_iam_role_policy.metrics_read[0].role == data.aws_iam_role.metrics_read[0].id &&
+      data.aws_iam_role.metrics_read[0].name == "rosa-boundary-dev-metrics-read"
+    )
+    error_message = "The grant must use the unsuffixed legacy-region policy name and attach to the looked-up account-owned metrics-read role."
+  }
+  assert {
+    condition = jsondecode(aws_iam_role_policy.metrics_read[0].policy) == {
+      Version = "2012-10-17"
+      Statement = [{
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:ListMetrics",
+          "cloudwatch:GetMetricData",
+          "cloudwatch:GetMetricStatistics",
+          "tag:GetResources",
+        ]
+        Resource = "*"
+      }]
+    }
+    error_message = "The metrics reader must keep exactly these four read actions; widening it, or adding logs/autoscaling reads, needs a deliberate change."
+  }
+}
+
+run "metrics_read_grant_rejects_a_non_owning_region" {
+  command = plan
+  variables {
+    enable_metrics_read_grant = true
+    aws_region                = "us-west-2"
+    legacy_policy_region      = "us-east-1"
+  }
+  # Rejected during variable evaluation, before the account role is looked up,
+  # so the operator sees the ownership reason and not NoSuchEntity.
+  expect_failures = [var.enable_metrics_read_grant]
+}

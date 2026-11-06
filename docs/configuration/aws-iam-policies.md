@@ -199,6 +199,70 @@ For viewing session logs:
 }
 ```
 
+## Optional: cross-account CloudWatch metric read (ROSAENG-68823)
+
+An external monitoring system can read this deployment's CloudWatch metrics
+without any long-lived credential, by assuming a dedicated role. The role is
+**off by default** and is created only when explicitly enabled.
+
+The role is split across the two Terraform roots the way every other shared
+identity is:
+
+| Piece | Owner | Input |
+|-------|-------|-------|
+| Role identity and trust policy | `deploy/account` | `enable_metrics_read_role`, `metrics_read_trusted_principal_arns`, `metrics_read_session_duration` |
+| Inline permission grant | `deploy/regional` | `enable_metrics_read_grant` |
+
+Enable them in that order, in two separate applies: the regional root resolves
+the role by name and fails with `NoSuchEntity` if the account root has not
+created it yet. Enable the grant only in the workspace whose `aws_region`
+matches `legacy_policy_region`; the grant is account-global, so any other region
+fails the plan rather than managing a duplicate policy on the same role.
+
+**Trust.** An explicit allowlist of complete caller ARNs, for example
+`arn:aws:iam::<caller-account-id>:role/<caller-role>` or
+`arn:aws:sts::<caller-account-id>:assumed-role/<caller-role>/<session-name>`.
+Account roots, service principals, partial names and wildcards are rejected by
+variable validation. That validation is load-bearing: IAM rejects a partial
+wildcard such as `role/*`, but it accepts a bare `*` as an anonymous principal,
+which would make the role assumable by anyone in the partition. Prefer the plain
+role ARN — a session ARN pins trust to one session name.
+
+**Permissions.** Exactly four read actions, and nothing else:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cloudwatch:ListMetrics",
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "tag:GetResources"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+CloudWatch metric reads cannot be scoped by resource ARN, which is why
+`Resource` is `*`. The AWS managed `CloudWatchReadOnlyAccess` policy is
+deliberately **not** used: it also grants logs and autoscaling reads this role
+has no reason to hold.
+
+`tag:GetResources` is the Resource Groups Tagging API, which collectors use for
+tag-based metric discovery. Unlike the three `cloudwatch:` actions it is
+cross-service by nature: it returns the ARNs and tag keys/values of tagged
+resources across services, though it exposes no service configuration or data.
+Grant it only while a discovery job needs it.
+
+No `Describe`/`List` permission for any other AWS service is granted, so a
+collector that needs metrics from another service still requires a reviewed
+change to this grant, not a configuration change on the caller's side.
+
 ## Creating Policies
 
 ```bash

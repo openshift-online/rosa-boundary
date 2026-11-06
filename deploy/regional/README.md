@@ -194,6 +194,7 @@ directory. Key differences from local execution:
 |----------|---------|-------|
 | `account_role_name_prefix` | `""` | Shared role prefix from the account workspace; staging sets it explicitly. |
 | `abac_tag_key` | `"uuid"` | ECS task tag key for ABAC isolation. The correct value depends on the OIDC provider's principal-tag claim mapping. |
+| `enable_metrics_read_grant` | `false` | Attaches the CloudWatch read grant to the account-owned metrics-read role. Enable **only** in the `legacy_policy_region` workspace, and **only after** the account workspace has applied `enable_metrics_read_role`; this root resolves that role by name and fails with `NoSuchEntity` otherwise. A non-owning region fails the plan on a precondition. See the [account README](../account/README.md). |
 
 The staging regional workspace is configured in the Git-managed meta-workspace.
 Do not apply its ownership-release plan until the non-destructive removals and

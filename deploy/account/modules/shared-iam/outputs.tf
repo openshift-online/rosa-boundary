@@ -9,5 +9,6 @@ output "roles" {
     reap_investigations        = { name = aws_iam_role.reap_investigations_lambda.name, arn = aws_iam_role.reap_investigations_lambda.arn }
     bedrock_invocation_logging = { name = aws_iam_role.bedrock_invocation_logging.name, arn = aws_iam_role.bedrock_invocation_logging.arn }
     s3_replication             = var.enable_s3_replication_role ? { name = aws_iam_role.s3_replication[0].name, arn = aws_iam_role.s3_replication[0].arn } : null
+    metrics_read               = var.enable_metrics_read_role ? { name = aws_iam_role.metrics_read[0].name, arn = aws_iam_role.metrics_read[0].arn } : null
   }
 }

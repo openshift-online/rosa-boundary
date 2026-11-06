@@ -74,9 +74,19 @@ exact accounting or audit source.
 
 Configure the exporter to read namespace `ROSABoundary`, metric
 `TaskCreationRequests`, dimensions **exactly** `ECSCluster` and `Outcome`, and
-statistic `Sum` over 60-second periods. Select the intended ECS cluster and
-region explicitly. Confirm the actual exported Prometheus name and dimension
-labels for the chosen exporter version before writing dashboard queries.
+statistic `Sum`. Select the intended ECS cluster and region explicitly. Confirm
+the actual exported Prometheus name and dimension labels for the chosen exporter
+version before writing dashboard queries.
+
+The metric is published at standard 60-second resolution, which is its storage
+granularity, not a required request period. Match the requested period to the
+scrape interval: exporters commonly publish only the **most recent** datapoint
+of the requested window, so a 60-second period scraped every 300 seconds
+silently discards four of every five minutes. Either request a 300-second
+period, or enable the exporter's export-all-datapoints behaviour and confirm the
+metrics store accepts out-of-order timestamps. Add a delay so the requested
+window is closed; CloudWatch publication lags, and the newest bucket is
+incomplete.
 
 This is a CloudWatch period count, not a process-lifetime Prometheus counter;
 do not apply `rate()` or `increase()` to it. Summing repeated scrapes of the same

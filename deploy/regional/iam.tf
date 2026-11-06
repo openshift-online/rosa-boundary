@@ -2,6 +2,51 @@
 # from 91c73fb. Only the designated legacy policy region retains unsuffixed names.
 # Each (role, policy name) has one owner; no exclusive policy reconciliation.
 
+# ROSAENG-68823: CloudWatch metric reads for an external collector.
+#
+# The role itself is account-owned; this is its only grant. CloudWatch metric
+# reads cannot be scoped by resource ARN, and tag:GetResources is what the
+# collector's discovery jobs use to find resources. tag:GetResources is
+# cross-service by nature - it lists ARNs and tags of tagged resources across
+# services - but it exposes no service configuration or data, and no other
+# service's Describe/List is granted. Adding a service to the collector may
+# therefore still require a reviewed change here.
+#
+# Deliberately NOT the AWS managed CloudWatchReadOnlyAccess, which also grants
+# logs and autoscaling reads this collector has no reason to hold.
+#
+# Single owner: the grant is account-global in effect (Resource = "*"), so only
+# the designated legacy policy region manages it. A second region enabling this
+# would produce a duplicate policy on the same role for no benefit, so the
+# precondition fails the plan instead of letting it happen quietly.
+resource "aws_iam_role_policy" "metrics_read" {
+  count = var.enable_metrics_read_grant ? 1 : 0
+  # The suffix is always empty while the precondition below pins this grant to
+  # the legacy policy region; it is kept for consistency with its siblings.
+  name = "metrics-read${local.regional_policy_suffix}"
+  role = data.aws_iam_role.metrics_read[0].id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "cloudwatch:ListMetrics",
+        "cloudwatch:GetMetricData",
+        "cloudwatch:GetMetricStatistics",
+        "tag:GetResources",
+      ]
+      Resource = "*"
+    }]
+  })
+
+  lifecycle {
+    precondition {
+      condition     = var.aws_region == var.legacy_policy_region
+      error_message = "enable_metrics_read_grant may only be set in the legacy_policy_region workspace: the grant is account-global, so a second region would manage a duplicate policy on the same role."
+    }
+  }
+}
+
 resource "aws_iam_role_policy" "s3_replication" {
   count = var.audit_replication_bucket_arn != "" ? 1 : 0
   name  = "s3-replication-policy${local.regional_policy_suffix}"

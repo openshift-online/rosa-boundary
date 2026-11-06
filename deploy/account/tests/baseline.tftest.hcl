@@ -35,8 +35,9 @@ run "account_singletons_and_shared_contract_without_regional_resources" {
       output.shared_roles.task.name == "rosa-boundary-dev-task-role" &&
       output.shared_roles.sre_shared.name == "rosa-boundary-dev-sre-shared" &&
       output.shared_roles.s3_replication == null &&
+      output.shared_roles.metrics_read == null &&
       output.shared_roles.reap_investigations.name == "rosa-boundary-dev-reap-investigations-lambda" &&
-      length(output.shared_roles) == 9 &&
+      length(output.shared_roles) == 10 &&
       output.regional_iam_contract == {
         account_role_name_prefix = "rosa-boundary-dev"
         legacy_policy_region     = "us-east-1"
@@ -164,4 +165,27 @@ run "legacy_bedrock_trust_cannot_be_silently_dropped" {
   command = plan
   variables { bedrock_logging_source_regions = ["us-west-2"] }
   expect_failures = [var.bedrock_logging_source_regions]
+}
+
+# ROSAENG-68823: the account root threads the metrics-read inputs through to
+# the shared identity module, and creates identity only - never a grant.
+run "metrics_read_identity_is_wired_through_the_account_root" {
+  command = apply
+  variables {
+    enable_metrics_read_role            = true
+    metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:role/example-collector"]
+    metrics_read_session_duration       = 7200
+  }
+  assert {
+    condition = (
+      output.shared_roles.metrics_read.name == "rosa-boundary-dev-metrics-read" &&
+      length(output.shared_roles) == 10 &&
+      output.shared_roles.s3_replication == null
+    )
+    error_message = "Enabling the metrics reader at the account root must surface the role through shared_roles."
+  }
+  # The grant lives in deploy/regional. That the account module declares no
+  # inline policy is already enforced for every file by the ownership assertion
+  # in account_singletons_and_shared_contract_without_regional_resources, so it
+  # is deliberately not restated here.
 }

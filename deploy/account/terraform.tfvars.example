@@ -29,6 +29,16 @@ bedrock_logging_source_regions = []
 # Enable once if any regional workspace configures S3 audit replication.
 enable_s3_replication_role = false
 
+# Optional read-only identity for an external metrics collector. Identity and
+# trust only: its permissions are the regional enable_metrics_read_grant inline
+# policy, which must be enabled in a LATER apply because the regional root looks
+# this role up by name. Callers must be complete role ARNs; account roots,
+# service principals and wildcards are rejected.
+enable_metrics_read_role            = false
+metrics_read_trusted_principal_arns = []
+# metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:role/example-collector"]
+metrics_read_session_duration = 3600
+
 # Match original trust inputs, especially nondefaults. abac_tag_key remains a
 # regional permission-policy input; all regional stacks must match the JWT tags.
 oidc_session_duration         = 3600

@@ -35,6 +35,12 @@ data "aws_iam_role" "s3_replication" {
   count = var.audit_replication_bucket_arn != "" ? 1 : 0
   name  = "${local.account_role_name_prefix}-s3-replication-role"
 }
+# ROSAENG-68823: the account root must already have applied
+# enable_metrics_read_role, otherwise this lookup fails with NoSuchEntity.
+data "aws_iam_role" "metrics_read" {
+  count = var.enable_metrics_read_grant ? 1 : 0
+  name  = "${local.account_role_name_prefix}-metrics-read"
+}
 
 data "aws_iam_openid_connect_provider" "keycloak" {
   url = var.keycloak_issuer_url

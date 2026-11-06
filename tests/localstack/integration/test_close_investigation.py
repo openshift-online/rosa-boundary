@@ -100,10 +100,9 @@ def test_sre_policy_allows_scoped_access_point_deletion():
     """The shared SRE role must be able to delete ROSA Boundary-managed EFS
     access points (ROSAENG-66963), but only those — not arbitrary access points.
 
-    Any authorized Boundary SRE may close any investigation, so deletion is not
-    scoped per-investigation or per-caller. It is scoped to Boundary-managed
-    access points via the ManagedBy resource tag the create-investigation Lambda
-    applies at creation time.
+    IAM itself does not scope deletion per-investigation or per-caller, even
+    though the CLI also checks ownership. IAM scopes deletion to Boundary-managed
+    access points via the ManagedBy tag the Lambda applies at creation time.
     """
     policy_source = _load_sre_policy_source()
     statement = _policy_statement(policy_source, 'EFSDeleteManagedAccessPoints')
@@ -263,6 +262,12 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
     target_definition = register_home_definition(family, ap_id)
     other_definition = register_home_definition(family, 'fsap-other')
     adjacent_definition = register_home_definition(f'{family}-extra', ap_id)
+    # LocalStack matches exact family names but not partial familyPrefix queries.
+    # The localstack-tagged CLI instead scans ACTIVE definitions and filters them.
+    listed = ecs_client.list_task_definitions(familyPrefix=family)
+    assert target_definition in listed['taskDefinitionArns']
+    target_volume = ecs_client.describe_task_definition(taskDefinition=target_definition)['taskDefinition']['volumes'][0]
+    assert target_volume['efsVolumeConfiguration']['authorizationConfig']['accessPointId'] == ap_id
 
     env = close_cli_env(cluster_name)
 
@@ -295,7 +300,7 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
     assert preview.returncode == 0, preview.stderr
     plan = json.loads(preview.stdout)
     assert plan['access_point_id'] == ap_id
-    assert plan['task_definitions_to_deregister'] == [target_definition]
+    assert plan['task_definitions_to_deregister'] == [target_definition], plan
     assert ap_id in [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
 
     # Run the close command with the required cluster/investigation pair.

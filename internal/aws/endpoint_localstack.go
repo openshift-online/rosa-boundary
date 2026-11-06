@@ -18,3 +18,7 @@ func integrationEndpoint() *string {
 	}
 	return &endpoint
 }
+
+// LocalStack currently matches only complete family names for this parameter.
+// The integration build filters the paginated ACTIVE list client-side instead.
+func taskDefinitionFamilyPrefix(string) *string { return nil }

@@ -195,6 +195,37 @@ func TestTaskDefinitionAccessPointRejectsNameOnlyMatch(t *testing.T) {
 	}
 }
 
+func TestListTaskDefinitionsByFamilyFiltersResults(t *testing.T) {
+	const family = "boundary-cluster-investigation"
+	const target = "arn:aws:ecs:us-east-1:123456789012:task-definition/boundary-cluster-investigation-20261105T220000:1"
+	const adjacent = "arn:aws:ecs:us-east-1:123456789012:task-definition/boundary-cluster-investigation-other-20261105T220000:1"
+	const unrelated = "arn:aws:ecs:us-east-1:123456789012:task-definition/unrelated:1"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Amz-Target"); got != "AmazonEC2ContainerServiceV20141113.ListTaskDefinitions" {
+			t.Errorf("unexpected operation: %s", got)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		var input struct {
+			FamilyPrefix *string `json:"familyPrefix"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			t.Error(err)
+		}
+		if want := taskDefinitionFamilyPrefix(family); (input.FamilyPrefix == nil) != (want == nil) || input.FamilyPrefix != nil && *input.FamilyPrefix != family {
+			t.Errorf("familyPrefix = %v, want %v", input.FamilyPrefix, want)
+		}
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		_, _ = w.Write([]byte(`{"taskDefinitionArns":["` + target + `","` + adjacent + `","` + unrelated + `"]}`))
+	}))
+	defer server.Close()
+	client := testInvestigationECSClient(server.URL)
+	arns, err := client.ListTaskDefinitionsByFamily(context.Background(), family)
+	if err != nil || len(arns) != 2 || arns[0] != target || arns[1] != adjacent {
+		t.Fatalf("filtered definitions = %v, err = %v", arns, err)
+	}
+}
+
 func TestTaskToSummaryUsesLastStatus(t *testing.T) {
 	task := types.Task{
 		TaskArn:       aws.String("arn:aws:ecs:us-east-2:123456789012:task/cluster/task-id"),

@@ -24,7 +24,7 @@ artifacts. The paths below are relative to each repository root:
 | `CLAUDE.md` | `components/trusted-actions/AGENTS.md` | 1 | Replace the old startup guide with component-specific contributor guidance; do not keep both guides. |
 | `.github/renovate.json` | Root `renovate.json` | 1 | Reconcile TA rules into Boundary's existing repo-level config; remove the nested `.github/` directory. |
 | `hcp-terraform/rosa-trusted-actions/{main.tf,variables.tf,terraform.auto.tfvars}` | `hcp-terraform/rosa-trusted-actions/` | 3 | Byte-for-byte copy of TA's HCP meta-workspace definition and tracked variables. Its original VCS repo and working directories are intentionally **not** switched by the import. |
-| `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Root `.tekton/` | 2 | Update the repo annotation to Boundary, the build context to `components/trusted-actions`, and PR/push change filters to the component and each pipeline file. Keep the TA image destination separate. |
+| `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Root `.tekton/` | 2 | Update the repo annotation to Boundary, the build context to `components/trusted-actions`, and PR/push change filters to the component and each pipeline file. Keep the TA image destination separate. **Post-import:** Boundary-side event triggers are guarded with `false &&` until cutover (see below). |
 | `openwiki/**` | **Not imported** | 45 | Generated TA wiki pages, Claims sidecars, and state belong to the former repository; maintain one combined wiki at Boundary's root `openwiki/`. Do not copy a future TA `.openwikiignore` either. |
 
 The component directory is therefore **not** a complete one-to-one copy of
@@ -96,6 +96,32 @@ ignored and must not be committed. Recheck for new untracked files at refresh
 time; their absence from this import is deliberate, not a blanket rule for
 future source files.
 
+## Pre-cutover Konflux trigger hold
+
+The initial import's Boundary-side TA Pipeline-as-Code definitions were **live**:
+the TA push pipeline ran after the import merged, despite the Konflux component
+source binding still pointing at the original TA repository. Both
+`.tekton/rosa-trusted-actions-{pull-request,push}.yaml` now prefix their
+`pipelinesascode.tekton.dev/on-cel-expression` with `false &&`. Once this
+change merges, Boundary PR and main-push events should not start these TA
+pipelines, publish into the existing TA Quay image repository, or produce TA
+snapshots/releases via those event-triggered builds. The full PipelineRuns and
+their original path filters remain in Git for cutover. This guard does **not**
+cancel already queued/running builds or prevent manually submitted PipelineRuns
+and other external triggers; verify those separately if needed. It does not
+change the original TA repository's CI, Konflux source binding, release path,
+or HCP deployment, nor Boundary's own image pipelines.
+
+At the coordinated CI cutover, confirm the final TA source refresh and owners'
+approval, review old-repo build/release activity and any pending runs, and
+confirm the new repository/component binding and image/release destination.
+Then remove `false &&` from **both** TA CEL expressions in a reviewed PR;
+retain/validate their event, branch, and path filters. Exercise a Boundary TA
+PR build and a main-push build, check image provenance and snapshot/release
+behavior, and only then retire the original TA triggers. Do not re-enable
+Boundary builds while the old-repo workflow still owns the shared destination
+without a coordinated isolation plan.
+
 ## Refresh from the still-active TA repository
 
 The old repo remains the source of truth **until** owners agree on cutover.
@@ -140,9 +166,10 @@ branch/worktree; leave both source checkouts and local-only files intact.
    `openwiki/` directory or a TA `.openwikiignore`; root OpenWiki owns the
    combined wiki and has its own update workflow.
 4. Reconcile the twelve transformed files above rather than reverting them:
-   retain TA-only Prow ownership, correct Konflux source/context/path filters,
-   keep the four formatting-only fixes, and retain the root Renovate and
-   component AGENTS.md reconciliation. Compare and review HCP Terraform
+   retain TA-only Prow ownership, correct Konflux source/context/path filters
+   **and the pre-cutover `false &&` hold**, keep the four formatting-only fixes,
+   and retain the root Renovate and component AGENTS.md reconciliation.
+   Compare and review HCP Terraform
    definitions and **tracked auto tfvars** without exposing secrets.
    Do not change the TA HCP workspace VCS binding, working directories,
    variable values, state-sharing permissions, or auto-apply merely to sync

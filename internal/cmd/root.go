@@ -163,7 +163,7 @@ func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, regio
 	}
 
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to assume AWS role via OIDC: %w", err)
+		return "", nil, fmt.Errorf("failed to assume AWS role via OIDC; verify the selected profile's account, region, issuer, and role trust with the deployment operator: %w", err)
 	}
 
 	return idToken, creds, nil

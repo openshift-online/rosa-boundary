@@ -62,6 +62,14 @@ func LoadProfiles() (*ProfilesFile, error) {
 
 // ReadProfiles reads an explicit path (useful for callers with a custom config location).
 func ReadProfiles(path string) (*ProfilesFile, error) {
+	file, err := readProfiles(path)
+	if err != nil {
+		return nil, fmt.Errorf("could not read Boundary configuration file %s\nHelp: Check that the file is accessible and uses the named-profile format (active_profile and profiles). If this is an old flat config, back it up or move it aside, then run 'rosa-boundary config init' to create a new profile.\nDetails: %w", path, err)
+	}
+	return file, nil
+}
+
+func readProfiles(path string) (*ProfilesFile, error) {
 	info, err := os.Lstat(path)
 	if os.IsNotExist(err) {
 		return &ProfilesFile{Profiles: make(map[string]Profile)}, nil
@@ -149,11 +157,11 @@ func (f *ProfilesFile) SelectProfile(name string) (string, Profile, error) {
 		name = f.ActiveProfile
 	}
 	if name == "" {
-		return "", Profile{}, fmt.Errorf("no active profile; run rosa-boundary config init --name <name> or select one with --profile")
+		return "", Profile{}, fmt.Errorf("no active profile; run 'rosa-boundary config list' to see saved profiles, select one with 'rosa-boundary config use <name>' or --profile, or create one with 'rosa-boundary config init --name <name>'")
 	}
 	p, ok := f.Profiles[name]
 	if !ok {
-		return "", Profile{}, fmt.Errorf("unknown profile %q; run rosa-boundary config list", name)
+		return "", Profile{}, fmt.Errorf("unknown profile %q; run 'rosa-boundary config list' to see saved profiles, then select one with --profile or 'rosa-boundary config use <name>'", name)
 	}
 	return name, p, nil
 }
@@ -205,16 +213,16 @@ func (f *ProfilesFile) SavedValue(name, key string) (any, error) {
 	}
 	if key == "oidc_use_device_code" {
 		if p.OIDCUseDeviceCode == nil {
-			return nil, fmt.Errorf("key %q is not saved in the selected profile", key)
+			return nil, fmt.Errorf("key %q is not saved in the selected profile; run 'rosa-boundary config get' to inspect saved settings and reinitialize the profile if this setting is needed", key)
 		}
 		return *p.OIDCUseDeviceCode, nil
 	}
 	v, ok := values[key]
 	if !ok {
-		return nil, fmt.Errorf("unsupported config key %q", key)
+		return nil, fmt.Errorf("unsupported config key %q; run 'rosa-boundary config get' to see the saved settings and their key names", key)
 	}
 	if v == "" {
-		return nil, fmt.Errorf("key %q is not saved in the selected profile", key)
+		return nil, fmt.Errorf("key %q is not saved in the selected profile; run 'rosa-boundary config get' to inspect saved settings and reinitialize the profile if this setting is needed", key)
 	}
 	return v, nil
 }

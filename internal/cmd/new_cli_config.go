@@ -69,14 +69,14 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("--yes requires --overwrite")
 	}
 	if newSelectedProfile != "" {
-		return fmt.Errorf("--profile is not used by config init")
+		return fmt.Errorf("--profile is not used by config init; use --name to name the new profile")
 	}
 	name, err := newPromptField(cmd, "name", "Profile name", "")
 	if err != nil {
 		return err
 	}
 	if name != "" && !newProfileName.MatchString(name) {
-		return fmt.Errorf("--name must be a nonempty profile name containing letters, digits, '.', '_' or '-'")
+		return fmt.Errorf("--name must start with a letter or digit and contain only letters, digits, '.', '_' or '-'; choose another name")
 	}
 	file, err := config.LoadFile()
 	if err != nil {
@@ -95,7 +95,7 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 				return err
 			}
 			if answer != "yes" {
-				return fmt.Errorf("profile replacement canceled")
+				return fmt.Errorf("profile replacement canceled; no settings were changed (retry with --overwrite after reviewing the deployment settings)")
 			}
 		}
 	}
@@ -136,7 +136,7 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 		}
 	}
 	if len(missing) > 0 {
-		return fmt.Errorf("missing required settings: %s", strings.Join(missing, ", "))
+		return fmt.Errorf("missing required settings: %s; supply these flags or run 'rosa-boundary config init --help' for interactive setup", strings.Join(missing, ", "))
 	}
 	if !regexp.MustCompile(`^[0-9]{12}$`).MatchString(values["account-id"]) {
 		return fmt.Errorf("--account-id must be a 12-digit AWS account ID")
@@ -151,16 +151,16 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 		}
 		idToken, err := auth.GetTokenWithOptions(cmd.Context(), pkce, true, auth.Options{UseDeviceCode: devicePreference, Reporter: reporter})
 		if err != nil {
-			return fmt.Errorf("OIDC discovery authentication failed: %w", err)
+			return fmt.Errorf("OIDC discovery authentication failed; check the issuer/client and complete the selected sign-in flow, or use --auto-discover=false with operator-confirmed settings: %w", err)
 		}
 		role := DeriveInvokerRoleARN(profile.AccountID, profile.Project, profile.Environment)
 		creds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), profile.AWSRegion, role, idToken, "rosa-boundary-config-init")
 		if err != nil {
-			return fmt.Errorf("discovery role assumption failed: %w", err)
+			return fmt.Errorf("discovery role assumption failed; verify the account ID, project, environment, and invoker role trust for this deployment: %w", err)
 		}
 		response, err := lambda.New(DeriveLambdaFunctionName(profile.Project, profile.Environment), profile.AWSRegion, awsclient.StaticCredentialsProvider(creds)).GetConfig(cmd.Context())
 		if err != nil {
-			return fmt.Errorf("deployment discovery failed: %w", err)
+			return fmt.Errorf("deployment discovery failed; verify the account/region and the derived create-investigation Lambda, or use --auto-discover=false with operator-confirmed settings: %w", err)
 		}
 		if err := newCheckDiscoveryIdentity(profile, response); err != nil {
 			return err
@@ -196,7 +196,7 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 			absent = append(absent, "efs_filesystem_id")
 		}
 		if len(absent) != 0 {
-			return fmt.Errorf("discovery response missing required settings: %s", strings.Join(absent, ", "))
+			return fmt.Errorf("discovery response missing required settings: %s; verify the selected deployment and its Lambda configuration, or use --auto-discover=false with operator-confirmed settings", strings.Join(absent, ", "))
 		}
 	}
 	if err := newCheckRoleAccounts(profile.AccountID, map[string]string{"invoker_role_arn": profile.InvokerRoleARN, "sre_role_arn": profile.SRERoleARN}); err != nil {
@@ -255,14 +255,14 @@ func runNewConfigList(cmd *cobra.Command, _ []string) error {
 
 func runNewConfigUse(cmd *cobra.Command, args []string) error {
 	if newSelectedProfile != "" {
-		return fmt.Errorf("--profile is not used by config use")
+		return fmt.Errorf("--profile is not used by config use; pass the profile name as an argument: rosa-boundary config use <name>")
 	}
 	file, err := config.LoadFile()
 	if err != nil {
 		return err
 	}
 	if _, ok := file.Profiles[args[0]]; !ok {
-		return fmt.Errorf("unknown profile %q; run config list", args[0])
+		return fmt.Errorf("unknown profile %q; run 'rosa-boundary config list' and pass a saved name to 'rosa-boundary config use'", args[0])
 	}
 	if err := file.UseProfile(args[0]); err != nil {
 		return err

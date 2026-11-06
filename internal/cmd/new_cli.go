@@ -130,7 +130,7 @@ func newCLIPreRun(cmd *cobra.Command, _ []string) error {
 
 func newCheckRoleAccounts(accountID string, roles map[string]string) error {
 	if !regexp.MustCompile(`^[0-9]{12}$`).MatchString(accountID) {
-		return fmt.Errorf("selected profile account_id must be a 12-digit AWS account ID")
+		return fmt.Errorf("selected profile account_id must be a 12-digit AWS account ID; verify the deployment account and run 'rosa-boundary config init --help' to replace this profile with --name and --overwrite")
 	}
 	for name, arn := range roles {
 		if arn == "" {
@@ -138,7 +138,7 @@ func newCheckRoleAccounts(accountID string, roles map[string]string) error {
 		}
 		match := regexp.MustCompile(`^arn:aws[a-z-]*:iam::([0-9]{12}):role/.+$`).FindStringSubmatch(arn)
 		if len(match) != 2 || match[1] != accountID {
-			return fmt.Errorf("%s does not match selected profile account_id %s", name, accountID)
+			return fmt.Errorf("%s does not match selected profile account_id %s; verify both against the intended deployment and run 'rosa-boundary config init --help' to replace this profile with --name and --overwrite", name, accountID)
 		}
 	}
 	return nil
@@ -173,11 +173,11 @@ func newDeploymentFlags(cmd *cobra.Command, ecs, efs bool) {
 func newTerminalRequired() error {
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		return fmt.Errorf("an interactive session requires a controlling terminal: %w", err)
+		return fmt.Errorf("an interactive session requires a controlling terminal; run this command in a terminal (not a pipe or headless job): %w", err)
 	}
 	defer func() { _ = tty.Close() }()
 	if !term.IsTerminal(int(tty.Fd())) {
-		return fmt.Errorf("an interactive session requires a controlling terminal")
+		return fmt.Errorf("an interactive session requires a controlling terminal; run this command in a terminal (not a pipe or headless job)")
 	}
 	return nil
 }
@@ -189,7 +189,7 @@ func newNonEmptyArgs(n int) cobra.PositionalArgs {
 		}
 		for _, arg := range args {
 			if strings.TrimSpace(arg) == "" {
-				return fmt.Errorf("arguments must not be empty")
+				return fmt.Errorf("arguments must not be empty; run '%s --help' for usage", cmd.CommandPath())
 			}
 		}
 		return nil
@@ -283,7 +283,7 @@ func newSessionCommand() *cobra.Command {
 			}
 		}
 		if p := newString(cmd, "with-credentials"); p != "" && p != "ocm" {
-			return fmt.Errorf("unsupported credential provider %q", p)
+			return fmt.Errorf("unsupported credential provider %q; use --with-credentials ocm or omit the flag", p)
 		}
 		if newString(cmd, "with-credentials") == "" && (cmd.Flags().Changed("ocm-url") || cmd.Flags().Changed("ocm-auth-flow")) {
 			return fmt.Errorf("--ocm-url and --ocm-auth-flow require --with-credentials ocm")
@@ -367,7 +367,7 @@ func newSessionCommand() *cobra.Command {
 			return err
 		}
 		if flow := newString(cmd, "auth-flow"); flow != "" && flow != "auth-code" && flow != "device" {
-			return fmt.Errorf("invalid --auth-flow %q", flow)
+			return fmt.Errorf("invalid --auth-flow %q: use auth-code or device", flow)
 		}
 		if cmd.Flags().Changed("ocm-url") {
 			if _, err := ocmcredentials.ResolveEnvironment(newString(cmd, "ocm-url")); err != nil {

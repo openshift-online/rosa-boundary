@@ -56,7 +56,7 @@ func runJoinTask(cmd *cobra.Command, args []string) error {
 
 	authRes := cachedAuthResult
 	if authRes == nil {
-		return fmt.Errorf("authentication required but not available")
+		return fmt.Errorf("authentication required but not available; select a configured profile and run 'rosa-boundary login' before joining")
 	}
 
 	clusterName := authRes.Config.ClusterName
@@ -100,7 +100,7 @@ func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClien
 	output.Status("Checking session status...")
 	task, err := ecsClient.DescribeTask(ctx, taskID)
 	if err != nil {
-		return fmt.Errorf("cannot describe task %s: %w", taskID, err)
+		return fmt.Errorf("cannot describe session %s; check the session ID, selected profile and ECS cluster with 'rosa-boundary session list --status all': %w", taskID, err)
 	}
 
 	output.Status("Session status: %s", task.Status)
@@ -111,7 +111,7 @@ func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClien
 		}
 		output.Status("Waiting for session to reach RUNNING state...")
 		if err := ecsClient.WaitForRunning(ctx, taskID); err != nil {
-			return fmt.Errorf("task did not reach RUNNING state: %w", err)
+			return fmt.Errorf("session did not reach RUNNING state; check 'rosa-boundary session list --status all' before retrying join: %w", err)
 		}
 	}
 
@@ -120,7 +120,7 @@ func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClien
 	// registered yet. Typically ready within 1-3 s; timeout after 30 s.
 	output.Status("Waiting for container exec agent...")
 	if err := ecsClient.WaitForExecAgent(ctx, taskID, container, 30*time.Second); err != nil {
-		return fmt.Errorf("exec agent not ready: %w", err)
+		return fmt.Errorf("session exec agent not ready; check the session status and retry join once the agent is ready: %w", err)
 	}
 
 	// Start ECS Exec session
@@ -129,7 +129,7 @@ func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClien
 
 	session, err := ecsClient.ExecuteCommand(ctx, taskID, container, command)
 	if err != nil {
-		return fmt.Errorf("ECS ExecuteCommand failed: %w", err)
+		return fmt.Errorf("ECS ExecuteCommand failed; verify the session is RUNNING and ask the deployment operator to check ECS Exec permissions if it persists: %w", err)
 	}
 
 	if err := debugf("Session ID: %s", session.SessionID); err != nil {

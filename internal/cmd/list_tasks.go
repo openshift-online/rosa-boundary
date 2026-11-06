@@ -64,18 +64,18 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	if desiredStatus == "ALL" {
 		running, listErr := ecsClient.ListRunningTasks(cmd.Context(), "RUNNING")
 		if listErr != nil {
-			return fmt.Errorf("cannot list tasks: %w", listErr)
+			return fmt.Errorf("cannot list sessions; verify the selected profile's account, region, ECS cluster and access permissions: %w", listErr)
 		}
 		stopped, listErr := ecsClient.ListRunningTasks(cmd.Context(), "STOPPED")
 		if listErr != nil {
-			return fmt.Errorf("cannot list tasks: %w", listErr)
+			return fmt.Errorf("cannot list sessions; verify the selected profile's account, region, ECS cluster and access permissions: %w", listErr)
 		}
 		tasks = append(running, stopped...)
 	} else {
 		var listErr error
 		tasks, listErr = ecsClient.ListRunningTasks(cmd.Context(), desiredStatus)
 		if listErr != nil {
-			return fmt.Errorf("cannot list tasks: %w", listErr)
+			return fmt.Errorf("cannot list sessions; verify the selected profile's account, region, ECS cluster and access permissions: %w", listErr)
 		}
 	}
 

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"golang.org/x/term"
 	"os"
 	"time"
 
@@ -13,39 +12,11 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var joinTaskCmd = &cobra.Command{
-	Use:   "join-task <task-id>",
-	Short: "Connect to a running ECS task via ECS Exec",
-	Long: `Connect to a running ECS Fargate task using ECS Exec and the
-AWS Session Manager plugin. Requires session-manager-plugin to be installed.
-
-The task must be in RUNNING state and have ECS Exec enabled.
-
--o json emits authentication events on stderr, not a JSON shell result.
-The session still requires a controlling terminal; its raw I/O is sent to
-that terminal rather than stdout. The plugin's exit status is preserved.`,
-	Args: func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-			return err
-		}
-		return requireInteractiveTerminal(cmd)
-	},
-	RunE: runJoinTask,
-}
-
 var (
 	joinContainer string
 	joinCommand   string
 	joinNoWait    bool
 )
-
-func init() {
-	joinTaskCmd.Flags().StringVar(&joinContainer, "container", "rosa-boundary", "Container name to connect to")
-	joinTaskCmd.Flags().StringVar(&joinCommand, "command", defaultExecCommand, "Command to run in the container")
-	joinTaskCmd.Flags().BoolVar(&joinNoWait, "no-wait", false, "Do not wait for RUNNING state before connecting")
-	addOutputFlag(joinTaskCmd, false)
-	rootCmd.AddCommand(joinTaskCmd)
-}
 
 func runJoinTask(cmd *cobra.Command, args []string) error {
 	format, err := commandOutput(cmd)
@@ -69,32 +40,11 @@ func runJoinTask(cmd *cobra.Command, args []string) error {
 	return runJoinWithClientFormat(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, taskID, joinContainer, joinCommand, joinNoWait, format)
 }
 
-// A JSON result stream cannot carry arbitrary shell bytes. A controlling
-// terminal is mandatory and belongs to the plugin, not command stdout/stderr.
-func requireInteractiveTerminal(cmd *cobra.Command) error {
-	format, err := commandOutput(cmd)
-	if err != nil {
-		return err
-	}
-	if format != "json" {
-		return nil
-	}
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return fmt.Errorf("-o json with an interactive session requires a controlling terminal: %w", err)
-	}
-	defer func() { _ = tty.Close() }()
-	if !term.IsTerminal(int(tty.Fd())) {
-		return fmt.Errorf("-o json with an interactive session requires a controlling terminal")
-	}
-	return nil
-}
-
 func runJoinWithClientFormat(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool, format string) error {
 	return runJoinWithClientSession(ctx, ecsClient, region, creds, taskID, container, command, noWait, format)
 }
 
-// runJoinWithClientSession is shared by join-task and start-task --connect.
+// runJoinWithClientSession is shared by session join and session start --connect.
 func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool, _ string) error {
 	// Check task status
 	output.Status("Checking session status...")

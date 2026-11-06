@@ -99,7 +99,7 @@ See [`docs/configuration/keycloak-realm-setup.md`](docs/configuration/keycloak-r
 make build-cli && make install-cli
 ```
 
-The new CLI uses **named deployment profiles** in
+The CLI uses **named deployment profiles** in
 `${XDG_CONFIG_HOME:-$HOME/.config}/rosa-boundary/config.yaml`. Ask your operator
 for the Boundary account, region, and identity provider, then initialize one:
 

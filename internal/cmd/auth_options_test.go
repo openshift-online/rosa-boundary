@@ -19,32 +19,60 @@ import (
 )
 
 func TestOutputFlagsAreCommandScoped(t *testing.T) {
-	for _, command := range []*cobra.Command{loginCmd, configureCmd, startTaskCmd, createInvestigationCmd, joinTaskCmd, stopTaskCmd, listTasksCmd, listInvestigationsCmd, closeInvestigationCmd, credentialsConfigureOCMCmd, credentialsClearOCMCmd} {
+	root := buildRootCommand()
+	for _, path := range [][]string{
+		{"login"}, {"config", "init"}, {"session", "start"}, {"investigation", "create"},
+		{"session", "join"}, {"session", "stop"}, {"session", "list"},
+		{"investigation", "list"}, {"investigation", "close"},
+		{"session", "credentials", "configure", "ocm"}, {"session", "credentials", "clear", "ocm"},
+	} {
+		command := commandAtPath(t, root, path...)
 		flag := command.LocalNonPersistentFlags().Lookup("output")
 		if flag == nil || flag.Shorthand != "o" {
 			t.Errorf("%s lacks local -o", command.CommandPath())
 		}
 	}
-	for _, command := range []*cobra.Command{rootCmd, versionCmd, credentialsCmd} {
+	for _, path := range [][]string{{}, {"version"}, {"session", "credentials"}, {"config", "list"}, {"config", "use"}, {"config", "get"}} {
+		command := commandAtPath(t, root, path...)
 		if command.LocalNonPersistentFlags().Lookup("output") != nil {
 			t.Errorf("offline/group command %s advertises -o", command.CommandPath())
 		}
 	}
-	for _, command := range []*cobra.Command{loginCmd, configureCmd, joinTaskCmd, credentialsConfigureOCMCmd} {
+	for _, path := range [][]string{{"login"}, {"config", "init"}, {"session", "join"}, {"session", "credentials", "configure", "ocm"}} {
+		command := commandAtPath(t, root, path...)
 		if !strings.Contains(command.Flags().Lookup("output").Usage, "auth events on stderr") {
 			t.Errorf("%s lacks event help", command.CommandPath())
 		}
 	}
 }
 
+func commandAtPath(t *testing.T, root *cobra.Command, path ...string) *cobra.Command {
+	t.Helper()
+	command := root
+	for _, name := range path {
+		var found *cobra.Command
+		for _, child := range command.Commands() {
+			if child.Name() == name {
+				found = child
+				break
+			}
+		}
+		if found == nil {
+			t.Fatalf("missing command %s under %s", name, command.CommandPath())
+		}
+		command = found
+	}
+	return command
+}
+
 func TestConfigureDeviceBootstrapRequiresExplicitTrue(t *testing.T) {
 	parent := &cobra.Command{Use: "root"}
 	parent.PersistentFlags().Bool("use-device-code", false, "")
-	child := &cobra.Command{Use: "configure"}
+	child := &cobra.Command{Use: "init"}
 	parent.AddCommand(child)
 	t.Setenv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE", "true")
 	if configureDeviceCode(child) {
-		t.Fatal("env selected configure bootstrap")
+		t.Fatal("env selected config init bootstrap")
 	}
 	for _, tc := range []struct {
 		arg  string
@@ -89,23 +117,13 @@ func TestJSONJoinRequiresTerminalBeforeAuthentication(t *testing.T) {
 		_ = tty.Close()
 		t.Skip("test process has a controlling terminal")
 	}
-	command := &cobra.Command{Use: "join-task"}
-	addOutputFlag(command, false)
-	if err := command.Flags().Set("output", "json"); err != nil {
-		t.Fatal(err)
-	}
-	if err := requireInteractiveTerminal(command); err == nil || !strings.Contains(err.Error(), "controlling terminal") {
+	if _, err := runTestCLI(t, "session", "join", "task-1", "-o", "json"); err == nil || !strings.Contains(err.Error(), "controlling terminal") {
 		t.Fatalf("preflight = %v", err)
 	}
 }
 
-func TestJoinRejectsInvalidOutputEvenWithoutArgsValidation(t *testing.T) {
-	command := &cobra.Command{Use: "join-task"}
-	addOutputFlag(command, false)
-	if err := command.Flags().Set("output", "xml"); err != nil {
-		t.Fatal(err)
-	}
-	if err := runJoinTask(command, []string{"task-1"}); err == nil || !strings.Contains(err.Error(), "invalid --output") {
+func TestJoinRejectsInvalidOutputBeforeAuth(t *testing.T) {
+	if _, err := runTestCLI(t, "session", "join", "task-1", "-o", "xml"); err == nil || !strings.Contains(err.Error(), "invalid --output") {
 		t.Fatalf("join error = %v", err)
 	}
 }

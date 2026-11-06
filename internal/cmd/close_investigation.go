@@ -19,21 +19,6 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var closeInvestigationCmd = &cobra.Command{
-	Use:   "close-investigation",
-	Short: "Close an investigation: stop tasks, deregister task defs, delete EFS access point",
-	Long: `Close an investigation workspace by:
-  1. Finding the EFS access point for the investigation
-  2. Stopping any running tasks (requires --force if tasks are running)
-  3. Deregistering associated task definitions
-  4. Deleting the EFS access point (prompts for confirmation unless --yes)
-
-Note: The EFS data remains on the filesystem after the access point is deleted.
-Use --efs-filesystem-id or set efs_filesystem_id in your config.`,
-	Args: cobra.NoArgs,
-	RunE: runCloseInvestigation,
-}
-
 var (
 	closeClusterID       string
 	closeInvestigationID string
@@ -59,21 +44,7 @@ func investigationTaskDefinitions(arns []string, familyPrefix string) []string {
 	return result
 }
 
-// init registers the close-investigation command and its flags with the root command.
-func init() {
-	closeInvestigationCmd.Flags().StringVar(&closeClusterID, "cluster-id", "", "Cluster ID (optional; required if investigation ID is ambiguous)")
-	closeInvestigationCmd.Flags().StringVar(&closeInvestigationID, "investigation-id", "", "Investigation ID (required)")
-	closeInvestigationCmd.Flags().BoolVar(&closeForce, "force", false, "Stop running tasks before deleting (default: error if tasks are running)")
-	closeInvestigationCmd.Flags().BoolVar(&closeYes, "yes", false, "Skip confirmation prompt for EFS access point deletion")
-	addOutputFlag(closeInvestigationCmd, true, &closeOutputFormat)
-	_ = closeInvestigationCmd.MarkFlagRequired("investigation-id")
-	rootCmd.AddCommand(closeInvestigationCmd)
-}
-
-// runCloseInvestigation executes the close-investigation command workflow.
-// It finds the EFS access point by investigation ID (optionally filtered by cluster ID),
-// stops any running tasks if --force is specified, deregisters task definitions,
-// and deletes the EFS access point after user confirmation.
+// runCloseInvestigation plans and closes a workspace after confirming ownership.
 func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	if err := validateTextOrJSONOutputFormat(closeOutputFormat); err != nil {
 		return err
@@ -100,7 +71,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	if len(plan.SessionIDs)+len(plan.SessionsWaiting) != 0 && !closeForce && !closeDryRun {
 		return fmt.Errorf("%d active session(s) remain (including sessions shutting down); use --force to stop/wait or --dry-run to preview", len(plan.SessionIDs)+len(plan.SessionsWaiting))
 	}
-	plan.Profile = newSelectedProfile
+	plan.Profile = selectedProfile
 	plan.AccountID = authRes.Config.AccountID
 	plan.Region = authRes.Config.AWSRegion
 	printClosePlan(plan)
@@ -164,7 +135,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 
 	if closeOutputFormat == "json" {
 		summary := map[string]any{
-			"profile": newSelectedProfile, "cluster_id": plan.ClusterID,
+			"profile": selectedProfile, "cluster_id": plan.ClusterID,
 			"investigation_id": plan.InvestigationID, "access_point_id": plan.AccessPointID,
 			"sessions_stopped": stopped, "task_defs_removed": removed,
 		}
@@ -285,6 +256,6 @@ func printClosePlan(p closePlan) {
 
 // printCloseInvestigationSummary writes the text result to stdout.
 func printCloseInvestigationSummary(cluster, investigationID, accessPointID string, tasksStopped, taskDefsRemoved int) error {
-	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s closed (profile %s; access point %s deleted).\nSessions stopped: %d; task definitions removed: %d. EFS data remains; verify audit evidence separately.\n", cluster, investigationID, newSelectedProfile, accessPointID, tasksStopped, taskDefsRemoved)
+	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s closed (profile %s; access point %s deleted).\nSessions stopped: %d; task definitions removed: %d. EFS data remains; verify audit evidence separately.\n", cluster, investigationID, selectedProfile, accessPointID, tasksStopped, taskDefsRemoved)
 	return err
 }

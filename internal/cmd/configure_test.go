@@ -4,9 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"github.com/openshift-online/rosa-boundary/internal/config"
-	"github.com/spf13/viper"
-	"gopkg.in/yaml.v3"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,71 +12,43 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"gopkg.in/yaml.v3"
 )
 
-func TestBootstrapOIDCValue(t *testing.T) {
-	parent := &cobra.Command{Use: "rosa-boundary"}
-	parent.PersistentFlags().String("keycloak-url", "", "")
-	cmd := &cobra.Command{Use: "configure"}
-	parent.AddCommand(cmd)
-	const fallback = "https://auth.redhat.com/auth"
-	get := func() string {
-		return bootstrapOIDCValue(cmd, "keycloak-url", "KEYCLOAK_URL", "KEYCLOAK_URL", fallback)
-	}
-
-	// An existing config is deliberately not an input to the bootstrap resolver.
-	if got := get(); got != fallback {
-		t.Fatalf("default bootstrap URL = %q, want %q", got, fallback)
-	}
-	t.Setenv("KEYCLOAK_URL", "https://legacy.example")
-	if got := get(); got != "https://legacy.example" {
-		t.Errorf("legacy env URL = %q", got)
-	}
-	t.Setenv("ROSA_BOUNDARY_KEYCLOAK_URL", "https://env.example")
-	if got := get(); got != "https://env.example" {
-		t.Errorf("prefixed env URL = %q", got)
-	}
-	if err := parent.PersistentFlags().Set("keycloak-url", "https://flag.example"); err != nil {
+func TestConfigInitDoesNotInheritIssuerFromExistingProfileOrEnvironment(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	_, err := runTestCLI(t, "config", "init", "--name", "first", "--auto-discover=false",
+		"--account-id", "123456789012", "--region", "us-east-1", "--keycloak-url", "https://first.example.test",
+		"--lambda-function-name", "create", "--invoker-role-arn", "arn:aws:iam::123456789012:role/invoker",
+		"--sre-role-arn", "arn:aws:iam::123456789012:role/sre", "--ecs-cluster", "ecs", "--efs-filesystem-id", "fs-example")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if got := get(); got != "https://flag.example" {
-		t.Errorf("flag URL = %q", got)
+	t.Setenv("KEYCLOAK_URL", "https://legacy.example.test")
+	t.Setenv("ROSA_BOUNDARY_KEYCLOAK_URL", "https://env.example.test")
+	_, err = runTestCLI(t, "config", "init", "--name", "second", "--auto-discover=false",
+		"--account-id", "123456789012", "--region", "us-east-1",
+		"--lambda-function-name", "create", "--invoker-role-arn", "arn:aws:iam::123456789012:role/invoker",
+		"--sre-role-arn", "arn:aws:iam::123456789012:role/sre", "--ecs-cluster", "ecs", "--efs-filesystem-id", "fs-example")
+	if err == nil || !strings.Contains(err.Error(), "--keycloak-url") {
+		t.Fatalf("manual init inherited issuer: %v", err)
 	}
 }
 
-func TestConfigureManualPersistsExplicitYAMLBoolean(t *testing.T) {
-	viper.Reset()
-	t.Cleanup(viper.Reset)
+func TestConfigInitManualPersistsExplicitYAMLBoolean(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE", "true") // configure ignores env mode
-	if err := config.Load(); err != nil {
-		t.Fatal(err)
-	}
-	parent := &cobra.Command{Use: "rosa-boundary"}
-	parent.PersistentFlags().Bool("use-device-code", false, "")
-	child := &cobra.Command{Use: "configure"}
-	parent.AddCommand(child)
+	t.Setenv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE", "true") // bootstrap ignores the environment preference
 	for _, tc := range []struct {
+		name  string
 		value string
 		want  bool
-	}{{"true", true}, {"false", false}} {
-		if err := parent.PersistentFlags().Set("use-device-code", tc.value); err != nil {
-			t.Fatal(err)
-		}
-		old := os.Stdin
-		r, w, err := os.Pipe()
-		if err != nil {
-			t.Fatal(err)
-		}
-		// Manual prompts: URL, realm, client, Lambda, invoker, SRE, region, cluster, EFS.
-		_, _ = io.WriteString(w, "\n\n\nexample-lambda\nexample-invoker\nexample-sre\n\n\nexample-fs\n")
-		_ = w.Close()
-		os.Stdin = r
-		err = runConfigureInteractive(child)
-		os.Stdin = old
-		_ = r.Close()
+	}{{"device", "true", true}, {"browser", "false", false}} {
+		_, err := runTestCLI(t, "--use-device-code="+tc.value, "config", "init", "--name", tc.name,
+			"--auto-discover=false", "--account-id", "123456789012", "--region", "us-east-1",
+			"--keycloak-url", "https://auth.example.test", "--lambda-function-name", "create",
+			"--invoker-role-arn", "arn:aws:iam::123456789012:role/invoker",
+			"--sre-role-arn", "arn:aws:iam::123456789012:role/sre", "--ecs-cluster", "ecs", "--efs-filesystem-id", "fs-example")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,13 +62,26 @@ func TestConfigureManualPersistsExplicitYAMLBoolean(t *testing.T) {
 			t.Fatal(err)
 		}
 		found := false
-		for i := 0; i+1 < len(doc.Content[0].Content); i += 2 {
-			if doc.Content[0].Content[i].Value == "oidc_use_device_code" {
-				value := doc.Content[0].Content[i+1]
-				if value.Tag != "!!bool" || value.Value != tc.value {
-					t.Fatalf("device key = %q %s; want YAML bool %s", value.Value, value.Tag, tc.value)
+		root := doc.Content[0].Content
+		for i := 0; i+1 < len(root); i += 2 {
+			if root[i].Value != "profiles" {
+				continue
+			}
+			profiles := root[i+1].Content
+			for j := 0; j+1 < len(profiles); j += 2 {
+				if profiles[j].Value != tc.name {
+					continue
 				}
-				found = true
+				fields := profiles[j+1].Content
+				for k := 0; k+1 < len(fields); k += 2 {
+					if fields[k].Value == "oidc_use_device_code" {
+						value := fields[k+1]
+						if value.Tag != "!!bool" || value.Value != tc.value {
+							t.Fatalf("device key = %q %s; want YAML bool %s", value.Value, value.Tag, tc.value)
+						}
+						found = true
+					}
+				}
 			}
 		}
 		if !found {

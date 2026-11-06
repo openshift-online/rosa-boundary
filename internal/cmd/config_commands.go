@@ -18,16 +18,16 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var newProfileName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
+var profileName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
-// newSavedProfile deliberately ignores environment and deployment defaults.
-func newSavedProfile(name string) (string, config.Profile, error) {
+// savedProfile deliberately ignores environment and deployment defaults.
+func savedProfile(name string) (string, config.Profile, error) {
 	return config.ReadSavedProfile(name)
 }
 
-func newConfigCommand() *cobra.Command {
-	group := newGroup("config", "Manage Boundary deployment profiles")
-	init := newLeaf("init", "Add a deployment profile", cobra.NoArgs, runNewConfigInit, false)
+func buildConfigCommand() *cobra.Command {
+	group := commandGroup("config", "Manage Boundary deployment profiles")
+	init := commandLeaf("init", "Add a deployment profile", cobra.NoArgs, runConfigInit, false)
 	for _, flag := range []struct{ name, help string }{
 		{"name", "Profile name (required without a terminal)"}, {"account-id", "AWS account containing Boundary"}, {"region", "Boundary deployment region"},
 		{"project", "Deployment project (default rosa-boundary)"}, {"environment", "Deployment environment (default prod)"},
@@ -41,15 +41,15 @@ func newConfigCommand() *cobra.Command {
 	init.Flags().Bool("use", false, "Make the profile active")
 	init.Flags().Bool("overwrite", false, "Allow replacing an existing profile")
 	init.Flags().Bool("yes", false, "Skip replacement confirmation (requires --overwrite)")
-	list := &cobra.Command{Use: "list", Short: "List saved profiles and the active profile", Args: cobra.NoArgs, RunE: runNewConfigList}
-	use := &cobra.Command{Use: "use <name>", Short: "Set the active profile", Args: newNonEmptyArgs(1), RunE: runNewConfigUse}
-	get := &cobra.Command{Use: "get [key]", Short: "Read a saved profile or one key", Args: cobra.MaximumNArgs(1), RunE: runNewConfigGet}
+	list := &cobra.Command{Use: "list", Short: "List saved profiles and the active profile", Args: cobra.NoArgs, RunE: runConfigList}
+	use := &cobra.Command{Use: "use <name>", Short: "Set the active profile", Args: nonEmptyArgs(1), RunE: runConfigUse}
+	get := &cobra.Command{Use: "get [key]", Short: "Read a saved profile or one key", Args: cobra.MaximumNArgs(1), RunE: runConfigGet}
 	group.AddCommand(init, list, use, get)
 	return group
 }
 
-func newPromptField(cmd *cobra.Command, flag, label, fallback string) (string, error) {
-	value := strings.TrimSpace(newString(cmd, flag))
+func promptField(cmd *cobra.Command, flag, label, fallback string) (string, error) {
+	value := strings.TrimSpace(flagString(cmd, flag))
 	if value != "" {
 		return value, nil
 	}
@@ -64,18 +64,18 @@ func newPromptField(cmd *cobra.Command, flag, label, fallback string) (string, e
 	return prompt(label, "", fallback)
 }
 
-func runNewConfigInit(cmd *cobra.Command, _ []string) error {
-	if newBool(cmd, "yes") && !newBool(cmd, "overwrite") {
+func runConfigInit(cmd *cobra.Command, _ []string) error {
+	if flagBool(cmd, "yes") && !flagBool(cmd, "overwrite") {
 		return fmt.Errorf("--yes requires --overwrite")
 	}
-	if newSelectedProfile != "" {
+	if selectedProfile != "" {
 		return fmt.Errorf("--profile is not used by config init; use --name to name the new profile")
 	}
-	name, err := newPromptField(cmd, "name", "Profile name", "")
+	name, err := promptField(cmd, "name", "Profile name", "")
 	if err != nil {
 		return err
 	}
-	if name != "" && !newProfileName.MatchString(name) {
+	if name != "" && !profileName.MatchString(name) {
 		return fmt.Errorf("--name must start with a letter or digit and contain only letters, digits, '.', '_' or '-'; choose another name")
 	}
 	file, err := config.LoadFile()
@@ -83,14 +83,14 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	if _, exists := file.Profiles[name]; exists {
-		if !newBool(cmd, "overwrite") {
+		if !flagBool(cmd, "overwrite") {
 			return fmt.Errorf("profile %q already exists; pass --overwrite to replace it", name)
 		}
-		if !newBool(cmd, "yes") {
-			if err := newTerminalRequired(); err != nil {
+		if !flagBool(cmd, "yes") {
+			if err := requireTerminal(); err != nil {
 				return fmt.Errorf("--yes is required to replace a profile without a terminal: %w", err)
 			}
-			answer, err := newPromptField(cmd, "", "Replace existing profile? Type yes", "")
+			answer, err := promptField(cmd, "", "Replace existing profile? Type yes", "")
 			if err != nil {
 				return err
 			}
@@ -103,20 +103,20 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 		{"account-id", "AWS account ID", ""}, {"region", "Boundary region", ""}, {"project", "Project", "rosa-boundary"}, {"environment", "Environment", "prod"},
 		{"keycloak-url", "Keycloak URL", "https://auth.redhat.com/auth"}, {"realm", "Keycloak realm", "EmployeeIDP"}, {"client-id", "OIDC client ID", "rosa-boundary-sre"},
 	}
-	auto := newBool(cmd, "auto-discover")
+	auto := flagBool(cmd, "auto-discover")
 	if !auto {
 		fields[4].fallback = ""
 	} // Manual setup must supply an issuer; never silently inherit bootstrap defaults.
 	values := make(map[string]string)
 	for _, field := range fields {
-		values[field.flag], err = newPromptField(cmd, field.flag, field.label, field.fallback)
+		values[field.flag], err = promptField(cmd, field.flag, field.label, field.fallback)
 		if err != nil {
 			return err
 		}
 	}
 	if !auto {
 		for _, field := range []struct{ flag, label string }{{"lambda-function-name", "Lambda function"}, {"invoker-role-arn", "Invoker role ARN"}, {"sre-role-arn", "SRE role ARN"}, {"ecs-cluster", "ECS cluster"}, {"efs-filesystem-id", "EFS filesystem ID"}} {
-			values[field.flag], err = newPromptField(cmd, field.flag, field.label, "")
+			values[field.flag], err = promptField(cmd, field.flag, field.label, "")
 			if err != nil {
 				return err
 			}
@@ -162,7 +162,7 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("deployment discovery failed; verify the account/region and the derived create-investigation Lambda, or use --auto-discover=false with operator-confirmed settings: %w", err)
 		}
-		if err := newCheckDiscoveryIdentity(profile, response); err != nil {
+		if err := checkDiscoveryIdentity(profile, response); err != nil {
 			return err
 		}
 		profile.LambdaFunctionName, profile.InvokerRoleARN, profile.SRERoleARN = response.LambdaFunctionName, response.InvokerRoleARN, response.SRERoleARN
@@ -199,10 +199,10 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("discovery response missing required settings: %s; verify the selected deployment and its Lambda configuration, or use --auto-discover=false with operator-confirmed settings", strings.Join(absent, ", "))
 		}
 	}
-	if err := newCheckRoleAccounts(profile.AccountID, map[string]string{"invoker_role_arn": profile.InvokerRoleARN, "sre_role_arn": profile.SRERoleARN}); err != nil {
+	if err := checkRoleAccounts(profile.AccountID, map[string]string{"invoker_role_arn": profile.InvokerRoleARN, "sre_role_arn": profile.SRERoleARN}); err != nil {
 		return err
 	}
-	if err := file.AddProfile(name, profile, newBool(cmd, "overwrite"), newBool(cmd, "use")); err != nil {
+	if err := file.AddProfile(name, profile, flagBool(cmd, "overwrite"), flagBool(cmd, "use")); err != nil {
 		return err
 	}
 	if err := config.SaveProfiles(file); err != nil {
@@ -216,7 +216,7 @@ func runNewConfigInit(cmd *cobra.Command, _ []string) error {
 	return err
 }
 
-func newCheckDiscoveryIdentity(seed config.Profile, response *lambda.ConfigResponse) error {
+func checkDiscoveryIdentity(seed config.Profile, response *lambda.ConfigResponse) error {
 	for _, setting := range []struct{ key, bootstrap, discovered string }{
 		{"aws_region", seed.AWSRegion, response.AWSRegion},
 		{"keycloak_url", seed.KeycloakURL, response.KeycloakURL},
@@ -230,7 +230,7 @@ func newCheckDiscoveryIdentity(seed config.Profile, response *lambda.ConfigRespo
 	return nil
 }
 
-func runNewConfigList(cmd *cobra.Command, _ []string) error {
+func runConfigList(cmd *cobra.Command, _ []string) error {
 	file, err := config.LoadFile()
 	if err != nil {
 		return err
@@ -253,8 +253,8 @@ func runNewConfigList(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-func runNewConfigUse(cmd *cobra.Command, args []string) error {
-	if newSelectedProfile != "" {
+func runConfigUse(cmd *cobra.Command, args []string) error {
+	if selectedProfile != "" {
 		return fmt.Errorf("--profile is not used by config use; pass the profile name as an argument: rosa-boundary config use <name>")
 	}
 	file, err := config.LoadFile()
@@ -274,8 +274,8 @@ func runNewConfigUse(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func runNewConfigGet(cmd *cobra.Command, args []string) error {
-	_, profile, err := newSavedProfile(newSelectedProfile)
+func runConfigGet(cmd *cobra.Command, args []string) error {
+	_, profile, err := savedProfile(selectedProfile)
 	if err != nil {
 		return err
 	}
@@ -291,7 +291,7 @@ func runNewConfigGet(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	value, err := file.SavedValue(newSelectedProfile, args[0])
+	value, err := file.SavedValue(selectedProfile, args[0])
 	if err != nil {
 		return err
 	}
@@ -299,16 +299,16 @@ func runNewConfigGet(cmd *cobra.Command, args []string) error {
 	return err
 }
 
-func runNewLogin(cmd *cobra.Command) error {
+func runLogin(cmd *cobra.Command) error {
 	flags := map[string]string{}
 	if flag := cmd.Flag("use-device-code"); flag != nil && flag.Changed {
-		flags["oidc_use_device_code"] = strconv.FormatBool(newBool(cmd, "use-device-code"))
+		flags["oidc_use_device_code"] = strconv.FormatBool(flagBool(cmd, "use-device-code"))
 	}
-	selected, cfg, err := config.ResolveWithFlags(newSelectedProfile, flags)
+	selected, cfg, err := config.ResolveWithFlags(selectedProfile, flags)
 	if err != nil {
 		return err
 	}
-	newSelectedProfile = selected
+	selectedProfile = selected
 	if err := config.RequireSettings(cfg, "keycloak_url"); err != nil {
 		return err
 	}
@@ -316,7 +316,7 @@ func runNewLogin(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	_, err = auth.GetTokenWithOptions(cmd.Context(), auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}, newBool(cmd, "force"), auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode, Reporter: reporter})
+	_, err = auth.GetTokenWithOptions(cmd.Context(), auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}, flagBool(cmd, "force"), auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode, Reporter: reporter})
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

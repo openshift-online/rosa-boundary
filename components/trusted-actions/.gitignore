@@ -1,0 +1,81 @@
+.scratch/
+docs/agents/
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+vendor/
+
+# Go workspace file
+go.work
+
+# Build output
+/bin/
+/dist/
+/proxy-backplane
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Bundled OpenAPI spec (generated artifact)
+api-spec.yaml
+
+# Generated artifacts from integration tests
+integration/.kind-kubeconfig
+
+# Note: Generated code in internal/openapi/ IS committed for build simplicity
+# Run 'make generate' to update when API spec changes
+
+# npm dependencies
+node_modules/
+package-lock.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Log files
+*.log
+
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+# Global workspace local state and overrides
+terraform/global/.terraform/
+terraform/global/.terraform.lock.hcl
+terraform/global/terraform.tfstate*
+terraform/global/terraform.tfvars
+
+# Regional workspace local state and overrides
+terraform/regional/.terraform/
+terraform/regional/.terraform.lock.hcl
+terraform/regional/terraform.tfstate*
+terraform/regional/terraform.tfvars
+# Override file used to redirect terraform_remote_state to local state
+# during development. See docs/deployment.md — Local Testing section.
+terraform/regional/local_override.tf

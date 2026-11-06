@@ -1,0 +1,32 @@
+type: object
+required:
+  - target_cluster
+  - jira
+properties:
+  target_cluster:
+    type: string
+    description: Target cluster identifier
+    example: id-12345
+  jira:
+    type: string
+    description: >-
+      Jira ticket reference; must match PROJECT-NUMBER format
+      (e.g. ROSAENG-1234)
+    pattern: '^[A-Z]+-\d+$'
+    example: ROSAENG-1234
+  params:
+    type: object
+    additionalProperties:
+      type: string
+    description: Key-value pairs of TA parameters (all values are strings)
+    example:
+      namespace: openshift-logging
+      name: collector-abc-123
+  force:
+    type: boolean
+    default: false
+    description: Bypass write cooldown and max-concurrent limits
+  dry_run:
+    type: boolean
+    default: false
+    description: Execute the TA's dry_run_action instead (preview)

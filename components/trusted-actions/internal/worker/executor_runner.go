@@ -1,0 +1,130 @@
+package worker
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/sirupsen/logrus"
+
+	"github.com/openshift-online/rosa-trusted-actions/internal/actions"
+	"github.com/openshift-online/rosa-trusted-actions/internal/executor"
+	"github.com/openshift-online/rosa-trusted-actions/internal/models"
+)
+
+// ExecutorRunner runs a claimed execution through internal/executor.Executor,
+// the same authorization -> backplane -> action pipeline cmd/action-cli uses.
+//
+// internal/executor.Executor.Execute runs synchronously and returns once the
+// action completes; it does not itself submit a ManifestWork or perform the
+// two-phase runner+uploader reconciliation implied by the Execution schema's
+// manifest_work_name/runner_seconds/upload_seconds fields. This runner only
+// moves that synchronous call off the HTTP request path into the background
+// worker pool — it does not implement that two-phase dispatch.
+// defaultExecutionTimeout is used when NewExecutorRunner is given a
+// non-positive executionTimeout.
+const defaultExecutionTimeout = 2 * time.Minute
+
+type ExecutorRunner struct {
+	logger           *logrus.Logger
+	executor         *executor.Executor
+	executionTimeout time.Duration
+}
+
+var _ Runner = &ExecutorRunner{}
+
+// NewExecutorRunner creates a Runner backed by exec. executionTimeout bounds
+// how long a single claimed execution may run before it is cancelled, so a
+// hung backplane/cluster call can't block a worker indefinitely; non-positive
+// values fall back to defaultExecutionTimeout.
+func NewExecutorRunner(logger *logrus.Logger, exec *executor.Executor, executionTimeout time.Duration) *ExecutorRunner {
+	if executionTimeout <= 0 {
+		executionTimeout = defaultExecutionTimeout
+	}
+	return &ExecutorRunner{logger: logger, executor: exec, executionTimeout: executionTimeout}
+}
+
+func (r *ExecutorRunner) Run(ctx context.Context, exec *models.Execution) RunResult {
+	log := r.logger.WithFields(logrus.Fields{
+		"execution_id": exec.ID,
+		"action":       exec.Action,
+	})
+
+	act, err := resolveAction(exec.Action)
+	if err != nil {
+		log.WithError(err).Error("resolving action for claimed execution")
+		return runResultError(err)
+	}
+
+	params, err := decodeParams(exec.Params)
+	if err != nil {
+		log.WithError(err).Error("decoding params for claimed execution")
+		return runResultError(err)
+	}
+
+	callerID := ""
+	if exec.Username != nil {
+		callerID = *exec.Username
+	}
+
+	execCtx, cancel := context.WithTimeout(ctx, r.executionTimeout)
+	defer cancel()
+
+	// Target is left unset: the executor's scope for this action derives it
+	// from the caller-supplied params.
+	result := r.executor.Execute(execCtx, executor.Request{
+		CallerID:  callerID,
+		ClusterID: exec.TargetCluster,
+		Action:    act,
+		Params:    params,
+	})
+
+	// Error before Allowed: a run that never reached the authorizer — the
+	// executor could not build a target for it — carries an error and no
+	// decision, and reporting that as "denied" would tell the caller they were
+	// refused something they were never actually refused. A genuine denial
+	// still has no error, so it falls through to the check below.
+	if result.Error != nil {
+		log.WithError(result.Error).Error("claimed execution failed")
+		return runResultError(result.Error)
+	}
+	if !result.Allowed {
+		log.WithField("reason", result.Reason).Warn("claimed execution denied by authorizer")
+		return runResultError(fmt.Errorf("denied: %s", result.Reason))
+	}
+	log.Debug(result.Output)
+
+	return RunResult{
+		Status: "succeeded",
+		Output: result.Output,
+	}
+}
+
+func resolveAction(name string) (actions.Action, error) {
+	action := actions.CreateAction(name)
+
+	if action == nil {
+		return nil, fmt.Errorf("unknown action %q", name)
+	}
+
+	return action, nil
+}
+
+func decodeParams(raw *json.RawMessage) (map[string]string, error) {
+	if raw == nil {
+		return map[string]string{}, nil
+	}
+	var params map[string]string
+	if err := json.Unmarshal(*raw, &params); err != nil {
+		return nil, fmt.Errorf("failed to decode execution params: %w", err)
+	}
+	return params, nil
+}
+
+func runResultError(err error) RunResult {
+	return RunResult{
+		Status: "failed",
+		Reason: err.Error(),
+	}
+}

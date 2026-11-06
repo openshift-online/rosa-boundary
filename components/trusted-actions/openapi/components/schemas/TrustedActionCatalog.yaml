@@ -1,0 +1,14 @@
+type: object
+required:
+  - items
+  - total
+properties:
+  items:
+    type: array
+    items:
+      $ref: ./TrustedActionSummary.yaml
+    description: Available Trusted Actions (sorted alphabetically by name)
+  total:
+    type: integer
+    description: Total number of available Trusted Actions
+    example: 22

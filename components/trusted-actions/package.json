@@ -1,0 +1,13 @@
+{
+  "name": "rosa-trusted-actions-server",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@redocly/openapi-cli": "^0.12.16"
+  },
+  "scripts": {
+    "bundle-spec": "openapi bundle openapi/openapi.yaml -o api-spec.yaml",
+    "validate-spec": "openapi validate openapi/openapi.yaml",
+    "preview-docs": "openapi preview-docs openapi/openapi.yaml"
+  }
+}

@@ -1,0 +1,28 @@
+type: object
+required:
+  - items
+  - total
+  - page
+  - limit
+  - has_more
+properties:
+  items:
+    type: array
+    items:
+      $ref: ./Execution.yaml
+  total:
+    type: integer
+    description: Total number of matching executions
+    example: 1
+  page:
+    type: integer
+    description: Current page number
+    example: 1
+  limit:
+    type: integer
+    description: Max results per page
+    example: 20
+  has_more:
+    type: boolean
+    description: Whether more results are available
+    example: false

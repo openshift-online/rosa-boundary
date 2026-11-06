@@ -1,0 +1,7 @@
+type: string
+enum:
+  - not_required
+  - pending
+  - approved
+  - rejected
+description: Approval lifecycle for an execution

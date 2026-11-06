@@ -1,0 +1,34 @@
+get:
+  tags:
+    - Catalog
+  summary: Describe a specific Trusted Action
+  description: >-
+    Returns full details of a Trusted Action including parameter
+    definitions, authorization policy, write cooldown, and dry-run
+    configuration.
+  operationId: describe
+  security: []
+  parameters:
+    - name: action
+      in: path
+      required: true
+      description: Trusted Action name (e.g. get_pods, rollout_restart)
+      schema:
+        type: string
+  responses:
+    '200':
+      description: Full Trusted Action description with parameters
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/TrustedAction.yaml
+    '404':
+      description: Trusted Action not found
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            kind: Error
+            code: unknown-action
+            reason: 'Trusted action not found: get_secretz'

@@ -1,0 +1,20 @@
+type: object
+required:
+  - name
+properties:
+  name:
+    type: string
+    description: Parameter name
+    example: namespace
+  required:
+    type: boolean
+    description: Whether the parameter is required
+    example: false
+  default:
+    type: string
+    description: Default value (empty string if none)
+    example: ''
+  description:
+    type: string
+    description: Human-readable parameter description
+    example: Target namespace (required unless all_namespaces=true)

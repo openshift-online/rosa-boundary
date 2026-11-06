@@ -1,0 +1,17 @@
+get:
+  tags:
+    - Catalog
+  summary: List all available Trusted Actions
+  description: >-
+    Returns the catalog of all registered Trusted Actions with
+    name, scope, type, and description. Parameters are not included;
+    use the Describe endpoint for full details.
+  operationId: catalog
+  security: []
+  responses:
+    '200':
+      description: Catalog of available Trusted Actions
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/TrustedActionCatalog.yaml

@@ -1,0 +1,5 @@
+type: string
+enum:
+  - read
+  - write
+description: Whether the Trusted Action is read-only or mutating

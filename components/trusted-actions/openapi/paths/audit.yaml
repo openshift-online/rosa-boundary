@@ -1,0 +1,78 @@
+get:
+  tags:
+    - Audit
+  summary: List API call audit log entries
+  description: >-
+    List audit log entries for the authenticated account. Every API call
+    (except catalog and describe) is recorded. Entries are sorted by
+    timestamp descending (most recent first). All entries share a uniform
+    schema; fields not applicable to a given call type are empty strings.
+  operationId: listAuditEntries
+  parameters:
+    - name: page
+      in: query
+      description: Page number (1-based)
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    - name: limit
+      in: query
+      description: Max results per page (1-200)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    - name: action
+      in: query
+      description: Filter by Trusted Action name
+      schema:
+        type: string
+    - name: target
+      in: query
+      description: Filter by target cluster
+      schema:
+        type: string
+    - name: operator
+      in: query
+      description: Filter by operator name
+      schema:
+        type: string
+    - name: method
+      in: query
+      description: Filter by HTTP method
+      schema:
+        type: string
+        enum:
+          - GET
+          - POST
+    - name: approval_state
+      in: query
+      description: Filter by approval state
+      schema:
+        $ref: ../components/schemas/ApprovalState.yaml
+    - name: since
+      in: query
+      description: >-
+        Time filter. Accepts duration shorthand (30s, 5m, 1h, 24h, 7d)
+        or RFC3339 timestamp.
+      schema:
+        type: string
+  responses:
+    '200':
+      description: List of audit log entries
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/AuditList.yaml
+    '404':
+      description: Audit logging not enabled
+      content:
+        application/json:
+          schema:
+            $ref: ../components/schemas/Error.yaml
+          example:
+            kind: Error
+            code: audit-disabled
+            reason: Audit logging is not enabled

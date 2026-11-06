@@ -17,7 +17,10 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 
 ## Design Proposals
 
+Place design proposals in [`docs/design-proposals/`](design-proposals/). These documents describe possible future designs, may be out of date, and must not be treated as the current implementation or user-facing documentation. Check the current code and the relevant architecture docs or runbooks for actual behavior.
+
 - [**Regional Lambda Image Delivery**](design-proposals/lambda-image-regional-delivery.md) - Proposed Konflux-to-ECR publication and regional replication design
+- [**Proposed `rosa-boundary` CLI contract**](design-proposals/rosa-boundary-cli-contract.md) - Proposed user-facing command interface
 
 ## Configuration Guides
 

@@ -32,6 +32,8 @@ def mock_aws_client_construction():
 class TestTaskCreationMetrics:
     """Verify outcome semantics, log format, privacy, and telemetry isolation."""
 
+    ACTOR_UUID = '7b5e6e92-0d75-11e7-851d-28d244ea5a6d'
+
     @pytest.fixture
     def metric_event(self, monkeypatch):
         for name, value in {
@@ -53,6 +55,7 @@ class TestTaskCreationMetrics:
             'sub': 'private-subject',
             'preferred_username': 'private-user',
             'groups': ['sre-team'],
+            'https://aws.amazon.com/tags': {'principal_tags': {'uuid': [self.ACTOR_UUID]}},
         }))
         monkeypatch.setattr(handler, 'create_investigation_task', Mock(return_value={
             'taskArn': 'private-task-arn',
@@ -79,11 +82,12 @@ class TestTaskCreationMetrics:
             result = handler.lambda_handler(metric_event, None)
 
         assert result['statusCode'] == status
-        # Exactly one standalone JSON event, with no request/identity properties.
+        # Actor UUID is a log property; all metric dimensions remain bounded.
         lines = capsys.readouterr().out.splitlines()
         assert len(lines) == 1
         metric = json.loads(lines[0])
-        assert set(metric) == {'_aws', 'ECSCluster', 'Outcome', 'TaskCreationRequests'}
+        assert set(metric) == {'_aws', 'ECSCluster', 'Outcome', 'TaskCreationRequests', 'ActorUUID'}
+        assert metric['ActorUUID'] == self.ACTOR_UUID
         assert metric['ECSCluster'] == 'boundary-test'
         assert metric['Outcome'] == outcome
         assert metric['TaskCreationRequests'] == 1
@@ -98,6 +102,41 @@ class TestTaskCreationMetrics:
             }],
         }
         assert 'private-' not in lines[0]
+
+    @pytest.mark.parametrize('uuid_value,expected', [
+        (ACTOR_UUID, ACTOR_UUID),
+        ([ACTOR_UUID.upper()], ACTOR_UUID),
+        (None, None),
+        ('', None),
+        ('not-a-uuid', None),
+        (123, None),
+        ({'unexpected': 'value'}, None),
+        ([], None),
+        ([{}], None),
+        ([ACTOR_UUID, ACTOR_UUID], None),
+    ])
+    def test_uuid_property_from_verified_claims(self, metric_event, capsys, uuid_value, expected):
+        claims = handler.validate_oidc_token.return_value
+        claims['https://aws.amazon.com/tags']['principal_tags']['uuid'] = uuid_value
+        # Caller-supplied identity fields must never override the verified claim.
+        body = json.loads(metric_event['body'])
+        body.update({'ActorUUID': 'spoofed', 'uuid': 'spoofed'})
+        metric_event['body'] = json.dumps(body)
+        metric_event['headers']['uuid'] = 'spoofed'
+        assert handler.lambda_handler(metric_event, None)['statusCode'] == 200
+        metric = json.loads(capsys.readouterr().out)
+        if expected is None:
+            assert 'ActorUUID' not in metric
+        else:
+            assert metric['ActorUUID'] == expected
+        assert metric['_aws']['CloudWatchMetrics'][0]['Dimensions'] == [['ECSCluster', 'Outcome']]
+        assert 'spoofed' not in json.dumps(metric)
+
+    @pytest.mark.parametrize('aws_tags', [None, [], {}, {'principal_tags': None}, {'principal_tags': []}])
+    def test_absent_uuid_does_not_fall_back_to_other_identity(self, metric_event, capsys, aws_tags):
+        handler.validate_oidc_token.return_value['https://aws.amazon.com/tags'] = aws_tags
+        assert handler.lambda_handler(metric_event, None)['statusCode'] == 200
+        assert 'ActorUUID' not in json.loads(capsys.readouterr().out)
 
     @pytest.mark.parametrize('excluded', [
         'get_config', 'skip_task', 'skip_task_failure', 'missing_token',
@@ -147,10 +186,13 @@ class TestTaskCreationMetrics:
         handler.create_investigation_task.side_effect = RuntimeError('failed')
         assert handler.lambda_handler(metric_event, None)['statusCode'] == 500
         handler.create_investigation_task.side_effect = None
+        handler.validate_oidc_token.return_value['https://aws.amazon.com/tags']['principal_tags'] = {}
         assert handler.lambda_handler({'body': '{"action":"get_config"}'}, None)['statusCode'] == 200
         assert handler.lambda_handler(metric_event, None)['statusCode'] == 200
         metrics = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
         assert [metric['Outcome'] for metric in metrics] == ['failure', 'success']
+        assert metrics[0]['ActorUUID'] == self.ACTOR_UUID
+        assert 'ActorUUID' not in metrics[1]
 
 
 class TestInputValidation:

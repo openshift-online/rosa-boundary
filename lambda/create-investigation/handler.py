@@ -15,6 +15,7 @@ import posixpath
 import time
 from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
+from uuid import UUID
 
 import boto3
 import jwt
@@ -87,6 +88,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         API Gateway response with status code and body
     """
     task_creation_outcome = None
+    actor_uuid = None
     try:
         # Debug: log event structure (redact sensitive headers)
         logger.info(f"Event keys: {list(event.keys())}")
@@ -236,6 +238,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"User {username} authorized via group(s): {matched_groups}")
 
+        # EmployeeIDP's uuid principal tag is the corporate UUID, not OIDC sub.
+        # Keep this optional log property separate from the metric dimensions.
+        uuid_value = principal_tags.get('uuid')
+        if isinstance(uuid_value, list):
+            uuid_value = uuid_value[0] if len(uuid_value) == 1 else None
+        if isinstance(uuid_value, str):
+            try:
+                actor_uuid = str(UUID(uuid_value))
+            except ValueError:
+                pass
+
         # Use shared ABAC role — session tags from the OIDC token (https://aws.amazon.com/tags
         # claim) propagate automatically during AssumeRoleWithWebIdentity and are matched
         # against ecs:ResourceTag/username in the role's permissions policy.
@@ -300,10 +313,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return response(500, {'error': 'Internal server error'})
     finally:
         if task_creation_outcome is not None:
-            emit_task_creation_metric(task_creation_outcome)
+            emit_task_creation_metric(task_creation_outcome, actor_uuid)
 
 
-def emit_task_creation_metric(outcome: str) -> None:
+def emit_task_creation_metric(outcome: str, actor_uuid: Optional[str] = None) -> None:
     """Emit a bounded EMF count without affecting the task-creation response."""
     try:
         metric = {
@@ -323,6 +336,8 @@ def emit_task_creation_metric(outcome: str) -> None:
             'Outcome': outcome,
             'TaskCreationRequests': 1
         }
+        if actor_uuid is not None:
+            metric['ActorUUID'] = actor_uuid
         # EMF requires a standalone JSON log event, without a logger prefix.
         print(json.dumps(metric), flush=True)
     except Exception:

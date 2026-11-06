@@ -30,10 +30,28 @@ the internal helper outside the Lambda handler are not instrumented. Counts
 represent attempts, including caller retries, rather than unique tasks or
 investigations. A Lambda timeout or process crash can prevent outcome emission.
 
-The EMF event contains only the metric, its dimensions, and CloudWatch metadata.
-It contains no username, subject, token, request ID, investigation ID, requested
-cluster ID, task ARN, or error text. AWS account and region are selected by the
-CloudWatch reader and can be attached as scrape labels.
+The EMF event also includes an optional `ActorUUID` structured log property,
+taken from the verified OIDC token's
+`https://aws.amazon.com/tags.principal_tags.uuid` claim (EmployeeIDP's corporate
+`rhatUUID`). A UUID string or single-element UUID string array is accepted and
+normalized to the lowercase, hyphenated UUID form. Missing, malformed, or
+multi-valued claims omit this property without changing task creation. OIDC
+`sub`, username, and request-supplied identity fields are never substituted.
+
+`ActorUUID` is **not a metric dimension**: it is searchable in CloudWatch Logs
+Insights under the Lambda log group's access controls, but is not exposed by
+YACE or available as a Prometheus label. For example, select the intended Lambda
+log group and time range and query:
+
+```text
+filter ispresent(TaskCreationRequests) and ispresent(ActorUUID)
+| stats sum(TaskCreationRequests) as Attempts by ActorUUID, Outcome
+```
+
+This reports logged attempts within the selected range, not an exact audit
+count. The event contains no username, OIDC subject, token, request ID,
+investigation ID, requested cluster ID, task ARN, or error text. AWS account and
+region are selected by the CloudWatch reader and can be attached as scrape labels.
 
 ## Publication and cost
 
@@ -83,7 +101,7 @@ availability SLI.
 | Task lifetime | Needs actual lifecycle timestamps and coverage of all stop paths; configured timeout is not observed lifetime |
 | Investigation creation | Needs a signal at newly created access points; access-point reuse and `skip_task` must be distinguished |
 | Task-creation availability | Define the SLI boundary and timeout/missing-data treatment before presenting an availability claim |
-| Actor-level views | Require an approved, access-controlled source; do not add identity metric labels |
+| Actor-level views | `ActorUUID` supports Logs Insights queries under existing log access controls; Grafana log-source access/delivery needs separate agreement; no identity metric labels |
 
 ## Stage validation evidence
 

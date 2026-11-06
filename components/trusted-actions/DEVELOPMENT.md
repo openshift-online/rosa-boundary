@@ -23,7 +23,8 @@ cd rosa-trusted-actions
 # Install all dependencies
 make deps
 
-# Install pre-commit hooks
+# Standalone repository: install its pre-commit hooks here.
+# Boundary monorepo: instead run these commands from the repository root.
 pip install pre-commit
 pre-commit install
 

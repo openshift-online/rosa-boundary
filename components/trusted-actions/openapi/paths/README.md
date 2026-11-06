@@ -9,7 +9,7 @@ It may help you to adopt some conventions:
 * path parameter (e.g. `{example}`)
 * file-per-path or file-per-operation
 
-There are different benefits and drawbacks to each decision.  
+There are different benefits and drawbacks to each decision.
 
 You can adopt any organization you wish.  We have some tips for organizing paths based on common practices.
 
@@ -39,7 +39,7 @@ In addition, Redocly recommends placing path parameters within `{}` curly braces
 
 ## Each operation in a separate file
 
-You may also place each operation in a separate file.  
+You may also place each operation in a separate file.
 
 In this case, if you want all paths at the top-level, you can concatenate the http method to the path name.  Similar to the above option, you can
 
@@ -90,7 +90,7 @@ paths:
 
 #### Drawbacks
 
-If you have a lot of nested folders, it may be confusing to reference your schemas.  
+If you have a lot of nested folders, it may be confusing to reference your schemas.
 
 Example
 ```

@@ -1,0 +1,45 @@
+# Pipeline definitions share this directory but not their approval policy.
+# Match paths relative to .tekton/; changes to this OWNERS file remain
+# Boundary-owned because they can change approvals for either component.
+options:
+  no_parent_owners: true
+
+filters:
+  '^(rosa-boundary-|create-investigation-lambda-).*\.yaml$|^OWNERS$':
+    approvers:
+      - tiwillia
+      - jhjaggars
+      - kseiter-rh
+      - xiaoyu74
+      - bergmannf
+      - RaphaelBut
+      - geowa4
+    reviewers:
+      - tiwillia
+      - jhjaggars
+      - kseiter-rh
+      - xiaoyu74
+      - bergmannf
+      - RaphaelBut
+      - geowa4
+  '^rosa-trusted-actions-.*\.yaml$':
+    approvers:
+      - bergmannf
+      - Makdaam
+      - Nikokolas3270
+      - RaphaelBut
+      - rolandmkunkel
+      - petrkotas
+      - zmird-r
+      - gvnnn
+      - xiaoyu74
+    reviewers:
+      - bergmannf
+      - Makdaam
+      - Nikokolas3270
+      - RaphaelBut
+      - rolandmkunkel
+      - petrkotas
+      - zmird-r
+      - gvnnn
+      - xiaoyu74

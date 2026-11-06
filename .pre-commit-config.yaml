@@ -21,3 +21,19 @@ repos:
     rev: v2.15.0
     hooks:
       - id: golangci-lint
+        # Boundary and Trusted Actions have separate Go modules and lint configs.
+        exclude: ^components/trusted-actions/
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.0
+    hooks:
+      - id: gitleaks
+        name: gitleaks (Trusted Actions)
+        files: ^components/trusted-actions/
+  - repo: local
+    hooks:
+      - id: trusted-actions-go-build
+        name: go build (Trusted Actions)
+        entry: bash -c 'cd components/trusted-actions && go build ./...'
+        language: system
+        files: ^components/trusted-actions/(.*\.go|go\.(mod|sum))$
+        pass_filenames: false

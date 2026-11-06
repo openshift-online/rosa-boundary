@@ -2,12 +2,14 @@ apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
   annotations:
-    build.appstudio.openshift.io/repo: https://github.com/openshift-online/rosa-trusted-actions?rev={{revision}}
+    build.appstudio.openshift.io/repo: https://github.com/openshift-online/rosa-boundary?rev={{revision}}
     build.appstudio.redhat.com/commit_sha: '{{revision}}'
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
-    pipelinesascode.tekton.dev/on-cel-expression: event == "push" && target_branch == "main"
+    pipelinesascode.tekton.dev/on-cel-expression: |
+      event == "push" && target_branch == "main"
+      && ( "components/trusted-actions/***".pathChanged() || ".tekton/rosa-trusted-actions-push.yaml".pathChanged() )
   labels:
     appstudio.openshift.io/application: rosa-trusted-actions
     appstudio.openshift.io/component: rosa-trusted-actions
@@ -28,7 +30,7 @@ spec:
   - name: dockerfile
     value: Containerfile
   - name: path-context
-    value: .
+    value: components/trusted-actions
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.

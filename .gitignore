@@ -70,6 +70,9 @@ adversary-findings.sarif
 # Claude Code worktrees
 .claude/worktrees/
 
+# Local OpenCode agents, commands, and skills (copied into worktrees as needed)
+.opencode/
+
 # Temporary files
 *.tmp
 *.backup

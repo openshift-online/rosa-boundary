@@ -1,0 +1,33 @@
+options:
+  no_parent_owners: true
+
+approvers:
+  - bergmannf
+  - Makdaam
+  - Nikokolas3270
+  - RaphaelBut
+  - rolandmkunkel
+  - petrkotas
+  - zmird-r
+  - gvnnn
+  - xiaoyu74
+reviewers:
+  - bergmannf
+  - Makdaam
+  - Nikokolas3270
+  - RaphaelBut
+  - rolandmkunkel
+  - petrkotas
+  - zmird-r
+  - gvnnn
+  - xiaoyu74
+maintainers:
+  - bergmannf
+  - Makdaam
+  - Nikokolas3270
+  - RaphaelBut
+  - rolandmkunkel
+  - petrkotas
+  - zmird-r
+  - gvnnn
+  - xiaoyu74

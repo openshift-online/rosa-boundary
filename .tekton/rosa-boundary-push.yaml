@@ -13,7 +13,7 @@ metadata:
     # .containerignore    - build context filter
     # build/              - multi-arch helper (platform_convert) and GitHub download helper
     # skel/               - skeleton user config (bashrc.d, .claude/, .local/bin/)
-    # .tekton/            - pipeline definitions (validate pipeline changes themselves)
+    # .tekton/rosa-boundary-* - Boundary image pipeline definitions
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "push" && target_branch == "main"
       && files.all.exists(x,
@@ -22,7 +22,7 @@ metadata:
         || x.matches('^\\.containerignore$')
         || x.matches('^build/')
         || x.matches('^skel/')
-        || x.matches('^\\.tekton/')
+        || x.matches('^\\.tekton/rosa-boundary-')
       )
   labels:
     appstudio.openshift.io/application: rosa-boundary

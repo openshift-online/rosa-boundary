@@ -2,6 +2,12 @@
 
 Multi-architecture container and CLI for managing ephemeral SRE investigations on AWS Fargate with OIDC-authenticated access control.
 
+Trusted Actions source is also available in [components/trusted-actions/](components/trusted-actions/README.md).
+It remains a separate Go module, container image, and Terraform deployment;
+see [source co-location and cutover](docs/trusted-actions-source-colocation.md).
+Boundary's Lambda applications still live in [`lambda/`](lambda/) for now; they
+likely belong under `components/boundary/` in a separately validated layout refactor.
+
 ## Features
 
 - **Go CLI**: `rosa-boundary` — authenticate, start, join, list, and stop investigations
@@ -129,37 +135,42 @@ rosa-boundary stop-task <task-id>
 
 ## Repository Structure
 
+Boundary still builds from the repository root. Trusted Actions is a separate
+Go module and image under `components/`; its Terraform roots remain separate
+from Boundary's. The copied Trusted Actions HCP definitions have **not** been
+switched to this repository as their deployment source (see
+[source co-location and cutover](docs/trusted-actions-source-colocation.md)).
+
 ```
 rosa-boundary/
-├── .env.example           # Environment configuration template (copy to .env)
-├── Containerfile          # Multi-arch container build
-├── entrypoint.sh          # Runtime initialization and signal handling
-├── skel/sre/.claude/      # Skeleton Claude Code config for container users
-├── cmd/rosa-boundary/     # CLI entrypoint
-├── internal/
-│   ├── auth/              # PKCE/OIDC authentication
-│   ├── aws/               # ECS and STS clients
-│   ├── cmd/               # Cobra subcommands
-│   ├── config/            # Viper-based configuration
-│   ├── lambda/            # Lambda invocation client
-│   └── output/            # Text/JSON output helpers
+├── go.mod, Makefile, Containerfile  # Boundary CLI and multi-arch image
+├── entrypoint.sh, skel/     # Boundary container runtime and user setup
+├── cmd/rosa-boundary/       # Boundary CLI entrypoint
+├── internal/                # Boundary CLI implementation
+├── lambda/                  # Boundary Lambda applications (not moved yet)
+│   ├── create-investigation/
+│   ├── reap-investigations/
+│   └── reap-tasks/
+├── components/
+│   └── trusted-actions/    # Independent Go module, server, CLI, image
+│       ├── go.mod, Makefile, Containerfile
+│       ├── cmd/, internal/, openapi/, config/
+│       ├── tests/, integration/, docs/, openwiki/
+│       └── terraform/
+│           ├── global/     # Trusted Actions account-wide state
+│           └── regional/   # Trusted Actions regional state
 ├── deploy/
-│   ├── regional/          # Terraform: ECS, EFS, S3, Lambda, OIDC
-│   │   ├── *.tf          # Infrastructure definitions
-│   │   ├── examples/     # Manual lifecycle scripts
-│   │   └── README.md     # Deployment guide
-│   └── keycloak/         # Kustomize: Keycloak realm and clients
-├── lambda/
-│   ├── create-investigation/  # OIDC-authenticated investigation creation
-│   │   ├── handler.py    # Group auth, role creation, task tagging
-│   │   └── Makefile      # Build Lambda package
-│   └── reap-tasks/            # Periodic task timeout enforcement
-│       └── handler.py    # Deadline-based task termination
-├── tests/
-│   └── localstack/       # LocalStack integration tests
-│       ├── compose.yml   # LocalStack Pro + mock OIDC
-│       └── integration/  # AWS service tests
-└── docs/                 # Architecture and implementation docs
+│   ├── account/            # Boundary account-wide Terraform state
+│   ├── network/            # Boundary VPC and network Terraform state
+│   ├── regional/           # Boundary per-region Terraform state
+│   └── keycloak/           # Keycloak realm and client configuration
+├── hcp-terraform/
+│   ├── rosa-boundary/      # Boundary HCP workspace definitions
+│   ├── aws-creds/          # Stage and production AWS dynamic credentials
+│   └── rosa-trusted-actions/ # Trusted Actions HCP definitions (separate)
+├── .tekton/                # Separate Boundary, Lambda, and TA image pipelines
+├── tests/                  # Boundary tests, including LocalStack
+└── docs/                   # Boundary architecture, runbooks, cutover guide
 ```
 
 ## CLI Reference

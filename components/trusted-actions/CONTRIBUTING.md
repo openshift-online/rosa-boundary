@@ -24,7 +24,7 @@ This project follows the [Red Hat Community Code of Conduct](https://www.redhat.
 2. **Run tests**: `make test` — all existing tests must pass.
 3. **Add tests**: New code must include unit tests. Patch coverage must be >= 80% (enforced by Codecov).
 4. **Format code**: `make fmt` — code must be formatted with `go fmt` and `goimports`.
-5. **Pre-commit hooks**: Install and run pre-commit hooks (`pre-commit install && pre-commit run --all-files`).
+5. **Pre-commit hooks**: In the Boundary monorepo, install and run pre-commit from the repository root (`pre-commit install && pre-commit run --all-files`). Running `pre-commit` directly from this directory selects the copied standalone config instead.
 
 ### PR Requirements
 

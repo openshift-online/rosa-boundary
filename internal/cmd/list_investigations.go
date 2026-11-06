@@ -95,7 +95,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 				State:           inv.LifeCycleState,
 			}
 		}
-		return output.JSON(rows)
+		return output.JSON(map[string]any{"profile": newSelectedProfile, "investigations": rows})
 	}
 
 	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "OWNER", "ACCESS POINT", "STATE")

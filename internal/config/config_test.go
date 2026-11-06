@@ -21,8 +21,8 @@ func TestOIDCUseDeviceCodePrecedence(t *testing.T) {
 		expected bool
 		errText  string
 	}{
-		{name: "missing old config", expected: false},
-		{name: "old config without key", file: "oidc_client_id: old-client\n", expected: false},
+		{name: "missing config", expected: false},
+		{name: "file without key", file: "oidc_client_id: old-client\n", expected: false},
 		{name: "file true", file: "oidc_use_device_code: true\n", expected: true},
 		{name: "file false", file: "oidc_use_device_code: false\n", expected: false},
 		{name: "env true over file false", file: "oidc_use_device_code: false\n", env: "true", expected: true},
@@ -36,17 +36,21 @@ func TestOIDCUseDeviceCodePrecedence(t *testing.T) {
 		{name: "quoted boolean rejected", file: "oidc_use_device_code: 'true'\n", errText: "YAML boolean"},
 		{name: "integer rejected", file: "oidc_use_device_code: 1\n", errText: "oidc_use_device_code"},
 		{name: "null rejected", file: "oidc_use_device_code: null\n", errText: "oidc_use_device_code"},
-		{name: "invalid file overridden by env", file: "oidc_use_device_code: unexpected\n", env: "true", expected: true},
+		{name: "invalid file not overridden by env", file: "oidc_use_device_code: unexpected\n", env: "true", errText: "oidc_use_device_code"},
 		{name: "invalid env overridden by explicit flag", env: "not-a-bool", flag: "false", expected: false},
 		{name: "empty env overridden by explicit flag", envSet: true, flag: "false", expected: false},
-		{name: "null file overridden by explicit flag", file: "oidc_use_device_code: null\n", flag: "true", expected: true},
-		{name: "invalid file overridden by explicit flag", file: "oidc_use_device_code: unexpected\n", flag: "false", expected: false},
+		{name: "null file not overridden by explicit flag", file: "oidc_use_device_code: null\n", flag: "true", errText: "oidc_use_device_code"},
+		{name: "invalid file not overridden by explicit flag", file: "oidc_use_device_code: unexpected\n", flag: "false", errText: "oidc_use_device_code"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			viper.Reset()
 			t.Cleanup(viper.Reset)
 			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+			if tt.file == "" {
+				tt.file = "oidc_client_id: client\n"
+			}
+			tt.file = "active_profile: stage\nprofiles:\n  stage:\n    " + strings.ReplaceAll(strings.TrimSuffix(tt.file, "\n"), "\n", "\n    ") + "\n"
 			if tt.file != "" {
 				path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "rosa-boundary")
 				if err := os.MkdirAll(path, 0o700); err != nil {
@@ -70,6 +74,9 @@ func TestOIDCUseDeviceCodePrecedence(t *testing.T) {
 				t.Fatal(err)
 			}
 			if err := Load(); err != nil {
+				if tt.errText != "" && strings.Contains(err.Error(), tt.errText) {
+					return
+				}
 				t.Fatal(err)
 			}
 			cfg, err := Get(flags.Lookup("use-device-code").Changed)

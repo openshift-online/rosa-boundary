@@ -43,7 +43,7 @@ func init() {
 	rootCmd.AddCommand(createInvestigationCmd)
 }
 
-func runCreateInvestigation(cmd *cobra.Command, args []string) error {
+func runCreateInvestigation(cmd *cobra.Command, args []string) (resultErr error) {
 	switch createOutputFormat {
 	case "text", "json":
 	default:
@@ -77,14 +77,20 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 		InvestigationID: investigationID,
 	})
 	if err != nil {
-		return fmt.Errorf("lambda call failed: %w", err)
+		return fmt.Errorf("lambda call failed (outcome may be unknown for %s/%s; inspect with rosa-boundary --profile %q investigation list --cluster-id %q --region %q before retrying): %w", clusterID, investigationID, newSelectedProfile, clusterID, cfg.AWSRegion, err)
 	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = fmt.Errorf("investigation %s/%s created (access point %s; profile %s; region %s) but result failed: %w", clusterID, investigationID, lambdaResp.AccessPointID, newSelectedProfile, cfg.AWSRegion, resultErr)
+		}
+	}()
 
 	output.Status("Investigation workspace created: access point %s", lambdaResp.AccessPointID)
 
 	if createOutputFormat == "json" {
 		summary := map[string]any{
-			"cluster":          clusterID,
+			"profile":          newSelectedProfile,
+			"cluster_id":       clusterID,
 			"investigation_id": investigationID,
 			"access_point_id":  lambdaResp.AccessPointID,
 		}
@@ -92,24 +98,15 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		printCreateInvestigationSummary(clusterID, investigationID, lambdaResp.AccessPointID)
+		if err := printCreateInvestigationSummary(clusterID, investigationID, lambdaResp.AccessPointID, cfg.AWSRegion); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func printCreateInvestigationSummary(cluster, investigationID, accessPointID string) {
-	fmt.Fprintln(os.Stderr, "\n========================================")
-	fmt.Fprintln(os.Stderr, "Investigation Workspace Created!")
-	fmt.Fprintln(os.Stderr, "========================================")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  Cluster:        %s\n", cluster)
-	fmt.Fprintf(os.Stderr, "  Investigation:  %s\n", investigationID)
-	fmt.Fprintf(os.Stderr, "  EFS Access Pt:  %s\n", accessPointID)
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Start a task for this investigation:")
-	fmt.Fprintf(os.Stderr, "  rosa-boundary start-task --cluster-id %s --investigation-id %s\n", cluster, investigationID)
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Close this investigation when done:")
-	fmt.Fprintf(os.Stderr, "  rosa-boundary close-investigation --cluster-id %s --investigation-id %s --yes\n", cluster, investigationID)
+func printCreateInvestigationSummary(cluster, investigationID, accessPointID, region string) error {
+	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s created (profile %s; access point %s).\nStart a session: rosa-boundary --profile %q session start %q --investigation-id %q --region %q\n", cluster, investigationID, newSelectedProfile, accessPointID, newSelectedProfile, cluster, investigationID, region)
+	return err
 }

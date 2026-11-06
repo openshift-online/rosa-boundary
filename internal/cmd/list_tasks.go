@@ -80,10 +80,23 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 	}
 
 	if listOutputFormat == "json" {
-		return output.JSON(tasks)
+		rows := make([]map[string]any, 0, len(tasks))
+		for _, task := range tasks {
+			owner := task.Tags["uuid"]
+			if owner == "" {
+				owner = task.Tags["username"]
+			}
+			rows = append(rows, map[string]any{
+				"session_id": task.TaskID, "session_arn": task.TaskARN,
+				"cluster_id": task.Tags["cluster_id"], "investigation_id": task.Tags["investigation_id"],
+				"ecs_cluster": task.ClusterName, "status": task.Status,
+				"owner": owner, "started_at": task.StartedAt,
+			})
+		}
+		return output.JSON(map[string]any{"profile": newSelectedProfile, "sessions": rows})
 	}
 
-	tbl := output.NewTable("TASK ID", "STATUS", "CLUSTER", "INVESTIGATION", "OWNER", "STARTED")
+	tbl := output.NewTable("SESSION ID", "STATUS", "CLUSTER", "INVESTIGATION", "OWNER", "STARTED")
 	tbl.PrintHeader()
 
 	for _, t := range tasks {

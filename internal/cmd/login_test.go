@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 func TestForceFreshLogin(t *testing.T) {
@@ -38,13 +38,10 @@ func TestForceFreshLogin(t *testing.T) {
 
 func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	viper.Set("keycloak_url", "https://keycloak.example.test/auth")
-	t.Cleanup(func() { viper.Set("keycloak_url", nil) })
-	viper.Set("keycloak_realm", "EmployeeIDP")
-	viper.Set("oidc_client_id", "rosa-boundary-sre")
-	viper.Set("oidc_use_device_code", false)
-	t.Cleanup(func() { viper.Set("keycloak_realm", nil); viper.Set("oidc_client_id", nil) })
-	t.Cleanup(func() { viper.Set("oidc_use_device_code", nil) })
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := config.SaveProfile("test", config.Config{AccountID: "123456789012", KeycloakURL: "https://keycloak.example.test/auth", KeycloakRealm: "EmployeeIDP", OIDCClientID: "rosa-boundary-sre"}, true, false); err != nil {
+		t.Fatal(err)
+	}
 
 	token := testJWT(time.Now().Add(time.Hour))
 	if err := auth.SaveTokenForConfig(token, auth.PKCEConfig{KeycloakURL: "https://keycloak.example.test/auth", Realm: "EmployeeIDP", ClientID: "rosa-boundary-sre"}); err != nil {
@@ -62,7 +59,7 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	}
 	os.Stdout = stdoutWriter
 
-	runErr := runLogin(&cobra.Command{}, nil)
+	runErr := runNewLogin(&cobra.Command{})
 	if err := stdoutWriter.Close(); err != nil {
 		t.Errorf("closing captured stdout writer: %v", err)
 	}

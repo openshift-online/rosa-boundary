@@ -20,11 +20,6 @@ import (
 
 var profileName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
-// savedProfile deliberately ignores environment and deployment defaults.
-func savedProfile(name string) (string, config.Profile, error) {
-	return config.ReadSavedProfile(name)
-}
-
 func buildConfigCommand() *cobra.Command {
 	group := commandGroup("config", "Manage Boundary deployment profiles")
 	init := commandLeaf("init", "Add a deployment profile", cobra.NoArgs, runConfigInit, false)
@@ -78,7 +73,7 @@ func runConfigInit(cmd *cobra.Command, _ []string) error {
 	if name != "" && !profileName.MatchString(name) {
 		return fmt.Errorf("--name must start with a letter or digit and contain only letters, digits, '.', '_' or '-'; choose another name")
 	}
-	file, err := config.LoadFile()
+	file, err := config.LoadProfiles()
 	if err != nil {
 		return err
 	}
@@ -231,7 +226,7 @@ func checkDiscoveryIdentity(seed config.Profile, response *lambda.ConfigResponse
 }
 
 func runConfigList(cmd *cobra.Command, _ []string) error {
-	file, err := config.LoadFile()
+	file, err := config.LoadProfiles()
 	if err != nil {
 		return err
 	}
@@ -257,7 +252,7 @@ func runConfigUse(cmd *cobra.Command, args []string) error {
 	if selectedProfile != "" {
 		return fmt.Errorf("--profile is not used by config use; pass the profile name as an argument: rosa-boundary config use <name>")
 	}
-	file, err := config.LoadFile()
+	file, err := config.LoadProfiles()
 	if err != nil {
 		return err
 	}
@@ -275,7 +270,7 @@ func runConfigUse(cmd *cobra.Command, args []string) error {
 }
 
 func runConfigGet(cmd *cobra.Command, args []string) error {
-	_, profile, err := savedProfile(selectedProfile)
+	_, profile, err := config.ReadSavedProfile(selectedProfile)
 	if err != nil {
 		return err
 	}
@@ -287,7 +282,7 @@ func runConfigGet(cmd *cobra.Command, args []string) error {
 		_, err = cmd.OutOrStdout().Write(data)
 		return err
 	}
-	file, err := config.LoadFile()
+	file, err := config.LoadProfiles()
 	if err != nil {
 		return err
 	}

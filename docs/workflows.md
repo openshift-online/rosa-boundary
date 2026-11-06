@@ -1,6 +1,6 @@
 # CLI Workflow Flowcharts
 
-These flows describe the new named-profile CLI. Select an approved Boundary account and region using `--profile <name>` or `config use <name>` before operating. See the [user access guide](runbooks/user-access-guide.md) and [investigation workflow](runbooks/investigation-workflow.md) for prerequisites, audit checks, and recovery. An investigation workspace can outlive multiple sessions; a Boundary session ID identifies an ECS task, **not** its ECS Exec/SSM connection.
+These flows describe the named-profile CLI. Select an approved Boundary account and region using `--profile <name>` or `config use <name>` before operating. See the [user access guide](runbooks/user-access-guide.md) and [investigation workflow](runbooks/investigation-workflow.md) for prerequisites, audit checks, and recovery. An investigation workspace can outlive multiple sessions; a Boundary session ID identifies an ECS task, **not** its ECS Exec/SSM connection.
 
 ```mermaid
 flowchart TD

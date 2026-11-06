@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/openshift-online/rosa-boundary/internal/config"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
@@ -28,6 +31,23 @@ func runTestCLI(t *testing.T, args ...string) (string, error) {
 	return stdout.String(), err
 }
 
+func saveTestProfile(name string, cfg config.Config, use, overwrite bool) error {
+	f, err := config.LoadProfiles()
+	if err != nil {
+		return err
+	}
+	device := cfg.OIDCUseDeviceCode
+	p := config.Profile{AccountID: cfg.AccountID, Environment: cfg.Environment, Project: cfg.Project,
+		AWSRegion: cfg.AWSRegion, KeycloakURL: cfg.KeycloakURL, KeycloakRealm: cfg.KeycloakRealm,
+		OIDCClientID: cfg.OIDCClientID, OIDCUseDeviceCode: &device,
+		LambdaFunctionName: cfg.LambdaFunctionName, InvokerRoleARN: cfg.InvokerRoleARN,
+		SRERoleARN: cfg.SRERoleARN, ClusterName: cfg.ClusterName, EFSFilesystemID: cfg.EFSFilesystemID}
+	if err := f.AddProfile(name, p, overwrite, use); err != nil {
+		return err
+	}
+	return config.SaveProfiles(f)
+}
+
 func TestCLIManualProfiles(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	_, err := runTestCLI(t, "config", "init", "--name", "stage-east", "--auto-discover=false",
@@ -37,7 +57,7 @@ func TestCLIManualProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	file, err := config.LoadFile()
+	file, err := config.LoadProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +98,7 @@ func TestCLIManualProfiles(t *testing.T) {
 	if err != nil || value != "us-east-1\n" {
 		t.Fatalf("config get must ignore environment: %q, %v", value, err)
 	}
-	file, err = config.LoadFile()
+	file, err = config.LoadProfiles()
 	if err != nil || file.ActiveProfile != "prod-west" {
 		t.Fatalf("active profile = %+v, error = %v", file, err)
 	}
@@ -110,16 +130,20 @@ func TestCLIManualInitJSONDoesNotEmitStatusOnStdout(t *testing.T) {
 
 func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 	root := buildRootCommand()
-	expected := map[string]bool{"config": true, "investigation": true, "login": true, "session": true, "version": true}
-	for _, child := range root.Commands() {
-		if !expected[child.Name()] {
-			t.Fatalf("unexpected command %q in public CLI", child.Name())
-		}
-		delete(expected, child.Name())
-	}
-	if len(expected) != 0 {
-		t.Fatalf("public CLI missing commands: %v", expected)
-	}
+	// Check every public level: old task commands must not be reachable beneath
+	// a supported group, and no unexpected leaf can silently enter the contract.
+	assertCommandTree(t, root, map[string]any{
+		"config":        map[string]any{"init": nil, "list": nil, "use": nil, "get": nil},
+		"investigation": map[string]any{"create": nil, "list": nil, "close": nil},
+		"session": map[string]any{
+			"start": nil, "list": nil, "join": nil, "stop": nil,
+			"credentials": map[string]any{
+				"configure": map[string]any{"ocm": nil},
+				"clear":     map[string]any{"ocm": nil},
+			},
+		},
+		"login": nil, "version": nil,
+	})
 	for _, args := range [][]string{{"session", "start"}, {"session", "start", "cluster", "--no-wait", "--connect"}, {"session", "start", "cluster", "--no-wait", "--with-credentials", "ocm"}, {"session", "start", "cluster", "--session-timeout", "-1s"}, {"session", "start", "cluster", "--session-timeout", "24h1s"}, {"session", "start", "cluster", "--with-credentials", "bogus"}, {"session", "list", "--status", "bad"}, {"investigation", "close", "cluster"}} {
 		if _, err := runTestCLI(t, args...); err == nil {
 			t.Errorf("%v should be rejected", args)
@@ -133,6 +157,68 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 	}
 	if _, err := runTestCLI(t, "investigation", "close", "cluster", "incident", "--dry-run", "--timeout", "-1s"); err == nil || !strings.Contains(err.Error(), "--timeout") {
 		t.Fatalf("dry-run should pass terminal validation: %v", err)
+	}
+}
+
+func assertCommandTree(t *testing.T, parent interface {
+	Commands() []*cobra.Command
+	CommandPath() string
+}, expected map[string]any) {
+	t.Helper()
+	for _, child := range parent.Commands() {
+		// Cobra's generated help and completion are not part of the public contract.
+		if child.Name() == "help" || child.Name() == "completion" {
+			continue
+		}
+		nested, ok := expected[child.Name()]
+		if !ok {
+			t.Errorf("unexpected command %s", child.CommandPath())
+			continue
+		}
+		delete(expected, child.Name())
+		if nested == nil {
+			assertCommandTree(t, child, map[string]any{})
+		} else {
+			assertCommandTree(t, child, nested.(map[string]any))
+		}
+	}
+	for name := range expected {
+		t.Errorf("%s missing command %s", parent.CommandPath(), name)
+	}
+}
+
+func TestStartSessionJSONResultContract(t *testing.T) {
+	previous := selectedProfile
+	t.Cleanup(func() { selectedProfile = previous })
+	selectedProfile = "stage-east"
+	for _, withOCM := range []bool{false, true} {
+		result := startSessionResult("cluster", "investigation", "abc123", "boundary-ecs", "arn:aws:ecs:us-east-1:123456789012:task/boundary-ecs/abc123", "4.20", 3600, "fsap-123", "arn:aws:iam::123456789012:role/sre", withOCM)
+		data, err := json.Marshal(result)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		wantFields := map[string]any{"profile": "stage-east", "session_id": "abc123", "ecs_cluster": "boundary-ecs", "cluster_id": "cluster", "investigation_id": "investigation", "task_id": "abc123", "task_arn": "arn:aws:ecs:us-east-1:123456789012:task/boundary-ecs/abc123", "oc_version": "4.20", "session_timeout": float64(3600), "task_timeout": float64(3600), "access_point_id": "fsap-123", "role_arn": "arn:aws:iam::123456789012:role/sre"}
+		if withOCM {
+			wantFields["credentials"] = []any{"ocm"}
+		}
+		if len(decoded) != len(wantFields) {
+			t.Errorf("JSON keys = %v, want exactly %v", decoded, wantFields)
+		}
+		for key, want := range wantFields {
+			if key == "credentials" {
+				if got, ok := decoded[key].([]any); !ok || len(got) != 1 || got[0] != "ocm" {
+					t.Errorf("credentials = %v, want [ocm]", decoded[key])
+				}
+				continue
+			}
+			if got := decoded[key]; got != want {
+				t.Errorf("%s = %v, want %v", key, got, want)
+			}
+		}
 	}
 }
 
@@ -233,7 +319,7 @@ func TestCLIMissingDeploymentSettingsBeforeAuth(t *testing.T) {
 	if _, err := runTestCLI(t, "config", "init", "--name", "bad", "--auto-discover=false", "--account-id", "123456789012", "--region", "us-east-1", "--keycloak-url", "https://auth.example.com", "--lambda-function-name", "create", "--invoker-role-arn", "arn:aws:iam::210987654321:role/invoker", "--sre-role-arn", "arn:aws:iam::123456789012:role/sre", "--ecs-cluster", "ecs", "--efs-filesystem-id", "fs-example"); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("cross-account manual init: %v", err)
 	}
-	file, err := config.LoadFile()
+	file, err := config.LoadProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}

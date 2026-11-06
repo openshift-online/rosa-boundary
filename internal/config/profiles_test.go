@@ -7,15 +7,34 @@ import (
 	"testing"
 )
 
+// saveTestProfile builds a minimal saved profile without adding test-only
+// convenience APIs to production configuration code.
+func saveTestProfile(name string, cfg Config, use, overwrite bool) error {
+	f, err := LoadProfiles()
+	if err != nil {
+		return err
+	}
+	device := cfg.OIDCUseDeviceCode
+	p := Profile{AccountID: cfg.AccountID, Environment: cfg.Environment, Project: cfg.Project,
+		AWSRegion: cfg.AWSRegion, KeycloakURL: cfg.KeycloakURL, KeycloakRealm: cfg.KeycloakRealm,
+		OIDCClientID: cfg.OIDCClientID, OIDCUseDeviceCode: &device,
+		LambdaFunctionName: cfg.LambdaFunctionName, InvokerRoleARN: cfg.InvokerRoleARN,
+		SRERoleARN: cfg.SRERoleARN, ClusterName: cfg.ClusterName, EFSFilesystemID: cfg.EFSFilesystemID}
+	if err := f.AddProfile(name, p, overwrite, use); err != nil {
+		return err
+	}
+	return SaveProfiles(f)
+}
+
 func TestProfilesSaveSelectAndSavedValues(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	if err := SaveProfile("stage", Config{AccountID: "111111111111", AWSRegion: "us-east-1"}, false, false); err != nil {
+	if err := saveTestProfile("stage", Config{AccountID: "111111111111", AWSRegion: "us-east-1"}, false, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := SaveProfile("prod", Config{AccountID: "222222222222", AWSRegion: "us-west-1", OIDCUseDeviceCode: true}, false, false); err != nil {
+	if err := saveTestProfile("prod", Config{AccountID: "222222222222", AWSRegion: "us-west-1", OIDCUseDeviceCode: true}, false, false); err != nil {
 		t.Fatal(err)
 	}
-	file, err := LoadFile()
+	file, err := LoadProfiles()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,23 +47,30 @@ func TestProfilesSaveSelectAndSavedValues(t *testing.T) {
 	if v, err := file.SavedValue("stage", "oidc_use_device_code"); err != nil || v != false {
 		t.Fatalf("saved boolean = %v, %v", v, err)
 	}
-	if err := SaveProfile("stage", Config{}, false, false); err == nil {
+	if err := saveTestProfile("stage", Config{}, false, false); err == nil {
 		t.Fatal("replacement without overwrite succeeded")
 	}
-	if err := SetActiveProfile("prod"); err != nil {
+	file, err = LoadProfiles()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.UseProfile("prod"); err != nil {
+		t.Fatal(err)
+	}
+	if err := SaveProfiles(file); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := file.SavedValue("stage", "unknown"); err == nil {
 		t.Fatal("unknown key accepted")
 	}
-	selected, cfg, err := ResolveProfile("")
+	selected, cfg, err := ResolveWithFlags("", nil)
 	if err != nil || selected != "prod" || cfg.AWSRegion != "us-west-1" || cfg.AccountID != "222222222222" {
 		t.Fatalf("resolved = %q, %+v, %v", selected, cfg, err)
 	}
-	if err := SaveProfile("prod", Config{AWSRegion: "eu-west-1"}, false, true); err != nil {
+	if err := saveTestProfile("prod", Config{AWSRegion: "eu-west-1"}, false, true); err != nil {
 		t.Fatal(err)
 	}
-	file, err = LoadFile()
+	file, err = LoadProfiles()
 	if err != nil || file.ActiveProfile != "prod" || file.Profiles["stage"].AccountID != "111111111111" {
 		t.Fatalf("replacement changed other profiles: %+v %v", file, err)
 	}
@@ -68,7 +94,7 @@ func TestInvalidConfigRejectedAndUnchanged(t *testing.T) {
 	if _, err := LoadProfiles(); err == nil || !strings.Contains(err.Error(), "field keycloak_url not found") {
 		t.Fatalf("LoadProfiles invalid config = %v", err)
 	}
-	if err := SaveProfile("stage", Config{}, false, false); err == nil || !strings.Contains(err.Error(), "field keycloak_url not found") {
+	if err := saveTestProfile("stage", Config{}, false, false); err == nil || !strings.Contains(err.Error(), "field keycloak_url not found") {
 		t.Fatalf("SaveProfile invalid config = %v", err)
 	}
 	data, _ := os.ReadFile(path)

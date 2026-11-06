@@ -17,7 +17,7 @@ func TestActiveCommandsSelectInvokerAndSRERoles(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	cfg := config.Config{AccountID: "123456789012", AWSRegion: "us-east-1", KeycloakURL: "https://auth.example.test", ClusterName: "ecs", EFSFilesystemID: "fs-example", SRERoleARN: "arn:aws:iam::123456789012:role/sre", InvokerRoleARN: "arn:aws:iam::123456789012:role/invoker", LambdaFunctionName: "create"}
-	if err := config.SaveProfile("stage", cfg, true, false); err != nil {
+	if err := saveTestProfile("stage", cfg, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := auth.SaveTokenForConfig(testJWT(time.Now().Add(time.Hour)), auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: "EmployeeIDP", ClientID: "rosa-boundary-sre"}); err != nil {
@@ -76,7 +76,7 @@ func TestCommandRoleValidation(t *testing.T) {
 			} else {
 				profile.SRERoleARN = ""
 			}
-			if err := config.SaveProfile("stage", profile, true, tc.name == "sre"); err != nil {
+			if err := saveTestProfile("stage", profile, true, tc.name == "sre"); err != nil {
 				t.Fatal(err)
 			}
 			for _, path := range tc.commands {
@@ -112,7 +112,7 @@ func TestValidateStartCredentials(t *testing.T) {
 		startCredentials, startNoWait, startOCMURL, startOCMFlow = originalCredentials, originalNoWait, originalURL, originalFlow
 	})
 
-	startCredentials = []string{"ocm"}
+	startCredentials = "ocm"
 	startNoWait = false
 	startOCMURL = "staging"
 	startOCMFlow = "device"
@@ -126,13 +126,13 @@ func TestValidateStartCredentials(t *testing.T) {
 		t.Fatalf("--no-wait combination error = %v", err)
 	}
 	startNoWait = false
-	startCredentials = []string{"vault"}
+	startCredentials = "vault"
 	if _, _, _, err := validateStartCredentials(); err == nil {
 		t.Fatal("unsupported provider succeeded")
 	}
-	startCredentials = []string{"ocm", "ocm"}
-	if _, _, _, err := validateStartCredentials(); err == nil {
-		t.Fatal("duplicate provider succeeded")
+	startCredentials = ""
+	if enabled, _, _, err := validateStartCredentials(); err != nil || enabled {
+		t.Fatalf("omitted provider = %t, %v", enabled, err)
 	}
 }
 

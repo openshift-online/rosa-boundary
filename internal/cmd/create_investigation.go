@@ -36,10 +36,6 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) (resultErr error)
 		output.Status("Generated investigation ID: %s", investigationID)
 	}
 
-	if cfg.LambdaFunctionName == "" {
-		return fmt.Errorf("lambda function name is required; set --lambda-function-name, ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME, or LAMBDA_FUNCTION_NAME")
-	}
-
 	// Step 1: Call Lambda with skip_task=true (creates only the EFS access point)
 	output.Status("=== Step 1: Creating Investigation Workspace via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)

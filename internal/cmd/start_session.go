@@ -24,7 +24,7 @@ var (
 	startConnect          bool
 	startNoWait           bool
 	startOutputFormat     string
-	startCredentials      []string
+	startCredentials      string
 	startOCMURL           string
 	startOCMFlow          string
 )
@@ -53,10 +53,6 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	if investigationID == "" {
 		investigationID = petname.Generate(3, "-")
 		output.Status("Generated investigation ID: %s", investigationID)
-	}
-
-	if cfg.LambdaFunctionName == "" {
-		return fmt.Errorf("lambda function name is required; set --lambda-function-name, ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME, or LAMBDA_FUNCTION_NAME")
 	}
 
 	// Step 1: Call Lambda (SigV4-signed)
@@ -163,23 +159,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 
 	// Print summary
 	if startOutputFormat == "json" {
-		summary := map[string]any{
-			"profile":          selectedProfile,
-			"session_id":       sessionID,
-			"ecs_cluster":      ecsCluster,
-			"cluster_id":       clusterID,
-			"investigation_id": investigationID,
-			// Preserve ECS-specific fields for callers that need the underlying task resource.
-			"task_id":         sessionID,
-			"task_arn":        lambdaResp.TaskARN,
-			"oc_version":      startOCVersion,
-			"task_timeout":    sessionTimeoutSeconds,
-			"access_point_id": lambdaResp.AccessPointID,
-			"role_arn":        roleARN,
-		}
-		if configureOCM {
-			summary["credentials"] = []string{"ocm"}
-		}
+		summary := startSessionResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, startOCVersion, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM)
 		if err := output.JSON(summary); err != nil {
 			return err
 		}
@@ -202,6 +182,30 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	return nil
 }
 
+// startSessionResult exposes the user-facing lifetime and preserves the legacy
+// task_timeout key for existing JSON consumers.
+func startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskARN, ocVersion string, timeout int, accessPointID, roleARN string, configureOCM bool) map[string]any {
+	summary := map[string]any{
+		"profile":          selectedProfile,
+		"session_id":       sessionID,
+		"ecs_cluster":      ecsCluster,
+		"cluster_id":       clusterID,
+		"investigation_id": investigationID,
+		// Preserve ECS-specific fields for callers that need the underlying task resource.
+		"task_id":         sessionID,
+		"task_arn":        taskARN,
+		"oc_version":      ocVersion,
+		"session_timeout": timeout,
+		"task_timeout":    timeout,
+		"access_point_id": accessPointID,
+		"role_arn":        roleARN,
+	}
+	if configureOCM {
+		summary["credentials"] = []string{"ocm"}
+	}
+	return summary
+}
+
 func validateStartCredentials(explicit ...bool) (bool, ocmcredentials.Environment, ocmcredentials.Flow, error) {
 	flowExplicit := len(explicit) != 0 && explicit[0]
 	if startOCMFlow != "" || flowExplicit {
@@ -209,21 +213,14 @@ func validateStartCredentials(explicit ...bool) (bool, ocmcredentials.Environmen
 			return false, ocmcredentials.Environment{}, "", err
 		}
 	}
-	if len(startCredentials) == 0 {
+	if startCredentials == "" {
 		return false, ocmcredentials.Environment{}, "", nil
 	}
 	if startNoWait {
 		return false, ocmcredentials.Environment{}, "", fmt.Errorf("--with-credentials cannot be combined with --no-wait")
 	}
-	seenOCM := false
-	for _, provider := range startCredentials {
-		if provider != "ocm" {
-			return false, ocmcredentials.Environment{}, "", fmt.Errorf("unsupported credential provider %q", provider)
-		}
-		if seenOCM {
-			return false, ocmcredentials.Environment{}, "", fmt.Errorf("credential provider ocm was requested more than once")
-		}
-		seenOCM = true
+	if startCredentials != "ocm" {
+		return false, ocmcredentials.Environment{}, "", fmt.Errorf("unsupported credential provider %q", startCredentials)
 	}
 	environment, err := ocmcredentials.ResolveEnvironment(startOCMURL)
 	if err != nil {

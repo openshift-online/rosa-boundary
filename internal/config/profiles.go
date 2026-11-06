@@ -37,9 +37,6 @@ type ProfilesFile struct {
 	Profiles      map[string]Profile `yaml:"profiles"`
 }
 
-// ProfileFile is an alias for the public file model.
-type ProfileFile = ProfilesFile
-
 var profileNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 func profilePath() (string, error) {
@@ -349,9 +346,6 @@ func supportedKey(key string) bool {
 	return false
 }
 
-// LoadFile returns only persisted settings. It is equivalent to LoadProfiles.
-func LoadFile() (*ProfileFile, error) { return LoadProfiles() }
-
 // ReadSavedProfile reads the explicit or active profile without runtime resolution.
 func ReadSavedProfile(name string) (string, Profile, error) {
 	f, err := LoadProfiles()
@@ -369,11 +363,6 @@ func ResolveWithFlags(name string, flags map[string]string) (string, *Config, er
 		return "", nil, err
 	}
 	return f.ResolveProfile(name, flags, nil)
-}
-
-// ResolveProfile resolves the selected or active profile with environment and defaults.
-func ResolveProfile(name string) (string, *Config, error) {
-	return ResolveWithFlags(name, nil)
 }
 
 // RequireSettings reports missing settings for a particular command. Callers
@@ -401,38 +390,4 @@ func RequireSettings(cfg *Config, keys ...string) error {
 		}
 	}
 	return nil
-}
-
-// SaveProfile adds or explicitly replaces one profile and preserves other profiles.
-// The caller must handle overwrite confirmation before invoking this function.
-func SaveProfile(name string, cfg Config, use, overwrite bool) error {
-	f, err := LoadProfiles()
-	if err != nil {
-		return err
-	}
-	device := cfg.OIDCUseDeviceCode
-	p := Profile{
-		AccountID: cfg.AccountID, Environment: cfg.Environment, Project: cfg.Project,
-		AWSRegion: cfg.AWSRegion, KeycloakURL: cfg.KeycloakURL,
-		KeycloakRealm: cfg.KeycloakRealm, OIDCClientID: cfg.OIDCClientID,
-		OIDCUseDeviceCode: &device, LambdaFunctionName: cfg.LambdaFunctionName,
-		InvokerRoleARN: cfg.InvokerRoleARN, SRERoleARN: cfg.SRERoleARN,
-		ClusterName: cfg.ClusterName, EFSFilesystemID: cfg.EFSFilesystemID,
-	}
-	if err := f.AddProfile(name, p, overwrite, use); err != nil {
-		return err
-	}
-	return SaveProfiles(f)
-}
-
-// SetActiveProfile persists only the active profile selection.
-func SetActiveProfile(name string) error {
-	f, err := LoadProfiles()
-	if err != nil {
-		return err
-	}
-	if err := f.UseProfile(name); err != nil {
-		return err
-	}
-	return SaveProfiles(f)
 }

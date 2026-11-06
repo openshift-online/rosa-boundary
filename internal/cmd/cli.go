@@ -250,10 +250,7 @@ func buildSessionCommand() *cobra.Command {
 		startClusterID, startInvestigationID, startOCVersion = args[0], flagString(cmd, "investigation-id"), flagString(cmd, "oc-version")
 		sessionTimeoutSeconds = int(flagDuration(cmd, "session-timeout") / time.Second)
 		startConnect, startNoWait = flagBool(cmd, "connect"), flagBool(cmd, "no-wait")
-		startCredentials = nil
-		if provider := flagString(cmd, "with-credentials"); provider != "" {
-			startCredentials = []string{provider}
-		}
+		startCredentials = flagString(cmd, "with-credentials")
 		startOCMURL, startOCMFlow, startOutputFormat = flagString(cmd, "ocm-url"), flagString(cmd, "ocm-auth-flow"), flagString(cmd, "output")
 		return runStartSession(cmd, nil)
 	}, true)

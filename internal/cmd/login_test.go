@@ -30,7 +30,7 @@ func TestLoginForceFlagIsCommandScoped(t *testing.T) {
 func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	if err := config.SaveProfile("test", config.Config{AccountID: "123456789012", KeycloakURL: "https://keycloak.example.test/auth", KeycloakRealm: "EmployeeIDP", OIDCClientID: "rosa-boundary-sre"}, true, false); err != nil {
+	if err := saveTestProfile("test", config.Config{AccountID: "123456789012", KeycloakURL: "https://keycloak.example.test/auth", KeycloakRealm: "EmployeeIDP", OIDCClientID: "rosa-boundary-sre"}, true, false); err != nil {
 		t.Fatal(err)
 	}
 

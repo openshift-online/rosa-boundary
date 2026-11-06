@@ -20,8 +20,8 @@ var (
 	stopYes    bool
 )
 
-func runStopTask(cmd *cobra.Command, args []string) error {
-	taskID := args[0]
+func runStopSession(cmd *cobra.Command, args []string) error {
+	sessionID := args[0]
 
 	authRes := cachedAuthResult
 
@@ -32,15 +32,15 @@ func runStopTask(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	task, err := ecsClient.DescribeTask(cmd.Context(), taskID)
+	task, err := ecsClient.DescribeTask(cmd.Context(), sessionID)
 	if err != nil {
 		return fmt.Errorf("cannot resolve session before stopping; verify the session ID and selected deployment with 'rosa-boundary session list --status all': %w", err)
 	}
 	if task.Status == "STOPPED" {
-		return fmt.Errorf("session %s is already STOPPED; verify its audit evidence, then use 'rosa-boundary investigation close' if the workspace is no longer needed", taskID)
+		return fmt.Errorf("session %s is already STOPPED; verify its audit evidence, then use 'rosa-boundary investigation close' if the workspace is no longer needed", sessionID)
 	}
 	output.Status("Profile: %s Account: %s Region: %s", selectedProfile, authRes.Config.AccountID, authRes.Config.AWSRegion)
-	output.Status("Session %s (cluster %s; investigation %s; owner %s)", taskID, task.Tags["cluster_id"], task.Tags["investigation_id"], task.Tags["username"])
+	output.Status("Session %s (cluster %s; investigation %s; owner %s)", sessionID, task.Tags["cluster_id"], task.Tags["investigation_id"], task.Tags["username"])
 	if !stopYes {
 		if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
 			return fmt.Errorf("--yes is required without a terminal; run interactively or pass --yes only after confirming the session ID")
@@ -53,24 +53,24 @@ func runStopTask(cmd *cobra.Command, args []string) error {
 	}
 
 	output.Status("Stopping session...")
-	output.Status("  Session: %s", taskID)
+	output.Status("  Session: %s", sessionID)
 	output.Status("  ECS Cluster: %s", clusterName)
 	output.Status("  Reason:  %s", stopReason)
 
-	if err := ecsClient.StopTask(cmd.Context(), taskID, stopReason); err != nil {
-		return fmt.Errorf("stop task failed: %w", err)
+	if err := ecsClient.StopTask(cmd.Context(), sessionID, stopReason); err != nil {
+		return fmt.Errorf("stop session failed: %w", err)
 	}
 
 	output.Status("Session stop initiated")
 
 	if stopWait {
 		output.Status("Waiting for session to reach STOPPED state...")
-		if err := ecsClient.WaitForStopped(cmd.Context(), taskID); err != nil {
-			return fmt.Errorf("task did not reach STOPPED state; check 'rosa-boundary session list --status all' for the selected profile and verify audit evidence before closing: %w", err)
+		if err := ecsClient.WaitForStopped(cmd.Context(), sessionID); err != nil {
+			return fmt.Errorf("session did not reach STOPPED state; check 'rosa-boundary session list --status all' for the selected profile and verify audit evidence before closing: %w", err)
 		}
 		output.Status("Session stopped")
 	} else {
-		output.Status("\nMonitor task status:")
+		output.Status("\nMonitor session status:")
 		output.Status("  rosa-boundary --profile %q session list --status all --region %q --ecs-cluster %q", selectedProfile, authRes.Config.AWSRegion, clusterName)
 	}
 	if format == "json" {
@@ -78,9 +78,9 @@ func runStopTask(cmd *cobra.Command, args []string) error {
 		if stopWait {
 			status = "STOPPED"
 		}
-		return output.JSON(map[string]any{"profile": selectedProfile, "cluster_id": task.Tags["cluster_id"], "investigation_id": task.Tags["investigation_id"], "session_id": taskID, "status": status, "waited": stopWait})
+		return output.JSON(map[string]any{"profile": selectedProfile, "cluster_id": task.Tags["cluster_id"], "investigation_id": task.Tags["investigation_id"], "session_id": sessionID, "status": status, "waited": stopWait})
 	}
-	if _, err := fmt.Fprintf(os.Stdout, "Session %s stop requested (profile %s). Audit sync must be verified separately.\n", taskID, selectedProfile); err != nil {
+	if _, err := fmt.Fprintf(os.Stdout, "Session %s stop requested (profile %s). Audit sync must be verified separately.\n", sessionID, selectedProfile); err != nil {
 		return err
 	}
 

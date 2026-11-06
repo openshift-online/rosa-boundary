@@ -136,8 +136,8 @@ func TestValidateStartCredentials(t *testing.T) {
 	}
 }
 
-func TestStartCredentialFailureRetainsTaskAndCleanupCommand(t *testing.T) {
-	err := startCredentialFailure(
+func TestSessionCredentialFailureRetainsSessionAndCleanupCommand(t *testing.T) {
+	err := sessionCredentialFailure(
 		"INV-1",
 		"task-123",
 		"boundary",

@@ -17,19 +17,19 @@ import (
 )
 
 var (
-	startClusterID       string
-	startInvestigationID string
-	startOCVersion       string
-	startTaskTimeout     int
-	startConnect         bool
-	startNoWait          bool
-	startOutputFormat    string
-	startCredentials     []string
-	startOCMURL          string
-	startOCMFlow         string
+	startClusterID        string
+	startInvestigationID  string
+	startOCVersion        string
+	sessionTimeoutSeconds int
+	startConnect          bool
+	startNoWait           bool
+	startOutputFormat     string
+	startCredentials      []string
+	startOCMURL           string
+	startOCMFlow          string
 )
 
-func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
+func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	switch startOutputFormat {
 	case "text", "json":
 	default:
@@ -64,7 +64,7 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 	output.Status("Cluster:        %s", clusterID)
 	output.Status("Investigation:  %s", investigationID)
 	output.Status("OC Version:     %s", startOCVersion)
-	output.Status("Session lifetime: %d seconds", startTaskTimeout)
+	output.Status("Session lifetime: %d seconds", sessionTimeoutSeconds)
 
 	invokerCredProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	lambdaClient := lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, invokerCredProvider)
@@ -72,20 +72,21 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 		ClusterID:       clusterID,
 		InvestigationID: investigationID,
 		OCVersion:       startOCVersion,
-		TaskTimeout:     startTaskTimeout,
+		TaskTimeout:     sessionTimeoutSeconds,
 		TaskTimeoutSet:  true,
 	})
 	if err != nil {
 		return fmt.Errorf("lambda call failed (outcome may be unknown for %s/%s; inspect with rosa-boundary --profile %q session list --status all --region %q --ecs-cluster %q before retrying): %w", clusterID, investigationID, selectedProfile, cfg.AWSRegion, cfg.ClusterName, err)
 	}
 
-	taskID := path.Base(lambdaResp.TaskARN)
+	// The Boundary session ID is the underlying ECS task ID.
+	sessionID := path.Base(lambdaResp.TaskARN)
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		cleanup := fmt.Sprintf("rosa-boundary --profile %q session stop %q --yes --region %q --ecs-cluster %q", selectedProfile, taskID, cfg.AWSRegion, cfg.ClusterName)
-		resultErr = fmt.Errorf("session %s created for %s/%s (profile %s; region %s; ECS cluster %s), then operation failed: %w; inspect session list --status all; cleanup: %s", taskID, clusterID, investigationID, selectedProfile, cfg.AWSRegion, cfg.ClusterName, resultErr, cleanup)
+		cleanup := fmt.Sprintf("rosa-boundary --profile %q session stop %q --yes --region %q --ecs-cluster %q", selectedProfile, sessionID, cfg.AWSRegion, cfg.ClusterName)
+		resultErr = fmt.Errorf("session %s created for %s/%s (profile %s; region %s; ECS cluster %s), then operation failed: %w; inspect session list --status all; cleanup: %s", sessionID, clusterID, investigationID, selectedProfile, cfg.AWSRegion, cfg.ClusterName, resultErr, cleanup)
 	}()
 
 	// Use override role ARN if configured, otherwise use what Lambda returned
@@ -100,7 +101,7 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 		return fmt.Errorf("lambda returned a role outside the selected deployment: %w", err)
 	}
 
-	output.Status("Session launched: %s", taskID)
+	output.Status("Session launched: %s", sessionID)
 
 	// Step 2: Assume SRE role
 	output.Status("\n=== Step 2: Assuming Shared SRE Role ===")
@@ -112,7 +113,7 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 	}
 
 	if err := debugf("Assuming role %s as session %s", roleARN, sessionName); err != nil {
-		return fmt.Errorf("investigation %q created task %q, but debug output failed: %w", investigationID, taskID, err)
+		return fmt.Errorf("investigation %q created session %q, but debug output failed: %w", investigationID, sessionID, err)
 	}
 
 	pkce := auth.PKCEConfig{
@@ -144,9 +145,9 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 	// Step 3: Wait for RUNNING (unless --no-wait)
 	if !startNoWait {
 		output.Status("\n=== Step 3: Waiting for session to be RUNNING ===")
-		output.Status("Session: %s", taskID)
-		if err := ecsClient.WaitForRunning(cmd.Context(), taskID); err != nil {
-			return fmt.Errorf("task did not reach RUNNING: %w", err)
+		output.Status("Session: %s", sessionID)
+		if err := ecsClient.WaitForRunning(cmd.Context(), sessionID); err != nil {
+			return fmt.Errorf("session did not reach RUNNING: %w", err)
 		}
 		output.Status("Session is RUNNING")
 	}
@@ -155,8 +156,8 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 	// the freshly issued OCM token's useful lifetime as long as possible.
 	if configureOCM {
 		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
-		if err := configureOCMForTask(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, ocmEnvironment, ocmFlow, cmd); err != nil {
-			return startCredentialFailure(investigationID, taskID, ecsCluster, cfg.AWSRegion, ocmEnvironment, ocmFlow, err)
+		if err := configureOCMForSession(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, ocmEnvironment, ocmFlow, cmd); err != nil {
+			return sessionCredentialFailure(investigationID, sessionID, ecsCluster, cfg.AWSRegion, ocmEnvironment, ocmFlow, err)
 		}
 	}
 
@@ -164,16 +165,17 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 	if startOutputFormat == "json" {
 		summary := map[string]any{
 			"profile":          selectedProfile,
-			"session_id":       taskID,
+			"session_id":       sessionID,
 			"ecs_cluster":      ecsCluster,
 			"cluster_id":       clusterID,
 			"investigation_id": investigationID,
-			"task_id":          taskID,
-			"task_arn":         lambdaResp.TaskARN,
-			"oc_version":       startOCVersion,
-			"task_timeout":     startTaskTimeout,
-			"access_point_id":  lambdaResp.AccessPointID,
-			"role_arn":         roleARN,
+			// Preserve ECS-specific fields for callers that need the underlying task resource.
+			"task_id":         sessionID,
+			"task_arn":        lambdaResp.TaskARN,
+			"oc_version":      startOCVersion,
+			"task_timeout":    sessionTimeoutSeconds,
+			"access_point_id": lambdaResp.AccessPointID,
+			"role_arn":        roleARN,
 		}
 		if configureOCM {
 			summary["credentials"] = []string{"ocm"}
@@ -182,7 +184,7 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 			return err
 		}
 	} else {
-		if err := printStartSummary(ecsCluster, clusterID, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion); err != nil {
+		if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, startOCVersion, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion); err != nil {
 			return err
 		}
 	}
@@ -194,7 +196,7 @@ func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 			step = 5
 		}
 		output.Status("\n=== Step %d: Connecting to session ===", step)
-		return runJoinWithClientFormat(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, "rosa-boundary", defaultExecCommand, false, startOutputFormat)
+		return connectToSession(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, "rosa-boundary", defaultExecCommand, false)
 	}
 
 	return nil
@@ -237,21 +239,21 @@ func validateStartCredentials(explicit ...bool) (bool, ocmcredentials.Environmen
 	return true, environment, flow, nil
 }
 
-func startCredentialFailure(investigationID, taskID, ecsCluster, region string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, cause error) error {
+func sessionCredentialFailure(investigationID, sessionID, ecsCluster, region string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, cause error) error {
 	callbackNotice := ""
 	if flow == ocmcredentials.FlowAuthCode {
 		callbackNotice = "; auth-code retry requires a local browser callback (omit --auth-flow for the saved preference)"
 	}
 	return fmt.Errorf(
 		"investigation %q created session %q, but credential configuration failed: %w; the session is still running; retry with: rosa-boundary --profile %q session credentials configure ocm %q --ocm-url %q --auth-flow %q --ecs-cluster %q --region %q%s; clean it up with: rosa-boundary --profile %q session stop %q --yes --ecs-cluster %q --region %q",
-		investigationID, taskID, cause, selectedProfile, taskID, environment.Name, flow, ecsCluster, region, callbackNotice, selectedProfile, taskID, ecsCluster, region,
+		investigationID, sessionID, cause, selectedProfile, sessionID, environment.Name, flow, ecsCluster, region, callbackNotice, selectedProfile, sessionID, ecsCluster, region,
 	)
 }
 
-func printStartSummary(ecsCluster, clusterID, investigationID, taskID, ocVersion string, timeout int, accessPointID, roleARN, region string) error {
-	summary := fmt.Sprintf("Session %s created for %s/%s (profile %s).\n", taskID, clusterID, investigationID, selectedProfile)
+func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, ocVersion string, timeout int, accessPointID, roleARN, region string) error {
+	summary := fmt.Sprintf("Session %s created for %s/%s (profile %s).\n", sessionID, clusterID, investigationID, selectedProfile)
 	summary += fmt.Sprintf("ECS cluster: %s; region: %s; OC version: %s; lifetime: %d seconds; access point: %s; role: %s\n", ecsCluster, region, ocVersion, timeout, accessPointID, roleARN)
-	summary += fmt.Sprintf("Join: rosa-boundary --profile %q session join %q", selectedProfile, taskID)
+	summary += fmt.Sprintf("Join: rosa-boundary --profile %q session join %q", selectedProfile, sessionID)
 	if region != "" {
 		summary += fmt.Sprintf(" --region %q", region)
 	}

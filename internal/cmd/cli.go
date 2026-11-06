@@ -248,14 +248,14 @@ func buildSessionCommand() *cobra.Command {
 	group := commandGroup("session", "Manage investigation sessions and their credentials")
 	start := commandLeaf("start <cluster-id>", "Start an investigation session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		startClusterID, startInvestigationID, startOCVersion = args[0], flagString(cmd, "investigation-id"), flagString(cmd, "oc-version")
-		startTaskTimeout = int(flagDuration(cmd, "session-timeout") / time.Second)
+		sessionTimeoutSeconds = int(flagDuration(cmd, "session-timeout") / time.Second)
 		startConnect, startNoWait = flagBool(cmd, "connect"), flagBool(cmd, "no-wait")
 		startCredentials = nil
 		if provider := flagString(cmd, "with-credentials"); provider != "" {
 			startCredentials = []string{provider}
 		}
 		startOCMURL, startOCMFlow, startOutputFormat = flagString(cmd, "ocm-url"), flagString(cmd, "ocm-auth-flow"), flagString(cmd, "output")
-		return runStartTask(cmd, nil)
+		return runStartSession(cmd, nil)
 	}, true)
 	start.Flags().String("investigation-id", "", "Investigation to use (generated if omitted)")
 	start.Flags().String("oc-version", "4.20", "OpenShift CLI version in the session")
@@ -300,7 +300,7 @@ func buildSessionCommand() *cobra.Command {
 	}
 	list := commandLeaf("list", "List investigation sessions", cobra.NoArgs, func(cmd *cobra.Command, args []string) error {
 		listStatus, listOutputFormat = flagString(cmd, "status"), flagString(cmd, "output")
-		return runListTasks(cmd, args)
+		return runListSessions(cmd, args)
 	}, true)
 	list.Flags().String("status", "RUNNING", "RUNNING, STOPPED, or all")
 	deploymentFlags(list, true, false)
@@ -308,7 +308,7 @@ func buildSessionCommand() *cobra.Command {
 		if err := cobra.NoArgs(cmd, args); err != nil {
 			return err
 		}
-		if _, err := validateListTasksStatus(flagString(cmd, "status")); err != nil {
+		if _, err := validateListSessionsStatus(flagString(cmd, "status")); err != nil {
 			return err
 		}
 		_, err := commandOutput(cmd)
@@ -316,7 +316,7 @@ func buildSessionCommand() *cobra.Command {
 	}
 	join := commandLeaf("join <session-id>", "Open a shell in a running session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		joinContainer, joinCommand, joinNoWait = flagString(cmd, "container"), flagString(cmd, "command"), flagBool(cmd, "no-wait")
-		return runJoinTask(cmd, args)
+		return runJoinSession(cmd, args)
 	}, false)
 	join.Args = func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
@@ -336,7 +336,7 @@ func buildSessionCommand() *cobra.Command {
 	deploymentFlags(join, true, false)
 	stop := commandLeaf("stop <session-id>", "Stop a session without closing its investigation", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		stopReason, stopWait, stopYes = flagString(cmd, "reason"), flagBool(cmd, "wait"), flagBool(cmd, "yes")
-		return runStopTask(cmd, args)
+		return runStopSession(cmd, args)
 	}, true)
 	stop.Args = func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {

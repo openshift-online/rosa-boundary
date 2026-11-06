@@ -7,8 +7,10 @@ metadata:
     build.appstudio.redhat.com/target_branch: '{{target_branch}}'
     pipelinesascode.tekton.dev/cancel-in-progress: "false"
     pipelinesascode.tekton.dev/max-keep-runs: "3"
+    # Pre-cutover: do not run TA builds from Boundary against the old TA component/image.
+    # Remove the false guard only during the coordinated Konflux cutover.
     pipelinesascode.tekton.dev/on-cel-expression: |
-      event == "push" && target_branch == "main"
+      false && event == "push" && target_branch == "main"
       && ( "components/trusted-actions/***".pathChanged() || ".tekton/rosa-trusted-actions-push.yaml".pathChanged() )
   labels:
     appstudio.openshift.io/application: rosa-trusted-actions

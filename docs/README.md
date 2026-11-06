@@ -26,6 +26,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**Bedrock Model Agreements**](configuration/bedrock-model-agreements.md) - Account-level subscription manifest and lifecycle
 - [**Code Coverage**](configuration/code-coverage.md) - Codecov integration, Prow CI jobs, and coverage reporting
 - [**UUID Allowlist**](configuration/uuid-allowlist.md) - Interim access control restricting role assumption by user UUID
+- [**Operations Metrics**](configuration/operations-metrics.md) - Task-creation metric contract, exporter semantics, and validation gaps
 
 ## Testing
 

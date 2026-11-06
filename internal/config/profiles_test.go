@@ -65,8 +65,8 @@ func TestInvalidConfigRejectedAndUnchanged(t *testing.T) {
 	if err := os.WriteFile(path, invalid, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Load(); err == nil || !strings.Contains(err.Error(), "field keycloak_url not found") {
-		t.Fatalf("Load invalid config = %v", err)
+	if _, err := LoadProfiles(); err == nil || !strings.Contains(err.Error(), "field keycloak_url not found") {
+		t.Fatalf("LoadProfiles invalid config = %v", err)
 	}
 	if err := SaveProfile("stage", Config{}, false, false); err == nil || !strings.Contains(err.Error(), "field keycloak_url not found") {
 		t.Fatalf("SaveProfile invalid config = %v", err)

@@ -31,7 +31,7 @@ type Profile struct {
 	EFSFilesystemID    string `yaml:"efs_filesystem_id,omitempty"`
 }
 
-// ProfilesFile is the opt-in named-profile YAML document.
+// ProfilesFile is the named-profile YAML document.
 type ProfilesFile struct {
 	ActiveProfile string             `yaml:"active_profile,omitempty"`
 	Profiles      map[string]Profile `yaml:"profiles"`

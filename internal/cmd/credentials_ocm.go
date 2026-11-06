@@ -15,9 +15,8 @@ import (
 const credentialContainer = "rosa-boundary"
 
 var (
-	credentialsOCMURL      string
-	credentialsOCMFlow     string
-	resolvedOCMEnvironment *ocmcredentials.Environment
+	credentialsOCMURL  string
+	credentialsOCMFlow string
 )
 
 type ocmTokenAcquirer interface {
@@ -41,31 +40,6 @@ var newOCMCredentialTransfer = func() ocmCredentialTransfer {
 	return transfer
 }
 
-var credentialsConfigureOCMCmd = &cobra.Command{
-	Use:   "ocm <task-id>",
-	Short: "Issue and configure a fresh OCM access token",
-	Long:  "Issue a fresh OCM access token and transfer it to task-scoped storage. -o json emits auth events on stderr, with no JSON result on stdout. The explicit --auth-flow overrides --use-device-code/config for OCM only; auth-code requires a local callback, while device never opens a browser.",
-	Args:  validateCredentialsConfigureOCMArgs,
-	RunE:  runCredentialsConfigureOCM,
-}
-
-var credentialsClearOCMCmd = &cobra.Command{
-	Use:   "ocm <task-id>",
-	Short: "Clear OCM and derived kubeconfig credentials",
-	Long:  "Clear task-scoped OCM credentials. -o json emits Boundary auth events on stderr when login is required; no JSON result is written to stdout.",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runCredentialsClearOCM,
-}
-
-func init() {
-	credentialsConfigureOCMCmd.Flags().StringVar(&credentialsOCMURL, "ocm-url", "", "OCM environment alias or approved canonical API URL")
-	credentialsConfigureOCMCmd.Flags().StringVar(&credentialsOCMFlow, "auth-flow", "", "OCM-only override: auth-code or device (default: from --use-device-code/config; auth-code if unset)")
-	addOutputFlag(credentialsConfigureOCMCmd, false)
-	addOutputFlag(credentialsClearOCMCmd, false)
-	credentialsConfigureCmd.AddCommand(credentialsConfigureOCMCmd)
-	credentialsClearCmd.AddCommand(credentialsClearOCMCmd)
-}
-
 func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	environment, err := resolveConfigureOCMEnvironment()
 	if err != nil {
@@ -81,22 +55,6 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	}
 	ecsClient := newCredentialECSClient(authResult)
 	return configureOCMForTask(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow, cmd)
-}
-
-// validateCredentialsConfigureOCMArgs validates provider flags before Cobra runs
-// the inherited AWS authentication hook.
-func validateCredentialsConfigureOCMArgs(cmd *cobra.Command, args []string) error {
-	if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-		return err
-	}
-	if _, err := resolveConfigureOCMEnvironment(); err != nil {
-		return err
-	}
-	if credentialsOCMFlow != "" || cmd.Flags().Changed("auth-flow") {
-		_, err := parseOCMFlow(credentialsOCMFlow)
-		return err
-	}
-	return nil
 }
 
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
@@ -213,15 +171,7 @@ func credentialDebugf(format string, args ...any) error {
 }
 
 func resolveConfigureOCMEnvironment() (ocmcredentials.Environment, error) {
-	if resolvedOCMEnvironment != nil {
-		return *resolvedOCMEnvironment, nil
-	}
-	environment, err := ocmcredentials.ResolveEnvironment(credentialsOCMURL)
-	if err != nil {
-		return ocmcredentials.Environment{}, err
-	}
-	resolvedOCMEnvironment = &environment
-	return environment, nil
+	return ocmcredentials.ResolveEnvironment(credentialsOCMURL)
 }
 
 func parseOCMFlow(value string) (ocmcredentials.Flow, error) {

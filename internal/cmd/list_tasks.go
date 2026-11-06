@@ -10,26 +10,11 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var listTasksCmd = &cobra.Command{
-	Use:   "list-tasks",
-	Short: "List ECS tasks in the cluster",
-	Long: `List running (or stopped) ECS tasks in the configured ECS cluster,
-including tag metadata such as cluster_id, investigation_id, and username.`,
-	RunE: runListTasks,
-}
-
 var (
 	listStatus       string
 	listOutputFormat string
 )
 
-func init() {
-	listTasksCmd.Flags().StringVar(&listStatus, "status", "RUNNING", "Task status filter: RUNNING, STOPPED, or all")
-	addOutputFlag(listTasksCmd, true, &listOutputFormat)
-	rootCmd.AddCommand(listTasksCmd)
-}
-
-// validateListTasksStatus normalizes and validates --status for list-tasks.
 func validateListTasksStatus(status string) (string, error) {
 	desiredStatus := strings.ToUpper(status)
 	switch desiredStatus {
@@ -93,7 +78,7 @@ func runListTasks(cmd *cobra.Command, args []string) error {
 				"owner": owner, "started_at": task.StartedAt,
 			})
 		}
-		return output.JSON(map[string]any{"profile": newSelectedProfile, "sessions": rows})
+		return output.JSON(map[string]any{"profile": selectedProfile, "sessions": rows})
 	}
 
 	tbl := output.NewTable("SESSION ID", "STATUS", "CLUSTER", "INVESTIGATION", "OWNER", "STARTED")

@@ -11,28 +11,19 @@ import (
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	"github.com/openshift-online/rosa-boundary/internal/config"
-	"github.com/spf13/cobra"
 )
 
-func TestForceFreshLogin(t *testing.T) {
-	tests := []struct {
-		name             string
-		globalForceLogin bool
-		loginForce       bool
-		want             bool
-	}{
-		{name: "no force flags", want: false},
-		{name: "login force flag", loginForce: true, want: true},
-		{name: "global force login flag", globalForceLogin: true, want: true},
-		{name: "both force flags", globalForceLogin: true, loginForce: true, want: true},
+func TestLoginForceFlagIsCommandScoped(t *testing.T) {
+	root := buildRootCommand()
+	login := commandAtPath(t, root, "login")
+	if force := login.LocalNonPersistentFlags().Lookup("force"); force == nil || force.DefValue != "false" {
+		t.Fatalf("login --force flag = %+v", force)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := forceFreshLogin(tt.globalForceLogin, tt.loginForce); got != tt.want {
-				t.Errorf("forceFreshLogin(%t, %t) = %t, want %t", tt.globalForceLogin, tt.loginForce, got, tt.want)
-			}
-		})
+	if root.PersistentFlags().Lookup("force-login") != nil {
+		t.Fatal("obsolete global --force-login flag remains available")
+	}
+	if commandAtPath(t, root, "session", "start").LocalNonPersistentFlags().Lookup("force") != nil {
+		t.Fatal("login --force leaked to session start")
 	}
 }
 
@@ -49,8 +40,6 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	}
 
 	// Use the cache so the test does not start the interactive browser flow.
-	loginForce = false
-	forceLogin = false
 
 	oldStdout := os.Stdout
 	stdoutReader, stdoutWriter, err := os.Pipe()
@@ -59,7 +48,7 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	}
 	os.Stdout = stdoutWriter
 
-	runErr := runNewLogin(&cobra.Command{})
+	_, runErr := runTestCLI(t, "login")
 	if err := stdoutWriter.Close(); err != nil {
 		t.Errorf("closing captured stdout writer: %v", err)
 	}

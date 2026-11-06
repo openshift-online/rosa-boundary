@@ -24,7 +24,7 @@
   ],
   "packageRules": [
     {
-      "description": "Review Python updates while validating Mintmaker coverage before retiring Dependabot",
+      "description": "Review Python dependency updates; do not automerge",
       "matchManagers": ["pep621"],
       "automerge": false
     },

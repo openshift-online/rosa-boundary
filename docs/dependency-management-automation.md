@@ -1,50 +1,29 @@
 # Dependency Management Automation
 
-This repository uses two tools for automated dependency updates: **Dependabot** (GitHub-native) and **Mintmaker/Renovate** (Konflux-hosted). The strategy began in [ROSAENG-60067](https://redhat.atlassian.net/browse/ROSAENG-60067); the Go ownership overlap was corrected in [ROSAENG-75132](https://redhat.atlassian.net/browse/ROSAENG-75132).
+This repository uses **Mintmaker/Renovate** (Konflux-hosted) for automated dependency version updates. The strategy began in [ROSAENG-60067](https://redhat.atlassian.net/browse/ROSAENG-60067); the Go ownership overlap was corrected in [ROSAENG-75132](https://redhat.atlassian.net/browse/ROSAENG-75132).
+
+GitHub Dependabot alerts are a separate repository security feature. Removing Dependabot's version-update configuration does not disable alerts or change repository security settings.
 
 ## Strategy
-
-The Python configurations temporarily overlap while ownership moves to Mintmaker:
 
 | Tool | Ecosystems | Config File |
 |------|-----------|-------------|
 | **Mintmaker (Renovate)** | `gomod`, `pep621` (Python Lambda), `terraform`, `pre-commit`, `github-actions`, custom regex GitHub releases | `renovate.json` |
-| **Dependabot** | `pip` (create-investigation Python Lambda) | `.github/dependabot.yml` |
 
-Mintmaker is the sole version updater for the root Go modules. Its `gomod dependencies` group includes `github.com/aws/aws-sdk-go-v2` and its submodules alongside other Go minor/patch updates in one PR; major updates remain separate. Mintmaker also groups GitHub Actions updates. Both bots can propose Python updates during validation; Dependabot remains enabled until Mintmaker's Lambda coverage is verified.
-
-## Dependabot
-
-Dependabot is a GitHub-native feature that opens PRs for version updates on a configurable schedule. Configuration lives in `.github/dependabot.yml`.
-
-### Configuration Guide
-
-Edit `.github/dependabot.yml` on the default branch. Changes take effect on the next scheduled run.
-
-Full configuration reference: [Dependabot configuration options](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file)
-
-Key settings:
-
-- **`groups`**: Batches the Python Lambda dependency updates into a single PR (`all-pip`). Go updates, including AWS SDK modules, are grouped by Mintmaker instead.
-- **`open-pull-requests-limit`**: Caps the number of open Dependabot PRs per ecosystem. Keeps the PR queue manageable.
-- **`schedule.interval`**: How often Dependabot checks for updates (`daily`, `weekly`, or `monthly`).
+Mintmaker is the sole version updater for the root Go modules and the Python Lambda. Its `gomod dependencies` group includes `github.com/aws/aws-sdk-go-v2` and its submodules alongside other Go minor/patch updates in one PR; major updates remain separate. Mintmaker also groups GitHub Actions updates.
 
 ## Mintmaker (Renovate)
 
 Mintmaker is a Konflux-hosted service built on [Renovate](https://docs.renovatebot.com/). It runs on a 4-hour base schedule and opens PRs signed by the `red-hat-konflux` GitHub app. Configuration lives in `renovate.json` at the repository root.
 
-### Python dependency migration
+### Python dependency updates
 
 Mintmaker's `pep621` manager is enabled for the create-investigation Lambda's
 `pyproject.toml` and `uv.lock`. It groups non-major Python updates and leaves
-major updates separate. Python updates are **not automerged** during the
-migration, despite the repository-wide Renovate automerge setting.
+major updates separate. Python updates are **not automerged**, despite the
+repository-wide Renovate automerge setting.
 
-Dependabot's `pip` entry remains enabled until we verify that Mintmaker opens
-Python update PRs, updates both the manifest and lockfile when applicable,
-and passes the Lambda build and tests. Both bots may propose the same Python
-update in the interim; review these PRs rather than merging duplicates.
-Only after this validation should a follow-up remove Dependabot's `pip` entry.
+Mintmaker's Python coverage was verified in [PR #411](https://github.com/openshift-online/rosa-boundary/pull/411): it updated both the manifest and lockfile, and the Lambda build, unit tests, and integration tests passed. Dependabot's Python version-update configuration has therefore been retired. This does not affect GitHub Dependabot alerts, which remain controlled by repository security settings.
 
 ### Backplane-tools release pin
 
@@ -71,34 +50,12 @@ Mintmaker-specific documentation: [Mintmaker user guide](https://konflux.pages.r
 
 Key settings:
 
-- **`enabledManagers`**: Restricts which package managers Mintmaker runs. Without this, Mintmaker enables all default managers, which can cause overlap with Dependabot.
+- **`enabledManagers`**: Restricts which package managers Mintmaker runs and avoids enabling unintended managers.
 - **`packageRules`**: Groups related updates into single PRs. The `gomod dependencies` group batches all minor/patch Go updates (including AWS SDK modules) and pin/digest updates; major Go updates are not part of this group. The `github-actions` group batches all Actions version bumps.
 - **`custom.regex`**: Enables narrowly scoped custom managers for dependencies that do not have a built-in file manager.
 
 
 ## FAQ
-
-### How can I reduce the number of PRs Dependabot opens?
-
-Three options, in order of impact:
-
-1. **Add `groups`** to batch related dependencies into single PRs. The existing `all-pip` group uses a catch-all `"*"` pattern. Keep Go grouping in `renovate.json`, not Dependabot.
-
-2. **Lower `open-pull-requests-limit`** to cap how many PRs Dependabot keeps open per ecosystem. Default is 5. Set it to 1-3 for low-volume ecosystems.
-
-3. **Change `schedule.interval`** from `"weekly"` to `"monthly"` to check less frequently (trade-off: larger version jumps per PR).
-
-See: [Dependabot grouping configuration](https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file#groups)
-
-### How can I manually re-trigger a Dependabot run?
-
-Dependabot does not have an API endpoint for triggering runs. Use the GitHub UI:
-
-1. Go to the repository on GitHub
-2. Navigate to **Settings** > **Code security** > **Dependabot**
-3. Under "Dependabot version updates", click **Check for updates** next to the ecosystem you want to re-trigger
-
-Only the Python Lambda `pip` ecosystem is configured here; trigger Go updates through Mintmaker instead.
 
 ### How can I manually re-trigger a Renovate run?
 
@@ -109,8 +66,6 @@ To request an immediate run, contact the Mintmaker team or use the Konflux UI to
 See: [Mintmaker scheduling](https://konflux.pages.redhat.com/docs/users/mintmaker/user.html#scheduling)
 
 ### Can dependency PRs be configured to be automatically merged?
-
-**Dependabot**: Yes. Enable GitHub's auto-merge feature on the repository, then add `auto-merge` rules or use GitHub Actions to automatically approve and merge Dependabot PRs that pass CI. GitHub does not have a native Dependabot automerge config option -- it relies on branch protection rules and the repository's auto-merge setting.
 
 **Mintmaker/Renovate**: Yes. Add `"automerge": true` to a `packageRules` entry in `renovate.json`. Automerge requires CI to pass and the branch to be up-to-date with the base branch. Example for non-major updates:
 

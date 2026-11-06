@@ -112,3 +112,9 @@ required_groups = ["ai-sd-sre"]
 # lambda_package_type     = "Image"
 # lambda_image_repository = "redhat-user-workloads/rosa-tenant/rosa-boundary/lambda-create-investigation"
 # lambda_image_tag        = "on-pr-194-abcdef0"  # Use an immutable tag (git SHA, release version), not "latest"
+
+# Optional CloudWatch read grant for an external metrics collector.
+# Enable only in the legacy_policy_region workspace, and only after the account
+# workspace has created the role (enable_metrics_read_role). The role itself is
+# account-owned; this flag only attaches its permissions.
+# enable_metrics_read_grant = true

@@ -28,13 +28,17 @@ variables {
   allowed_uuids                  = ["11111111-1111-1111-1111-111111111111"]
   enable_oidc_group_enforcement  = true
   required_oidc_role             = "ai-sd-sre"
+
+  enable_metrics_read_role            = false
+  metrics_read_trusted_principal_arns = []
+  metrics_read_session_duration       = 3600
 }
 
 run "legacy_identity_trust_tags_and_common_attachments" {
   command = apply
   module { source = "./modules/shared-iam" }
   assert {
-    condition = toset([for r in output.roles : r.name]) == toset([
+    condition = toset([for r in output.roles : r.name if r != null]) == toset([
       "rosa-boundary-dev-execution-role", "rosa-boundary-dev-task-role",
       "rosa-boundary-dev-sre-shared", "rosa-boundary-dev-lambda-invoker",
       "rosa-boundary-dev-create-investigation-lambda", "rosa-boundary-dev-reap-tasks-lambda",
@@ -117,4 +121,151 @@ run "empty_uuid_allowlist_fails_closed" {
   module { source = "./modules/shared-iam" }
   variables { allowed_uuids = [] }
   expect_failures = [aws_iam_role.sre_shared]
+}
+
+# ROSAENG-68823: external metrics collector identity.
+
+run "metrics_read_role_is_opt_in_and_carries_no_grant" {
+  command = apply
+  module { source = "./modules/shared-iam" }
+  assert {
+    condition     = length(aws_iam_role.metrics_read) == 0 && output.roles.metrics_read == null
+    error_message = "The external metrics reader must not exist unless it is explicitly enabled."
+  }
+  # Ownership: the permission grant belongs to the regional root. This module
+  # must declare the identity only, so enabling it can never create a policy.
+  assert {
+    condition     = length(regexall("resource \\\"aws_iam_role_policy\\\"|inline_policy[[:space:]]*=|managed_policy_arns[[:space:]]*=", file("${path.module}/metrics-read.tf"))) == 0
+    error_message = "metrics-read.tf must declare identity and trust only; its grant is owned by deploy/regional."
+  }
+}
+
+run "metrics_read_trust_is_an_explicit_caller_allowlist" {
+  command = apply
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role      = true
+    metrics_read_session_duration = 7200
+    metrics_read_trusted_principal_arns = [
+      "arn:aws:iam::210987654321:role/example-collector",
+      "arn:aws:sts::210987654321:assumed-role/example-collector-jump/example-session",
+    ]
+  }
+  assert {
+    condition = (
+      output.roles.metrics_read.name == "rosa-boundary-dev-metrics-read" &&
+      aws_iam_role.metrics_read[0].name == "rosa-boundary-dev-metrics-read" &&
+      aws_iam_role.metrics_read[0].max_session_duration == 7200 &&
+      aws_iam_role.metrics_read[0].tags.Name == "rosa-boundary-dev-metrics-read" &&
+      aws_iam_role.metrics_read[0].tags.Region == "us-west-2" &&
+      aws_iam_role.metrics_read[0].tags.Project == "rosa-boundary" &&
+      trimspace(aws_iam_role.metrics_read[0].description) != ""
+    )
+    error_message = "The metrics reader must keep its name, tags, bounded session duration and description."
+  }
+  # Absence is asserted on the decoded key set, not with can(): can() swallows
+  # every error, so a future shape change would satisfy it silently.
+  assert {
+    condition = (
+      length(jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement) == 1 &&
+      jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0].Effect == "Allow" &&
+      jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0].Action == "sts:AssumeRole" &&
+      toset(jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0].Principal.AWS) == toset(var.metrics_read_trusted_principal_arns) &&
+      !contains(keys(jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0]), "Condition") &&
+      !contains(keys(jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0].Principal), "Service") &&
+      !contains(keys(jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0].Principal), "Federated")
+    )
+    error_message = "Trust must be exactly sts:AssumeRole for the configured AWS callers, with no service/federated principal and no extra condition."
+  }
+  # Principal.AWS is a list, so comparing it to the string "*" would always be
+  # false and prove nothing. Check membership instead.
+  assert {
+    condition = (
+      !contains(jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0].Principal.AWS, "*") &&
+      length([for p in jsondecode(aws_iam_role.metrics_read[0].assume_role_policy).Statement[0].Principal.AWS : p if strcontains(p, "*") || endswith(p, ":root")]) == 0
+    )
+    error_message = "No trusted caller may be a wildcard, contain a wildcard, or be an account root."
+  }
+}
+
+run "enabled_metrics_read_role_without_a_caller_fails_closed" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables { enable_metrics_read_role = true }
+  expect_failures = [aws_iam_role.metrics_read]
+}
+
+run "metrics_read_rejects_a_wildcard_role_name" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role            = true
+    metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:role/*"]
+  }
+  expect_failures = [var.metrics_read_trusted_principal_arns]
+}
+
+run "metrics_read_rejects_an_account_root_caller" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role            = true
+    metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:root"]
+  }
+  expect_failures = [var.metrics_read_trusted_principal_arns]
+}
+
+run "metrics_read_rejects_a_bare_wildcard_caller" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role            = true
+    metrics_read_trusted_principal_arns = ["*"]
+  }
+  expect_failures = [var.metrics_read_trusted_principal_arns]
+}
+
+run "metrics_read_rejects_a_repeated_caller" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role = true
+    metrics_read_trusted_principal_arns = [
+      "arn:aws:iam::210987654321:role/example-collector",
+      "arn:aws:iam::210987654321:role/example-collector",
+    ]
+  }
+  expect_failures = [var.metrics_read_trusted_principal_arns]
+}
+
+run "metrics_read_rejects_an_unbounded_session" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role            = true
+    metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:role/example-collector"]
+    metrics_read_session_duration       = 86400
+  }
+  expect_failures = [var.metrics_read_session_duration]
+}
+
+run "metrics_read_rejects_a_caller_with_surrounding_whitespace" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role            = true
+    metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:role/example-collector "]
+  }
+  expect_failures = [var.metrics_read_trusted_principal_arns]
+}
+
+run "metrics_read_rejects_a_session_below_the_minimum" {
+  command = plan
+  module { source = "./modules/shared-iam" }
+  variables {
+    enable_metrics_read_role            = true
+    metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:role/example-collector"]
+    metrics_read_session_duration       = 1800
+  }
+  expect_failures = [var.metrics_read_session_duration]
 }

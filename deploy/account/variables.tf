@@ -109,6 +109,25 @@ variable "enable_s3_replication_role" {
   default     = false
 }
 
+# ROSAENG-68823
+variable "enable_metrics_read_role" {
+  description = "Create the identity an external metrics collector assumes to read this account's CloudWatch metrics. Identity and trust only: the permissions come from the regional root's enable_metrics_read_grant, which must be enabled in a later, separate apply because it looks this role up by name."
+  type        = bool
+  default     = false
+}
+
+variable "metrics_read_trusted_principal_arns" {
+  description = "Callers allowed to assume the metrics-read role. Prefer a complete IAM role ARN, arn:aws:iam::<caller-account-id>:role/<caller-role>. An STS assumed-role session ARN is also accepted but pins trust to one session name and breaks silently if the caller renames its sessions. Account roots, service principals and wildcards are rejected. An empty list with enable_metrics_read_role = true fails the plan rather than creating a role nobody can assume."
+  type        = list(string)
+  default     = []
+}
+
+variable "metrics_read_session_duration" {
+  description = "Maximum session duration in seconds for the metrics-read role. A collector refreshes often and needs no long session."
+  type        = number
+  default     = 3600
+}
+
 variable "oidc_session_duration" {
   type    = number
   default = 3600

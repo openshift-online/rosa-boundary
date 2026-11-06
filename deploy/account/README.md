@@ -49,10 +49,10 @@ to exist.
 
 | Owner | Resources |
 | --- | --- |
-| Account | Execution, task, shared SRE, invoker, create-investigation Lambda, reaper Lambda, Bedrock logging and optional S3 replication role identities/trust |
+| Account | Execution, task, shared SRE, invoker, create-investigation Lambda, reaper Lambda, Bedrock logging, optional S3 replication and optional metrics-read role identities/trust |
 | Account | ECS execution managed-policy attachment and the two Lambda basic-execution attachments |
 | Account | OIDC providers, Bedrock budget and approved model agreements |
-| Regional | Execution Secrets Manager, task audit/Bedrock/Exec/logging/KMS, SRE ABAC/lifecycle, invoker, Lambda lifecycle, Bedrock log delivery and optional replication inline policies |
+| Regional | Execution Secrets Manager, task audit/Bedrock/Exec/logging/KMS, SRE ABAC/lifecycle, invoker, Lambda lifecycle, Bedrock log delivery, optional replication and optional metrics-read inline policies |
 | Regional | ECS/EFS/S3/KMS/Lambda/logging resources, regional resource policies and invocation logging configuration |
 
 ## Ownership and multi-region permissions
@@ -96,6 +96,11 @@ region; do not rely on defaults if an existing deployment uses different values.
   region in **every** consuming workspace. That region retains names such as
   `s3-audit-access`; other regions append `-${aws_region}`. It is an ownership
   contract, not something each region may independently set to itself.
+- Account `enable_metrics_read_role` creates the optional identity an external
+  metrics collector assumes; `metrics_read_trusted_principal_arns` is its trust
+  allowlist and `metrics_read_session_duration` bounds its sessions. The role's
+  permissions are the regional `enable_metrics_read_grant` inline policy, so the
+  two must be enabled in that order - see below.
 - Account `bedrock_logging_source_regions` explicitly approves regions in the
   Bedrock delivery role's SourceArn trust condition. An empty list retains only
   `legacy_role_tag_region`, preserving original trust. Add a region deliberately
@@ -125,6 +130,45 @@ regional Makefile does; do not use an untrusted file there. Use explicit
 the Makefile does not interpolate flags into shell commands. State/backend
 configuration and HCP workspace wiring are outside this baseline. Never reuse
 the regional backend/state.
+
+### Optional metrics-read role: sequencing and trust
+
+Both halves are off by default and must be enabled in two separate, reviewed
+applies. The regional root resolves the role **by name**, so enabling both at
+once is unsafe: staging workspaces auto-apply and are not guaranteed to run in
+order within one meta-workspace change, and the regional lookup fails with
+`NoSuchEntity` if it runs before the account apply.
+
+1. Merge with both flags off. This is a no-op in every workspace.
+2. Account workspace: set `enable_metrics_read_role = true` and
+   `metrics_read_trusted_principal_arns`. Let it apply.
+3. The **one** regional workspace whose `aws_region` equals `legacy_policy_region`:
+   set `enable_metrics_read_grant = true`. Any other region fails the plan,
+   because the grant is account-global and a second owner would only duplicate
+   it. Note the coupling this creates: the capability lives wherever the
+   designated legacy policy region lives, so decommissioning that workspace
+   means re-homing this grant along with the other legacy-named policies.
+
+Between steps 2 and 3 the role exists and is assumable but grants nothing. That
+interim is the intended fail-safe: a caller gets `AccessDenied` on the metric
+calls, not broader access. To reverse, disable the regional grant first, then
+the account identity.
+
+`metrics_read_trusted_principal_arns` must be complete caller ARNs -
+`arn:aws:iam::<caller-account-id>:role/<caller-role>`, or an STS
+`assumed-role/<role>/<session>` session ARN. Account roots, service principals,
+partial names and wildcards are rejected by variable validation. Do not rely on
+IAM to catch a wildcard: it rejects a partial wildcard such as `role/*`, but it
+**accepts** a bare `*` as an anonymous principal, which would leave the role
+assumable by anyone in the partition. The variable validation is the control
+that prevents that. Prefer the plain role ARN: a session
+ARN pins trust to one session name and stops matching if the caller renames its
+sessions. Note that IAM stores role principals by unique ID, so deleting and
+recreating a trusted caller role breaks trust until the policy is re-applied.
+
+Supply the caller ARNs through a workspace **variable set**, not by inlining
+them in the Git-managed meta-workspace definition, when the caller's account and
+role name should not be published in this repository.
 
 ## Existing deployment handoff
 

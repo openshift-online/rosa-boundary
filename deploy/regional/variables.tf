@@ -339,6 +339,21 @@ variable "task_timeout_minimum" {
   }
 }
 
+# ROSAENG-68823
+variable "enable_metrics_read_grant" {
+  description = "Attach the CloudWatch read grant to the account-owned metrics-read role. Enable only in the legacy_policy_region workspace, and only after the account workspace has applied enable_metrics_read_role: this root looks that role up by name and fails with NoSuchEntity if it does not exist yet."
+  type        = bool
+  default     = false
+
+  # Rejected here rather than only at the resource, so a non-owning region
+  # fails before the role lookup runs and reports the real reason instead of
+  # NoSuchEntity. The resource precondition remains as a backstop.
+  validation {
+    condition     = !var.enable_metrics_read_grant || var.aws_region == var.legacy_policy_region
+    error_message = "enable_metrics_read_grant may only be set in the legacy_policy_region workspace: the grant is account-global, so a second region would manage a duplicate policy on the same role."
+  }
+}
+
 variable "audit_replication_bucket_arn" {
   description = "ARN of the destination S3 bucket in the audit account for cross-account replication. If empty, replication is disabled."
   type        = string

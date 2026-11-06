@@ -62,4 +62,8 @@ module "shared_iam" {
   allowed_uuids                  = var.allowed_uuids
   enable_oidc_group_enforcement  = var.enable_oidc_group_enforcement
   required_oidc_role             = var.required_oidc_role
+
+  enable_metrics_read_role            = var.enable_metrics_read_role
+  metrics_read_trusted_principal_arns = var.metrics_read_trusted_principal_arns
+  metrics_read_session_duration       = var.metrics_read_session_duration
 }

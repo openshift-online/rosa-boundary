@@ -148,7 +148,7 @@ func TestStartCredentialFailureRetainsTaskAndCleanupCommand(t *testing.T) {
 		credentials.FlowDevice,
 		errors.New("configure failed"),
 	)
-	for _, expected := range []string{"INV-1", "task-123", "still running", "credentials configure ocm --ocm-url staging --auth-flow device task-123", "stop-task task-123"} {
+	for _, expected := range []string{"INV-1", "task-123", "still running", "session credentials configure ocm \"task-123\" --ocm-url \"staging\" --auth-flow \"device\"", "session stop \"task-123\" --yes"} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error %q does not contain %q", err, expected)
 		}

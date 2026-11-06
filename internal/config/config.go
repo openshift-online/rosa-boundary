@@ -13,6 +13,9 @@ import (
 
 // Config holds all configuration values for the CLI.
 type Config struct {
+	AccountID          string `mapstructure:"account_id"`
+	Environment        string `mapstructure:"environment"`
+	Project            string `mapstructure:"project"`
 	LambdaFunctionName string `mapstructure:"lambda_function_name"`
 	KeycloakURL        string `mapstructure:"keycloak_url"`
 	KeycloakRealm      string `mapstructure:"keycloak_realm"`
@@ -61,119 +64,22 @@ func CacheDir() (string, error) {
 	return dir, nil
 }
 
-// Load reads configuration from file, env vars, and applies defaults.
-// Flag values are not applied here — callers bind pflags to viper before calling Get().
+// Load validates the profile file without resolving environment values or defaults.
 func Load() error {
-	// Compiled defaults
-	viper.SetDefault("keycloak_url", "https://auth.redhat.com/auth")
-	viper.SetDefault("keycloak_realm", "EmployeeIDP")
-	viper.SetDefault("oidc_client_id", "rosa-boundary-sre")
-	viper.SetDefault("oidc_use_device_code", false)
-	viper.SetDefault("aws_region", "us-east-2")
-	viper.SetDefault("ecs_cluster_name", "rosa-boundary-dev")
-
-	// Config file
-	configDir, err := ConfigDir()
-	if err != nil {
-		return err
-	}
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(configDir)
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return fmt.Errorf("error reading config file: %w", err)
-		}
-	}
-
-	// Environment variables — ROSA_BOUNDARY_* prefix (canonical)
-	viper.SetEnvPrefix("ROSA_BOUNDARY")
-	viper.AutomaticEnv()
-
-	// Legacy env var aliases (without prefix) for backward compat
-	bindEnvAlias("lambda_function_name", "LAMBDA_FUNCTION_NAME")
-	bindEnvAlias("keycloak_url", "KEYCLOAK_URL")
-	bindEnvAlias("keycloak_realm", "KEYCLOAK_REALM")
-	bindEnvAlias("oidc_client_id", "OIDC_CLIENT_ID")
-	bindEnvAlias("aws_region", "AWS_REGION")
-	bindEnvAlias("sre_role_arn", "SRE_ROLE_ARN")
-	bindEnvAlias("invoker_role_arn", "INVOKER_ROLE_ARN")
-	bindEnvAlias("efs_filesystem_id", "EFS_FILESYSTEM_ID")
-
-	return nil
+	_, err := LoadProfiles()
+	return err
 }
 
-// bindEnvAlias binds a legacy environment variable name as a fallback for a viper key.
-// Viper AutomaticEnv handles ROSA_BOUNDARY_<KEY>; this adds the un-prefixed legacy name.
-func bindEnvAlias(key, envVar string) {
-	// Only bind if the prefixed version is not already set
-	if val := os.Getenv(envVar); val != "" {
-		if !viper.IsSet(key) {
-			viper.SetDefault(key, val)
-		}
-	}
-}
-
-// Get returns the current configuration. The optional flagChanged argument
-// indicates an explicit CLI override, which takes precedence even over an
-// invalid lower-priority environment or config-file preference.
+// Get resolves the active saved profile. The optional flagChanged argument
+// forwards the current viper-bound --use-device-code flag, if explicitly set.
+// New command handlers should use ResolveProfile with their explicit flags.
 func Get(flagChanged ...bool) (*Config, error) {
-	flagOverrides := len(flagChanged) != 0 && flagChanged[0]
-	if env, set := os.LookupEnv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE"); set && env == "" && !flagOverrides {
-		return nil, fmt.Errorf("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE must be a boolean (true or false)")
+	flags := map[string]string{}
+	if len(flagChanged) != 0 && flagChanged[0] {
+		flags["oidc_use_device_code"] = strconv.FormatBool(viper.GetBool("oidc_use_device_code"))
 	}
-
-	// Viper treats an explicit YAML null as an absent setting and silently
-	// substitutes the default. An explicit but empty preference is invalid.
-	_, envOverridesFile := os.LookupEnv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE")
-	if path := viper.ConfigFileUsed(); path != "" && !envOverridesFile && !flagOverrides {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("cannot read config file: %w", err)
-		}
-		var doc yaml.Node
-		if err := yaml.Unmarshal(data, &doc); err != nil {
-			return nil, fmt.Errorf("cannot decode config file: %w", err)
-		}
-		if len(doc.Content) != 0 && doc.Content[0].Kind == yaml.MappingNode {
-			fields := doc.Content[0].Content
-			for i := 0; i+1 < len(fields); i += 2 {
-				if fields[i].Value == "oidc_use_device_code" && fields[i+1].Tag == "!!null" {
-					return nil, fmt.Errorf("oidc_use_device_code must be a YAML boolean (true or false)")
-				}
-			}
-		}
-	}
-
-	// Viper's default weak decoding can silently coerce malformed boolean
-	// values. Check the effective source before unmarshalling so an invalid
-	// preference never accidentally selects the browser login flow.
-	value := viper.Get("oidc_use_device_code")
-	var useDeviceCode bool
-	switch v := value.(type) {
-	case bool:
-		useDeviceCode = v
-	case string:
-		// Environment variables are strings; YAML config values must instead
-		// be real booleans, not quoted strings or numbers.
-		if _, set := os.LookupEnv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE"); !set {
-			return nil, fmt.Errorf("oidc_use_device_code must be a YAML boolean (true or false)")
-		}
-		parsed, err := strconv.ParseBool(v)
-		if err != nil {
-			return nil, fmt.Errorf("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE must be a boolean (true or false): %w", err)
-		}
-		useDeviceCode = parsed
-	default:
-		return nil, fmt.Errorf("oidc_use_device_code must be a boolean (true or false), got %T", value)
-	}
-
-	var cfg Config
-	if err := viper.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("cannot decode config: %w", err)
-	}
-	cfg.OIDCUseDeviceCode = useDeviceCode
-	return &cfg, nil
+	_, cfg, err := ResolveWithFlags("", flags)
+	return cfg, err
 }
 
 // ConfigEntry represents a configuration key-value pair with an optional comment.

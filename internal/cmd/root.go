@@ -43,7 +43,8 @@ var (
 	assumeWebIdentity = awsclient.AssumeRoleWithWebIdentity
 )
 
-// rootCmd is the base command.
+// rootCmd retains legacy command registration for existing handler tests and
+// shared helpers. Execute uses the new UX command tree built by newCLI.
 var rootCmd = &cobra.Command{
 	Use:   "rosa-boundary",
 	Short: "CLI for managing ROSA/AWS SRE investigations",
@@ -53,9 +54,14 @@ on AWS Fargate with OIDC-authenticated access control.`,
 	SilenceUsage:  true,
 }
 
-// Execute runs the root command.
+// Execute runs the new investigation/session CLI command tree.
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	err := newCLI().Execute()
+	if newCommandCancel != nil {
+		newCommandCancel()
+		newCommandCancel = nil
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		var child *exec.ExitError
 		if errors.As(err, &child) && child.ExitCode() > 0 {
@@ -66,8 +72,6 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable debug output (warnings and status messages are always shown)")
 	rootCmd.PersistentFlags().BoolVar(&forceLogin, "force-login", false, "Force re-authentication with Keycloak OIDC provider")
 	rootCmd.PersistentFlags().BoolVar(&useDeviceCode, "use-device-code", false, "Use device authorization instead of a local browser callback (Boundary and OCM)")

@@ -41,7 +41,21 @@ type InvestigationRequest struct {
 	InvestigationID string `json:"investigation_id"`
 	OCVersion       string `json:"oc_version,omitempty"`
 	TaskTimeout     int    `json:"task_timeout,omitempty"`
-	SkipTask        bool   `json:"skip_task,omitempty"`
+	// TaskTimeoutSet distinguishes an explicit zero (no expiry where permitted)
+	// from an omitted timeout (use the deployment's default).
+	TaskTimeoutSet bool `json:"-"`
+	SkipTask       bool `json:"skip_task,omitempty"`
+}
+
+func (r InvestigationRequest) MarshalJSON() ([]byte, error) {
+	type request InvestigationRequest
+	if r.TaskTimeoutSet && r.TaskTimeout == 0 {
+		return json.Marshal(struct {
+			request
+			TaskTimeout int `json:"task_timeout"`
+		}{request: request(r), TaskTimeout: 0})
+	}
+	return json.Marshal(request(r))
 }
 
 // InvestigationResponse is the JSON response from a successful Lambda invocation.

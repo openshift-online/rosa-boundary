@@ -65,7 +65,7 @@ func init() {
 	rootCmd.AddCommand(startTaskCmd)
 }
 
-func runStartTask(cmd *cobra.Command, args []string) error {
+func runStartTask(cmd *cobra.Command, args []string) (resultErr error) {
 	switch startOutputFormat {
 	case "text", "json":
 	default:
@@ -96,11 +96,11 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	}
 
 	// Step 1: Call Lambda (SigV4-signed)
-	output.Status("=== Step 1: Creating Investigation via Lambda ===")
+	output.Status("=== Step 1: Starting investigation session via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)
 	output.Status("Investigation:  %s", investigationID)
 	output.Status("OC Version:     %s", startOCVersion)
-	output.Status("Task Timeout:   %d seconds", startTaskTimeout)
+	output.Status("Session lifetime: %d seconds", startTaskTimeout)
 
 	invokerCredProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	lambdaClient := lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, invokerCredProvider)
@@ -109,12 +109,20 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		InvestigationID: investigationID,
 		OCVersion:       startOCVersion,
 		TaskTimeout:     startTaskTimeout,
+		TaskTimeoutSet:  true,
 	})
 	if err != nil {
-		return fmt.Errorf("lambda call failed: %w", err)
+		return fmt.Errorf("lambda call failed (outcome may be unknown for %s/%s; inspect with rosa-boundary --profile %q session list --status all --region %q --ecs-cluster %q before retrying): %w", clusterID, investigationID, newSelectedProfile, cfg.AWSRegion, cfg.ClusterName, err)
 	}
 
 	taskID := path.Base(lambdaResp.TaskARN)
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		cleanup := fmt.Sprintf("rosa-boundary --profile %q session stop %q --yes --region %q --ecs-cluster %q", newSelectedProfile, taskID, cfg.AWSRegion, cfg.ClusterName)
+		resultErr = fmt.Errorf("session %s created for %s/%s (profile %s; region %s; ECS cluster %s), then operation failed: %w; inspect session list --status all; cleanup: %s", taskID, clusterID, investigationID, newSelectedProfile, cfg.AWSRegion, cfg.ClusterName, resultErr, cleanup)
+	}()
 
 	// Use override role ARN if configured, otherwise use what Lambda returned
 	roleARN := cfg.SRERoleARN
@@ -122,10 +130,13 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		roleARN = lambdaResp.RoleARN
 	}
 	if roleARN == "" {
-		return fmt.Errorf("no role ARN available; set --role-arn, ROSA_BOUNDARY_SRE_ROLE_ARN, or ensure Lambda returns role_arn")
+		return fmt.Errorf("no SRE role ARN available; configure sre_role_arn in the selected profile or ensure Lambda returns role_arn")
+	}
+	if err := newCheckRoleAccounts(cfg.AccountID, map[string]string{"sre_role_arn": roleARN}); err != nil {
+		return fmt.Errorf("lambda returned a role outside the selected deployment: %w", err)
 	}
 
-	output.Status("Investigation created: task %s", taskID)
+	output.Status("Session launched: %s", taskID)
 
 	// Step 2: Assume SRE role
 	output.Status("\n=== Step 2: Assuming Shared SRE Role ===")
@@ -168,13 +179,12 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 
 	// Step 3: Wait for RUNNING (unless --no-wait)
 	if !startNoWait {
-		output.Status("\n=== Step 3: Waiting for Task to be RUNNING ===")
-		output.Status("Task: %s", taskID)
+		output.Status("\n=== Step 3: Waiting for session to be RUNNING ===")
+		output.Status("Session: %s", taskID)
 		if err := ecsClient.WaitForRunning(cmd.Context(), taskID); err != nil {
-			output.Warning("task may not be running yet: %v", err)
-		} else {
-			output.Status("Task is RUNNING")
+			return fmt.Errorf("task did not reach RUNNING: %w", err)
 		}
+		output.Status("Session is RUNNING")
 	}
 
 	// Configure credentials only after the task and exec agent are ready, keeping
@@ -189,6 +199,8 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 	// Print summary
 	if startOutputFormat == "json" {
 		summary := map[string]any{
+			"profile":          newSelectedProfile,
+			"session_id":       taskID,
 			"ecs_cluster":      ecsCluster,
 			"cluster_id":       clusterID,
 			"investigation_id": investigationID,
@@ -206,7 +218,9 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	} else {
-		printStartSummary(ecsCluster, clusterID, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion)
+		if err := printStartSummary(ecsCluster, clusterID, investigationID, taskID, startOCVersion, startTaskTimeout, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion); err != nil {
+			return err
+		}
 	}
 
 	// Auto-connect only after any requested credential configuration succeeds.
@@ -215,7 +229,7 @@ func runStartTask(cmd *cobra.Command, args []string) error {
 		if configureOCM {
 			step = 5
 		}
-		output.Status("\n=== Step %d: Connecting to Task ===", step)
+		output.Status("\n=== Step %d: Connecting to session ===", step)
 		return runJoinWithClientFormat(cmd.Context(), ecsClient, cfg.AWSRegion, creds, taskID, "rosa-boundary", defaultExecCommand, false, startOutputFormat)
 	}
 
@@ -280,27 +294,23 @@ func startCredentialFailure(investigationID, taskID, ecsCluster, region string, 
 		callbackNotice = "; auth-code retry requires a local browser callback (omit --auth-flow for the saved preference)"
 	}
 	return fmt.Errorf(
-		"investigation %q created task %q, but credential configuration failed: %w; the task is still running; retry with: rosa-boundary --ecs-cluster %s --region %s credentials configure ocm --ocm-url %s --auth-flow %s %s%s; clean it up with: rosa-boundary --ecs-cluster %s --region %s stop-task %s",
-		investigationID, taskID, cause, ecsCluster, region, environment.Name, flow, taskID, callbackNotice, ecsCluster, region, taskID,
+		"investigation %q created session %q, but credential configuration failed: %w; the session is still running; retry with: rosa-boundary --profile %q session credentials configure ocm %q --ocm-url %q --auth-flow %q --ecs-cluster %q --region %q%s; clean it up with: rosa-boundary --profile %q session stop %q --yes --ecs-cluster %q --region %q",
+		investigationID, taskID, cause, newSelectedProfile, taskID, environment.Name, flow, ecsCluster, region, callbackNotice, newSelectedProfile, taskID, ecsCluster, region,
 	)
 }
 
-func printStartSummary(ecsCluster, clusterID, investigationID, taskID, ocVersion string, timeout int, accessPointID, roleARN, region string) {
-	fmt.Fprintln(os.Stderr, "\n========================================")
-	fmt.Fprintln(os.Stderr, "Investigation Created Successfully!")
-	fmt.Fprintln(os.Stderr, "========================================")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  ECS Cluster:    %s\n", ecsCluster)
-	fmt.Fprintf(os.Stderr, "  ROSA Cluster:   %s\n", clusterID)
-	fmt.Fprintf(os.Stderr, "  Investigation:  %s\n", investigationID)
-	fmt.Fprintf(os.Stderr, "  Task:           %s\n", taskID)
-	fmt.Fprintf(os.Stderr, "  OC Version:     %s\n", ocVersion)
-	fmt.Fprintf(os.Stderr, "  Task Timeout:   %d seconds\n", timeout)
-	fmt.Fprintf(os.Stderr, "  EFS Access Pt:  %s\n", accessPointID)
-	fmt.Fprintf(os.Stderr, "  Your Role:      %s\n", roleARN)
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Connect to task:")
-	fmt.Fprintf(os.Stderr, "  rosa-boundary --ecs-cluster %s --region %s join-task %s\n", ecsCluster, region, taskID)
+func printStartSummary(ecsCluster, clusterID, investigationID, taskID, ocVersion string, timeout int, accessPointID, roleARN, region string) error {
+	summary := fmt.Sprintf("Session %s created for %s/%s (profile %s).\n", taskID, clusterID, investigationID, newSelectedProfile)
+	summary += fmt.Sprintf("ECS cluster: %s; region: %s; OC version: %s; lifetime: %d seconds; access point: %s; role: %s\n", ecsCluster, region, ocVersion, timeout, accessPointID, roleARN)
+	summary += fmt.Sprintf("Join: rosa-boundary --profile %q session join %q", newSelectedProfile, taskID)
+	if region != "" {
+		summary += fmt.Sprintf(" --region %q", region)
+	}
+	if ecsCluster != "" {
+		summary += fmt.Sprintf(" --ecs-cluster %q", ecsCluster)
+	}
+	_, err := fmt.Fprintln(os.Stdout, summary)
+	return err
 }
 
 // sanitizeSessionName replaces characters not allowed in STS session names.

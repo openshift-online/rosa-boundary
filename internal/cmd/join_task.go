@@ -64,7 +64,7 @@ func runJoinTask(cmd *cobra.Command, args []string) error {
 	ecsClient := awsclient.NewECSClient(authRes.Config.AWSRegion, clusterName, credProvider)
 
 	output.Status("ECS Cluster: %s", clusterName)
-	output.Status("Task:        %s", taskID)
+	output.Status("Session:     %s", taskID)
 
 	return runJoinWithClientFormat(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, taskID, joinContainer, joinCommand, joinNoWait, format)
 }
@@ -95,21 +95,21 @@ func runJoinWithClientFormat(ctx context.Context, ecsClient *awsclient.ECSClient
 }
 
 // runJoinWithClientSession is shared by join-task and start-task --connect.
-func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool, format string) error {
+func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, taskID, container, command string, noWait bool, _ string) error {
 	// Check task status
-	output.Status("Checking task status...")
+	output.Status("Checking session status...")
 	task, err := ecsClient.DescribeTask(ctx, taskID)
 	if err != nil {
 		return fmt.Errorf("cannot describe task %s: %w", taskID, err)
 	}
 
-	output.Status("Task status: %s", task.Status)
+	output.Status("Session status: %s", task.Status)
 
 	if task.Status != "RUNNING" {
 		if noWait {
 			return fmt.Errorf("task %s is not RUNNING (status: %s); use --no-wait=false to wait", taskID, task.Status)
 		}
-		output.Status("Waiting for task to reach RUNNING state...")
+		output.Status("Waiting for session to reach RUNNING state...")
 		if err := ecsClient.WaitForRunning(ctx, taskID); err != nil {
 			return fmt.Errorf("task did not reach RUNNING state: %w", err)
 		}
@@ -124,7 +124,7 @@ func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClien
 	}
 
 	// Start ECS Exec session
-	output.Status("\nConnecting to task...")
+	output.Status("\nConnecting to session...")
 	fmt.Fprintln(os.Stderr)
 
 	session, err := ecsClient.ExecuteCommand(ctx, taskID, container, command)
@@ -137,13 +137,16 @@ func runJoinWithClientSession(ctx context.Context, ecsClient *awsclient.ECSClien
 	}
 
 	// Hand off to session-manager-plugin (replaces the process)
-	if format == "json" {
-		tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-		if err != nil {
-			return fmt.Errorf("interactive session requires a controlling terminal: %w", err)
-		}
-		defer func() { _ = tty.Close() }()
-		return awsclient.RunSessionManagerPluginWithStreams(ctx, region, session, creds, tty, tty, tty)
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("interactive session requires a controlling terminal: %w", err)
 	}
-	return awsclient.StartSessionManagerPlugin(region, session, creds)
+	defer func() { _ = tty.Close() }()
+	// Keep the CLI process alive so an explicit whole-command deadline can
+	// cancel the plugin without claiming the underlying ECS task stopped.
+	err = awsclient.RunSessionManagerPluginWithStreams(ctx, region, session, creds, tty, tty, tty)
+	if ctx.Err() != nil {
+		return fmt.Errorf("interactive connection ended (%w); Boundary session %s may still be running and must be stopped separately", ctx.Err(), taskID)
+	}
+	return err
 }

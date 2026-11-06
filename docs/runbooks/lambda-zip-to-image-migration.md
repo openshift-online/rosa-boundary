@@ -200,8 +200,9 @@ aws lambda get-function \
   --query 'Configuration.{PackageType:PackageType,CodeSize:CodeSize,LastModified:LastModified}' \
   --region <region>
 
-# Test get_config action
-rosa-boundary start-task --cluster-id test --dry-run
+# Test get_config via an approved profile discovery (writes local config, not a task):
+rosa-boundary config init --name image-validation --account-id <approved-account> \
+  --region <approved-region> --environment <deployment-environment>
 
 # Or invoke directly
 aws lambda invoke \

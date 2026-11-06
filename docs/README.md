@@ -22,6 +22,8 @@ Place design proposals in [`docs/design-proposals/`](design-proposals/). These d
 - [**Regional Lambda Image Delivery**](design-proposals/lambda-image-regional-delivery.md) - Proposed Konflux-to-ECR publication and regional replication design
 - [**Proposed `rosa-boundary` CLI contract**](design-proposals/rosa-boundary-cli-contract.md) - Proposed user-facing command interface
 
+The accepted CLI contract is tracked separately in [proposal PR #354](https://github.com/openshift-online/rosa-boundary/pull/354). Use this repository's runbooks and the installed CLI's `--help` for the implementation available in your checkout.
+
 ## Configuration Guides
 
 - [**Keycloak Realm Setup**](configuration/keycloak-realm-setup.md) - Configure Keycloak realm and OIDC client using KeycloakRealmImport CR
@@ -65,7 +67,7 @@ Place design proposals in [`docs/design-proposals/`](design-proposals/). These d
 
 ### For End Users
 
-See the [User Access Guide](runbooks/user-access-guide.md) for authentication and connection instructions.
+See the [User Access Guide](runbooks/user-access-guide.md) for named-profile setup, authentication, and session access. If an old flat config exists, delete or move it and create fresh profiles; no migration is provided. Task-style command names are also replaced.
 
 ## Support
 

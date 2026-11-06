@@ -43,14 +43,30 @@ func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 	defer server.Close()
 	root := t.TempDir()
 	bin := filepath.Join(root, "rosa-boundary")
+	configHome := filepath.Join(root, "config")
+	configDir := filepath.Join(configHome, "rosa-boundary")
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	profile := map[string]any{"active_profile": "local", "profiles": map[string]any{"local": map[string]any{
+		"account_id": "123456789012", "aws_region": "us-east-1", "keycloak_url": server.URL,
+		"keycloak_realm": "test", "oidc_client_id": "cli",
+	}}}
+	profileData, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), profileData, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	build := exec.Command("go", "build", "-o", bin, "../../cmd/rosa-boundary")
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build CLI: %v: %s", err, output)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	process := exec.CommandContext(ctx, bin, "--keycloak-url", server.URL, "--realm", "test", "--client-id", "cli", "--use-device-code", "login", "--force", "-o", "json")
-	process.Env = append(os.Environ(), "XDG_CONFIG_HOME="+filepath.Join(root, "config"), "XDG_CACHE_HOME="+filepath.Join(root, "cache"))
+	process := exec.CommandContext(ctx, bin, "--profile", "local", "--use-device-code", "login", "--force", "-o", "json")
+	process.Env = append(os.Environ(), "XDG_CONFIG_HOME="+configHome, "XDG_CACHE_HOME="+filepath.Join(root, "cache"))
 	stdout, err := process.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)

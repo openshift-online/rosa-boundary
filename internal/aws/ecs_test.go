@@ -2,9 +2,14 @@ package aws
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ecs"
 	"github.com/aws/aws-sdk-go-v2/service/ecs/types"
 )
 
@@ -19,6 +24,205 @@ func TestTaskToListSummaryUsesDesiredStatus(t *testing.T) {
 	summary := taskToListSummary(task, "cluster")
 	if summary.Status != "STOPPED" {
 		t.Fatalf("taskToListSummary status = %q, want STOPPED", summary.Status)
+	}
+}
+
+func TestECSExecTargetAcceptsShortIDAndARN(t *testing.T) {
+	for _, identifier := range []string{"task-id", "arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/task-id"} {
+		if got := ecsExecTarget("ecs-cluster", identifier, "runtime-id"); got != "ecs:ecs-cluster_task-id_runtime-id" {
+			t.Errorf("ecsExecTarget(%q) = %q", identifier, got)
+		}
+	}
+}
+
+func TestInvestigationStartedByMatchesLambda(t *testing.T) {
+	if got := investigationStartedBy("cluster-a", "inv-1"); got != "74771f619b42d4eee63132be2d9bad3353ea" {
+		t.Fatalf("startedBy digest differs from Lambda: %q", got)
+	}
+}
+
+func TestListTasksByInvestigationCatchesPendingBeforeTagsPropagate(t *testing.T) {
+	const arn = "arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/pending-task"
+	seenStartedBy := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		switch r.Header.Get("X-Amz-Target") {
+		case "AmazonEC2ContainerServiceV20141113.ListTasks":
+			var input struct {
+				StartedBy     string `json:"startedBy"`
+				DesiredStatus string `json:"desiredStatus"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+				t.Error(err)
+			}
+			if input.StartedBy == "" {
+				_, _ = w.Write([]byte(`{"taskArns":[]}`))
+				return
+			}
+			if input.StartedBy != investigationStartedBy("cluster-a", "inv-1") {
+				t.Errorf("wrong startedBy: %s", input.StartedBy)
+			}
+			if input.DesiredStatus != "" {
+				t.Errorf("AWS forbids startedBy with desiredStatus: %s", input.DesiredStatus)
+			}
+			seenStartedBy = true
+			_, _ = w.Write([]byte(`{"taskArns":["` + arn + `"]}`))
+		case "AmazonEC2ContainerServiceV20141113.DescribeTasks":
+			_, _ = w.Write([]byte(`{"tasks":[{"taskArn":"` + arn + `","lastStatus":"PENDING","desiredStatus":"RUNNING","tags":[]}]}`))
+		default:
+			t.Errorf("unexpected ECS operation: %s", r.Header.Get("X-Amz-Target"))
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+	client := &ECSClient{cluster: "ecs-cluster", client: ecs.New(ecs.Options{
+		BaseEndpoint: aws.String(server.URL), Region: "us-east-1",
+		Credentials: StaticCredentialsProvider(&TemporaryCredentials{AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test"}),
+	})}
+	tasks, err := client.ListTasksByInvestigation(context.Background(), "cluster-a", "inv-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !seenStartedBy || len(tasks) != 1 || tasks[0].TaskID != "pending-task" || tasks[0].Status != "PENDING" {
+		t.Fatalf("pending task without tags was missed: %+v (startedBy queried: %t)", tasks, seenStartedBy)
+	}
+}
+
+func TestListTasksByInvestigationIncludesTaskStillShuttingDown(t *testing.T) {
+	const arn = "arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/stopping-task"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		switch r.Header.Get("X-Amz-Target") {
+		case "AmazonEC2ContainerServiceV20141113.ListTasks":
+			var input struct {
+				DesiredStatus string `json:"desiredStatus"`
+				StartedBy     string `json:"startedBy"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&input)
+			if input.DesiredStatus == "STOPPED" && input.StartedBy == "" {
+				_, _ = w.Write([]byte(`{"taskArns":["` + arn + `"]}`))
+			} else {
+				_, _ = w.Write([]byte(`{"taskArns":[]}`))
+			}
+		case "AmazonEC2ContainerServiceV20141113.DescribeTasks":
+			_, _ = w.Write([]byte(`{"tasks":[{"taskArn":"` + arn + `","lastStatus":"RUNNING","desiredStatus":"STOPPED","tags":[{"key":"cluster_id","value":"cluster-a"},{"key":"investigation_id","value":"inv-1"}]}]}`))
+		default:
+			t.Errorf("unexpected ECS operation: %s", r.Header.Get("X-Amz-Target"))
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+	client := testInvestigationECSClient(server.URL)
+	tasks, err := client.ListTasksByInvestigation(context.Background(), "cluster-a", "inv-1")
+	if err != nil || len(tasks) != 1 || tasks[0].Status != "RUNNING" || tasks[0].DesiredStatus != "STOPPED" {
+		t.Fatalf("task still shutting down was missed: %+v, err: %v", tasks, err)
+	}
+}
+
+func TestListTasksByInvestigationRejectsConflictingStartedByTags(t *testing.T) {
+	const arn = "arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/conflicting-task"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		switch r.Header.Get("X-Amz-Target") {
+		case "AmazonEC2ContainerServiceV20141113.ListTasks":
+			var input struct {
+				StartedBy string `json:"startedBy"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&input)
+			if input.StartedBy != "" {
+				_, _ = w.Write([]byte(`{"taskArns":["` + arn + `"]}`))
+			} else {
+				_, _ = w.Write([]byte(`{"taskArns":[]}`))
+			}
+		case "AmazonEC2ContainerServiceV20141113.DescribeTasks":
+			_, _ = w.Write([]byte(`{"tasks":[{"taskArn":"` + arn + `","lastStatus":"PENDING","desiredStatus":"RUNNING","tags":[{"key":"cluster_id","value":"other-cluster"}]}]}`))
+		default:
+			t.Errorf("unexpected ECS operation: %s", r.Header.Get("X-Amz-Target"))
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+	_, err := testInvestigationECSClient(server.URL).ListTasksByInvestigation(context.Background(), "cluster-a", "inv-1")
+	if err == nil || !strings.Contains(err.Error(), "conflicts") {
+		t.Fatalf("expected conflicting tags to abort cleanup, got %v", err)
+	}
+}
+
+func TestListTasksByInvestigationRejectsPartialDescribe(t *testing.T) {
+	const arn = "arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/missing-task"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		switch r.Header.Get("X-Amz-Target") {
+		case "AmazonEC2ContainerServiceV20141113.ListTasks":
+			_, _ = w.Write([]byte(`{"taskArns":["` + arn + `"]}`))
+		case "AmazonEC2ContainerServiceV20141113.DescribeTasks":
+			_, _ = w.Write([]byte(`{"tasks":[],"failures":[{"arn":"` + arn + `","reason":"MISSING"}]}`))
+		default:
+			t.Errorf("unexpected ECS operation: %s", r.Header.Get("X-Amz-Target"))
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+	_, err := testInvestigationECSClient(server.URL).ListTasksByInvestigation(context.Background(), "cluster-a", "inv-1")
+	if err == nil || !strings.Contains(err.Error(), "incomplete investigation scan") {
+		t.Fatalf("expected partial description to abort cleanup, got %v", err)
+	}
+}
+
+func testInvestigationECSClient(endpoint string) *ECSClient {
+	return &ECSClient{cluster: "ecs-cluster", client: ecs.New(ecs.Options{
+		BaseEndpoint: aws.String(endpoint), Region: "us-east-1",
+		Credentials: StaticCredentialsProvider(&TemporaryCredentials{AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test"}),
+	})}
+}
+
+func TestTaskDefinitionAccessPointRejectsNameOnlyMatch(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Amz-Target"); got != "AmazonEC2ContainerServiceV20141113.DescribeTaskDefinition" {
+			t.Errorf("unexpected operation %q", got)
+		}
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		_, _ = w.Write([]byte(`{"taskDefinition":{"volumes":[{"name":"sre-home","efsVolumeConfiguration":{"fileSystemId":"fs-example","authorizationConfig":{"accessPointId":"fsap-other"}}}]}}`))
+	}))
+	defer server.Close()
+	client := &ECSClient{cluster: "ecs-cluster", client: ecs.New(ecs.Options{
+		BaseEndpoint: aws.String(server.URL), Region: "us-east-1",
+		Credentials: StaticCredentialsProvider(&TemporaryCredentials{AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test"}),
+	})}
+	got, err := client.TaskDefinitionAccessPoint(context.Background(), "arn:aws:ecs:us-east-1:123456789012:task-definition/ecs-cluster-a-b-c-20261105T210000:1")
+	if err != nil || got != "fsap-other" {
+		t.Fatalf("access point = %q, error %v", got, err)
+	}
+}
+
+func TestListTaskDefinitionsByFamilyFiltersResults(t *testing.T) {
+	const family = "boundary-cluster-investigation"
+	const target = "arn:aws:ecs:us-east-1:123456789012:task-definition/boundary-cluster-investigation-20261105T220000:1"
+	const adjacent = "arn:aws:ecs:us-east-1:123456789012:task-definition/boundary-cluster-investigation-other-20261105T220000:1"
+	const unrelated = "arn:aws:ecs:us-east-1:123456789012:task-definition/unrelated:1"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Amz-Target"); got != "AmazonEC2ContainerServiceV20141113.ListTaskDefinitions" {
+			t.Errorf("unexpected operation: %s", got)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		var input struct {
+			FamilyPrefix *string `json:"familyPrefix"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			t.Error(err)
+		}
+		if want := taskDefinitionFamilyPrefix(family); (input.FamilyPrefix == nil) != (want == nil) || input.FamilyPrefix != nil && *input.FamilyPrefix != family {
+			t.Errorf("familyPrefix = %v, want %v", input.FamilyPrefix, want)
+		}
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		_, _ = w.Write([]byte(`{"taskDefinitionArns":["` + target + `","` + adjacent + `","` + unrelated + `"]}`))
+	}))
+	defer server.Close()
+	client := testInvestigationECSClient(server.URL)
+	arns, err := client.ListTaskDefinitionsByFamily(context.Background(), family)
+	if err != nil || len(arns) != 2 || arns[0] != target || arns[1] != adjacent {
+		t.Fatalf("filtered definitions = %v, err = %v", arns, err)
 	}
 }
 

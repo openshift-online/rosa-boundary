@@ -146,6 +146,18 @@ func TestFindAccessPointByTags_WithoutClusterID_Ambiguous(t *testing.T) {
 	}
 }
 
+func TestFindAccessPointByTags_DuplicateExactMatchAmbiguous(t *testing.T) {
+	tags := []types.Tag{{Key: aws.String("ClusterID"), Value: aws.String("cluster1")}, {Key: aws.String("InvestigationID"), Value: aws.String("inv1")}}
+	client := &EFSClient{filesystemID: "fs-test", client: &mockEFSClient{accessPoints: []types.AccessPointDescription{
+		{AccessPointId: aws.String("fsap-111"), LifeCycleState: types.LifeCycleStateAvailable, Tags: tags},
+		{AccessPointId: aws.String("fsap-222"), LifeCycleState: types.LifeCycleStateAvailable, Tags: tags},
+	}}}
+	ap, err := client.FindAccessPointByTags(context.Background(), "cluster1", "inv1")
+	if err == nil || !contains(err.Error(), "ambiguous") || ap != nil {
+		t.Fatalf("duplicate exact tag match must fail closed: access point=%+v, err=%v", ap, err)
+	}
+}
+
 func TestFindAccessPointByTags_NotFound(t *testing.T) {
 	mock := &mockEFSClient{
 		accessPoints: []types.AccessPointDescription{},

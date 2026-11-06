@@ -153,7 +153,7 @@ All tests marked with `@pytest.mark.integration`:
 - `test_tag_isolation.py` - Tag-based authorization model testing
 - `test_full_workflow.py` - End-to-end investigation creation
 - `test_task_timeout.py` - Reaper deadline checks and policy assertions, with explicit platform skips
-- `test_close_investigation.py` - CLI discovery/cleanup using the test-built Go binary
+- `test_close_investigation.py` - named-profile CLI close/cleanup, required cluster targeting, and invalid-config rejection using the test-built Go binary
 - `test_reap_investigations_directory.py` - Investigation directory contracts
 - `test_efs_filesystem_policy.py`, `test_terraform_efs_policy.py` - EFS policy API/source contracts
 - `test_kube_proxy_sidecar.py` - Multi-container task-definition contracts
@@ -200,10 +200,14 @@ Both start a single container:
 - `test_vpc` - VPC and subnets created by init-aws.sh (session-scoped)
 - `test_efs` - EFS filesystem with automatic cleanup
 - `localstack_cli_binary` - Temporary CLI compiled with the `localstack` build tag;
-  STS/ECS/EFS endpoints are loopback-only. Normal builds retain AWS endpoints.
+  STS/ECS/EFS endpoints are loopback-only. LocalStack's ECS familyPrefix matches
+  only complete family names, so this tagged build scans ACTIVE task definitions
+  and filters the investigation prefix locally; normal builds use the AWS
+  server-side prefix. Neither build trusts the family name alone for cleanup.
 - `localstack_cli_env` - Isolated synthetic ID-token cache, LocalStack SRE role,
-  dummy credentials, and consistent region; never reuses your real SSO state.
-  This exercises close-investigation workflow behavior, not real OIDC/IAM security.
+  dummy credentials, and consistent region. The close tests save a named profile
+  in this isolated config directory; they never reuse your real SSO state.
+  This exercises close workflow behavior, not real OIDC/IAM security.
 
 ## Testing Approach
 

@@ -7,27 +7,29 @@ import (
 	"testing"
 )
 
-func TestPrintStartSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
+func TestPrintStartSessionSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
 	ecsCluster := "rosa-boundary-dev"
 	rosaClusterID := "e2e-test"
 	investigationID := "INV-001"
-	taskID := "abc123def456"
+	sessionID := "abc123def456"
 	ocVersion := "4.20"
 	timeout := 3600
 	accessPointID := "fsap-0123456789"
 	roleARN := "arn:aws:iam::123456789012:role/test-role"
 	region := "us-east-1"
 
-	// Capture stderr output
-	old := os.Stderr
+	// Successful text results belong on stdout.
+	old := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer func() { _ = r.Close() }()
-	os.Stderr = w
+	os.Stdout = w
 
-	printStartSummary(ecsCluster, rosaClusterID, investigationID, taskID, ocVersion, timeout, accessPointID, roleARN, region)
+	if err := printStartSessionSummary(ecsCluster, rosaClusterID, investigationID, sessionID, ocVersion, timeout, accessPointID, roleARN, region); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
@@ -36,34 +38,34 @@ func TestPrintStartSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
 	if _, err := buf.ReadFrom(r); err != nil {
 		t.Fatal(err)
 	}
-	os.Stderr = old
+	os.Stdout = old
 
 	output := buf.String()
 
 	// ECS Cluster line must show the actual ECS cluster name
-	if !strings.Contains(output, "ECS Cluster:    rosa-boundary-dev") {
+	if !strings.Contains(output, "ECS cluster: rosa-boundary-dev") {
 		t.Errorf("expected ECS Cluster to show %q, got output:\n%s", ecsCluster, output)
 	}
 
 	// ROSA Cluster line must show the ROSA cluster ID
-	if !strings.Contains(output, "ROSA Cluster:   e2e-test") {
+	if !strings.Contains(output, "e2e-test/INV-001") {
 		t.Errorf("expected ROSA Cluster to show %q, got output:\n%s", rosaClusterID, output)
 	}
 
-	// The join-task command must use --ecs-cluster with the ECS cluster name
-	expectedJoinCmd := "--ecs-cluster rosa-boundary-dev --region us-east-1 join-task abc123def456"
+	// The join command must use the actual Boundary ECS cluster and region.
+	expectedJoinCmd := "session join \"abc123def456\" --region \"us-east-1\" --ecs-cluster \"rosa-boundary-dev\""
 	if !strings.Contains(output, expectedJoinCmd) {
-		t.Errorf("expected join-task command with ECS cluster %q, got output:\n%s", ecsCluster, output)
+		t.Errorf("expected session join command with ECS cluster %q, got output:\n%s", ecsCluster, output)
 	}
 
-	// The join-task command must NOT use the ROSA cluster ID as the ECS cluster
-	badJoinCmd := "--ecs-cluster e2e-test"
+	// The session join command must NOT use the ROSA cluster ID as the ECS cluster.
+	badJoinCmd := "--ecs-cluster \"e2e-test\""
 	if strings.Contains(output, badJoinCmd) {
-		t.Errorf("join-task command incorrectly uses ROSA cluster ID %q as ECS cluster:\n%s", rosaClusterID, output)
+		t.Errorf("session join command incorrectly uses ROSA cluster ID %q as ECS cluster:\n%s", rosaClusterID, output)
 	}
 }
 
-func TestPrintStartSummary_ECSClusterNotConfusedWithClusterID(t *testing.T) {
+func TestPrintStartSessionSummary_ECSClusterNotConfusedWithClusterID(t *testing.T) {
 	tests := []struct {
 		name       string
 		ecsCluster string
@@ -88,15 +90,17 @@ func TestPrintStartSummary_ECSClusterNotConfusedWithClusterID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			old := os.Stderr
+			old := os.Stdout
 			r, w, err := os.Pipe()
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer func() { _ = r.Close() }()
-			os.Stderr = w
+			os.Stdout = w
 
-			printStartSummary(tt.ecsCluster, tt.clusterID, "INV-001", "task-123", "4.20", 3600, "fsap-123", "arn:aws:iam::123:role/r", "us-east-2")
+			if err := printStartSessionSummary(tt.ecsCluster, tt.clusterID, "INV-001", "task-123", "4.20", 3600, "fsap-123", "arn:aws:iam::123:role/r", "us-east-2"); err != nil {
+				t.Fatal(err)
+			}
 
 			if err := w.Close(); err != nil {
 				t.Fatal(err)
@@ -105,23 +109,23 @@ func TestPrintStartSummary_ECSClusterNotConfusedWithClusterID(t *testing.T) {
 			if _, err := buf.ReadFrom(r); err != nil {
 				t.Fatal(err)
 			}
-			os.Stderr = old
+			os.Stdout = old
 
 			output := buf.String()
 
 			// ECS Cluster must always show the ECS cluster name
-			if !strings.Contains(output, "ECS Cluster:    "+tt.ecsCluster) {
+			if !strings.Contains(output, "ECS cluster: "+tt.ecsCluster) {
 				t.Errorf("ECS Cluster line should show %q, got:\n%s", tt.ecsCluster, output)
 			}
 
 			// ROSA Cluster must always show the ROSA cluster ID
-			if !strings.Contains(output, "ROSA Cluster:   "+tt.clusterID) {
+			if !strings.Contains(output, tt.clusterID+"/INV-001") {
 				t.Errorf("ROSA Cluster line should show %q, got:\n%s", tt.clusterID, output)
 			}
 
-			// join-task command must use ECS cluster
-			if !strings.Contains(output, "--ecs-cluster "+tt.ecsCluster) {
-				t.Errorf("join-task command should use --ecs-cluster %q, got:\n%s", tt.ecsCluster, output)
+			// The session join command must use the ECS cluster.
+			if !strings.Contains(output, "--ecs-cluster \""+tt.ecsCluster+"\"") {
+				t.Errorf("session join command should use --ecs-cluster %q, got:\n%s", tt.ecsCluster, output)
 			}
 		})
 	}

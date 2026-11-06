@@ -15,9 +15,8 @@ import (
 const credentialContainer = "rosa-boundary"
 
 var (
-	credentialsOCMURL      string
-	credentialsOCMFlow     string
-	resolvedOCMEnvironment *ocmcredentials.Environment
+	credentialsOCMURL  string
+	credentialsOCMFlow string
 )
 
 type ocmTokenAcquirer interface {
@@ -41,31 +40,6 @@ var newOCMCredentialTransfer = func() ocmCredentialTransfer {
 	return transfer
 }
 
-var credentialsConfigureOCMCmd = &cobra.Command{
-	Use:   "ocm <task-id>",
-	Short: "Issue and configure a fresh OCM access token",
-	Long:  "Issue a fresh OCM access token and transfer it to task-scoped storage. -o json emits auth events on stderr, with no JSON result on stdout. The explicit --auth-flow overrides --use-device-code/config for OCM only; auth-code requires a local callback, while device never opens a browser.",
-	Args:  validateCredentialsConfigureOCMArgs,
-	RunE:  runCredentialsConfigureOCM,
-}
-
-var credentialsClearOCMCmd = &cobra.Command{
-	Use:   "ocm <task-id>",
-	Short: "Clear OCM and derived kubeconfig credentials",
-	Long:  "Clear task-scoped OCM credentials. -o json emits Boundary auth events on stderr when login is required; no JSON result is written to stdout.",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runCredentialsClearOCM,
-}
-
-func init() {
-	credentialsConfigureOCMCmd.Flags().StringVar(&credentialsOCMURL, "ocm-url", "", "OCM environment alias or approved canonical API URL")
-	credentialsConfigureOCMCmd.Flags().StringVar(&credentialsOCMFlow, "auth-flow", "", "OCM-only override: auth-code or device (default: from --use-device-code/config; auth-code if unset)")
-	addOutputFlag(credentialsConfigureOCMCmd, false)
-	addOutputFlag(credentialsClearOCMCmd, false)
-	credentialsConfigureCmd.AddCommand(credentialsConfigureOCMCmd)
-	credentialsClearCmd.AddCommand(credentialsClearOCMCmd)
-}
-
 func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	environment, err := resolveConfigureOCMEnvironment()
 	if err != nil {
@@ -80,29 +54,13 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 		}
 	}
 	ecsClient := newCredentialECSClient(authResult)
-	return configureOCMForTask(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow, cmd)
-}
-
-// validateCredentialsConfigureOCMArgs validates provider flags before Cobra runs
-// the inherited AWS authentication hook.
-func validateCredentialsConfigureOCMArgs(cmd *cobra.Command, args []string) error {
-	if err := cobra.ExactArgs(1)(cmd, args); err != nil {
-		return err
-	}
-	if _, err := resolveConfigureOCMEnvironment(); err != nil {
-		return err
-	}
-	if credentialsOCMFlow != "" || cmd.Flags().Changed("auth-flow") {
-		_, err := parseOCMFlow(credentialsOCMFlow)
-		return err
-	}
-	return nil
+	return configureOCMForSession(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow, cmd)
 }
 
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
 	authResult := getAuthResult(cmd)
 	ecsClient := newCredentialECSClient(authResult)
-	if err := prepareCredentialTask(cmd.Context(), ecsClient, args[0]); err != nil {
+	if err := prepareCredentialSession(cmd.Context(), ecsClient, args[0]); err != nil {
 		return err
 	}
 	if err := credentialDebugf("Requesting static OCM clear command through ECS Exec"); err != nil {
@@ -110,15 +68,15 @@ func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
 	}
 	session, err := ecsClient.ExecuteCommand(cmd.Context(), args[0], credentialContainer, ocmcredentials.ClearCommand)
 	if err != nil {
-		return fmt.Errorf("start OCM credential clear session: %w", err)
+		return fmt.Errorf("could not start OCM credential clear session; check that the Boundary session and its Exec agent are running, then retry or stop the session to remove task-scoped credentials: %w", err)
 	}
 	if err := credentialDebugf("ECS Exec clear session established: %s", session.SessionID); err != nil {
 		return fmt.Errorf("debug output failed: %w", err)
 	}
 	if err := newOCMCredentialTransfer().Clear(cmd.Context(), authResult.Config.AWSRegion, session, authResult.Credentials); err != nil {
-		return fmt.Errorf("clear OCM credentials: %w", err)
+		return fmt.Errorf("could not clear OCM credentials; retry on the running session or stop the session to remove task-scoped credentials: %w", err)
 	}
-	output.Status("Cleared OCM credentials from task %s", args[0])
+	output.Status("Cleared OCM credentials from session %s", args[0])
 	return nil
 }
 
@@ -127,8 +85,8 @@ func newCredentialECSClient(authResult *AuthResult) *awsclient.ECSClient {
 	return awsclient.NewECSClient(authResult.Config.AWSRegion, authResult.Config.ClusterName, provider)
 }
 
-func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, taskID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, invocation ...*cobra.Command) error {
-	if err := prepareCredentialTask(ctx, ecsClient, taskID); err != nil {
+func configureOCMForSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, invocation ...*cobra.Command) error {
+	if err := prepareCredentialSession(ctx, ecsClient, sessionID); err != nil {
 		return err
 	}
 	output.Status("Requesting a fresh OCM access token for %s...", environment.Name)
@@ -144,7 +102,7 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 	}
 	token, err := acquirer.Acquire(ctx, flow)
 	if err != nil {
-		return fmt.Errorf("OCM authentication failed: %w", err)
+		return fmt.Errorf("OCM authentication failed; verify the selected OCM environment and complete the requested approval before retrying: %w", err)
 	}
 	if token.Expiry.IsZero() {
 		output.Status("Fresh OCM access token acquired; server supplied no expiry")
@@ -162,47 +120,47 @@ func configureOCMForTask(ctx context.Context, ecsClient *awsclient.ECSClient, re
 		}
 	}()
 
-	output.Status("Uploading OCM access token to task %s...", taskID)
+	output.Status("Uploading OCM access token to session %s...", sessionID)
 	if err := credentialDebugf("Requesting static OCM configure command through ECS Exec"); err != nil {
 		return fmt.Errorf("debug output failed: %w", err)
 	}
-	session, err := ecsClient.ExecuteCommand(ctx, taskID, credentialContainer, ocmcredentials.ConfigureCommand)
+	session, err := ecsClient.ExecuteCommand(ctx, sessionID, credentialContainer, ocmcredentials.ConfigureCommand)
 	if err != nil {
-		return fmt.Errorf("start OCM credential configure session: %w", err)
+		return fmt.Errorf("could not start OCM credential configure session; check that the Boundary session and its Exec agent are running, then retry: %w", err)
 	}
 	if err := credentialDebugf("ECS Exec configure session established: %s", session.SessionID); err != nil {
 		return fmt.Errorf("debug output failed: %w", err)
 	}
 	if err := newOCMCredentialTransfer().Configure(ctx, region, session, credentials, request); err != nil {
-		return fmt.Errorf("configure OCM credentials: %w", err)
+		return fmt.Errorf("could not configure OCM credentials; verify the session is running, then retry with a fresh OCM approval: %w", err)
 	}
 
 	if token.Expiry.IsZero() {
-		output.Status("Configured OCM credentials for task %s (%s)", taskID, environment.Name)
+		output.Status("Configured OCM credentials for session %s (%s)", sessionID, environment.Name)
 	} else {
-		output.Status("Configured OCM credentials for task %s (%s); expires at %s", taskID, environment.Name, token.Expiry.Format(time.RFC3339))
+		output.Status("Configured OCM credentials for session %s (%s); expires at %s", sessionID, environment.Name, token.Expiry.Format(time.RFC3339))
 	}
 	return nil
 }
 
-func prepareCredentialTask(ctx context.Context, ecsClient *awsclient.ECSClient, taskID string) error {
-	if err := credentialDebugf("Checking access to task %s", taskID); err != nil {
+func prepareCredentialSession(ctx context.Context, ecsClient *awsclient.ECSClient, sessionID string) error {
+	if err := credentialDebugf("Checking access to session %s", sessionID); err != nil {
 		return fmt.Errorf("debug output failed: %w", err)
 	}
-	task, err := ecsClient.DescribeTask(ctx, taskID)
+	task, err := ecsClient.DescribeTask(ctx, sessionID)
 	if err != nil {
-		return fmt.Errorf("cannot access task %s: %w", taskID, err)
+		return fmt.Errorf("cannot access session %s; verify the ID and selected profile with 'rosa-boundary session list --status all': %w", sessionID, err)
 	}
 	if task.Status != "RUNNING" {
-		return fmt.Errorf("task %s is not RUNNING (status: %s)", taskID, task.Status)
+		return fmt.Errorf("session %s is not RUNNING (status: %s); configure or clear credentials on a running session", sessionID, task.Status)
 	}
-	if err := credentialDebugf("Task %s is RUNNING; waiting for ECS Exec agent", taskID); err != nil {
+	if err := credentialDebugf("Session %s is RUNNING; waiting for ECS Exec agent", sessionID); err != nil {
 		return fmt.Errorf("debug output failed: %w", err)
 	}
-	if err := ecsClient.WaitForExecAgent(ctx, taskID, credentialContainer, 30*time.Second); err != nil {
-		return fmt.Errorf("task %s exec agent is not ready: %w", taskID, err)
+	if err := ecsClient.WaitForExecAgent(ctx, sessionID, credentialContainer, 30*time.Second); err != nil {
+		return fmt.Errorf("session %s exec agent is not ready; check the session status and retry when the agent is ready: %w", sessionID, err)
 	}
-	if err := credentialDebugf("Task %s ECS Exec agent is ready", taskID); err != nil {
+	if err := credentialDebugf("Session %s ECS Exec agent is ready", sessionID); err != nil {
 		return fmt.Errorf("debug output failed: %w", err)
 	}
 	return nil
@@ -213,15 +171,7 @@ func credentialDebugf(format string, args ...any) error {
 }
 
 func resolveConfigureOCMEnvironment() (ocmcredentials.Environment, error) {
-	if resolvedOCMEnvironment != nil {
-		return *resolvedOCMEnvironment, nil
-	}
-	environment, err := ocmcredentials.ResolveEnvironment(credentialsOCMURL)
-	if err != nil {
-		return ocmcredentials.Environment{}, err
-	}
-	resolvedOCMEnvironment = &environment
-	return environment, nil
+	return ocmcredentials.ResolveEnvironment(credentialsOCMURL)
 }
 
 func parseOCMFlow(value string) (ocmcredentials.Flow, error) {

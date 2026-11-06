@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,8 +19,8 @@ func TestOIDCUseDeviceCodePrecedence(t *testing.T) {
 		expected bool
 		errText  string
 	}{
-		{name: "missing old config", expected: false},
-		{name: "old config without key", file: "oidc_client_id: old-client\n", expected: false},
+		{name: "profile without preference", expected: false},
+		{name: "file without key", file: "oidc_client_id: old-client\n", expected: false},
 		{name: "file true", file: "oidc_use_device_code: true\n", expected: true},
 		{name: "file false", file: "oidc_use_device_code: false\n", expected: false},
 		{name: "env true over file false", file: "oidc_use_device_code: false\n", env: "true", expected: true},
@@ -36,46 +34,41 @@ func TestOIDCUseDeviceCodePrecedence(t *testing.T) {
 		{name: "quoted boolean rejected", file: "oidc_use_device_code: 'true'\n", errText: "YAML boolean"},
 		{name: "integer rejected", file: "oidc_use_device_code: 1\n", errText: "oidc_use_device_code"},
 		{name: "null rejected", file: "oidc_use_device_code: null\n", errText: "oidc_use_device_code"},
-		{name: "invalid file overridden by env", file: "oidc_use_device_code: unexpected\n", env: "true", expected: true},
+		{name: "invalid file not overridden by env", file: "oidc_use_device_code: unexpected\n", env: "true", errText: "oidc_use_device_code"},
 		{name: "invalid env overridden by explicit flag", env: "not-a-bool", flag: "false", expected: false},
 		{name: "empty env overridden by explicit flag", envSet: true, flag: "false", expected: false},
-		{name: "null file overridden by explicit flag", file: "oidc_use_device_code: null\n", flag: "true", expected: true},
-		{name: "invalid file overridden by explicit flag", file: "oidc_use_device_code: unexpected\n", flag: "false", expected: false},
+		{name: "null file not overridden by explicit flag", file: "oidc_use_device_code: null\n", flag: "true", errText: "oidc_use_device_code"},
+		{name: "invalid file not overridden by explicit flag", file: "oidc_use_device_code: unexpected\n", flag: "false", errText: "oidc_use_device_code"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			viper.Reset()
-			t.Cleanup(viper.Reset)
-			t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-			if tt.file != "" {
-				path := filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "rosa-boundary")
-				if err := os.MkdirAll(path, 0o700); err != nil {
-					t.Fatal(err)
+			file := tt.file
+			if file == "" {
+				file = "oidc_client_id: client\n"
+			}
+			path := filepath.Join(t.TempDir(), "config.yaml")
+			file = "active_profile: stage\nprofiles:\n  stage:\n    " + strings.ReplaceAll(strings.TrimSuffix(file, "\n"), "\n", "\n    ") + "\n"
+			if err := os.WriteFile(path, []byte(file), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			profiles, err := ReadProfiles(path)
+			if err != nil {
+				if tt.errText != "" && strings.Contains(err.Error(), tt.errText) {
+					return
 				}
-				if err := os.WriteFile(filepath.Join(path, "config.yaml"), []byte(tt.file), 0o600); err != nil {
-					t.Fatal(err)
-				}
+				t.Fatal(err)
 			}
 			if tt.env != "" || tt.envSet {
 				t.Setenv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE", tt.env)
 			}
-			flags := pflag.NewFlagSet("test", pflag.ContinueOnError)
-			flags.Bool("use-device-code", false, "")
+			flags := map[string]string{}
 			if tt.flag != "" {
-				if err := flags.Set("use-device-code", tt.flag); err != nil {
-					t.Fatal(err)
-				}
+				flags["oidc_use_device_code"] = tt.flag
 			}
-			if err := viper.BindPFlag("oidc_use_device_code", flags.Lookup("use-device-code")); err != nil {
-				t.Fatal(err)
-			}
-			if err := Load(); err != nil {
-				t.Fatal(err)
-			}
-			cfg, err := Get(flags.Lookup("use-device-code").Changed)
+			_, cfg, err := profiles.ResolveProfile("stage", flags, nil)
 			if tt.errText != "" {
 				if err == nil || !strings.Contains(err.Error(), tt.errText) {
-					t.Fatalf("Get() error = %v, want substring %q", err, tt.errText)
+					t.Fatalf("ResolveProfile() error = %v, want substring %q", err, tt.errText)
 				}
 				return
 			}
@@ -89,42 +82,54 @@ func TestOIDCUseDeviceCodePrecedence(t *testing.T) {
 	}
 }
 
-func TestWriteConfigFileTypedBoolean(t *testing.T) {
+func TestWriteProfilesTypedBoolean(t *testing.T) {
 	for _, value := range []bool{false, true} {
 		t.Run(map[bool]string{false: "false", true: "true"}[value], func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "config.yaml")
-			entries := []ConfigEntry{
-				{Key: "keycloak_url", Value: "https://example.test", Comment: "OIDC URL"},
-				{Key: "oidc_use_device_code", BoolValue: &value, Comment: "Device approval"},
-				{Key: "empty", Value: ""},
-				{Key: "string_false", Value: "false"},
-			}
-			if err := WriteConfigFile(path, entries); err != nil {
+			profiles := &ProfilesFile{ActiveProfile: "stage", Profiles: map[string]Profile{
+				"stage": {KeycloakURL: "https://example.test", OIDCUseDeviceCode: &value, OIDCClientID: "false"},
+			}}
+			if err := WriteProfiles(path, profiles); err != nil {
 				t.Fatal(err)
 			}
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(string(data), "empty:") || !strings.Contains(string(data), "# Device approval") {
+			if strings.Contains(string(data), "aws_region:") || !strings.Contains(string(data), "profiles:") {
 				t.Fatalf("unexpected config content: %s", data)
 			}
 			var doc yaml.Node
 			if err := yaml.Unmarshal(data, &doc); err != nil {
 				t.Fatal(err)
 			}
-			fields := doc.Content[0].Content
+			var fields []*yaml.Node
+			root := doc.Content[0].Content
+			for i := 0; i < len(root); i += 2 {
+				if root[i].Value == "profiles" {
+					fields = root[i+1].Content[1].Content
+				}
+			}
+			if fields == nil {
+				t.Fatal("missing stage profile")
+			}
+			foundBool, foundString := false, false
 			for i := 0; i < len(fields); i += 2 {
 				switch fields[i].Value {
 				case "oidc_use_device_code":
+					foundBool = true
 					if fields[i+1].Tag != "!!bool" || fields[i+1].Value != map[bool]string{false: "false", true: "true"}[value] {
 						t.Fatalf("boolean node = %s %q", fields[i+1].Tag, fields[i+1].Value)
 					}
-				case "string_false":
+				case "oidc_client_id":
+					foundString = true
 					if fields[i+1].Tag != "!!str" {
 						t.Fatalf("string node tag = %s, want !!str", fields[i+1].Tag)
 					}
 				}
+			}
+			if !foundBool || !foundString {
+				t.Fatalf("expected saved boolean and string nodes: %s", data)
 			}
 		})
 	}

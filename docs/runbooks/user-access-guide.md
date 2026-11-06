@@ -29,7 +29,7 @@ For deployments using a self-hosted Keycloak instance, groups are created and as
 Before you can access investigation containers, you need:
 
 1. ✅ Membership in a `required_groups` group (see [Getting Access](#getting-access) above)
-2. ✅ `session-manager-plugin` installed (required for `join-task`)
+2. ✅ `session-manager-plugin` installed (required for `session join` and OCM credential configuration)
 3. ✅ `rosa-boundary` CLI built or installed
 
 The Boundary CLI uses OIDC to obtain AWS credentials; existing AWS credentials and the AWS CLI are **not** prerequisites for normal CLI use. The separate audit-inspection commands in the [investigation workflow](investigation-workflow.md) require an AWS CLI and an appropriately authorized audit-reader identity.
@@ -66,55 +66,60 @@ make install-cli
 
 ### 3. Configure CLI
 
-Run auto-discovery with the deployment's AWS account ID, region, project
-(base name without the stage suffix), and environment. For example, a deployment
-named `rosa-boundary-stage` uses project `rosa-boundary` and environment `stage`:
+The CLI stores **named profiles** for Boundary deployments. If you have an old
+flat `config.yaml`, the CLI reports a configuration-file error with the YAML
+details. Back up or move the old file before running `config init` to create
+profiles from scratch; the CLI does not overwrite or migrate it. Ask the operator
+for the account and region. For example, a deployment named
+`rosa-boundary-stage` uses project `rosa-boundary` and environment `stage`:
 
 ```bash
-./bin/rosa-boundary configure \
-  --account-id <account-id> \
-  --region <region> \
+./bin/rosa-boundary config init --name stage-east \
+  --account-id <account-id> --region <boundary-region> \
   --project rosa-boundary \
   --environment stage
+./bin/rosa-boundary config list
+./bin/rosa-boundary config get --profile stage-east
 ```
 
 Auto-discovery logs in to Red Hat SSO using the default `EmployeeIDP` realm and
 `rosa-boundary-sre` client, obtains a fresh ID token, assumes the derived invoker
 role, and fetches the remaining settings from Lambda. It does not use an existing
-`config.yaml` to choose the OIDC provider. For deployments using a different
-provider, supply `--keycloak-url`, `--realm`, and `--client-id` explicitly (or the
-corresponding `ROSA_BOUNDARY_*` environment variables). To enter all settings
-without auto-discovery, use `configure --auto-discover=false`.
+profile or deployment environment variables to choose the OIDC provider. For a
+different provider supply `--keycloak-url`, `--realm`, and `--client-id` on init.
+To enter all settings without auto-discovery, use
+`config init --name <name> --auto-discover=false`; on a headless machine provide
+all required flags. The CLI reports missing fields before saving.
 
 For a server without a local browser or callback port, add **explicit**
-`--use-device-code` to `configure`: it displays a verification URL and user code
+`--use-device-code` to `config init`: it displays a verification URL and user code
 on stderr; open the URL on another device, enter the code, and approve as the
 authorized SRE while the CLI waits. For example:
 
 ```bash
-./bin/rosa-boundary configure \
-  --account-id <account-id> --region <region> \
+./bin/rosa-boundary config init --name stage-east \
+  --account-id <account-id> --region <boundary-region> \
   --project rosa-boundary --environment stage --use-device-code
 ```
 
 This writes `oidc_use_device_code: true` (a YAML boolean) to
 `${XDG_CONFIG_HOME:-$HOME/.config}/rosa-boundary/config.yaml` and uses device
 approval for future fresh Boundary **and OCM** authentication. Without an
-explicit true flag (including `--use-device-code=false`), `configure` uses
+explicit true flag (including `--use-device-code=false`), `config init` uses
 browser bootstrap and **writes `oidc_use_device_code: false`**, even if the
-previous config or `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` says true. This is an
+other profiles or `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` say true. This is an
 intentional exception to normal command precedence. With `--auto-discover=false`,
 it writes the selected boolean but does not attempt OIDC login; manual setup
 may still prompt for configuration fields.
 
-Confirm the discovered account, region, cluster, role ARNs, Lambda, and EFS filesystem match the intended deployment. If discovery is unavailable, ask the operator for these settings before using interactive configuration.
+Confirm the selected profile's account, region, cluster, role ARNs, Lambda, and EFS filesystem match the intended deployment. The first profile becomes active; subsequent profiles require `config use <name>` or per-command `--profile <name>`. An unknown profile fails rather than guessing. `config get` reads saved values only; runtime settings resolve command-specific flags > `ROSA_BOUNDARY_*` variables > selected profile > defaults. Environment variables cannot select a different saved profile. If discovery is unavailable, ask the operator for settings before manual setup.
 
 ## Daily Usage
 
 ### Step 1: Authenticate
 
 ```bash
-./bin/rosa-boundary login
+    ./bin/rosa-boundary --profile stage-east login
 ```
 
 By default this opens a browser for Keycloak PKCE authentication when a fresh
@@ -122,17 +127,17 @@ Boundary ID token is needed. With the saved device preference it instead shows
 a URL and code on stderr and waits for human approval on another device; it
 does not open a browser or bind a callback port on the server. The token is
 cached under `${XDG_CACHE_HOME:-$HOME/.cache}/rosa-boundary/token-cache` and
-reused until shortly before the token's actual expiry (`exp`), regardless of
-the selected flow. `login --force` or global `--force-login` requests a fresh
+reused until shortly before the token's actual expiry (`exp`) for the selected
+issuer/client, regardless of the selected flow. `login --force` requests a fresh
 token; ordinary commands can also request fresh approval after cache expiry or
 STS rejection. The selected flow is retained for retries, with no automatic
-fallback to a browser. Use the identity provider saved during `configure` (or
-override it explicitly for a different deployment).
+fallback to a browser. Select the intended profile before authenticating;
+`--profile` does not select the ROSA cluster under investigation.
 
 For **normal commands**, flow selection is explicit `--use-device-code=true|false`
 (bare flag means true) > `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` > saved YAML
 `oidc_use_device_code` > default `false`. An explicit false overrides a saved
-true for both Boundary and OCM; invalid environment or config booleans fail
+    true for both Boundary and OCM; invalid environment or config booleans fail
 instead of falling back. This setting chooses the login flow, not the provider.
 
 ### Script-driven, human-approved login
@@ -142,19 +147,20 @@ unattended**: a human must approve each fresh device request. For every command
 that might authenticate, pass `-o json` (or `--output json`) to that **leaf
 command**, even after a successful `login -o json`; another command may see
 an expired token or an STS retry. Auth events are prefixed JSON lines on
-**stderr**, while existing operation result JSON (for example, `start-task`)
+**stderr**, while operation result JSON (for example, `session start`)
 remains a single document on **stdout**. Other stderr diagnostics can coexist.
-`login`, `configure`, `stop-task`, and OCM credential commands have no JSON
-result on stdout; `join-task` remains an interactive terminal session, not a
+`login`, `config init`, and OCM credential commands have no JSON result on
+stdout; `session stop` and data commands return one JSON result; `session join`
+remains an interactive terminal session, not a
 JSON shell. Do not capture a device challenge into a shared CI log or file.
 
 For a noninteractive auth-bearing command, this Python example inherits its
 stdout (so result JSON is unchanged), drains stderr **while it runs**, and
 shows both provider challenges only on the operator's private terminal. Invoke
 it with an approved channel to the SRE and a command such as
-`python3 approve_boundary.py ./bin/rosa-boundary start-task --cluster-id CLUSTER --with-credentials ocm -o json`.
-Do not use this example for interactive `join-task`, `start-task --connect`, or
-manual `configure` (those need terminal input/session I/O).
+`python3 approve_boundary.py ./bin/rosa-boundary session start CLUSTER --with-credentials ocm -o json`.
+Do not use this example for interactive `session join`, `session start --connect`, or
+manual `config init` (those need terminal input/session I/O).
 
 ```python
 #!/usr/bin/env python3
@@ -208,22 +214,21 @@ or print tokens. Do not retry denied or expired requests indefinitely. See
 the [authentication model](../architecture/cli-authentication.md#authentication-events-for-scripts)
 for the complete event and stream contract.
 
-For OCM credentials, `start-task --with-credentials ocm` and
-`credentials configure ocm <task-id>` use the same saved/global device
+For OCM credentials, `session start --with-credentials ocm` and
+`session credentials configure ocm <session-id>` use the same saved/global device
 preference by default but request a **different issuer/client's OCM access
 token**, never the Boundary ID token. Explicit `--ocm-auth-flow auth-code|device`
-on `start-task` or `--auth-flow auth-code|device` on `credentials configure ocm`
+on `session start` or `--auth-flow auth-code|device` on `session credentials configure ocm`
 overrides **OCM only** for that invocation. An explicit `auth-code` requires a
 local callback even when Boundary uses device mode; explicit `device` remains
 headless. If both providers require fresh authentication, expect **two separate
 human approvals**. OCM tokens are transferred to task-scoped, audit-excluded
 storage; they are not printed or stored in the Boundary token cache.
 
-### Step 2: Start Investigation
+### Step 2: Start an Investigation Session
 
 ```bash
-./bin/rosa-boundary start-task \
-  --cluster-id <cluster-id> \
+./bin/rosa-boundary --profile stage-east session start <cluster-id> \
   --investigation-id <investigation-id>
 ```
 
@@ -233,16 +238,20 @@ This will:
 3. Lambda validates group membership (against `required_groups`)
 4. Lambda creates an EFS access point and per-investigation task definition
 5. Lambda launches the ECS task with identity and investigation tags (including the deployment's ABAC tag)
-6. CLI prints the task ID — save it for the next steps
+6. CLI prints the Boundary session ID (the ECS task ID) — save it for the next steps.
+   A Boundary session is **not** the short-lived SSM ECS Exec connection ID.
+   `session start --no-wait` reports launch, not readiness. A failed wait or
+   post-launch credential step returns nonzero and a profile-qualified cleanup
+   command; the session may still exist. Use `session list --status all` to inspect it.
 
 ### Step 3: Connect to Investigation Container
 
 ```bash
-# List running tasks to find your task ID
-./bin/rosa-boundary list-tasks
+# List running sessions to find the session ID
+./bin/rosa-boundary --profile stage-east session list
 
 # Connect
-./bin/rosa-boundary join-task <task-id>
+./bin/rosa-boundary --profile stage-east session join <session-id>
 ```
 
 ### Step 4: Work in the Container
@@ -283,7 +292,7 @@ This only ends the interactive ECS Exec session. The task continues running; dis
 ### Step 6: Stop Task and Verify Audit
 
 ```bash
-./bin/rosa-boundary stop-task <task-id> --wait
+./bin/rosa-boundary --profile stage-east session stop <session-id> --wait
 ```
 
 Stopping the task attempts the S3 sync. `--wait` confirms STOPPED, **not** that the upload succeeded. Check container logs for sync warnings and verify the expected S3 audit objects using an authorized audit-reader identity; see [audit retrieval and investigation closure](investigation-workflow.md#verify-audit-evidence). Close the investigation when finished.
@@ -300,10 +309,10 @@ tmux
 
 # Create windows for each investigation
 Ctrl-B C  # New window
-./bin/rosa-boundary join-task <task1-id>
+./bin/rosa-boundary --profile stage-east session join <session1-id>
 
 Ctrl-B C  # Another window
-./bin/rosa-boundary join-task <task2-id>
+./bin/rosa-boundary --profile stage-east session join <session2-id>
 
 # Switch between windows
 Ctrl-B N  # Next window
@@ -313,7 +322,8 @@ Ctrl-B P  # Previous window
 ### List your investigations
 
 ```bash
-./bin/rosa-boundary list-tasks --ecs-cluster <ecs-cluster>
+./bin/rosa-boundary --profile stage-east session list --ecs-cluster <ecs-cluster>
+./bin/rosa-boundary --profile stage-east investigation list
 
 # Or via AWS CLI for tag details
 aws ecs describe-tasks \
@@ -336,13 +346,13 @@ aws ecs describe-tasks \
 3. Check group membership — see [Getting Access](#getting-access)
 
 4. On a headless host, verify that the saved YAML boolean or explicit flag
-   selects device mode; `configure` does **not** inherit the environment/file
+   selects device mode; `config init` does **not** inherit the environment/file
    preference for its bootstrap. If a challenge expires, is denied, or is
    canceled, request a new login after addressing the cause; check that the
    operator approved the correct provider (`boundary` or `ocm`). Device mode
    does not fall back to browser mode. For OCM, check whether an explicit
    `--ocm-auth-flow auth-code` / `--auth-flow auth-code` requested a callback.
-   If OCM configuration fails after task creation, retain the reported task ID
+   If OCM configuration fails after task creation, retain the reported session ID
    and follow the cleanup/retry guidance; a failed command does not stop the task.
 
 ### "AccessDenied" from Lambda
@@ -355,12 +365,12 @@ aws ecs describe-tasks \
 
 1. Check task status:
    ```bash
-   ./bin/rosa-boundary list-tasks
+    ./bin/rosa-boundary --profile stage-east session list --status all
    ```
 
 2. If the task stopped, start a new task in the same investigation (if still open):
    ```bash
-   ./bin/rosa-boundary start-task --cluster-id <id> --investigation-id <id>
+    ./bin/rosa-boundary --profile stage-east session start <cluster-id> --investigation-id <investigation-id>
    ```
 
 ### "AccessDenied" when executing ECS Exec

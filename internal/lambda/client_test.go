@@ -296,3 +296,17 @@ func TestInvestigationRequestJSON_IncludesNonZeroTaskTimeout(t *testing.T) {
 		t.Errorf("expected task_timeout 3600, got %v (type %T)", timeout, timeout)
 	}
 }
+
+func TestInvestigationRequestJSON_ExplicitZeroTimeout(t *testing.T) {
+	data, err := json.Marshal(InvestigationRequest{ClusterID: "c", InvestigationID: "i", TaskTimeoutSet: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var req map[string]any
+	if err := json.Unmarshal(data, &req); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := req["task_timeout"]; !ok || got != float64(0) {
+		t.Fatalf("explicit zero timeout was not sent: %s", data)
+	}
+}

@@ -9,31 +9,10 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var listInvestigationsCmd = &cobra.Command{
-	Use:   "list-investigations",
-	Short: "List investigations (EFS access points) on the configured filesystem",
-	Long: `List all rosa-boundary investigations on the configured EFS filesystem.
-
-An investigation exists as long as its EFS access point exists — even if no
-tasks are currently running. Use --cluster-id to narrow results to a single
-cluster, or omit it to see all investigations across all clusters.
-
-Requires efs_filesystem_id to be set in config, ROSA_BOUNDARY_EFS_FILESYSTEM_ID,
-or --efs-filesystem-id.`,
-	Args: cobra.NoArgs,
-	RunE: runListInvestigations,
-}
-
 var (
 	listInvClusterID    string
 	listInvOutputFormat string
 )
-
-func init() {
-	listInvestigationsCmd.Flags().StringVar(&listInvClusterID, "cluster-id", "", "Filter by cluster ID (lists all clusters if omitted)")
-	addOutputFlag(listInvestigationsCmd, true, &listInvOutputFormat)
-	rootCmd.AddCommand(listInvestigationsCmd)
-}
 
 // invalidOutputFormatError is returned when --output is not text or json.
 type invalidOutputFormatError struct {
@@ -70,7 +49,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 
 	investigations, err := efsClient.ListInvestigations(cmd.Context(), listInvClusterID)
 	if err != nil {
-		return fmt.Errorf("failed to list investigations: %w", err)
+		return fmt.Errorf("failed to list investigations; verify the selected profile's account, region, EFS filesystem and access permissions: %w", err)
 	}
 
 	if listInvOutputFormat == "json" {
@@ -95,7 +74,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 				State:           inv.LifeCycleState,
 			}
 		}
-		return output.JSON(rows)
+		return output.JSON(map[string]any{"profile": selectedProfile, "investigations": rows})
 	}
 
 	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "OWNER", "ACCESS POINT", "STATE")

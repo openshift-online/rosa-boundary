@@ -17,7 +17,11 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 
 ## Design Proposals
 
+Place design proposals in [`docs/design-proposals/`](design-proposals/). These documents describe possible future designs, may be out of date, and must not be treated as the current implementation or user-facing documentation. Check the current code and the relevant architecture docs or runbooks for actual behavior.
+
 - [**Regional Lambda Image Delivery**](design-proposals/lambda-image-regional-delivery.md) - Proposed Konflux-to-ECR publication and regional replication design
+
+The accepted CLI contract is tracked separately in [proposal PR #354](https://github.com/openshift-online/rosa-boundary/pull/354). Use this repository's runbooks and the installed CLI's `--help` for the implementation available in your checkout.
 
 ## Configuration Guides
 
@@ -60,7 +64,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 
 ### For End Users
 
-See the [User Access Guide](runbooks/user-access-guide.md) for authentication and connection instructions.
+See the [User Access Guide](runbooks/user-access-guide.md) for named-profile setup, authentication, and session access. If an old flat config exists, delete or move it and create fresh profiles; no migration is provided. Task-style command names are also replaced.
 
 ## Support
 

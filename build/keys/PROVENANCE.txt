@@ -1,0 +1,17 @@
+Public verification trust anchors (not credentials)
+
+aws-cli.asc: retrieved from the armored key in AWS's official installation guide:
+https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+Full primary fingerprint: FB5DB77FD5C118B80511ADA8A6310ACC4672475C
+
+redhat-release-2.asc: retrieved directly from Red Hat:
+https://www.redhat.com/security/data/fd431d51.txt
+Full primary fingerprint: 567E347AD0044ADE55BA8A5F199E2F91FD431D51
+Confirmed identical primary fingerprint to RedHatReleaseKey2ArmoredPublicKey in:
+https://github.com/openshift/backplane-tools/blob/v1.6.1/pkg/utils/keys.go
+Key obtained from Red Hat, not copied from upstream Go source.
+
+Retrieved and inspected with gpg --show-keys --with-colons on 2026-11-06.
+Builds import only committed keys into temporary private keyrings. No keyserver
+lookup, automatic key rotation, or runtime verification dependencies. Rotation
+requires reviewed public key and signer-fingerprint changes together.

@@ -19,7 +19,7 @@ CLI_LDFLAGS := -ldflags "-X github.com/openshift-online/rosa-boundary/internal/c
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
         build-cli install-cli test-cli test-coverage codecov fmt lint \
         validate-findings convert-sarif upload-sarif \
-        test-github-dl test test-shell test-all check lint-shell pre-commit
+        test-github-dl verify-image-tools test test-shell test-all check lint-shell pre-commit
 
 # Default target: build both architectures and create manifest
 all: build manifest
@@ -48,6 +48,21 @@ build-arm64:
 		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
 		$$([ -n "$$GITHUB_APP_INSTALL_ID" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID,env=GITHUB_APP_INSTALL_ID") \
 		$(CACHE) -t $(ARM64_IMAGE) -f Containerfile .
+
+# Test the resolved image filesystem, not a rebuilt validation sibling.
+# Run once per architecture; retain the image ID and embedded inventory as evidence.
+verify-image-tools: ## Offline unprivileged tool acceptance (TOOL_IMAGE=<built image or digest>)
+	@test -n "$(TOOL_IMAGE)" || { echo "ERROR: TOOL_IMAGE is required"; exit 1; }
+	@set -eu; \
+		image_id=$$(podman image inspect --format '{{.Id}}' "$(TOOL_IMAGE)"); \
+		echo "Validating tool filesystem: $$image_id"; \
+		podman run --rm --network none --read-only --user sre \
+			--cap-drop all --security-opt no-new-privileges \
+			--tmpfs /tmp:rw,nosuid,nodev --env HOME=/tmp \
+			--volume "$(CURDIR)/build:/verify:ro" \
+			--volume "$(CURDIR)/Containerfile:/pins/Containerfile:ro" \
+			--entrypoint /usr/bin/python3 "$$image_id" \
+			/verify/verify_sre_tools.py runtime --containerfile /pins/Containerfile
 
 # Create manifest list combining both architectures
 manifest: build
@@ -174,15 +189,15 @@ test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	cd lambda/create-investigation && uv run pytest test_handler.py -v
 
 # Build helper unit tests
-test-github-dl: ## Run github_dl.py unit tests (venv auto-created in /tmp)
-	@echo "Running github_dl unit tests..."
+test-github-dl: ## Run all build-helper unit and contract tests (venv auto-created in /tmp)
+	@echo "Running build-helper unit and contract tests..."
 	@set -eu; \
 		venv_dir=$$(mktemp -d /tmp/github_dl_test_venv.XXXXXX); \
 		trap 'rm -rf "$$venv_dir"' EXIT; \
 		python3 -m venv "$$venv_dir"; \
 		"$$venv_dir/bin/pip" install --quiet --no-cache-dir requests "PyJWT[crypto]" pytest; \
 		cd build; \
-		"$$venv_dir/bin/python3" -m pytest test_github_dl.py -v --tb=short
+		"$$venv_dir/bin/python3" -m pytest . -v --tb=short
 
 staticcheck: ## Run staticcheck before commits
 	@echo "Running staticcheck..."
@@ -300,7 +315,8 @@ help:
 	@echo "  make test-lambda-create-investigation    - Run create-investigation unit tests"
 	@echo ""
 	@echo "Build Helper Targets:"
-	@echo "  make test-github-dl  - Run github_dl.py unit tests"
+	@echo "  make test-github-dl  - Run build-helper unit and contract tests"
+	@echo "  make verify-image-tools TOOL_IMAGE=... - Offline tool acceptance on a built image"
 	@echo ""
 	@echo "Code Quality Targets:"
 	@echo "  make check        - Tests, strict lint, Staticcheck, and pre-commit (may modify files)"

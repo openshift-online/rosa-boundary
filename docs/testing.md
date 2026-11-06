@@ -130,6 +130,89 @@ LocalStack integration, image builds/runtime checks, Terraform validation, and
 live AWS verification remain separate. Neither `make test` nor `make check`
 starts or tears down LocalStack.
 
+## SRE Tool Pin Migration Acceptance
+
+ROSAENG-67158 targets six directly pinned tools: ocm, ocm-backplane, osdctl, yq,
+oc, and AWS CLI v2. See the
+[exact-pin contract](dependency-management-automation.md#six-tool-exact-pin-contract-rosaeng-67158)
+for sources and integrity requirements. Exact values belong only in
+`Containerfile`. These are acceptance criteria, **not passed results**.
+
+### Focused local checks
+
+```bash
+make test-github-dl
+```
+
+Despite its historical name, this target collects all build-helper unit and
+contract tests under `build/`. It creates a temporary venv, installs requests,
+PyJWT with crypto support, and pytest, and removes the venv on exit. Python
+venv/pip and dependency-download access are required. Inspect the recipe and
+updated test assertions; an unchanged draft test pass cannot validate revised source.
+
+For the implementation, check:
+
+- Latest stable selections at implementation time, with the lookup date in the PR.
+- Exactly six unique updater dependencies mapped to the six annotated ARGs,
+  no installer or ocm-addons rule, and explicit `automerge: false` with normal
+  human review. Validate extraction and lookups; report unsupported tracking
+  rather than inventing new infrastructure.
+- Exact asset/checksum selection; failure on missing, duplicate, or malformed
+  integrity entries, bad hashes, missing/invalid/wrong-key signatures, and
+  unavailable assets. Preserve authenticated downloads without leaking tokens.
+- Verification before safe extraction, rejecting traversal and unsafe archive
+  members while preserving the normal AWS distribution layout.
+- Exact installed executable-version equality: both newer and older unexpected
+  versions fail, as do missing executables and unparseable versions.
+- Downloaded tools execute only after token/private-key mounts are gone.
+- No stale removed-tool inventory, completion, or acceptance assumptions.
+
+### Local image check
+
+After the implementation is reduced, build through the existing Makefile for the
+currently usable target with approved GitHub secret inputs and working Podman:
+
+```bash
+REQUIRE_GITHUB_TOKEN=true make build-amd64
+make verify-image-tools TOOL_IMAGE=rosa-boundary:latest-amd64
+```
+
+`make build` requests both amd64 and arm64; it is not necessary to enable ARM
+for this change. The earlier draft identified an amd64-only base digest and
+rejected a mislabeled ARM build. Do not bypass the architecture guard or claim
+ARM support; base-image and ARM enablement work are separate.
+
+The verifier must enforce the six-tool contract. The existing Make
+target resolves the supplied image reference to an immutable local image ID and
+runs offline as `sre`, with a read-only filesystem, dropped capabilities, and no
+credentials. It mounts the helpers and Containerfile read-only, overrides the
+entrypoint, and does not test investigation or audit behavior.
+
+Check all six executable versions against the ARG defaults in the final image.
+If retaining generated `/usr/local/share/rosa-boundary/tool-versions.json`, require
+six entries matching those defaults and actual binaries; it is build output, not
+another editable pin source. Record the tested revision, image ID, and results.
+
+Exercise `ocm backplane` plugin discovery, AWS invocation and its existing
+alternative/distribution layout, and retained completions. Confirm no
+ocm-addons binary/completion, backplane-tools installer, or newly introduced
+license-vendoring artifacts remain. Do not strip normal distribution files.
+Keep verification-only dependencies in builder stages and preserve runtime paths,
+entrypoint, privileges, credentials, and audit behavior.
+
+Run scoped formatting/pre-commit checks and report blocked checks. No unrelated
+Go, Lambda, LocalStack, ARM CI, promotion, or operational project is a prerequisite
+solely for this change. Run broad rewriting hooks only in a protected clean
+checkout in a shared tree.
+
+### Evidence limits
+
+Earlier draft evidence is historical, not validation of the reduced implementation. Rerun affected tests and the usable
+image build after source changes. A local build does not prove ARM, deployed
+Mintmaker, cluster compatibility, staging, or production behavior. Report gaps
+without turning deployment, publication, AWS/HCP changes, or investigation
+creation into prerequisites for preparing this PR; those need separate approval.
+
 ## Go Unit Tests
 
 Tests for the `rosa-boundary` CLI live alongside the code in `internal/`.

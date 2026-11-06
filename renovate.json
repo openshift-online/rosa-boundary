@@ -16,26 +16,102 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Update the pinned backplane-tools GitHub release",
-      "managerFilePatterns": ["/^Containerfile$/"],
-      "matchStrings": [
-        "# renovate: datasource=github-releases depName=openshift/backplane-tools\\s+ARG BACKPLANE_TOOLS_VERSION=\"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\""
+      "description": "Update only OCM_VERSION",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
       ],
-      "depNameTemplate": "openshift/backplane-tools",
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=openshift-online/ocm-cli\\r?\\nARG OCM_VERSION=\"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "openshift-online/ocm-cli",
       "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Update only BACKPLANE_CLI_VERSION",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=openshift/backplane-cli\\r?\\nARG BACKPLANE_CLI_VERSION=\"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "openshift/backplane-cli",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Update only OSDCTL_VERSION",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=openshift/osdctl\\r?\\nARG OSDCTL_VERSION=\"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "openshift/osdctl",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Update only YQ_VERSION",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=mikefarah/yq\\r?\\nARG YQ_VERSION=\"(?<currentValue>v\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "mikefarah/yq",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Update only AWSCLI_VERSION",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-tags depName=aws/aws-cli\\r?\\nARG AWSCLI_VERSION=\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "aws/aws-cli",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
+      "description": "Update only OC_VERSION",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=custom\\.openshift-stable depName=openshift/oc\\r?\\nARG OC_VERSION=\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "openshift/oc",
+      "datasourceTemplate": "custom.openshift-stable",
       "versioningTemplate": "semver-coerced"
     }
   ],
   "packageRules": [
     {
       "description": "Review Python dependency updates; do not automerge",
-      "matchManagers": ["pep621"],
+      "matchManagers": [
+        "pep621"
+      ],
       "automerge": false
     },
     {
       "description": "Group non-major Python dependency updates for the uv-locked Lambda",
-      "matchManagers": ["pep621"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "matchManagers": [
+        "pep621"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
       "groupName": "python dependencies"
     },
     {
@@ -72,8 +148,74 @@
     },
     {
       "description": "Group all GitHub Actions updates into a single PR",
-      "matchManagers": ["github-actions"],
+      "matchManagers": [
+        "github-actions"
+      ],
       "groupName": "github-actions"
+    },
+    {
+      "description": "Separate reviewed SRE tool pin updates; retain inherited release age",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "openshift-online/ocm-cli",
+        "openshift/backplane-cli",
+        "openshift/osdctl",
+        "mikefarah/yq",
+        "aws/aws-cli",
+        "openshift/oc"
+      ],
+      "automerge": false,
+      "groupName": null,
+      "ignoreUnstable": true,
+      "minimumReleaseAgeBehaviour": "timestamp-required"
+    },
+    {
+      "description": "Keep yq on approved major 4",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "mikefarah/yq"
+      ],
+      "allowedVersions": ">=4.0.0 <5.0.0"
+    },
+    {
+      "description": "Only AWS CLI v2",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "aws/aws-cli"
+      ],
+      "allowedVersions": ">=2.0.0 <3.0.0"
+    },
+    {
+      "description": "Stable OpenShift 4 clients: approved missing-timestamp age exception; retain review",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "openshift/oc"
+      ],
+      "matchDatasources": [
+        "custom.openshift-stable"
+      ],
+      "matchFileNames": [
+        "/^Containerfile$/"
+      ],
+      "minimumReleaseAgeBehaviour": "timestamp-optional",
+      "allowedVersions": ">=4.0.0 <5.0.0"
     }
-  ]
+  ],
+  "customDatasources": {
+    "openshift-stable": {
+      "defaultRegistryUrlTemplate": "https://mirror.openshift.com/pub/openshift-v4/amd64/clients/ocp/stable/release.txt",
+      "format": "plain",
+      "transformTemplates": [
+        "($versions := releases[$contains(version, /^Version:\\s+4\\.\\d+\\.\\d+$/)]; {\"releases\": $count($versions) = 1 ? [$versions.{\"version\": $replace(version, /^Version:\\s+/, \"\")}] : []})"
+      ]
+    }
+  }
 }

@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -162,6 +163,10 @@ func assertOneJSON(t *testing.T, stdout string, want map[string]any) {
 }
 
 func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	previousTerminal := requireTerminal
+	requireTerminal = func() error { return errors.New("no terminal") }
+	t.Cleanup(func() { requireTerminal = previousTerminal })
 	root := buildRootCommand()
 	// Check every public level: old task commands must not be reachable beneath
 	// a supported group, and no unexpected leaf can silently enter the contract.

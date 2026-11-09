@@ -30,8 +30,8 @@ var (
 
 var taskDefinitionTimestamp = regexp.MustCompile(`^\d{8}T\d{6}$`)
 
-// Lambda appends a timestamp to the exact investigation family. ECS family
-// prefix queries also return e.g. incident-42-extra; never deregister those.
+// Lambda appends a timestamp to the exact investigation family. The client-side
+// family scan also finds e.g. incident-42-extra; never deregister those.
 func investigationTaskDefinitions(arns []string, familyPrefix string) []string {
 	result := make([]string, 0)
 	for _, arn := range arns {
@@ -113,8 +113,11 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	}
 	// A new task may start during the stop wait. Never delete its access point.
 	remaining, err := ecsClient.ListTasksByInvestigation(cmd.Context(), plan.ClusterID, plan.InvestigationID)
-	if err != nil || len(remaining) != 0 {
-		return fmt.Errorf("cannot verify investigation has no active sessions after stops (remaining: %d); check 'rosa-boundary session list --status all' and ask the deployment operator to reconcile before retrying: %v", len(remaining), err)
+	if err != nil {
+		return fmt.Errorf("cannot verify investigation has no active sessions after stops; check 'rosa-boundary session list --status all' and ask the deployment operator to reconcile before retrying: %w", err)
+	}
+	if len(remaining) != 0 {
+		return fmt.Errorf("%d active session(s) appeared after stops; check 'rosa-boundary session list --status all' and ask the deployment operator to reconcile before retrying", len(remaining))
 	}
 	removed := 0
 	for _, arn := range plan.TaskDefinitions {
@@ -126,8 +129,11 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	// Detect a new launch during task-definition cleanup. This is still
 	// best-effort; ECS/EFS do not provide an atomic close-and-create lock.
 	remaining, err = ecsClient.ListTasksByInvestigation(cmd.Context(), plan.ClusterID, plan.InvestigationID)
-	if err != nil || len(remaining) != 0 {
-		return fmt.Errorf("deregistered %d definitions but cannot safely delete access point %s (active sessions: %d); check session status and ask the deployment operator to reconcile before retrying: %v", removed, plan.AccessPointID, len(remaining), err)
+	if err != nil {
+		return fmt.Errorf("deregistered %d definitions but cannot verify safe deletion of access point %s; check session status and ask the deployment operator to reconcile before retrying: %w", removed, plan.AccessPointID, err)
+	}
+	if len(remaining) != 0 {
+		return fmt.Errorf("deregistered %d definitions but cannot safely delete access point %s (%d active sessions); check session status and ask the deployment operator to reconcile before retrying", removed, plan.AccessPointID, len(remaining))
 	}
 	if err := efsClient.DeleteAccessPoint(cmd.Context(), plan.AccessPointID); err != nil {
 		return fmt.Errorf("stopped %d sessions and deregistered %d definitions, but access point %s remains; ask the deployment operator to reconcile partial cleanup before retrying: %w", stopped, removed, plan.AccessPointID, err)

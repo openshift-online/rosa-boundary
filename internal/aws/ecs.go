@@ -284,12 +284,13 @@ func ecsExecTarget(cluster, taskIdentifier, runtimeID string) string {
 	return fmt.Sprintf("ecs:%s_%s_%s", cluster, path.Base(taskIdentifier), runtimeID)
 }
 
-// ListTaskDefinitionsByFamily returns all active task definition ARNs for a family prefix.
+// ListTaskDefinitionsByFamily returns active task definition ARNs matching a family prefix.
+// ListTaskDefinitions only accepts an exact family name, while investigation
+// families include a timestamp suffix, so scan the paginated list client-side.
 func (c *ECSClient) ListTaskDefinitionsByFamily(ctx context.Context, familyPrefix string) ([]string, error) {
 	var arns []string
 	paginator := ecs.NewListTaskDefinitionsPaginator(c.client, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: taskDefinitionFamilyPrefix(familyPrefix),
-		Status:       types.TaskDefinitionStatusActive,
+		Status: types.TaskDefinitionStatusActive,
 	})
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)

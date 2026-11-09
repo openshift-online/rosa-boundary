@@ -273,8 +273,8 @@ func TestListTaskDefinitionsByFamilyFiltersResults(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			t.Error(err)
 		}
-		if want := taskDefinitionFamilyPrefix(family); (input.FamilyPrefix == nil) != (want == nil) || input.FamilyPrefix != nil && *input.FamilyPrefix != family {
-			t.Errorf("familyPrefix = %v, want %v", input.FamilyPrefix, want)
+		if input.FamilyPrefix != nil {
+			t.Errorf("partial familyPrefix would hide timestamp-suffixed definitions: %q", *input.FamilyPrefix)
 		}
 		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
 		_, _ = w.Write([]byte(`{"taskDefinitionArns":["` + target + `","` + adjacent + `","` + unrelated + `"]}`))

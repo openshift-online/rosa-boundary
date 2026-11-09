@@ -177,7 +177,8 @@ func deploymentFlags(cmd *cobra.Command, ecs, efs bool) {
 	}
 }
 
-func requireTerminal() error {
+// requireTerminal is replaceable by serial tests that exercise headless guards.
+var requireTerminal = func() error {
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("an interactive session requires a controlling terminal; run this command in a terminal (not a pipe or headless job): %w", err)

@@ -24,6 +24,9 @@ var commandCancel context.CancelFunc
 // buildRootCommand builds the only supported command tree.
 func buildRootCommand() *cobra.Command {
 	root := &cobra.Command{Use: "rosa-boundary", Short: "Manage internal ROSA investigation workspaces and sessions.", SilenceUsage: true, SilenceErrors: true}
+	root.Args = commandArgs(cobra.NoArgs)
+	root.RunE = func(cmd *cobra.Command, _ []string) error { return cmd.Help() }
+	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return inputError(cmd, err) })
 	root.PersistentFlags().StringVar(&selectedProfile, "profile", "", "Saved Boundary deployment profile (active if omitted)")
 	root.PersistentFlags().BoolVar(&verbose, "verbose", false, "Show debug diagnostics (never secrets)")
 	root.PersistentFlags().Duration("timeout", 0, "Whole-command deadline (default 5m without terminal)")
@@ -35,7 +38,7 @@ func buildRootCommand() *cobra.Command {
 			commandCancel = nil
 		}
 	}
-	root.AddCommand(buildConfigCommand(), buildLoginCommand(), buildInvestigationCommand(), buildSessionCommand(), &cobra.Command{Use: "version", Short: "Show version", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	root.AddCommand(buildConfigCommand(), buildLoginCommand(), buildInvestigationCommand(), buildSessionCommand(), &cobra.Command{Use: "version", Short: "Show version", Args: commandArgs(cobra.NoArgs), RunE: func(cmd *cobra.Command, _ []string) error {
 		_, err := fmt.Fprintln(cmd.OutOrStdout(), Version)
 		return err
 	}})
@@ -50,11 +53,11 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 	if _, err := commandOutput(cmd); err != nil {
-		return err
+		return inputError(cmd, err)
 	}
 	deadline := flagDuration(cmd, "timeout")
 	if deadline < 0 {
-		return fmt.Errorf("--timeout must not be negative")
+		return inputError(cmd, fmt.Errorf("--timeout must not be negative"))
 	}
 	if deadline == 0 && !cmd.Flags().Changed("timeout") {
 		tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
@@ -64,7 +67,7 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 			_ = tty.Close()
 		}
 	} else if deadline == 0 {
-		return fmt.Errorf("--timeout must be greater than zero")
+		return inputError(cmd, fmt.Errorf("--timeout must be greater than zero"))
 	}
 	if deadline > 0 {
 		ctx, cancel := context.WithTimeout(cmd.Context(), deadline)
@@ -144,17 +147,17 @@ func checkRoleAccounts(accountID string, roles map[string]string) error {
 }
 
 func commandGroup(use, short string) *cobra.Command {
-	return &cobra.Command{Use: use, Short: short, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() }}
+	return &cobra.Command{Use: use, Short: short, Args: commandArgs(cobra.NoArgs), RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() }}
 }
 
 func commandLeaf(use, short string, args cobra.PositionalArgs, run func(*cobra.Command, []string) error, result bool) *cobra.Command {
-	cmd := &cobra.Command{Use: use, Short: short, Args: func(cmd *cobra.Command, values []string) error {
+	cmd := &cobra.Command{Use: use, Short: short, Args: commandArgs(func(cmd *cobra.Command, values []string) error {
 		if err := args(cmd, values); err != nil {
 			return err
 		}
 		_, err := commandOutput(cmd)
 		return err
-	}, RunE: run}
+	}), RunE: run}
 	addOutputFlag(cmd, result)
 	return cmd
 }
@@ -183,8 +186,17 @@ func requireTerminal() error {
 
 func nonEmptyArgs(n int) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
-		if err := cobra.ExactArgs(n)(cmd, args); err != nil {
-			return err
+		if len(args) < n {
+			// Use declares positional placeholders in order, including the second
+			// investigation ID in "investigation close".
+			placeholders := strings.Fields(cmd.Use)
+			if len(placeholders) > len(args)+1 {
+				return fmt.Errorf("missing required argument %s", placeholders[len(args)+1])
+			}
+			return fmt.Errorf("missing required argument (expected %d)", n)
+		}
+		if len(args) > n {
+			return fmt.Errorf("unexpected argument %q (expected %d positional argument(s))", args[n], n)
 		}
 		for _, arg := range args {
 			if strings.TrimSpace(arg) == "" {
@@ -192,6 +204,21 @@ func nonEmptyArgs(n int) cobra.PositionalArgs {
 			}
 		}
 		return nil
+	}
+}
+
+// inputError retains the specific validation failure while giving the exact
+// command syntax and a short way to find flag/argument documentation.
+func inputError(cmd *cobra.Command, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%w\nUsage: %s\nRun '%s --help' for details.", err, cmd.UseLine(), cmd.CommandPath())
+}
+
+func commandArgs(validate cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		return inputError(cmd, validate(cmd, args))
 	}
 }
 
@@ -224,7 +251,7 @@ func buildInvestigationCommand() *cobra.Command {
 		closeOutputFormat = flagString(cmd, "output")
 		return runCloseInvestigation(cmd, nil)
 	}, true)
-	close.Args = func(cmd *cobra.Command, args []string) error {
+	close.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(2)(cmd, args); err != nil {
 			return err
 		}
@@ -235,7 +262,7 @@ func buildInvestigationCommand() *cobra.Command {
 		}
 		_, err := commandOutput(cmd)
 		return err
-	}
+	})
 	close.Flags().Bool("force", false, "Stop active sessions before closing")
 	close.Flags().Bool("yes", false, "Skip confirmation")
 	close.Flags().Bool("dry-run", false, "Show complete plan without making changes")
@@ -246,7 +273,7 @@ func buildInvestigationCommand() *cobra.Command {
 
 func buildSessionCommand() *cobra.Command {
 	group := commandGroup("session", "Manage investigation sessions and their credentials")
-	group.Args = func(cmd *cobra.Command, args []string) error {
+	group.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			switch args[0] {
 			case "start":
@@ -256,7 +283,7 @@ func buildSessionCommand() *cobra.Command {
 			}
 		}
 		return cobra.NoArgs(cmd, args)
-	}
+	})
 	start := commandLeaf("create <cluster-id>", "Create an investigation session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		startClusterID, startInvestigationID, startOCVersion = args[0], flagString(cmd, "investigation-id"), flagString(cmd, "oc-version")
 		sessionTimeoutSeconds = int(flagDuration(cmd, "session-timeout") / time.Second)
@@ -274,7 +301,7 @@ func buildSessionCommand() *cobra.Command {
 	start.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	start.Flags().String("ocm-auth-flow", "", "OCM-only sign-in override: auth-code or device")
 	deploymentFlags(start, true, false)
-	start.Args = func(cmd *cobra.Command, args []string) error {
+	start.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
 		}
@@ -305,14 +332,14 @@ func buildSessionCommand() *cobra.Command {
 		}
 		_, err := commandOutput(cmd)
 		return err
-	}
+	})
 	list := commandLeaf("list", "List investigation sessions", cobra.NoArgs, func(cmd *cobra.Command, args []string) error {
 		listStatus, listOutputFormat = flagString(cmd, "status"), flagString(cmd, "output")
 		return runListSessions(cmd, args)
 	}, true)
 	list.Flags().String("status", "RUNNING", "RUNNING, STOPPED, or all")
 	deploymentFlags(list, true, false)
-	list.Args = func(cmd *cobra.Command, args []string) error {
+	list.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := cobra.NoArgs(cmd, args); err != nil {
 			return err
 		}
@@ -321,12 +348,12 @@ func buildSessionCommand() *cobra.Command {
 		}
 		_, err := commandOutput(cmd)
 		return err
-	}
+	})
 	join := commandLeaf("join <session-id>", "Open a shell in a running session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		joinContainer, joinCommand, joinNoWait = flagString(cmd, "container"), flagString(cmd, "command"), flagBool(cmd, "no-wait")
 		return runJoinSession(cmd, args)
 	}, false)
-	join.Args = func(cmd *cobra.Command, args []string) error {
+	join.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
 		}
@@ -337,7 +364,7 @@ func buildSessionCommand() *cobra.Command {
 			return err
 		}
 		return nil
-	}
+	})
 	join.Flags().String("container", "rosa-boundary", "Container to enter")
 	join.Flags().String("command", defaultExecCommand, "Command to run")
 	join.Flags().Bool("no-wait", false, "Do not wait for RUNNING")
@@ -346,7 +373,7 @@ func buildSessionCommand() *cobra.Command {
 		stopReason, stopWait, stopYes = flagString(cmd, "reason"), flagBool(cmd, "wait"), flagBool(cmd, "yes")
 		return runStopSession(cmd, args)
 	}, true)
-	stop.Args = func(cmd *cobra.Command, args []string) error {
+	stop.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
 		}
@@ -357,7 +384,7 @@ func buildSessionCommand() *cobra.Command {
 		}
 		_, err := commandOutput(cmd)
 		return err
-	}
+	})
 	stop.Flags().String("reason", "Investigation complete", "Audit reason")
 	stop.Flags().Bool("wait", false, "Wait for STOPPED state")
 	stop.Flags().Bool("yes", false, "Skip confirmation")
@@ -371,7 +398,7 @@ func buildSessionCommand() *cobra.Command {
 	}, false)
 	configureOCM.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	configureOCM.Flags().String("auth-flow", "", "OCM-only override: auth-code or device")
-	configureOCM.Args = func(cmd *cobra.Command, args []string) error {
+	configureOCM.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
 		}
@@ -385,7 +412,7 @@ func buildSessionCommand() *cobra.Command {
 		}
 		_, err := commandOutput(cmd)
 		return err
-	}
+	})
 	deploymentFlags(configureOCM, true, false)
 	clearOCM := commandLeaf("ocm <session-id>", "Remove OCM credentials and derived kubeconfig", nonEmptyArgs(1), runCredentialsClearOCM, false)
 	deploymentFlags(clearOCM, true, false)

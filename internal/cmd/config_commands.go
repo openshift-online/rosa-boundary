@@ -36,9 +36,9 @@ func buildConfigCommand() *cobra.Command {
 	init.Flags().Bool("use", false, "Make the profile active")
 	init.Flags().Bool("overwrite", false, "Allow replacing an existing profile")
 	init.Flags().Bool("yes", false, "Skip replacement confirmation (requires --overwrite)")
-	list := &cobra.Command{Use: "list", Short: "List saved profiles and the active profile", Args: cobra.NoArgs, RunE: runConfigList}
-	use := &cobra.Command{Use: "use <name>", Short: "Set the active profile", Args: nonEmptyArgs(1), RunE: runConfigUse}
-	get := &cobra.Command{Use: "get [key]", Short: "Read a saved profile or one key", Args: cobra.MaximumNArgs(1), RunE: runConfigGet}
+	list := &cobra.Command{Use: "list", Short: "List saved profiles and the active profile", Args: commandArgs(cobra.NoArgs), RunE: runConfigList}
+	use := &cobra.Command{Use: "use <name>", Short: "Set the active profile", Args: commandArgs(nonEmptyArgs(1)), RunE: runConfigUse}
+	get := &cobra.Command{Use: "get [key]", Short: "Read a saved profile or one key", Args: commandArgs(cobra.MaximumNArgs(1)), RunE: runConfigGet}
 	group.AddCommand(init, list, use, get)
 	return group
 }
@@ -61,17 +61,17 @@ func promptField(cmd *cobra.Command, flag, label, fallback string) (string, erro
 
 func runConfigInit(cmd *cobra.Command, _ []string) error {
 	if flagBool(cmd, "yes") && !flagBool(cmd, "overwrite") {
-		return fmt.Errorf("--yes requires --overwrite")
+		return inputError(cmd, fmt.Errorf("--yes requires --overwrite"))
 	}
 	if selectedProfile != "" {
-		return fmt.Errorf("--profile is not used by config init; use --name to name the new profile")
+		return inputError(cmd, fmt.Errorf("--profile is not used by config init; use --name to name the new profile"))
 	}
 	name, err := promptField(cmd, "name", "Profile name", "")
 	if err != nil {
 		return err
 	}
 	if name != "" && !profileName.MatchString(name) {
-		return fmt.Errorf("--name must start with a letter or digit and contain only letters, digits, '.', '_' or '-'; choose another name")
+		return inputError(cmd, fmt.Errorf("--name must start with a letter or digit and contain only letters, digits, '.', '_' or '-'; choose another name"))
 	}
 	file, err := config.LoadProfiles()
 	if err != nil {
@@ -134,7 +134,7 @@ func runConfigInit(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("missing required settings: %s; supply these flags or run 'rosa-boundary config init --help' for interactive setup", strings.Join(missing, ", "))
 	}
 	if !regexp.MustCompile(`^[0-9]{12}$`).MatchString(values["account-id"]) {
-		return fmt.Errorf("--account-id must be a 12-digit AWS account ID")
+		return inputError(cmd, fmt.Errorf("--account-id must be a 12-digit AWS account ID"))
 	}
 	devicePreference := configureDeviceCode(cmd)
 	profile := config.Profile{AccountID: values["account-id"], AWSRegion: values["region"], Project: values["project"], Environment: values["environment"], KeycloakURL: values["keycloak-url"], KeycloakRealm: values["realm"], OIDCClientID: values["client-id"], OIDCUseDeviceCode: &devicePreference, LambdaFunctionName: values["lambda-function-name"], InvokerRoleARN: values["invoker-role-arn"], SRERoleARN: values["sre-role-arn"], ClusterName: values["ecs-cluster"], EFSFilesystemID: values["efs-filesystem-id"]}

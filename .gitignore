@@ -23,6 +23,7 @@ htmlcov/
 .coverage
 
 # Lambda dependencies (installed at build time)
+lambda/**/awslambdaric*
 lambda/**/boto*
 lambda/**/certifi*
 lambda/**/cffi*
@@ -37,7 +38,9 @@ lambda/**/python_dateutil*
 lambda/**/PyJWT*
 lambda/**/requests*
 lambda/**/s3transfer*
+lambda/**/simplejson*
 lambda/**/six*
+lambda/**/snapshot_restore_py*
 lambda/**/urllib3*
 lambda/**/*.dist-info
 lambda/**/package/

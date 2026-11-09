@@ -134,7 +134,7 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 		}
 	}
 	ecsClient := newCredentialECSClient(authResult)
-	return configureOCMForSession(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow, cmd)
+	return configureOCMForSession(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow)
 }
 
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
@@ -168,21 +168,12 @@ func newCredentialECSClient(authResult *AuthResult) *awsclient.ECSClient {
 	return awsclient.NewECSClient(authResult.Config.AWSRegion, authResult.Config.ClusterName, provider)
 }
 
-func configureOCMForSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, invocation ...*cobra.Command) error {
+func configureOCMForSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow) error {
 	if err := prepareCredentialSession(ctx, ecsClient, sessionID); err != nil {
 		return err
 	}
 	output.Status("Requesting a fresh OCM access token for %s...", environment.Name)
 	acquirer := newOCMTokenAcquirer()
-	if len(invocation) != 0 {
-		reporter, reportErr := authReporter(invocation[0])
-		if reportErr != nil {
-			return reportErr
-		}
-		if authenticator, ok := acquirer.(*ocmcredentials.Authenticator); ok {
-			authenticator.Reporter = reporter
-		}
-	}
 	token, err := acquirer.Acquire(ctx, flow)
 	if err != nil {
 		return fmt.Errorf("OCM authentication failed; verify the selected OCM environment and complete the requested approval before retrying: %w", err)

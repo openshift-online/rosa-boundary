@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,8 +14,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 )
 
 func TestDeviceAuthorizationPKCEPollingAndCache(t *testing.T) {
@@ -62,9 +59,8 @@ func TestDeviceAuthorizationPKCEPollingAndCache(t *testing.T) {
 	}))
 	defer server.Close()
 	var out bytes.Buffer
-	reporter := &authstatus.Reporter{Format: "json", Writer: &out}
 	cfg := PKCEConfig{KeycloakURL: server.URL + "/auth", Realm: "test", ClientID: "boundary-client"}
-	opts := Options{UseDeviceCode: true, Reporter: reporter, wait: func(_ context.Context, duration time.Duration) error {
+	opts := Options{UseDeviceCode: true, challengeWriter: &out, wait: func(_ context.Context, duration time.Duration) error {
 		waits = append(waits, duration)
 		return nil
 	}}
@@ -87,26 +83,14 @@ func TestDeviceAuthorizationPKCEPollingAndCache(t *testing.T) {
 	if challenge != expected || verifier == "" {
 		t.Error("device PKCE challenge did not match the exchanged verifier")
 	}
-	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if len(lines) != 2 {
-		t.Fatalf("auth events = %d, want 2", len(lines))
+	if challenge := out.String(); !strings.Contains(challenge, "ABCD-EFGH") || !strings.Contains(challenge, "https://verify.example/device") || !strings.Contains(challenge, "Waiting for approval") || strings.Contains(challenge, "secret-device") || strings.Contains(challenge, token) || strings.Contains(challenge, verifier) || strings.Contains(challenge, "ROSA_BOUNDARY_AUTH_EVENT") {
+		t.Errorf("unexpected challenge output: %q", challenge)
 	}
-	for _, line := range lines {
-		if !strings.HasPrefix(line, authstatus.Prefix) || strings.Contains(line, "secret-device") || strings.Contains(line, token) || strings.Contains(line, verifier) {
-			t.Error("auth event malformed or includes sensitive material")
-		}
-	}
-	var event map[string]any
-	if err := json.Unmarshal([]byte(strings.TrimPrefix(lines[0], authstatus.Prefix)), &event); err != nil {
-		t.Fatal(err)
-	}
-	if event["event"] != "device_authorization" || event["provider"] != "boundary" || event["user_code"] != "ABCD-EFGH" || event["verification_uri"] != "https://verify.example/device" {
-		t.Errorf("unexpected challenge event: %v", event)
-	}
+	out.Reset()
 	if _, err := GetTokenWithOptions(context.Background(), cfg, false, opts); err != nil {
 		t.Fatal(err)
 	}
-	if polls != 3 || len(waits) != 3 || !strings.Contains(out.String(), `"source":"cache"`) {
+	if polls != 3 || len(waits) != 3 || out.Len() != 0 {
 		t.Error("cache was not reused independently of selected flow")
 	}
 	if _, err := GetTokenWithOptions(context.Background(), cfg, true, opts); err != nil || polls != 4 {
@@ -137,12 +121,13 @@ func TestDeviceFailuresDoNotCacheOrLeak(t *testing.T) {
 			defer server.Close()
 			var out bytes.Buffer
 			cfg := PKCEConfig{KeycloakURL: server.URL, Realm: "test", ClientID: "client"}
-			_, err := GetTokenWithOptions(context.Background(), cfg, false, Options{UseDeviceCode: true, Reporter: &authstatus.Reporter{Format: "json", Writer: &out}, wait: func(context.Context, time.Duration) error { return nil }})
+			_, err := GetTokenWithOptions(context.Background(), cfg, false, Options{UseDeviceCode: true, challengeWriter: &out, wait: func(context.Context, time.Duration) error { return nil }})
 			if err == nil || strings.Contains(err.Error(), "SECRET") || strings.Contains(out.String(), "SECRET") {
-				t.Errorf("error/event leaked provider data or missed failure: err=%v", err)
+				t.Errorf("error/challenge leaked provider data or missed failure: err=%v", err)
 			}
-			if !strings.Contains(out.String(), `"reason":"`+tc.reason+`"`) {
-				t.Errorf("missing %s reason", tc.reason)
+			var failure *deviceError
+			if !errors.As(err, &failure) || failure.Reason() != tc.reason || !strings.Contains(out.String(), "CODE") {
+				t.Errorf("missing %s failure or approval guidance: %v", tc.reason, err)
 			}
 			if cached, err := CachedTokenForConfig(cfg); err != nil || cached != "" {
 				t.Errorf("failed login cached a token: err=%v", err)
@@ -155,17 +140,17 @@ type failingWriter struct{}
 
 func (failingWriter) Write([]byte) (int, error) { return 0, errors.New("status stream closed") }
 
-func TestDeviceEventWriteFailureStopsBeforePolling(t *testing.T) {
+func TestDeviceChallengeWriteFailureStopsBeforePolling(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/token") {
-			t.Error("polled after event stream failure")
+			t.Error("polled after challenge stream failure")
 		}
 		_, _ = io.WriteString(w, `{"device_code":"secret","user_code":"CODE","verification_uri":"https://verify.example","expires_in":60}`)
 	}))
 	defer server.Close()
-	_, err := GetTokenWithOptions(context.Background(), PKCEConfig{KeycloakURL: server.URL, Realm: "test", ClientID: "client"}, true, Options{UseDeviceCode: true, Reporter: &authstatus.Reporter{Format: "json", Writer: failingWriter{}}})
-	if err == nil || !strings.Contains(err.Error(), "status write failed") {
-		t.Errorf("missing event write error: %v", err)
+	_, err := GetTokenWithOptions(context.Background(), PKCEConfig{KeycloakURL: server.URL, Realm: "test", ClientID: "client"}, true, Options{UseDeviceCode: true, challengeWriter: failingWriter{}})
+	if err == nil || !strings.Contains(err.Error(), "challenge write failed") {
+		t.Errorf("missing challenge write error: %v", err)
 	}
 }
 
@@ -212,8 +197,9 @@ func TestDeviceCancellationAndExpiry(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("XDG_CACHE_HOME", t.TempDir())
 			var out bytes.Buffer
-			_, err := GetTokenWithOptions(context.Background(), cfg, false, Options{UseDeviceCode: true, Reporter: &authstatus.Reporter{Format: "json", Writer: &out}, wait: tc.wait})
-			if err == nil || !strings.Contains(out.String(), `"reason":"`+tc.reason+`"`) {
+			_, err := GetTokenWithOptions(context.Background(), cfg, false, Options{UseDeviceCode: true, challengeWriter: &out, wait: tc.wait})
+			var failure *deviceError
+			if !errors.As(err, &failure) || failure.Reason() != tc.reason || !strings.Contains(out.String(), "CODE") {
 				t.Errorf("missing %s failure: %v", tc.reason, err)
 			}
 		})
@@ -245,8 +231,9 @@ func TestDeviceNetworkAndMalformedChallenge(t *testing.T) {
 			server := httptest.NewServer(tc.handler)
 			defer server.Close()
 			var out bytes.Buffer
-			_, err := GetTokenWithOptions(context.Background(), PKCEConfig{KeycloakURL: server.URL, Realm: "test", ClientID: "client"}, true, Options{UseDeviceCode: true, Reporter: &authstatus.Reporter{Format: "json", Writer: &out}, wait: func(context.Context, time.Duration) error { return nil }})
-			if err == nil || !strings.Contains(out.String(), `"reason":"`+tc.reason+`"`) {
+			_, err := GetTokenWithOptions(context.Background(), PKCEConfig{KeycloakURL: server.URL, Realm: "test", ClientID: "client"}, true, Options{UseDeviceCode: true, challengeWriter: &out, wait: func(context.Context, time.Duration) error { return nil }})
+			var failure *deviceError
+			if !errors.As(err, &failure) || failure.Reason() != tc.reason || strings.Contains(out.String(), "secret") {
 				t.Errorf("missing %s failure: %v", tc.reason, err)
 			}
 		})

@@ -140,11 +140,10 @@ func runConfigInit(cmd *cobra.Command, _ []string) error {
 	profile := config.Profile{AccountID: values["account-id"], AWSRegion: values["region"], Project: values["project"], Environment: values["environment"], KeycloakURL: values["keycloak-url"], KeycloakRealm: values["realm"], OIDCClientID: values["client-id"], OIDCUseDeviceCode: &devicePreference, LambdaFunctionName: values["lambda-function-name"], InvokerRoleARN: values["invoker-role-arn"], SRERoleARN: values["sre-role-arn"], ClusterName: values["ecs-cluster"], EFSFilesystemID: values["efs-filesystem-id"]}
 	if auto {
 		pkce := auth.PKCEConfig{KeycloakURL: profile.KeycloakURL, Realm: profile.KeycloakRealm, ClientID: profile.OIDCClientID}
-		reporter, err := authReporter(cmd)
-		if err != nil {
+		if _, err := commandOutput(cmd); err != nil {
 			return err
 		}
-		idToken, err := auth.GetTokenWithOptions(cmd.Context(), pkce, true, auth.Options{UseDeviceCode: devicePreference, Reporter: reporter})
+		idToken, err := auth.GetTokenWithOptions(cmd.Context(), pkce, true, auth.Options{UseDeviceCode: devicePreference})
 		if err != nil {
 			return fmt.Errorf("OIDC discovery authentication failed; check the issuer/client and complete the selected sign-in flow, or use --auto-discover=false with operator-confirmed settings: %w", err)
 		}
@@ -312,11 +311,10 @@ func runLogin(cmd *cobra.Command) error {
 	if err := config.RequireSettings(cfg, "keycloak_url"); err != nil {
 		return err
 	}
-	reporter, err := authReporter(cmd)
-	if err != nil {
+	if _, err := commandOutput(cmd); err != nil {
 		return err
 	}
-	_, err = auth.GetTokenWithOptions(cmd.Context(), auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}, flagBool(cmd, "force"), auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode, Reporter: reporter})
+	_, err = auth.GetTokenWithOptions(cmd.Context(), auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}, flagBool(cmd, "force"), auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode})
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}

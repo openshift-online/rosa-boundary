@@ -107,7 +107,7 @@ What it does:
 Device approval is **per-user and human-in-the-loop**: it does not provide an
 unattended service credential. Scripts must handle a challenge during **any**
 auth-bearing command, not just a preceding `login`. See the
-[user access guide's concurrent event-draining example](user-access-guide.md#script-driven-human-approved-login).
+[user access guide's concurrent stderr-draining example](user-access-guide.md#script-driven-human-approved-login).
 
 ## Phase 2: Create Session
 
@@ -186,7 +186,7 @@ What it does:
 3. Waits for the container exec agent to open its data channel
 4. Hands the interactive session to `session-manager-plugin` for a seamless terminal
 
-`session join -o json` can provide authentication events on stderr if it needs
+`session join -o json` can show human authentication guidance on stderr if it needs
 fresh login, but its raw session I/O remains on a terminal, **not** a JSON
 result on stdout. Likewise `session create --connect -o json` may produce a session
 JSON result before connection but does not encode the shell as JSON. Use a
@@ -267,11 +267,11 @@ Stopping the task remains authoritative cleanup even if clear is not run.
 An explicitly supplied `--auth-flow auth-code|device` overrides only the OCM
 flow, not Boundary's; otherwise the saved/global device preference selects
 the OCM flow. Each OCM credential injection gets a new OCM access token and
-can request human approval even if Boundary is cached. In JSON mode use
-`session credentials configure ocm <session-id> -o json` to receive OCM (and, if needed,
-Boundary) auth events on stderr; it has no JSON result on stdout. Check exit
-status before assuming the credential transfer succeeded. `session credentials clear
-ocm ... -o json` likewise has auth events but no JSON result.
+can request human approval even if Boundary is cached. In JSON mode,
+`session credentials configure ocm <session-id> -o json` still shows OCM (and,
+if needed, Boundary) human approval guidance on stderr; it has no JSON result
+on stdout. Check exit status before assuming the credential transfer succeeded.
+`session credentials clear ocm ... -o json` likewise has no JSON result.
 
 To exercise workspace persistence and audit without customer data, create a
 harmless file such as `printf 'boundary smoke test\n' > ~/boundary-smoke-test.txt`
@@ -292,7 +292,7 @@ What it does:
 `--wait` confirms the task reached STOPPED, **not** that S3 sync succeeded.
 Closing the session does not close its investigation or delete the reusable workspace.
 Without a terminal, `session close` requires `--yes`; `-o json` returns a
-single status document on stdout and auth events on stderr.
+single status document on stdout and human-readable authentication guidance on stderr.
 The entrypoint warns and continues on sync failure or timeout. Check the container
 log for warnings and verify the object in S3 before treating audit escrow as complete.
 
@@ -412,11 +412,11 @@ browser flow for both providers even if saved true; an explicit OCM
 `--ocm-auth-flow auth-code` / `--auth-flow auth-code` selects a browser callback
 for OCM only. If a device request expires, is denied, or is canceled, verify
 the SRE approved the **correct provider's** URL and code and start a new,
-bounded attempt; do not expect a browser fallback. In JSON mode, inspect only
-`ROSA_BOUNDARY_AUTH_EVENT `-prefixed stderr lines for versioned provider events;
-other stderr is diagnostics and stdout result JSON is separate. An
-`authenticated` event is not evidence of STS success, task creation,
-credential transfer, or audit sync; check exit status and the steps below.
+bounded attempt; do not expect a browser fallback. Human-readable approval
+guidance and other diagnostics appear on stderr even in JSON mode; stdout
+result JSON is separate. Completing authentication is not evidence of STS
+success, task creation, credential transfer, or audit sync; check exit status
+and the steps below.
 
 ### AccessDeniedException on session join
 - Possible cause: task and OIDC-derived principal tags do not match for the deployment's ABAC key. Ask an operator with ECS read access to inspect the task tags and check the identity provider mapping and IAM policy.

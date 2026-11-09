@@ -145,38 +145,32 @@ instead of falling back. This setting chooses the login flow, not the provider.
 Automation can surface approval challenges, but **cannot issue user credentials
 unattended**: a human must approve each fresh device request. For every command
 that might authenticate, pass `-o json` (or `--output json`) to that **leaf
-command**, even after a successful `login -o json`; another command may see
-an expired token or an STS retry. Auth events are prefixed JSON lines on
-**stderr**, while operation result JSON (for example, `session create`)
-remains a single document on **stdout**. Other stderr diagnostics can coexist.
+command** when requesting a JSON result, even after a successful login;
+another command may see an expired token or an STS retry. Human-readable
+device URL/code and browser approval guidance appear on **stderr**, while
+existing operation result JSON (for example, `session create`) remains on
+**stdout**. There is no machine-readable authentication event protocol.
 `login`, `config init`, and OCM credential commands have no JSON result on
 stdout; `session close` and data commands return one JSON result; `session join`
 remains an interactive terminal session, not a
 JSON shell. Do not capture a device challenge into a shared CI log or file.
 
 For a noninteractive auth-bearing command, this Python example inherits its
-stdout (so result JSON is unchanged), drains stderr **while it runs**, and
-shows both provider challenges only on the operator's private terminal. Invoke
-it with an approved channel to the SRE and a command such as
+stdout (so existing result JSON is unchanged), drains stderr **while it runs**,
+and shows all diagnostics, including both providers' challenges, only on the
+operator's private terminal. It does not parse stderr or infer success from an
+approval. Invoke it with an approved channel to the SRE and a command such as
 `python3 approve_boundary.py ./bin/rosa-boundary session create CLUSTER --with-credentials ocm -o json`.
 Do not use this example for interactive `session join`, `session create --connect`, or
 manual `config init` (those need terminal input/session I/O).
 
 ```python
 #!/usr/bin/env python3
-import json
 import subprocess
 import sys
 
-PREFIX = "ROSA_BOUNDARY_AUTH_EVENT "
-args = sys.argv[2:]
-json_output = any(
-    (arg in ("-o", "--output") and i + 1 < len(args) and args[i + 1] == "json")
-    or arg in ("-o=json", "--output=json")
-    for i, arg in enumerate(args)
-)
-if not json_output:
-    sys.exit("Pass a noninteractive rosa-boundary command with -o json")
+if len(sys.argv) < 2:
+    sys.exit("Pass a noninteractive rosa-boundary command")
 
 with open("/dev/tty", "w", encoding="utf-8") as terminal:
     child = subprocess.Popen(
@@ -184,35 +178,19 @@ with open("/dev/tty", "w", encoding="utf-8") as terminal:
         stderr=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1,
     )
     for line in child.stderr:
-        if not line.startswith(PREFIX):
-            sys.stderr.write(line)  # Other diagnostics are not auth events.
-            continue
-        event = json.loads(line[len(PREFIX):])
-        provider = event["provider"]  # "boundary" and "ocm" are separate approvals.
-        if event["event"] == "device_authorization":
-            terminal.write(
-                f"{provider}: open {event['verification_uri']} on another device "
-                f"and enter {event['user_code']} (expires in {event['expires_in']}s).\n"
-            )
-            terminal.flush()  # Do not wait for process exit before notifying the SRE.
-        elif event["event"] == "authentication_failed":
-            terminal.write(f"{provider} authentication failed: {event['reason']}\n")
-            terminal.flush()
-        # "authenticated" is token acquisition, not command success.
+        terminal.write(line)
+        terminal.flush()  # Show approval guidance before the child finishes.
     sys.exit(child.wait())  # Check exit status before acting on stdout results.
 ```
 
-Each `device_authorization` event has `version: 1`, `provider`,
-`verification_uri`, `user_code`, and `expires_in`; `authenticated` has a
-`source` (`cache`, `device`, or `browser`; cache is Boundary-only), and
-`authentication_failed` has a sanitized reason. A cached Boundary success
-can be followed by a fresh Boundary challenge on STS rejection; OCM approval
-can follow in the same command. The process may fail **after** either
-`authenticated` event. Handle the short-lived URL and code as sensitive
+A cached Boundary token can be followed by a fresh Boundary challenge on STS
+rejection; OCM approval can follow in the same command. The process can fail
+after either approval. Handle the short-lived URL and code as sensitive
 operational information; never pass them in arguments, store them in logs,
-or print tokens. Do not retry denied or expired requests indefinitely. See
-the [authentication model](../architecture/cli-authentication.md#authentication-events-for-scripts)
-for the complete event and stream contract.
+or print tokens. Do not retry denied or expired requests indefinitely. The
+CLI currently has **no JSON result on stdout** for `login`, `config init`,
+`session join`, or session credential commands; defining those results is
+separate work. See the [authentication model](../architecture/cli-authentication.md#human-approved-authentication-and-json-output).
 
 For OCM credentials, `session create --with-credentials ocm` and
 `session credentials configure ocm <session-id>` use the same saved/global device

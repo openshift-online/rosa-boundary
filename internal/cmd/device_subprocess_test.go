@@ -14,12 +14,10 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 )
 
-// This subprocess contract ensures a script can receive a challenge while the
-// CLI is still running. Unit tests alone cannot prove stderr is drained early.
+// This subprocess contract ensures an operator can receive a challenge while
+// the CLI is still running, including in JSON mode.
 func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds a local CLI subprocess")
@@ -86,8 +84,8 @@ func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 			lines <- scanner.Text()
 		}
 	}()
-	var challenge map[string]any
-	for challenge == nil {
+	challenge := false
+	for !challenge {
 		select {
 		case line, ok := <-lines:
 			if !ok {
@@ -96,36 +94,20 @@ func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 			if strings.Contains(line, "secret-device-code") {
 				t.Fatal("device secret leaked to stderr")
 			}
-			if strings.HasPrefix(line, authstatus.Prefix) {
-				var event map[string]any
-				if err := json.Unmarshal([]byte(strings.TrimPrefix(line, authstatus.Prefix)), &event); err != nil {
-					t.Fatal(err)
-				}
-				if event["event"] == "device_authorization" {
-					challenge = event
-				}
+			if strings.Contains(line, "ROSA_BOUNDARY_AUTH_EVENT") {
+				t.Fatal("obsolete auth event emitted")
+			}
+			if strings.Contains(line, "CODE-1234") && strings.Contains(line, "https://example.invalid/verify") {
+				challenge = true
 			}
 		case <-ctx.Done():
 			t.Fatalf("challenge was not emitted before approval: %v", ctx.Err())
 		}
 	}
-	if challenge["provider"] != "boundary" || challenge["user_code"] != "CODE-1234" || challenge["verification_uri"] != "https://example.invalid/verify" {
-		t.Fatalf("bad challenge metadata: %v", challenge)
-	}
 	close(approved)
-	terminal := 0
 	for line := range lines {
-		if strings.Contains(line, "secret-device-code") {
-			t.Fatal("device secret leaked")
-		}
-		if strings.HasPrefix(line, authstatus.Prefix) {
-			var event map[string]any
-			if err := json.Unmarshal([]byte(strings.TrimPrefix(line, authstatus.Prefix)), &event); err != nil {
-				t.Fatal(err)
-			}
-			if event["event"] == "authenticated" && event["source"] == "device" && event["provider"] == "boundary" {
-				terminal++
-			}
+		if strings.Contains(line, "secret-device-code") || strings.Contains(line, "ROSA_BOUNDARY_AUTH_EVENT") {
+			t.Fatal("device secret or obsolete event leaked")
 		}
 	}
 	out, err := io.ReadAll(stdout)
@@ -135,7 +117,7 @@ func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 	if err := process.Wait(); err != nil {
 		t.Fatal(fmt.Errorf("CLI exit: %w", err))
 	}
-	if len(out) != 0 || terminal != 1 {
-		t.Fatalf("stdout bytes=%d terminal events=%d", len(out), terminal)
+	if len(out) != 0 {
+		t.Fatalf("stdout bytes=%d; login JSON result remains a separate gap", len(out))
 	}
 }

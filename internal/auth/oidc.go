@@ -7,14 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 	"time"
 
-	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
@@ -42,11 +43,11 @@ type oidcDependencies struct {
 	codeExchanger         func(context.Context, string, string, string, string, string) (string, error)
 }
 
-// Options selects the fresh ID-token flow and the invocation's status stream.
-// An absent Reporter preserves the original text-mode behavior.
+// Options selects the fresh ID-token flow and the invocation's challenge stream.
 type Options struct {
 	UseDeviceCode bool
-	Reporter      *authstatus.Reporter
+	// challengeWriter is injectable for tests; production writes to stderr.
+	challengeWriter io.Writer
 	// httpClient and wait are injectable only from auth tests; production uses
 	// bounded HTTP requests and context-aware polling.
 	httpClient *http.Client
@@ -77,42 +78,37 @@ func getTokenWithOptionsAndDeps(ctx context.Context, cfg PKCEConfig, force bool,
 	if !force {
 		cached, err := CachedTokenForConfig(cfg)
 		if err == nil && cached != "" {
-			if err := opts.Reporter.Emit("boundary", "authenticated", map[string]any{"source": "cache"}); err != nil {
-				return "", err
-			}
 			return cached, nil
 		}
 	}
 	var token string
 	var err error
-	source := "browser"
 	if opts.UseDeviceCode {
-		source = "device"
 		token, err = acquireDeviceToken(ctx, cfg, opts)
 	} else {
 		token, err = acquireBrowserToken(ctx, cfg, deps)
 	}
 	if err != nil {
-		if writeErr := opts.Reporter.Failure("boundary", err); writeErr != nil {
-			return "", fmt.Errorf("authentication status write failed: %w", writeErr)
-		}
 		return "", err
 	}
 	expiration, expiryErr := parseTokenExpiration(token)
 	if expiryErr != nil || !expiration.After(time.Now().Add(expirationBuffer)) {
 		err = &deviceError{reason: "invalid_response", text: "OIDC provider returned an invalid or expired ID token"}
-		if writeErr := opts.Reporter.Failure("boundary", err); writeErr != nil {
-			return "", fmt.Errorf("authentication status write failed: %w", writeErr)
-		}
 		return "", err
 	}
 	if err := SaveTokenForConfig(token, cfg); err != nil {
 		output.Warning("could not cache token: %v", err)
 	}
-	if err := opts.Reporter.Emit("boundary", "authenticated", map[string]any{"source": source}); err != nil {
-		return "", err
-	}
 	return token, nil
+}
+
+func (opts Options) deviceChallenge(format string, args ...any) error {
+	writer := opts.challengeWriter
+	if writer == nil {
+		writer = os.Stderr
+	}
+	_, err := fmt.Fprintf(writer, format+"\n", args...)
+	return err
 }
 
 func acquireBrowserToken(ctx context.Context, cfg PKCEConfig, deps oidcDependencies) (string, error) {

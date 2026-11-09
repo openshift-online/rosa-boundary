@@ -14,8 +14,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 )
 
 type redirectOCMTransport struct{ server *httptest.Server }
@@ -27,43 +25,27 @@ func (transport redirectOCMTransport) RoundTrip(request *http.Request) (*http.Re
 	return http.DefaultTransport.RoundTrip(copy)
 }
 
-type authEventOutput struct {
+type challengeOutput struct {
 	mu    sync.Mutex
 	lines []string
 }
 
-func (output *authEventOutput) Write(data []byte) (int, error) {
+func (output *challengeOutput) status(format string, args ...any) {
 	output.mu.Lock()
 	defer output.mu.Unlock()
-	output.lines = append(output.lines, string(data))
-	return len(data), nil
+	output.lines = append(output.lines, fmt.Sprintf(format, args...))
 }
 
-func (output *authEventOutput) events(t *testing.T) []map[string]any {
-	t.Helper()
+func (output *challengeOutput) text() string {
 	output.mu.Lock()
 	defer output.mu.Unlock()
-	var events []map[string]any
-	for _, line := range output.lines {
-		if !strings.HasPrefix(line, authstatus.Prefix) || !strings.HasSuffix(line, "\n") {
-			t.Fatalf("malformed authentication event: %q", line)
-		}
-		var event map[string]any
-		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, authstatus.Prefix)), &event); err != nil {
-			t.Fatal(err)
-		}
-		if event["provider"] != "ocm" || event["version"] != float64(1) {
-			t.Fatalf("event missing OCM provider/version: %#v", event)
-		}
-		events = append(events, event)
-	}
-	return events
+	return strings.Join(output.lines, "\n")
 }
 
-func newTestDeviceAuthenticator(server *httptest.Server, output io.Writer) *Authenticator {
+func newTestDeviceAuthenticator(server *httptest.Server, output *challengeOutput) *Authenticator {
 	a := NewAuthenticator(nil)
 	a.HTTPClient = &http.Client{Transport: redirectOCMTransport{server: server}}
-	a.Reporter = &authstatus.Reporter{Format: "json", Writer: output}
+	a.Status = output.status
 	a.OpenBrowser = func(string) error { panic("device mode launched browser") }
 	a.Listen = func(string, string) (net.Listener, error) { panic("device mode started callback listener") }
 	return a
@@ -78,8 +60,8 @@ func writeDeviceChallenge(w http.ResponseWriter, expiry int) {
 	})
 }
 
-func TestAcquireDeviceEmitsChallengeBeforePollingAndNeverStartsBrowser(t *testing.T) {
-	output := &authEventOutput{}
+func TestAcquireDeviceShowsChallengeBeforePollingAndNeverStartsBrowser(t *testing.T) {
+	output := &challengeOutput{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
 		case "/auth/realms/redhat-external/protocol/openid-connect/auth/device":
@@ -90,8 +72,8 @@ func TestAcquireDeviceEmitsChallengeBeforePollingAndNeverStartsBrowser(t *testin
 			}
 			writeDeviceChallenge(w, 10)
 		case "/auth/realms/redhat-external/protocol/openid-connect/token":
-			if events := output.events(t); len(events) != 1 || events[0]["event"] != "device_authorization" || events[0]["user_code"] != "CODE-1234" || events[0]["verification_uri"] != "https://sso.test/device?user_code=CODE-1234" || events[0]["expires_in"].(float64) <= 0 {
-				t.Errorf("challenge not emitted before poll: %#v", events)
+			if text := output.text(); !strings.Contains(text, "CODE-1234") || !strings.Contains(text, "https://sso.test/device?user_code=CODE-1234") || !strings.Contains(text, "Waiting") {
+				t.Errorf("challenge not shown before poll: %q", text)
 			}
 			body, _ := io.ReadAll(request.Body)
 			values, _ := url.ParseQuery(string(body))
@@ -106,24 +88,16 @@ func TestAcquireDeviceEmitsChallengeBeforePollingAndNeverStartsBrowser(t *testin
 	}))
 	defer server.Close()
 	a := newTestDeviceAuthenticator(server, output)
-	var text strings.Builder
-	a.Status = func(format string, args ...any) { _, _ = fmt.Fprintf(&text, format, args...) }
 	token, err := a.Acquire(context.Background(), FlowDevice)
 	if err != nil || token.AccessToken != "access-secret-canary" {
 		t.Fatalf("device acquisition failed: %v", err)
 	}
-	events := output.events(t)
-	if len(events) != 2 || events[1]["event"] != "authenticated" || events[1]["source"] != "device" {
-		t.Fatalf("unexpected terminal event: %#v", events)
-	}
-	if text.Len() != 0 {
-		t.Fatalf("JSON mode emitted duplicate human challenge: %q", text.String())
+	if text := output.text(); !strings.Contains(text, "Enter code: CODE-1234") || strings.Contains(text, "ROSA_BOUNDARY_AUTH_EVENT") {
+		t.Fatalf("missing human challenge or unexpected protocol: %q", text)
 	}
 	for _, secret := range []string{"device-secret-canary", "access-secret-canary", "refresh-secret-canary"} {
-		for _, line := range output.lines {
-			if strings.Contains(line, secret) {
-				t.Fatalf("auth status leaked %s", secret)
-			}
+		if strings.Contains(output.text(), secret) {
+			t.Fatalf("auth status leaked %s", secret)
 		}
 	}
 }
@@ -137,7 +111,7 @@ func TestAcquireDeviceErrorsAreSanitizedAndCategorized(t *testing.T) {
 		{"invalid", "invalid_grant", "invalid_response"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			output := &authEventOutput{}
+			output := &challengeOutput{}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 				if strings.HasSuffix(request.URL.Path, "/auth/device") {
 					writeDeviceChallenge(w, 5)
@@ -152,16 +126,16 @@ func TestAcquireDeviceErrorsAreSanitizedAndCategorized(t *testing.T) {
 			if err == nil || strings.Contains(err.Error(), "upstream-secret-canary") {
 				t.Fatalf("unsanitized device failure: %v", err)
 			}
-			events := output.events(t)
-			if len(events) != 2 || events[1]["event"] != "authentication_failed" || events[1]["reason"] != tc.reason {
-				t.Fatalf("unexpected failure events: %#v", events)
+			var failure authFailure
+			if !errors.As(err, &failure) || failure.Reason() != tc.reason || !strings.Contains(output.text(), "CODE-1234") || strings.Contains(output.text(), "upstream-secret-canary") {
+				t.Fatalf("unexpected failure or challenge: %v, %q", err, output.text())
 			}
 		})
 	}
 }
 
 func TestAcquireDeviceCanceledWithoutPolling(t *testing.T) {
-	output := &authEventOutput{}
+	output := &challengeOutput{}
 	ctx, cancel := context.WithCancel(context.Background())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if strings.HasSuffix(request.URL.Path, "/auth/device") {
@@ -176,29 +150,27 @@ func TestAcquireDeviceCanceledWithoutPolling(t *testing.T) {
 	if err == nil {
 		t.Fatal("canceled device acquisition succeeded")
 	}
-	events := output.events(t)
-	if len(events) < 1 || len(events) > 2 || events[len(events)-1]["reason"] != "canceled" {
-		t.Fatalf("unexpected cancellation events: %#v", events)
+	var failure authFailure
+	if !errors.As(err, &failure) || failure.Reason() != "canceled" {
+		t.Fatalf("unexpected cancellation: %v", err)
 	}
 }
 
-type failingAuthWriter struct{}
-
-func (failingAuthWriter) Write([]byte) (int, error) { return 0, errors.New("event writer unavailable") }
-
-func TestAcquireDeviceStopsBeforePollingWhenEventWriteFails(t *testing.T) {
+func TestAcquireDeviceChallengePrecedesPollEvenWhenCanceled(t *testing.T) {
+	output := &challengeOutput{}
+	ctx, cancel := context.WithCancel(context.Background())
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if !strings.HasSuffix(request.URL.Path, "/auth/device") {
-			t.Error("polled despite failed challenge event")
+			t.Error("polled despite canceled challenge")
 		}
 		writeDeviceChallenge(w, 30)
+		cancel()
 	}))
 	defer server.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	_, err := newTestDeviceAuthenticator(server, failingAuthWriter{}).Acquire(ctx, FlowDevice)
-	if err == nil || !strings.Contains(err.Error(), "authentication status") {
-		t.Fatalf("event write failure = %v", err)
+	_, err := newTestDeviceAuthenticator(server, output).Acquire(ctx, FlowDevice)
+	if err == nil || (!strings.Contains(output.text(), "CODE-1234") && !errors.Is(err, context.Canceled)) {
+		t.Fatalf("canceled challenge = %v, %q", err, output.text())
 	}
 }
 
@@ -210,8 +182,7 @@ func TestAcquireDeviceTextModeIncludesCodeWithCompleteURL(t *testing.T) {
 	}))
 	defer server.Close()
 	var text strings.Builder
-	a := newTestDeviceAuthenticator(server, nil)
-	a.Reporter.Format = "text"
+	a := newTestDeviceAuthenticator(server, &challengeOutput{})
 	a.Status = func(format string, args ...any) { _, _ = fmt.Fprintf(&text, format+"\n", args...); cancel() }
 	_, _ = a.Acquire(ctx, FlowDevice)
 	if !strings.Contains(text.String(), "CODE-1234") || !strings.Contains(text.String(), "Waiting") {
@@ -230,7 +201,7 @@ func TestAcquireDeviceRejectsMalformedAndSecretBearingChallenges(t *testing.T) {
 		{"invalid scheme", `{"device_code":"device-secret-canary","user_code":"CODE-1234","verification_uri_complete":"javascript://sso.test/device","expires_in":30}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			output := &authEventOutput{}
+			output := &challengeOutput{}
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 				if !strings.HasSuffix(request.URL.Path, "/auth/device") {
 					t.Error("polled malformed challenge")
@@ -243,9 +214,8 @@ func TestAcquireDeviceRejectsMalformedAndSecretBearingChallenges(t *testing.T) {
 			if err == nil || strings.Contains(err.Error(), "device-secret-canary") {
 				t.Fatalf("malformed challenge was accepted or leaked: %v", err)
 			}
-			events := output.events(t)
-			if len(events) != 1 || events[0]["event"] != "authentication_failed" || events[0]["reason"] != "invalid_response" {
-				t.Fatalf("unexpected malformed-challenge status: %#v", events)
+			if output.text() != "" {
+				t.Fatalf("displayed malformed challenge: %q", output.text())
 			}
 		})
 	}
@@ -258,22 +228,22 @@ func (failingOCMTransport) RoundTrip(*http.Request) (*http.Response, error) {
 }
 
 func TestAcquireDeviceNetworkFailureDoesNotExposeTransportError(t *testing.T) {
-	output := &authEventOutput{}
+	output := &challengeOutput{}
 	a := NewAuthenticator(nil)
 	a.HTTPClient = &http.Client{Transport: failingOCMTransport{}}
-	a.Reporter = &authstatus.Reporter{Format: "json", Writer: output}
+	a.Status = output.status
 	_, err := a.Acquire(context.Background(), FlowDevice)
 	if err == nil || strings.Contains(err.Error(), "transport-internal-secret-canary") {
 		t.Fatalf("network failure leaked transport message: %v", err)
 	}
-	events := output.events(t)
-	if len(events) != 1 || events[0]["reason"] != "network" {
-		t.Fatalf("unexpected network status: %#v", events)
+	var failure authFailure
+	if !errors.As(err, &failure) || failure.Reason() != "network" || output.text() != "" {
+		t.Fatalf("unexpected network status: %v, %q", err, output.text())
 	}
 }
 
-func TestAcquireAuthCodeReportsBrowserSuccess(t *testing.T) {
-	output := &authEventOutput{}
+func TestAcquireAuthCodeShowsBrowserGuidance(t *testing.T) {
+	output := &challengeOutput{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if !strings.HasSuffix(request.URL.Path, "/token") {
 			t.Errorf("unexpected OCM endpoint %s", request.URL.Path)
@@ -312,8 +282,7 @@ func TestAcquireAuthCodeReportsBrowserSuccess(t *testing.T) {
 	if err != nil || token.AccessToken != "access-secret-canary" {
 		t.Fatalf("browser auth failed: %v", err)
 	}
-	events := output.events(t)
-	if len(events) != 1 || events[0]["event"] != "authenticated" || events[0]["source"] != "browser" {
-		t.Fatalf("browser success event = %#v", events)
+	if text := output.text(); !strings.Contains(text, "Open this URL to authorize OCM:") || !strings.Contains(text, "Waiting for OCM authorization callback") || strings.Contains(text, "access-secret-canary") {
+		t.Fatalf("browser guidance = %q", text)
 	}
 }

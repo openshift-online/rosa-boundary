@@ -123,12 +123,11 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 	if err := checkRoleAccounts(cfg.AccountID, map[string]string{"invoker_role_arn": cfg.InvokerRoleARN, "sre_role_arn": cfg.SRERoleARN}); err != nil {
 		return err
 	}
-	reporter, err := authReporter(cmd)
-	if err != nil {
+	if _, err := commandOutput(cmd); err != nil {
 		return err
 	}
 	pkce := auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}
-	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, role, session, false, auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode, Reporter: reporter})
+	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, role, session, false, auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode})
 	if err != nil {
 		return err
 	}

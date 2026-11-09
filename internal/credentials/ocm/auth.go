@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 	"github.com/skratchdot/open-golang/open"
 	"golang.org/x/oauth2"
 )
@@ -39,11 +38,8 @@ type Authenticator struct {
 	OpenBrowser func(string) error
 	Listen      func(network, address string) (net.Listener, error)
 	Status      func(format string, args ...any)
-	// Reporter emits provider-tagged auth events. In JSON mode it replaces the
-	// human device challenge; Status remains for text and browser-flow guidance.
-	Reporter *authstatus.Reporter
-	Debug    func(format string, args ...any) error
-	Timeout  time.Duration
+	Debug       func(format string, args ...any) error
+	Timeout     time.Duration
 }
 
 // NewAuthenticator returns an authenticator using verified default TLS.
@@ -58,26 +54,9 @@ func NewAuthenticator(status func(string, ...any)) *Authenticator {
 }
 
 // Acquire obtains a newly issued access token without reading or writing a cache.
-func (a *Authenticator) Acquire(ctx context.Context, flow Flow) (token Token, err error) {
+func (a *Authenticator) Acquire(ctx context.Context, flow Flow) (Token, error) {
 	if flow != FlowAuthCode && flow != FlowDevice {
 		return Token{}, fmt.Errorf("unsupported OCM authentication flow %q; use auth-code or device", flow)
-	}
-	if a.Reporter != nil {
-		defer func() {
-			if err != nil {
-				if reportErr := a.Reporter.Failure("ocm", err); reportErr != nil {
-					token, err = Token{}, fmt.Errorf("write OCM authentication status: %w", reportErr)
-				}
-				return
-			}
-			source := "browser"
-			if flow == FlowDevice {
-				source = "device"
-			}
-			if reportErr := a.Reporter.Emit("ocm", "authenticated", map[string]any{"source": source}); reportErr != nil {
-				token, err = Token{}, fmt.Errorf("write OCM authentication status: %w", reportErr)
-			}
-		}()
 	}
 	switch flow {
 	case FlowAuthCode:
@@ -136,24 +115,9 @@ func (a *Authenticator) acquireDevice(ctx context.Context) (Token, error) {
 	if strings.Contains(verificationURL, device.DeviceCode) {
 		return Token{}, authFailure{message: "OCM device authorization returned an invalid verification URL", reason: "invalid_response"}
 	}
-	if a.Reporter != nil {
-		remaining := int64(time.Until(device.Expiry).Seconds())
-		if remaining < 1 {
-			remaining = 1
-		}
-		if err := a.Reporter.Emit("ocm", "device_authorization", map[string]any{
-			"verification_uri": verificationURL,
-			"user_code":        device.UserCode,
-			"expires_in":       remaining,
-		}); err != nil {
-			return Token{}, fmt.Errorf("write OCM authentication status: %w", err)
-		}
-	}
-	if a.Reporter == nil || a.Reporter.Format != "json" {
-		a.status("Open this URL to authorize OCM:\n%s", verificationURL)
-		a.status("Enter code: %s", device.UserCode)
-		a.status("Waiting for OCM device authorization approval...")
-	}
+	a.status("Open this URL to authorize OCM:\n%s", verificationURL)
+	a.status("Enter code: %s", device.UserCode)
+	a.status("Waiting for OCM device authorization approval...")
 
 	token, err := config.DeviceAccessToken(ctx, device, oauth2.VerifierOption(verifier))
 	if err != nil {
@@ -383,7 +347,6 @@ func accessTokenOnly(token *oauth2.Token) (Token, error) {
 
 // authFailure deliberately does not wrap upstream OAuth errors: RetrieveError
 // may contain a token endpoint response body (including sensitive material).
-// Reason provides a bounded event value without inspecting the raw response.
 type authFailure struct {
 	message string
 	reason  string

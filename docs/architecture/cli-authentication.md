@@ -20,17 +20,11 @@ For ordinary authenticated commands, explicit `--use-device-code=true|false` (ba
 
 Boundary uses an OIDC **ID token** for STS and Lambda. `session create --with-credentials ocm` and `session credentials configure ocm` obtain a **fresh OCM access token** from the OCM issuer/client, injected into task-scoped, audit-excluded storage rather than EFS home or the Boundary token cache. OCM follows the same device preference by default; `--ocm-auth-flow auth-code|device` on start and `--auth-flow auth-code|device` on configure override **OCM only**. Explicit `auth-code` requires a browser callback even if Boundary uses device mode. One start command may need two separate human approvals; a cached Boundary ID token cannot replace OCM approval.
 
-## Authentication events for scripts
+## Human-approved authentication and JSON output
 
-Every auth-bearing leaf offers `-o json` / `--output json`. It selects versioned, immediately flushed `ROSA_BOUNDARY_AUTH_EVENT `-prefixed **stderr** lines for Boundary and OCM authentication. Other diagnostics may share stderr. The `config init` discovery, `login`, `session join`, and session credential commands have no JSON result on stdout; data commands and `session close` emit one result document on stdout. Offline config commands have no auth events. A `session join` or `session create --connect` still requires a terminal for interactive shell I/O. An `authenticated` event is **not** operation success: check exit status and any final result.
+Every auth-bearing leaf offers `-o json` / `--output json`. Authentication guidance is human-readable **stderr**, not a machine-readable event API. Device approvals display the verification URL and user code on stderr even with `-o json`; browser authorization guidance remains on stderr. Tokens, OAuth `device_code`, PKCE verifiers, and raw token responses are not printed. Monitor stderr **while the process runs** to approve each challenge, including an STS retry. Treat URLs/codes as sensitive operational output and share them privately, never in shared CI logs. Check the process exit status before acting on any result: completing authentication does not mean the command succeeded. See the [script-driven example](../runbooks/user-access-guide.md#script-driven-human-approved-login).
 
-```text
-ROSA_BOUNDARY_AUTH_EVENT {"version":1,"provider":"boundary","event":"device_authorization","verification_uri":"https://...","user_code":"ABCD-EFGH","expires_in":600}
-ROSA_BOUNDARY_AUTH_EVENT {"version":1,"provider":"boundary","event":"authenticated","source":"device"}
-ROSA_BOUNDARY_AUTH_EVENT {"version":1,"provider":"ocm","event":"authentication_failed","reason":"expired"}
-```
-
-`device_authorization` includes a short-lived verification URL and user code; `authenticated` has source `cache`, `device`, or `browser` (`cache` is Boundary-only); `authentication_failed` has sanitized reason `denied`, `expired`, `canceled`, `network`, `invalid_response`, or `other`. Tokens, OAuth `device_code`, PKCE verifiers and raw token responses are not output. Drain stderr **while the process runs** so the SRE can approve each challenge, including an STS retry. Treat URLs/codes as sensitive operational output and share them privately, never in shared CI logs. See the [script-driven example](../runbooks/user-access-guide.md#script-driven-human-approved-login).
+JSON result output is unchanged by removal of the auth event stream. **Remaining gap:** `config init` discovery, `login`, `session join`, and session credential commands currently have no JSON result on stdout; data commands and `session close` emit one result document. A `session join` or `session create --connect` still requires a terminal for interactive shell I/O. Defining JSON results for the no-result commands and resolving interactive shell output are separate work.
 
 ## Timeouts and audit access
 

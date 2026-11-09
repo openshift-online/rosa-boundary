@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
-	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/spf13/cobra"
 )
@@ -40,8 +40,8 @@ func TestOutputFlagsAreCommandScoped(t *testing.T) {
 	}
 	for _, path := range [][]string{{"login"}, {"config", "init"}, {"session", "join"}, {"session", "credentials", "configure", "ocm"}} {
 		command := commandAtPath(t, root, path...)
-		if !strings.Contains(command.Flags().Lookup("output").Usage, "auth events on stderr") {
-			t.Errorf("%s lacks event help", command.CommandPath())
+		if !strings.Contains(command.Flags().Lookup("output").Usage, "authentication guidance goes to stderr") {
+			t.Errorf("%s lacks authentication guidance help", command.CommandPath())
 		}
 	}
 }
@@ -93,7 +93,7 @@ func TestInvalidOutputBeforeAuth(t *testing.T) {
 	if err := cmd.Flags().Set("output", "xml"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := authReporter(cmd); err == nil || !strings.Contains(err.Error(), "invalid --output") {
+	if _, err := commandOutput(cmd); err == nil || !strings.Contains(err.Error(), "invalid --output") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -156,24 +156,28 @@ func TestSTSCacheRejectionRetriesWithDeviceFlow(t *testing.T) {
 		}
 		return &awsclient.TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "session"}, nil
 	}
-	var events bytes.Buffer
-	_, _, err := assumeRoleWithRetryOptions(context.Background(), pkce, "us-east-1", "role", "session", false, auth.Options{UseDeviceCode: true, Reporter: &authstatus.Reporter{Format: "json", Writer: &events}})
+	// A cached token may be rejected by STS: the selected device flow must
+	// show a fresh challenge rather than silently falling back to a browser.
+	read, write, pipeErr := os.Pipe()
+	if pipeErr != nil {
+		t.Fatal(pipeErr)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = write
+	t.Cleanup(func() { os.Stderr = oldStderr; _ = read.Close(); _ = write.Close() })
+	_, _, err := assumeRoleWithRetryOptions(context.Background(), pkce, "us-east-1", "role", "session", false, auth.Options{UseDeviceCode: true})
+	_ = write.Close()
+	events, readErr := io.ReadAll(read)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	if tries != 2 {
 		t.Fatalf("STS attempts %d", tries)
 	}
-	lines := strings.Split(strings.TrimSpace(events.String()), "\n")
-	if len(lines) != 3 {
-		t.Fatalf("events = %s", events.String())
-	}
-	for index, event := range []string{`"source":"cache"`, `"event":"device_authorization"`, `"source":"device"`} {
-		if !strings.Contains(lines[index], event) {
-			t.Errorf("event %d lacks %s", index, event)
-		}
-	}
-	if strings.Contains(events.String(), "secret-device-code") || strings.Contains(events.String(), fresh) {
-		t.Fatal("secret leaked into auth events")
+	if !bytes.Contains(events, []byte("ABCD-1234")) || !bytes.Contains(events, []byte("https://example.test/device")) || bytes.Contains(events, []byte("ROSA_BOUNDARY_AUTH_EVENT")) || bytes.Contains(events, []byte("secret-device-code")) || bytes.Contains(events, []byte(fresh)) {
+		t.Fatalf("missing approval guidance or secret/event leaked: %s", events)
 	}
 }

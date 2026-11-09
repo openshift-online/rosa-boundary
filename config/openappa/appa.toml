@@ -1,0 +1,62 @@
+# Restricted investigations cannot use configured public-facing tools.
+# This is a tool-boundary guardrail, NOT a shell/network sandbox or customer ACL.
+# No wildcard annotator, authority or sanitizer can declassify this context.
+[policy]
+version = 2
+
+[policy.deployment]
+starting_label = { audience = ["internal"] }
+
+[[policy.tool]]
+name = "host/claude-code/WebFetch"
+requires = { audience = { contains = ["public"] } }
+
+[[policy.tool]]
+name = "host/claude-code/WebSearch"
+requires = { audience = { contains = ["public"] } }
+
+# Preserve existing local investigation tools and their native permissions.
+# Bash subprocess traffic, implicit reads and assistant prose are NOT mediated
+# as network sinks by these declarations. No unrestricted MCP fallback exists.
+[[policy.tool]]
+name = "host/claude-code/Bash"
+delta = { audience = ["internal"] }
+# Bash network egress is deliberately NOT gated here. APPA sees only the command
+# string, so argument globs cannot tell an exfiltrating `curl` from a legitimate
+# internal `curl http://metrics`, nor a `curl` binary from the word "curl" in a
+# grep argument — any such rule is both bypassable and blocks real investigation.
+# Egress must be constrained at the network layer (task egress allowlist), which
+# does not exist yet; the Fargate SG currently permits all outbound. See docs.
+
+[[policy.tool]]
+name = "host/claude-code/Read"
+delta = { audience = ["internal"] }
+
+[[policy.tool]]
+name = "host/claude-code/Write"
+delta = { audience = ["internal"] }
+
+[[policy.tool]]
+name = "host/claude-code/Edit"
+delta = { audience = ["internal"] }
+
+[[policy.tool]]
+name = "host/claude-code/Glob"
+delta = { audience = ["internal"] }
+
+[[policy.tool]]
+name = "host/claude-code/Grep"
+delta = { audience = ["internal"] }
+
+[[policy.tool]]
+name = "host/claude-code/TodoWrite"
+
+[[policy.tool]]
+name = "host/claude-code/AskUserQuestion"
+
+[externals]
+timeout_ms = 5000
+max_body_bytes = 65536
+
+[reporting]
+agent_yell = false

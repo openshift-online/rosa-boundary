@@ -7,12 +7,13 @@
 #   tools-base       — shared build environment (curl, python3, helpers)
 #   sre-tools        — directly pinned SRE tools (SHA256/signature verified)
 #   claude-builder   — Claude Code via github_dl (SHA256 verified)
+#   appa-builder     — optional restricted-scope Claude guardrail (SHA256 verified)
 #   tmux-builder     — tmux built from source (not in UBI9 repos)
 #   final            — production image (only this stage ships)
 #
-# sre-tools and claude-builder depend on tools-base.
+# sre-tools, claude-builder and appa-builder depend on tools-base.
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
-# stages 2-5 run in parallel once their dependencies complete.
+# tool builder stages run in parallel once their dependencies complete.
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:bcfca170da4fe08c0b70aa76ca4ee63f0e724db1574712cbc6c6a77fea6b21dc
@@ -148,7 +149,27 @@ RUN mkdir --parents /opt/claude \
     && chmod +x /opt/claude/claude
 
 
-# Stage 4: tmux-builder
+# Optional OpenAPPA integration. Pin independently of the six-tool SRE inventory.
+FROM tools-base AS appa-builder
+
+ARG OPENAPPA_VERSION="v0.40.1"
+COPY build/openappa.py build/sre_tools.py build/github_dl.py /usr/local/share/openappa-build/
+RUN mkdir --parents /opt/openappa
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
+    python3 /usr/local/share/openappa-build/openappa.py download \
+        --version "${OPENAPPA_VERSION}" \
+        --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" \
+        --output /opt/openappa/appa
+# Execute only after build-secret mounts are gone; never install during an investigation.
+RUN --network=none test "$(/opt/openappa/appa --version)" = "appa ${OPENAPPA_VERSION#v}"
+RUN python3 /usr/local/share/openappa-build/openappa.py settings \
+        --output /opt/openappa/claude-settings.json
+
+
+# Stage: tmux-builder
 # tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
 # subscription). Build from source against UBI9's libevent and ncurses.
 # Runtime shared libs are already in the UBI9 base image.
@@ -188,7 +209,7 @@ RUN curl --silent --location --fail \
     && strip --strip-all /build/out/usr/bin/tmux
 
 
-# Stage 6: final
+# Stage: final
 # Production image. Only this stage ships.
 FROM ${BASE_IMAGE} AS final
 
@@ -230,6 +251,12 @@ COPY --from=sre-tools /opt/tool-versions.json /usr/local/share/rosa-boundary/too
 # Claude Code binary
 COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
 
+# Optional guarded launch; ordinary claude/settings remain unchanged.
+COPY --from=appa-builder /opt/openappa/appa /usr/local/bin/appa
+COPY --from=appa-builder /opt/openappa/claude-settings.json /etc/rosa-boundary/openappa/claude-settings.json
+COPY config/openappa/ /etc/rosa-boundary/openappa/
+COPY --chmod=755 utils/boundary-claude /usr/local/bin/
+
 # tmux built from source (not in UBI9 repos)
 COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
 
@@ -249,6 +276,9 @@ RUN useradd --create-home --shell /bin/bash sre \
     && chown root:root /etc/sudoers.d/sre \
     && chmod 0440 /etc/sudoers.d/sre \
     && visudo --check --file /etc/sudoers
+
+# SQLite WAL belongs on task-local storage, never the EFS-backed investigation home.
+RUN install --directory --mode=0700 --owner=sre --group=sre /var/lib/rosa-boundary/openappa
 
 # Skeleton config copied to /home/sre at runtime by the entrypoint
 COPY skel/sre/ /etc/skel-sre/

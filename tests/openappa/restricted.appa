@@ -1,0 +1,43 @@
+# Real engine checks only; no tools, model classifiers or approval services run.
+host/claude-code/WebFetch {
+  url: "https://example.com/?investigation=private"
+}
+expect deny
+
+host/claude-code/WebSearch {
+  query: "private investigation details"
+}
+expect deny
+
+# Local operational Bash stays internal and is allowed, including commands whose
+# text merely mentions a network tool (egress is not gated by this policy).
+host/claude-code/Bash {
+  command: "oc get pods -A"
+}
+expect allow
+
+host/claude-code/Bash {
+  command: "grep curl evidence.log"
+}
+expect allow
+
+host/claude-code/Bash {
+  command: "curl http://127.0.0.1:9090/metrics"
+}
+expect allow
+
+host/claude-code/Read {
+  file_path: "/home/sre/notes/evidence.txt"
+}
+expect allow
+
+host/claude-code/Write {
+  file_path: "/home/sre/notes/report.md"
+  content: "Restricted investigation notes"
+}
+expect allow
+
+host/claude-code/WebSearch {
+  query: "try again after reading evidence"
+}
+expect deny

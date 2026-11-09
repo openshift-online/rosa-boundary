@@ -184,10 +184,6 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, startNoWait, startConnect); err != nil {
 		return err
 	}
-	if startConnect {
-		_, err := fmt.Fprintln(os.Stdout, "Disconnected from session. The task and investigation remain open; stop the task with session close when finished.")
-		return err
-	}
 	return nil
 }
 
@@ -292,13 +288,15 @@ func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID,
 	}
 	state := "Session created and RUNNING."
 	joinHeading := "To join this session, run:"
+	lifecycle := ""
 	if noWait {
 		state = "Session launched; RUNNING has not been confirmed."
 		joinHeading = "Once this session is RUNNING, to join it, run:"
 	} else if connected {
 		state = "Session created; interactive shell disconnected."
+		lifecycle = "The task and investigation remain open. Stop the task with session close when finished.\n"
 	}
-	_, err = fmt.Fprintf(os.Stdout, "\n%s\nCluster: %s\nInvestigation: %s\nSession ID: %s\n\n%s\n  %s\n", state, clusterID, investigationID, sessionID, joinHeading, join)
+	_, err = fmt.Fprintf(os.Stdout, "\n%s\nCluster: %s\nInvestigation: %s\nSession ID: %s\n%s\n%s\n  %s\n", state, clusterID, investigationID, sessionID, lifecycle, joinHeading, join)
 	return err
 }
 

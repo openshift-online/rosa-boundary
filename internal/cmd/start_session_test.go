@@ -147,6 +147,7 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 					return outcome.err
 				}
 				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
+				selectedProfile = "stage-east" // Normally resolved by commandPreRun.
 				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
 					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false)
 				stdout, readErr := os.ReadFile(stdoutFile.Name())
@@ -167,9 +168,9 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 					t.Fatal(err)
 				}
 				if format == "text" {
-					if !strings.Contains(string(stdout), "Session created; interactive shell disconnected.\nCluster: rosa\nInvestigation: inv\nSession ID: task-123") ||
-						!strings.Contains(string(stdout), "Disconnected from session. The task and investigation remain open") {
-						t.Fatalf("missing post-disconnect summary: %q", stdout)
+					want := "\nSession created; interactive shell disconnected.\nCluster: rosa\nInvestigation: inv\nSession ID: task-123\nThe task and investigation remain open. Stop the task with session close when finished.\n\nTo join this session, run:\n  rosa-boundary --profile \"stage-east\" session join \"task-123\"\n"
+					if string(stdout) != want {
+						t.Fatalf("post-disconnect summary = %q, want %q", stdout, want)
 					}
 				} else {
 					assertOneJSON(t, string(stdout), map[string]any{"session_id": "task-123", "status": "disconnected", "task_closed": false, "investigation_closed": false})

@@ -39,8 +39,7 @@ func runStopSession(cmd *cobra.Command, args []string) error {
 	if task.Status == "STOPPED" {
 		return fmt.Errorf("session %s is already STOPPED; verify its audit evidence, then use 'rosa-boundary investigation close' if the workspace is no longer needed", sessionID)
 	}
-	output.Status("Profile: %s Account: %s Region: %s", selectedProfile, authRes.Config.AccountID, authRes.Config.AWSRegion)
-	output.Status("Session %s (cluster %s; investigation %s; owner %s)", sessionID, task.Tags["cluster_id"], task.Tags["investigation_id"], task.Tags["username"])
+	printStopSessionTarget(selectedProfile, authRes.Config.AccountID, authRes.Config.AWSRegion, sessionID, task)
 	if !stopYes {
 		if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
 			return fmt.Errorf("--yes is required without a terminal; run interactively or pass --yes only after confirming the session ID")
@@ -73,15 +72,11 @@ func runStopSession(cmd *cobra.Command, args []string) error {
 		output.Status("\nMonitor session status:")
 		output.Status("  rosa-boundary --profile %q session list --status all --region %q --ecs-cluster %q", selectedProfile, authRes.Config.AWSRegion, clusterName)
 	}
-	if format == "json" {
-		status := "STOPPING"
-		if stopWait {
-			status = "STOPPED"
-		}
-		return output.JSON(map[string]any{"profile": selectedProfile, "cluster_id": task.Tags["cluster_id"], "investigation_id": task.Tags["investigation_id"], "session_id": sessionID, "status": status, "waited": stopWait})
-	}
-	if _, err := fmt.Fprintf(os.Stdout, "Session %s stop requested (profile %s). Audit sync must be verified separately.\n", sessionID, selectedProfile); err != nil {
+	if err := printStopSessionResult(format, selectedProfile, sessionID, task, stopWait); err != nil {
 		return err
+	}
+	if format == "json" {
+		return nil
 	}
 
 	output.Status("\nThe container entrypoint attempts to:")
@@ -90,4 +85,27 @@ func runStopSession(cmd *cobra.Command, args []string) error {
 	output.Status("  3. Exit gracefully")
 
 	return nil
+}
+
+func printStopSessionTarget(profile, account, region, sessionID string, task *awsclient.TaskSummary) {
+	output.Status("Profile: %s", profile)
+	output.Status("Account: %s", account)
+	output.Status("Region: %s", region)
+	output.Status("Session ID: %s", sessionID)
+	output.Status("Cluster: %s", task.Tags["cluster_id"])
+	output.Status("Investigation: %s", task.Tags["investigation_id"])
+	output.Status("Owner: %s", task.Tags["username"])
+	output.Status("Closing this session stops its task and leaves the investigation open.")
+}
+
+func printStopSessionResult(format, profile, sessionID string, task *awsclient.TaskSummary, waited bool) error {
+	if format == "json" {
+		status := "STOPPING"
+		if waited {
+			status = "STOPPED"
+		}
+		return output.JSON(map[string]any{"profile": profile, "cluster_id": task.Tags["cluster_id"], "investigation_id": task.Tags["investigation_id"], "session_id": sessionID, "status": status, "waited": waited})
+	}
+	_, err := fmt.Fprintf(os.Stdout, "Session %s stop requested (profile %s). Audit sync must be verified separately.\n", sessionID, profile)
+	return err
 }

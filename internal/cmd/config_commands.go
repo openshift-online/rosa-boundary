@@ -230,21 +230,26 @@ func runConfigList(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
+	if len(file.Profiles) == 0 {
+		_, err := fmt.Fprintln(cmd.OutOrStdout(), "No profiles found. Run 'rosa-boundary config init --help' to create one.")
+		return err
+	}
 	names := make([]string, 0, len(file.Profiles))
 	for name := range file.Profiles {
 		names = append(names, name)
 	}
 	sort.Strings(names)
+	tbl := output.NewTableTo(cmd.OutOrStdout(), "ACTIVE", "PROFILE", "ACCOUNT ID", "ENVIRONMENT", "REGION")
+	tbl.PrintHeader()
 	for _, name := range names {
 		profile := file.Profiles[name]
-		mark := " "
+		mark := ""
 		if name == file.ActiveProfile {
 			mark = "*"
 		}
-		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s %s\t%s\t%s\t%s\n", mark, name, profile.AccountID, profile.Environment, profile.AWSRegion); err != nil {
-			return err
-		}
+		tbl.PrintRow(mark, name, profile.AccountID, profile.Environment, profile.AWSRegion)
 	}
+	tbl.Flush()
 	return nil
 }
 

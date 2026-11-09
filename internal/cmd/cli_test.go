@@ -83,7 +83,7 @@ func TestCLIManualProfiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	list, err := runTestCLI(t, "config", "list")
-	if err != nil || !strings.Contains(list, "* stage-east") || !strings.Contains(list, "prod-west") {
+	if err != nil || !strings.Contains(list, "*       stage-east") || !strings.Contains(list, "prod-west") {
 		t.Fatalf("list = %q, error = %v", list, err)
 	}
 	if _, err := runTestCLI(t, "config", "use", "prod-west"); err != nil {

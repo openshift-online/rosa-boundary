@@ -142,12 +142,11 @@ flow remains browser-free. OCM credential transfer uses task-scoped,
 audit-excluded storage, not the Boundary token cache or EFS home.
 
 For scripted operation, use `session create ... -o json`: stdout contains the
-single session-result JSON document; stderr carries prefixed,
-provider-tagged auth-event lines, possibly alongside ordinary diagnostics.
+single session-result JSON document; stderr carries human-readable
+authentication challenges and other diagnostics (not auth-event protocol lines).
 Read stderr **as the CLI runs** and show each URL/code privately to the SRE,
-not in shared CI logs. `authenticated` means token acquisition only: check
-the **process exit status** before trusting the result. If OCM approval or
-transfer fails after task creation, note the session ID and explicitly retry
+not in shared CI logs. Check the **process exit status** before trusting the
+result. If OCM approval or transfer fails after task creation, note the session ID and explicitly retry
 credential configuration or stop the task and verify cleanup; a nonzero exit
 does not prove that the task was not created.
 
@@ -186,12 +185,14 @@ What it does:
 3. Waits for the container exec agent to open its data channel
 4. Hands the interactive session to `session-manager-plugin` for a seamless terminal
 
-`session join -o json` can show human authentication guidance on stderr if it needs
-fresh login, but its raw session I/O remains on a terminal, **not** a JSON
-result on stdout. Likewise `session create --connect -o json` may produce a session
-JSON result before connection but does not encode the shell as JSON. Use a
-suitable terminal for interactive commands; a script consuming JSON should
-not treat session bytes as a machine-readable result.
+`session join -o json` and `session create --connect -o json` show human authentication
+guidance on stderr and keep shell I/O on `/dev/tty`. On successful shell exit,
+stdout contains one JSON result with `status: disconnected`, `task_closed: false`,
+and `investigation_closed: false`; the created session ID remains in the create
+result. Exec failure returns nonzero **without** a success JSON object; after
+create, stderr includes the session ID and cleanup guidance. Use a controlling
+terminal for both commands. `session create --no-wait -o json` reports
+`status: launched` rather than claiming readiness.
 
 Inside the container (as `sre` user):
 ```bash
@@ -269,9 +270,13 @@ flow, not Boundary's; otherwise the saved/global device preference selects
 the OCM flow. Each OCM credential injection gets a new OCM access token and
 can request human approval even if Boundary is cached. In JSON mode,
 `session credentials configure ocm <session-id> -o json` still shows OCM (and,
-if needed, Boundary) human approval guidance on stderr; it has no JSON result
-on stdout. Check exit status before assuming the credential transfer succeeded.
-`session credentials clear ocm ... -o json` likewise has no JSON result.
+if needed, Boundary) human approval guidance on stderr; on success it returns
+one JSON object with `action: configured`, `session_id`, and `environment`.
+`session credentials clear ocm ... -o json` returns `action: cleared` and
+`session_id` on success. Without an ID, either operation returns a
+`selection_required` result containing `eligible_count` and
+`credentials_changed: false`, with a suggestion only for exactly one owned
+RUNNING session. Check exit status before assuming credentials changed.
 
 To exercise workspace persistence and audit without customer data, create a
 harmless file such as `printf 'boundary smoke test\n' > ~/boundary-smoke-test.txt`

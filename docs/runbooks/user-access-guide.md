@@ -150,10 +150,15 @@ another command may see an expired token or an STS retry. Human-readable
 device URL/code and browser approval guidance appear on **stderr**, while
 existing operation result JSON (for example, `session create`) remains on
 **stdout**. There is no machine-readable authentication event protocol.
-`login`, `config init`, and OCM credential commands have no JSON result on
-stdout; `session close` and data commands return one JSON result; `session join`
-remains an interactive terminal session, not a
-JSON shell. Do not capture a device challenge into a shared CI log or file.
+Every successful leaf offering `-o json` returns exactly one JSON object on
+stdout; failures have no success object. `login` returns `profile` and
+`authenticated`, `config init` returns `profile`, `active`, and `discovered`, and
+OCM credential operations return their action and session ID. Omitting a
+credential session ID returns a suggestion-only `selection_required` result;
+it never changes credentials. `session join` and `session create --connect`
+require a controlling terminal: shell bytes go to `/dev/tty`, not JSON stdout,
+and the result appears only after successful shell exit. Disconnect is not
+task closure. Do not capture a device challenge into a shared CI log or file.
 
 For a noninteractive auth-bearing command, this Python example inherits its
 stdout (so existing result JSON is unchanged), drains stderr **while it runs**,
@@ -188,9 +193,8 @@ rejection; OCM approval can follow in the same command. The process can fail
 after either approval. Handle the short-lived URL and code as sensitive
 operational information; never pass them in arguments, store them in logs,
 or print tokens. Do not retry denied or expired requests indefinitely. The
-CLI currently has **no JSON result on stdout** for `login`, `config init`,
-`session join`, or session credential commands; defining those results is
-separate work. See the [authentication model](../architecture/cli-authentication.md#human-approved-authentication-and-json-output).
+CLI JSON result fields and interactive semantics are described in the
+[authentication model](../architecture/cli-authentication.md#human-approved-authentication-and-json-output).
 
 For OCM credentials, `session create --with-credentials ocm` and
 `session credentials configure ocm <session-id>` use the same saved/global device

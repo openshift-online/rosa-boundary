@@ -70,6 +70,23 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	}
 }
 
+func TestCachedLoginJSONResultDoesNotExposeToken(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := saveTestProfile("test", config.Config{KeycloakURL: "https://keycloak.example.test/auth"}, true, false); err != nil {
+		t.Fatal(err)
+	}
+	token := testJWT(time.Now().Add(time.Hour))
+	if err := auth.SaveTokenForConfig(token, auth.PKCEConfig{KeycloakURL: "https://keycloak.example.test/auth", Realm: "EmployeeIDP", ClientID: "rosa-boundary-sre"}); err != nil {
+		t.Fatal(err)
+	}
+	stdout, err := runTestCLI(t, "login", "-o", "json")
+	if err != nil || bytes.Contains([]byte(stdout), []byte(token)) {
+		t.Fatalf("login stdout=%q error=%v", stdout, err)
+	}
+	assertOneJSON(t, stdout, map[string]any{"profile": "test", "authenticated": true})
+}
+
 // testJWT creates a minimally valid JWT for exercising the local cache path.
 func testJWT(expiration time.Time) string {
 	payload := fmt.Sprintf(`{"exp":%d}`, expiration.Unix())

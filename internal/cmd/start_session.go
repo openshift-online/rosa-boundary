@@ -82,8 +82,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		if resultErr == nil {
 			return
 		}
-		cleanup := fmt.Sprintf("rosa-boundary --profile %q session close %q --yes --region %q --ecs-cluster %q", selectedProfile, sessionID, cfg.AWSRegion, cfg.ClusterName)
-		resultErr = fmt.Errorf("session %s created for %s/%s (profile %s; region %s; ECS cluster %s), then operation failed: %w; inspect session list --status all; cleanup: %s", sessionID, clusterID, investigationID, selectedProfile, cfg.AWSRegion, cfg.ClusterName, resultErr, cleanup)
+		resultErr = sessionCreationError(resultErr, sessionID, clusterID, investigationID, cfg.AWSRegion, cfg.ClusterName)
 	}()
 
 	// Use override role ARN if configured, otherwise use what Lambda returned
@@ -158,13 +157,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		}
 	}
 
-	// Print summary
-	if startOutputFormat == "json" {
-		summary := startSessionResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, startOCVersion, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM)
-		if err := output.JSON(summary); err != nil {
-			return err
-		}
-	} else {
+	if startOutputFormat != "json" {
 		if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion, startNoWait); err != nil {
 			return err
 		}
@@ -177,10 +170,35 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 			step = 5
 		}
 		output.Status("\n=== Step %d: Connecting to session ===", step)
-		return connectToSession(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, "rosa-boundary", defaultExecCommand, false)
+		if err := openInteractiveSession(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, "rosa-boundary", defaultExecCommand, false); err != nil {
+			return err
+		}
 	}
 
+	if startOutputFormat == "json" {
+		return output.JSON(startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, startOCVersion, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM, startNoWait, startConnect))
+	}
 	return nil
+}
+
+func sessionCreationError(cause error, sessionID, clusterID, investigationID, region, ecsCluster string) error {
+	cleanup := fmt.Sprintf("rosa-boundary --profile %q session close %q --yes --region %q --ecs-cluster %q", selectedProfile, sessionID, region, ecsCluster)
+	return fmt.Errorf("session %s created for %s/%s (profile %s; region %s; ECS cluster %s), then operation failed: %w; inspect session list --status all; cleanup: %s", sessionID, clusterID, investigationID, selectedProfile, region, ecsCluster, cause, cleanup)
+}
+
+func startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, taskARN, ocVersion string, timeout int, accessPointID, roleARN string, configureOCM, noWait, connected bool) map[string]any {
+	summary := startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskARN, ocVersion, timeout, accessPointID, roleARN, configureOCM)
+	switch {
+	case noWait:
+		summary["status"] = "launched"
+	case connected:
+		summary["status"] = "disconnected"
+		summary["task_closed"] = false
+		summary["investigation_closed"] = false
+	default:
+		summary["status"] = "RUNNING"
+	}
+	return summary
 }
 
 // startSessionResult exposes the user-facing lifetime and preserves the legacy

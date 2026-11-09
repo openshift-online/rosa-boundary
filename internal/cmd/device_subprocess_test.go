@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -23,9 +25,14 @@ func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 		t.Skip("builds a local CLI subprocess")
 	}
 	approved := make(chan struct{})
+	var deny atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/realms/test/protocol/openid-connect/auth/device":
+			if deny.Load() {
+				http.Error(w, "not authorized", http.StatusForbidden)
+				return
+			}
 			_ = json.NewEncoder(w).Encode(map[string]any{"device_code": "secret-device-code", "user_code": "CODE-1234", "verification_uri": "https://example.invalid/verify", "interval": 1, "expires_in": 20})
 		case "/realms/test/protocol/openid-connect/token":
 			select {
@@ -117,7 +124,16 @@ func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 	if err := process.Wait(); err != nil {
 		t.Fatal(fmt.Errorf("CLI exit: %w", err))
 	}
-	if len(out) != 0 {
-		t.Fatalf("stdout bytes=%d; login JSON result remains a separate gap", len(out))
+	assertOneJSON(t, string(out), map[string]any{"profile": "local", "authenticated": true})
+
+	// Authentication failure must never reuse a cached success document.
+	deny.Store(true)
+	failed := exec.CommandContext(ctx, bin, "--profile", "local", "--use-device-code", "login", "--force", "-o", "json")
+	failed.Env = process.Env
+	var diagnostics bytes.Buffer
+	failed.Stderr = &diagnostics
+	failedOut, failedErr := failed.Output()
+	if failedErr == nil || len(failedOut) != 0 || !strings.Contains(diagnostics.String(), "Error:") || strings.Contains(diagnostics.String(), "ROSA_BOUNDARY_AUTH_EVENT") {
+		t.Fatalf("failed login: error=%v stdout=%q stderr=%q", failedErr, failedOut, diagnostics.String())
 	}
 }

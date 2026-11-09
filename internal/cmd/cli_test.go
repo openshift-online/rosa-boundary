@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,14 +118,45 @@ func TestCLIManualInitReportsMissingSettingsTogether(t *testing.T) {
 	}
 }
 
-func TestCLIManualInitJSONDoesNotEmitStatusOnStdout(t *testing.T) {
+func TestCLIManualInitJSONSeparatesStdoutAndStderr(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	stderr, err := os.CreateTemp(t.TempDir(), "stderr-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stderr.Close()
+	previousStderr := os.Stderr
+	os.Stderr = stderr
+	defer func() { os.Stderr = previousStderr }()
 	stdout, err := runTestCLI(t, "config", "init", "--name", "test", "--account-id", "123456789012", "--region", "us-east-1", "--auto-discover=false", "--keycloak-url", "https://auth.example.com", "--lambda-function-name", "create", "--invoker-role-arn", "arn:aws:iam::123456789012:role/invoker", "--sre-role-arn", "arn:aws:iam::123456789012:role/sre", "--ecs-cluster", "ecs", "--efs-filesystem-id", "fs-example", "-o", "json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stdout != "" {
-		t.Fatalf("JSON auth event mode wrote status to stdout: %q", stdout)
+	assertOneJSON(t, stdout, map[string]any{"profile": "test", "active": true, "discovered": false})
+	if _, err := stderr.Seek(0, io.SeekStart); err != nil {
+		t.Fatal(err)
+	}
+	diagnostics, err := io.ReadAll(stderr)
+	if err != nil || !strings.Contains(string(diagnostics), "Saved profile test") || strings.Contains(string(diagnostics), "ROSA_BOUNDARY_AUTH_EVENT") {
+		t.Fatalf("stderr=%q error=%v", diagnostics, err)
+	}
+}
+
+func assertOneJSON(t *testing.T, stdout string, want map[string]any) {
+	t.Helper()
+	decoder := json.NewDecoder(strings.NewReader(stdout))
+	var got map[string]any
+	if err := decoder.Decode(&got); err != nil {
+		t.Fatalf("stdout is not JSON: %q: %v", stdout, err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		t.Fatalf("stdout has more than one JSON object: %q: %v", stdout, err)
+	}
+	for key, value := range want {
+		if got[key] != value {
+			t.Errorf("%s = %v, want %v (stdout=%q)", key, got[key], value, stdout)
+		}
 	}
 }
 

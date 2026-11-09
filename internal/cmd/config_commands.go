@@ -22,7 +22,7 @@ var profileName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 func buildConfigCommand() *cobra.Command {
 	group := commandGroup("config", "Manage Boundary deployment profiles")
-	init := commandLeaf("init", "Add a deployment profile", cobra.NoArgs, runConfigInit, false)
+	init := commandLeaf("init", "Add a deployment profile", cobra.NoArgs, runConfigInit)
 	for _, flag := range []struct{ name, help string }{
 		{"name", "Profile name (required without a terminal)"}, {"account-id", "AWS account containing Boundary"}, {"region", "Boundary deployment region"},
 		{"project", "Deployment project (default rosa-boundary)"}, {"environment", "Deployment environment (default prod)"},
@@ -204,7 +204,7 @@ func runConfigInit(cmd *cobra.Command, _ []string) error {
 	}
 	if format, _ := commandOutput(cmd); format == "json" {
 		output.Status("Saved profile %s", name)
-		return nil
+		return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": name, "active": file.ActiveProfile == name, "discovered": auto})
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Saved profile %s\n", name)
 	return err
@@ -317,6 +317,9 @@ func runLogin(cmd *cobra.Command) error {
 	_, err = auth.GetTokenWithOptions(cmd.Context(), auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}, flagBool(cmd, "force"), auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode})
 	if err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
+	}
+	if format, _ := commandOutput(cmd); format == "json" {
+		return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "authenticated": true})
 	}
 	return nil
 }

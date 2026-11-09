@@ -89,7 +89,7 @@ func TestConfigureDeviceBootstrapRequiresExplicitTrue(t *testing.T) {
 
 func TestInvalidOutputBeforeAuth(t *testing.T) {
 	cmd := &cobra.Command{Use: "login"}
-	addOutputFlag(cmd, false)
+	addOutputFlag(cmd)
 	if err := cmd.Flags().Set("output", "xml"); err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestInvalidOutputBeforeAuth(t *testing.T) {
 func TestOutputAfterPositionalArgument(t *testing.T) {
 	for _, args := range [][]string{{"-o", "json", "task-1"}, {"task-1", "--output", "json"}} {
 		command := &cobra.Command{Use: "join-task <task-id>"}
-		addOutputFlag(command, false)
+		addOutputFlag(command)
 		if err := command.ParseFlags(args); err != nil {
 			t.Fatal(err)
 		}

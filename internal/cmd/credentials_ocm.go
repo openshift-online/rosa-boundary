@@ -89,10 +89,16 @@ func guideCredentialSession(cmd *cobra.Command, action string) error {
 		}
 	}
 	if len(eligible) == 0 {
+		if format, _ := commandOutput(cmd); format == "json" {
+			return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "provider": "ocm", "action": action, "status": "selection_required", "eligible_count": 0, "credentials_changed": false})
+		}
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "No eligible RUNNING sessions found in profile %q. Check your session ID and profile, or create a session; then run: rosa-boundary --profile %s session credentials %s ocm <session-id>\n", selectedProfile, shellArgument(selectedProfile), action)
 		return err
 	}
 	if len(eligible) > 1 {
+		if format, _ := commandOutput(cmd); format == "json" {
+			return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "provider": "ocm", "action": action, "status": "selection_required", "eligible_count": len(eligible), "credentials_changed": false})
+		}
 		_, err = fmt.Fprintf(cmd.OutOrStdout(), "%d eligible RUNNING sessions found in profile %q. Inspect your sessions with rosa-boundary --profile %s session list --status RUNNING, then specify the correct session ID explicitly. No credentials were changed.\n", len(eligible), selectedProfile, shellArgument(selectedProfile))
 		return err
 	}
@@ -112,6 +118,9 @@ func guideCredentialSession(cmd *cobra.Command, action string) error {
 				suggestion += " --" + flag + " " + shellArgument(flagString(cmd, flag))
 			}
 		}
+	}
+	if format, _ := commandOutput(cmd); format == "json" {
+		return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "provider": "ocm", "action": action, "status": "selection_required", "eligible_count": 1, "credentials_changed": false, "session_id": task.TaskID, "cluster_id": task.Tags["cluster_id"], "investigation_id": task.Tags["investigation_id"], "session_status": task.Status, "suggested_command": suggestion})
 	}
 	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Session ID: %q\nCluster: %q\nInvestigation: %q\nStatus: %s\nNo credentials were changed. To %s OCM credentials, run:\n  %s\n", task.TaskID, task.Tags["cluster_id"], task.Tags["investigation_id"], task.Status, action, suggestion)
 	return err
@@ -134,7 +143,10 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 		}
 	}
 	ecsClient := newCredentialECSClient(authResult)
-	return configureOCMForSession(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow)
+	if err := configureOCMForSession(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow); err != nil {
+		return err
+	}
+	return credentialActionResult(cmd, "configured", args[0], environment.Name)
 }
 
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
@@ -160,6 +172,18 @@ func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("could not clear OCM credentials; retry on the running session or stop the session to remove task-scoped credentials: %w", err)
 	}
 	output.Status("Cleared OCM credentials from session %s", args[0])
+	return credentialActionResult(cmd, "cleared", args[0], "")
+}
+
+// credentialActionResult is called only after a successful credential transfer.
+func credentialActionResult(cmd *cobra.Command, action, sessionID, environment string) error {
+	if format, _ := commandOutput(cmd); format == "json" {
+		result := map[string]any{"profile": selectedProfile, "provider": "ocm", "action": action, "session_id": sessionID}
+		if environment != "" {
+			result["environment"] = environment
+		}
+		return output.JSONTo(cmd.OutOrStdout(), result)
+	}
 	return nil
 }
 

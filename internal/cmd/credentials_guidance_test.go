@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -17,6 +18,49 @@ import (
 func credentialGuidanceToken(subject string) string {
 	payload := fmt.Sprintf(`{"exp":%d,"sub":%q}`, time.Now().Add(time.Hour).Unix(), subject)
 	return "header." + base64.RawURLEncoding.EncodeToString([]byte(payload)) + ".signature"
+}
+
+func TestCredentialGuidanceJSONSelectionOnly(t *testing.T) {
+	setupCredentialGuidance(t, "current-user")
+	previousList, previousToken, previousTransfer := listCredentialSessions, newOCMTokenAcquirer, newOCMCredentialTransfer
+	t.Cleanup(func() {
+		listCredentialSessions, newOCMTokenAcquirer, newOCMCredentialTransfer = previousList, previousToken, previousTransfer
+	})
+	newOCMTokenAcquirer = func() ocmTokenAcquirer { t.Fatal("unexpected OCM token acquisition"); return nil }
+	newOCMCredentialTransfer = func() ocmCredentialTransfer { t.Fatal("unexpected transfer"); return nil }
+	for _, tc := range []struct {
+		name, action string
+		tasks        []awsclient.TaskSummary
+		count        float64
+	}{
+		{"none", "configure", []awsclient.TaskSummary{guidanceTask("other-secret", "other-user", "RUNNING")}, 0},
+		{"one", "configure", []awsclient.TaskSummary{guidanceTask("task-a", "current-user", "RUNNING")}, 1},
+		{"multiple", "clear", []awsclient.TaskSummary{guidanceTask("task-a", "current-user", "RUNNING"), guidanceTask("task-b", "current-user", "RUNNING")}, 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			listCredentialSessions = func(context.Context, *AuthResult) ([]awsclient.TaskSummary, error) { return tc.tasks, nil }
+			args := []string{"session", "credentials", tc.action, "ocm", "-o", "json"}
+			if tc.count == 1 {
+				args = append(args, "--ocm-url", "staging")
+			}
+			stdout, err := runTestCLI(t, args...)
+			if err != nil || strings.Contains(stdout, "other-secret") {
+				t.Fatalf("stdout=%q err=%v", stdout, err)
+			}
+			assertOneJSON(t, stdout, map[string]any{"profile": "stage", "provider": "ocm", "action": tc.action, "status": "selection_required", "eligible_count": tc.count, "credentials_changed": false})
+			var result map[string]any
+			if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+				t.Fatal(err)
+			}
+			if tc.count == 1 {
+				if result["session_id"] != "task-a" || !strings.Contains(result["suggested_command"].(string), "--ocm-url 'staging'") {
+					t.Fatalf("missing suggestion: %v", result)
+				}
+			} else if result["session_id"] != nil || result["suggested_command"] != nil {
+				t.Fatalf("ambiguous discovery exposed session: %v", result)
+			}
+		})
+	}
 }
 
 func setupCredentialGuidance(t *testing.T, subject string) {

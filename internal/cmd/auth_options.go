@@ -8,13 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// addOutputFlag is local to auth-bearing leaf commands. Some commands do not
-// yet produce a JSON result; authentication guidance always goes to stderr.
-func addOutputFlag(cmd *cobra.Command, result bool, binding ...*string) {
-	help := "Output: text or json; authentication guidance goes to stderr"
-	if result {
-		help = "Output: text or json; json emits results on stdout; authentication guidance goes to stderr"
-	}
+// addOutputFlag is local to auth-bearing leaf commands. Authentication
+// guidance always goes to stderr; JSON results go to stdout.
+func addOutputFlag(cmd *cobra.Command, binding ...*string) {
+	help := "Output: text or json; json emits results on stdout; authentication guidance goes to stderr"
 	if len(binding) != 0 {
 		cmd.Flags().StringVarP(binding[0], "output", "o", "text", help)
 	} else {

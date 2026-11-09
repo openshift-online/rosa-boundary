@@ -155,7 +155,7 @@ func commandGroup(use, short string) *cobra.Command {
 	return &cobra.Command{Use: use, Short: short, Args: commandArgs(cobra.NoArgs), RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() }}
 }
 
-func commandLeaf(use, short string, args cobra.PositionalArgs, run func(*cobra.Command, []string) error, result bool) *cobra.Command {
+func commandLeaf(use, short string, args cobra.PositionalArgs, run func(*cobra.Command, []string) error) *cobra.Command {
 	cmd := &cobra.Command{Use: use, Short: short, Args: commandArgs(func(cmd *cobra.Command, values []string) error {
 		if err := args(cmd, values); err != nil {
 			return err
@@ -163,7 +163,7 @@ func commandLeaf(use, short string, args cobra.PositionalArgs, run func(*cobra.C
 		_, err := commandOutput(cmd)
 		return err
 	}), RunE: run}
-	addOutputFlag(cmd, result)
+	addOutputFlag(cmd)
 	return cmd
 }
 
@@ -231,7 +231,7 @@ func buildLoginCommand() *cobra.Command {
 	cmd := commandLeaf("login", "Sign in for Boundary operations", cobra.NoArgs, func(cmd *cobra.Command, args []string) error {
 		// The root auth hook owns profile selection; login does not assume AWS roles.
 		return runLogin(cmd)
-	}, false)
+	})
 	cmd.Flags().Bool("force", false, "Sign in again rather than reuse a valid session")
 	return cmd
 }
@@ -241,13 +241,13 @@ func buildInvestigationCommand() *cobra.Command {
 	create := commandLeaf("create <cluster-id>", "Create an investigation without starting a session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		createClusterID, createInvestigationID, createOutputFormat = args[0], flagString(cmd, "investigation-id"), flagString(cmd, "output")
 		return runCreateInvestigation(cmd, nil)
-	}, true)
+	})
 	create.Flags().String("investigation-id", "", "Requested investigation ID")
 	deploymentFlags(create, false, false)
 	list := commandLeaf("list", "List investigation workspaces, including idle ones", cobra.NoArgs, func(cmd *cobra.Command, args []string) error {
 		listInvClusterID, listInvOutputFormat = flagString(cmd, "cluster-id"), flagString(cmd, "output")
 		return runListInvestigations(cmd, args)
-	}, true)
+	})
 	list.Flags().String("cluster-id", "", "Limit results to a ROSA cluster")
 	deploymentFlags(list, false, true)
 	close := commandLeaf("close <cluster-id> <investigation-id>", "Close an investigation workspace", nonEmptyArgs(2), func(cmd *cobra.Command, args []string) error {
@@ -255,7 +255,7 @@ func buildInvestigationCommand() *cobra.Command {
 		closeForce, closeYes, closeDryRun = flagBool(cmd, "force"), flagBool(cmd, "yes"), flagBool(cmd, "dry-run")
 		closeOutputFormat = flagString(cmd, "output")
 		return runCloseInvestigation(cmd, nil)
-	}, true)
+	})
 	close.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(2)(cmd, args); err != nil {
 			return err
@@ -308,7 +308,7 @@ func buildSessionCommand() *cobra.Command {
 		startCredentials = flagString(cmd, "with-credentials")
 		startOCMURL, startOCMFlow, startOutputFormat = flagString(cmd, "ocm-url"), flagString(cmd, "ocm-auth-flow"), flagString(cmd, "output")
 		return runStartSession(cmd, nil)
-	}, true)
+	})
 	start.Flags().String("investigation-id", "", "Investigation to use (generated if omitted)")
 	start.Flags().String("oc-version", "4.20", "OpenShift CLI version in the session")
 	start.Flags().Duration("session-timeout", time.Hour, "Session lifetime (default 1h; policy controls minimum and maximum)")
@@ -353,7 +353,7 @@ func buildSessionCommand() *cobra.Command {
 	list := commandLeaf("list", "List investigation sessions", cobra.NoArgs, func(cmd *cobra.Command, args []string) error {
 		listStatus, listOutputFormat = flagString(cmd, "status"), flagString(cmd, "output")
 		return runListSessions(cmd, args)
-	}, true)
+	})
 	list.Flags().String("status", "RUNNING", "RUNNING, STOPPED, or all")
 	deploymentFlags(list, true, false)
 	list.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
@@ -369,7 +369,7 @@ func buildSessionCommand() *cobra.Command {
 	join := commandLeaf("join <session-id>", "Open a shell in a running session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		joinContainer, joinCommand, joinNoWait = flagString(cmd, "container"), flagString(cmd, "command"), flagBool(cmd, "no-wait")
 		return runJoinSession(cmd, args)
-	}, false)
+	})
 	join.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
@@ -389,7 +389,7 @@ func buildSessionCommand() *cobra.Command {
 	stop := commandLeaf("close <session-id>", "Close a session without closing its investigation", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		stopReason, stopWait, stopYes = flagString(cmd, "reason"), flagBool(cmd, "wait"), flagBool(cmd, "yes")
 		return runStopSession(cmd, args)
-	}, true)
+	})
 	stop.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
@@ -412,7 +412,7 @@ func buildSessionCommand() *cobra.Command {
 	configureOCM := commandLeaf("ocm [session-id]", "Obtain fresh OCM access for a session", optionalCredentialSessionID, func(cmd *cobra.Command, args []string) error {
 		credentialsOCMURL, credentialsOCMFlow = flagString(cmd, "ocm-url"), flagString(cmd, "auth-flow")
 		return runCredentialsConfigureOCM(cmd, args)
-	}, false)
+	})
 	configureOCM.Long = "Obtain fresh OCM access for a session. Without a session ID, discover your RUNNING sessions and suggest a command without changing credentials."
 	configureOCM.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	configureOCM.Flags().String("auth-flow", "", "OCM-only override: auth-code or device")
@@ -432,7 +432,7 @@ func buildSessionCommand() *cobra.Command {
 		return err
 	})
 	deploymentFlags(configureOCM, true, false)
-	clearOCM := commandLeaf("ocm [session-id]", "Remove OCM credentials and derived kubeconfig", optionalCredentialSessionID, runCredentialsClearOCM, false)
+	clearOCM := commandLeaf("ocm [session-id]", "Remove OCM credentials and derived kubeconfig", optionalCredentialSessionID, runCredentialsClearOCM)
 	clearOCM.Long = "Remove OCM credentials and derived kubeconfig. Without a session ID, discover your RUNNING sessions and suggest a command without changing credentials."
 	deploymentFlags(clearOCM, true, false)
 	configure.AddCommand(configureOCM)

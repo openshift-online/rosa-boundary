@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	joinContainer string
-	joinCommand   string
-	joinNoWait    bool
+	joinContainer          string
+	joinCommand            string
+	joinNoWait             bool
+	openInteractiveSession = connectToSession
 )
 
 func runJoinSession(cmd *cobra.Command, args []string) error {
@@ -36,7 +37,19 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 	output.Status("ECS Cluster: %s", clusterName)
 	output.Status("Session:     %s", sessionID)
 
-	return connectToSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait)
+	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait); err != nil {
+		return err
+	}
+	return disconnectedSessionResult(cmd, sessionID)
+}
+
+// disconnectedSessionResult is only printed after the ECS Exec shell exits
+// successfully. Disconnecting does not close the task or investigation.
+func disconnectedSessionResult(cmd *cobra.Command, sessionID string) error {
+	if format, _ := commandOutput(cmd); format == "json" {
+		return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "session_id": sessionID, "status": "disconnected", "task_closed": false, "investigation_closed": false})
+	}
+	return nil
 }
 
 // connectToSession is shared by session join and session create --connect.
@@ -81,7 +94,8 @@ func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, regio
 		output.Warning("could not write debug output: %v", err)
 	}
 
-	// Hand off to session-manager-plugin (replaces the process)
+	// Hand off to session-manager-plugin on the controlling terminal. Keep stdout
+	// reserved for the result after the interactive shell exits successfully.
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
 		return fmt.Errorf("interactive session requires a controlling terminal: %w", err)

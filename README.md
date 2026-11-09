@@ -73,7 +73,7 @@ See the [AWS documentation](https://docs.aws.amazon.com/systems-manager/latest/u
 3. Deploy:
 
    ```bash
-    cd deploy/regional && make init && make plan && make apply
+   cd deploy/regional && make init && make plan && make apply
    ```
 
 See [`deploy/regional/README.md`](deploy/regional/README.md) for the complete deployment guide.

@@ -1,76 +1,39 @@
 # Proposed `rosa-boundary` CLI contract
 
-This is a proposal for the **user-facing interface**, not a transcript of the current `rosa-boundary` CLI. It covers Boundary investigation and session workflows, not OCM CLI replacement or other tools. Examples use placeholder IDs. The help below is illustrative proposed `--help` text, not a claim that the commands already exist.
+This document records the proposed **user-facing Boundary CLI contract** and reconciles it with the implementation at commit `75117d6` in [draft PR #447](https://github.com/openshift-online/rosa-boundary/pull/447). PR #354 is the earlier design-proposal PR; the implementation is on a separate, unmerged branch. This is not a claim that the contract has merged to main, been deployed, or been validated against a live Boundary environment. Current source and tests, not illustrative examples here, govern the draft implementation. The CLI manages Boundary investigations and sessions; it does not replace the OCM CLI.
 
-Conventions throughout this proposal:
+## Conventions and command tree
 
-- `<cluster-id>`, `<investigation-id>`, and `<session-id>` are required positional arguments where shown. A Boundary session is the investigation's underlying ECS task; its ID is the ECS task ID (a full task ARN is also accepted). An ECS Exec connection made by `session join` has a separate, short-lived SSM session ID, which is **not** a Boundary `<session-id>` and cannot be used with `session stop` or `credentials`. Disconnecting an Exec shell does not stop the Boundary session. An investigation may outlive its sessions.
-- `-o, --output text|json` defaults to `text` wherever shown. JSON results include the selected profile name and applicable cluster, investigation, and/or session identifiers; credentials and tokens never appear in output. Text output that supplies a follow-up command includes `--profile <name>` so it still targets the same deployment after `config use`.
-- A named configuration profile selects one Boundary deployment (AWS account, environment, and region). `--profile` on a Boundary command selects a saved profile for that invocation without changing the active profile. Without it, commands use the active profile; if none exists, commands requiring a deployment fail rather than guessing. Profiles do not select the ROSA cluster under investigation.
-- `--region` and `--ecs-cluster` override the selected Boundary deployment's values, **not** the ROSA cluster under investigation. They are available only on commands that use them. `--efs-filesystem-id` likewise identifies the investigation store when a command needs it.
-- The root `rosa-boundary` flags `--profile <name>`, `--verbose` (no `-v`), `--timeout <duration>`, and `--use-device-code[=true|false]` are inherited. The flow flag chooses Boundary OIDC authentication for that invocation and the default OCM flow when OCM is requested; an explicit OCM flow flag overrides it for OCM only. It does not change the issuer or issue unattended credentials. Every command accepts `-h, --help`. Help is available without login or network access.
-- For Boundary operations, command-specific flags override environment settings, which override saved values in the selected profile, which override defaults. Profile selection is independent: explicit `--profile` overrides the saved active profile; environment variables cannot silently change it. `rosa-boundary config get` reads saved YAML only, without resolving environment values or defaults. Commands that need missing deployment settings fail with a message identifying the setting; they do not guess a deployment.
-- Parent commands without a child display their help. Prompts require a terminal; non-interactive callers must provide the indicated flags. Progress and prompts go to stderr; results go to stdout. One Boundary config file holds multiple named profiles and an active profile; it does not store access tokens.
-- `--session-timeout` requests the underlying task's lifetime subject to the deployment's Lambda policy (default minimum 30s, maximum 24h). A zero lifetime disables expiry **only if** the deployment sets `TASK_TIMEOUT_MINIMUM=0`; the normal deployment rejects zero. The CLI reports Lambda policy rejections rather than bypassing them.
+- `<cluster-id>` is the ROSA cluster being investigated; `--ecs-cluster` is the Boundary deployment's ECS cluster, **not** that ROSA cluster. A Boundary `<session-id>` is its ECS task ID (a full task ARN is also accepted where ECS accepts it); the short-lived SSM Exec session ID is different and is not an argument to `session close` or credential commands. An investigation can outlive its tasks. Leaving an Exec shell neither closes the task nor closes the investigation.
+- A saved profile selects one Boundary deployment (account, environment, region and other settings), not a ROSA cluster. Root `--profile <name>` selects a saved profile for this invocation without changing the active one. Otherwise the saved active profile is used; if none exists, commands requiring a deployment fail rather than guessing. Environment variables cannot select a profile. For deployment settings, explicit command flags override `ROSA_BOUNDARY_*` environment settings, then saved profile values, then defaults. Only relevant commands offer `--region`, `--ecs-cluster`, or `--efs-filesystem-id`.
+- Root flags are `--profile`, `--verbose` (no `-v`), `--timeout <duration>`, and `--use-device-code` (a boolean flag; `--use-device-code=false` explicitly selects browser mode). All commands accept `-h, --help`; parent commands with no child show help without authentication. `version` is also a top-level command; Cobra exposes `help` and `completion`.
+- For leaves that offer it, `-o, --output text|json` defaults to `text`. Progress, prompts, authentication guidance and errors go to stderr; results go to stdout. Text success suggestions include `--profile` and only deployment override flags needed to preserve the effective region/ECS target (including when an environment override would otherwise change it). Failure cleanup/retry commands may pin both region and ECS cluster for recovery even when they match the saved profile. Commands without `-o` (such as offline profile listing/selection/get and `version`) are not JSON-result commands.
+- Input errors identify the missing or unexpected positional argument or bad flag, show the command's usage line and point to its `--help`, without dumping the entire help page. Validate user-correctable input before authentication or AWS mutation wherever possible. Commands needing missing deployment settings name them rather than guessing. Non-interactive callers must supply required flags instead of relying on prompts.
 
-### Authentication and output contract
-
-Browser authorization-code PKCE is the default. Device authorization can be selected by `--use-device-code` or `--use-device-code=true` (and explicitly disabled with `--use-device-code=false`); otherwise `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` overrides the selected profile's `oidc_use_device_code`, which defaults to `false`. Invalid boolean values fail rather than falling back. `config init` is the bootstrap exception: its OIDC discovery uses device mode only when explicitly passed `--use-device-code=true`, regardless of the environment or existing configuration, and saves that choice on the new profile; manual initialization saves the explicit choice without authenticating. A profile's cached Boundary ID token is reused only when valid for its issuer and client; STS rejection may cause a fresh human-approved challenge during **any** authenticated command. OCM uses a separate issuer and a fresh session-scoped access token. `--ocm-auth-flow`/`--auth-flow` select OCM only; `auth-code` requires a browser callback, and `device` requires human approval on another device. Starting with OCM credentials can involve two distinct approvals.
-
-`-o, --output json` is available on every auth-bearing leaf command, including `config init` (auto-discovery), `login`, `session join`, `session stop`, and OCM credential commands. It selects machine-readable **auth events** even where the command has no JSON result (config init, login, join, credential commands); `session stop` and the data commands also return one JSON result document on stdout. Offline `config list`, `use`, and `get` do not emit auth events. Text-mode instructions go to stderr. In JSON mode, each event is flushed immediately as a separate stderr line prefixed `ROSA_BOUNDARY_AUTH_EVENT `; other diagnostics may share stderr. The event schema is version 1: `provider` is `boundary` or `ocm`; `device_authorization` carries `verification_uri`, `user_code`, and `expires_in` seconds; `authenticated` carries `source` (`cache`, `device`, or `browser`; `cache` is Boundary-only); `authentication_failed` has a sanitized `reason` (`denied`, `expired`, `canceled`, `network`, `invalid_response`, or `other`). Events must never contain tokens, OAuth `device_code`, PKCE verifiers, or raw token responses. Device user codes and URLs are short-lived operational secrets: share privately, not in shared CI logs. A script must drain stderr while the process runs so a person can approve a challenge, including a retry during an authenticated command. An `authenticated` event is **not** operation success; only the process exit status determines that. `session join` and `session start --connect` always require a terminal for shell I/O; JSON mode never turns a shell into structured output.
-
-For example, a script running `rosa-boundary --profile stage-east --use-device-code session start my-cluster -o json` must monitor stderr for `ROSA_BOUNDARY_AUTH_EVENT {"version":1,"provider":"boundary","event":"device_authorization","verification_uri":"https://...","user_code":"ABCD-EFGH","expires_in":600}` and present the challenge privately for a human to approve. The event may occur even after a prior `login -o json` or after an earlier `authenticated` event if STS rejects a cached token. A later OCM challenge uses `provider:"ocm"`. Only a zero exit status and the final stdout result establish that the operation completed.
-
-### Deadlines and post-creation failures
-
-Invocations without a controlling terminal default to a five-minute **whole-command** deadline (including device approval, STS, Lambda, ECS waits, and credential setup). No default whole-command deadline applies with a controlling terminal (including prompts and interactive shells). An explicit `--timeout` sets a whole-command deadline in either mode, including an interactive shell; on expiry, terminate the local ECS Exec plugin/connection, return nonzero, but do **not** imply the task stopped. The ECS RUNNING/STOPPED waiter has its own ten-minute maximum; the effective limit is the earlier of that maximum and the whole-command deadline. For a headless start or stop that may take longer than five minutes, pass e.g. `--timeout 12m` (the waiter itself still caps at ten minutes). Authentication approval must finish within the chosen deadline; scripts cannot bypass human approval by setting a longer timeout. `--session-timeout` is independent: it controls task expiry, not how long the CLI waits.
-
-With `session start` (except `--no-wait`), a RUNNING wait failure is a nonzero failure, **not** a warning followed by a successful start or credential configuration. After the Lambda returns a task ARN, any error (role assumption, wait, credential setup, connection, output failure, or deadline) must identify the created Boundary session ID, cluster/investigation when known, selected profile, and a profile-qualified cleanup command (`rosa-boundary --profile <name> session stop <session-id> --yes`); it must not silently stop the task. A session that failed to reach RUNNING may already be STOPPED; inspect `session list --status all` if a stop fails. `--no-wait` reports creation/launch, not readiness. JSON success output must not be emitted for a failed wait or credential setup; errors and recovery information go to stderr. For `--connect`, the ready-session result may be emitted before opening the shell; if Exec later fails or the explicit deadline expires, return nonzero with recovery guidance even though the result was already printed. Exiting a shell normally is not an error and does not stop the task. Audit sync remains a separate verification step after stop/close.
-
-## `rosa-boundary --help`
+The public command groups and leaves on draft PR #447 are:
 
 ```text
-Manage internal ROSA investigation workspaces and sessions.
-
-Usage:
-  rosa-boundary [command]
-
-Available Commands:
-  config         Manage Boundary deployment profiles
-  login          Sign in for Boundary operations
-  investigation  Manage investigation workspaces
-  session        Manage investigation sessions and their credentials
-
-Use "rosa-boundary [command] --help" for command-specific options.
-
-Global Flags:
-  -h, --help                 Show help
-      --profile string       Saved Boundary deployment profile (active if omitted)
-      --timeout duration     Whole-command deadline (default 5m without terminal)
-      --use-device-code      Use device approval for Boundary and default OCM flow
-      --verbose              Show debug diagnostics (never secrets)
+rosa-boundary config init
+rosa-boundary config list-profiles
+rosa-boundary config use-profile <name>
+rosa-boundary config get [key]
+rosa-boundary login
+rosa-boundary investigation create <cluster-id>
+rosa-boundary investigation list
+rosa-boundary investigation close <cluster-id> <investigation-id>
+rosa-boundary session create <cluster-id>
+rosa-boundary session list
+rosa-boundary session join <session-id>
+rosa-boundary session close <session-id>
+rosa-boundary session credentials configure ocm [session-id]
+rosa-boundary session credentials clear ocm [session-id]
 ```
 
-## Setup
+The earlier names `config list`, `config use`, `session start`, and `session stop` are **rejected**, not aliases. They return guidance for `config list-profiles`, `config use-profile <name>`, `session create <cluster-id>`, and `session close <session-id>` respectively; the old session-stop diagnostic also says the investigation remains open. Rollout documentation and scripts must account for these incompatible verbs.
 
-### `rosa-boundary config --help`
+## Named deployment profiles
 
-```text
-Manage named Boundary deployment profiles in one YAML file under the
-rosa-boundary configuration directory. These commands do not manage login
-sessions or credentials.
-
-Usage:
-  rosa-boundary config [command]
-
-Available Commands:
-  init  Add a deployment profile to the Boundary configuration file
-  list  List saved profiles and the active profile
-  use   Set the active profile for subsequent commands
-  get   Read a saved profile or one key
-```
-
-The file at `${XDG_CONFIG_HOME:-~/.config}/rosa-boundary/config.yaml` has this shape (illustrative values):
+`config init --name <name> --account-id <account> --region <boundary-region>` creates a profile. The file is `${XDG_CONFIG_HOME:-$HOME/.config}/rosa-boundary/config.yaml`; it holds named profiles and `active_profile`, **not** access tokens or credentials. For example:
 
 ```yaml
 active_profile: stage-east
@@ -89,434 +52,120 @@ profiles:
     sre_role_arn: arn:aws:iam::123456789012:role/example-sre
     ecs_cluster_name: rosa-boundary-stage
     efs_filesystem_id: fs-example
-  prod-west:
-    account_id: "210987654321"
-    environment: prod
-    project: rosa-boundary
-    aws_region: us-west-1
-    # Other deployment values are saved here by config init.
 ```
 
-The profile names are user-chosen and unique within the file. No credentials or tokens are stored. `config use` changes only `active_profile`; `--profile` temporarily selects another saved profile for Boundary operations or `config get` (it is not needed by `config init`, `list`, or `use`). The first initialized profile becomes active; later additions do not change the active profile unless `--use` is specified. An unknown profile is an error. Profile-specific OIDC settings and token reuse must not silently authenticate against a different provider: login uses the selected profile's identity provider and only reuses a cached token valid for it.
+Profile names are unique, user-chosen names. The first initialized profile becomes active; later additions preserve the active selection unless `config init --use` is supplied. `--overwrite` allows replacement of an existing profile, with confirmation unless `--yes` is also passed; `--yes` alone is invalid. `--profile` selects a saved profile for Boundary operations or `config get`, but is not used by `config init` or `config use-profile`. An unknown profile fails rather than changing the selection.
 
-This is a **new opt-in file format**, not a migration. The existing CLI's single-profile `config.yaml` must not be interpreted as a named profile, merged, or silently overwritten. On detecting the legacy shape, the new profile commands fail with an actionable message: back up/move the old file, then run `config init --name <name> ...` for each intended deployment and `config use <name>`. Do not import legacy deployment values automatically. Users who have not opted into the new CLI/config contract keep using the existing CLI until they deliberately install the version implementing this proposal; the rollout documentation must call out the incompatible config and command names.
+By default, `config init` authenticates to the bootstrap OIDC issuer and discovers deployment settings through the derived invoker role and Lambda. Supply `--keycloak-url`, `--realm`, `--client-id`, `--project` and `--environment` when the bootstrap defaults do not identify the intended deployment. Discovery checks issuer/region and role-account consistency before saving; it does not inherit another profile or ambient deployment environment values. `--auto-discover=false` instead collects required deployment values from flags or terminal prompts without authenticating: `--name`, `--account-id`, `--region`, `--keycloak-url`, `--lambda-function-name`, `--invoker-role-arn`, `--sre-role-arn`, `--ecs-cluster`, and `--efs-filesystem-id`. It reports missing required settings in a headless invocation before saving. Project, environment, realm and client ID have defaults. Explicit `--use-device-code=true` (or the bare flag) alone selects device-mode **bootstrap** and saves that preference; absent/false saves browser mode even if an environment variable or another profile prefers device mode. Manual init saves the explicit preference without signing in.
 
-### `rosa-boundary config init --help`
+The named-profile parser does **not** migrate or import the old flat single-profile `config.yaml`. Such a file fails ordinary named-profile schema validation with guidance to back it up or move it aside and run `config init` from scratch. There is no separate legacy-shape detection, automatic merge, or silent overwrite. Treat the file-format change as an intentional rollout incompatibility.
+
+`config list-profiles`, `config use-profile`, and `config get` work offline against saved YAML, not resolved environment overrides. `config list-profiles` shows sorted saved rows with headers `ACTIVE`, `PROFILE`, `ACCOUNT ID`, `ENVIRONMENT`, `REGION`, a separator and `*` for the active row. With a missing file or empty `profiles: {}`, it says `No profiles found. Run 'rosa-boundary config init --help' to create one.`; malformed config remains an error. `config use-profile <name>` changes only `active_profile` and confirms the active name, **saved** account ID and **saved** region on separate lines:
 
 ```text
-Add a named Boundary deployment profile for subsequent commands.
-Discovers available settings by default; use --auto-discover=false to supply
-all deployment settings via flags or enter missing values interactively.
-Without a terminal, reports all missing required settings before saving.
-Preserves other profiles. Refuses to replace an existing profile unless
---overwrite is supplied; replacing one requires confirmation unless --yes is
-supplied. Does not save access tokens.
-Writes to ${XDG_CONFIG_HOME:-~/.config}/rosa-boundary/config.yaml.
-
-Usage:
-  rosa-boundary config init [flags]
-
-Flags:
-      --name string           Profile name (required without a terminal)
-      --account-id string     AWS account containing the Boundary deployment
-      --region string         AWS region of the Boundary deployment
-      --project string        Deployment project name (default "rosa-boundary")
-      --environment string    Deployment environment (default "prod")
-      --keycloak-url string   OIDC provider base URL (required in manual mode)
-      --realm string          OIDC realm (default "EmployeeIDP")
-      --client-id string      OIDC client ID (default "rosa-boundary-sre")
-      --lambda-function-name string  Create-investigation Lambda (manual mode)
-      --invoker-role-arn string      Lambda invoker role ARN (manual mode)
-      --sre-role-arn string          SRE role ARN (manual mode)
-      --ecs-cluster string          Boundary ECS cluster name (manual mode)
-      --efs-filesystem-id string    Investigation EFS filesystem (manual mode)
-      --auto-discover          Discover deployment settings (default true;
-                               use --auto-discover=false for manual setup)
-      --use                    Make this profile active after saving it
-      --overwrite              Allow replacing an existing profile
-      --yes                    Skip replacement confirmation (requires --overwrite)
-  -o, --output string         text or json auth events on stderr (default "text")
-  -h, --help                  Show help
-
-Examples:
-  rosa-boundary config init --name stage-east --account-id 123456789012 --region us-east-1
-  rosa-boundary config init --name prod-west --account-id 210987654321 --region us-west-1 --use
-  rosa-boundary config init --name personal-dev --auto-discover=false
-  rosa-boundary config init --name personal-dev --account-id 123456789012 \
-    --region us-east-1 --auto-discover=false --keycloak-url https://auth.example.com \
-    --realm EmployeeIDP --client-id rosa-boundary-sre \
-    --lambda-function-name example-create-investigation \
-    --invoker-role-arn arn:aws:iam::123456789012:role/example-invoker \
-    --sre-role-arn arn:aws:iam::123456789012:role/example-sre \
-    --ecs-cluster example-ecs --efs-filesystem-id fs-example --use-device-code
+Active profile: stage-east
+AWS account ID: 123456789012
+AWS region: us-east-1
 ```
 
-Manual mode requires a name, account ID, region, Keycloak URL, Lambda name, invoker and SRE role ARNs, ECS cluster, and EFS filesystem ID; project, environment, realm, client ID, and device preference have the displayed defaults. Values for manual initialization come from its flags or terminal prompts/defaults, **not** ambient deployment environment variables or the old single-profile file. Auto-discovery requires the name, account ID, and region (prompted if a terminal is available), and uses the supplied OIDC bootstrap flags or documented defaults; it does not reuse an existing profile's issuer or device preference. `--output json` on init emits auth events during discovery on stderr but no JSON result on stdout.
+`config get [key]` prints a selected profile's saved YAML or one saved key; missing/unsupported keys fail. Its supported keys are `account_id`, `environment`, `project`, `aws_region`, `keycloak_url`, `keycloak_realm`, `oidc_client_id`, `oidc_use_device_code`, `lambda_function_name`, `invoker_role_arn`, `sre_role_arn`, `ecs_cluster_name`, and `efs_filesystem_id`. Neither defaults nor environment overrides appear in `config get`.
 
-### `rosa-boundary config list --help`
+## Authentication, JSON and deadlines
 
-```text
-List saved Boundary deployment profiles. Show the active profile, account ID,
-environment, and deployment region from the YAML file. Never show tokens.
+`login [--force]` signs in for the selected Boundary profile; `--force` asks for a fresh token. Browser authorization-code PKCE is the default. For normal authenticated commands, explicit `--use-device-code=true|false` overrides `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE`, then the selected profile's saved `oidc_use_device_code`, then the default `false`; invalid booleans fail. `config init` uses the bootstrap exception above. The flag selects a flow, not an issuer or an unattended credential. A cached Boundary **ID token** is reused only while valid for the selected issuer/client; STS rejection of a cached token can trigger a fresh approval during any authenticated command. Boundary obtains temporary, identity-scoped AWS role sessions instead of requiring existing workstation AWS keys.
 
-Usage:
-  rosa-boundary config list
+OCM credentials are separate from the Boundary ID token: `session create --with-credentials ocm` or `session credentials configure ocm <session-id>` obtains a **fresh OCM access token** for the chosen OCM environment, never copies the workstation's saved OCM token into the session, and injects it into task-scoped, audit-excluded storage. The default OCM flow follows the effective Boundary device preference; `--ocm-auth-flow auth-code|device` on create and `--auth-flow auth-code|device` on configure override OCM **only**. An explicit `auth-code` requires a local browser callback. Boundary sign-in and OCM authorization may require two separate human approvals. `--ocm-url` accepts production/staging/integration aliases or approved canonical URLs; if omitted for an actual configure, the CLI reads only the URL from local OCM configuration and fails if none is available. No OCM token is acquired merely to suggest a credential command.
 
-Flags:
-  -h, --help  Show help
-```
+Every leaf offering `-o json` produces **one JSON object on stdout**, including on failure; it does not emit a JSON-auth-event stream. Authentication challenges remain **human-readable stderr** in both modes (device verification URL and user code, or browser guidance). There is no `ROSA_BOUNDARY_AUTH_EVENT` protocol. Scripts must drain stderr **while the command runs** so a human can approve every challenge, including retries; do not put short-lived codes/URLs in shared logs. Tokens, OAuth `device_code`, PKCE verifiers and raw token responses are not output. Authentication alone is not operation success: check the exit status before consuming JSON. The failure object is `{"error":{"code":"command_failed","message":"..."}}` with a useful diagnostic also on stderr, not a success-shaped result. Invalid `--output` does not select JSON mode; if stdout cannot be written, no complete JSON document can be guaranteed.
 
-### `rosa-boundary config use --help`
+Success results include the selected `profile` and relevant identifiers; existing data-command JSON fields remain. In particular, `login -o json` reports `profile` and `authenticated: true`; `config init -o json` reports `profile`, `active` and `discovered`; OCM credential actions report `profile`, `provider: "ocm"`, `action`, `session_id` (plus `environment` when configured). JSON is a **result on stdout**, not merely a way to obtain stderr auth notifications. The interactive `session join -o json` and `session create --connect -o json` require a controlling terminal; ECS Exec shell I/O goes to `/dev/tty`, not result stdout. They emit their single success object **after** successful shell exit, with `status: "disconnected"`, `task_closed: false`, `investigation_closed: false`. Exec failure emits only the failure JSON, never an earlier success object. Disconnect does not stop the task or prove audit sync.
 
-```text
-Set the active profile for subsequent Boundary commands. The profile must
-already exist. This updates only active_profile in the Boundary YAML file.
-
-Usage:
-  rosa-boundary config use <name>
-
-Flags:
-  -h, --help  Show help
-
-Example:
-  rosa-boundary config use prod-west
-```
-
-### `rosa-boundary config get --help`
-
-```text
-Read the active saved profile, or select another with --profile. With no key,
-print that profile's saved values as YAML. With a key, print the saved value.
-A missing profile or key is an error; environment variables and defaults are
-never included. To see available profiles, use config list.
-
-Usage:
-  rosa-boundary config get [key]
-
-The supported keys are: account_id, environment, project, keycloak_url,
-keycloak_realm, oidc_client_id, oidc_use_device_code, lambda_function_name,
-invoker_role_arn, sre_role_arn, aws_region, ecs_cluster_name, efs_filesystem_id.
-
-Flags:
-      --profile string  Read this saved profile (active if omitted)
-  -h, --help  Show help
-
-Examples:
-  rosa-boundary config get
-  rosa-boundary config get aws_region
-  rosa-boundary config get aws_region --profile prod-west
-```
-
-### `rosa-boundary login --help`
-
-```text
-Sign in to the selected profile's Boundary identity provider. Uses a browser
-unless device authorization is selected. Never prints credentials or tokens.
-
-Usage:
-  rosa-boundary login [flags]
-
-Flags:
-      --force                Sign in again rather than reuse a valid session
-  -o, --output string        text or json auth events on stderr (default "text")
-  -h, --help                 Show help
-
-Example:
-  rosa-boundary login
-```
+Without a controlling terminal, the default whole-command deadline is five minutes; with one there is no default whole-command deadline. An explicit positive `--timeout` applies to the entire invocation, including approval and an interactive shell. On expiry, cancel the local ECS Exec plugin/connection, not the underlying task. ECS RUNNING/STOPPED waiters have a separate ten-minute maximum; the earlier effective deadline wins. `--session-timeout` is **task lifetime**, not a CLI waiter: the default is one hour, CLI accepts whole seconds from zero through 24 hours, and Lambda policy controls the minimum (normally 30 seconds) and maximum (24 hours). Zero disables task expiry only if the deployment explicitly allows `TASK_TIMEOUT_MINIMUM=0`; a rejection is reported, not bypassed.
 
 ## Investigation lifecycle
 
-### `rosa-boundary investigation --help`
+| Command | Contract / relevant flags |
+| --- | --- |
+| `investigation create <cluster-id>` | Create a persistent EFS investigation workspace **without** a task. `--investigation-id` requests a specific ID; otherwise generate and report one. `--region` overrides the Boundary region; `-o json` returns profile, cluster/investigation IDs and access-point ID. |
+| `investigation list` | List workspaces, including idle ones. Optional `--cluster-id` filters the ROSA cluster; `--efs-filesystem-id` and `--region` target the deployment store; `-o json` returns a profile and `investigations` array. |
+| `investigation close <cluster-id> <investigation-id>` | Plan cleanup of the access point and associated task definitions; stored EFS files remain. `--dry-run` previews only; `--force` stops/waits for active or pending sessions; `--yes` skips confirmation, not plan validation. `--ecs-cluster`, `--efs-filesystem-id`, `--region` select deployment resources; `-o json` returns one plan on dry-run or a close result on success. Without `--yes`, a non-dry-run close needs a terminal. |
+
+Text `investigation create` separates progress from the final success and gives a profile-qualified next command, for example:
 
 ```text
-Manage investigation workspaces. An investigation can exist without a running session.
+Investigation created.
+Cluster: my-cluster
+Investigation: incident-42
+Access point ID: fsap-example
 
-Usage:
-  rosa-boundary investigation [command]
-
-Available Commands:
-  create  Create an investigation without starting a session
-  list    List investigation workspaces, including idle ones
-  close   Close an investigation workspace
+To create a session, run:
+  rosa-boundary --profile "stage-east" session create "my-cluster" --investigation-id "incident-42"
 ```
 
-### `rosa-boundary investigation create --help`
+Add `--region` to that suggestion only if needed to preserve an unsaved effective Boundary region. A Lambda error can have an unknown creation outcome; inspect before retrying rather than assuming no resource exists.
 
-```text
-Create a persistent investigation workspace without starting a session.
-If --investigation-id is omitted, a new ID is generated and reported.
-
-Usage:
-  rosa-boundary investigation create <cluster-id> [flags]
-
-Flags:
-      --investigation-id string   Requested investigation ID
-      --region string             Boundary deployment region (configured if omitted)
-  -o, --output string             Result format: text or json (default "text")
-  -h, --help                      Show help
-
-Example:
-  rosa-boundary investigation create my-cluster --investigation-id incident-42
-```
-
-### `rosa-boundary investigation list --help`
-
-```text
-List investigation workspaces, whether or not they have running sessions.
-
-Usage:
-  rosa-boundary investigation list [flags]
-
-Flags:
-      --cluster-id string        Limit results to a ROSA cluster (default: all)
-      --efs-filesystem-id string Investigation store (configured if omitted)
-      --region string            Boundary deployment region (configured if omitted)
-  -o, --output string            Result format: text or json (default "text")
-  -h, --help                     Show help
-
-Example:
-  rosa-boundary investigation list --cluster-id my-cluster -o json
-```
-
-### `rosa-boundary investigation close --help`
-
-```text
-Close an investigation workspace. Removes its access point and associated ECS
-task definitions; stored files remain. Resolves the target and complete action
-set before confirmation: account, region, ECS cluster, EFS filesystem/access
-point, cluster/investigation IDs, active session IDs to stop, and task
-definition ARNs to deregister. Refuses active (including pending) sessions
-without --force.
---force plans their stops and waits before deregistration/deletion. --dry-run
-only previews the plan; it never stops sessions, deregisters definitions, or
-deletes an access point. --yes skips the confirmation, not plan validation.
-
-Usage:
-  rosa-boundary investigation close <cluster-id> <investigation-id> [flags]
-
-Flags:
-      --force                    Stop active sessions before closing
-      --yes                      Skip confirmation (required without a terminal
-                                 unless --dry-run)
-      --dry-run                  Show target and planned actions without changing it
-      --efs-filesystem-id string Investigation store (configured if omitted)
-      --ecs-cluster string       Boundary ECS cluster (configured if omitted)
-      --region string            Boundary deployment region (configured if omitted)
-  -o, --output string            Result format: text or json (default "text")
-  -h, --help                     Show help
-
-Example:
-  rosa-boundary investigation close my-cluster incident-42 --dry-run
-```
-
-Resolution is read-only and must finish before any mutation, including with `--yes`. Display the **same complete action set** for `--dry-run` and the confirmation preview (text to stderr; JSON dry-run as one stdout document); an ambiguous or incomplete target is an error, not a partial plan. Confirm once, then stop planned active sessions (if forced), wait for them to stop, deregister the planned task definitions, and delete the access point. Recheck the access point, active sessions, and task definitions immediately before mutation; if the plan changed, abort and require a new preview/confirmation rather than silently acting on newly discovered resources. If any action fails, return nonzero with completed and remaining actions and do not claim the investigation closed. A preview cannot make concurrent AWS changes atomic; post-confirmation failures are possible. Audit sync is attempted on task shutdown and must be verified separately.
+For `investigation close`, resolve the target and check the authenticated owner's immutable OIDC subject against the access-point owner tag. A dry-run shows the action set without mutation: profile, account, region, ECS cluster, EFS filesystem/access point, investigation IDs, sessions to stop or already stopping, and task definitions to deregister (JSON dry-run as one stdout object; text preview on stderr). Without `--force` or `--dry-run`, active sessions cause an error **before** the plan is displayed; use `--dry-run` to inspect it. Otherwise, a non-dry-run close shows the same plan before confirmation or mutation. Refuse ambiguous, incomplete or non-Lambda-managed targets. Re-resolve before mutation and abort if the plan changed; after forced stops, recheck for active tasks before deleting the access point. Concurrent AWS activity cannot be made atomic: return nonzero and identify partial cleanup if an action fails. Neither a preview nor success proves audit sync; verify audit evidence separately.
 
 ## Session lifecycle
 
-### `rosa-boundary session --help`
+`session --help` on the implementation branch includes these four illustrative workflows; placeholders require approved values before use:
 
 ```text
-Manage investigation sessions and session-scoped credentials. A session runs
-on an ECS task; stopping it does not close the investigation workspace.
+# New session and automatically generated investigation ID
+rosa-boundary session create <cluster-id>
 
-Usage:
-  rosa-boundary session [command]
+# New session in an existing investigation
+rosa-boundary session create <cluster-id> --investigation-id <investigation-id>
 
-Available Commands:
-  start        Start an investigation session
-  list         List investigation sessions
-  join         Open a shell in a running session
-  stop         Stop an investigation session
-  credentials  Manage credentials in a running session
+# Fresh OCM credentials in an existing running session
+rosa-boundary session credentials configure ocm <session-id>
+
+# New session and investigation, then fresh OCM credentials
+rosa-boundary session create <cluster-id> --with-credentials ocm
 ```
 
-### `rosa-boundary session start --help`
+The OCM examples deliberately do not choose an environment: supply `--ocm-url` if local OCM configuration does not contain an approved URL. Credential injection cannot be paired with `--no-wait`; OCM may require a separate approval.
+
+| Command | Contract / relevant flags |
+| --- | --- |
+| `session create <cluster-id>` | Create a task for a new or existing investigation. `--investigation-id` chooses the existing ID (otherwise generated); `--oc-version` defaults to `4.20`; `--session-timeout` defaults to `1h`. `--region` and `--ecs-cluster` target the Boundary deployment. By default wait for RUNNING; `--no-wait` reports a launch, **not** readiness. `--connect` opens an interactive shell only after readiness; `--with-credentials ocm` configures fresh credentials only after task and Exec agent readiness. `--no-wait` cannot combine with `--connect` or `--with-credentials`; `--ocm-url` and `--ocm-auth-flow` require `--with-credentials ocm`. |
+| `session list` | List session ID, status, ROSA cluster, investigation and owner; `--status RUNNING|STOPPED|all` (default RUNNING), `--ecs-cluster`, `--region`; `-o json` returns a profile and `sessions` array. A list request is not credential-session auto-selection. |
+| `session join <session-id>` | Join a running task through the local `session-manager-plugin`, defaulting to an SRE login shell. `--container` (default `rosa-boundary`), `--command`, `--no-wait`, `--ecs-cluster`, `--region` are available. Without `--no-wait`, wait for RUNNING if needed; in either case the Exec agent must be ready. A terminal is required even with `-o json`. Leaving the shell leaves task and investigation open. |
+| `session close <session-id>` | Stop only the task, **not** the investigation. `--reason` defaults to `Investigation complete`; `--wait` waits for STOPPED, otherwise result is a stop request; `--yes` skips confirmation (required without a terminal); `--ecs-cluster`, `--region` select the target deployment. An already STOPPED task is an error with audit/cleanup guidance. |
+
+On create success, the text result has a single summary after progress, then a copyable follow-up command, for example:
 
 ```text
-Start a session for an investigation, creating the investigation if necessary.
-If --investigation-id is omitted, a new ID is generated and reported. By default,
-waits until the session is running and prints its ID and a join command.
+Session created and RUNNING.
+Cluster: my-cluster
+Investigation: incident-42
+Session ID: abc123
 
-Usage:
-  rosa-boundary session start <cluster-id> [flags]
-
-Flags:
-      --investigation-id string  Investigation to use (generated if omitted)
-      --oc-version string        OpenShift CLI version in the session (default "4.20")
-      --session-timeout duration Session lifetime (default 1h; deployment minimum
-                                 defaults to 30s; maximum 24h)
-      --connect                  Join the session after it starts (requires a terminal)
-      --no-wait                  Return without waiting for the session to be running
-      --with-credentials string  Configure credentials after startup: ocm
-      --ocm-url string           OCM environment: production, staging, integration,
-                                 or an approved canonical URL
-      --ocm-auth-flow string     OCM-only sign-in override: auth-code or device
-      --region string            Boundary deployment region (configured if omitted)
-      --ecs-cluster string       Boundary ECS cluster (configured if omitted)
-  -o, --output string            Result format: text or json (default "text")
-  -h, --help                     Show help
-
---no-wait cannot be used with --connect or --with-credentials. --ocm-url and
---ocm-auth-flow require --with-credentials ocm. If anything after session creation
-fails (including the RUNNING wait), the error includes the created session ID and a
-`--profile`-qualified stop command. No local OCM token is copied into the
-session; OCM sign-in obtains fresh session-scoped access.
-
-Examples:
-  rosa-boundary session start my-cluster --connect
-  rosa-boundary session start my-cluster --investigation-id incident-42 --with-credentials ocm --ocm-url production
+To join this session, run:
+  rosa-boundary --profile "stage-east" session join "abc123"
 ```
 
-### `rosa-boundary session list --help`
+The corresponding JSON success uses `status: "RUNNING"`; `--no-wait` uses `status: "launched"` and text says RUNNING has **not** been confirmed. For `--connect`, there is no success result before Exec succeeds and the shell disconnects; text says the task and investigation remain open, and JSON reports `disconnected` with both closed fields false. Text join suggestions retain only region/ECS override flags needed to target the same deployment. `--no-wait` suggests joining **once RUNNING**, not immediately.
+
+A RUNNING wait, role assumption, credential configuration, Exec, deadline or output failure **after Lambda returned a task ARN** is nonzero; it includes the created session ID, investigation/cluster where known, profile and a profile-qualified `session close <session-id> --yes` cleanup command with target region/ECS cluster. It does not silently stop the task or print a success result. A task may already be STOPPED; inspect `session list --status all` if cleanup fails. A Lambda invocation error can have an unknown outcome; inspect the investigation/session before retrying. Credential failure may offer a fresh configure retry. No-wait success means only launch; do not infer RUNNING or completed credential injection.
+
+Before `session close` confirmation, stderr shows separately labeled profile, account, region, session ID, ROSA cluster, investigation and owner, and states that the investigation remains open. JSON close success reports `status: "STOPPING"` with `waited: false` or `status: "STOPPED"` with `waited: true`. The container entrypoint **attempts** an S3 sync of non-credential workspace files on task shutdown; neither a stop request nor a STOPPED waiter proves CloudWatch/S3 evidence is complete. Verify audit separately before `investigation close`.
+
+## Task-scoped OCM credentials
+
+`session credentials configure ocm [session-id]` and `session credentials clear ocm [session-id]` affect the running Boundary task, not the workstation's OCM login. Configure requests fresh OCM access then injects it through a bounded ECS Exec helper; clear removes task-scoped OCM credentials and derived kubeconfig state. Both require a running task and ready Exec agent **when an ID is supplied**; `--ecs-cluster` and `--region` select the deployment. Configure also offers `--ocm-url` and `--auth-flow`. Neither command prints tokens. Stopping a task removes its task-scoped credentials; do not store credentials on persistent EFS home or in audit escrow.
+
+Omitting the session ID is **discovery-only**, never permission to configure or clear automatically. After Boundary authentication, filter tasks in the selected ECS deployment by the authenticated immutable `sub` matching the `oidc_sub` owner tag and **actual** status `RUNNING` (not merely desired RUNNING; exclude tasks stopping). Missing/malformed ownership fails closed and other users' task metadata is not revealed. Zero eligible sessions produces guidance to create/select one; multiple eligible sessions directs the user to inspect their sessions and specify an ID. Exactly one shows its session ID, cluster, investigation and status plus a profile-qualified command to rerun **with** that ID; it still changes no credentials and acquires no OCM token. Suggestions retain effective unsaved region/ECS overrides; the unique-session suggestion also retains explicitly supplied auth-flow/device flags. A configure suggestion includes `--ocm-url` **only if supplied**; otherwise the subsequent actual configure uses normal local OCM URL selection. For example, with a uniquely eligible task:
 
 ```text
-List sessions and their cluster, investigation, owner, and status.
-
-Usage:
-  rosa-boundary session list [flags]
-
-Flags:
-      --status string       RUNNING, STOPPED, or all (default "RUNNING")
-      --ecs-cluster string  Boundary ECS cluster (configured if omitted)
-      --region string       Boundary deployment region (configured if omitted)
-  -o, --output string       Result format: text or json (default "text")
-  -h, --help                Show help
-
-Example:
-  rosa-boundary session list --status all -o json
+Session ID: "abc123"
+Cluster: "my-cluster"
+Investigation: "incident-42"
+Status: RUNNING
+No credentials were changed. To configure OCM credentials, run:
+  rosa-boundary --profile 'stage-east' session credentials configure ocm 'abc123'
 ```
 
-### `rosa-boundary session join --help`
+An omitted-ID `-o json` result has `status: "selection_required"`, `eligible_count`, `credentials_changed: false`, `profile`, `provider: "ocm"` and `action` (`configure` or `clear`). Only the unique-session case includes `session_id`, `cluster_id`, `investigation_id`, `session_status` and `suggested_command`; zero/multiple cases expose no candidate identifiers. This suggestion-only result is a successful discovery response, **not** successful credential mutation. With an explicit ID, successful JSON configure/clear results use `action: "configured"` / `"cleared"` and include `session_id` (and configured `environment`). A bad ID or failed authentication/transfer returns nonzero with the single failure JSON when JSON was selected.
 
-```text
-Open an interactive shell in a running session you are authorized to access.
-Requires the AWS session-manager-plugin on the workstation. The default command
-opens a login shell as the session's SRE user. Exiting the shell disconnects;
-the session continues running until stopped or expired.
-
-Usage:
-  rosa-boundary session join <session-id> [flags]
-
-Flags:
-      --container string    Container to enter (default "rosa-boundary")
-      --command string      Command to run (default: SRE login shell)
-      --no-wait             Do not wait for the session to reach RUNNING (still
-                            requires a ready ECS Exec agent)
-      --ecs-cluster string  Boundary ECS cluster (configured if omitted)
-      --region string       Boundary deployment region (configured if omitted)
-  -o, --output string       text or json auth events on stderr (default "text")
-  -h, --help                Show help
-
-Example:
-  rosa-boundary session join abc123
-```
-
-### `rosa-boundary session stop --help`
-
-```text
-Stop a session without closing its investigation. Underlying ECS task shutdown
-attempts an audit sync of non-credential workspace files. Shows the session and
-asks for confirmation unless --yes is set. --wait waits for the stopped state;
-stopping is not proof that the audit sync succeeded.
-
-Usage:
-  rosa-boundary session stop <session-id> [flags]
-
-Flags:
-      --reason string      Audit reason (default "Investigation complete")
-      --wait               Wait until the session has stopped
-      --yes                Skip confirmation (required without a terminal)
-      --ecs-cluster string Boundary ECS cluster (configured if omitted)
-      --region string      Boundary deployment region (configured if omitted)
-  -o, --output string      Result format: text or json (default "text")
-  -h, --help               Show help
-
-Example:
-  rosa-boundary session stop abc123 --reason "Investigation complete" --wait
-```
-
-## Session credentials
-
-### `rosa-boundary session credentials --help`
-
-```text
-Manage credentials inside a running Boundary session. Does not manage the
-workstation's OCM login. Stopping the session removes session-scoped credentials.
-
-Usage:
-  rosa-boundary session credentials [command]
-
-Available Commands:
-  configure  Obtain and configure credentials in a running session
-  clear      Remove credentials from a running session
-```
-
-### `rosa-boundary session credentials configure --help`
-
-```text
-Obtain and configure credentials in a running session.
-
-Usage:
-  rosa-boundary session credentials configure [command]
-
-Available Commands:
-  ocm  Obtain fresh OCM access for a session
-```
-
-### `rosa-boundary session credentials configure ocm --help`
-
-```text
-Sign in for fresh OCM access and configure it in a running session.
-Never copies the workstation's saved OCM tokens into the session and never prints
-the new token. If --ocm-url is omitted, uses the workstation's configured OCM
-environment URL, if available; otherwise requires --ocm-url.
-
-Usage:
-  rosa-boundary session credentials configure ocm <session-id> [flags]
-
-Flags:
-      --ocm-url string     production, staging, integration, or an approved
-                           canonical OCM URL
-      --auth-flow string   OCM-only override: auth-code or device
-      --ecs-cluster string Boundary ECS cluster (configured if omitted)
-      --region string      Boundary deployment region (configured if omitted)
-  -o, --output string      text or json auth events on stderr (default "text")
-  -h, --help               Show help
-
-Example:
-  rosa-boundary session credentials configure ocm abc123 --ocm-url production
-```
-
-### `rosa-boundary session credentials clear --help`
-
-```text
-Remove credentials from a running session.
-
-Usage:
-  rosa-boundary session credentials clear [command]
-
-Available Commands:
-  ocm  Remove OCM credentials and derived kubeconfig state
-```
-
-### `rosa-boundary session credentials clear ocm --help`
-
-```text
-Remove OCM credentials and credential-derived kubeconfig state from a running
-session. Does not change credentials on the workstation.
-
-Usage:
-  rosa-boundary session credentials clear ocm <session-id> [flags]
-
-Flags:
-      --ecs-cluster string Boundary ECS cluster (configured if omitted)
-      --region string      Boundary deployment region (configured if omitted)
-  -o, --output string      text or json auth events on stderr (default "text")
-  -h, --help               Show help
-
-Example:
-  rosa-boundary session credentials clear ocm abc123
-```
-
-`rosa-boundary version`, `rosa-boundary completion`, and `rosa-boundary help` are proposed top-level commands outside the investigation and session groups.
+Finally, normal Boundary CLI access needs neither existing workstation AWS credentials nor an AWS CLI. Independent CloudWatch and S3 audit verification does require separately authorized operator/audit-reader access in the correct account and region; task shutdown and investigation cleanup are distinct from that verification. These boundaries describe the draft implementation, not evidence of successful staging or production operation.

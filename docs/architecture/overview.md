@@ -110,7 +110,7 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 
 | Component | Role | Location |
 |-----------|------|----------|
-| `rosa-boundary` Go CLI | SRE workflow automation: login, investigation create/list/close and session create/list/join/stop | SRE laptop |
+| `rosa-boundary` Go CLI | SRE workflow automation: login, investigation create/list/close and session create/list/join/close | SRE laptop |
 | Red Hat SSO / Keycloak | OIDC authentication and token issuance; group membership; session tag injection via `https://aws.amazon.com/tags` claim mapper | OpenShift cluster (RHBK operator) |
 | ROSA/OpenShift cluster | Target cluster being investigated | AWS (managed) |
 
@@ -373,7 +373,7 @@ rosa-boundary login
 rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
   --investigation-id "$INVESTIGATION_ID" --connect
 
-# 2b. Or start without connecting (returns task ARN)
+# 2b. Or start without connecting (prints the session ID; JSON output also includes task_arn)
 rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
   --investigation-id "$INVESTIGATION_ID"
 

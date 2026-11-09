@@ -67,7 +67,7 @@ func executeRoot(root *cobra.Command, args ...string) int {
 					if arg == "--" {
 						break
 					}
-					if arg == "--output=json" || (arg == "-o" || arg == "--output") && i+1 < len(args) && args[i+1] == "json" {
+					if arg == "--output=json" || arg == "-o=json" || (arg == "-o" || arg == "--output") && i+1 < len(args) && args[i+1] == "json" {
 						jsonSelected = true
 					}
 				}

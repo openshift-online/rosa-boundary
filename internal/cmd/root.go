@@ -42,19 +42,54 @@ var (
 
 // Execute runs the investigation/session CLI command tree.
 func Execute() {
-	err := buildRootCommand().Execute()
+	if status := executeRoot(buildRootCommand(), os.Args[1:]...); status != 0 {
+		os.Exit(status)
+	}
+}
+
+func executeRoot(root *cobra.Command, args ...string) int {
+	if args != nil {
+		root.SetArgs(args)
+	}
+	cmd, err := root.ExecuteC()
 	if commandCancel != nil {
 		commandCancel()
 		commandCancel = nil
 	}
 	if err != nil {
+		if cmd != nil && cmd.Flags().Lookup("output") != nil && !errors.Is(err, output.ErrJSONWrite) {
+			format, formatErr := commandOutput(cmd)
+			// Flag parsing stops at the first invalid flag. A later explicit
+			// JSON selection is still an intentional request for JSON output.
+			jsonSelected := formatErr == nil && format == "json"
+			if !cmd.Flags().Changed("output") && !jsonSelected {
+				for i, arg := range args {
+					if arg == "--" {
+						break
+					}
+					if arg == "--output=json" || (arg == "-o" || arg == "--output") && i+1 < len(args) && args[i+1] == "json" {
+						jsonSelected = true
+					}
+				}
+			}
+			if jsonSelected {
+				// The error is the same actionable diagnostic printed on stderr;
+				// never substitute a success-shaped result on failure.
+				if writeErr := output.JSONTo(cmd.OutOrStdout(), map[string]any{
+					"error": map[string]string{"code": "command_failed", "message": err.Error()},
+				}); writeErr != nil {
+					fmt.Fprintln(os.Stderr, "Error: failed to write JSON failure result:", writeErr)
+				}
+			}
+		}
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		var child *exec.ExitError
 		if errors.As(err, &child) && child.ExitCode() > 0 {
-			os.Exit(child.ExitCode())
+			return child.ExitCode()
 		}
-		os.Exit(1)
+		return 1
 	}
+	return 0
 }
 
 // debugf prints a debug message if verbose mode is enabled.

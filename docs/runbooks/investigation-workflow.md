@@ -189,7 +189,7 @@ What it does:
 guidance on stderr and keep shell I/O on `/dev/tty`. On successful shell exit,
 stdout contains one JSON result with `status: disconnected`, `task_closed: false`,
 and `investigation_closed: false`; the created session ID remains in the create
-result. Exec failure returns nonzero **without** a success JSON object; after
+result. Exec failure returns nonzero with a failure JSON object (`error.code: command_failed`), **not** a success JSON object; after
 create, stderr includes the session ID and cleanup guidance. Use a controlling
 terminal for both commands. `session create --no-wait -o json` reports
 `status: launched` rather than claiming readiness.

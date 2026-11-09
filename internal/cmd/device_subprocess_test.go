@@ -133,7 +133,8 @@ func TestDeviceLoginSubprocessStreamsChallengeBeforeApproval(t *testing.T) {
 	var diagnostics bytes.Buffer
 	failed.Stderr = &diagnostics
 	failedOut, failedErr := failed.Output()
-	if failedErr == nil || len(failedOut) != 0 || !strings.Contains(diagnostics.String(), "Error:") || strings.Contains(diagnostics.String(), "ROSA_BOUNDARY_AUTH_EVENT") {
+	if failedErr == nil || !strings.Contains(diagnostics.String(), "Error:") || strings.Contains(diagnostics.String(), "ROSA_BOUNDARY_AUTH_EVENT") {
 		t.Fatalf("failed login: error=%v stdout=%q stderr=%q", failedErr, failedOut, diagnostics.String())
 	}
+	assertJSONFailure(t, string(failedOut), "authentication failed")
 }

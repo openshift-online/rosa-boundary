@@ -279,7 +279,7 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
         'investigation', 'close', investigation_id, '--yes',
     ], env=env, capture_output=True, text=True, timeout=10)
     assert missing_cluster.returncode != 0
-    assert '2 arg' in missing_cluster.stderr.lower()
+    assert 'missing required argument <investigation-id>' in missing_cluster.stderr.lower()
     assert ap_id in [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
 
     # An idle investigation owned by another identity cannot be closed.
@@ -378,7 +378,7 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
     result = subprocess.run(cmd_without_cluster, env=env, capture_output=True, text=True, timeout=10)
 
     assert result.returncode != 0, "Command should require a cluster ID for ambiguous investigation IDs"
-    assert '2 arg' in result.stderr.lower()
+    assert 'missing required argument <investigation-id>' in result.stderr.lower()
     remaining_ids = [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
     assert set(ap_ids).issubset(remaining_ids), 'Missing cluster must not delete either investigation'
 

@@ -27,6 +27,67 @@ func TestTaskToListSummaryUsesDesiredStatus(t *testing.T) {
 	}
 }
 
+func TestListOwnedRunningCredentialTasksUsesActualStatusAndOwner(t *testing.T) {
+	const prefix = "arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/"
+	lastStatus, desiredStatus := "PENDING", "RUNNING"
+	describeCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		switch r.Header.Get("X-Amz-Target") {
+		case "AmazonEC2ContainerServiceV20141113.ListTasks":
+			var input struct {
+				DesiredStatus string `json:"desiredStatus"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil || input.DesiredStatus != "RUNNING" {
+				t.Errorf("ListTasks input: %+v, %v", input, err)
+			}
+			_, _ = w.Write([]byte(`{"taskArns":["` + prefix + `mine","` + prefix + `other"]}`))
+		case "AmazonEC2ContainerServiceV20141113.DescribeTasks":
+			describeCalls++
+			var input struct {
+				Tasks   []string `json:"tasks"`
+				Include []string `json:"include"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&input); err != nil || len(input.Tasks) != 2 || len(input.Include) != 1 || input.Include[0] != "TAGS" {
+				t.Errorf("DescribeTasks input: %+v, %v", input, err)
+			}
+			_, _ = w.Write([]byte(`{"tasks":[{"taskArn":"` + prefix + `mine","lastStatus":"` + lastStatus + `","desiredStatus":"` + desiredStatus + `","tags":[{"key":"oidc_sub","value":"me"},{"key":"cluster_id","value":"mine"}]},{"taskArn":"` + prefix + `other","lastStatus":"RUNNING","desiredStatus":"RUNNING","tags":[{"key":"oidc_sub","value":"other"},{"key":"cluster_id","value":"secret"}]}]}`))
+		default:
+			t.Errorf("unexpected ECS operation: %s", r.Header.Get("X-Amz-Target"))
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+	client := testInvestigationECSClient(server.URL)
+	listed, err := client.ListRunningTasks(context.Background(), "RUNNING")
+	if err != nil || len(listed) != 2 || listed[0].Status != "RUNNING" {
+		t.Fatalf("session list semantics changed: tasks=%+v err=%v", listed, err)
+	}
+	for _, tc := range []struct {
+		name, last, desired string
+		want                int
+	}{
+		{"pending to running", "PENDING", "RUNNING", 0},
+		{"running", "RUNNING", "RUNNING", 1},
+		{"stop transition", "RUNNING", "STOPPED", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lastStatus, desiredStatus = tc.last, tc.desired
+			before := describeCalls
+			tasks, err := client.ListOwnedRunningCredentialTasks(context.Background(), "me")
+			if err != nil || len(tasks) != tc.want || describeCalls != before+1 {
+				t.Fatalf("tasks=%+v err=%v describe calls=%d", tasks, err, describeCalls-before)
+			}
+			if tc.want == 1 && (tasks[0].TaskID != "mine" || tasks[0].Status != "RUNNING" || tasks[0].Tags["cluster_id"] != "mine") {
+				t.Fatalf("unexpected owned task: %+v", tasks)
+			}
+		})
+	}
+	if _, err := client.ListOwnedRunningCredentialTasks(context.Background(), ""); err == nil {
+		t.Fatal("empty owner was accepted")
+	}
+}
+
 func TestECSExecTargetAcceptsShortIDAndARN(t *testing.T) {
 	for _, identifier := range []string{"task-id", "arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/task-id"} {
 		if got := ecsExecTarget("ecs-cluster", identifier, "runtime-id"); got != "ecs:ecs-cluster_task-id_runtime-id" {

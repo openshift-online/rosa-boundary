@@ -93,6 +93,20 @@ func (c *ECSClient) WaitForStopped(ctx context.Context, taskID string) error {
 
 // ListRunningTasks returns all tasks with the given desired status.
 func (c *ECSClient) ListRunningTasks(ctx context.Context, desiredStatus string) ([]TaskSummary, error) {
+	return c.listTasks(ctx, desiredStatus, "")
+}
+
+// ListOwnedRunningCredentialTasks returns only the owner's actually RUNNING tasks.
+// Unlike session list, credential guidance must not treat a PENDING task with
+// desired status RUNNING as ready, or disclose another user's task metadata.
+func (c *ECSClient) ListOwnedRunningCredentialTasks(ctx context.Context, subject string) ([]TaskSummary, error) {
+	if subject == "" {
+		return nil, fmt.Errorf("credential discovery requires an owner subject")
+	}
+	return c.listTasks(ctx, "RUNNING", subject)
+}
+
+func (c *ECSClient) listTasks(ctx context.Context, desiredStatus, credentialSubject string) ([]TaskSummary, error) {
 	var taskARNs []string
 	paginator := ecs.NewListTasksPaginator(c.client, &ecs.ListTasksInput{
 		Cluster:       aws.String(c.cluster),
@@ -132,7 +146,16 @@ func (c *ECSClient) ListRunningTasks(ctx context.Context, desiredStatus string) 
 			return nil, fmt.Errorf("DescribeTasks returned an incomplete task batch (%d/%d tasks, failures: %v)", len(out.Tasks), len(batch), out.Failures)
 		}
 		for _, t := range out.Tasks {
-			summaries = append(summaries, *taskToListSummary(t, c.cluster))
+			if credentialSubject == "" {
+				summaries = append(summaries, *taskToListSummary(t, c.cluster))
+				continue
+			}
+			// The same batched DescribeTasks response supplies both actual status
+			// and ownership; no additional per-candidate API calls are needed.
+			summary := taskToSummary(t, c.cluster)
+			if summary.Tags["oidc_sub"] == credentialSubject && summary.Status == "RUNNING" && summary.DesiredStatus != "STOPPED" {
+				summaries = append(summaries, *summary)
+			}
 		}
 	}
 

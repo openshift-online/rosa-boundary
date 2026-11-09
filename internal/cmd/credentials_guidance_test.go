@@ -38,7 +38,7 @@ func TestCredentialGuidanceJSONSelectionOnly(t *testing.T) {
 		{"multiple", "clear", []awsclient.TaskSummary{guidanceTask("task-a", "current-user", "RUNNING"), guidanceTask("task-b", "current-user", "RUNNING")}, 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			listCredentialSessions = func(context.Context, *AuthResult) ([]awsclient.TaskSummary, error) { return tc.tasks, nil }
+			listCredentialSessions = func(context.Context, *AuthResult, string) ([]awsclient.TaskSummary, error) { return tc.tasks, nil }
 			args := []string{"session", "credentials", tc.action, "ocm", "-o", "json"}
 			if tc.count == 1 {
 				args = append(args, "--ocm-url", "staging")
@@ -103,11 +103,13 @@ func TestCredentialGuidanceOnlyOwnedRunningSessions(t *testing.T) {
 		want         []string
 		absent       []string
 	}{
-		{"none", "configure", []awsclient.TaskSummary{guidanceTask("other-secret", "other-user", "RUNNING"), guidanceTask("stopped", "current-user", "STOPPED")}, nil, []string{"No eligible RUNNING sessions", "--profile 'stage'"}, []string{"other-secret", "stopped", "cluster-a", "INV-1"}},
+		{"none", "configure", []awsclient.TaskSummary{guidanceTask("other-secret", "other-user", "RUNNING"), guidanceTask("stopped", "current-user", "STOPPED")}, []string{"--region", "us-west-2", "--ecs-cluster", "override-ecs"}, []string{"No eligible RUNNING sessions", "--profile 'stage' session credentials configure ocm <session-id> --region 'us-west-2' --ecs-cluster 'override-ecs'"}, []string{"other-secret", "stopped", "cluster-a", "INV-1"}},
 		{"one configure default URL", "configure", []awsclient.TaskSummary{guidanceTask("other-secret", "other-user", "RUNNING"), guidanceTask("task-a", "current-user", "RUNNING")}, nil, []string{"Session ID: \"task-a\"", "Cluster: \"cluster-a\"", "Investigation: \"INV-1\"", "Status: RUNNING", "--profile 'stage' session credentials configure ocm 'task-a'"}, []string{"other-secret", "--ocm-url", "--auth-flow"}},
 		{"one configure overrides", "configure", []awsclient.TaskSummary{guidanceTask("task-a", "current-user", "RUNNING")}, []string{"--ocm-url", "staging", "--auth-flow", "device", "--region", "us-west-2", "--ecs-cluster", "override-ecs"}, []string{"--profile 'stage' session credentials configure ocm 'task-a'", "--ocm-url 'staging'", "--auth-flow 'device'", "--region 'us-west-2'", "--ecs-cluster 'override-ecs'"}, nil},
 		{"one clear overrides", "clear", []awsclient.TaskSummary{guidanceTask("task-a", "current-user", "RUNNING")}, []string{"--region", "us-west-2", "--ecs-cluster", "override-ecs", "--use-device-code=false"}, []string{"--profile 'stage' session credentials clear ocm 'task-a'", "--region 'us-west-2'", "--ecs-cluster 'override-ecs'", "--use-device-code=false"}, []string{"--ocm-url"}},
 		{"multiple", "clear", []awsclient.TaskSummary{guidanceTask("task-a", "current-user", "RUNNING"), guidanceTask("task-b", "current-user", "RUNNING"), guidanceTask("other-secret", "other-user", "RUNNING")}, nil, []string{"2 eligible RUNNING sessions", "specify the correct session ID explicitly"}, []string{"other-secret", "task-a", "task-b", "cluster-a", "INV-1"}},
+		{"multiple with overrides", "clear", []awsclient.TaskSummary{guidanceTask("task-a", "current-user", "RUNNING"), guidanceTask("task-b", "current-user", "RUNNING")}, []string{"--region", "us-west-2", "--ecs-cluster", "override-ecs"}, []string{"2 eligible RUNNING sessions", "--profile 'stage' session list --status RUNNING --region 'us-west-2' --ecs-cluster 'override-ecs'"}, []string{"task-a", "task-b", "cluster-a", "INV-1"}},
+		{"pending despite desired running", "configure", []awsclient.TaskSummary{guidanceTask("pending", "current-user", "PENDING")}, nil, []string{"No eligible RUNNING sessions"}, []string{"pending"}},
 		{"missing and malformed ownership", "configure", []awsclient.TaskSummary{guidanceTask("missing", "", "RUNNING"), guidanceTask("newline", "current-user\n", "RUNNING"), guidanceTask("stopping", "current-user", "RUNNING"), guidanceTask("legacy", "", "RUNNING")}, nil, []string{"No eligible RUNNING sessions"}, []string{"missing", "newline", "stopping", "legacy"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -116,7 +118,10 @@ func TestCredentialGuidanceOnlyOwnedRunningSessions(t *testing.T) {
 				tasks[2].DesiredStatus = "STOPPED"
 				tasks[3].Tags = map[string]string{"username": "current-user", "cluster_id": "other-cluster"}
 			}
-			listCredentialSessions = func(_ context.Context, result *AuthResult) ([]awsclient.TaskSummary, error) {
+			listCredentialSessions = func(_ context.Context, result *AuthResult, subject string) ([]awsclient.TaskSummary, error) {
+				if subject != "current-user" {
+					t.Errorf("wrong subject: %q", subject)
+				}
 				if result.Config.ClusterName != "override-ecs" && result.Config.ClusterName != "ecs" {
 					t.Errorf("unexpected target cluster: %q", result.Config.ClusterName)
 				}
@@ -148,7 +153,7 @@ func TestCredentialGuidanceFailsClosedOnMissingSubjectAndDiscoveryError(t *testi
 			previous := listCredentialSessions
 			t.Cleanup(func() { listCredentialSessions = previous })
 			called := false
-			listCredentialSessions = func(context.Context, *AuthResult) ([]awsclient.TaskSummary, error) {
+			listCredentialSessions = func(context.Context, *AuthResult, string) ([]awsclient.TaskSummary, error) {
 				called = true
 				return nil, errors.New("other-user-secret-task-arn")
 			}
@@ -160,6 +165,24 @@ func TestCredentialGuidanceFailsClosedOnMissingSubjectAndDiscoveryError(t *testi
 				t.Fatalf("discovery called=%v with subject %q", called, subject)
 			}
 		})
+	}
+}
+
+func TestCredentialGuidanceUsesResolvedTargetWithoutInventingOverrides(t *testing.T) {
+	setupCredentialGuidance(t, "current-user")
+	previous := listCredentialSessions
+	t.Cleanup(func() { listCredentialSessions = previous })
+	listCredentialSessions = func(_ context.Context, result *AuthResult, subject string) ([]awsclient.TaskSummary, error) {
+		if subject != "current-user" || result.Config.AWSRegion != "eu-central-1" || result.Config.ClusterName != "environment-ecs" {
+			t.Errorf("unexpected discovery target or subject: region=%q cluster=%q subject=%q", result.Config.AWSRegion, result.Config.ClusterName, subject)
+		}
+		return nil, nil
+	}
+	t.Setenv("ROSA_BOUNDARY_AWS_REGION", "eu-central-1")
+	t.Setenv("ROSA_BOUNDARY_ECS_CLUSTER_NAME", "environment-ecs")
+	stdout, err := runTestCLI(t, "session", "credentials", "clear", "ocm")
+	if err != nil || !strings.Contains(stdout, "--profile 'stage' session credentials clear ocm <session-id>") || strings.Contains(stdout, "--region") || strings.Contains(stdout, "--ecs-cluster") {
+		t.Fatalf("guidance with resolved environment target: stdout=%q err=%v", stdout, err)
 	}
 }
 

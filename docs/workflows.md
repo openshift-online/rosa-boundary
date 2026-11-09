@@ -1,10 +1,10 @@
 # CLI Workflow Flowcharts
 
-These flows describe the named-profile CLI. Select an approved Boundary account and region using `--profile <name>` or `config use <name>` before operating. See the [user access guide](runbooks/user-access-guide.md) and [investigation workflow](runbooks/investigation-workflow.md) for prerequisites, audit checks, and recovery. An investigation workspace can outlive multiple sessions; a Boundary session ID identifies an ECS task, **not** its ECS Exec/SSM connection.
+These flows describe the named-profile CLI. Select an approved Boundary account and region using `--profile <name>` or `config use-profile <name>` before operating. See the [user access guide](runbooks/user-access-guide.md) and [investigation workflow](runbooks/investigation-workflow.md) for prerequisites, audit checks, and recovery. An investigation workspace can outlive multiple sessions; a Boundary session ID identifies an ECS task, **not** its ECS Exec/SSM connection.
 
 ```mermaid
 flowchart TD
-    PROFILE["config init / config use<br/>Select named deployment profile"] --> AUTH["OIDC login<br/>browser PKCE or human-approved device flow"]
+    PROFILE["config init / config use-profile<br/>Select named deployment profile"] --> AUTH["OIDC login<br/>browser PKCE or human-approved device flow"]
     AUTH --> CREATE{"Operation?"}
     CREATE -->|"investigation create &lt;cluster-id&gt;"| INVOKER["Assume Lambda invoker role with OIDC ID token"]
     CREATE -->|"session create &lt;cluster-id&gt;"| INVOKER

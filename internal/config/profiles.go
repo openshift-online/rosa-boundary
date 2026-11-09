@@ -154,11 +154,11 @@ func (f *ProfilesFile) SelectProfile(name string) (string, Profile, error) {
 		name = f.ActiveProfile
 	}
 	if name == "" {
-		return "", Profile{}, fmt.Errorf("no active profile; run 'rosa-boundary config list' to see saved profiles, select one with 'rosa-boundary config use <name>' or --profile, or create one with 'rosa-boundary config init --name <name>'")
+		return "", Profile{}, fmt.Errorf("no active profile; run 'rosa-boundary config list-profiles' to see saved profiles, select one with 'rosa-boundary config use-profile <name>' or --profile, or create one with 'rosa-boundary config init --name <name>'")
 	}
 	p, ok := f.Profiles[name]
 	if !ok {
-		return "", Profile{}, fmt.Errorf("unknown profile %q; run 'rosa-boundary config list' to see saved profiles, then select one with --profile or 'rosa-boundary config use <name>'", name)
+		return "", Profile{}, fmt.Errorf("unknown profile %q; run 'rosa-boundary config list-profiles' to see saved profiles, then select one with --profile or 'rosa-boundary config use-profile <name>'", name)
 	}
 	return name, p, nil
 }

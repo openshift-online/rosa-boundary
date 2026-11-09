@@ -112,7 +112,7 @@ for the Boundary account, region, and identity provider, then initialize one:
 ```bash
 rosa-boundary config init --name stage-east --account-id 123456789012 \
   --region us-east-1 --environment stage
-rosa-boundary config list
+rosa-boundary config list-profiles
 ```
 
 `config init` discovers the other settings after OIDC approval. Use
@@ -193,7 +193,7 @@ rosa-boundary/
 | Command | Description |
 |---|---|
 | `login` | Authenticate with Keycloak and cache the OIDC token |
-| `config init`, `config list`, `config use`, `config get` | Manage named Boundary deployment profiles |
+| `config init`, `config list-profiles`, `config use-profile`, `config get` | Manage named Boundary deployment profiles |
 | `investigation create <cluster-id>` | Create a workspace without a session |
 | `investigation list`, `investigation close <cluster-id> <investigation-id>` | Inspect and close workspaces |
 | `session create <cluster-id>` | Create or reuse an investigation and start an ECS task |

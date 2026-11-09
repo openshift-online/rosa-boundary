@@ -78,7 +78,7 @@ for the account and region. For example, a deployment named
   --account-id <account-id> --region <boundary-region> \
   --project rosa-boundary \
   --environment stage
-./bin/rosa-boundary config list
+./bin/rosa-boundary config list-profiles
 ./bin/rosa-boundary config get --profile stage-east
 ```
 
@@ -112,7 +112,7 @@ intentional exception to normal command precedence. With `--auto-discover=false`
 it writes the selected boolean but does not attempt OIDC login; manual setup
 may still prompt for configuration fields.
 
-Confirm the selected profile's account, region, cluster, role ARNs, Lambda, and EFS filesystem match the intended deployment. The first profile becomes active; subsequent profiles require `config use <name>` or per-command `--profile <name>`. An unknown profile fails rather than guessing. `config get` reads saved values only; runtime settings resolve command-specific flags > `ROSA_BOUNDARY_*` variables > selected profile > defaults. Environment variables cannot select a different saved profile. If discovery is unavailable, ask the operator for settings before manual setup.
+Confirm the selected profile's account, region, cluster, role ARNs, Lambda, and EFS filesystem match the intended deployment. The first profile becomes active; subsequent profiles require `config use-profile <name>` or per-command `--profile <name>`. `config use-profile` confirms the new active name, saved AWS account ID, and saved region; environment overrides do not change this confirmation. An unknown profile fails rather than guessing. `config get` reads saved values only; runtime settings resolve command-specific flags > `ROSA_BOUNDARY_*` variables > selected profile > defaults. Environment variables cannot select a different saved profile. If discovery is unavailable, ask the operator for settings before manual setup.
 
 ## Daily Usage
 

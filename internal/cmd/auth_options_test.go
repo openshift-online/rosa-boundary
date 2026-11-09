@@ -32,7 +32,7 @@ func TestOutputFlagsAreCommandScoped(t *testing.T) {
 			t.Errorf("%s lacks local -o", command.CommandPath())
 		}
 	}
-	for _, path := range [][]string{{}, {"version"}, {"session", "credentials"}, {"config", "list"}, {"config", "use"}, {"config", "get"}} {
+	for _, path := range [][]string{{}, {"version"}, {"session", "credentials"}, {"config", "list-profiles"}, {"config", "use-profile"}, {"config", "get"}} {
 		command := commandAtPath(t, root, path...)
 		if command.LocalNonPersistentFlags().Lookup("output") != nil {
 			t.Errorf("offline/group command %s advertises -o", command.CommandPath())

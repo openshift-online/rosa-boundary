@@ -83,12 +83,13 @@ func TestCLIManualProfiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, err := runTestCLI(t, "config", "list")
+	list, err := runTestCLI(t, "config", "list-profiles")
 	if err != nil || !strings.Contains(list, "*       stage-east") || !strings.Contains(list, "prod-west") {
 		t.Fatalf("list = %q, error = %v", list, err)
 	}
-	if _, err := runTestCLI(t, "config", "use", "prod-west"); err != nil {
-		t.Fatal(err)
+	confirmation, err := runTestCLI(t, "config", "use-profile", "prod-west")
+	if err != nil || confirmation != "Active profile: prod-west\nAWS account ID: 210987654321\nAWS region: us-west-1\n" {
+		t.Fatalf("use-profile = %q, error = %v", confirmation, err)
 	}
 	value, err := runTestCLI(t, "--profile", "stage-east", "config", "get", "aws_region")
 	if err != nil || value != "us-east-1\n" {
@@ -165,7 +166,7 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 	// Check every public level: old task commands must not be reachable beneath
 	// a supported group, and no unexpected leaf can silently enter the contract.
 	assertCommandTree(t, root, map[string]any{
-		"config":        map[string]any{"init": nil, "list": nil, "use": nil, "get": nil},
+		"config":        map[string]any{"init": nil, "list-profiles": nil, "use-profile": nil, "get": nil},
 		"investigation": map[string]any{"create": nil, "list": nil, "close": nil},
 		"session": map[string]any{
 			"create": nil, "list": nil, "join": nil, "close": nil,
@@ -346,7 +347,7 @@ func TestCLIRejectsInvalidConfigWithoutOverwrite(t *testing.T) {
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	for _, args := range [][]string{{"config", "list"}, {"config", "init", "--auto-discover=false"}, {"login"}, {"session", "list"}} {
+	for _, args := range [][]string{{"config", "list-profiles"}, {"config", "init", "--auto-discover=false"}, {"login"}, {"session", "list"}} {
 		_, err := runTestCLI(t, args...)
 		if err == nil {
 			t.Fatalf("%v accepted invalid config", args)
@@ -369,8 +370,8 @@ func TestCLIUserErrorsSuggestRecoveryBeforeAuth(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{[]string{"session", "list"}, []string{"no active profile", "config list", "config init"}},
-		{[]string{"--profile", "missing", "session", "list"}, []string{"unknown profile", "config list"}},
+		{[]string{"session", "list"}, []string{"no active profile", "config list-profiles", "config use-profile", "config init"}},
+		{[]string{"--profile", "missing", "session", "list"}, []string{"unknown profile", "config list-profiles", "config use-profile"}},
 		{[]string{"session", "create", "cluster", "--with-credentials", "bad"}, []string{"unsupported credential provider", "--with-credentials ocm"}},
 		{[]string{"session", "credentials", "configure", "ocm", "task", "--auth-flow", "bad"}, []string{"invalid --auth-flow", "auth-code or device"}},
 	} {

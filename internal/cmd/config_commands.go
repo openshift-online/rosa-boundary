@@ -22,6 +22,17 @@ var profileName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 func buildConfigCommand() *cobra.Command {
 	group := commandGroup("config", "Manage Boundary deployment profiles")
+	group.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			switch args[0] {
+			case "list":
+				return fmt.Errorf("config list is no longer supported; use 'rosa-boundary config list-profiles' (see 'rosa-boundary config list-profiles --help')")
+			case "use":
+				return fmt.Errorf("config use is no longer supported; use 'rosa-boundary config use-profile <name>' (see 'rosa-boundary config use-profile --help')")
+			}
+		}
+		return cobra.NoArgs(cmd, args)
+	})
 	init := commandLeaf("init", "Add a deployment profile", cobra.NoArgs, runConfigInit)
 	for _, flag := range []struct{ name, help string }{
 		{"name", "Profile name (required without a terminal)"}, {"account-id", "AWS account containing Boundary"}, {"region", "Boundary deployment region"},
@@ -36,8 +47,8 @@ func buildConfigCommand() *cobra.Command {
 	init.Flags().Bool("use", false, "Make the profile active")
 	init.Flags().Bool("overwrite", false, "Allow replacing an existing profile")
 	init.Flags().Bool("yes", false, "Skip replacement confirmation (requires --overwrite)")
-	list := &cobra.Command{Use: "list", Short: "List saved profiles and the active profile", Args: commandArgs(cobra.NoArgs), RunE: runConfigList}
-	use := &cobra.Command{Use: "use <name>", Short: "Set the active profile", Args: commandArgs(nonEmptyArgs(1)), RunE: runConfigUse}
+	list := &cobra.Command{Use: "list-profiles", Short: "List saved profiles and the active profile", Args: commandArgs(cobra.NoArgs), RunE: runConfigList}
+	use := &cobra.Command{Use: "use-profile <name>", Short: "Set the active profile", Args: commandArgs(nonEmptyArgs(1)), RunE: runConfigUse}
 	get := &cobra.Command{Use: "get [key]", Short: "Read a saved profile or one key", Args: commandArgs(cobra.MaximumNArgs(1)), RunE: runConfigGet}
 	group.AddCommand(init, list, use, get)
 	return group
@@ -254,14 +265,15 @@ func runConfigList(cmd *cobra.Command, _ []string) error {
 
 func runConfigUse(cmd *cobra.Command, args []string) error {
 	if selectedProfile != "" {
-		return fmt.Errorf("--profile is not used by config use; pass the profile name as an argument: rosa-boundary config use <name>")
+		return fmt.Errorf("--profile is not used by config use-profile; pass the profile name as an argument: rosa-boundary config use-profile <name>")
 	}
 	file, err := config.LoadProfiles()
 	if err != nil {
 		return err
 	}
-	if _, ok := file.Profiles[args[0]]; !ok {
-		return fmt.Errorf("unknown profile %q; run 'rosa-boundary config list' and pass a saved name to 'rosa-boundary config use'", args[0])
+	profile, ok := file.Profiles[args[0]]
+	if !ok {
+		return fmt.Errorf("unknown profile %q; run 'rosa-boundary config list-profiles' and pass a saved name to 'rosa-boundary config use-profile'", args[0])
 	}
 	if err := file.UseProfile(args[0]); err != nil {
 		return err
@@ -269,7 +281,7 @@ func runConfigUse(cmd *cobra.Command, args []string) error {
 	if err := config.SaveProfiles(file); err != nil {
 		return err
 	}
-	_, err = fmt.Fprintln(cmd.OutOrStdout(), args[0])
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Active profile: %s\nAWS account ID: %s\nAWS region: %s\n", args[0], profile.AccountID, profile.AWSRegion)
 	return err
 }
 

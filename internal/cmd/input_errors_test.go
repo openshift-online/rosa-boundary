@@ -19,7 +19,7 @@ func TestCLIInputErrorsAreActionableBeforeAuthentication(t *testing.T) {
 		{"credentials unknown", []string{"session", "credentials", "unknown"}, "rosa-boundary session credentials", "rosa-boundary session credentials", "unknown"},
 		{"configure unknown", []string{"session", "credentials", "configure", "unknown"}, "rosa-boundary session credentials configure", "rosa-boundary session credentials configure", "unknown"},
 		{"clear unknown", []string{"session", "credentials", "clear", "unknown"}, "rosa-boundary session credentials clear", "rosa-boundary session credentials clear", "unknown"},
-		{"config use missing", []string{"config", "use"}, "rosa-boundary config use", "use <name>", "missing required argument <name>"},
+		{"config use-profile missing", []string{"config", "use-profile"}, "rosa-boundary config use-profile", "use-profile <name>", "missing required argument <name>"},
 		{"investigation create missing", []string{"investigation", "create"}, "rosa-boundary investigation create", "create <cluster-id>", "missing required argument <cluster-id>"},
 		{"investigation close first missing", []string{"investigation", "close"}, "rosa-boundary investigation close", "close <cluster-id> <investigation-id>", "missing required argument <cluster-id>"},
 		{"investigation close second missing", []string{"investigation", "close", "cluster"}, "rosa-boundary investigation close", "close <cluster-id> <investigation-id>", "missing required argument <investigation-id>"},
@@ -30,9 +30,10 @@ func TestCLIInputErrorsAreActionableBeforeAuthentication(t *testing.T) {
 		{"clear ocm empty ID", []string{"session", "credentials", "clear", "ocm", ""}, "rosa-boundary session credentials clear ocm", "ocm [session-id]", "<session-id> must not be empty"},
 		{"root extra", []string{"version", "extra"}, "rosa-boundary version", "rosa-boundary version", "unknown"},
 		{"config extra", []string{"config", "init", "extra"}, "rosa-boundary config init", "rosa-boundary config init", "unknown"},
-		{"config list extra", []string{"config", "list", "extra"}, "rosa-boundary config list", "rosa-boundary config list", "unknown"},
+		{"config list-profiles extra", []string{"config", "list-profiles", "extra"}, "rosa-boundary config list-profiles", "rosa-boundary config list-profiles", "unknown"},
 		{"config get extra", []string{"config", "get", "key", "extra"}, "rosa-boundary config get", "get [key]", "at most 1"},
-		{"config use extra", []string{"config", "use", "profile", "extra"}, "rosa-boundary config use", "use <name>", "unexpected argument"},
+		{"config use-profile extra", []string{"config", "use-profile", "profile", "extra"}, "rosa-boundary config use-profile", "use-profile <name>", "unexpected argument"},
+		{"config use-profile empty", []string{"config", "use-profile", ""}, "rosa-boundary config use-profile", "use-profile <name>", "arguments must not be empty"},
 		{"investigation create extra", []string{"investigation", "create", "cluster", "extra"}, "rosa-boundary investigation create", "create <cluster-id>", "unexpected argument"},
 		{"investigation list extra", []string{"investigation", "list", "extra"}, "rosa-boundary investigation list", "rosa-boundary investigation list", "unknown"},
 		{"investigation close extra", []string{"investigation", "close", "cluster", "inv", "extra"}, "rosa-boundary investigation close", "close <cluster-id> <investigation-id>", "unexpected argument"},
@@ -61,6 +62,8 @@ func TestCLIInputErrorsAreActionableBeforeAuthentication(t *testing.T) {
 		{"empty cluster", []string{"investigation", "create", ""}, "rosa-boundary investigation create", "create <cluster-id>", "arguments must not be empty"},
 		{"old start", []string{"session", "start", "cluster"}, "rosa-boundary session", "rosa-boundary session", "session create <cluster-id>"},
 		{"old stop", []string{"session", "stop", "task"}, "rosa-boundary session", "rosa-boundary session", "session close <session-id>"},
+		{"old config list", []string{"config", "list"}, "rosa-boundary config", "rosa-boundary config", "config list-profiles"},
+		{"old config use", []string{"config", "use", "profile"}, "rosa-boundary config", "rosa-boundary config", "config use-profile <name>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stdout, err := runTestCLI(t, tc.args...)

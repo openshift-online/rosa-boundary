@@ -76,7 +76,7 @@ a **named profile** using the operator-supplied account, region, project and
 environment. If an old flat config exists, delete or move it and run `config init`
 to create profiles from scratch; no migration is provided. Check the discovered Lambda, role ARNs,
 cluster, and EFS filesystem before proceeding. Select the intended deployment
-with `--profile <name>` on each invocation or `config use <name>` to make it
+with `--profile <name>` on each invocation or `config use-profile <name>` to make it
 active; `login` alone does not configure the roles needed by other commands.
 On a headless server, pass `--use-device-code` explicitly to `config init` to
 use device approval during auto-discovery and save `oidc_use_device_code: true`.

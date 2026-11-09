@@ -91,10 +91,10 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 	required := []string{"account_id", "aws_region", "keycloak_url"}
 	role := cfg.SRERoleARN
 	session := "rosa-boundary-session"
-	if cmd.Name() == "start" && cmd.Parent().Name() == "session" || cmd.Name() == "create" && cmd.Parent().Name() == "investigation" {
+	if cmd.Name() == "create" && (cmd.Parent().Name() == "session" || cmd.Parent().Name() == "investigation") {
 		role, session = cfg.InvokerRoleARN, "rosa-boundary-invoker"
 		required = append(required, "invoker_role_arn", "lambda_function_name")
-		if cmd.Name() == "start" {
+		if cmd.Parent().Name() == "session" {
 			required = append(required, "ecs_cluster_name")
 		}
 	} else {
@@ -104,7 +104,7 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		} else {
 			required = append(required, "ecs_cluster_name")
 		}
-		if cmd.Name() == "close" {
+		if cmd.Name() == "close" && cmd.Parent().Name() == "investigation" {
 			required = append(required, "efs_filesystem_id")
 		}
 	}
@@ -246,7 +246,18 @@ func buildInvestigationCommand() *cobra.Command {
 
 func buildSessionCommand() *cobra.Command {
 	group := commandGroup("session", "Manage investigation sessions and their credentials")
-	start := commandLeaf("start <cluster-id>", "Start an investigation session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
+	group.Args = func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			switch args[0] {
+			case "start":
+				return fmt.Errorf("session start is no longer supported; use 'rosa-boundary session create <cluster-id>' (see 'rosa-boundary session create --help')")
+			case "stop":
+				return fmt.Errorf("session stop is no longer supported; use 'rosa-boundary session close <session-id>' (see 'rosa-boundary session close --help'); closing the session leaves its investigation open")
+			}
+		}
+		return cobra.NoArgs(cmd, args)
+	}
+	start := commandLeaf("create <cluster-id>", "Create an investigation session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		startClusterID, startInvestigationID, startOCVersion = args[0], flagString(cmd, "investigation-id"), flagString(cmd, "oc-version")
 		sessionTimeoutSeconds = int(flagDuration(cmd, "session-timeout") / time.Second)
 		startConnect, startNoWait = flagBool(cmd, "connect"), flagBool(cmd, "no-wait")
@@ -331,7 +342,7 @@ func buildSessionCommand() *cobra.Command {
 	join.Flags().String("command", defaultExecCommand, "Command to run")
 	join.Flags().Bool("no-wait", false, "Do not wait for RUNNING")
 	deploymentFlags(join, true, false)
-	stop := commandLeaf("stop <session-id>", "Stop a session without closing its investigation", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
+	stop := commandLeaf("close <session-id>", "Close a session without closing its investigation", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		stopReason, stopWait, stopYes = flagString(cmd, "reason"), flagBool(cmd, "wait"), flagBool(cmd, "yes")
 		return runStopSession(cmd, args)
 	}, true)

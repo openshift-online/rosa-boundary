@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	// defaultExecCommand is the ECS Exec command used by session join and session start --connect.
+	// defaultExecCommand is the ECS Exec command used by session join and session create --connect.
 	// Uses runuser to switch from root (SSM Agent) to the sre user with a login shell.
 	defaultExecCommand = "runuser -u sre -- sh -c 'cd ~ && exec bash --login'"
 )

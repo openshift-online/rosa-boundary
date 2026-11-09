@@ -110,7 +110,7 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 
 | Component | Role | Location |
 |-----------|------|----------|
-| `rosa-boundary` Go CLI | SRE workflow automation: login, investigation create/list/close and session start/list/join/stop | SRE laptop |
+| `rosa-boundary` Go CLI | SRE workflow automation: login, investigation create/list/close and session create/list/join/stop | SRE laptop |
 | Red Hat SSO / Keycloak | OIDC authentication and token issuance; group membership; session tag injection via `https://aws.amazon.com/tags` claim mapper | OpenShift cluster (RHBK operator) |
 | ROSA/OpenShift cluster | Target cluster being investigated | AWS (managed) |
 
@@ -185,7 +185,7 @@ Uses browser PKCE by default, or human-approved device authorization via `--use-
 ### Step 2: Start an Investigation
 
 ```bash
-rosa-boundary --profile PROFILE session start ROSA_CLUSTER_ID \
+rosa-boundary --profile PROFILE session create ROSA_CLUSTER_ID \
   --investigation-id INCIDENT_ID --oc-version 4.20 \
   --session-timeout 1h --connect
 ```
@@ -259,7 +259,7 @@ It is immutable after task launch (task tags require `ecs:TagResource`, which th
 ### Step 5: Stop a Task Manually
 
 ```bash
-rosa-boundary --profile PROFILE session stop SESSION_ID --wait
+rosa-boundary --profile PROFILE session close SESSION_ID --wait
 ```
 
 This calls `ecs:StopTask` using the sre-shared credentials. The container's SIGTERM trap fires, syncing non-credential `/home/sre` content to S3 before the task-scoped credential volumes are destroyed.
@@ -370,11 +370,11 @@ rosa-boundary config get --profile personal-dev
 rosa-boundary login
 
 # 2. Start a task and connect immediately
-rosa-boundary --profile personal-dev session start "$TARGET_CLUSTER_ID" \
+rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
   --investigation-id "$INVESTIGATION_ID" --connect
 
 # 2b. Or start without connecting (returns task ARN)
-rosa-boundary --profile personal-dev session start "$TARGET_CLUSTER_ID" \
+rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
   --investigation-id "$INVESTIGATION_ID"
 
 # 3. List running tasks
@@ -384,7 +384,7 @@ rosa-boundary --profile personal-dev session list
 rosa-boundary --profile personal-dev session join "$SESSION_ID"
 
 # 5. Stop a single task
-rosa-boundary --profile personal-dev session stop "$SESSION_ID" --wait
+rosa-boundary --profile personal-dev session close "$SESSION_ID" --wait
 
 # 6. Close the investigation completely
 #    (preview, confirm, then deregister task defs and delete access point)
@@ -396,7 +396,7 @@ rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$
 
 ```bash
 # Specific OC version and extended timeout
-rosa-boundary --profile personal-dev session start "$TARGET_CLUSTER_ID" \
+rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
   --investigation-id "$INVESTIGATION_ID" \
   --oc-version 4.18 \
   --session-timeout 2h \

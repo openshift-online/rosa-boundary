@@ -81,7 +81,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		if resultErr == nil {
 			return
 		}
-		cleanup := fmt.Sprintf("rosa-boundary --profile %q session stop %q --yes --region %q --ecs-cluster %q", selectedProfile, sessionID, cfg.AWSRegion, cfg.ClusterName)
+		cleanup := fmt.Sprintf("rosa-boundary --profile %q session close %q --yes --region %q --ecs-cluster %q", selectedProfile, sessionID, cfg.AWSRegion, cfg.ClusterName)
 		resultErr = fmt.Errorf("session %s created for %s/%s (profile %s; region %s; ECS cluster %s), then operation failed: %w; inspect session list --status all; cleanup: %s", sessionID, clusterID, investigationID, selectedProfile, cfg.AWSRegion, cfg.ClusterName, resultErr, cleanup)
 	}()
 
@@ -242,7 +242,7 @@ func sessionCredentialFailure(investigationID, sessionID, ecsCluster, region str
 		callbackNotice = "; auth-code retry requires a local browser callback (omit --auth-flow for the saved preference)"
 	}
 	return fmt.Errorf(
-		"investigation %q created session %q, but credential configuration failed: %w; the session is still running; retry with: rosa-boundary --profile %q session credentials configure ocm %q --ocm-url %q --auth-flow %q --ecs-cluster %q --region %q%s; clean it up with: rosa-boundary --profile %q session stop %q --yes --ecs-cluster %q --region %q",
+		"investigation %q created session %q, but credential configuration failed: %w; the session is still running; retry with: rosa-boundary --profile %q session credentials configure ocm %q --ocm-url %q --auth-flow %q --ecs-cluster %q --region %q%s; clean it up with: rosa-boundary --profile %q session close %q --yes --ecs-cluster %q --region %q",
 		investigationID, sessionID, cause, selectedProfile, sessionID, environment.Name, flow, ecsCluster, region, callbackNotice, selectedProfile, sessionID, ecsCluster, region,
 	)
 }

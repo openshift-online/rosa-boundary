@@ -127,7 +127,7 @@ Core workflow:
 
 ```bash
 # Start a session (creates the investigation if needed; waits for RUNNING)
-rosa-boundary session start my-cluster --investigation-id incident-42
+rosa-boundary session create my-cluster --investigation-id incident-42
 
 # List running sessions and investigation workspaces
 rosa-boundary session list
@@ -141,7 +141,7 @@ rosa-boundary session credentials configure ocm <session-id> --ocm-url productio
 rosa-boundary session credentials clear ocm <session-id>
 
 # Stop a session, check CloudWatch and S3 audit evidence, then close its workspace
-rosa-boundary session stop <session-id> --wait
+rosa-boundary session close <session-id> --wait
 rosa-boundary investigation close my-cluster incident-42 --dry-run
 rosa-boundary investigation close my-cluster incident-42
 ```
@@ -196,17 +196,22 @@ rosa-boundary/
 | `config init`, `config list`, `config use`, `config get` | Manage named Boundary deployment profiles |
 | `investigation create <cluster-id>` | Create a workspace without a session |
 | `investigation list`, `investigation close <cluster-id> <investigation-id>` | Inspect and close workspaces |
-| `session start <cluster-id>` | Create or reuse an investigation and start an ECS task |
+| `session create <cluster-id>` | Create or reuse an investigation and start an ECS task |
 | `session credentials configure ocm <session-id>` | Issue and configure fresh OCM access |
 | `session credentials clear ocm <session-id>` | Clear OCM and derived kubeconfig state |
 | `session join <session-id>` | Connect to a running task via ECS Exec |
 | `session list` | List sessions in the Boundary ECS cluster |
-| `session stop <session-id>` | Stop a session (does not close its workspace) |
+| `session close <session-id>` | Stop a session task (does not close its investigation workspace) |
 | `version` | Print the rosa-boundary version |
+
+The former `session start` and `session stop` verbs are not aliases: use
+`session create` and `session close` instead. The CLI rejects the old verbs and
+suggests the replacement; `session close` stops only the task, leaving the
+investigation and its reusable workspace open until `investigation close`.
 
 ### Notable Flags
 
-**`session start <cluster-id>`**:
+**`session create <cluster-id>`**:
 - `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
 - `--oc-version` — OpenShift CLI version (default: `4.20`)
 - `--session-timeout` — session lifetime (default: `1h`); the deployment's Lambda enforces its own minimum and maximum
@@ -223,7 +228,7 @@ rosa-boundary/
 
 **`session list`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
 
-**`session stop`**: `--reason`, `--wait`, `--yes` (required without a terminal)
+**`session close`**: `--reason`, `--wait`, `--yes` (required without a terminal)
 
 **`investigation close`**: `--dry-run`, `--force` (stop active sessions), `--yes` (required without a terminal unless dry-running). Only the investigation creator can close it through the CLI; verify the plan before confirmation. Stopping is not proof of audit sync.
 

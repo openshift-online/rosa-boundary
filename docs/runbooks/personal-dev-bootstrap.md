@@ -46,17 +46,17 @@ Use a current ROSA Boundary checkout and **your own** AWS account with administr
    ```bash
     CLUSTER_ID="approved-cluster-id"; INV_ID="unique-smoke-test-id"
     rosa-boundary --profile personal-dev login
-    rosa-boundary --profile personal-dev session start "$CLUSTER_ID" --investigation-id "$INV_ID" --session-timeout 15m
+    rosa-boundary --profile personal-dev session create "$CLUSTER_ID" --investigation-id "$INV_ID" --session-timeout 15m
     SESSION_ID="session-id-from-start"
     rosa-boundary --profile personal-dev session join "$SESSION_ID"
    # In task: printf 'boundary smoke test\n' > ~/boundary-smoke-test.txt ; exit
-    rosa-boundary --profile personal-dev session stop "$SESSION_ID" --wait
+    rosa-boundary --profile personal-dev session close "$SESSION_ID" --wait
    # Verify CloudWatch session logs, container sync status, and S3 marker object
    # with a separately authorized audit-reader identity.
     rosa-boundary --profile personal-dev investigation close "$CLUSTER_ID" "$INV_ID" --dry-run
     rosa-boundary --profile personal-dev investigation close "$CLUSTER_ID" "$INV_ID" --yes
    ```
 
-    `exit` only disconnects ECS Exec; `session stop --wait` does not prove S3 sync succeeded. Verify evidence *before* closure, do not use `--force` to skip stopping, and report any incomplete cleanup. See the [investigation workflow](investigation-workflow.md) for audit and recovery details.
+    `exit` only disconnects ECS Exec; `session close --wait` does not prove S3 sync succeeded. Verify evidence *before* closure, do not use `--force` to skip stopping, and report any incomplete cleanup. See the [investigation workflow](investigation-workflow.md) for audit and recovery details.
 
 Check the current [account README](../../deploy/account/README.md), [network root](../../deploy/network/), and [regional Makefile](../../deploy/regional/Makefile) before deployment. Older [regional README](../../deploy/regional/README.md) examples put ECR after apply and use a specific region; follow the verified image-first order and your approved region instead.

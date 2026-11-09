@@ -22,8 +22,8 @@ func TestLoginForceFlagIsCommandScoped(t *testing.T) {
 	if root.PersistentFlags().Lookup("force-login") != nil {
 		t.Fatal("obsolete global --force-login flag remains available")
 	}
-	if commandAtPath(t, root, "session", "start").LocalNonPersistentFlags().Lookup("force") != nil {
-		t.Fatal("login --force leaked to session start")
+	if commandAtPath(t, root, "session", "create").LocalNonPersistentFlags().Lookup("force") != nil {
+		t.Fatal("login --force leaked to session create")
 	}
 }
 

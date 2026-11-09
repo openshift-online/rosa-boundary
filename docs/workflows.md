@@ -7,7 +7,7 @@ flowchart TD
     PROFILE["config init / config use<br/>Select named deployment profile"] --> AUTH["OIDC login<br/>browser PKCE or human-approved device flow"]
     AUTH --> CREATE{"Operation?"}
     CREATE -->|"investigation create &lt;cluster-id&gt;"| INVOKER["Assume Lambda invoker role with OIDC ID token"]
-    CREATE -->|"session start &lt;cluster-id&gt;"| INVOKER
+    CREATE -->|"session create &lt;cluster-id&gt;"| INVOKER
     INVOKER --> LAMBDA["Lambda validates identity, required groups and ABAC claim"]
     LAMBDA --> EFS["Create or reuse EFS investigation access point"]
     EFS -->|"create: skip task"| IDLE["Idle investigation workspace"]
@@ -20,11 +20,11 @@ flowchart TD
     OCM --> READY
     READY -->|"--connect or session join &lt;session-id&gt;"| EXEC["ECS Exec ABAC check; session-manager-plugin shell"]
     EXEC --> EXIT["exit disconnects shell; ECS task keeps running"]
-    EXIT --> STOP["session stop &lt;session-id&gt; --wait"]
+    EXIT --> STOP["session close &lt;session-id&gt; --wait"]
     STOP --> AUDIT["Verify CloudWatch logs, container sync and S3 evidence separately"]
     AUDIT --> PLAN["investigation close &lt;cluster-id&gt; &lt;investigation-id&gt; --dry-run"]
     PLAN --> CLOSE["Creator confirms close; CLI rechecks plan and removes access point"]
     CLOSE --> IDLEDONE["EFS data remains; workspace no longer accessible via access point"]
 ```
 
-The `session stop --wait` result proves only STOPPED, not S3 sync. Closing without `--force` refuses active or still-stopping sessions; with `--force`, it waits for STOPPED before deleting the access point. The CLI checks the creator's `oidc_sub` tag, but regional IAM does not enforce that owner boundary for other AWS clients. Creation racing with close remains possible. A background reaper stops sessions past their tagged deadline; it does not replace explicit audit verification.
+The `session close --wait` result proves only STOPPED, not S3 sync; the investigation remains open. `investigation close` without `--force` refuses active or still-stopping sessions; with `--force`, it waits for STOPPED before deleting the access point. The CLI checks the creator's `oidc_sub` tag, but regional IAM does not enforce that owner boundary for other AWS clients. Creation racing with close remains possible. A background reaper stops sessions past their tagged deadline; it does not replace explicit audit verification.

@@ -21,8 +21,8 @@ import (
 func TestOutputFlagsAreCommandScoped(t *testing.T) {
 	root := buildRootCommand()
 	for _, path := range [][]string{
-		{"login"}, {"config", "init"}, {"session", "start"}, {"investigation", "create"},
-		{"session", "join"}, {"session", "stop"}, {"session", "list"},
+		{"login"}, {"config", "init"}, {"session", "create"}, {"investigation", "create"},
+		{"session", "join"}, {"session", "close"}, {"session", "list"},
 		{"investigation", "list"}, {"investigation", "close"},
 		{"session", "credentials", "configure", "ocm"}, {"session", "credentials", "clear", "ocm"},
 	} {

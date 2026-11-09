@@ -136,7 +136,7 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 		"config":        map[string]any{"init": nil, "list": nil, "use": nil, "get": nil},
 		"investigation": map[string]any{"create": nil, "list": nil, "close": nil},
 		"session": map[string]any{
-			"start": nil, "list": nil, "join": nil, "stop": nil,
+			"create": nil, "list": nil, "join": nil, "close": nil,
 			"credentials": map[string]any{
 				"configure": map[string]any{"ocm": nil},
 				"clear":     map[string]any{"ocm": nil},
@@ -144,12 +144,12 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 		},
 		"login": nil, "version": nil,
 	})
-	for _, args := range [][]string{{"session", "start"}, {"session", "start", "cluster", "--no-wait", "--connect"}, {"session", "start", "cluster", "--no-wait", "--with-credentials", "ocm"}, {"session", "start", "cluster", "--session-timeout", "-1s"}, {"session", "start", "cluster", "--session-timeout", "24h1s"}, {"session", "start", "cluster", "--with-credentials", "bogus"}, {"session", "list", "--status", "bad"}, {"investigation", "close", "cluster"}} {
+	for _, args := range [][]string{{"session", "create"}, {"session", "create", "cluster", "--no-wait", "--connect"}, {"session", "create", "cluster", "--no-wait", "--with-credentials", "ocm"}, {"session", "create", "cluster", "--session-timeout", "-1s"}, {"session", "create", "cluster", "--session-timeout", "24h1s"}, {"session", "create", "cluster", "--with-credentials", "bogus"}, {"session", "list", "--status", "bad"}, {"investigation", "close", "cluster"}} {
 		if _, err := runTestCLI(t, args...); err == nil {
 			t.Errorf("%v should be rejected", args)
 		}
 	}
-	if _, err := runTestCLI(t, "session", "stop", "task"); err == nil || !strings.Contains(err.Error(), "--yes") {
+	if _, err := runTestCLI(t, "session", "close", "task"); err == nil || !strings.Contains(err.Error(), "--yes") {
 		t.Fatalf("stop without terminal: %v", err)
 	}
 	if _, err := runTestCLI(t, "investigation", "close", "cluster", "incident"); err == nil || !strings.Contains(err.Error(), "--yes") {
@@ -157,6 +157,38 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 	}
 	if _, err := runTestCLI(t, "investigation", "close", "cluster", "incident", "--dry-run", "--timeout", "-1s"); err == nil || !strings.Contains(err.Error(), "--timeout") {
 		t.Fatalf("dry-run should pass terminal validation: %v", err)
+	}
+}
+
+func TestSessionOldVerbsRejectedWithMigrationGuidance(t *testing.T) {
+	for _, tc := range []struct{ old, replacement string }{
+		{"start", "create"},
+		{"stop", "close"},
+	} {
+		_, err := runTestCLI(t, "session", tc.old, "task")
+		if err == nil || !strings.Contains(err.Error(), "no longer supported") || !strings.Contains(err.Error(), "session "+tc.replacement) {
+			t.Errorf("session %s: expected rejection with %s guidance, got %v", tc.old, tc.replacement, err)
+		}
+	}
+}
+
+func TestSessionLifecycleHelpKeepsFlagsAndSeparation(t *testing.T) {
+	for _, tc := range []struct {
+		verb string
+		want []string
+	}{
+		{"create", []string{"create <cluster-id>", "--investigation-id", "--session-timeout", "--connect", "--no-wait", "--with-credentials", "--ocm-url", "--ocm-auth-flow"}},
+		{"close", []string{"close <session-id>", "without closing its investigation", "--reason", "--wait", "--yes"}},
+	} {
+		stdout, err := runTestCLI(t, "session", tc.verb, "--help")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range tc.want {
+			if !strings.Contains(stdout, want) {
+				t.Errorf("session %s --help missing %q: %s", tc.verb, want, stdout)
+			}
+		}
 	}
 }
 
@@ -258,7 +290,7 @@ func TestCLIUserErrorsSuggestRecoveryBeforeAuth(t *testing.T) {
 	}{
 		{[]string{"session", "list"}, []string{"no active profile", "config list", "config init"}},
 		{[]string{"--profile", "missing", "session", "list"}, []string{"unknown profile", "config list"}},
-		{[]string{"session", "start", "cluster", "--with-credentials", "bad"}, []string{"unsupported credential provider", "--with-credentials ocm"}},
+		{[]string{"session", "create", "cluster", "--with-credentials", "bad"}, []string{"unsupported credential provider", "--with-credentials ocm"}},
 		{[]string{"session", "credentials", "configure", "ocm", "task", "--auth-flow", "bad"}, []string{"invalid --auth-flow", "auth-code or device"}},
 	} {
 		_, err := runTestCLI(t, tc.args...)

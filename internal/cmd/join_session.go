@@ -39,7 +39,7 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 	return connectToSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait)
 }
 
-// connectToSession is shared by session join and session start --connect.
+// connectToSession is shared by session join and session create --connect.
 func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, sessionID, container, command string, noWait bool) error {
 	// Check task status
 	output.Status("Checking session status...")

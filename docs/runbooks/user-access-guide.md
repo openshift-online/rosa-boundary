@@ -147,10 +147,10 @@ unattended**: a human must approve each fresh device request. For every command
 that might authenticate, pass `-o json` (or `--output json`) to that **leaf
 command**, even after a successful `login -o json`; another command may see
 an expired token or an STS retry. Auth events are prefixed JSON lines on
-**stderr**, while operation result JSON (for example, `session start`)
+**stderr**, while operation result JSON (for example, `session create`)
 remains a single document on **stdout**. Other stderr diagnostics can coexist.
 `login`, `config init`, and OCM credential commands have no JSON result on
-stdout; `session stop` and data commands return one JSON result; `session join`
+stdout; `session close` and data commands return one JSON result; `session join`
 remains an interactive terminal session, not a
 JSON shell. Do not capture a device challenge into a shared CI log or file.
 
@@ -158,8 +158,8 @@ For a noninteractive auth-bearing command, this Python example inherits its
 stdout (so result JSON is unchanged), drains stderr **while it runs**, and
 shows both provider challenges only on the operator's private terminal. Invoke
 it with an approved channel to the SRE and a command such as
-`python3 approve_boundary.py ./bin/rosa-boundary session start CLUSTER --with-credentials ocm -o json`.
-Do not use this example for interactive `session join`, `session start --connect`, or
+`python3 approve_boundary.py ./bin/rosa-boundary session create CLUSTER --with-credentials ocm -o json`.
+Do not use this example for interactive `session join`, `session create --connect`, or
 manual `config init` (those need terminal input/session I/O).
 
 ```python
@@ -214,11 +214,11 @@ or print tokens. Do not retry denied or expired requests indefinitely. See
 the [authentication model](../architecture/cli-authentication.md#authentication-events-for-scripts)
 for the complete event and stream contract.
 
-For OCM credentials, `session start --with-credentials ocm` and
+For OCM credentials, `session create --with-credentials ocm` and
 `session credentials configure ocm <session-id>` use the same saved/global device
 preference by default but request a **different issuer/client's OCM access
 token**, never the Boundary ID token. Explicit `--ocm-auth-flow auth-code|device`
-on `session start` or `--auth-flow auth-code|device` on `session credentials configure ocm`
+on `session create` or `--auth-flow auth-code|device` on `session credentials configure ocm`
 overrides **OCM only** for that invocation. An explicit `auth-code` requires a
 local callback even when Boundary uses device mode; explicit `device` remains
 headless. If both providers require fresh authentication, expect **two separate
@@ -228,7 +228,7 @@ storage; they are not printed or stored in the Boundary token cache.
 ### Step 2: Start an Investigation Session
 
 ```bash
-./bin/rosa-boundary --profile stage-east session start <cluster-id> \
+./bin/rosa-boundary --profile stage-east session create <cluster-id> \
   --investigation-id <investigation-id>
 ```
 
@@ -240,7 +240,7 @@ This will:
 5. Lambda launches the ECS task with identity and investigation tags (including the deployment's ABAC tag)
 6. CLI prints the Boundary session ID (the ECS task ID) — save it for the next steps.
    A Boundary session is **not** the short-lived SSM ECS Exec connection ID.
-   `session start --no-wait` reports launch, not readiness. A failed wait or
+   `session create --no-wait` reports launch, not readiness. A failed wait or
    post-launch credential step returns nonzero and a profile-qualified cleanup
    command; the session may still exist. Use `session list --status all` to inspect it.
 
@@ -292,7 +292,7 @@ This only ends the interactive ECS Exec session. The task continues running; dis
 ### Step 6: Stop Task and Verify Audit
 
 ```bash
-./bin/rosa-boundary --profile stage-east session stop <session-id> --wait
+./bin/rosa-boundary --profile stage-east session close <session-id> --wait
 ```
 
 Stopping the task attempts the S3 sync. `--wait` confirms STOPPED, **not** that the upload succeeded. Check container logs for sync warnings and verify the expected S3 audit objects using an authorized audit-reader identity; see [audit retrieval and investigation closure](investigation-workflow.md#verify-audit-evidence). Close the investigation when finished.
@@ -370,7 +370,7 @@ aws ecs describe-tasks \
 
 2. If the task stopped, start a new task in the same investigation (if still open):
    ```bash
-    ./bin/rosa-boundary --profile stage-east session start <cluster-id> --investigation-id <investigation-id>
+    ./bin/rosa-boundary --profile stage-east session create <cluster-id> --investigation-id <investigation-id>
    ```
 
 ### "AccessDenied" when executing ECS Exec

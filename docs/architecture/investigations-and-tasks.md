@@ -19,7 +19,7 @@ An investigation is a logical workspace identified by a `(cluster_id, investigat
 
 Its physical manifestation is an **EFS access point** with a root directory at `/{cluster_id}/{investigation_id}/`. This directory is mounted to `/home/sre` inside every task container launched for that investigation, providing persistent storage that survives container restarts.
 
-An investigation is created implicitly by `session start <cluster-id>` or explicitly by `investigation create <cluster-id>`.
+An investigation is created implicitly by `session create <cluster-id>` or explicitly by `investigation create <cluster-id>`.
 
 ## What Is a Task?
 
@@ -46,7 +46,7 @@ The investigation outlives its tasks. When a task is stopped or reaped:
 
 - The container syncs `/home/sre` to S3 (audit escrow).
 - The EFS directory retains all files.
-- A new task can be launched with `session start`; ordinary workspace files persist, but OCM credentials and derived kubeconfigs live on task-scoped, audit-excluded mounts and must be configured afresh.
+- A new task can be launched with `session create`; ordinary workspace files persist, but OCM credentials and derived kubeconfigs live on task-scoped, audit-excluded mounts and must be configured afresh.
 
 This separation exists because tasks are kept short-lived for security (enforced timeouts, ABAC-scoped access), while investigations need to persist across sessions for usability.
 
@@ -58,7 +58,7 @@ Rosa-boundary has no database or API for tracking state. **AWS resources are the
 |----------|-----------|------------|---------------|---------------|
 | EFS Access Point | Investigation | Lambda | `investigation list` (tag scan) | `investigation close` |
 | ECS Task Definition | Task template | Lambda | `investigation close` (family prefix listing) | `investigation close` |
-| ECS Fargate Task | Running session | Lambda | `session list` (describe + tags) | `session stop` / reaper Lambda |
+| ECS Fargate Task | Running session | Lambda | `session list` (describe + tags) | `session close` / reaper Lambda |
 | S3 Objects | Audit artifacts | `entrypoint.sh` on task exit | AWS Console / CLI | S3 lifecycle policy |
 
 ### EFS Access Point Tags
@@ -90,7 +90,7 @@ Using `startedBy` for this check (rather than a tag scan) avoids a cluster-wide 
 
 ## Creation Workflows
 
-### `session start` (Primary Workflow)
+### `session create` (Primary Workflow)
 
 This is the standard way to begin working on a cluster. It creates the investigation implicitly if one does not already exist:
 
@@ -101,13 +101,13 @@ This is the standard way to begin working on a cluster. It creates the investiga
 
 ### `investigation create` (Pre-staging)
 
-This creates only the EFS access point without launching a container. Use it to pre-stage a workspace and later launch a task with `session start`.
+This creates only the EFS access point without launching a container. Use it to pre-stage a workspace and later launch a task with `session create`.
 
 ### How the Lambda Handles Both
 
 Both CLI commands invoke the same Lambda (`create-investigation`). The difference is a single `skip_task` flag:
 
-- `session start` sets `skip_task=false` (default) — the Lambda creates the access point AND launches a task.
+- `session create` sets `skip_task=false` (default) — the Lambda creates the access point AND launches a task.
 - `investigation create` sets `skip_task=true` — the Lambda creates only the access point.
 
 The access point creation is idempotent. If an access point already exists with matching `ClusterID`/`InvestigationID` tags, it is reused regardless of which command is run.
@@ -120,11 +120,11 @@ The access point creation is idempotent. If an access point already exists with 
 investigation create (optional)
         │
         ▼
-   session start  ──►  session join  ──►  work  ──►  session stop (or reaper timeout)
+   session create  ──►  session join  ──►  work  ──►  session close (or reaper timeout)
         │                                              │
         │              ┌───────────────────────────────┘
         ▼              ▼
-   session start  ──►  session join  ──►  work  ──►  session stop
+   session create  ──►  session join  ──►  work  ──►  session close
         │
         ▼
    investigation close
@@ -172,18 +172,18 @@ The investigation reaper does not guarantee a final S3 sync before deleting a st
 
 No. The Lambda always creates an EFS access point before launching a task — there is no code path that skips it. Every task is always scoped to an investigation, always gets a persistent filesystem, and always has its audit trail grouped under `{cluster_id}/{investigation_id}/`.
 
-However, you don't need to explicitly create an investigation first. `session start` creates it implicitly if one doesn't already exist for the pair.
+However, you don't need to explicitly create an investigation first. `session create` creates it implicitly if one doesn't already exist for the pair.
 
-### When would I use `investigation create` instead of `session start`?
+### When would I use `investigation create` instead of `session create`?
 
-`investigation create` is for pre-staging. In most cases `session start` creates the investigation as a side effect.
+`investigation create` is for pre-staging. In most cases `session create` creates the investigation as a side effect.
 
 ### What happens to my files when a task is stopped or reaped?
 
 Two things:
 
 1. The container attempts to sync `/home/sre` to S3 at `s3://{bucket}/{cluster_id}/{investigation_id}/{date}/{task_id}/` (audit escrow).
-2. The EFS directory retains ordinary workspace files. On a subsequent `session start`, task-scoped credentials and kubeconfig state must be configured again.
+2. The EFS directory retains ordinary workspace files. On a subsequent `session create`, task-scoped credentials and kubeconfig state must be configured again.
 
 ### Are investigations automatically cleaned up?
 
@@ -199,7 +199,7 @@ AWS allows 10,000 EFS access points per filesystem. Since each investigation cor
 
 ### Are investigation filesystems shared across SREs?
 
-Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session start` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. The CLI permits only Alice (the access point's `oidc_sub` owner) to close the investigation; this is not yet enforced by IAM against use of other AWS clients.
+Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session create` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. The CLI permits only Alice (the access point's `oidc_sub` owner) to close the investigation; this is not yet enforced by IAM against use of other AWS clients.
 
 This is by design. The investigation ID represents a **shared workspace** for a cluster incident, not a per-user workspace. The isolation boundary is at the `(cluster_id, investigation_id)` level. Per-user isolation is enforced at the **ECS Exec layer** via the deployment's configured ABAC task/principal tag (which may be `uuid` or `username`); this restricts who can `exec` into a running container, but not who can mount the shared workspace through a new authorized task.
 

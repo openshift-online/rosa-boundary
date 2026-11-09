@@ -78,6 +78,6 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) (resultErr error)
 }
 
 func printCreateInvestigationSummary(cluster, investigationID, accessPointID, region string) error {
-	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s created (profile %s; access point %s).\nStart a session: rosa-boundary --profile %q session start %q --investigation-id %q --region %q\n", cluster, investigationID, selectedProfile, accessPointID, selectedProfile, cluster, investigationID, region)
+	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s created (profile %s; access point %s).\nCreate a session: rosa-boundary --profile %q session create %q --investigation-id %q --region %q\n", cluster, investigationID, selectedProfile, accessPointID, selectedProfile, cluster, investigationID, region)
 	return err
 }

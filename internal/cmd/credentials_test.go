@@ -31,9 +31,10 @@ func TestActiveCommandsSelectInvokerAndSRERoles(t *testing.T) {
 		session string
 	}{
 		{[]string{"investigation", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker"},
-		{[]string{"session", "start"}, cfg.InvokerRoleARN, "rosa-boundary-invoker"},
+		{[]string{"session", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker"},
 		{[]string{"investigation", "list"}, cfg.SRERoleARN, "rosa-boundary-session"},
 		{[]string{"session", "list"}, cfg.SRERoleARN, "rosa-boundary-session"},
+		{[]string{"session", "close"}, cfg.SRERoleARN, "rosa-boundary-session"},
 		{[]string{"session", "credentials", "configure", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session"},
 		{[]string{"session", "credentials", "clear", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session"},
 	} {
@@ -66,8 +67,8 @@ func TestCommandRoleValidation(t *testing.T) {
 		name, missing string
 		commands      [][]string
 	}{
-		{"invoker", "invoker_role_arn", [][]string{{"investigation", "create"}, {"session", "start"}}},
-		{"sre", "sre_role_arn", [][]string{{"investigation", "list"}, {"session", "list"}, {"session", "credentials", "configure", "ocm"}, {"session", "credentials", "clear", "ocm"}}},
+		{"invoker", "invoker_role_arn", [][]string{{"investigation", "create"}, {"session", "create"}}},
+		{"sre", "sre_role_arn", [][]string{{"investigation", "list"}, {"session", "list"}, {"session", "close"}, {"session", "credentials", "configure", "ocm"}, {"session", "credentials", "clear", "ocm"}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			profile := cfg
@@ -146,7 +147,7 @@ func TestSessionCredentialFailureRetainsSessionAndCleanupCommand(t *testing.T) {
 		credentials.FlowDevice,
 		errors.New("configure failed"),
 	)
-	for _, expected := range []string{"INV-1", "task-123", "still running", "session credentials configure ocm \"task-123\" --ocm-url \"staging\" --auth-flow \"device\"", "session stop \"task-123\" --yes"} {
+	for _, expected := range []string{"INV-1", "task-123", "still running", "session credentials configure ocm \"task-123\" --ocm-url \"staging\" --auth-flow \"device\"", "session close \"task-123\" --yes"} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error %q does not contain %q", err, expected)
 		}

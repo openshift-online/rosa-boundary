@@ -15,11 +15,11 @@ angle brackets in a shell command are redirection operators, not literal syntax.
 ```mermaid
 stateDiagram-v2
     [*] --> LoggedIn: rosa-boundary login
-    LoggedIn --> TaskRunning: rosa-boundary session start
+    LoggedIn --> TaskRunning: rosa-boundary session create
     TaskRunning --> UserConnected: rosa-boundary session join
     UserConnected --> Investigation: Work in container
     Investigation --> UserDisconnected: exit
-    UserDisconnected --> TaskStopped: rosa-boundary session stop --wait
+    UserDisconnected --> TaskStopped: rosa-boundary session close --wait
     TaskStopped --> InvestigationClosed: rosa-boundary investigation close
     InvestigationClosed --> [*]
 
@@ -109,10 +109,10 @@ unattended service credential. Scripts must handle a challenge during **any**
 auth-bearing command, not just a preceding `login`. See the
 [user access guide's concurrent event-draining example](user-access-guide.md#script-driven-human-approved-login).
 
-## Phase 2: Start Investigation
+## Phase 2: Create Session
 
 ```bash
-./bin/rosa-boundary --profile <profile-name> session start <cluster-id> \
+./bin/rosa-boundary --profile <profile-name> session create <cluster-id> \
   --investigation-id <investigation-id>
 ```
 
@@ -127,21 +127,21 @@ Optional flags:
 
 `--with-credentials` cannot be combined with `--no-wait`. If configuration
 fails after task creation, the CLI reports the created session ID and a
-profile-qualified `session stop <session-id> --yes` cleanup command. A RUNNING
+profile-qualified `session close <session-id> --yes` cleanup command. A RUNNING
 wait failure also returns nonzero; the session may already be STOPPED. Inspect
 `session list --status all` before retrying. `--no-wait` reports launch only.
 With `--with-credentials ocm`, the CLI separately requests a fresh OCM access
 token from the OCM issuer/client, not the cached Boundary ID token. The saved
 device preference (or explicit global flag/env override) applies to both
 providers by default, so a fresh Boundary token **and** OCM credentials may
-  require **two distinct human approvals** in one `session start`. A cached Boundary
+require **two distinct human approvals** in one `session create`. A cached Boundary
 token may eliminate only the Boundary challenge. An explicitly specified
 `--ocm-auth-flow auth-code|device` overrides OCM only; `auth-code` still
 requires a browser callback even if Boundary uses device mode. Any device
 flow remains browser-free. OCM credential transfer uses task-scoped,
 audit-excluded storage, not the Boundary token cache or EFS home.
 
-For scripted operation, use `session start ... -o json`: stdout contains the
+For scripted operation, use `session create ... -o json`: stdout contains the
 single session-result JSON document; stderr carries prefixed,
 provider-tagged auth-event lines, possibly alongside ordinary diagnostics.
 Read stderr **as the CLI runs** and show each URL/code privately to the SRE,
@@ -188,7 +188,7 @@ What it does:
 
 `session join -o json` can provide authentication events on stderr if it needs
 fresh login, but its raw session I/O remains on a terminal, **not** a JSON
-result on stdout. Likewise `session start --connect -o json` may produce a session
+result on stdout. Likewise `session create --connect -o json` may produce a session
 JSON result before connection but does not encode the shell as JSON. Use a
 suitable terminal for interactive commands; a script consuming JSON should
 not treat session bytes as a machine-readable result.
@@ -278,10 +278,10 @@ harmless file such as `printf 'boundary smoke test\n' > ~/boundary-smoke-test.tx
 inside the task. Then `exit` the interactive shell. This **disconnects ECS Exec**;
 the task stays running until stopped or reaped and no S3 sync is implied.
 
-## Phase 5: Stop Task (Triggers S3 Sync)
+## Phase 5: Close Session (Stops Task; Triggers S3 Sync)
 
 ```bash
-./bin/rosa-boundary --profile <profile-name> session stop <session-id> --wait
+./bin/rosa-boundary --profile <profile-name> session close <session-id> --wait
 ```
 
 What it does:
@@ -290,7 +290,8 @@ What it does:
 3. S3 path is auto-generated: `s3://<bucket>/<cluster-id>/<investigation-id>/<YYYYMMDD>/<task-id>/`
 
 `--wait` confirms the task reached STOPPED, **not** that S3 sync succeeded.
-Without a terminal, `session stop` requires `--yes`; `-o json` returns a
+Closing the session does not close its investigation or delete the reusable workspace.
+Without a terminal, `session close` requires `--yes`; `-o json` returns a
 single status document on stdout and auth events on stderr.
 The entrypoint warns and continues on sync failure or timeout. Check the container
 log for warnings and verify the object in S3 before treating audit escrow as complete.
@@ -365,7 +366,7 @@ INV_ID="<unique-investigation-id>"
 ./bin/rosa-boundary --profile "$PROFILE" login
 
 # 2. Start an investigation session (save SESSION_ID from output)
-./bin/rosa-boundary --profile "$PROFILE" session start "$CLUSTER_ID" \
+./bin/rosa-boundary --profile "$PROFILE" session create "$CLUSTER_ID" \
   --investigation-id "$INV_ID"
 
 SESSION_ID="<session ID from output>"
@@ -377,7 +378,7 @@ SESSION_ID="<session ID from output>"
 # Then exit the interactive shell (task remains running).
 
 # 4. Stop task
-./bin/rosa-boundary --profile "$PROFILE" session stop "$SESSION_ID" --wait
+./bin/rosa-boundary --profile "$PROFILE" session close "$SESSION_ID" --wait
 
 # 5. Verify CloudWatch and S3 audit evidence using an audit-reader identity
 # (see "Verify Audit Evidence" above).

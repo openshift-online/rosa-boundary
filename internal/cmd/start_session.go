@@ -157,12 +157,15 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		}
 	}
 
-	if startOutputFormat != "json" {
-		if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion, startNoWait); err != nil {
-			return err
-		}
-	}
+	return finishStartSession(cmd, ecsClient, creds, ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion,
+		lambdaResp, roleARN, configureOCM)
+}
 
+// finishStartSession only reports success after the interactive shell exits.
+// The task may remain RUNNING after the shell disconnects.
+func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, creds *awsclient.TemporaryCredentials,
+	ecsCluster, clusterID, investigationID, sessionID, region string, lambdaResp *lambda.InvestigationResponse,
+	roleARN string, configureOCM bool) error {
 	// Auto-connect only after any requested credential configuration succeeds.
 	if startConnect && !startNoWait {
 		step := 4
@@ -170,13 +173,20 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 			step = 5
 		}
 		output.Status("\n=== Step %d: Connecting to session ===", step)
-		if err := openInteractiveSession(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, "rosa-boundary", defaultExecCommand, false); err != nil {
+		if err := openInteractiveSession(cmd.Context(), ecsClient, region, creds, sessionID, "rosa-boundary", defaultExecCommand, false); err != nil {
 			return err
 		}
 	}
 
 	if startOutputFormat == "json" {
 		return output.JSON(startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, startOCVersion, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM, startNoWait, startConnect))
+	}
+	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, startNoWait, startConnect); err != nil {
+		return err
+	}
+	if startConnect {
+		_, err := fmt.Fprintln(os.Stdout, "Disconnected from session. The task and investigation remain open; stop the task with session close when finished.")
+		return err
 	}
 	return nil
 }
@@ -266,7 +276,7 @@ func sessionCredentialFailure(investigationID, sessionID, ecsCluster, region str
 	)
 }
 
-func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait bool) error {
+func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait, connected bool) error {
 	_, saved, err := config.ReadSavedProfile(selectedProfile)
 	if err != nil {
 		return fmt.Errorf("read saved profile for join suggestion: %w", err)
@@ -285,6 +295,8 @@ func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID,
 	if noWait {
 		state = "Session launched; RUNNING has not been confirmed."
 		joinHeading = "Once this session is RUNNING, to join it, run:"
+	} else if connected {
+		state = "Session created; interactive shell disconnected."
 	}
 	_, err = fmt.Fprintf(os.Stdout, "\n%s\nCluster: %s\nInvestigation: %s\nSession ID: %s\n\n%s\n  %s\n", state, clusterID, investigationID, sessionID, joinHeading, join)
 	return err

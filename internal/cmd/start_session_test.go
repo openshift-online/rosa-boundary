@@ -2,11 +2,15 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"os"
 	"strings"
 	"testing"
 
+	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
+	"github.com/openshift-online/rosa-boundary/internal/lambda"
 )
 
 func captureStartSummary(t *testing.T, ecsCluster, clusterID, investigationID, sessionID, region string, noWait bool) string {
@@ -21,7 +25,7 @@ func captureStartSummary(t *testing.T, ecsCluster, clusterID, investigationID, s
 		os.Stdout = old
 		_ = r.Close()
 	}()
-	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, noWait); err != nil {
+	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, noWait, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := w.Close(); err != nil {
@@ -106,4 +110,71 @@ func TestPrintStartSessionSummary_OverridesAndNoWait(t *testing.T) {
 			t.Errorf("no-wait summary implies readiness or lacks pending status: %s", output)
 		}
 	})
+}
+
+func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
+	savedStartProfile(t)
+	previousOpen, previousConnect, previousNoWait, previousFormat := openInteractiveSession, startConnect, startNoWait, startOutputFormat
+	t.Cleanup(func() {
+		openInteractiveSession, startConnect, startNoWait, startOutputFormat = previousOpen, previousConnect, previousNoWait, previousFormat
+	})
+	startConnect, startNoWait = true, false
+	failure := errors.New("ECS Exec plugin failed")
+	for _, format := range []string{"text", "json"} {
+		for _, outcome := range []struct {
+			name string
+			err  error
+		}{{"success", nil}, {"failure", failure}} {
+			t.Run(format+"/"+outcome.name, func(t *testing.T) {
+				startOutputFormat = format
+				old := os.Stdout
+				stdoutFile, err := os.CreateTemp(t.TempDir(), "session-create-stdout-")
+				if err != nil {
+					t.Fatal(err)
+				}
+				os.Stdout = stdoutFile
+				defer func() {
+					os.Stdout = old
+					_ = stdoutFile.Close()
+				}()
+				openInteractiveSession = func(_ context.Context, _ *awsclient.ECSClient, _ string, _ *awsclient.TemporaryCredentials, sessionID, _, _ string, _ bool) error {
+					if sessionID != "task-123" {
+						t.Errorf("session ID = %q", sessionID)
+					}
+					if pending, readErr := os.ReadFile(stdoutFile.Name()); readErr != nil || len(pending) != 0 {
+						t.Fatalf("output before shell exit: %q (%v)", pending, readErr)
+					}
+					return outcome.err
+				}
+				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
+				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
+					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false)
+				stdout, readErr := os.ReadFile(stdoutFile.Name())
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				if outcome.err != nil {
+					if !errors.Is(err, failure) || len(stdout) != 0 {
+						t.Fatalf("error = %v, stdout = %q", err, stdout)
+					}
+					wrapped := sessionCreationError(err, "task-123", "rosa", "inv", "us-east-1", "rosa-boundary-dev")
+					if !strings.Contains(wrapped.Error(), `session close "task-123"`) {
+						t.Fatalf("missing cleanup guidance: %v", wrapped)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if format == "text" {
+					if !strings.Contains(string(stdout), "Session created; interactive shell disconnected.\nCluster: rosa\nInvestigation: inv\nSession ID: task-123") ||
+						!strings.Contains(string(stdout), "Disconnected from session. The task and investigation remain open") {
+						t.Fatalf("missing post-disconnect summary: %q", stdout)
+					}
+				} else {
+					assertOneJSON(t, string(stdout), map[string]any{"session_id": "task-123", "status": "disconnected", "task_closed": false, "investigation_closed": false})
+				}
+			})
+		}
+	}
 }

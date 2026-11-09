@@ -104,7 +104,7 @@ RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py yq \
         --version "${YQ_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
 
 # renovate: datasource=custom.openshift-stable depName=openshift/oc
-ARG OC_VERSION="4.22.18"
+ARG OC_VERSION="4.22.22"
 RUN python3 /usr/local/share/sre-tools/sre_tools.py oc \
         --version "${OC_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
 RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py oc \

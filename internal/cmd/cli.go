@@ -410,17 +410,18 @@ func buildSessionCommand() *cobra.Command {
 	credentials := commandGroup("credentials", "Manage credentials in a running session")
 	configure := commandGroup("configure", "Obtain and configure credentials")
 	clear := commandGroup("clear", "Remove session credentials")
-	configureOCM := commandLeaf("ocm <session-id>", "Obtain fresh OCM access for a session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
+	configureOCM := commandLeaf("ocm [session-id]", "Obtain fresh OCM access for a session", optionalCredentialSessionID, func(cmd *cobra.Command, args []string) error {
 		credentialsOCMURL, credentialsOCMFlow = flagString(cmd, "ocm-url"), flagString(cmd, "auth-flow")
 		return runCredentialsConfigureOCM(cmd, args)
 	}, false)
+	configureOCM.Long = "Obtain fresh OCM access for a session. Without a session ID, discover your RUNNING sessions and suggest a command without changing credentials."
 	configureOCM.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	configureOCM.Flags().String("auth-flow", "", "OCM-only override: auth-code or device")
 	configureOCM.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
-		if err := nonEmptyArgs(1)(cmd, args); err != nil {
+		if err := optionalCredentialSessionID(cmd, args); err != nil {
 			return err
 		}
-		if flow := flagString(cmd, "auth-flow"); flow != "" && flow != "auth-code" && flow != "device" {
+		if flow := flagString(cmd, "auth-flow"); cmd.Flags().Changed("auth-flow") && flow != "auth-code" && flow != "device" {
 			return fmt.Errorf("invalid --auth-flow %q: use auth-code or device", flow)
 		}
 		if cmd.Flags().Changed("ocm-url") {
@@ -432,7 +433,8 @@ func buildSessionCommand() *cobra.Command {
 		return err
 	})
 	deploymentFlags(configureOCM, true, false)
-	clearOCM := commandLeaf("ocm <session-id>", "Remove OCM credentials and derived kubeconfig", nonEmptyArgs(1), runCredentialsClearOCM, false)
+	clearOCM := commandLeaf("ocm [session-id]", "Remove OCM credentials and derived kubeconfig", optionalCredentialSessionID, runCredentialsClearOCM, false)
+	clearOCM.Long = "Remove OCM credentials and derived kubeconfig. Without a session ID, discover your RUNNING sessions and suggest a command without changing credentials."
 	deploymentFlags(clearOCM, true, false)
 	configure.AddCommand(configureOCM)
 	clear.AddCommand(clearOCM)

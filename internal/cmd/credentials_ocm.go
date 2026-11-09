@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -40,7 +42,85 @@ var newOCMCredentialTransfer = func() ocmCredentialTransfer {
 	return transfer
 }
 
+// Discovery is deliberately separate from the credential transfer path: an
+// omitted ID can only list, never request an OCM token or start ECS Exec.
+var listCredentialSessions = func(ctx context.Context, authResult *AuthResult) ([]awsclient.TaskSummary, error) {
+	return newCredentialECSClient(authResult).ListRunningTasks(ctx, "RUNNING")
+}
+
+func optionalCredentialSessionID(_ *cobra.Command, args []string) error {
+	if len(args) > 1 {
+		return fmt.Errorf("unexpected argument %q (expected at most one <session-id>)", args[1])
+	}
+	if len(args) == 1 && strings.TrimSpace(args[0]) == "" {
+		return fmt.Errorf("<session-id> must not be empty")
+	}
+	return nil
+}
+
+func shellArgument(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
+func validOwnerSubject(value string) bool {
+	return value != "" && strings.TrimSpace(value) == value && !strings.ContainsFunc(value, unicode.IsControl)
+}
+
+func guideCredentialSession(cmd *cobra.Command, action string) error {
+	authResult := getAuthResult(cmd)
+	subject, err := authenticatedSubject(authResult.IDToken)
+	if err != nil {
+		return err
+	}
+	if !validOwnerSubject(subject) {
+		return fmt.Errorf("authenticated ID token lacks a valid subject")
+	}
+	tasks, err := listCredentialSessions(cmd.Context(), authResult)
+	if err != nil {
+		// ECS errors can contain task identifiers; do not disclose unfiltered data.
+		return fmt.Errorf("cannot discover RUNNING sessions in profile %q; verify ECS access and the selected deployment, then retry", selectedProfile)
+	}
+	eligible := make([]awsclient.TaskSummary, 0)
+	for _, task := range tasks {
+		owner := task.Tags["oidc_sub"]
+		if task.Status == "RUNNING" && task.DesiredStatus != "STOPPED" &&
+			task.TaskID != "" && validOwnerSubject(owner) && owner == subject {
+			eligible = append(eligible, task)
+		}
+	}
+	if len(eligible) == 0 {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "No eligible RUNNING sessions found in profile %q. Check your session ID and profile, or create a session; then run: rosa-boundary --profile %s session credentials %s ocm <session-id>\n", selectedProfile, shellArgument(selectedProfile), action)
+		return err
+	}
+	if len(eligible) > 1 {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "%d eligible RUNNING sessions found in profile %q. Inspect your sessions with rosa-boundary --profile %s session list --status RUNNING, then specify the correct session ID explicitly. No credentials were changed.\n", len(eligible), selectedProfile, shellArgument(selectedProfile))
+		return err
+	}
+	task := eligible[0]
+	suggestion := fmt.Sprintf("rosa-boundary --profile %s session credentials %s ocm %s", shellArgument(selectedProfile), action, shellArgument(task.TaskID))
+	for _, flag := range []string{"region", "ecs-cluster"} {
+		if cmd.Flags().Changed(flag) {
+			suggestion += " --" + flag + " " + shellArgument(flagString(cmd, flag))
+		}
+	}
+	if cmd.Flags().Changed("use-device-code") {
+		suggestion += fmt.Sprintf(" --use-device-code=%t", flagBool(cmd, "use-device-code"))
+	}
+	if action == "configure" {
+		for _, flag := range []string{"ocm-url", "auth-flow"} {
+			if cmd.Flags().Changed(flag) {
+				suggestion += " --" + flag + " " + shellArgument(flagString(cmd, flag))
+			}
+		}
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Session ID: %q\nCluster: %q\nInvestigation: %q\nStatus: %s\nNo credentials were changed. To %s OCM credentials, run:\n  %s\n", task.TaskID, task.Tags["cluster_id"], task.Tags["investigation_id"], task.Status, action, suggestion)
+	return err
+}
+
 func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return guideCredentialSession(cmd, "configure")
+	}
 	environment, err := resolveConfigureOCMEnvironment()
 	if err != nil {
 		return err
@@ -58,6 +138,9 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 }
 
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return guideCredentialSession(cmd, "clear")
+	}
 	authResult := getAuthResult(cmd)
 	ecsClient := newCredentialECSClient(authResult)
 	if err := prepareCredentialSession(cmd.Context(), ecsClient, args[0]); err != nil {

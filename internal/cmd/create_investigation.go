@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
@@ -56,28 +57,31 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) (resultErr error)
 		}
 	}()
 
-	output.Status("Investigation workspace created: access point %s", lambdaResp.AccessPointID)
+	return printCreateInvestigationResult(clusterID, investigationID, lambdaResp.AccessPointID, cfg.AWSRegion, createOutputFormat)
+}
 
-	if createOutputFormat == "json" {
+func printCreateInvestigationResult(clusterID, investigationID, accessPointID, region, format string) error {
+	if format == "json" {
 		summary := map[string]any{
 			"profile":          selectedProfile,
 			"cluster_id":       clusterID,
 			"investigation_id": investigationID,
-			"access_point_id":  lambdaResp.AccessPointID,
+			"access_point_id":  accessPointID,
 		}
-		if err := output.JSON(summary); err != nil {
-			return err
-		}
-	} else {
-		if err := printCreateInvestigationSummary(clusterID, investigationID, lambdaResp.AccessPointID, cfg.AWSRegion); err != nil {
-			return err
-		}
+		return output.JSON(summary)
 	}
-
-	return nil
+	return printCreateInvestigationSummary(clusterID, investigationID, accessPointID, region)
 }
 
 func printCreateInvestigationSummary(cluster, investigationID, accessPointID, region string) error {
-	_, err := fmt.Fprintf(os.Stdout, "Investigation %s/%s created (profile %s; access point %s).\nCreate a session: rosa-boundary --profile %q session create %q --investigation-id %q --region %q\n", cluster, investigationID, selectedProfile, accessPointID, selectedProfile, cluster, investigationID, region)
+	_, saved, err := config.ReadSavedProfile(selectedProfile)
+	if err != nil {
+		return fmt.Errorf("read saved profile for session suggestion: %w", err)
+	}
+	suggestion := fmt.Sprintf("rosa-boundary --profile %q session create %q --investigation-id %q", selectedProfile, cluster, investigationID)
+	if joinNeedsOverride(region, saved.AWSRegion, "ROSA_BOUNDARY_AWS_REGION") {
+		suggestion += fmt.Sprintf(" --region %q", region)
+	}
+	_, err = fmt.Fprintf(os.Stdout, "\nInvestigation created.\nCluster: %s\nInvestigation: %s\nAccess point ID: %s\n\nTo create a session, run:\n  %s\n", cluster, investigationID, accessPointID, suggestion)
 	return err
 }

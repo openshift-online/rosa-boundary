@@ -5,32 +5,25 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/openshift-online/rosa-boundary/internal/config"
 )
 
-func TestPrintStartSessionSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
-	ecsCluster := "rosa-boundary-dev"
-	rosaClusterID := "e2e-test"
-	investigationID := "INV-001"
-	sessionID := "abc123def456"
-	ocVersion := "4.20"
-	timeout := 3600
-	accessPointID := "fsap-0123456789"
-	roleARN := "arn:aws:iam::123456789012:role/test-role"
-	region := "us-east-1"
-
-	// Successful text results belong on stdout.
+func captureStartSummary(t *testing.T, ecsCluster, clusterID, investigationID, sessionID, region string, noWait bool) string {
+	t.Helper()
 	old := os.Stdout
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = r.Close() }()
 	os.Stdout = w
-
-	if err := printStartSessionSummary(ecsCluster, rosaClusterID, investigationID, sessionID, ocVersion, timeout, accessPointID, roleARN, region); err != nil {
+	defer func() {
+		os.Stdout = old
+		_ = r.Close()
+	}()
+	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, noWait); err != nil {
 		t.Fatal(err)
 	}
-
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -38,95 +31,79 @@ func TestPrintStartSessionSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
 	if _, err := buf.ReadFrom(r); err != nil {
 		t.Fatal(err)
 	}
-	os.Stdout = old
+	return buf.String()
+}
 
-	output := buf.String()
-
-	// ECS Cluster line must show the actual ECS cluster name
-	if !strings.Contains(output, "ECS cluster: rosa-boundary-dev") {
-		t.Errorf("expected ECS Cluster to show %q, got output:\n%s", ecsCluster, output)
+func savedStartProfile(t *testing.T) {
+	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	previous := selectedProfile
+	selectedProfile = "stage-east"
+	t.Cleanup(func() { selectedProfile = previous })
+	if err := saveTestProfile(selectedProfile, config.Config{AWSRegion: "us-east-1", ClusterName: "rosa-boundary-dev"}, true, false); err != nil {
+		t.Fatal(err)
 	}
+}
 
-	// ROSA Cluster line must show the ROSA cluster ID
-	if !strings.Contains(output, "e2e-test/INV-001") {
-		t.Errorf("expected ROSA Cluster to show %q, got output:\n%s", rosaClusterID, output)
+func TestPrintStartSessionSummary_UsesECSClusterNotROSAClusterID(t *testing.T) {
+	savedStartProfile(t)
+	output := captureStartSummary(t, "rosa-boundary-dev", "e2e-test", "INV-001", "abc123def456", "us-east-1", false)
+	want := "\nSession created and RUNNING.\nCluster: e2e-test\nInvestigation: INV-001\nSession ID: abc123def456\n\nTo join this session, run:\n  rosa-boundary --profile \"stage-east\" session join \"abc123def456\"\n"
+	if output != want {
+		t.Errorf("summary = %q, want %q", output, want)
 	}
-
-	// The join command must use the actual Boundary ECS cluster and region.
-	expectedJoinCmd := "session join \"abc123def456\" --region \"us-east-1\" --ecs-cluster \"rosa-boundary-dev\""
-	if !strings.Contains(output, expectedJoinCmd) {
-		t.Errorf("expected session join command with ECS cluster %q, got output:\n%s", ecsCluster, output)
-	}
-
-	// The session join command must NOT use the ROSA cluster ID as the ECS cluster.
-	badJoinCmd := "--ecs-cluster \"e2e-test\""
-	if strings.Contains(output, badJoinCmd) {
-		t.Errorf("session join command incorrectly uses ROSA cluster ID %q as ECS cluster:\n%s", rosaClusterID, output)
+	if strings.Contains(output, "--ecs-cluster") || strings.Contains(output, "--region") {
+		t.Errorf("saved profile values should not be repeated in join suggestion: %s", output)
 	}
 }
 
 func TestPrintStartSessionSummary_ECSClusterNotConfusedWithClusterID(t *testing.T) {
+	savedStartProfile(t)
 	tests := []struct {
 		name       string
 		ecsCluster string
 		clusterID  string
 	}{
-		{
-			name:       "different names",
-			ecsCluster: "rosa-boundary-dev",
-			clusterID:  "shawn-e2e-rosa-boundary",
-		},
-		{
-			name:       "same names",
-			ecsCluster: "rosa-boundary-dev",
-			clusterID:  "rosa-boundary-dev",
-		},
-		{
-			name:       "production-like",
-			ecsCluster: "rosa-boundary-prod",
-			clusterID:  "rosa-prod-abc-12345",
-		},
+		{"different names", "rosa-boundary-dev", "shawn-e2e-rosa-boundary"},
+		{"same names", "rosa-boundary-dev", "rosa-boundary-dev"},
+		{"production-like override", "rosa-boundary-prod", "rosa-prod-abc-12345"},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			old := os.Stdout
-			r, w, err := os.Pipe()
-			if err != nil {
-				t.Fatal(err)
+			output := captureStartSummary(t, tt.ecsCluster, tt.clusterID, "INV-001", "task-123", "us-east-1", false)
+			if !strings.Contains(output, "Cluster: "+tt.clusterID+"\nInvestigation: INV-001\nSession ID: task-123\n") {
+				t.Errorf("missing identifiers: %s", output)
 			}
-			defer func() { _ = r.Close() }()
-			os.Stdout = w
-
-			if err := printStartSessionSummary(tt.ecsCluster, tt.clusterID, "INV-001", "task-123", "4.20", 3600, "fsap-123", "arn:aws:iam::123:role/r", "us-east-2"); err != nil {
-				t.Fatal(err)
+			if strings.Contains(output, "--ecs-cluster \""+tt.clusterID+"\"") && tt.ecsCluster != tt.clusterID {
+				t.Errorf("join uses ROSA cluster rather than ECS cluster: %s", output)
 			}
-
-			if err := w.Close(); err != nil {
-				t.Fatal(err)
-			}
-			var buf bytes.Buffer
-			if _, err := buf.ReadFrom(r); err != nil {
-				t.Fatal(err)
-			}
-			os.Stdout = old
-
-			output := buf.String()
-
-			// ECS Cluster must always show the ECS cluster name
-			if !strings.Contains(output, "ECS cluster: "+tt.ecsCluster) {
-				t.Errorf("ECS Cluster line should show %q, got:\n%s", tt.ecsCluster, output)
-			}
-
-			// ROSA Cluster must always show the ROSA cluster ID
-			if !strings.Contains(output, tt.clusterID+"/INV-001") {
-				t.Errorf("ROSA Cluster line should show %q, got:\n%s", tt.clusterID, output)
-			}
-
-			// The session join command must use the ECS cluster.
-			if !strings.Contains(output, "--ecs-cluster \""+tt.ecsCluster+"\"") {
-				t.Errorf("session join command should use --ecs-cluster %q, got:\n%s", tt.ecsCluster, output)
+			if tt.ecsCluster != "rosa-boundary-dev" && !strings.Contains(output, "session join \"task-123\" --ecs-cluster \""+tt.ecsCluster+"\"") {
+				t.Errorf("join did not preserve ECS override: %s", output)
 			}
 		})
 	}
+}
+
+func TestPrintStartSessionSummary_OverridesAndNoWait(t *testing.T) {
+	savedStartProfile(t)
+	t.Run("unsaved overrides", func(t *testing.T) {
+		output := captureStartSummary(t, "other-ecs", "rosa", "investigation", "task-123", "us-west-2", false)
+		if !strings.Contains(output, "session join \"task-123\" --region \"us-west-2\" --ecs-cluster \"other-ecs\"\n") {
+			t.Errorf("join did not preserve unsaved overrides: %s", output)
+		}
+	})
+	t.Run("environment precedence", func(t *testing.T) {
+		t.Setenv("ROSA_BOUNDARY_AWS_REGION", "eu-west-1")
+		t.Setenv("ROSA_BOUNDARY_ECS_CLUSTER_NAME", "env-ecs")
+		output := captureStartSummary(t, "rosa-boundary-dev", "rosa", "investigation", "task-123", "us-east-1", false)
+		if !strings.Contains(output, "session join \"task-123\" --region \"us-east-1\" --ecs-cluster \"rosa-boundary-dev\"\n") {
+			t.Errorf("join must pin target against environment overrides: %s", output)
+		}
+	})
+	t.Run("no wait", func(t *testing.T) {
+		output := captureStartSummary(t, "rosa-boundary-dev", "rosa", "investigation", "task-123", "us-east-1", true)
+		if !strings.Contains(output, "\nSession launched; RUNNING has not been confirmed.\nCluster: rosa\nInvestigation: investigation\nSession ID: task-123\n\nOnce this session is RUNNING, to join it, run:\n") || strings.Contains(output, "Session created and RUNNING.") || strings.Contains(output, "To join this session, run:") {
+			t.Errorf("no-wait summary implies readiness or lacks pending status: %s", output)
+		}
+	})
 }

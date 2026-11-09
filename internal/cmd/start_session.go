@@ -11,6 +11,7 @@ import (
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 	ocmcredentials "github.com/openshift-online/rosa-boundary/internal/credentials/ocm"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
@@ -164,7 +165,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 			return err
 		}
 	} else {
-		if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, startOCVersion, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, cfg.AWSRegion); err != nil {
+		if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion, startNoWait); err != nil {
 			return err
 		}
 	}
@@ -247,18 +248,36 @@ func sessionCredentialFailure(investigationID, sessionID, ecsCluster, region str
 	)
 }
 
-func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, ocVersion string, timeout int, accessPointID, roleARN, region string) error {
-	summary := fmt.Sprintf("Session %s created for %s/%s (profile %s).\n", sessionID, clusterID, investigationID, selectedProfile)
-	summary += fmt.Sprintf("ECS cluster: %s; region: %s; OC version: %s; lifetime: %d seconds; access point: %s; role: %s\n", ecsCluster, region, ocVersion, timeout, accessPointID, roleARN)
-	summary += fmt.Sprintf("Join: rosa-boundary --profile %q session join %q", selectedProfile, sessionID)
-	if region != "" {
-		summary += fmt.Sprintf(" --region %q", region)
+func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait bool) error {
+	_, saved, err := config.ReadSavedProfile(selectedProfile)
+	if err != nil {
+		return fmt.Errorf("read saved profile for join suggestion: %w", err)
 	}
-	if ecsCluster != "" {
-		summary += fmt.Sprintf(" --ecs-cluster %q", ecsCluster)
+	join := fmt.Sprintf("rosa-boundary --profile %q session join %q", selectedProfile, sessionID)
+	// A saved value alone is insufficient when the environment would override it
+	// on the next invocation. Explicit flags must win over both sources.
+	if joinNeedsOverride(region, saved.AWSRegion, "ROSA_BOUNDARY_AWS_REGION") {
+		join += fmt.Sprintf(" --region %q", region)
 	}
-	_, err := fmt.Fprintln(os.Stdout, summary)
+	if joinNeedsOverride(ecsCluster, saved.ClusterName, "ROSA_BOUNDARY_ECS_CLUSTER_NAME") {
+		join += fmt.Sprintf(" --ecs-cluster %q", ecsCluster)
+	}
+	state := "Session created and RUNNING."
+	joinHeading := "To join this session, run:"
+	if noWait {
+		state = "Session launched; RUNNING has not been confirmed."
+		joinHeading = "Once this session is RUNNING, to join it, run:"
+	}
+	_, err = fmt.Fprintf(os.Stdout, "\n%s\nCluster: %s\nInvestigation: %s\nSession ID: %s\n\n%s\n  %s\n", state, clusterID, investigationID, sessionID, joinHeading, join)
 	return err
+}
+
+func joinNeedsOverride(effective, saved, envKey string) bool {
+	if effective != saved {
+		return true
+	}
+	env, set := os.LookupEnv(envKey)
+	return set && env != effective
 }
 
 // sanitizeSessionName replaces characters not allowed in STS session names.

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 	ocmcredentials "github.com/openshift-online/rosa-boundary/internal/credentials/ocm"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
@@ -66,14 +67,19 @@ func validOwnerSubject(value string) bool {
 	return value != "" && strings.TrimSpace(value) == value && !strings.ContainsFunc(value, unicode.IsControl)
 }
 
-func credentialDeploymentOverrides(cmd *cobra.Command) string {
-	var flags string
-	for _, flag := range []string{"region", "ecs-cluster"} {
-		if cmd.Flags().Changed(flag) {
-			flags += " --" + flag + " " + shellArgument(flagString(cmd, flag))
-		}
+func credentialDeploymentOverrides(authResult *AuthResult) (string, error) {
+	_, saved, err := config.ReadSavedProfile(selectedProfile)
+	if err != nil {
+		return "", fmt.Errorf("read saved profile for credential suggestion: %w", err)
 	}
-	return flags
+	var flags string
+	if joinNeedsOverride(authResult.Config.AWSRegion, saved.AWSRegion, "ROSA_BOUNDARY_AWS_REGION") {
+		flags += " --region " + shellArgument(authResult.Config.AWSRegion)
+	}
+	if joinNeedsOverride(authResult.Config.ClusterName, saved.ClusterName, "ROSA_BOUNDARY_ECS_CLUSTER_NAME") {
+		flags += " --ecs-cluster " + shellArgument(authResult.Config.ClusterName)
+	}
+	return flags, nil
 }
 
 func guideCredentialSession(cmd *cobra.Command, action string) error {
@@ -90,6 +96,10 @@ func guideCredentialSession(cmd *cobra.Command, action string) error {
 		// ECS errors can contain task identifiers; do not disclose unfiltered data.
 		return fmt.Errorf("cannot discover RUNNING sessions in profile %q; verify ECS access and the selected deployment, then retry", selectedProfile)
 	}
+	overrides, err := credentialDeploymentOverrides(authResult)
+	if err != nil {
+		return err
+	}
 	eligible := make([]awsclient.TaskSummary, 0)
 	for _, task := range tasks {
 		owner := task.Tags["oidc_sub"]
@@ -102,18 +112,22 @@ func guideCredentialSession(cmd *cobra.Command, action string) error {
 		if format, _ := commandOutput(cmd); format == "json" {
 			return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "provider": "ocm", "action": action, "status": "selection_required", "eligible_count": 0, "credentials_changed": false})
 		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "No eligible RUNNING sessions found in profile %q. Check your session ID and profile, or create a session; then run: rosa-boundary --profile %s session credentials %s ocm <session-id>%s\n", selectedProfile, shellArgument(selectedProfile), action, credentialDeploymentOverrides(cmd))
+		suggestion := fmt.Sprintf("rosa-boundary --profile %s session credentials %s ocm <session-id>%s", shellArgument(selectedProfile), action, overrides)
+		if action == "configure" && cmd.Flags().Changed("ocm-url") {
+			suggestion += " --ocm-url " + shellArgument(flagString(cmd, "ocm-url"))
+		}
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "No eligible RUNNING sessions found in profile %q. Check your session ID and profile, or create a session; then run: %s\n", selectedProfile, suggestion)
 		return err
 	}
 	if len(eligible) > 1 {
 		if format, _ := commandOutput(cmd); format == "json" {
 			return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "provider": "ocm", "action": action, "status": "selection_required", "eligible_count": len(eligible), "credentials_changed": false})
 		}
-		_, err = fmt.Fprintf(cmd.OutOrStdout(), "%d eligible RUNNING sessions found in profile %q. Inspect your sessions with rosa-boundary --profile %s session list --status RUNNING%s, then specify the correct session ID explicitly. No credentials were changed.\n", len(eligible), selectedProfile, shellArgument(selectedProfile), credentialDeploymentOverrides(cmd))
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "%d eligible RUNNING sessions found in profile %q. Inspect your sessions with rosa-boundary --profile %s session list --status RUNNING%s, then specify the correct session ID explicitly. No credentials were changed.\n", len(eligible), selectedProfile, shellArgument(selectedProfile), overrides)
 		return err
 	}
 	task := eligible[0]
-	suggestion := fmt.Sprintf("rosa-boundary --profile %s session credentials %s ocm %s%s", shellArgument(selectedProfile), action, shellArgument(task.TaskID), credentialDeploymentOverrides(cmd))
+	suggestion := fmt.Sprintf("rosa-boundary --profile %s session credentials %s ocm %s%s", shellArgument(selectedProfile), action, shellArgument(task.TaskID), overrides)
 	if cmd.Flags().Changed("use-device-code") {
 		suggestion += fmt.Sprintf(" --use-device-code=%t", flagBool(cmd, "use-device-code"))
 	}

@@ -192,6 +192,55 @@ func TestSessionLifecycleHelpKeepsFlagsAndSeparation(t *testing.T) {
 	}
 }
 
+func TestSessionParentHelpExamplesAndBooleanFlags(t *testing.T) {
+	stdout, err := runTestCLI(t, "session", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"new, auto-generated investigation ID",
+		"existing investigation",
+		"fresh OCM credentials in an existing session",
+		"new investigation and OCM credentials",
+		"separate human approvals",
+		"cannot be combined with --no-wait",
+		"--use-device-code",
+	} {
+		if !strings.Contains(stdout, want) {
+			t.Errorf("session --help missing %q: %s", want, stdout)
+		}
+	}
+	examples := []string{
+		"rosa-boundary session create <cluster-id>",
+		"rosa-boundary session create <cluster-id> --investigation-id <investigation-id>",
+		"rosa-boundary session credentials configure ocm <session-id>",
+		"rosa-boundary session create <cluster-id> --with-credentials ocm",
+	}
+	for _, example := range examples {
+		if !strings.Contains(stdout, "  "+example+"\n") {
+			t.Errorf("session --help missing example %q: %s", example, stdout)
+		}
+	}
+	if got := strings.Count(stdout, "  rosa-boundary session create <cluster-id>") + strings.Count(stdout, "  rosa-boundary session credentials configure ocm <session-id>"); got != len(examples) {
+		t.Errorf("session --help contains %d examples, want %d: %s", got, len(examples), stdout)
+	}
+	if strings.Contains(stdout, "--ocm-url") || strings.Contains(stdout, "[=true|false]") {
+		t.Errorf("session --help shows an environment or boolean syntax in examples/help: %s", stdout)
+	}
+
+	// Explicit false is still accepted by the parser despite the bare help form.
+	stdout, err = runTestCLI(t, "--use-device-code=false", "session", "--help")
+	if err != nil || !strings.Contains(stdout, "--use-device-code") {
+		t.Errorf("explicit false help: %v, %q", err, stdout)
+	}
+	for _, args := range [][]string{{"--help"}, {"session", "create", "--help"}, {"login", "--help"}} {
+		stdout, err := runTestCLI(t, args...)
+		if err != nil || !strings.Contains(stdout, "--use-device-code") || strings.Contains(stdout, "[=true|false]") {
+			t.Errorf("%v: boolean help = %q, error = %v", args, stdout, err)
+		}
+	}
+}
+
 func assertCommandTree(t *testing.T, parent interface {
 	Commands() []*cobra.Command
 	CommandPath() string

@@ -31,6 +31,12 @@ func buildRootCommand() *cobra.Command {
 	root.PersistentFlags().BoolVar(&verbose, "verbose", false, "Show debug diagnostics (never secrets)")
 	root.PersistentFlags().Duration("timeout", 0, "Whole-command deadline (default 5m without terminal)")
 	root.PersistentFlags().Bool("use-device-code", false, "Use device approval for Boundary and default OCM flow")
+	// pflag renders boolean flags with [=true|false] in help. Keep explicit
+	// =false parsing, but present the ordinary bare-flag form in help text.
+	cobra.AddTemplateFunc("normalBoolHelp", func(usage string) string {
+		return strings.ReplaceAll(usage, "[=true|false]", strings.Repeat(" ", len("[=true|false]")))
+	})
+	root.SetHelpTemplate(strings.Replace(root.HelpTemplate(), "{{.UsageString}}", "{{.UsageString | normalBoolHelp}}", 1))
 	root.PersistentPreRunE = commandPreRun
 	root.PersistentPostRun = func(*cobra.Command, []string) {
 		if commandCancel != nil {
@@ -273,6 +279,18 @@ func buildInvestigationCommand() *cobra.Command {
 
 func buildSessionCommand() *cobra.Command {
 	group := commandGroup("session", "Manage investigation sessions and their credentials")
+	group.Long = "Manage investigation sessions and their credentials.\n\nBoundary sign-in and OCM authorization may require separate human approvals. Credential injection cannot be combined with --no-wait."
+	group.Example = `  # Create a session with a new, auto-generated investigation ID
+  rosa-boundary session create <cluster-id>
+
+  # Create a session in an existing investigation
+  rosa-boundary session create <cluster-id> --investigation-id <investigation-id>
+
+  # Configure fresh OCM credentials in an existing session
+  rosa-boundary session credentials configure ocm <session-id>
+
+  # Create a session with a new investigation and OCM credentials
+  rosa-boundary session create <cluster-id> --with-credentials ocm`
 	group.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			switch args[0] {

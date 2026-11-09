@@ -15,12 +15,12 @@ angle brackets in a shell command are redirection operators, not literal syntax.
 ```mermaid
 stateDiagram-v2
     [*] --> LoggedIn: rosa-boundary login
-    LoggedIn --> TaskRunning: rosa-boundary start-task
-    TaskRunning --> UserConnected: rosa-boundary join-task
+    LoggedIn --> TaskRunning: rosa-boundary session create
+    TaskRunning --> UserConnected: rosa-boundary session join
     UserConnected --> Investigation: Work in container
     Investigation --> UserDisconnected: exit
-    UserDisconnected --> TaskStopped: rosa-boundary stop-task --wait
-    TaskStopped --> InvestigationClosed: rosa-boundary close-investigation
+    UserDisconnected --> TaskStopped: rosa-boundary session close --wait
+    TaskStopped --> InvestigationClosed: rosa-boundary investigation close
     InvestigationClosed --> [*]
 
     note right of LoggedIn
@@ -49,7 +49,7 @@ stateDiagram-v2
     end note
 
     note right of InvestigationClosed
-        - Refuses running tasks unless --force
+        - Owner-only CLI operation; refuses active sessions unless --force
         - Task definitions deregistered
         - EFS access point deleted
     end note
@@ -61,7 +61,7 @@ stateDiagram-v2
 # Build the CLI
 make build-cli
 
-# Verify session-manager-plugin is installed (required for join-task)
+# Verify session-manager-plugin is installed (required for session join)
 session-manager-plugin --version
 ```
 
@@ -71,16 +71,18 @@ the audit verification examples below.
 
 ## Configure for the intended deployment
 
-Follow the [user access guide](user-access-guide.md#3-configure-cli) to discover
-configuration using the operator-supplied account, region, project, and
-environment. Check the discovered Lambda, role ARNs, cluster, and EFS filesystem
-before proceeding. For a non-default identity provider supply its OIDC settings;
-`login` alone does not configure the roles needed by the other commands.
-On a headless server, pass `--use-device-code` explicitly to `configure` to
+Follow the [user access guide](user-access-guide.md#3-configure-cli) to create
+a **named profile** using the operator-supplied account, region, project and
+environment. If an old flat config exists, delete or move it and run `config init`
+to create profiles from scratch; no migration is provided. Check the discovered Lambda, role ARNs,
+cluster, and EFS filesystem before proceeding. Select the intended deployment
+with `--profile <name>` on each invocation or `config use-profile <name>` to make it
+active; `login` alone does not configure the roles needed by other commands.
+On a headless server, pass `--use-device-code` explicitly to `config init` to
 use device approval during auto-discovery and save `oidc_use_device_code: true`.
-Without an explicit true flag, `configure` uses a browser and writes `false`
-even if an old config or environment variable says true. Manual
-`configure --auto-discover=false` writes the selected boolean without login.
+Without an explicit true flag, init uses a browser and writes `false` even if
+the environment says true. Manual `config init --auto-discover=false` saves
+the selected boolean without logging in.
 Ordinary commands use explicit `--use-device-code=true|false` (bare means true)
 > `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE` > saved boolean > default `false`.
 Explicit false overrides true for both providers; invalid booleans are errors.
@@ -88,7 +90,7 @@ Explicit false overrides true for both providers; invalid booleans are errors.
 ## Phase 1: Authenticate
 
 ```bash
-./bin/rosa-boundary login
+./bin/rosa-boundary --profile <profile-name> login
 ```
 
 What it does:
@@ -98,26 +100,25 @@ What it does:
   browser or callback port
 - Caches the ID token under `${XDG_CACHE_HOME:-$HOME/.cache}/rosa-boundary/token-cache`
 - Reuses a valid token until shortly before its actual `exp`, regardless of flow;
-  `login --force` or global `--force-login` requests a fresh approval. An
+  `login --force` requests a fresh approval. An
   expired cache or STS rejection during a later command can also request
   fresh approval in the selected mode, with no automatic browser fallback.
 
 Device approval is **per-user and human-in-the-loop**: it does not provide an
 unattended service credential. Scripts must handle a challenge during **any**
 auth-bearing command, not just a preceding `login`. See the
-[user access guide's concurrent event-draining example](user-access-guide.md#script-driven-human-approved-login).
+[user access guide's concurrent stderr-draining example](user-access-guide.md#script-driven-human-approved-login).
 
-## Phase 2: Start Investigation
+## Phase 2: Create Session
 
 ```bash
-./bin/rosa-boundary start-task \
-  --cluster-id <cluster-id> \
+./bin/rosa-boundary --profile <profile-name> session create <cluster-id> \
   --investigation-id <investigation-id>
 ```
 
 Optional flags:
 ```
-  --task-timeout 3600     # seconds; must meet the deployment's minimum
+  --session-timeout 1h    # task lifetime; must meet the deployment's policy
   --oc-version 4.20       # OpenShift CLI version to lock; check CLI help for default
   --with-credentials ocm  # configure a fresh OCM token before returning
   --ocm-url production    # production, staging, integration, or canonical URL
@@ -125,26 +126,27 @@ Optional flags:
 ```
 
 `--with-credentials` cannot be combined with `--no-wait`. If configuration
-fails after task creation, the CLI reports the still-running task ID and the
-exact `stop-task` cleanup command.
+fails after task creation, the CLI reports the created session ID and a
+profile-qualified `session close <session-id> --yes` cleanup command. A RUNNING
+wait failure also returns nonzero; the session may already be STOPPED. Inspect
+`session list --status all` before retrying. `--no-wait` reports launch only.
 With `--with-credentials ocm`, the CLI separately requests a fresh OCM access
 token from the OCM issuer/client, not the cached Boundary ID token. The saved
 device preference (or explicit global flag/env override) applies to both
 providers by default, so a fresh Boundary token **and** OCM credentials may
-require **two distinct human approvals** in one `start-task`. A cached Boundary
+require **two distinct human approvals** in one `session create`. A cached Boundary
 token may eliminate only the Boundary challenge. An explicitly specified
 `--ocm-auth-flow auth-code|device` overrides OCM only; `auth-code` still
 requires a browser callback even if Boundary uses device mode. Any device
 flow remains browser-free. OCM credential transfer uses task-scoped,
 audit-excluded storage, not the Boundary token cache or EFS home.
 
-For scripted operation, use `start-task ... -o json`: stdout retains the
-single existing task-result JSON document; stderr carries prefixed,
-provider-tagged auth-event lines, possibly alongside ordinary diagnostics.
+For scripted operation, use `session create ... -o json`: stdout contains the
+single session-result JSON document; stderr carries human-readable
+authentication challenges and other diagnostics (not auth-event protocol lines).
 Read stderr **as the CLI runs** and show each URL/code privately to the SRE,
-not in shared CI logs. `authenticated` means token acquisition only: check
-the **process exit status** before trusting the result. If OCM approval or
-transfer fails after task creation, note the task ID and explicitly retry
+not in shared CI logs. Check the **process exit status** before trusting the
+result. If OCM approval or transfer fails after task creation, note the session ID and explicitly retry
 credential configuration or stop the task and verify cleanup; a nonzero exit
 does not prove that the task was not created.
 
@@ -158,21 +160,23 @@ What it does:
 7. **Lambda returns the shared SRE role ARN** and task ARN
 8. CLI prints connection command
 
-Output includes the task ID — save it for join/stop/close steps.
+Output includes the Boundary session ID (underlying ECS task ID or ARN), **not**
+the short-lived SSM session ID created by ECS Exec. Save it for join and stop.
+An investigation workspace can outlive multiple sessions.
 
 ## Phase 3: List Tasks
 
 ```bash
-./bin/rosa-boundary list-tasks \
+./bin/rosa-boundary --profile <profile-name> session list \
   --status RUNNING
 ```
 
-Shows: task ID, status, cluster, investigation ID, username, start time.
+Shows: session ID (ECS task ID), status, cluster, investigation ID, username, start time.
 
 ## Phase 4: Connect to Container
 
 ```bash
-./bin/rosa-boundary join-task <task-id>
+./bin/rosa-boundary --profile <profile-name> session join <session-id>
 ```
 
 What it does:
@@ -181,12 +185,14 @@ What it does:
 3. Waits for the container exec agent to open its data channel
 4. Hands the interactive session to `session-manager-plugin` for a seamless terminal
 
-`join-task -o json` can provide authentication events on stderr if it needs
-fresh login, but its raw session I/O remains on a terminal, **not** a JSON
-result on stdout. Likewise `start-task --connect -o json` may produce a task
-JSON result before connection but does not encode the shell as JSON. Use a
-suitable terminal for interactive commands; a script consuming JSON should
-not treat session bytes as a machine-readable result.
+`session join -o json` and `session create --connect -o json` show human authentication
+guidance on stderr and keep shell I/O on `/dev/tty`. On successful shell exit,
+stdout contains one JSON result with `status: disconnected`, `task_closed: false`,
+and `investigation_closed: false`; the created session ID remains in the create
+result. Exec failure returns nonzero with a failure JSON object (`error.code: command_failed`), **not** a success JSON object; after
+create, stderr includes the session ID and cleanup guidance. Use a controlling
+terminal for both commands. `session create --no-wait -o json` reports
+`status: launched` rather than claiming readiness.
 
 Inside the container (as `sre` user):
 ```bash
@@ -244,15 +250,15 @@ are task-scoped, excluded from S3 sync, and destroyed when the task stops.
 
 ```bash
 # Uses a fresh OCM token; auth-code is the default unless device mode is selected
-./bin/rosa-boundary credentials configure ocm <task-id> --ocm-url production
+./bin/rosa-boundary --profile <profile-name> session credentials configure ocm <session-id> --ocm-url production
 
 # Explicit OCM-only headless override (also works with browser-mode Boundary)
-./bin/rosa-boundary credentials configure ocm <task-id> \
+./bin/rosa-boundary --profile <profile-name> session credentials configure ocm <session-id> \
   --ocm-url staging \
   --auth-flow device
 
 # Immediate removal; also removes credential-derived ~/.kube/config
-./bin/rosa-boundary credentials clear ocm <task-id>
+./bin/rosa-boundary --profile <profile-name> session credentials clear ocm <session-id>
 ```
 
 If `--ocm-url` is omitted, only the non-secret `url` field is read from the
@@ -262,21 +268,25 @@ Stopping the task remains authoritative cleanup even if clear is not run.
 An explicitly supplied `--auth-flow auth-code|device` overrides only the OCM
 flow, not Boundary's; otherwise the saved/global device preference selects
 the OCM flow. Each OCM credential injection gets a new OCM access token and
-can request human approval even if Boundary is cached. In JSON mode use
-`credentials configure ocm <task-id> -o json` to receive OCM (and, if needed,
-Boundary) auth events on stderr; it has no JSON result on stdout. Check exit
-status before assuming the credential transfer succeeded. `credentials clear
-ocm ... -o json` likewise has auth events but no JSON result.
+can request human approval even if Boundary is cached. In JSON mode,
+`session credentials configure ocm <session-id> -o json` still shows OCM (and,
+if needed, Boundary) human approval guidance on stderr; on success it returns
+one JSON object with `action: configured`, `session_id`, and `environment`.
+`session credentials clear ocm ... -o json` returns `action: cleared` and
+`session_id` on success. Without an ID, either operation returns a
+`selection_required` result containing `eligible_count` and
+`credentials_changed: false`, with a suggestion only for exactly one owned
+RUNNING session. Check exit status before assuming credentials changed.
 
 To exercise workspace persistence and audit without customer data, create a
 harmless file such as `printf 'boundary smoke test\n' > ~/boundary-smoke-test.txt`
 inside the task. Then `exit` the interactive shell. This **disconnects ECS Exec**;
 the task stays running until stopped or reaped and no S3 sync is implied.
 
-## Phase 5: Stop Task (Triggers S3 Sync)
+## Phase 5: Close Session (Stops Task; Triggers S3 Sync)
 
 ```bash
-./bin/rosa-boundary stop-task <task-id> --wait
+./bin/rosa-boundary --profile <profile-name> session close <session-id> --wait
 ```
 
 What it does:
@@ -285,6 +295,9 @@ What it does:
 3. S3 path is auto-generated: `s3://<bucket>/<cluster-id>/<investigation-id>/<YYYYMMDD>/<task-id>/`
 
 `--wait` confirms the task reached STOPPED, **not** that S3 sync succeeded.
+Closing the session does not close its investigation or delete the reusable workspace.
+Without a terminal, `session close` requires `--yes`; `-o json` returns a
+single status document on stdout and human-readable authentication guidance on stderr.
 The entrypoint warns and continues on sync failure or timeout. Check the container
 log for warnings and verify the object in S3 before treating audit escrow as complete.
 
@@ -328,52 +341,56 @@ artifacts under the deployment's retention and access policies.
 ## Phase 6: Close Investigation
 
 ```bash
-./bin/rosa-boundary close-investigation \
-  --cluster-id <cluster-id> \
-  --investigation-id <investigation-id>
+./bin/rosa-boundary --profile <profile-name> investigation close \
+  <cluster-id> <investigation-id> --dry-run
+# After checking the complete plan and audit evidence, confirm in a terminal:
+./bin/rosa-boundary --profile <profile-name> investigation close \
+  <cluster-id> <investigation-id>
 ```
 
 What it does:
-1. Finds the EFS access point (using its configured filesystem ID)
-2. Refuses to close while a task is running unless `--force` is supplied; stop and verify audit evidence first
-3. Attempts to deregister associated task definition revisions; inspect any warnings
-4. Prompts for confirmation before deleting the EFS access point (unless `--yes`); EFS data remains on the filesystem
+1. Verifies that the authenticated creator's OIDC subject matches the access point's `oidc_sub` tag and that the access point is Lambda-managed; missing owner tags fail closed. Another SRE can join an authorized shared investigation but cannot close it through the CLI.
+2. Resolves and previews the complete plan (account, region, cluster, filesystem, access point, active session IDs, and matching task definitions) **before** any mutation. `--dry-run` is read-only. A noninteractive close needs `--yes` unless dry-running.
+3. Refuses active, pending, or still-shutting-down sessions without `--force`. With `--force`, plans stops for active sessions and waits for those already stopping to reach STOPPED before deregistering definitions or deleting the access point. The CLI rechecks the plan before mutation; changes require a new preview. Treat partial failures as incomplete and check the reported remaining actions.
+4. Leaves stored EFS data intact after access-point deletion. Verify S3 audit escrow independently; task STOPPED alone does not prove the sync worked.
 
-`--cluster-id` is optional if the investigation ID is unique; specify it to disambiguate. Ensure `efs_filesystem_id` was discovered or configured before closing.
+Both positional IDs are required. Ensure the selected profile has the correct
+`efs_filesystem_id` and ECS cluster. CLI owner validation does **not** constrain
+direct AWS clients using the SRE role; IAM ownership and atomic exclusion of
+concurrent starts/closes remain separate infrastructure work.
 
 ## Complete Example
 
 ```bash
-# After configuring the intended deployment, choose an approved target.
+# After configuring the intended deployment, choose an approved target and profile.
+PROFILE="<saved-profile-name>"
 CLUSTER_ID="<approved-cluster-id>"
 INV_ID="<unique-investigation-id>"
 
 # 1. Authenticate
-./bin/rosa-boundary login
+./bin/rosa-boundary --profile "$PROFILE" login
 
-# 2. Start investigation (save TASK_ID from output)
-./bin/rosa-boundary start-task \
-  --cluster-id "$CLUSTER_ID" \
+# 2. Start an investigation session (save SESSION_ID from output)
+./bin/rosa-boundary --profile "$PROFILE" session create "$CLUSTER_ID" \
   --investigation-id "$INV_ID"
 
-TASK_ID="<from output>"
+SESSION_ID="<session ID from output>"
 
 # 3. Connect
-./bin/rosa-boundary join-task "$TASK_ID"
+./bin/rosa-boundary --profile "$PROFILE" session join "$SESSION_ID"
 
 # Inside the task: printf 'boundary smoke test\n' > ~/boundary-smoke-test.txt
 # Then exit the interactive shell (task remains running).
 
 # 4. Stop task
-./bin/rosa-boundary stop-task "$TASK_ID" --wait
+./bin/rosa-boundary --profile "$PROFILE" session close "$SESSION_ID" --wait
 
 # 5. Verify CloudWatch and S3 audit evidence using an audit-reader identity
 # (see "Verify Audit Evidence" above).
 
-# 6. Close investigation; confirm deletion at the prompt
-./bin/rosa-boundary close-investigation \
-  --cluster-id "$CLUSTER_ID" \
-  --investigation-id "$INV_ID"
+# 6. Review the read-only close plan, then confirm closure in a terminal
+./bin/rosa-boundary --profile "$PROFILE" investigation close "$CLUSTER_ID" "$INV_ID" --dry-run
+./bin/rosa-boundary --profile "$PROFILE" investigation close "$CLUSTER_ID" "$INV_ID"
 ```
 
 ## Authorization Model
@@ -400,13 +417,13 @@ browser flow for both providers even if saved true; an explicit OCM
 `--ocm-auth-flow auth-code` / `--auth-flow auth-code` selects a browser callback
 for OCM only. If a device request expires, is denied, or is canceled, verify
 the SRE approved the **correct provider's** URL and code and start a new,
-bounded attempt; do not expect a browser fallback. In JSON mode, inspect only
-`ROSA_BOUNDARY_AUTH_EVENT `-prefixed stderr lines for versioned provider events;
-other stderr is diagnostics and stdout result JSON is separate. An
-`authenticated` event is not evidence of STS success, task creation,
-credential transfer, or audit sync; check exit status and the steps below.
+bounded attempt; do not expect a browser fallback. Human-readable approval
+guidance and other diagnostics appear on stderr even in JSON mode; stdout
+result JSON is separate. Completing authentication is not evidence of STS
+success, task creation, credential transfer, or audit sync; check exit status
+and the steps below.
 
-### AccessDeniedException on join-task
+### AccessDeniedException on session join
 - Possible cause: task and OIDC-derived principal tags do not match for the deployment's ABAC key. Ask an operator with ECS read access to inspect the task tags and check the identity provider mapping and IAM policy.
 
 ### Lambda returns 403 Forbidden

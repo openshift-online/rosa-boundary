@@ -10,41 +10,29 @@ import (
 	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 )
 
-func TestForceFreshLogin(t *testing.T) {
-	tests := []struct {
-		name             string
-		globalForceLogin bool
-		loginForce       bool
-		want             bool
-	}{
-		{name: "no force flags", want: false},
-		{name: "login force flag", loginForce: true, want: true},
-		{name: "global force login flag", globalForceLogin: true, want: true},
-		{name: "both force flags", globalForceLogin: true, loginForce: true, want: true},
+func TestLoginForceFlagIsCommandScoped(t *testing.T) {
+	root := buildRootCommand()
+	login := commandAtPath(t, root, "login")
+	if force := login.LocalNonPersistentFlags().Lookup("force"); force == nil || force.DefValue != "false" {
+		t.Fatalf("login --force flag = %+v", force)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := forceFreshLogin(tt.globalForceLogin, tt.loginForce); got != tt.want {
-				t.Errorf("forceFreshLogin(%t, %t) = %t, want %t", tt.globalForceLogin, tt.loginForce, got, tt.want)
-			}
-		})
+	if root.PersistentFlags().Lookup("force-login") != nil {
+		t.Fatal("obsolete global --force-login flag remains available")
+	}
+	if commandAtPath(t, root, "session", "create").LocalNonPersistentFlags().Lookup("force") != nil {
+		t.Fatal("login --force leaked to session create")
 	}
 }
 
 func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	viper.Set("keycloak_url", "https://keycloak.example.test/auth")
-	t.Cleanup(func() { viper.Set("keycloak_url", nil) })
-	viper.Set("keycloak_realm", "EmployeeIDP")
-	viper.Set("oidc_client_id", "rosa-boundary-sre")
-	viper.Set("oidc_use_device_code", false)
-	t.Cleanup(func() { viper.Set("keycloak_realm", nil); viper.Set("oidc_client_id", nil) })
-	t.Cleanup(func() { viper.Set("oidc_use_device_code", nil) })
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := saveTestProfile("test", config.Config{AccountID: "123456789012", KeycloakURL: "https://keycloak.example.test/auth", KeycloakRealm: "EmployeeIDP", OIDCClientID: "rosa-boundary-sre"}, true, false); err != nil {
+		t.Fatal(err)
+	}
 
 	token := testJWT(time.Now().Add(time.Hour))
 	if err := auth.SaveTokenForConfig(token, auth.PKCEConfig{KeycloakURL: "https://keycloak.example.test/auth", Realm: "EmployeeIDP", ClientID: "rosa-boundary-sre"}); err != nil {
@@ -52,8 +40,6 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	}
 
 	// Use the cache so the test does not start the interactive browser flow.
-	loginForce = false
-	forceLogin = false
 
 	oldStdout := os.Stdout
 	stdoutReader, stdoutWriter, err := os.Pipe()
@@ -62,7 +48,7 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	}
 	os.Stdout = stdoutWriter
 
-	runErr := runLogin(&cobra.Command{}, nil)
+	_, runErr := runTestCLI(t, "login")
 	if err := stdoutWriter.Close(); err != nil {
 		t.Errorf("closing captured stdout writer: %v", err)
 	}
@@ -82,6 +68,23 @@ func TestRunLoginDoesNotWriteTokenToStdout(t *testing.T) {
 	if stdout.Len() != 0 {
 		t.Errorf("runLogin() wrote %d bytes to stdout", stdout.Len())
 	}
+}
+
+func TestCachedLoginJSONResultDoesNotExposeToken(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	if err := saveTestProfile("test", config.Config{KeycloakURL: "https://keycloak.example.test/auth"}, true, false); err != nil {
+		t.Fatal(err)
+	}
+	token := testJWT(time.Now().Add(time.Hour))
+	if err := auth.SaveTokenForConfig(token, auth.PKCEConfig{KeycloakURL: "https://keycloak.example.test/auth", Realm: "EmployeeIDP", ClientID: "rosa-boundary-sre"}); err != nil {
+		t.Fatal(err)
+	}
+	stdout, err := runTestCLI(t, "login", "-o", "json")
+	if err != nil || bytes.Contains([]byte(stdout), []byte(token)) {
+		t.Fatalf("login stdout=%q error=%v", stdout, err)
+	}
+	assertOneJSON(t, stdout, map[string]any{"profile": "test", "authenticated": true})
 }
 
 // testJWT creates a minimally valid JWT for exercising the local cache path.

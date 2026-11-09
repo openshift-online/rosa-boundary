@@ -8,42 +8,18 @@ import (
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
-var createInvestigationCmd = &cobra.Command{
-	Use:   "create-investigation",
-	Short: "Create an investigation workspace (EFS access point) without starting a task",
-	Long: `Authenticate with Keycloak, call the create-investigation Lambda with skip_task=true,
-creating only the EFS access point without launching an ECS task.
-
-Use this to pre-create an investigation workspace before starting a task, or to
-re-create a workspace with specific parameters.
-
-If --investigation-id is omitted, a random three-word name is generated
-(e.g. "swift-dance-party").`,
-	Args: cobra.NoArgs,
-	RunE: runCreateInvestigation,
-}
-
 var (
 	createClusterID       string
 	createInvestigationID string
-	createForceLogin      bool
 	createOutputFormat    string
 )
 
-func init() {
-	createInvestigationCmd.Flags().StringVar(&createClusterID, "cluster-id", "", "ROSA cluster ID to investigate")
-	_ = createInvestigationCmd.MarkFlagRequired("cluster-id")
-	createInvestigationCmd.Flags().StringVar(&createInvestigationID, "investigation-id", "", "Investigation ID (auto-generated if omitted)")
-	createInvestigationCmd.Flags().BoolVar(&createForceLogin, "force-login", false, "Force fresh OIDC authentication")
-	addOutputFlag(createInvestigationCmd, true, &createOutputFormat)
-	rootCmd.AddCommand(createInvestigationCmd)
-}
-
-func runCreateInvestigation(cmd *cobra.Command, args []string) error {
+func runCreateInvestigation(cmd *cobra.Command, args []string) (resultErr error) {
 	switch createOutputFormat {
 	case "text", "json":
 	default:
@@ -61,10 +37,6 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 		output.Status("Generated investigation ID: %s", investigationID)
 	}
 
-	if cfg.LambdaFunctionName == "" {
-		return fmt.Errorf("lambda function name is required; set --lambda-function-name, ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME, or LAMBDA_FUNCTION_NAME")
-	}
-
 	// Step 1: Call Lambda with skip_task=true (creates only the EFS access point)
 	output.Status("=== Step 1: Creating Investigation Workspace via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)
@@ -77,39 +49,39 @@ func runCreateInvestigation(cmd *cobra.Command, args []string) error {
 		InvestigationID: investigationID,
 	})
 	if err != nil {
-		return fmt.Errorf("lambda call failed: %w", err)
+		return fmt.Errorf("lambda call failed (outcome may be unknown for %s/%s; inspect with rosa-boundary --profile %q investigation list --cluster-id %q --region %q before retrying): %w", clusterID, investigationID, selectedProfile, clusterID, cfg.AWSRegion, err)
 	}
-
-	output.Status("Investigation workspace created: access point %s", lambdaResp.AccessPointID)
-
-	if createOutputFormat == "json" {
-		summary := map[string]any{
-			"cluster":          clusterID,
-			"investigation_id": investigationID,
-			"access_point_id":  lambdaResp.AccessPointID,
+	defer func() {
+		if resultErr != nil {
+			resultErr = fmt.Errorf("investigation %s/%s created (access point %s; profile %s; region %s) but result failed: %w", clusterID, investigationID, lambdaResp.AccessPointID, selectedProfile, cfg.AWSRegion, resultErr)
 		}
-		if err := output.JSON(summary); err != nil {
-			return err
-		}
-	} else {
-		printCreateInvestigationSummary(clusterID, investigationID, lambdaResp.AccessPointID)
-	}
+	}()
 
-	return nil
+	return printCreateInvestigationResult(clusterID, investigationID, lambdaResp.AccessPointID, cfg.AWSRegion, createOutputFormat)
 }
 
-func printCreateInvestigationSummary(cluster, investigationID, accessPointID string) {
-	fmt.Fprintln(os.Stderr, "\n========================================")
-	fmt.Fprintln(os.Stderr, "Investigation Workspace Created!")
-	fmt.Fprintln(os.Stderr, "========================================")
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  Cluster:        %s\n", cluster)
-	fmt.Fprintf(os.Stderr, "  Investigation:  %s\n", investigationID)
-	fmt.Fprintf(os.Stderr, "  EFS Access Pt:  %s\n", accessPointID)
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Start a task for this investigation:")
-	fmt.Fprintf(os.Stderr, "  rosa-boundary start-task --cluster-id %s --investigation-id %s\n", cluster, investigationID)
-	fmt.Fprintln(os.Stderr)
-	fmt.Fprintln(os.Stderr, "Close this investigation when done:")
-	fmt.Fprintf(os.Stderr, "  rosa-boundary close-investigation --cluster-id %s --investigation-id %s --yes\n", cluster, investigationID)
+func printCreateInvestigationResult(clusterID, investigationID, accessPointID, region, format string) error {
+	if format == "json" {
+		summary := map[string]any{
+			"profile":          selectedProfile,
+			"cluster_id":       clusterID,
+			"investigation_id": investigationID,
+			"access_point_id":  accessPointID,
+		}
+		return output.JSON(summary)
+	}
+	return printCreateInvestigationSummary(clusterID, investigationID, accessPointID, region)
+}
+
+func printCreateInvestigationSummary(cluster, investigationID, accessPointID, region string) error {
+	_, saved, err := config.ReadSavedProfile(selectedProfile)
+	if err != nil {
+		return fmt.Errorf("read saved profile for session suggestion: %w", err)
+	}
+	suggestion := fmt.Sprintf("rosa-boundary --profile %q session create %q --investigation-id %q", selectedProfile, cluster, investigationID)
+	if joinNeedsOverride(region, saved.AWSRegion, "ROSA_BOUNDARY_AWS_REGION") {
+		suggestion += fmt.Sprintf(" --region %q", region)
+	}
+	_, err = fmt.Fprintf(os.Stdout, "\nInvestigation created.\nCluster: %s\nInvestigation: %s\nAccess point ID: %s\n\nTo create a session, run:\n  %s\n", cluster, investigationID, accessPointID, suggestion)
+	return err
 }

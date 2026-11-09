@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
@@ -18,7 +17,7 @@ import (
 )
 
 const (
-	// defaultExecCommand is the ECS Exec command used by join-task and start-task --connect.
+	// defaultExecCommand is the ECS Exec command used by session join and session create --connect.
 	// Uses runuser to switch from root (SSM Agent) to the sre user with a login shell.
 	defaultExecCommand = "runuser -u sre -- sh -c 'cd ~ && exec bash --login'"
 )
@@ -34,89 +33,63 @@ var (
 	// Version is set at build time via -ldflags.
 	Version = "dev"
 
-	verbose       bool
-	forceLogin    bool
-	useDeviceCode bool
+	verbose bool
 
 	// cachedAuthResult stores the authentication result populated by PersistentPreRunE
 	cachedAuthResult  *AuthResult
 	assumeWebIdentity = awsclient.AssumeRoleWithWebIdentity
 )
 
-// rootCmd is the base command.
-var rootCmd = &cobra.Command{
-	Use:   "rosa-boundary",
-	Short: "CLI for managing ROSA/AWS SRE investigations",
-	Long: `rosa-boundary is a CLI tool for managing ephemeral SRE investigations
-on AWS Fargate with OIDC-authenticated access control.`,
-	SilenceErrors: true,
-	SilenceUsage:  true,
+// Execute runs the investigation/session CLI command tree.
+func Execute() {
+	if status := executeRoot(buildRootCommand(), os.Args[1:]...); status != 0 {
+		os.Exit(status)
+	}
 }
 
-// Execute runs the root command.
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+func executeRoot(root *cobra.Command, args ...string) int {
+	if args != nil {
+		root.SetArgs(args)
+	}
+	cmd, err := root.ExecuteC()
+	if commandCancel != nil {
+		commandCancel()
+		commandCancel = nil
+	}
+	if err != nil {
+		if cmd != nil && cmd.Flags().Lookup("output") != nil && !errors.Is(err, output.ErrJSONWrite) {
+			format, formatErr := commandOutput(cmd)
+			// Flag parsing stops at the first invalid flag. A later explicit
+			// JSON selection is still an intentional request for JSON output.
+			jsonSelected := formatErr == nil && format == "json"
+			if !cmd.Flags().Changed("output") && !jsonSelected {
+				for i, arg := range args {
+					if arg == "--" {
+						break
+					}
+					if arg == "--output=json" || arg == "-o=json" || (arg == "-o" || arg == "--output") && i+1 < len(args) && args[i+1] == "json" {
+						jsonSelected = true
+					}
+				}
+			}
+			if jsonSelected {
+				// The error is the same actionable diagnostic printed on stderr;
+				// never substitute a success-shaped result on failure.
+				if writeErr := output.JSONTo(cmd.OutOrStdout(), map[string]any{
+					"error": map[string]string{"code": "command_failed", "message": err.Error()},
+				}); writeErr != nil {
+					fmt.Fprintln(os.Stderr, "Error: failed to write JSON failure result:", writeErr)
+				}
+			}
+		}
 		fmt.Fprintln(os.Stderr, "Error:", err)
 		var child *exec.ExitError
 		if errors.As(err, &child) && child.ExitCode() > 0 {
-			os.Exit(child.ExitCode())
+			return child.ExitCode()
 		}
-		os.Exit(1)
+		return 1
 	}
-}
-
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable debug output (warnings and status messages are always shown)")
-	rootCmd.PersistentFlags().BoolVar(&forceLogin, "force-login", false, "Force re-authentication with Keycloak OIDC provider")
-	rootCmd.PersistentFlags().BoolVar(&useDeviceCode, "use-device-code", false, "Use device authorization instead of a local browser callback (Boundary and OCM)")
-	rootCmd.PersistentFlags().String("keycloak-url", "", "Keycloak base URL")
-	rootCmd.PersistentFlags().String("realm", "", "Keycloak realm (default: EmployeeIDP)")
-	rootCmd.PersistentFlags().String("client-id", "", "OIDC client ID (default: rosa-boundary-sre)")
-	rootCmd.PersistentFlags().String("region", "", "AWS region (default: us-east-2)")
-	rootCmd.PersistentFlags().String("ecs-cluster", "", "ECS cluster name (default: rosa-boundary-dev)")
-	rootCmd.PersistentFlags().String("role-arn", "", "SRE role ARN (overrides Lambda response)")
-	rootCmd.PersistentFlags().String("invoker-role-arn", "", "Lambda invoker role ARN for direct SDK invocation")
-	rootCmd.PersistentFlags().String("lambda-function-name", "", "Lambda function name or ARN for direct invocation")
-	rootCmd.PersistentFlags().String("efs-filesystem-id", "", "EFS filesystem ID for investigation access points")
-
-	// Bind flags to viper keys
-	_ = viper.BindPFlag("keycloak_url", rootCmd.PersistentFlags().Lookup("keycloak-url"))
-	_ = viper.BindPFlag("keycloak_realm", rootCmd.PersistentFlags().Lookup("realm"))
-	_ = viper.BindPFlag("oidc_client_id", rootCmd.PersistentFlags().Lookup("client-id"))
-	_ = viper.BindPFlag("oidc_use_device_code", rootCmd.PersistentFlags().Lookup("use-device-code"))
-	_ = viper.BindPFlag("aws_region", rootCmd.PersistentFlags().Lookup("region"))
-	_ = viper.BindPFlag("ecs_cluster_name", rootCmd.PersistentFlags().Lookup("ecs-cluster"))
-	_ = viper.BindPFlag("sre_role_arn", rootCmd.PersistentFlags().Lookup("role-arn"))
-	_ = viper.BindPFlag("invoker_role_arn", rootCmd.PersistentFlags().Lookup("invoker-role-arn"))
-	_ = viper.BindPFlag("lambda_function_name", rootCmd.PersistentFlags().Lookup("lambda-function-name"))
-	_ = viper.BindPFlag("efs_filesystem_id", rootCmd.PersistentFlags().Lookup("efs-filesystem-id"))
-
-	// PersistentPreRunE runs before any command's RunE, handling OIDC authentication centrally
-	rootCmd.PersistentPreRunE = authenticateIfNeeded
-}
-
-func initConfig() {
-	output.Verbose = verbose
-
-	if err := config.Load(); err != nil {
-		output.Warning("config error: %v", err)
-	}
-}
-
-// getConfig is a helper that loads and validates config, printing a useful error if required fields are missing.
-func getConfig(requireKeycloakURL bool) (*config.Config, error) {
-	cfg, err := config.Get(rootCmd.PersistentFlags().Lookup("use-device-code").Changed)
-	if err != nil {
-		return nil, err
-	}
-
-	if requireKeycloakURL && cfg.KeycloakURL == "" {
-		return nil, fmt.Errorf("keycloak URL is required; set --keycloak-url, ROSA_BOUNDARY_KEYCLOAK_URL, or KEYCLOAK_URL")
-	}
-
-	return cfg, nil
+	return 0
 }
 
 // debugf prints a debug message if verbose mode is enabled.
@@ -159,72 +132,10 @@ func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, regio
 	}
 
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to assume AWS role via OIDC: %w", err)
+		return "", nil, fmt.Errorf("failed to assume AWS role via OIDC; verify the selected profile's account, region, issuer, and role trust with the deployment operator: %w", err)
 	}
 
 	return idToken, creds, nil
-}
-
-// authenticateIfNeeded runs before any command that requires AWS/OIDC authentication.
-// It performs authentication once and stores the result in the command context.
-// If auth fails with an expired token error, it automatically retries once with a fresh login.
-func authenticateIfNeeded(cmd *cobra.Command, args []string) error {
-	// Commands that don't require authentication
-	if !requiresAuth(cmd) {
-		return nil
-	}
-	if _, err := commandOutput(cmd); err != nil {
-		return err
-	}
-
-	cfg, err := getConfig(true)
-	if err != nil {
-		return err
-	}
-	options, err := tokenOptions(cmd, cfg)
-	if err != nil {
-		return err
-	}
-
-	pkce := auth.PKCEConfig{
-		KeycloakURL: cfg.KeycloakURL,
-		Realm:       cfg.KeycloakRealm,
-		ClientID:    cfg.OIDCClientID,
-	}
-
-	roleARN, sessionName, err := authenticationRole(cfg, cmd)
-	if err != nil {
-		return err
-	}
-
-	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, forceLogin, options)
-	if err != nil {
-		return err
-	}
-
-	// Store auth result in package-level variable for commands to access
-	cachedAuthResult = &AuthResult{
-		Config:      cfg,
-		IDToken:     idToken,
-		Credentials: creds,
-	}
-
-	return nil
-}
-
-func authenticationRole(cfg *config.Config, cmd *cobra.Command) (string, string, error) {
-	switch cmd.Name() {
-	case "create-investigation", "start-task":
-		if cfg.InvokerRoleARN == "" {
-			return "", "", fmt.Errorf("invoker role ARN is required for %s; set --invoker-role-arn, ROSA_BOUNDARY_INVOKER_ROLE_ARN, or INVOKER_ROLE_ARN", cmd.Name())
-		}
-		return cfg.InvokerRoleARN, "rosa-boundary-invoker", nil
-	default:
-		if cfg.SRERoleARN == "" {
-			return "", "", fmt.Errorf("SRE role ARN is required for %s; set --role-arn, ROSA_BOUNDARY_SRE_ROLE_ARN, or SRE_ROLE_ARN", cmd.Name())
-		}
-		return cfg.SRERoleARN, "rosa-boundary-session", nil
-	}
 }
 
 // isAuthError returns true if the error indicates an authentication/authorization failure
@@ -246,44 +157,9 @@ func isAuthError(err error) bool {
 			!strings.Contains(errStr, "tag"))
 }
 
-// requiresAuth returns true if the command requires OIDC/AWS authentication.
-func requiresAuth(cmd *cobra.Command) bool {
-	noAuthCommands := map[string]bool{
-		"version":   true,
-		"configure": true,
-		"login":     true,
-		"help":      true, // Built-in Cobra command
-	}
-
-	// Check if this command is in the no-auth list
-	if noAuthCommands[cmd.Name()] {
-		return false
-	}
-
-	// Cobra completion commands should not require auth
-	// Only exempt "completion" itself and its direct children
-	if cmd.Name() == "completion" {
-		return false
-	}
-
-	// Exempt children of completion command (e.g., "completion bash")
-	if cmd.Parent() != nil && cmd.Parent().Name() == "completion" {
-		return false
-	}
-
-	// Exempt hidden Cobra completion helpers
-	if cmd.Name() == "__complete" || cmd.Name() == "__completeNoDesc" {
-		return false
-	}
-
-	return true
-}
-
-// getAuthResult retrieves the authentication result.
-// This should only be called by commands that require authentication (after PersistentPreRunE has run).
+// getAuthResult returns the credentials established by the command pre-run hook.
 func getAuthResult(cmd *cobra.Command) *AuthResult {
 	if cachedAuthResult == nil {
-		// This should never happen if requiresAuth() is correct
 		panic(fmt.Sprintf("command %s requires authentication but auth result not populated", cmd.Name()))
 	}
 	return cachedAuthResult

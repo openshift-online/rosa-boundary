@@ -41,8 +41,8 @@ func NewEFSClient(region, filesystemID string, credProvider aws.CredentialsProvi
 }
 
 // FindAccessPointByTags finds an available EFS access point by ClusterID and InvestigationID tags.
-// If clusterID is empty, it searches by InvestigationID only and returns an error if multiple
-// access points match (ambiguous investigation ID across clusters).
+// If clusterID is empty, it searches by InvestigationID only. Multiple matches
+// are always ambiguous, including duplicate exact (cluster, investigation) tags.
 // If clusterID is provided, it requires an exact match on both tags.
 // Returns nil if no matching access point is found.
 func (c *EFSClient) FindAccessPointByTags(ctx context.Context, clusterID, investigationID string) (*AccessPointSummary, error) {
@@ -89,13 +89,12 @@ func (c *EFSClient) FindAccessPointByTags(ctx context.Context, clusterID, invest
 		return nil, nil
 	}
 
-	// If clusterID was omitted and multiple investigations match, this is ambiguous
-	if clusterID == "" && len(matches) > 1 {
+	if len(matches) > 1 {
 		clusterIDs := make([]string, len(matches))
 		for i, m := range matches {
 			clusterIDs[i] = m.Tags["ClusterID"]
 		}
-		return nil, fmt.Errorf("investigation ID %q is ambiguous: found in clusters %v; specify --cluster-id to disambiguate", investigationID, clusterIDs)
+		return nil, fmt.Errorf("investigation ID %q is ambiguous: %d access points match in clusters %v; inspect the access points before cleanup", investigationID, len(matches), clusterIDs)
 	}
 
 	return &matches[0], nil

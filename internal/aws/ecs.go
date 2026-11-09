@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -31,12 +32,13 @@ func NewECSClient(region string, cluster string, credProvider aws.CredentialsPro
 
 // TaskSummary holds minimal info about an ECS task.
 type TaskSummary struct {
-	TaskID      string            `json:"task_id"`
-	TaskARN     string            `json:"task_arn"`
-	Status      string            `json:"status"`
-	StartedAt   *time.Time        `json:"started_at,omitempty"`
-	Tags        map[string]string `json:"tags,omitempty"`
-	ClusterName string            `json:"cluster_name"`
+	TaskID        string            `json:"task_id"`
+	TaskARN       string            `json:"task_arn"`
+	Status        string            `json:"status"`
+	DesiredStatus string            `json:"desired_status,omitempty"`
+	StartedAt     *time.Time        `json:"started_at,omitempty"`
+	Tags          map[string]string `json:"tags,omitempty"`
+	ClusterName   string            `json:"cluster_name"`
 }
 
 // ExecuteCommandSession holds the response from ECS ExecuteCommand.
@@ -64,6 +66,9 @@ func (c *ECSClient) DescribeTask(ctx context.Context, taskID string) (*TaskSumma
 	if len(out.Tasks) == 0 {
 		return nil, fmt.Errorf("task %s not found in cluster %s", taskID, c.cluster)
 	}
+	if len(out.Failures) != 0 {
+		return nil, fmt.Errorf("DescribeTasks could not describe task %s: %v", taskID, out.Failures)
+	}
 
 	return taskToSummary(out.Tasks[0], c.cluster), nil
 }
@@ -88,6 +93,20 @@ func (c *ECSClient) WaitForStopped(ctx context.Context, taskID string) error {
 
 // ListRunningTasks returns all tasks with the given desired status.
 func (c *ECSClient) ListRunningTasks(ctx context.Context, desiredStatus string) ([]TaskSummary, error) {
+	return c.listTasks(ctx, desiredStatus, "")
+}
+
+// ListOwnedRunningCredentialTasks returns only the owner's actually RUNNING tasks.
+// Unlike session list, credential guidance must not treat a PENDING task with
+// desired status RUNNING as ready, or disclose another user's task metadata.
+func (c *ECSClient) ListOwnedRunningCredentialTasks(ctx context.Context, subject string) ([]TaskSummary, error) {
+	if subject == "" {
+		return nil, fmt.Errorf("credential discovery requires an owner subject")
+	}
+	return c.listTasks(ctx, "RUNNING", subject)
+}
+
+func (c *ECSClient) listTasks(ctx context.Context, desiredStatus, credentialSubject string) ([]TaskSummary, error) {
 	var taskARNs []string
 	paginator := ecs.NewListTasksPaginator(c.client, &ecs.ListTasksInput{
 		Cluster:       aws.String(c.cluster),
@@ -123,8 +142,20 @@ func (c *ECSClient) ListRunningTasks(ctx context.Context, desiredStatus string) 
 		if err != nil {
 			return nil, fmt.Errorf("DescribeTasks failed: %w", err)
 		}
+		if len(out.Failures) != 0 || len(out.Tasks) != len(batch) {
+			return nil, fmt.Errorf("DescribeTasks returned an incomplete task batch (%d/%d tasks, failures: %v)", len(out.Tasks), len(batch), out.Failures)
+		}
 		for _, t := range out.Tasks {
-			summaries = append(summaries, *taskToListSummary(t, c.cluster))
+			if credentialSubject == "" {
+				summaries = append(summaries, *taskToListSummary(t, c.cluster))
+				continue
+			}
+			// The same batched DescribeTasks response supplies both actual status
+			// and ownership; no additional per-candidate API calls are needed.
+			summary := taskToSummary(t, c.cluster)
+			if summary.Tags["oidc_sub"] == credentialSubject && summary.Status == "RUNNING" && summary.DesiredStatus != "STOPPED" {
+				summaries = append(summaries, *summary)
+			}
 		}
 	}
 
@@ -221,7 +252,7 @@ func (c *ECSClient) ExecuteCommand(ctx context.Context, taskID, container, comma
 	if descErr == nil && len(descOut.Tasks) > 0 {
 		for _, cont := range descOut.Tasks[0].Containers {
 			if aws.ToString(cont.Name) == container && cont.RuntimeId != nil {
-				target = fmt.Sprintf("ecs:%s_%s_%s", c.cluster, taskID, aws.ToString(cont.RuntimeId))
+				target = ecsExecTarget(c.cluster, taskID, aws.ToString(cont.RuntimeId))
 				break
 			}
 		}
@@ -247,21 +278,51 @@ func (c *ECSClient) ExecuteCommand(ctx context.Context, taskID, container, comma
 	}, nil
 }
 
-// ListTaskDefinitionsByFamily returns all active task definition ARNs for a family prefix.
+// ecsExecTarget accepts either a short task ID or a full task ARN, but the
+// Session Manager target syntax always requires the short task ID.
+func ecsExecTarget(cluster, taskIdentifier, runtimeID string) string {
+	return fmt.Sprintf("ecs:%s_%s_%s", cluster, path.Base(taskIdentifier), runtimeID)
+}
+
+// ListTaskDefinitionsByFamily returns active task definition ARNs matching a family prefix.
+// ListTaskDefinitions only accepts an exact family name, while investigation
+// families include a timestamp suffix, so scan the paginated list client-side.
 func (c *ECSClient) ListTaskDefinitionsByFamily(ctx context.Context, familyPrefix string) ([]string, error) {
 	var arns []string
 	paginator := ecs.NewListTaskDefinitionsPaginator(c.client, &ecs.ListTaskDefinitionsInput{
-		FamilyPrefix: aws.String(familyPrefix),
-		Status:       types.TaskDefinitionStatusActive,
+		Status: types.TaskDefinitionStatusActive,
 	})
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("ListTaskDefinitions failed: %w", err)
 		}
-		arns = append(arns, page.TaskDefinitionArns...)
+		for _, arn := range page.TaskDefinitionArns {
+			if strings.HasPrefix(path.Base(arn), familyPrefix) {
+				arns = append(arns, arn)
+			}
+		}
 	}
 	return arns, nil
+}
+
+// TaskDefinitionAccessPoint returns the EFS access point mounted as the
+// investigation home. Family names alone cannot uniquely encode a cluster and
+// investigation pair when their IDs contain dashes; close verifies the mount.
+func (c *ECSClient) TaskDefinitionAccessPoint(ctx context.Context, arn string) (string, error) {
+	out, err := c.client.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{TaskDefinition: aws.String(arn)})
+	if err != nil {
+		return "", fmt.Errorf("DescribeTaskDefinition failed for %s: %w", arn, err)
+	}
+	if out.TaskDefinition == nil {
+		return "", fmt.Errorf("DescribeTaskDefinition returned no definition for %s", arn)
+	}
+	for _, volume := range out.TaskDefinition.Volumes {
+		if aws.ToString(volume.Name) == "sre-home" && volume.EfsVolumeConfiguration != nil && volume.EfsVolumeConfiguration.AuthorizationConfig != nil {
+			return aws.ToString(volume.EfsVolumeConfiguration.AuthorizationConfig.AccessPointId), nil
+		}
+	}
+	return "", nil
 }
 
 // DeregisterTaskDefinition deregisters a task definition by ARN.
@@ -275,20 +336,92 @@ func (c *ECSClient) DeregisterTaskDefinition(ctx context.Context, taskDefinition
 	return nil
 }
 
-// ListTasksByInvestigation returns running tasks tagged with the given investigation ID and cluster ID.
-// Both tags must match to prevent accidentally stopping tasks from other clusters with the same investigation ID.
+// ListTasksByInvestigation returns tasks that have not actually reached STOPPED,
+// including ones whose desired status is already STOPPED during audit sync.
+// Both tags must match; startedBy can fill in only missing, not conflicting tags.
 func (c *ECSClient) ListTasksByInvestigation(ctx context.Context, clusterID, investigationID string) ([]TaskSummary, error) {
-	tasks, err := c.ListRunningTasks(ctx, "RUNNING")
-	if err != nil {
-		return nil, err
-	}
 	var filtered []TaskSummary
-	for _, t := range tasks {
-		if t.Tags["investigation_id"] == investigationID && t.Tags["cluster_id"] == clusterID {
-			filtered = append(filtered, t)
+	seen := make(map[string]bool)
+	startedBy := investigationStartedBy(clusterID, investigationID)
+	for _, desired := range []types.DesiredStatus{types.DesiredStatusRunning, types.DesiredStatusStopped} {
+		paginator := ecs.NewListTasksPaginator(c.client, &ecs.ListTasksInput{Cluster: aws.String(c.cluster), DesiredStatus: desired})
+		for paginator.HasMorePages() {
+			page, err := paginator.NextPage(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("ListTasks failed: %w", err)
+			}
+			for i := 0; i < len(page.TaskArns); i += 100 {
+				end := i + 100
+				if end > len(page.TaskArns) {
+					end = len(page.TaskArns)
+				}
+				batch := page.TaskArns[i:end]
+				out, err := c.client.DescribeTasks(ctx, &ecs.DescribeTasksInput{Cluster: aws.String(c.cluster), Tasks: batch, Include: []types.TaskField{types.TaskFieldTags}})
+				if err != nil {
+					return nil, fmt.Errorf("DescribeTasks failed: %w", err)
+				}
+				if len(out.Failures) != 0 || len(out.Tasks) != len(batch) {
+					return nil, fmt.Errorf("DescribeTasks returned an incomplete investigation scan (%d/%d tasks, failures: %v)", len(out.Tasks), len(batch), out.Failures)
+				}
+				for _, raw := range out.Tasks {
+					t := taskToSummary(raw, c.cluster) // Use actual status, not desired status.
+					if aws.ToString(raw.StartedBy) == startedBy {
+						if err := checkStartedByTaskTags(*t, clusterID, investigationID); err != nil {
+							return nil, err
+						}
+					}
+					matchesTags := t.Tags["investigation_id"] == investigationID && t.Tags["cluster_id"] == clusterID
+					if t.Status != "STOPPED" && (matchesTags || aws.ToString(raw.StartedBy) == startedBy) && !seen[t.TaskARN] {
+						filtered = append(filtered, *t)
+						seen[t.TaskARN] = true
+					}
+				}
+			}
+		}
+	}
+	// Lambda sets startedBy atomically when launching a task. AWS does not
+	// permit startedBy and desiredStatus together. This query catches pending
+	// tasks missing tags; the two desired-status scans above cover shutdown.
+	paginator := ecs.NewListTasksPaginator(c.client, &ecs.ListTasksInput{Cluster: aws.String(c.cluster), StartedBy: aws.String(startedBy)})
+	for paginator.HasMorePages() {
+		page, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("ListTasks by investigation startedBy failed: %w", err)
+		}
+		for _, arn := range page.TaskArns {
+			if seen[arn] {
+				continue
+			}
+			task, err := c.DescribeTask(ctx, arn)
+			if err != nil {
+				return nil, err
+			}
+			if err := checkStartedByTaskTags(*task, clusterID, investigationID); err != nil {
+				return nil, err
+			}
+			if task.Status != "STOPPED" {
+				filtered = append(filtered, *task)
+			}
+			seen[arn] = true
 		}
 	}
 	return filtered, nil
+}
+
+func checkStartedByTaskTags(task TaskSummary, clusterID, investigationID string) error {
+	if tag := task.Tags["cluster_id"]; tag != "" && tag != clusterID {
+		return fmt.Errorf("task %s startedBy matches but cluster_id tag conflicts; refusing investigation cleanup", task.TaskARN)
+	}
+	if tag := task.Tags["investigation_id"]; tag != "" && tag != investigationID {
+		return fmt.Errorf("task %s startedBy matches but investigation_id tag conflicts; refusing investigation cleanup", task.TaskARN)
+	}
+	return nil
+}
+
+// Keep this in lockstep with Lambda's investigation_started_by function.
+func investigationStartedBy(clusterID, investigationID string) string {
+	hash := sha256.Sum256([]byte(clusterID + ":" + investigationID))
+	return fmt.Sprintf("%x", hash)[:36]
 }
 
 // taskToSummary converts an ECS task to a TaskSummary.
@@ -307,12 +440,13 @@ func taskToSummary(t types.Task, clusterName string) *TaskSummary {
 	}
 
 	return &TaskSummary{
-		TaskID:      taskID,
-		TaskARN:     aws.ToString(t.TaskArn),
-		Status:      aws.ToString(t.LastStatus),
-		StartedAt:   t.StartedAt,
-		Tags:        tags,
-		ClusterName: cluster,
+		TaskID:        taskID,
+		TaskARN:       aws.ToString(t.TaskArn),
+		Status:        aws.ToString(t.LastStatus),
+		DesiredStatus: aws.ToString(t.DesiredStatus),
+		StartedAt:     t.StartedAt,
+		Tags:          tags,
+		ClusterName:   cluster,
 	}
 }
 

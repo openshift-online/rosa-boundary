@@ -1,10 +1,48 @@
 """Regression coverage for close-investigation task-definition cleanup."""
 
+import json
+import os
 import re
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
 import pytest
+
+
+@pytest.fixture
+def close_cli_env(localstack_cli_env, test_efs):
+    """Create an isolated named deployment profile for the test-built CLI."""
+    def configure(ecs_cluster):
+        env = localstack_cli_env.copy()
+        role_arn = env.pop('ROSA_BOUNDARY_SRE_ROLE_ARN')
+        keycloak_url = env.pop('ROSA_BOUNDARY_KEYCLOAK_URL')
+        realm = env.pop('ROSA_BOUNDARY_KEYCLOAK_REALM')
+        client_id = env.pop('ROSA_BOUNDARY_OIDC_CLIENT_ID')
+        env.pop('ROSA_BOUNDARY_AWS_REGION')
+        env.pop('ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE')
+        profile = {
+            'account_id': role_arn.split(':')[4],
+            'aws_region': env['AWS_DEFAULT_REGION'],
+            'keycloak_url': keycloak_url,
+            'keycloak_realm': realm,
+            'oidc_client_id': client_id,
+            'oidc_use_device_code': False,
+            'sre_role_arn': role_arn,
+            'ecs_cluster_name': ecs_cluster,
+            'efs_filesystem_id': test_efs,
+        }
+        config_path = Path(env['XDG_CONFIG_HOME']) / 'rosa-boundary' / 'config.yaml'
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+        # JSON is valid YAML; avoid depending on a YAML emitter in the fixture.
+        config_path.write_text(json.dumps({
+            'active_profile': 'localstack-close',
+            'profiles': {'localstack-close': profile},
+        }), encoding='utf-8')
+        config_path.chmod(0o600)
+        return env
+
+    return configure
 
 
 def _load_sre_policy_source():
@@ -22,6 +60,25 @@ def _policy_statement(policy_source, sid):
     next_sid = re.search(r'\bSid\s*=', policy_source[start.end():])
     assert next_sid is not None, f'Missing statement after: {sid}'
     return policy_source[start.start():start.end() + next_sid.start()]
+
+
+@pytest.mark.integration
+def test_close_rejects_invalid_config_without_mutation(tmp_path, localstack_cli_binary):
+    """Invalid profile configuration fails validation before any AWS mutation."""
+    config_path = tmp_path / 'rosa-boundary' / 'config.yaml'
+    config_path.parent.mkdir()
+    invalid = 'aws_region: us-east-2\necs_cluster_name: old-deployment\nefs_filesystem_id: fs-old\n'
+    config_path.write_text(invalid, encoding='utf-8')
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith(('AWS_', 'ROSA_BOUNDARY_'))}
+    env['XDG_CONFIG_HOME'] = str(tmp_path)
+    result = subprocess.run([
+        str(localstack_cli_binary), 'investigation', 'close',
+        'my-cluster', 'my-investigation', '--yes',
+    ], env=env, capture_output=True, text=True, timeout=10)
+    assert result.returncode != 0
+    assert 'field aws_region not found' in result.stderr
+    assert config_path.read_text(encoding='utf-8') == invalid
 
 
 @pytest.mark.integration
@@ -43,10 +100,9 @@ def test_sre_policy_allows_scoped_access_point_deletion():
     """The shared SRE role must be able to delete ROSA Boundary-managed EFS
     access points (ROSAENG-66963), but only those — not arbitrary access points.
 
-    Any authorized Boundary SRE may close any investigation, so deletion is not
-    scoped per-investigation or per-caller. It is scoped to Boundary-managed
-    access points via the ManagedBy resource tag the create-investigation Lambda
-    applies at creation time.
+    IAM itself does not scope deletion per-investigation or per-caller, even
+    though the CLI also checks ownership. IAM scopes deletion to Boundary-managed
+    access points via the ManagedBy tag the Lambda applies at creation time.
     """
     policy_source = _load_sre_policy_source()
     statement = _policy_statement(policy_source, 'EFSDeleteManagedAccessPoints')
@@ -144,12 +200,11 @@ def test_close_cleanup_family_prefix_excludes_other_investigations(ecs_client, e
     assert other_family not in listed_families
 
 @pytest.mark.integration
-def test_close_investigation_finds_cluster_dynamically(ecs_client, efs_client, test_efs, ecs_cleanup, localstack_cli_env, localstack_cli_binary):
+def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client, efs_client, test_efs, ecs_cleanup, close_cli_env, localstack_cli_binary):
     """
-    Verify that invoking the actual close-investigation CLI command works
-    and correctly derives the cluster ID from the EFS access point.
+    The CLI must require a cluster even when only one investigation matches,
+    then close exactly the explicitly selected target.
     """
-    import subprocess
 
     investigation_id = f"test-inv-{int(datetime.now().timestamp())}"
     cluster_id = f"test-cluster-{int(datetime.now().timestamp())}"
@@ -169,24 +224,90 @@ def test_close_investigation_finds_cluster_dynamically(ecs_client, efs_client, t
         },
         Tags=[
             {'Key': 'InvestigationID', 'Value': investigation_id},
-            {'Key': 'ClusterID', 'Value': cluster_id}
+            {'Key': 'ClusterID', 'Value': cluster_id},
+            {'Key': 'oidc_sub', 'Value': 'localstack-test-sre'},
+            {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
         ]
     )
     ap_id = response['AccessPointId']
     ecs_cleanup.register_access_point(ap_id)
 
-    # Use the isolated synthetic identity and local endpoint fixture.
-    env = localstack_cli_env.copy()
-    env["ROSA_BOUNDARY_EFS_FILESYSTEM_ID"] = test_efs
-    env["ROSA_BOUNDARY_ECS_CLUSTER_NAME"] = cluster_name
+    # Match Lambda's family convention and EFS mount. The CLI must select the
+    # target definition, but neither an adjacent investigation nor a definition
+    # in the same family with a different access point.
+    stamp = datetime.now().strftime('%Y%m%dT%H%M%S')
+    family = f'{cluster_name}-{cluster_id}-{investigation_id}-{stamp}'
+
+    def register_home_definition(name, mount_ap):
+        registered = ecs_client.register_task_definition(
+            family=name, networkMode='awsvpc', requiresCompatibilities=['FARGATE'],
+            cpu='256', memory='512',
+            containerDefinitions=[{
+                'name': 'rosa-boundary',
+                'image': 'public.ecr.aws/docker/library/alpine:latest',
+                'mountPoints': [{'sourceVolume': 'sre-home', 'containerPath': '/home/sre'}],
+            }],
+            volumes=[{
+                'name': 'sre-home',
+                'efsVolumeConfiguration': {
+                    'fileSystemId': test_efs,
+                    'authorizationConfig': {'accessPointId': mount_ap, 'iam': 'ENABLED'},
+                    'transitEncryption': 'ENABLED',
+                },
+            }],
+        )['taskDefinition']['taskDefinitionArn']
+        ecs_cleanup.register_task_definition(registered)
+        return registered
+
+    target_definition = register_home_definition(family, ap_id)
+    other_definition = register_home_definition(family, 'fsap-other')
+    adjacent_definition = register_home_definition(f'{family}-extra', ap_id)
+    # LocalStack matches exact family names but not partial familyPrefix queries.
+    # The localstack-tagged CLI instead scans ACTIVE definitions and filters them.
+    listed = ecs_client.list_task_definitions(familyPrefix=family)
+    assert target_definition in listed['taskDefinitionArns']
+    target_volume = ecs_client.describe_task_definition(taskDefinition=target_definition)['taskDefinition']['volumes'][0]
+    assert target_volume['efsVolumeConfiguration']['authorizationConfig']['accessPointId'] == ap_id
+
+    env = close_cli_env(cluster_name)
 
     bin_path = localstack_cli_binary
 
-    # Run the close-investigation command
+    # A missing cluster ID must fail before deleting even a unique match.
+    missing_cluster = subprocess.run([
+        str(bin_path), '--profile', 'localstack-close',
+        'investigation', 'close', investigation_id, '--yes',
+    ], env=env, capture_output=True, text=True, timeout=10)
+    assert missing_cluster.returncode != 0
+    assert 'missing required argument <investigation-id>' in missing_cluster.stderr.lower()
+    assert ap_id in [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
+
+    # An idle investigation owned by another identity cannot be closed.
+    efs_client.tag_resource(ResourceId=ap_id, Tags=[{'Key': 'oidc_sub', 'Value': 'another-sre'}])
+    not_owner = subprocess.run([
+        str(bin_path), '--profile', 'localstack-close', 'investigation', 'close',
+        cluster_id, investigation_id, '--yes',
+    ], env=env, capture_output=True, text=True, timeout=10)
+    assert not_owner.returncode != 0
+    assert 'owner' in not_owner.stderr.lower()
+    assert ap_id in [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
+    efs_client.tag_resource(ResourceId=ap_id, Tags=[{'Key': 'oidc_sub', 'Value': 'localstack-test-sre'}])
+
+    preview = subprocess.run([
+        str(bin_path), '--profile', 'localstack-close', 'investigation', 'close',
+        cluster_id, investigation_id, '--dry-run', '-o', 'json',
+    ], env=env, capture_output=True, text=True, timeout=10)
+    assert preview.returncode == 0, preview.stderr
+    plan = json.loads(preview.stdout)
+    assert plan['access_point_id'] == ap_id
+    assert plan['task_definitions_to_deregister'] == [target_definition], plan
+    assert ap_id in [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
+
+    # Run the close command with the required cluster/investigation pair.
     cmd = [
         str(bin_path),
-        "close-investigation",
-        "--investigation-id", investigation_id,
+        '--profile', 'localstack-close',
+        'investigation', 'close', cluster_id, investigation_id,
         "--yes"
     ]
 
@@ -194,22 +315,24 @@ def test_close_investigation_finds_cluster_dynamically(ecs_client, efs_client, t
 
     assert result.returncode == 0, f"Command failed: {result.stderr}\nStdout: {result.stdout}"
 
-    # Verify the derived ClusterID is shown in the output
+    # Verify the explicitly selected ClusterID is shown in the preview.
     assert cluster_id in result.stderr
 
     # Verify the access point was deleted
     access_points = efs_client.describe_access_points(FileSystemId=test_efs)
     remaining_ids = [ap['AccessPointId'] for ap in access_points.get('AccessPoints', [])]
     assert ap_id not in remaining_ids
+    assert ecs_client.describe_task_definition(taskDefinition=target_definition)['taskDefinition']['status'] == 'INACTIVE'
+    for arn in (other_definition, adjacent_definition):
+        assert ecs_client.describe_task_definition(taskDefinition=arn)['taskDefinition']['status'] == 'ACTIVE'
 
 
 @pytest.mark.integration
-def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_client, test_efs, ecs_cleanup, localstack_cli_env, localstack_cli_binary):
+def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_client, test_efs, ecs_cleanup, close_cli_env, localstack_cli_binary):
     """
-    Verify that close-investigation errors when the same investigation ID exists
-    across multiple clusters and --cluster-id is not provided.
+    A shared investigation ID requires an explicit, exact cluster; omitting
+    or mistyping it must not delete either access point.
     """
-    import subprocess
 
     investigation_id = f"ambiguous-inv-{int(datetime.now().timestamp())}"
     cluster_id_1 = f"cluster-1-{int(datetime.now().timestamp())}"
@@ -232,38 +355,48 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
             },
             Tags=[
                 {'Key': 'InvestigationID', 'Value': investigation_id},
-                {'Key': 'ClusterID', 'Value': cluster_id}
+                {'Key': 'ClusterID', 'Value': cluster_id},
+                {'Key': 'oidc_sub', 'Value': 'localstack-test-sre'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
             ]
         )
         ap_id = response['AccessPointId']
         ap_ids.append(ap_id)
         ecs_cleanup.register_access_point(ap_id)
 
-    env = localstack_cli_env.copy()
-    env["ROSA_BOUNDARY_EFS_FILESYSTEM_ID"] = test_efs
-    env["ROSA_BOUNDARY_ECS_CLUSTER_NAME"] = cluster_name
+    env = close_cli_env(cluster_name)
     bin_path = localstack_cli_binary
 
-    # Attempt to close without --cluster-id should fail with ambiguity error
+    # Missing required cluster fails before ambiguous resources can be touched.
     cmd_without_cluster = [
         str(bin_path),
-        "close-investigation",
-        "--investigation-id", investigation_id,
+        '--profile', 'localstack-close',
+        'investigation', 'close', investigation_id,
         "--yes"
     ]
 
     result = subprocess.run(cmd_without_cluster, env=env, capture_output=True, text=True, timeout=10)
 
-    assert result.returncode != 0, "Command should fail when investigation ID is ambiguous"
-    assert "ambiguous" in result.stderr.lower(), f"Error should mention ambiguity: {result.stderr}"
-    assert cluster_id_1 in result.stderr and cluster_id_2 in result.stderr, "Error should list conflicting cluster IDs"
+    assert result.returncode != 0, "Command should require a cluster ID for ambiguous investigation IDs"
+    assert 'missing required argument <investigation-id>' in result.stderr.lower()
+    remaining_ids = [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
+    assert set(ap_ids).issubset(remaining_ids), 'Missing cluster must not delete either investigation'
 
-    # Now try with --cluster-id, which should succeed
+    # A wrong cluster must not fall back to an investigation-ID-only match.
+    wrong_cluster = subprocess.run([
+        str(bin_path), '--profile', 'localstack-close', 'investigation', 'close',
+        f'other-{cluster_id_1}', investigation_id, '--yes',
+    ], env=env, capture_output=True, text=True, timeout=10)
+    assert wrong_cluster.returncode != 0
+    assert 'not found' in wrong_cluster.stderr.lower()
+    remaining_ids = [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
+    assert set(ap_ids).issubset(remaining_ids), 'Wrong cluster must not delete either investigation'
+
+    # Now explicitly select one cluster; the other must remain untouched.
     cmd_with_cluster = [
         str(bin_path),
-        "close-investigation",
-        "--cluster-id", cluster_id_1,
-        "--investigation-id", investigation_id,
+        '--profile', 'localstack-close',
+        'investigation', 'close', cluster_id_1, investigation_id,
         "--yes"
     ]
 
@@ -279,13 +412,12 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
 
 
 @pytest.mark.integration
-def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test_efs, test_vpc, efs_client, ecs_cleanup, localstack_cli_env, localstack_cli_binary):
+def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test_efs, test_vpc, efs_client, ecs_cleanup, close_cli_env, localstack_cli_binary):
     """
-    Verify that close-investigation with --force only stops tasks matching both
+    Verify that investigation close with --force only stops tasks matching both
     the investigation ID and cluster ID, not tasks from other clusters with the
     same investigation ID.
     """
-    import subprocess
     import time
 
     timestamp = int(datetime.now().timestamp())
@@ -310,7 +442,9 @@ def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test
             },
             Tags=[
                 {'Key': 'InvestigationID', 'Value': investigation_id},
-                {'Key': 'ClusterID', 'Value': cluster_id}
+                {'Key': 'ClusterID', 'Value': cluster_id},
+                {'Key': 'oidc_sub', 'Value': 'localstack-test-sre'},
+                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
             ]
         )
         ap_id = response['AccessPointId']
@@ -384,17 +518,26 @@ def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test
             f"Task {task_arn} should have cluster_id={expected_cluster}, got {tags.get('cluster_id')}"
         assert tags.get('investigation_id') == investigation_id
 
-    env = localstack_cli_env.copy()
-    env["ROSA_BOUNDARY_EFS_FILESYSTEM_ID"] = test_efs
-    env["ROSA_BOUNDARY_ECS_CLUSTER_NAME"] = cluster_name
+    env = close_cli_env(cluster_name)
     bin_path = localstack_cli_binary
+
+    # Without --force, an active session must block closure without side effects.
+    without_force = subprocess.run([
+        str(bin_path), '--profile', 'localstack-close', 'investigation', 'close',
+        cluster_id_1, investigation_id, '--yes',
+    ], env=env, capture_output=True, text=True, timeout=30)
+    assert without_force.returncode != 0
+    assert 'force' in without_force.stderr.lower()
+    remaining_ids = [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
+    assert set(ap_ids).issubset(remaining_ids)
+    before_force = ecs_client.describe_tasks(cluster=cluster_name, tasks=task_arns)['tasks']
+    assert all(task['lastStatus'] == 'RUNNING' for task in before_force)
 
     # Close investigation for cluster_id_1 only with --force to stop tasks
     cmd = [
         str(bin_path),
-        "close-investigation",
-        "--cluster-id", cluster_id_1,
-        "--investigation-id", investigation_id,
+        '--profile', 'localstack-close',
+        'investigation', 'close', cluster_id_1, investigation_id,
         "--force",
         "--yes"
     ]

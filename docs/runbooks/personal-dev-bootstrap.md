@@ -33,9 +33,10 @@ Use a current ROSA Boundary checkout and **your own** AWS account with administr
 6. **Configure CLI.** Run `make build-cli` (and optionally `make install-cli`); install `session-manager-plugin`. For a development provider other than CLI defaults, explicitly supply the contributor's base URL, realm and client ID. Use isolated `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` for dev so an existing staging config/token cannot be reused:
 
    ```bash
-   rosa-boundary --keycloak-url "$KEYCLOAK_BASE_URL" \
-     --realm "$REALM" --client-id "$CLIENT_ID" configure \
-     --account-id "$ACCOUNT" --region "$REGION" --project rosa-boundary --environment dev
+    rosa-boundary config init --name personal-dev \
+      --keycloak-url "$KEYCLOAK_BASE_URL" --realm "$REALM" --client-id "$CLIENT_ID" \
+      --account-id "$ACCOUNT" --region "$REGION" --project rosa-boundary --environment dev
+    rosa-boundary config get --profile personal-dev
    ```
 
    Discovery writes `config.yaml` under the selected XDG config directory. Verify its Lambda, invoker/SRE role ARNs and EFS filesystem belong to **your** account, and its region/ECS cluster and OIDC settings match the intended stack; do not copy another person's config. See [user access guide](user-access-guide.md) for manual configuration or troubleshooting.
@@ -43,18 +44,19 @@ Use a current ROSA Boundary checkout and **your own** AWS account with administr
 7. **Validate on an approved cluster** (with explicit approval to create an investigation). Authenticate as the SRE user, choose a unique investigation ID, bound the task lifetime, and record the task ID:
 
    ```bash
-   CLUSTER_ID="approved-cluster-id"; INV_ID="unique-smoke-test-id"
-   rosa-boundary login
-   rosa-boundary start-task --cluster-id "$CLUSTER_ID" --investigation-id "$INV_ID" --task-timeout 900
-   TASK_ID="task-id-from-start-task"
-   rosa-boundary join-task "$TASK_ID"
+    CLUSTER_ID="approved-cluster-id"; INV_ID="unique-smoke-test-id"
+    rosa-boundary --profile personal-dev login
+    rosa-boundary --profile personal-dev session create "$CLUSTER_ID" --investigation-id "$INV_ID" --session-timeout 15m
+    SESSION_ID="session-id-from-start"
+    rosa-boundary --profile personal-dev session join "$SESSION_ID"
    # In task: printf 'boundary smoke test\n' > ~/boundary-smoke-test.txt ; exit
-   rosa-boundary stop-task "$TASK_ID" --wait
+    rosa-boundary --profile personal-dev session close "$SESSION_ID" --wait
    # Verify CloudWatch session logs, container sync status, and S3 marker object
    # with a separately authorized audit-reader identity.
-   rosa-boundary close-investigation --cluster-id "$CLUSTER_ID" --investigation-id "$INV_ID" --yes
+    rosa-boundary --profile personal-dev investigation close "$CLUSTER_ID" "$INV_ID" --dry-run
+    rosa-boundary --profile personal-dev investigation close "$CLUSTER_ID" "$INV_ID" --yes
    ```
 
-   `exit` only disconnects ECS Exec; `stop-task --wait` does not prove S3 sync succeeded. Verify evidence *before* closure, do not use `--force` to skip stopping, and report any incomplete cleanup. See the [investigation workflow](investigation-workflow.md) for audit and recovery details.
+    `exit` only disconnects ECS Exec; `session close --wait` does not prove S3 sync succeeded. Verify evidence *before* closure, do not use `--force` to skip stopping, and report any incomplete cleanup. See the [investigation workflow](investigation-workflow.md) for audit and recovery details.
 
 Check the current [account README](../../deploy/account/README.md), [network root](../../deploy/network/), and [regional Makefile](../../deploy/regional/Makefile) before deployment. Older [regional README](../../deploy/regional/README.md) examples put ECR after apply and use a specific region; follow the verified image-first order and your approved region instead.

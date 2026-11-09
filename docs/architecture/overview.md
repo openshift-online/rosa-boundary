@@ -57,17 +57,17 @@ All SREs assume a single shared role (`sre-shared`). Cross-user isolation is enf
 
 **Tag flow:**
 
-1. Keycloak maps the SRE's UUID to the `https://aws.amazon.com/tags` claim as `principal_tags.uuid` (both dev and production use UUID for environment parity)
-2. STS propagates this as a session tag `uuid` on the assumed-role session
-3. The create-investigation Lambda tags each ECS task with `uuid=<abac_tag_value>` using `ecs:TagResource` (applied explicitly after `RunTask` to guarantee tag availability for IAM evaluation)
-4. The sre-shared role's ABAC policy condition: `ecs:ResourceTag/uuid == ${aws:PrincipalTag/uuid}`
+1. The identity provider supplies the deployment's configured tag key in `https://aws.amazon.com/tags` `principal_tags` (for example `uuid` in staging or `username` in personal dev)
+2. STS propagates this principal tag onto the assumed-role session
+3. The create-investigation Lambda tags each ECS task with the deployment's configured ABAC key and value using `ecs:TagResource` (applied explicitly after `RunTask` to guarantee tag availability for IAM evaluation)
+4. The shared SRE role's ABAC policy compares `ecs:ResourceTag/<configured-key>` with `aws:PrincipalTag/<configured-key>`
 
 **Two-statement ECS Exec policy design:**
 
 `ecs:ExecuteCommand` requires permission on both the cluster resource AND the task resource. The policy uses two statements:
 
 - `ExecuteCommandOnCluster`: cluster-level permission, no condition. All SREs pass this check. This alone grants no access to any task ("badge to enter the building").
-- `ExecuteCommandOnOwnedTasks`: task-level permission, `StringEquals` condition on the `uuid` tag. Only tasks tagged with the caller's session tag pass.
+- `ExecuteCommandOnOwnedTasks`: task-level permission, `StringEquals` condition on the configured ABAC key. Only tasks tagged with the caller's session tag pass.
 
 **Fail-closed properties:**
 
@@ -110,7 +110,7 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 
 | Component | Role | Location |
 |-----------|------|----------|
-| `rosa-boundary` Go CLI | SRE workflow automation: login, start-task, join-task, list-tasks, stop-task, close-investigation | SRE laptop |
+| `rosa-boundary` Go CLI | SRE workflow automation: login, investigation create/list/close and session create/list/join/close | SRE laptop |
 | Red Hat SSO / Keycloak | OIDC authentication and token issuance; group membership; session tag injection via `https://aws.amazon.com/tags` claim mapper | OpenShift cluster (RHBK operator) |
 | ROSA/OpenShift cluster | Target cluster being investigated | AWS (managed) |
 
@@ -160,12 +160,15 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 
 ### Step 0: Prerequisites
 
+The examples in this design overview are illustrative; replace `ACCOUNT_ID`, `BOUNDARY_REGION`, `PROFILE`, `ROSA_CLUSTER_ID`, `INCIDENT_ID`, and `SESSION_ID` with approved values before running commands. Use the [investigation workflow](../runbooks/investigation-workflow.md) for step-by-step commands.
+
 ```bash
 # Install rosa-boundary CLI and session-manager-plugin
-rosa-boundary configure   # writes ~/.config/rosa-boundary/config.yaml
+rosa-boundary config init --name personal-dev --account-id ACCOUNT_ID --region BOUNDARY_REGION
 ```
 
 Configure the CLI with:
+- Explicit `--keycloak-url`, `--realm`, and `--client-id` bootstrap flags when the approved deployment does not use the default EmployeeIDP provider (for example personal dev)
 - `lambda_function_name`: the `create-investigation` Lambda ARN or name
 - `invoker_role_arn`: the `lambda-invoker` role ARN
 - `sre_role_arn`: the `sre-shared` role ARN
@@ -177,17 +180,14 @@ Configure the CLI with:
 rosa-boundary login
 ```
 
-Opens a browser for the Keycloak PKCE flow. On success, the ID token is cached at `~/.cache/rosa-boundary/`. The token is valid for `oidc_session_duration` seconds (default: 3600).
+Uses browser PKCE by default, or human-approved device authorization via `--use-device-code`. The issuer/client-scoped ID token cache is under `${XDG_CACHE_HOME:-~/.cache}/rosa-boundary/` and is reused only until shortly before the token's actual JWT expiry. This differs from the IAM role's `oidc_session_duration`.
 
 ### Step 2: Start an Investigation
 
 ```bash
-rosa-boundary start-task \
-  --cluster-id rosa-prod-01 \
-  --investigation-id INC-12345 \
-  [--oc-version 4.20] \
-  [--task-timeout 3600] \
-  [--connect]
+rosa-boundary --profile PROFILE session create ROSA_CLUSTER_ID \
+  --investigation-id INCIDENT_ID --oc-version 4.20 \
+  --session-timeout 1h --connect
 ```
 
 What happens:
@@ -199,7 +199,7 @@ What happens:
 6. Lambda registers a per-investigation task definition with the EFS access point baked in and investigation environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET`, `TASK_TIMEOUT`)
 7. Lambda calls `RunTask` with `enableExecuteCommand=true`, `launchType=FARGATE`, `startedBy=sha256({cluster_id}:{investigation_id})[:36]`, and task tags including `username`, `oidc_sub`, `deadline`, `investigation_id`, `cluster_id`
 8. Lambda calls `TagResource` explicitly to guarantee tags are visible to IAM before the SRE connects
-9. CLI calls STS `AssumeRoleWithWebIdentity` with the ID token → `sre-shared` credentials with `username` session tag
+9. CLI calls STS `AssumeRoleWithWebIdentity` with the ID token → `sre-shared` credentials carrying the deployment's configured ABAC principal tag (not necessarily `username`)
 
 If `--connect` is passed, the CLI immediately proceeds to join the task.
 
@@ -208,7 +208,7 @@ If `--connect` is passed, the CLI immediately proceeds to join the task.
 ### Step 3: Connect to a Running Task
 
 ```bash
-rosa-boundary join-task <task-id>
+rosa-boundary --profile PROFILE session join SESSION_ID
 ```
 
 What happens:
@@ -216,9 +216,9 @@ What happens:
 2. If not yet RUNNING, the CLI polls until it is (or `--no-wait` is set)
 3. CLI calls `ecs:ExecuteCommand` — IAM evaluates the two-statement ABAC policy (cluster permission + task ABAC tag match)
 4. AWS returns an SSM session token
-5. CLI calls `syscall.Exec` (process replacement) into `session-manager-plugin` with the session token
+5. CLI launches `session-manager-plugin` with a controlling terminal and waits for it; an explicit CLI deadline can cancel the local connection without stopping the ECS task
 6. `session-manager-plugin` opens a WebSocket to the SSM regional endpoint, which relays to the container via the `ssmmessages` VPC interface endpoint
-7. The container runs `bash` as the `sre` user (the default `joinCommand` is `runuser -u sre -- bash`)
+7. The container runs a login `bash` as the `sre` user (the default Exec command uses `runuser -u sre`)
 
 The user is now in an interactive shell with:
 - `/home/sre` mounted from the investigation's EFS access point
@@ -232,14 +232,14 @@ subtrees as defense in depth while preserving unrelated investigation files.
 
 ### OCM credential configuration
 
-`credentials configure ocm` issues a fresh workstation-side access token using
+`session credentials configure ocm` issues a fresh workstation-side access token using
 authorization code with PKCE or the device fallback. The CLI streams only an
 access-token-and-URL request over ECS Exec stdin after the task helper disables
 terminal echo. The static helper validates the candidate with `ocm whoami`,
 discards command output, and atomically installs an access-token-only
 configuration. Refresh and offline tokens are never transferred or cached.
 
-`credentials clear ocm` removes OCM state and `.kube/config`; stopping the task
+`session credentials clear ocm` removes OCM state and `.kube/config`; stopping the task
 is the authoritative cleanup because it destroys both credential volumes.
 
 ### Step 4: Task Expiry (Automatic)
@@ -259,7 +259,7 @@ It is immutable after task launch (task tags require `ecs:TagResource`, which th
 ### Step 5: Stop a Task Manually
 
 ```bash
-rosa-boundary stop-task <task-id>
+rosa-boundary --profile PROFILE session close SESSION_ID --wait
 ```
 
 This calls `ecs:StopTask` using the sre-shared credentials. The container's SIGTERM trap fires, syncing non-credential `/home/sre` content to S3 before the task-scoped credential volumes are destroyed.
@@ -267,17 +267,18 @@ This calls `ecs:StopTask` using the sre-shared credentials. The container's SIGT
 ### Step 6: Close an Investigation
 
 ```bash
-rosa-boundary close-investigation \
-  --cluster-id rosa-prod-01 \
-  --investigation-id INC-12345
+rosa-boundary --profile PROFILE investigation close ROSA_CLUSTER_ID INCIDENT_ID --dry-run
+rosa-boundary --profile PROFILE investigation close ROSA_CLUSTER_ID INCIDENT_ID
 ```
 
 This:
-1. Stops all running tasks for the investigation
+1. Resolves and previews the target; requires confirmation before changes, and refuses active tasks unless `--force` is set
 2. Deregisters all per-investigation task definitions
 3. Deletes the EFS access point
 
-Data in S3 is retained per the bucket's lifecycle policy (90-day WORM). Data in EFS is permanently deleted when the access point is deleted.
+Only the access point's creator (`oidc_sub`) can use the CLI close action. This client-side check does not replace IAM enforcement; see [investigations and tasks](investigations-and-tasks.md) for limitations. The accepted CLI contract is tracked in [proposal PR #354](https://github.com/openshift-online/rosa-boundary/pull/354).
+
+Data in S3 is retained per the bucket's lifecycle policy. Deleting the EFS access point does **not** remove the underlying EFS directory; verify CloudWatch and S3 audit evidence separately before close.
 
 ---
 
@@ -335,27 +336,31 @@ All Terraform variables are set in `deploy/regional/variables.tf`. Values withou
 
 ### CLI Configuration (~/.config/rosa-boundary/config.yaml)
 
+This file contains `active_profile` and a `profiles` map, not flat top-level deployment fields. Other shapes fail ordinary config validation. If you have an old flat config, delete or move it and create new profiles with `config init`; there is no migration. `--profile` selects a saved deployment for one invocation; these environment variables override values in that selected profile, not the profile selection.
+
 | Field | Env var | Description |
 |-------|---------|-------------|
 | `lambda_function_name` | `ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME` | Lambda function name or ARN |
 | `invoker_role_arn` | `ROSA_BOUNDARY_INVOKER_ROLE_ARN` | lambda-invoker role ARN |
 | `sre_role_arn` | `ROSA_BOUNDARY_SRE_ROLE_ARN` | sre-shared role ARN |
 | `ecs_cluster_name` | `ROSA_BOUNDARY_ECS_CLUSTER_NAME` | ECS cluster name |
-| `efs_filesystem_id` | `ROSA_BOUNDARY_EFS_FILESYSTEM_ID` | EFS filesystem ID (required for `close-investigation`) |
+| `efs_filesystem_id` | `ROSA_BOUNDARY_EFS_FILESYSTEM_ID` | EFS filesystem ID (required for `investigation close`) |
 | `aws_region` | `ROSA_BOUNDARY_AWS_REGION` | AWS region |
 
 ---
 
 ## 6. Operator Quick Reference
 
+Use the [investigation workflow](../runbooks/investigation-workflow.md) for an executable runbook. Set `ACCOUNT_ID`, `BOUNDARY_REGION`, `TARGET_CLUSTER_ID`, `INVESTIGATION_ID`, and the returned `SESSION_ID` to approved values before using the illustrative commands below. Never paste literal placeholder strings into a live command.
+
 ### Initial Setup
 
 ```bash
-# Configure the CLI (interactive wizard)
-rosa-boundary configure
+# Create a named deployment profile; confirm the approved account and region first
+rosa-boundary config init --name personal-dev --account-id "$ACCOUNT_ID" --region "$BOUNDARY_REGION"
 
-# Verify the config
-cat ~/.config/rosa-boundary/config.yaml
+# Inspect saved, non-secret settings (not the token cache)
+rosa-boundary config get --profile personal-dev
 ```
 
 ### Standard Investigation Workflow
@@ -365,53 +370,47 @@ cat ~/.config/rosa-boundary/config.yaml
 rosa-boundary login
 
 # 2. Start a task and connect immediately
-rosa-boundary start-task \
-  --cluster-id <cluster-id> \
-  --investigation-id <investigation-id> \
-  --connect
+rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
+  --investigation-id "$INVESTIGATION_ID" --connect
 
-# 2b. Or start without connecting (returns task ARN)
-rosa-boundary start-task \
-  --cluster-id <cluster-id> \
-  --investigation-id <investigation-id>
+# 2b. Or start without connecting (prints the session ID; JSON output also includes task_arn)
+rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
+  --investigation-id "$INVESTIGATION_ID"
 
 # 3. List running tasks
-rosa-boundary list-tasks
+rosa-boundary --profile personal-dev session list
 
 # 4. Reconnect to a running task
-rosa-boundary join-task <task-id>
+rosa-boundary --profile personal-dev session join "$SESSION_ID"
 
 # 5. Stop a single task
-rosa-boundary stop-task <task-id>
+rosa-boundary --profile personal-dev session close "$SESSION_ID" --wait
 
 # 6. Close the investigation completely
-#    (stops tasks, deregisters task defs, deletes EFS access point)
-rosa-boundary close-investigation \
-  --cluster-id <cluster-id> \
-  --investigation-id <investigation-id>
+#    (preview, confirm, then deregister task defs and delete access point)
+rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$INVESTIGATION_ID" --dry-run
+rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$INVESTIGATION_ID"
 ```
 
 ### Custom Options
 
 ```bash
 # Specific OC version and extended timeout
-rosa-boundary start-task \
-  --cluster-id <cluster-id> \
-  --investigation-id <investigation-id> \
+rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
+  --investigation-id "$INVESTIGATION_ID" \
   --oc-version 4.18 \
-  --task-timeout 7200 \
+  --session-timeout 2h \
   --connect
 
 # Create the EFS access point only (no task — useful for pre-staging)
-rosa-boundary create-investigation \
-  --cluster-id <cluster-id> \
-  --investigation-id <investigation-id>
+rosa-boundary --profile personal-dev investigation create "$TARGET_CLUSTER_ID" \
+  --investigation-id "$INVESTIGATION_ID"
 
-# Connect to a specific container in the task
-rosa-boundary join-task <task-id> --container kube-proxy
+# Connect to a specific container only when that sidecar is deployed/enabled
+rosa-boundary --profile personal-dev session join "$SESSION_ID" --container kube-proxy
 
-# Run a non-interactive command
-rosa-boundary join-task <task-id> --command "oc get nodes"
+# A custom command still uses an interactive ECS Exec terminal
+rosa-boundary --profile personal-dev session join "$SESSION_ID" --command "oc get nodes"
 ```
 
 ### Infrastructure Operations

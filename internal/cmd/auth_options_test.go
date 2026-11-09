@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,38 +14,65 @@ import (
 	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
-	"github.com/openshift-online/rosa-boundary/internal/authstatus"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/spf13/cobra"
 )
 
 func TestOutputFlagsAreCommandScoped(t *testing.T) {
-	for _, command := range []*cobra.Command{loginCmd, configureCmd, startTaskCmd, createInvestigationCmd, joinTaskCmd, stopTaskCmd, listTasksCmd, listInvestigationsCmd, closeInvestigationCmd, credentialsConfigureOCMCmd, credentialsClearOCMCmd} {
+	root := buildRootCommand()
+	for _, path := range [][]string{
+		{"login"}, {"config", "init"}, {"session", "create"}, {"investigation", "create"},
+		{"session", "join"}, {"session", "close"}, {"session", "list"},
+		{"investigation", "list"}, {"investigation", "close"},
+		{"session", "credentials", "configure", "ocm"}, {"session", "credentials", "clear", "ocm"},
+	} {
+		command := commandAtPath(t, root, path...)
 		flag := command.LocalNonPersistentFlags().Lookup("output")
 		if flag == nil || flag.Shorthand != "o" {
 			t.Errorf("%s lacks local -o", command.CommandPath())
 		}
 	}
-	for _, command := range []*cobra.Command{rootCmd, versionCmd, credentialsCmd} {
+	for _, path := range [][]string{{}, {"version"}, {"session", "credentials"}, {"config", "list-profiles"}, {"config", "use-profile"}, {"config", "get"}} {
+		command := commandAtPath(t, root, path...)
 		if command.LocalNonPersistentFlags().Lookup("output") != nil {
 			t.Errorf("offline/group command %s advertises -o", command.CommandPath())
 		}
 	}
-	for _, command := range []*cobra.Command{loginCmd, configureCmd, joinTaskCmd, credentialsConfigureOCMCmd} {
-		if !strings.Contains(command.Flags().Lookup("output").Usage, "auth events on stderr") {
-			t.Errorf("%s lacks event help", command.CommandPath())
+	for _, path := range [][]string{{"login"}, {"config", "init"}, {"session", "join"}, {"session", "credentials", "configure", "ocm"}} {
+		command := commandAtPath(t, root, path...)
+		if !strings.Contains(command.Flags().Lookup("output").Usage, "authentication guidance goes to stderr") {
+			t.Errorf("%s lacks authentication guidance help", command.CommandPath())
 		}
 	}
+}
+
+func commandAtPath(t *testing.T, root *cobra.Command, path ...string) *cobra.Command {
+	t.Helper()
+	command := root
+	for _, name := range path {
+		var found *cobra.Command
+		for _, child := range command.Commands() {
+			if child.Name() == name {
+				found = child
+				break
+			}
+		}
+		if found == nil {
+			t.Fatalf("missing command %s under %s", name, command.CommandPath())
+		}
+		command = found
+	}
+	return command
 }
 
 func TestConfigureDeviceBootstrapRequiresExplicitTrue(t *testing.T) {
 	parent := &cobra.Command{Use: "root"}
 	parent.PersistentFlags().Bool("use-device-code", false, "")
-	child := &cobra.Command{Use: "configure"}
+	child := &cobra.Command{Use: "init"}
 	parent.AddCommand(child)
 	t.Setenv("ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE", "true")
 	if configureDeviceCode(child) {
-		t.Fatal("env selected configure bootstrap")
+		t.Fatal("env selected config init bootstrap")
 	}
 	for _, tc := range []struct {
 		arg  string
@@ -61,11 +89,11 @@ func TestConfigureDeviceBootstrapRequiresExplicitTrue(t *testing.T) {
 
 func TestInvalidOutputBeforeAuth(t *testing.T) {
 	cmd := &cobra.Command{Use: "login"}
-	addOutputFlag(cmd, false)
+	addOutputFlag(cmd)
 	if err := cmd.Flags().Set("output", "xml"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := authReporter(cmd); err == nil || !strings.Contains(err.Error(), "invalid --output") {
+	if _, err := commandOutput(cmd); err == nil || !strings.Contains(err.Error(), "invalid --output") {
 		t.Fatalf("error = %v", err)
 	}
 }
@@ -73,7 +101,7 @@ func TestInvalidOutputBeforeAuth(t *testing.T) {
 func TestOutputAfterPositionalArgument(t *testing.T) {
 	for _, args := range [][]string{{"-o", "json", "task-1"}, {"task-1", "--output", "json"}} {
 		command := &cobra.Command{Use: "join-task <task-id>"}
-		addOutputFlag(command, false)
+		addOutputFlag(command)
 		if err := command.ParseFlags(args); err != nil {
 			t.Fatal(err)
 		}
@@ -89,23 +117,13 @@ func TestJSONJoinRequiresTerminalBeforeAuthentication(t *testing.T) {
 		_ = tty.Close()
 		t.Skip("test process has a controlling terminal")
 	}
-	command := &cobra.Command{Use: "join-task"}
-	addOutputFlag(command, false)
-	if err := command.Flags().Set("output", "json"); err != nil {
-		t.Fatal(err)
-	}
-	if err := requireInteractiveTerminal(command); err == nil || !strings.Contains(err.Error(), "controlling terminal") {
+	if _, err := runTestCLI(t, "session", "join", "task-1", "-o", "json"); err == nil || !strings.Contains(err.Error(), "controlling terminal") {
 		t.Fatalf("preflight = %v", err)
 	}
 }
 
-func TestJoinRejectsInvalidOutputEvenWithoutArgsValidation(t *testing.T) {
-	command := &cobra.Command{Use: "join-task"}
-	addOutputFlag(command, false)
-	if err := command.Flags().Set("output", "xml"); err != nil {
-		t.Fatal(err)
-	}
-	if err := runJoinTask(command, []string{"task-1"}); err == nil || !strings.Contains(err.Error(), "invalid --output") {
+func TestJoinRejectsInvalidOutputBeforeAuth(t *testing.T) {
+	if _, err := runTestCLI(t, "session", "join", "task-1", "-o", "xml"); err == nil || !strings.Contains(err.Error(), "invalid --output") {
 		t.Fatalf("join error = %v", err)
 	}
 }
@@ -138,24 +156,28 @@ func TestSTSCacheRejectionRetriesWithDeviceFlow(t *testing.T) {
 		}
 		return &awsclient.TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "session"}, nil
 	}
-	var events bytes.Buffer
-	_, _, err := assumeRoleWithRetryOptions(context.Background(), pkce, "us-east-1", "role", "session", false, auth.Options{UseDeviceCode: true, Reporter: &authstatus.Reporter{Format: "json", Writer: &events}})
+	// A cached token may be rejected by STS: the selected device flow must
+	// show a fresh challenge rather than silently falling back to a browser.
+	read, write, pipeErr := os.Pipe()
+	if pipeErr != nil {
+		t.Fatal(pipeErr)
+	}
+	oldStderr := os.Stderr
+	os.Stderr = write
+	t.Cleanup(func() { os.Stderr = oldStderr; _ = read.Close(); _ = write.Close() })
+	_, _, err := assumeRoleWithRetryOptions(context.Background(), pkce, "us-east-1", "role", "session", false, auth.Options{UseDeviceCode: true})
+	_ = write.Close()
+	events, readErr := io.ReadAll(read)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	if tries != 2 {
 		t.Fatalf("STS attempts %d", tries)
 	}
-	lines := strings.Split(strings.TrimSpace(events.String()), "\n")
-	if len(lines) != 3 {
-		t.Fatalf("events = %s", events.String())
-	}
-	for index, event := range []string{`"source":"cache"`, `"event":"device_authorization"`, `"source":"device"`} {
-		if !strings.Contains(lines[index], event) {
-			t.Errorf("event %d lacks %s", index, event)
-		}
-	}
-	if strings.Contains(events.String(), "secret-device-code") || strings.Contains(events.String(), fresh) {
-		t.Fatal("secret leaked into auth events")
+	if !bytes.Contains(events, []byte("ABCD-1234")) || !bytes.Contains(events, []byte("https://example.test/device")) || bytes.Contains(events, []byte("ROSA_BOUNDARY_AUTH_EVENT")) || bytes.Contains(events, []byte("secret-device-code")) || bytes.Contains(events, []byte(fresh)) {
+		t.Fatalf("missing approval guidance or secret/event leaked: %s", events)
 	}
 }

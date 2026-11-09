@@ -2,10 +2,16 @@ package output
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 )
+
+// ErrJSONWrite distinguishes a failed result write from a command failure.
+// In particular, callers must not append an error document to a partially
+// written JSON result.
+var ErrJSONWrite = errors.New("JSON result write failed")
 
 // Status writes a status message to stderr.
 func Status(format string, args ...any) {
@@ -48,14 +54,15 @@ func Data(format string, args ...any) {
 
 // JSON marshals v as indented JSON and writes it to stdout.
 func JSON(v any) error {
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
+	return JSONTo(os.Stdout, v)
 }
 
 // JSONTo marshals v as indented JSON and writes it to w.
 func JSONTo(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
-	return enc.Encode(v)
+	if err := enc.Encode(v); err != nil {
+		return fmt.Errorf("%w: %w", ErrJSONWrite, err)
+	}
+	return nil
 }

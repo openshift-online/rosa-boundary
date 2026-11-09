@@ -27,7 +27,7 @@ LocalStack access, and the complete local test command.
 
 ### Prerequisites
 
-- Go 1.23+ (to build the CLI from source)
+- Go 1.27.3 (the version selected by `go.mod` to build the CLI from source)
 - Terraform (infrastructure deployment)
 - Keycloak with OIDC configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
 - [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) — required for interactive access and credential configuration
@@ -73,7 +73,7 @@ See the [AWS documentation](https://docs.aws.amazon.com/systems-manager/latest/u
 3. Deploy:
 
    ```bash
-   cd deploy/regional && terraform init && terraform apply
+   cd deploy/regional && make init && make plan && make apply
    ```
 
 See [`deploy/regional/README.md`](deploy/regional/README.md) for the complete deployment guide.
@@ -105,32 +105,45 @@ See [`docs/configuration/keycloak-realm-setup.md`](docs/configuration/keycloak-r
 make build-cli && make install-cli
 ```
 
-Create `~/.rosa-boundary/config.yaml` with the values specific to your deployment:
+The CLI uses **named deployment profiles** in
+`${XDG_CONFIG_HOME:-$HOME/.config}/rosa-boundary/config.yaml`. Ask your operator
+for the Boundary account, region, and identity provider, then initialize one:
 
-```yaml
-keycloak_url: https://keycloak.example.com
-lambda_function_name: rosa-boundary-dev-create-investigation
-invoker_role_arn: arn:aws:iam::123456789012:role/rosa-boundary-dev-lambda-invoker
+```bash
+rosa-boundary config init --name stage-east --account-id 123456789012 \
+  --region us-east-1 --environment stage
+rosa-boundary config list-profiles
 ```
+
+`config init` discovers the other settings after OIDC approval. Use
+`--auto-discover=false` to enter all settings manually, or `--use-device-code`
+for human-approved login without a local browser. If you have an old flat
+`config.yaml`, delete or move it before running `config init` to create fresh
+named profiles. There is no migration. Confirm the selected
+profile's account and region before starting any investigation. See the
+[user access guide](docs/runbooks/user-access-guide.md#3-configure-cli).
 
 Core workflow:
 
 ```bash
-# Start an investigation (authenticates, creates task, waits for RUNNING)
-rosa-boundary start-task --cluster-id my-cluster --connect
+# Start a session (creates the investigation if needed; waits for RUNNING)
+rosa-boundary session create my-cluster --investigation-id incident-42
 
-# List running tasks
-rosa-boundary list-tasks
+# List running sessions and investigation workspaces
+rosa-boundary session list
+rosa-boundary investigation list
 
-# Connect to an existing task
-rosa-boundary join-task <task-id>
+# Join an existing session in a terminal
+rosa-boundary session join <session-id>
 
-# Configure or clear a fresh, task-scoped OCM access token
-rosa-boundary credentials configure ocm <task-id> --ocm-url production
-rosa-boundary credentials clear ocm <task-id>
+# Configure or clear fresh, task-scoped OCM access
+rosa-boundary session credentials configure ocm <session-id> --ocm-url production
+rosa-boundary session credentials clear ocm <session-id>
 
-# Stop a task (triggers S3 sync)
-rosa-boundary stop-task <task-id>
+# Stop a session, check CloudWatch and S3 audit evidence, then close its workspace
+rosa-boundary session close <session-id> --wait
+rosa-boundary investigation close my-cluster incident-42 --dry-run
+rosa-boundary investigation close my-cluster incident-42
 ```
 
 ## Repository Structure
@@ -180,57 +193,59 @@ rosa-boundary/
 | Command | Description |
 |---|---|
 | `login` | Authenticate with Keycloak and cache the OIDC token |
-| `start-task` | Create an investigation and start an ECS task |
-| `credentials configure ocm <task-id>` | Issue and configure a fresh OCM access token |
-| `credentials clear ocm <task-id>` | Clear OCM and credential-derived kubeconfig state |
-| `join-task <task-id>` | Connect to a running ECS task via ECS Exec |
-| `list-tasks` | List ECS tasks in the cluster |
-| `stop-task <task-id>` | Stop a running ECS task |
+| `config init`, `config list-profiles`, `config use-profile`, `config get` | Manage named Boundary deployment profiles |
+| `investigation create <cluster-id>` | Create a workspace without a session |
+| `investigation list`, `investigation close <cluster-id> <investigation-id>` | Inspect and close workspaces |
+| `session create <cluster-id>` | Create or reuse an investigation and start an ECS task |
+| `session credentials configure ocm <session-id>` | Issue and configure fresh OCM access |
+| `session credentials clear ocm <session-id>` | Clear OCM and derived kubeconfig state |
+| `session join <session-id>` | Connect to a running task via ECS Exec |
+| `session list` | List sessions in the Boundary ECS cluster |
+| `session close <session-id>` | Stop a session task (does not close its investigation workspace) |
 | `version` | Print the rosa-boundary version |
+
+The former `session start` and `session stop` verbs are not aliases: use
+`session create` and `session close` instead. The CLI rejects the old verbs and
+suggests the replacement; `session close` stops only the task, leaving the
+investigation and its reusable workspace open until `investigation close`.
 
 ### Notable Flags
 
-**`start-task`**:
-- `--cluster-id` — ROSA cluster ID to investigate (required)
+**`session create <cluster-id>`**:
 - `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
 - `--oc-version` — OpenShift CLI version (default: `4.20`)
-- `--task-timeout` — seconds before reaper kills the task (default: `3600`)
+- `--session-timeout` — session lifetime (default: `1h`); the deployment's Lambda enforces its own minimum and maximum
 - `--connect` — automatically join the task after it reaches RUNNING
 - `--no-wait` — return immediately without waiting for RUNNING
 - `--with-credentials ocm` — configure OCM before returning or connecting; incompatible with `--no-wait`
 - `--ocm-url` — `production`, `staging`, `integration`, or an approved canonical URL
 - `--ocm-auth-flow` — `auth-code` (default) or `device`
-- `--force-login` — force fresh OIDC authentication
 - `--output text|json`
 
-**`join-task`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
+**`session join`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
 
-**`credentials configure ocm`**: `--ocm-url` selects the environment and defaults to the non-secret URL in the workstation's OCM configuration; `--auth-flow auth-code|device` selects the fresh-token flow. The command never copies or caches local access, refresh, or offline tokens.
+**`session credentials configure ocm`**: `--ocm-url` selects the environment and defaults to the non-secret URL in the workstation's OCM configuration; `--auth-flow auth-code|device` selects the fresh-token flow. The command never copies or caches local access, refresh, or offline tokens.
 
-**`list-tasks`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
+**`session list`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
 
-**`stop-task`**: `--reason`, `--wait`
+**`session close`**: `--reason`, `--wait`, `--yes` (required without a terminal)
+
+**`investigation close`**: `--dry-run`, `--force` (stop active sessions), `--yes` (required without a terminal unless dry-running). Only the investigation creator can close it through the CLI; verify the plan before confirmation. Stopping is not proof of audit sync.
 
 **`login`**: `--force`
 
 ### Global Flags
 
 ```
---verbose, -v           Enable debug output (warnings and status messages are always shown)
---keycloak-url          Keycloak base URL
---realm                 Keycloak realm (default: EmployeeIDP)
---client-id             OIDC client ID (default: rosa-boundary-sre)
---region                AWS region (default: us-east-2)
---ecs-cluster           ECS cluster name (default: rosa-boundary-dev)
---lambda-function-name  Lambda function name or ARN
---invoker-role-arn      Lambda invoker role ARN
---role-arn              SRE role ARN (overrides Lambda response)
---lambda-url            Lambda function URL (HTTP mode)
+--profile <name>         Select a saved deployment without changing the active profile
+--verbose                Enable debug diagnostics (never secrets)
+--timeout <duration>     Whole-command deadline (default 5m without a terminal)
+--use-device-code[=bool] Select device approval for Boundary and the default OCM flow
 ```
 
 ### Configuration Precedence
 
-Flags > environment variables (`ROSA_BOUNDARY_*`) > `~/.rosa-boundary/config.yaml` > defaults
+Command-specific flags > `ROSA_BOUNDARY_*` environment variables > selected saved profile > defaults. `--profile` selects a saved profile or defaults to `active_profile`; an environment variable cannot silently change the selection. `config get` shows saved values only.
 
 Environment variable examples: `ROSA_BOUNDARY_KEYCLOAK_URL`, `ROSA_BOUNDARY_LAMBDA_FUNCTION_NAME`, `ROSA_BOUNDARY_INVOKER_ROLE_ARN`.
 

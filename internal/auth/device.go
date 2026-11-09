@@ -10,8 +10,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 const deviceGrant = "urn:ietf:params:oauth:grant-type:device_code"
@@ -75,13 +73,8 @@ func acquireDeviceToken(ctx context.Context, cfg PKCEConfig, opts Options) (stri
 			return "", &deviceError{"invalid_response", "device authorization endpoint returned an invalid challenge"}
 		}
 	}
-	if err := opts.Reporter.Emit("boundary", "device_authorization", map[string]any{
-		"verification_uri": authorization.VerificationURI, "user_code": authorization.UserCode, "expires_in": authorization.ExpiresIn,
-	}); err != nil {
-		return "", fmt.Errorf("authentication status write failed: %w", err)
-	}
-	if opts.Reporter == nil || opts.Reporter.Format != "json" {
-		output.Status("Open %s on another device and enter code %s. Waiting for approval...", authorization.VerificationURI, authorization.UserCode)
+	if err := opts.deviceChallenge("Open %s on another device and enter code %s. Waiting for approval...", authorization.VerificationURI, authorization.UserCode); err != nil {
+		return "", fmt.Errorf("authentication challenge write failed: %w", err)
 	}
 	interval := time.Duration(authorization.Interval) * time.Second
 	if interval < time.Second {

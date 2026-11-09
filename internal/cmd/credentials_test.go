@@ -1,100 +1,99 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/spf13/cobra"
-
+	"github.com/openshift-online/rosa-boundary/internal/auth"
+	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
 	credentials "github.com/openshift-online/rosa-boundary/internal/credentials/ocm"
 )
 
-func TestNestedCredentialCommandsUseSRERole(t *testing.T) {
-	cfg := &config.Config{SRERoleARN: "arn:aws:iam::123:role/sre", InvokerRoleARN: "arn:aws:iam::123:role/invoker"}
-	for _, command := range []*cobra.Command{credentialsConfigureOCMCmd, credentialsClearOCMCmd} {
-		role, session, err := authenticationRole(cfg, command)
+func TestActiveCommandsSelectInvokerAndSRERoles(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	cfg := config.Config{AccountID: "123456789012", AWSRegion: "us-east-1", KeycloakURL: "https://auth.example.test", ClusterName: "ecs", EFSFilesystemID: "fs-example", SRERoleARN: "arn:aws:iam::123456789012:role/sre", InvokerRoleARN: "arn:aws:iam::123456789012:role/invoker", LambdaFunctionName: "create"}
+	if err := saveTestProfile("stage", cfg, true, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := auth.SaveTokenForConfig(testJWT(time.Now().Add(time.Hour)), auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: "EmployeeIDP", ClientID: "rosa-boundary-sre"}); err != nil {
+		t.Fatal(err)
+	}
+	previous := assumeWebIdentity
+	t.Cleanup(func() { assumeWebIdentity = previous })
+	for _, tc := range []struct {
+		path    []string
+		role    string
+		session string
+	}{
+		{[]string{"investigation", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker"},
+		{[]string{"session", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker"},
+		{[]string{"investigation", "list"}, cfg.SRERoleARN, "rosa-boundary-session"},
+		{[]string{"session", "list"}, cfg.SRERoleARN, "rosa-boundary-session"},
+		{[]string{"session", "close"}, cfg.SRERoleARN, "rosa-boundary-session"},
+		{[]string{"session", "credentials", "configure", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session"},
+		{[]string{"session", "credentials", "clear", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session"},
+	} {
+		var role, session string
+		assumeWebIdentity = func(_ context.Context, _, arn, _, name string) (*awsclient.TemporaryCredentials, error) {
+			role, session = arn, name
+			return &awsclient.TemporaryCredentials{}, nil
+		}
+		selectedProfile = ""
+		command := commandAtPath(t, buildRootCommand(), tc.path...)
+		command.SetContext(context.Background())
+		err := commandPreRun(command, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if role != cfg.SRERoleARN || session != "rosa-boundary-session" {
+		if role != tc.role || session != tc.session {
 			t.Fatalf("%s selected role %q session %q", command.CommandPath(), role, session)
+		}
+		if commandCancel != nil {
+			commandCancel()
+			commandCancel = nil
 		}
 	}
 }
 
-func TestAuthenticationRoleValidation(t *testing.T) {
-	// Test that invoker commands require InvokerRoleARN
-	t.Run("InvokerRoleRequired", func(t *testing.T) {
-		cfg := &config.Config{SRERoleARN: "arn:aws:iam::123:role/sre"}
-		invokerCommands := []*cobra.Command{
-			{Use: "create-investigation"},
-			{Use: "start-task"},
-		}
-		for _, cmd := range invokerCommands {
-			_, _, err := authenticationRole(cfg, cmd)
-			if err == nil {
-				t.Fatalf("expected error for %s with empty InvokerRoleARN", cmd.Name())
+func TestCommandRoleValidation(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cfg := config.Config{AccountID: "123456789012", AWSRegion: "us-east-1", KeycloakURL: "https://auth.example.test", ClusterName: "ecs", EFSFilesystemID: "fs-example", LambdaFunctionName: "create", InvokerRoleARN: "arn:aws:iam::123456789012:role/invoker", SRERoleARN: "arn:aws:iam::123456789012:role/sre"}
+	for _, tc := range []struct {
+		name, missing string
+		commands      [][]string
+	}{
+		{"invoker", "invoker_role_arn", [][]string{{"investigation", "create"}, {"session", "create"}}},
+		{"sre", "sre_role_arn", [][]string{{"investigation", "list"}, {"session", "list"}, {"session", "close"}, {"session", "credentials", "configure", "ocm"}, {"session", "credentials", "clear", "ocm"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			profile := cfg
+			if tc.name == "invoker" {
+				profile.InvokerRoleARN = ""
+			} else {
+				profile.SRERoleARN = ""
 			}
-			if !strings.Contains(err.Error(), "invoker role ARN is required") {
-				t.Fatalf("unexpected error message: %v", err)
+			if err := saveTestProfile("stage", profile, true, tc.name == "sre"); err != nil {
+				t.Fatal(err)
 			}
-			if !strings.Contains(err.Error(), cmd.Name()) {
-				t.Fatalf("error message should include command name: %v", err)
+			for _, path := range tc.commands {
+				selectedProfile = ""
+				command := commandAtPath(t, buildRootCommand(), path...)
+				command.SetContext(context.Background())
+				if err := commandPreRun(command, nil); err == nil || !strings.Contains(err.Error(), tc.missing) {
+					t.Fatalf("%s: missing %s: %v", command.CommandPath(), tc.missing, err)
+				}
+				if commandCancel != nil {
+					commandCancel()
+					commandCancel = nil
+				}
 			}
-		}
-	})
-
-	// Test that SRE role commands require SRERoleARN
-	t.Run("SRERoleRequired", func(t *testing.T) {
-		cfg := &config.Config{InvokerRoleARN: "arn:aws:iam::123:role/invoker"}
-		sreCommands := []*cobra.Command{
-			credentialsConfigureOCMCmd,
-			credentialsClearOCMCmd,
-			{Use: "list-investigations"},
-			{Use: "list-tasks"},
-			{Use: "join-task"},
-		}
-		for _, cmd := range sreCommands {
-			_, _, err := authenticationRole(cfg, cmd)
-			if err == nil {
-				t.Fatalf("expected error for %s with empty SRERoleARN", cmd.Name())
-			}
-			if !strings.Contains(err.Error(), "SRE role ARN is required") {
-				t.Fatalf("unexpected error message: %v", err)
-			}
-			if !strings.Contains(err.Error(), cmd.Name()) {
-				t.Fatalf("error message should include command name: %v", err)
-			}
-		}
-	})
-
-	// Test happy path with both roles configured
-	t.Run("BothRolesConfigured", func(t *testing.T) {
-		cfg := &config.Config{
-			SRERoleARN:     "arn:aws:iam::123:role/sre",
-			InvokerRoleARN: "arn:aws:iam::123:role/invoker",
-		}
-
-		// Test invoker commands
-		role, session, err := authenticationRole(cfg, &cobra.Command{Use: "create-investigation"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if role != cfg.InvokerRoleARN || session != "rosa-boundary-invoker" {
-			t.Fatalf("create-investigation: got role=%q session=%q", role, session)
-		}
-
-		// Test SRE commands
-		role, session, err = authenticationRole(cfg, &cobra.Command{Use: "list-investigations"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if role != cfg.SRERoleARN || session != "rosa-boundary-session" {
-			t.Fatalf("list-investigations: got role=%q session=%q", role, session)
-		}
-	})
+		})
+	}
 }
 
 func TestParseOCMFlow(t *testing.T) {
@@ -114,7 +113,7 @@ func TestValidateStartCredentials(t *testing.T) {
 		startCredentials, startNoWait, startOCMURL, startOCMFlow = originalCredentials, originalNoWait, originalURL, originalFlow
 	})
 
-	startCredentials = []string{"ocm"}
+	startCredentials = "ocm"
 	startNoWait = false
 	startOCMURL = "staging"
 	startOCMFlow = "device"
@@ -128,18 +127,18 @@ func TestValidateStartCredentials(t *testing.T) {
 		t.Fatalf("--no-wait combination error = %v", err)
 	}
 	startNoWait = false
-	startCredentials = []string{"vault"}
+	startCredentials = "vault"
 	if _, _, _, err := validateStartCredentials(); err == nil {
 		t.Fatal("unsupported provider succeeded")
 	}
-	startCredentials = []string{"ocm", "ocm"}
-	if _, _, _, err := validateStartCredentials(); err == nil {
-		t.Fatal("duplicate provider succeeded")
+	startCredentials = ""
+	if enabled, _, _, err := validateStartCredentials(); err != nil || enabled {
+		t.Fatalf("omitted provider = %t, %v", enabled, err)
 	}
 }
 
-func TestStartCredentialFailureRetainsTaskAndCleanupCommand(t *testing.T) {
-	err := startCredentialFailure(
+func TestSessionCredentialFailureRetainsSessionAndCleanupCommand(t *testing.T) {
+	err := sessionCredentialFailure(
 		"INV-1",
 		"task-123",
 		"boundary",
@@ -148,7 +147,7 @@ func TestStartCredentialFailureRetainsTaskAndCleanupCommand(t *testing.T) {
 		credentials.FlowDevice,
 		errors.New("configure failed"),
 	)
-	for _, expected := range []string{"INV-1", "task-123", "still running", "credentials configure ocm --ocm-url staging --auth-flow device task-123", "stop-task task-123"} {
+	for _, expected := range []string{"INV-1", "task-123", "still running", "session credentials configure ocm \"task-123\" --ocm-url \"staging\" --auth-flow \"device\"", "session close \"task-123\" --yes"} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error %q does not contain %q", err, expected)
 		}

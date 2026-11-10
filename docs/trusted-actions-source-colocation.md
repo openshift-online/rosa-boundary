@@ -3,7 +3,10 @@
 Trusted Actions files were copied from `openshift-online/rosa-trusted-actions`
 `main` at `8ce39a7344b52444576fc1e44ab1f532fd0dfac4`. This is a files-only
 import. No Trusted Actions commits or per-file Git history were imported; the
-original repository remains the historical reference. Do not archive it until
+original repository remains the historical reference. A source refresh from TA
+`main` through `483f325fef305507b1e2471aa4cdaf6858cf3018` is described in the
+[migration inventory](trusted-actions-monorepo-migration.md#refresh-of-2026-11-10).
+Do not archive it until
 the separate CI and deployment-source cutover has been verified with its owners.
 See the [migration inventory and refresh procedure](trusted-actions-monorepo-migration.md)
 before reconciling new development from the still-active TA repository.
@@ -68,3 +71,17 @@ cutover. The existing Boundary OpenWiki periodic continues to update the one
 root wiki; do not rebind the TA periodic to the nested component. The TA image
 and existing deployed image digest are not changed by importing files.
 Do not treat this source import as proof of working CI or live deployment.
+
+The later source refresh includes TA's GoReleaser configuration and component
+`VERSION`, but not its original-repository GitHub Actions release/lockfile
+workflows. TA GitHub releases continue through the original repository until
+a separately reviewed monorepo release workflow, tag namespace, permissions,
+and action pinning are established. These files do not change HCP bindings or
+turn on the held Konflux pipelines.
+
+Upstream [TA PR #158](https://github.com/openshift-online/rosa-trusted-actions/pull/158)
+renamed its startup file to `AGENTS.md` and moved its shared skill to
+`.agents/skills/` with a `.claude/skills/` symlink. The component now keeps
+those skill paths and its existing monorepo-specific `AGENTS.md`; future
+source refreshes reconcile upstream `AGENTS.md` guidance directly. No further
+`CLAUDE.md` transition is needed as part of the source move.

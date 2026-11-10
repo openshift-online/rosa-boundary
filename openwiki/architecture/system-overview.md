@@ -1,14 +1,17 @@
 ---
 type: architecture
 title: System overview and boundaries
-description: Maps the ROSA Boundary CLI, AWS identity, investigation Lambda, Fargate runtime, persistent and task-scoped storage, and the two independent scheduled reaper Lambdas by responsibility.
-tags: [architecture, system-overview, aws, ecs, investigations]
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-05T16:02:21.720Z
+description: Maps the ROSA Boundary CLI, AWS identity, investigation Lambda, Fargate runtime, persistent and task-scoped storage, and the two independent scheduled reaper Lambdas by responsibility, and situates this flow relative to the co-located but independently built/deployed Trusted Actions component.
+tags: [architecture, system-overview, aws, ecs, investigations, trusted-actions, monorepo]
 sources:
   - id: openwiki-source-40c7b4fa49977c539f479848
     resource: repo://cmd/rosa-boundary/main.go
+  - id: openwiki-source-3f40daa0f36e1ee6c8e9b501
+    resource: repo://components/trusted-actions/Containerfile
+  - id: openwiki-source-56c54c10348f1e72daffc214
+    resource: repo://components/trusted-actions/go.mod
+  - id: openwiki-source-6955d983b4d48fea403e850a
+    resource: repo://components/trusted-actions/terraform/regional/ecs.tf
   - id: openwiki-source-f4745022f20c2f39d1db313b
     resource: repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf
   - id: openwiki-source-ee86c0d48b646d4bc6813442
@@ -23,8 +26,12 @@ sources:
     resource: repo://deploy/regional/variables.tf
   - id: openwiki-source-e9906b078522ed0a08c64ff1
     resource: repo://entrypoint.sh
+  - id: openwiki-source-d2f66eb6a0ccf1ed7a35e866
+    resource: repo://internal/cmd/cli.go
   - id: openwiki-source-7a5e071b6b6192c80a6918aa
     resource: repo://internal/cmd/root.go
+  - id: openwiki-source-2452fe2ff931e1490d573519
+    resource: repo://internal/cmd/start_session.go
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
   - id: openwiki-source-d796a031add13f67891a2f24
@@ -33,7 +40,10 @@ sources:
     resource: repo://lambda/reap-tasks/handler.py
   - id: openwiki-source-30a9bbeef6a7c1bda59eab80
     resource: repo://tests/localstack/integration/test_full_workflow.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-05T16:02:21.720Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-10T16:03:08.957Z
 ---
 
 # System overview and boundaries
@@ -42,7 +52,7 @@ ROSA Boundary is an operator CLI plus a regional AWS runtime for ephemeral SRE i
 
 ## Responsibility boundaries
 
-- **CLI (`cmd/rosa-boundary`, `internal/`)** — exposes login/configuration and investigation/task commands. Shared command setup resolves configuration and performs OIDC-to-STS authentication. `start-task` invokes Lambda directly through the AWS SDK, assumes the shared SRE role for ECS operations, optionally waits for task readiness, and can configure credentials or connect.
+- **CLI (`cmd/rosa-boundary`, `internal/`)** — exposes login/configuration and investigation/session commands. A single `PersistentPreRunE` hook (`commandPreRun`, wired in `buildRootCommand`) resolves configuration and performs OIDC-to-STS authentication for every leaf command, selecting the Lambda invoker role for `investigation create` and `session create` and the shared SRE role for everything else. `session create` (the CLI's task-launch command) invokes the create-investigation Lambda directly through the AWS SDK, assumes the shared SRE role for ECS operations, optionally waits for task readiness, and can configure credentials or connect.
 - **Create-investigation Lambda (`lambda/create-investigation/`)** — is the authorization and provisioning boundary. It validates the OIDC token and group claims, establishes the ABAC identity, creates or reuses the investigation's EFS access point, and when requested registers a task definition and launches a Fargate task.
 - **ECS task (`Containerfile`, `entrypoint.sh`)** — is the ephemeral operator environment. ECS Exec sessions enter as `sre`; the root entrypoint performs controlled setup, verifies task-scoped credential overlays, then launches the requested workload as `sre`. On shutdown it attempts a bounded S3 sync of the persistent home while excluding credential state.
 - **Terraform (`deploy/account/`, `deploy/regional/`)** — the account root owns shared IAM identities, OIDC providers, and common managed-policy attachments, including the investigation reaper's VPC execution attachment. Regional roots look up those identities and own regional inline grants alongside ECS, EFS, S3, KMS/logging, and Lambda resources. Each region uses a distinct inline-policy name suffix except the single designated legacy region; these grants accumulate on shared roles rather than creating region-isolated identities. The regional task definition mounts a shared EFS home and empty per-task overlays at OCM and kubeconfig paths; the investigation Lambda replaces the home volume with an investigation-specific access point at launch.
@@ -98,8 +108,9 @@ LocalStack integration tests create representative IAM, ECS, and EFS resources a
 
 ## Evidence-backed claims
 
-- The CLI uses a centralized OIDC/STS pre-run hook and selects the Lambda invoker role for create/start commands, with a separate SRE role for operational commands. [CLI root](repo://internal/cmd/root.go#L171-L228) · [task-start orchestration](repo://internal/cmd/start_task.go#L68-L223)
-- The Lambda validates the user, creates/reuses an investigation EFS access point, performs a session-checked handover of any existing running task, registers a per-investigation task definition with task-scoped credential overlays, and launches a Fargate task with ECS Exec and identifying/deadline tags. [authorization and dispatch](repo://lambda/create-investigation/handler.py#L175-L281) · [handover preflight and stop](repo://lambda/create-investigation/handler.py#L682-L774) · [task-definition registration](repo://lambda/create-investigation/handler.py#L469-L638) · [task launch and tagging](repo://lambda/create-investigation/handler.py#L886-L999)
+- The CLI uses a centralized OIDC/STS pre-run hook (`commandPreRun`, registered as `root.PersistentPreRunE` in `buildRootCommand`) and selects the Lambda invoker role for `investigation create`/`session create`, with a separate shared SRE role for other commands. [CLI pre-run hook and role selection](repo://internal/cmd/cli.go#L25-L136) · [session-create orchestration](repo://internal/cmd/start_session.go#L33-L162)
+- The Lambda's main handler validates the OIDC token and required group claims, derives the ABAC tag value, and dispatches to `create_investigation_task` to do the actual provisioning. [token validation, authorization, and dispatch](repo://lambda/create-investigation/handler.py#L175-L281)
+- `create_investigation_task` creates or reuses an investigation EFS access point, performs a session-checked handover of any existing running task, registers a per-investigation task definition with task-scoped credential overlays, and launches a Fargate task with ECS Exec and identifying/deadline tags. [handover preflight and stop](repo://lambda/create-investigation/handler.py#L682-L774) · [task-definition registration](repo://lambda/create-investigation/handler.py#L469-L638) · [task launch and tagging](repo://lambda/create-investigation/handler.py#L886-L999)
 - ECS task infrastructure mounts persistent EFS home plus task-scoped OCM and kubeconfig overlays; entrypoint rejects missing or EFS-backed overlays and uses a protected S3 sync on exit. [task mounts](repo://deploy/regional/ecs.tf#L62-L159) · [mount verification and sync](repo://entrypoint.sh#L3-L80)
 - The reap-tasks Lambda lists RUNNING tasks and stops expired tasks without an active Exec session; missing or malformed deadlines are skipped. [reaper implementation](repo://lambda/reap-tasks/handler.py#L48-L175)
 - The independently scheduled reap-investigations Lambda garbage-collects whole investigations rather than enforcing task deadlines. A matching RUNNING task blocks eligibility; otherwise creation age must exceed the grace period, or `CreatedAt` must be missing. Task absence is rechecked immediately before cleanup. [schedule](repo://deploy/regional/lambda-reap-investigations.tf#L216-L239) · [eligibility](repo://lambda/reap-investigations/handler.py#L252-L321) · [final task check](repo://lambda/reap-investigations/handler.py#L204-L223) · [Terraform defaults](repo://deploy/regional/variables.tf#L424-L432)
@@ -108,8 +119,15 @@ LocalStack integration tests create representative IAM, ECS, and EFS resources a
 - Account Terraform owns the shared investigation-reaper role and its basic/VPC execution managed-policy attachments; regional roots look up shared roles and use region-suffixed inline policies outside the one legacy region. [shared reaper identity and attachments](repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf#L1-L19) · [regional lookup and suffix contract](repo://deploy/regional/account-iam.tf#L1-L35) · [account handoff outputs](repo://deploy/account/outputs.tf#L1-L12)
 - LocalStack integration tests verify relationships between provisioned task tags, shared-role ABAC, access points, and task-definition mounts; execution of actual task containers is conditionally skipped for the local executor. [full workflow assertions](repo://tests/localstack/integration/test_full_workflow.py#L21-L137) · [container-execution condition](repo://tests/localstack/integration/test_full_workflow.py#L214-L220)
 
+## Relationship to the co-located Trusted Actions component
+
+Everything above — CLI, create-investigation Lambda, ECS/EFS, Terraform, and the two reaper Lambdas — is the Boundary product. The same repository also contains `components/trusted-actions/`, the Trusted Actions (TA) service: a separate Go module (`module github.com/openshift-online/rosa-trusted-actions`), a separate container build, and its own pair of Terraform roots (`components/trusted-actions/terraform/global/` and `components/trusted-actions/terraform/regional/`) with their own OWNERS boundaries. [TA Go module](repo://components/trusted-actions/go.mod#L1-L3) · [TA container build](repo://components/trusted-actions/Containerfile#L1-L10) · [TA regional Terraform](repo://components/trusted-actions/terraform/regional/ecs.tf#L1-L8)
+
+No code in this flow calls Trusted Actions: the create-investigation Lambda, the regional ECS task definition, and `entrypoint.sh` contain no reference to TA's service, API, or container. Architecturally, the Boundary ECS Fargate investigation container — the ephemeral `sre`-operated environment described above — is the natural caller of TA's execution API (an SRE tool container invoking a trusted-action execution service over HTTP), since both run in the same regional AWS footprint. That integration is reachable in principle but has not been built or wired into either Terraform root. Do not describe Boundary and TA as integrated; they are independently built and deployed components that currently share only a repository and a generated wiki. See [Monorepo and Trusted Actions](monorepo-and-trusted-actions.md) for the full account of the import, ownership split, and build/deploy independence — this page does not duplicate that detail.
+
 ## Related pages
 
 - [Investigation lifecycle](../workflows/investigation-lifecycle.md) — handover, close, timeout, and garbage-collection details.
 - [Regional infrastructure](../infrastructure/regional-runtime.md) and [HCP workspaces](../infrastructure/hcp-terraform-workspaces.md) — resource ownership and staging's regional states.
 - [Identity and access](identity-and-access.md) and [auditing](../operations/audit-and-logging.md) — authorization and operational evidence.
+- [Monorepo and Trusted Actions](monorepo-and-trusted-actions.md) — ownership, build, and deployment independence of the co-located Trusted Actions component.

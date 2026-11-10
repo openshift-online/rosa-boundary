@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:ba883c0c2c73287a69569143964eddaa4ca9d41bff1cbb5b9922f2810cd35cb0",
+  "claims": [
+    {
+      "id": "claim_4275808ba78f45a3a7efb3aa5a6a2cfe",
+      "statement": "Trusted Actions' intended callers are the rosa-boundary CLI running inside the SRE investigation container, plus external consumers CAD and the ROSA AI agent, all reaching Trusted Actions over HTTP; Trusted Actions validates callers against OCM/AMS and reaches managed clusters only through a short-lived, RBAC-scoped Backplane session, and direct AWS-API scope execution is not yet implemented end-to-end.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L7-L29",
+          "version": "repo-lines-v1:sha256:82469e8db8016a1dee607837e1daccbc16067d6b80dbc8e65ab6ce84bf6707d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlMzYzNGRiYjgwMWE3M2I3MGU4OWVkNzc1NDZjNzdiMTA5M2JiODhjOWU0NzkxOGU5NjY1OTRkYTQ5OTRhZjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3YzA2YzU2MWQ1YzMyNzM0MzY4NTI2OGE0NmIzMzkxZjM5OThlZWU4OTBkMmJlNTFmMGQyMWNjNGE1M2FlNmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU3OTQ1MDRjNzQzZmU2OGU1NjM0NTk5OTk4ZWEyMjkxZDQxNGUzMGU5ZjBlODlhM2FjYjRmMjg5ZGU4NmM2OGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIwMjRmNTQ4Y2RmZjBjMTM3MWZkMTcyYWRkYjFkZTI4MzkyMzNkYjQwY2Y2MWM2ZWU0ZTAzMzY2YjljZjIzYzIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4393b0fcfe4f4e0ea7dd76dec15b39dd",
+      "statement": "Nothing in the Boundary root Containerfile or in internal/cmd (the rosa-boundary CLI's command package) currently invokes the Trusted Actions HTTP API or an rta client; the architectural edge from the investigation container to Trusted Actions is not yet wired in code.",
+      "evidence": [
+        {
+          "resource": "repo://Containerfile#L1-L60",
+          "version": "repo-lines-v1:sha256:ea4347a53dfa3979d5c0b39a2038699d3018cbfdfdd9e91a2dbae8b161fd42e8:eyJzZWxlY3RlZExpbmVDb3VudCI6NjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhMzdmY2JiMDM5ZDVlZTg4MjgyZWM1ZmE1OTkwNjQ5MGNlODg0NzUxZDBhNGVmMDE4MWZjNTAwZmQ2ZmEyMzIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMzA5YjBlYWMwM2M2ZThkMTQ4ZjVmYTUzOTE3MTFmM2I2NTdhMTczNTMxNGE5NTE1Yzc1ZmNmNTJhZmYyY2QifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/root.go",
+          "version": "repo-file-v1:sha256:82126fd8419a4246a6b31ab6b814e99206a389f24715664dbd0bd7605f57370b"
+        }
+      ]
+    },
+    {
+      "id": "claim_c48eb605ec8e40829af97c72045f8c26",
+      "statement": "Trusted Actions splits its codebase into two layers meeting at a persisted execution row: a synchronous request-handling layer (router -> middleware -> handlers -> store) and an asynchronous action-execution layer (worker pool -> runner -> executor -> action -> backplane -> cluster/cloud provider).",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L31-L59",
+          "version": "repo-lines-v1:sha256:953abe3242680028073e413d539eb45c5ae03e75aca654d1a22ec67979064b1d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNkZTRhYTM1ZDA5MTk2ZThjMGNkMTVlMjRhNjlmMGJlZDJmNzQ3MzA0YTZlNWRkMGJhN2Y2NDQxMDRmMGNiNDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3YzA2YzU2MWQ1YzMyNzM0MzY4NTI2OGE0NmIzMzkxZjM5OThlZWU4OTBkMmJlNTFmMGQyMWNjNGE1M2FlNmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY2MDYwM2FkOTUyODVhYmExMTdhNTdmYzllODY3YTdjNDM4ZjY4MWYzNjA1ZWQwMWRlYjkxMjViNmFkZGI1YWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwZjk4OWFlMWJlNWFiNjUyYTdlMDFjN2JhOTU4NzRjMGQ3OWYxNDk3NzU2N2I4ODhkYjBmNGM0N2YyMmVkNjIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_fac7448b1fb54bbebaca64e117ebc196",
+      "statement": "cmd/server/main.go is the composition root: it loads config, wires authn/authz middleware (real OCM-backed or mock depending on ROSA_TA_AUTH), constructs the Backplane client provider (real Backplane-CLI-backed or kubeconfig-backed for local dev), builds the catalog, and starts the HTTP server and worker pool together.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L70-L250",
+          "version": "repo-lines-v1:sha256:1616553b4c6c7445e150e803d8b6926802809792dbd63e95ff535b6b06f88c90:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYjk2NGRjZDM5NjViNTNkZWM5YzNmNTIzNTY5YWZjYzU5NTk2MTRmNWZlNDZmMDVhZDUzN2RiMDk5NTFiNmY0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYWExOGJjYjQxN2UyZGU1ZjExZjkxMzRmOTRjYmYxMWZkMjcyNjA2MzlkNGU4ODU2YmQ3NTU2NTk4ODU2Y2FkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxNmJhNzFhN2JlMzljMzcxM2QzNDQ3Mjc2YTIxOTBjN2I5MzgyNTRkOWVhYjE1MTBjYTA3ZTUzNjY0ZTg5NzViIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_f20871e00d0344e092191ae148d0dbd6",
+      "statement": "The request-handling middleware stack applies, in order, custom logging, request-ID generation, panic recovery, real-IP resolution, a 60-second timeout, permissive CORS, and then (only on action routes) authentication, auditing, and authorization.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L100-L117",
+          "version": "repo-lines-v1:sha256:2120f24d4e22b784cf5ad03a857db99d61f86de5a7dcb49a7b7d1bc39bfd097e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmNzkxNmI5YTRlZWIzNzY5YjM5MWUxMzdiMDliZTdhMTg5ZmE3YjNmNTNmM2JlOGQyZDVhOWYyNjM5MzlmZjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2ZThjYThlZTQ1YWNiZTc4YWRlOGM5NzY0N2IzN2IwNWRhN2E1YTJiYjFkNDAyOWY0ZmFhMjAwZjcyZGM0OWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcxYzY5NDllOTgwMmQ1NGRjYTcyY2IzZGRhNjA5NDk1MGYyZGE4YTliMzUwYjk4ZGU0MWQ3ZDQyNjE5YmJhMjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJjOGM0NjA4MjA1ODFjNTRjMzg4MGYzOWE0NDYzMzFhNGEzZWE0ZmY3NDgzNGIzMzY1MzY0ZmE5MmY5ZmFiMjIifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/middleware/middleware.go#L14-L56",
+          "version": "repo-lines-v1:sha256:d2152a7635c6c55309e4812963653d1fbcf490ff16591c44475a02e4df85df9c:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlMGExOTY3ODQyYmUxOTY3M2EwNjA1Y2E4OTk0MGI5ZGU1NWMyOTMyNTAxODU1YTZhY2EyOTllNWQ4YzgwZTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFjODZkNmYzMGYyNzc0Y2M1YTg2ZjM0ZmYxODUzMWM3YjExZTEzOTM1ODcxM2UzYTY5ZDhjMWUwOGE2NWZhYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlkMDA4ZGFmMmExMmE4NzRlMmIxNGJjMjQ3NmE4NjJlNGJiZWI0YjJkNTQ3Y2JiN2MzNmEyMWU4MjAzNWMwZTkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_95e1683a206540f3911a68801350c42e",
+      "statement": "Trusted Actions' API is OpenAPI-first: multi-file specs under openapi/ are bundled by 'make generate' (bundle-spec target, npm run bundle-spec) into api-spec.yaml, then oapi-codegen generates internal/openapi/api.go (ServerInterface, request/response types, chi routing) which must not be hand-edited; internal/handlers/api.go's APIHandler implements that generated ServerInterface with the actual business logic.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L49-L54",
+          "version": "repo-lines-v1:sha256:836425e8aed1825d8fdae0140263516ef326f62fc5de6cd1513804046d3b730c:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjQ0Y2NkMDc0NTVhNzMxYmYwNTJiNTBhNGE1NDc2ZTA0NDU3MjJkMmY2NjU0MjZjZjk3NmZlMWY2ODg2YWRiNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzc2NjU0NzY2ODVjY2JlNmJjYTM3ZDYxNTU4MGQ4YTNmNmU5OGI2NjMxZjg2N2ZiNTQwOTRkNzc1NDk2MTkyMiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYjM3NGE5ZDZiMGYyZjkxY2Y0MTQ1ZDM1NjE4NTBjZjgxY2FlOGJiNDZiZmNiMzBlNTBhMmVhZGU0ODliODE1YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzYzNDRjMWUyOTMyOTE4YWU1OWZkMTcwMzFmNTljMjc5MWU0NzA4NzQ1NDhiMjA2ODE5NWE3N2FiNDE3YWVmZSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L33-L71",
+          "version": "repo-lines-v1:sha256:0e806a0f7cb06d85a18c5bec2f07b263d41090b68ff3c15ec4862108a1e7ea55:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyYTFkYjgyZjRjNGY3YzEwN2M5YzBlNjIyYTRhNjRlMzcwOGE2Y2EyOGZmZjhlNTg1ZDAyNDMwYWM2NTYxNzMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYwY2UzNDM5M2ZhOTAyMTlhMWNlNmMxMDA1NTJlMTE1M2I0YzFlYzM4MTdmMzQ5MTc0MjczY2RhZjdmZmRkODUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiNTNiODlhNzZlYjAyMDEyNWE5NTAwNzhkYzk2NzA5YTI4M2JhMDdhMTQ2ZjJjZjE5NGFiNWRkZjE3ZjhjZjQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/openapi/api.go#L1-L4",
+          "version": "repo-lines-v1:sha256:b3a28a96e46b59d4393bb0b9c6bf8584644028d211d21f645725d8eb0d7bd316:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzlmNjdkNWZlMWY0MDJmODI3NjMzYzNkNjUyZDIwYjgwNTA3ODdmOWMxNzQ5ODdhYzEyM2QwM2EzNDlmZWM3NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNmM1MmVlZmNiMDFmYzM4ZGRhZTAzMzU1NjY3MWY4N2RlMWFkYzRhYWIyNDllYjA2YWNjYzE0ZmM5YjBjMTRkYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDI3YmRmNzA1ODQyNWUxYjFiNGZkMDk5MDkxODIwNzdjMTJlZDIzZTBhNTc5MTJjOTc4Y2JkOWM0YmMzMDg3MCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_4151866e2e5e44c397e17e08b04aef52",
+      "statement": "The Action interface in internal/actions has only a Name() method and no Execute method; running an action requires implementing a scope-specific subtype (KubeAction with RequiredRBAC/UsesPodExec/Execute against the Kubernetes API, or AWSAction with RequiredServices/Execute against the AWS API), and AWSWriteAction additionally fixes Operation() and Resource() so a caller cannot relabel a write as a read or a different operation.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/actions/actions.go#L73-L123",
+          "version": "repo-lines-v1:sha256:fef7e92f845d6200a11ad0816f771d69e9e9a260c6f873259a22e9254ae54523:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ5MzdiNmFiZmJlNjJhOTZjZjdiZmY1NTI4NzVmMzljOWMzNWIxN2Y1ZDFiYzFlYzhhYTY5OWY4ZjdlYWQxNjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhYzJhYmFmNjcwMzU5ZDEzOWYzNjMzNGZmZTQ3YTMzNjEzYTAyNTdmNTNmZDUxY2JlNDYyNTUxZjlmNmJjOGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA4M2QzMzRkMTBjZmE1MWEyODhiZWJiM2Q5YjJiNTc4YTQ1MGM1YmZmOGU1NDRmM2ExZDU3MmI4NTI2MWRjNjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_2c6f4d84f29e4309bfacf2a16508f81d",
+      "statement": "New actions are added by implementing the Action interface under internal/actions, self-registering a factory via RegisterActionFactory inside that file's init() (populating the package-level nameToActionFactory map), and adding a mandatory ActionDefinition to catalog.New() in internal/catalog/catalog.go; an action registered via RegisterActionFactory but absent from the catalog is inert because CreateExecution, Describe, and CheckActionAccess all resolve actions through the catalog, not through nameToActionFactory directly.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L66-L75",
+          "version": "repo-lines-v1:sha256:6b14285e6f3240a3930dd447c972d8762ca3a312ce15de7896dedf1719702f13:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzM2YwYWY5YTA2YzAyZTBkZTcwMWNiYWEwZmYxMTY0ZDZkZGNiYzYxMjM4Y2I2NjJiMTBhZjJjYWRmN2YyZjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEwM2RkOTEyN2JkODc1YTRjZDlhNGQ4ODYwM2QwMzFlODQ1M2VjYTI2Y2E0YzdjY2FiOTA4NzM0ZjQ2YTcwODciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY5ZTY1YTg3MTc5MzdkMmJlOWUyMmE0ZmY0NzkyOTAxN2UyZTAxMDFhOTU4ODViYTRmOThjYjFiZjkxM2VmYzciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIxZGI4ZTE3ZWIwMTkzMmQ1Njk4MzIxOTMzYmFmOWVlYWUxOGFiNjNmYWMzYzBkZGFiM2UyM2RjOGM2N2Q0OGQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/actions/actions.go#L125-L145",
+          "version": "repo-lines-v1:sha256:ca62117242217eb6afa2c30b6d8842193d1f7afeaa49773e7b7b08b6b5b4d032:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyMjE1N2NiMWJkMGE5YzFkMzRjYTEzN2I5YTllNTUzOGU2ODgzOTEwY2RhYzdiNTgwODQ4YjU1ZWYxZjQ3MTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlYTA5ODkzZGRiNDgyYzg1Y2I0NjBkOWNhMDAxNWJjZGY5ZWNhNjg2MGI1N2U5NTM5ZDJlNDM3ODUyYTk3ZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg1ZDY2ZjhhY2NhNTUyYThjYTVjZWZiZGMzNjQ5NzE5NmU5ZjIzOGYxYzZlMjNmMzA2MjEwN2FhZWFkNWRjMDUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L37-L55",
+          "version": "repo-lines-v1:sha256:7e900e33e651e0254058d77226c6e9a98db02510aeb22faa277b18002ec71c07:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM0YzVhYjQ4YjZmN2QzN2I1N2I5ZmQxM2ZkMGRjYjJjYjFkYjQyYjZkOWIyMGY1ODM5MDA5Y2E4ZDRmZTVjYjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3ZDBkNTlkYjhiNmI3OWNiMmE0YjY2MzI3ZGU3ZTA3YzgwNjljZGU2ZTNkM2VkOTI4NzQ0ZTZiMDc0OTM5NmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwZGYwNDI5YjliZWI2NWIxMWFkYTg0M2ExNGI0NzMxYTA2MzFmOGQzZmZiNzFmM2U0OTE1YWI0OTg1OWNmMTIifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L58-L98",
+          "version": "repo-lines-v1:sha256:04f4d47ce3954499c399fe732ba1fd0f6e289598253d3bd4946f210b6b24a595:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjMTMwZDYxYjNlZDgyNGY5MGE2MWQxNDU2MDUxZjAzZTk4OTQ5ODJiNjdiMDI5MTE5MTZjYWZhZWIxMGQ5ODYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUwMWQ0ZTA5OTQ3ZjIxNjUwZmMyNjlmMGIxN2YzZmIwMTdkY2Q0NTY2N2Q4YjAwM2RkMGIxYTNlYWFlYjE2YTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIwNjIxYmZhYjg2NDY5MDJkZWQ1M2QyYTVjNTEyZmE1NDM4NGE1YWExYTg2OWM3MmNlMTJmNDVlODk1NzgzYmMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f0fc7c98963042cab16b3193617695fb",
+      "statement": "ActionDefinition entries in the catalog carry Name, Description, Type (openapi.Read/openapi.Write), Scope (openapi.KubeApi being the only scope any current cataloged action uses), AllowedRoles, ParamDefinitions, and optional DryRunAction/WriteCooldownSeconds/Approval fields that support dry-run pairing, write rate limiting, and an approval requirement.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L18-L55",
+          "version": "repo-lines-v1:sha256:6d09a0d2410b5edd427fb22e41fa0d8cea8f3886b2abe70e29973aadb641bb43:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2M2Q5YmVhOTRhZWQ3M2MwMzU5YjMyMzU2OWMyOWUyNzRmYzAzNGYwZTQ1Y2YwMGIwMGZiZDJjZTU1ZmEwN2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM3Y2Y2NjVjYzYwZjRlYTcyZGFlOTI1ODE2ZTkxMWNiMDRhNzQzZTNjN2Y0NzY5Y2IyYmVlMTE3ZGE3ZjQ5ZmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwZGYwNDI5YjliZWI2NWIxMWFkYTg0M2ExNGI0NzMxYTA2MzFmOGQzZmZiNzFmM2U0OTE1YWI0OTg1OWNmMTIifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-10T16:03:08.957Z"
+  }
+}

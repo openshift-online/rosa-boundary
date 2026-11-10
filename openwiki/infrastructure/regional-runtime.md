@@ -10,6 +10,8 @@ sources:
     resource: repo://deploy/account/main.tf
   - id: openwiki-source-6b03d2d17a5b9eb3f358798b
     resource: repo://deploy/account/modules/shared-iam/bedrock-logging.tf
+  - id: openwiki-source-e0e8c15f232fd81f46f03e41
+    resource: repo://deploy/account/modules/shared-iam/iam.tf
   - id: openwiki-source-f4745022f20c2f39d1db313b
     resource: repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf
   - id: openwiki-source-ee86c0d48b646d4bc6813442
@@ -48,10 +50,10 @@ sources:
     resource: repo://hcp-terraform/rosa-boundary/main.tf
   - id: openwiki-source-d796a031add13f67891a2f24
     resource: repo://lambda/reap-investigations/handler.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-05T16:02:21.720Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-05T16:02:21.720Z
+    at: 2026-11-10T16:03:08.957Z
 ---
 
 # Regional AWS runtime infrastructure
@@ -70,11 +72,15 @@ IAM separates the ECS execution role from the task role. The execution role supp
 
 ## Account/regional ownership and multi-region contract
 
-The **account** root owns shared IAM role identities, trust policies, OIDC providers, and common AWS-managed policy attachments. This includes both the basic execution and `AWSLambdaVPCAccessExecutionRole` attachments on the investigation-reaper role. Regional roots own inline permission grants, not shared identities or managed attachments, and resolve roles by name and OIDC providers by issuer URL through data lookups rather than remote state. Account identity creation therefore does not require regional resource ARNs.
+The **account** root (`deploy/account/`, backed by the `deploy/account/modules/shared-iam` module) owns shared IAM role identities, their trust policies, OIDC providers, and common AWS-managed policy attachments — for example the execution role's `AmazonECSTaskExecutionRolePolicy` attachment and both the basic-execution and `AWSLambdaVPCAccessExecutionRole` attachments on the investigation-reaper role. The account root never defines inline policies or `aws_iam_role_policy_attachment`/exclusive-assignment resources itself for those roles; it exposes them as a `shared_roles` output plus a `regional_iam_contract` output (`account_role_name_prefix`, `legacy_policy_region`) for regional consumption.
+
+The **regional** root (`deploy/regional/`) owns all inline permission grants on those shared roles. `deploy/regional/account-iam.tf` resolves each role by name (and each OIDC provider by issuer URL) through `data` lookups rather than remote state, and computes a `regional_policy_suffix` local from the region and the contract's `legacy_policy_region`; `deploy/regional/iam.tf` then attaches one `aws_iam_role_policy` per grant, named with that suffix. Because identity creation never needs a regional resource ARN, the account root can be applied independently of any region.
 
 Every regional root must use the same `account_role_name_prefix` and the same single `legacy_policy_region` from the account root's `regional_iam_contract` output. Only that legacy region keeps unsuffixed inline-policy names; all other regions append `-${aws_region}`. The staging definitions designate `us-east-1` as the legacy owner and `us-west-2` as an additional consumer. A west workspace must not choose itself as another legacy owner, because that would overwrite east's inline policies on the same roles.
 
 Regional policy ownership does **not** make IAM roles regional: the shared identity receives the union of grants from all consuming regions. Keep each inline policy and each `(role, managed-policy ARN)` attachment under exactly one state owner; exclusive policy reconciliation would remove another region's grants. The regional `account-handoff.tf` declarations release listed legacy account-owned objects with `destroy = false`, while inline policies remain in regional state. This configuration is not evidence that a particular live state transfer or apply succeeded. Coordinate teardown across all consumers before deleting account roles; see [HCP workspace integration](hcp-terraform-workspaces.md) for the six-workspace staging topology and apply gates.
+
+Trusted Actions runs its own separate AWS footprint under `components/trusted-actions/terraform/{global,regional}`, outside this Boundary account/regional split; see [Trusted Actions deployment](trusted-actions-deployment.md) for that infrastructure.
 
 ## Audit and session records
 
@@ -118,7 +124,7 @@ The mocked regional IAM tests assert that identities and managed attachments are
 - Create-investigation Lambda ZIP and container-image modes share environment configuration, while image mode requires an image repository and tag; a separate EventBridge schedule invokes the task-deadline reaper. [Lambda package modes](repo://deploy/regional/lambda-create-investigation.tf#L11-L140) · [reaper schedule](repo://deploy/regional/lambda-reap-tasks.tf#L42-L66) · [reap-tasks schedule default](repo://deploy/regional/variables.tf#L402-L422)
 - The investigation reaper uses an account-owned role and basic/VPC managed attachments, with regional logging and ECS/EFS/S3 inline grants; access-point deletion and filesystem mounting have different conditions. [regional grants](repo://deploy/regional/lambda-reap-investigations.tf#L1-L117) · [shared identity and attachments](repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf#L1-L19)
 - The reaper mounts its dedicated root access point at `/mnt/efs`, runs independently, and backs up existing directory data before ordered cleanup. Eligibility is creation-age-based with an idle legacy exception for missing `CreatedAt`. [function and schedule](repo://deploy/regional/lambda-reap-investigations.tf#L174-L239) · [schedule and grace-period variables](repo://deploy/regional/variables.tf#L402-L422) · [staleness](repo://lambda/reap-investigations/handler.py#L252-L321) · [backup-before-delete](repo://lambda/reap-investigations/handler.py#L662-L712)
-- Shared-role lookup and regional policy suffixes preserve one owner per grant without implying region-isolated permissions. [lookup and naming](repo://deploy/regional/account-iam.tf#L1-L49) · [account contract](repo://deploy/account/outputs.tf#L1-L12) · [ownership and suffix tests](repo://deploy/regional/tests/iam-ownership.tftest.hcl#L98-L121) · [additional-region tests](repo://deploy/regional/tests/iam-ownership.tftest.hcl#L193-L233)
+- Account state owns shared role identities and managed-policy attachments; regional state resolves them by name and owns every inline grant, suffixed per region. [shared role identities](repo://deploy/account/modules/shared-iam/iam.tf#L1-L22) · [reaper identity and attachments](repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf#L1-L19) · [account contract output](repo://deploy/account/outputs.tf#L1-L12) · [regional lookup and suffix](repo://deploy/regional/account-iam.tf#L1-L8) · [regional inline grant example](repo://deploy/regional/iam.tf#L79-L90) · [ownership and suffix tests](repo://deploy/regional/tests/iam-ownership.tftest.hcl#L98-L121) · [additional-region tests](repo://deploy/regional/tests/iam-ownership.tftest.hcl#L193-L233)
 - Account-managed Bedrock logging trust permits only approved source regions in the same account; regional destinations and grants remain separate. [account input fallback](repo://deploy/account/main.tf#L42-L49) · [service trust](repo://deploy/account/modules/shared-iam/bedrock-logging.tf#L1-L28) · [staging region list](repo://hcp-terraform/rosa-boundary/main.tf#L209-L215)
 - Account Terraform manages Bedrock model agreement offers by ID, while regional validation requires the configured default inference profile to map to an approved foundation model; Terraform tests reject invalid profile/agreement combinations. [account agreements](repo://deploy/account/bedrock-model-agreements.tf#L1-L40) · [default model validation](repo://deploy/regional/variables.tf#L37-L65) · [Terraform tests](repo://deploy/regional/tests/claude_default_model.tftest.hcl#L78-L115)
 - Bedrock Runtime uses a private interface endpoint and invocation payload logging sends text to encrypted CloudWatch storage and larger payloads to a separate S3 bucket. [runtime endpoint](repo://deploy/regional/bedrock-endpoint.tf#L1-L69) · [invocation logging](repo://deploy/regional/bedrock-logging.tf#L1-L85) · [large-payload bucket](repo://deploy/regional/bedrock-large-payloads.tf#L1-L86)

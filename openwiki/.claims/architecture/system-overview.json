@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:c4d03867b1beada14b400198f5aa545385ac5920fb4addd5382942430b6058e2",
+  "pageVersion": "sha256:e67956a1cdea020bcbf20629b111e0805bedcd19813177e6684aa08d2c07a1c9",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
-      "statement": "ROSA Boundary separates CLI orchestration and operator authentication from Lambda-side authorization/resource provisioning and ECS Fargate task execution; the CLI's centralized pre-run hook performs OIDC-to-STS authentication and selects the Lambda invoker role for create/start commands versus the shared SRE role for other commands.",
+      "statement": "ROSA Boundary separates CLI orchestration and operator authentication from Lambda-side authorization/resource provisioning and ECS Fargate task execution; the CLI's centralized PersistentPreRunE hook (commandPreRun, wired in buildRootCommand) performs OIDC-to-STS authentication and selects the Lambda invoker role for the investigation-create and session-create commands versus the shared SRE role for other commands.",
       "evidence": [
         {
           "resource": "repo://cmd/rosa-boundary/main.go#L7-L9",
@@ -15,34 +15,22 @@
           "version": "repo-lines-v1:sha256:bb9ed57d6d746e1c827a1243809ceee6ae00520dccc5119634a87b43c8ea71a2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZjIxMWVlZjZlMmJkMjQ1ZThhNjI0OGUxZWY0ZDUxZTdiODM2OTgxYmZiZTgwNjA4YTliMzExNWM1ZTVmOGUifQ"
         },
         {
-          "resource": "repo://internal/cmd/root.go#L171-L228",
-          "version": "repo-lines-v1:sha256:d40bcc20030c860ba4e34af0a6d684771328de7ee0b06c6acc2437c97f766b8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5ZmQ5MjRjMzgwYjUwZWQ0YzQ1OGIyZTgyNzVhZTUwNWFhMzkxZjg4MzFmYmJkOTZkMjJjZjI5YjQyYTRlNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU2ZTA3OWVhYTU5NDlkMTBjM2U3M2FlNjZhYjg4ZjJiMTg1NTYzMGE3OTRmNjQ3NjE0ZDZlNmZjNGJiNDdkODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
+          "resource": "repo://internal/cmd/cli.go#L25-L136",
+          "version": "repo-lines-v1:sha256:a89e84485ead340043b9a2d0e22001c15f506b7ef49d52d2854055579352d4c3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjNWNlNTBjZDdiM2ZiZTUxODA3ZmFlZjM1MDk4MjIxODZkODllMGQyNTUyYWEwNTU5NTcyYTIxMDIxNDc5YWNjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4ZDJmZDcxMWNmZGZlZmRjNjI2MThhMjJjZGUwMWQzNmNmOWMwMDhkN2UwMTZkMDdiZDg5NWJlNzZjY2QyMGM4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzYTU3ZTJjYjhjYzE5MmIyZDZkZWE1OGM2NTQzNzlkYjA1MDM1Y2I0YmNlODMwMGI4ODM2YzZiOWE2M2RmZTllIn0"
         },
         {
           "resource": "repo://lambda/create-investigation/handler.py#L77-L88",
-          "version": "repo-lines-v1:sha256:fb009524ccab8d978a4b492790d0b3c984f0dfec504ffe7de0795468afedb576:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExZmJkZjk2NzBmMzk3Nzc1NTExNTQ0N2VmNTJjODhmZjYyOGQ3NWM1OTEyOWIxYTlmNWMzN2Y5YzBiYTFkZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNhMjI0NzEyYTFkNzNiMzQ0ZGY4YWRmMWNjM2FiM2FiMjJiMTU5MTA1MTcyMGFmZWJhYTRjZTQ0M2U3ZGRhZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2OTA2ZTMxNjU5NGUxMDZjNDU1MTE5NzJhYzZiZmUwNTdiZTllOWQyZjU5MjZlZjQzMmZkM2E2NmY5MzM4YmQifQ"
+          "version": "repo-lines-v1:sha256:c45a15d2d181d73fba775a836b307e1decd7ded3259b2e1390935b4400bab5c5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlhYmE3YjdmZmFkMzU0NTM3ZDMzMDA4ZTBkM2UzN2NlYTI1Mjk4NTg1MjkxMGM4YzU3MjBjYjAzNjc1OTEzNTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg4MzExNzQ1ZDQzZDA0MzRmNmMwNGUxYmZkZTI1YzA4YmJkNTVhYWJlZDQxOTUwOTZlZDZkZThiZjA4NDUxMDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk1NzQyZTgxZTBmM2EzOWJmYmRiOGE1ZTRkM2U4NjA1ZjE5ZGZkZWI3Y2VlNDdjODY5MjYwNzM2ZDM0ZTM0YzQifQ"
         }
       ]
     },
     {
       "id": "claim_3dadbf40d0b0414bb483615e237e52fd",
-      "statement": "The create-investigation Lambda validates OIDC claims, creates or reuses an investigation-specific EFS access point, performs a session-checked handover of any existing running task for the investigation, registers a per-investigation task definition wired to the access point with task-scoped credential overlays, and launches an ECS Fargate task with ECS Exec and investigation/deadline tags.",
+      "statement": "The create-investigation Lambda's main handler validates the OIDC token and required group claims, derives the ABAC tag value, and dispatches to create_investigation_task to perform the actual provisioning.",
       "evidence": [
         {
           "resource": "repo://lambda/create-investigation/handler.py#L175-L281",
-          "version": "repo-lines-v1:sha256:8d207ea1482bb09d98106b99d2d303229d7f17ef2c0a1c06fc2143f79e70683e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzMDg4OWY0NDRkNWE4NmRmNzE2ZDk2MTU5YzcxNjgxODJmMmM1ZTYxMjI5ZTY5MDk3Y2JkZDI3OGQ5ODllMTk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJmOWIxOTgyZThkZDc0ODExODE0NmIzOWEyZDAwNjJmNDA4MWUzNDc3OWI4Njc1YzIzNGM0ZmIxMjRkYzM5MzkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYzU2OGU0MTZiMjk0Yjc2NTNhY2VjYzhkYzFlMmMxNjdmMjlmYmNhZjVkN2YyZDc4N2Y0MDUwNDk0Nzc4OWE2IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2YWM2NGI2ZmM2NDA3MDYxNDVlMjQzMmE4MzQ5YzkyNTExN2M4YTc4MmNkYzZmY2UxMWU1ZDI5NDY4NGQ0Nzg5In0"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L469-L638",
-          "version": "repo-lines-v1:sha256:4fdfb1fc2a8b40fcf321cbfa8332c2ea80b9f83eff3ef746d80a63aa944dd2f0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyYzRjMDM5MmJjNmVlNDliZTU3ODg3NTcyZjNjZWIxMzE2ODljZGUyM2Q1ZTI3NTY5NzUwYjc4YjQyY2I0MGNmIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkMjQyZDE0NThkYjlkMTg4NzVkN2VjMDQyMTA3YjAyYjljMzJiOTk5ZThmMWJlNTViZjgwNzc1Y2M3M2U3YzJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJkNzAxNDllMDY5YWQ2N2VjY2Y0NzM2NDZmZjFjNzUwMDUwZDMyOWQxMTAwMThkYzU3NjY4NzhlYWZhMWQ2MDdkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0OGE0YjY5NjJlZDE5OWY4ZGJhZGY5YTUzMTlmODk5MGEwNDg2Y2QwZjc3YTI1YTlmYjIxYjdkZjM1ZDAzMTgwIn0"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L682-L774",
-          "version": "repo-lines-v1:sha256:53180f96b3890eb224de3adbbd4a106a989161b1380a4abfc32676bb40656304:eyJzZWxlY3RlZExpbmVDb3VudCI6OTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkZWFkZmRjMWYxMDY0ZGVlNmM0MzNkMDEyZjc3NGFhZGQxOGU2YmI1NTg4NWU1M2RjNGIwMWQ4MDY5ZjExYTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxMDM0ODFjNTdkMGYwZGMwZjc2Y2QyY2M4YjM2MDRjNGU4Mjk2ZGE0MTIyYWRkMTllODE3NDVkYzdlMzMxYTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImEyOTQ5MTE2MjcyNGM1YmQ1ZTc4NDFiMjA1ZGUxYjkyOGY1MGFmNWIxMTI2ZThjZWQ2YjJjMDE5YTVjMjlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUwMzBiMjA2MTk4NTEwZGVmMmRlZGQ2NzA3MDM2YWU1YTEwMzcyZTcxMzFhZWQ1OTM4OGFlNTQ1YTk2OGY4MDkifQ"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L886-L999",
-          "version": "repo-lines-v1:sha256:92f95d1a3c7973a9c1693e8bf5e8dbd4d0814042ade24196e90ae79990dcc5c9:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1M2YzNWUyZWFlMWY2YTI2NDdiN2U5NGMyNTBlMzRiMzA2MTE4NDFiZjMwMDE1NzUyNTNjMDJmY2I3ZTA1MTI4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlNmIwNDQ5MTQ2OTcyMmU4MzYzYTk0ZTQwNDQ1MzhlMDEzYTJhMjE3ZTM2YjFlNTY4YmE2MGFjYjdiNGM4ZjJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwMTYzZDdiYmFiMDY5ZjI5NWZkYzIwZjA4NDllMGJmODA2ZWIzMjc4NDljOWZlMzU0MTkzNTc1ZTIyOWEyNDI3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhN2NiYTczZWVmNTNjODJkZmRiODQxYTBjMDNjNGZiZWU1ZDUzMWUwZTg4ZGRlNmIxY2JhMGQ5ZGNjYzM3ODUwIn0"
+          "version": "repo-lines-v1:sha256:a6d4784d7dc892a624d2d0ca4f9137b3962d1365beafb30b9b6b46da27fde690:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjYzU1OTA1Zjc1ODA2OGZjMDg2YzQ3MzMxODhjZWQ2OGUwYzYzMGU3ZjBhNjc5YWMzYjRiZWNlY2Q4ZDUxMDNhIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJiM2E4OTEzMjc2NWNhYzcwNDVhODFmZjU0Y2NiZTNkZmI3Y2Q1ZWMwMTQyYzU5YjJkNjhlZmJiYWE1MjViNWM2IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4M2IzYjgzMzc0MWZhNGQ2NmVlZDE1NDc1MzI0ODEwMzRhZGIyZWI3ZjllZjljMDFkNzYxYTMyZDk2MDc0MzhjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyMzI2NzRlYzYxY2QzNDhlODdjM2MzMzI0MTRhZjA2MjkxZjFhZjU3ZjU3NTU4MDRlMGMxYTJiMmE4YjRhZmRkIn0"
         }
       ]
     },
@@ -93,7 +81,7 @@
       "statement": "The create-investigation Lambda registers a per-investigation ECS task definition that replaces the EFS home volume with the investigation's access point, strips and re-adds task-scoped (non-EFS) overlay volumes for the OCM config and kubeconfig credential paths using path-traversal-safe protected_mount_path checks, and injects a Secrets Manager kubeconfig reference into the kube-proxy sidecar's secrets.",
       "evidence": [
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L469-L638",
+          "resource": "repo://lambda/create-investigation/handler.py#L521-L690",
           "version": "repo-lines-v1:sha256:4fdfb1fc2a8b40fcf321cbfa8332c2ea80b9f83eff3ef746d80a63aa944dd2f0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyYzRjMDM5MmJjNmVlNDliZTU3ODg3NTcyZjNjZWIxMzE2ODljZGUyM2Q1ZTI3NTY5NzUwYjc4YjQyY2I0MGNmIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkMjQyZDE0NThkYjlkMTg4NzVkN2VjMDQyMTA3YjAyYjljMzJiOTk5ZThmMWJlNTViZjgwNzc1Y2M3M2U3YzJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJkNzAxNDllMDY5YWQ2N2VjY2Y0NzM2NDZmZjFjNzUwMDUwZDMyOWQxMTAwMThkYzU3NjY4NzhlYWZhMWQ2MDdkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0OGE0YjY5NjJlZDE5OWY4ZGJhZGY5YTUzMTlmODk5MGEwNDg2Y2QwZjc3YTI1YTlmYjIxYjdkZjM1ZDAzMTgwIn0"
         }
       ]
@@ -103,7 +91,7 @@
       "statement": "Before launching a replacement task, create-investigation checks SSM sessions for existing-task containers with a runtimeId. Active sessions, empty task details, and ECS/SSM API errors block handover, but missing runtimeId skips the SSM lookup. Only after preflight does it stop existing tasks and wait for STOPPED; stop or wait failure prevents replacement launch.",
       "evidence": [
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L682-L774",
+          "resource": "repo://lambda/create-investigation/handler.py#L734-L826",
           "version": "repo-lines-v1:sha256:53180f96b3890eb224de3adbbd4a106a989161b1380a4abfc32676bb40656304:eyJzZWxlY3RlZExpbmVDb3VudCI6OTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkZWFkZmRjMWYxMDY0ZGVlNmM0MzNkMDEyZjc3NGFhZGQxOGU2YmI1NTg4NWU1M2RjNGIwMWQ4MDY5ZjExYTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxMDM0ODFjNTdkMGYwZGMwZjc2Y2QyY2M4YjM2MDRjNGU4Mjk2ZGE0MTIyYWRkMTllODE3NDVkYzdlMzMxYTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImEyOTQ5MTE2MjcyNGM1YmQ1ZTc4NDFiMjA1ZGUxYjkyOGY1MGFmNWIxMTI2ZThjZWQ2YjJjMDE5YTVjMjlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUwMzBiMjA2MTk4NTEwZGVmMmRlZGQ2NzA3MDM2YWU1YTEwMzcyZTcxMzFhZWQ1OTM4OGFlNTQ1YTk2OGY4MDkifQ"
         }
       ]
@@ -189,7 +177,7 @@
       "statement": "The reap-investigations Lambda's GRACE_PERIOD_HOURS defaults to 72 hours in the handler when the environment variable is unset, while the Terraform variable investigation_grace_period_hours that normally supplies it defaults to 168 hours (7 days); operators relying on the Lambda's built-in fallback outside Terraform-managed deployment get a materially shorter grace period than the documented default.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/variables.tf#L424-L432",
+          "resource": "repo://deploy/regional/variables.tf#L439-L447",
           "version": "repo-lines-v1:sha256:1f08ff33ef1e3492c2a244f6a4566b6d4a2cabe4a33c19d7233fa68350ee61d1:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTU3ZjZkYTA2Y2YzOWM4MGE5YTlkM2I0MjRlMDZmNzY0MzNiYjYyZjM2NDgyM2NlMDdmNzJhMzc4YjQ5NWFhYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjdlNTc4OGQ1ZDlkNzNkMjRhODFkYmMwYTVhNzRiZmE4MmM5YzNiM2FmOTllNTJhZjc5NmU5MGI0NjhhOGEzZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZmI1ODBlOTY0ZjgzYTQ3M2Y0M2Q0NDM4NDYyOTQ5ZDY4YjU2MDBmZGE3ODdmMTYzNzQ1ZDAwZGU4OWNiZjM2YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjEsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSJ9"
         },
         {
@@ -197,10 +185,72 @@
           "version": "repo-lines-v1:sha256:a5b9c8b6892c76a6c1beae057628f6adc6df94639c7900a729dc1a5a372b3fe6:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjNjMDI3ZTQ2MTYwMzMxZDJkZGRhMWJhMDlhNzViOWE5MDZlYmMwYmQzNTgwNmMwMTliZDNkMjg5ZmI4YWIzMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDE4YjJjODI0NGUxOWIxNGMyYjg0ZDc1NzM5MjEyOTU3ZWEyYTIzMWI3NzBiZGRmYzc5MzNlZjA2N2JhZTI4ZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTNmZDgxMWFhN2QwZGUwMTUwNmEzZmZlZGQ1NTY3NTA2ZTE4YzU0ZDFmNGM0OWJlNzY5ODYxYjU0ODFlYjAxYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGE4ZmY0NzM4YThjMGNlYjI5MGRkODMxNmJhNDM4YjljNjUzMTk5ZWNkMjk5ZmE4ZTFiNDA1ZWI0Yzg3MDgyYSJ9"
         }
       ]
+    },
+    {
+      "id": "claim_8c845a94f3c94e5996a10564b528336e",
+      "statement": "create_investigation_task creates or reuses an investigation-specific EFS access point, performs a session-checked handover of any existing running task for the investigation, registers a per-investigation task definition wired to the access point with task-scoped credential overlays, and launches an ECS Fargate task with ECS Exec and investigation/deadline tags.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L469-L638",
+          "version": "repo-lines-v1:sha256:3902ca0bad9833592d5d6efaca4e1c4e417c106af857904d2a2cba0d9d04d1c5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmZTlkZWE0ZTE1NWM2Yzg4ZDVhNzQyYjgzZWIyOThmMzk1MDJmNDcyNTI1NTFhYWJlMGUxYWY5MDZmZjQ0Y2VlIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIxNjk5NjMwMzlhN2FkY2VkMGQzMWMwZTM0ZmRiNTliMDU4MDE3YWQ3MTVmNjgxMGE5MWIyYjdiNGIwYTNjODNlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhMzk0NDJjZWYwOTlkZGVkYjI0NGM5NzI0MGVkODFjYTk1ZjE4MDE1OGQ3NGFiNGFiY2RkZmRjMDliMzdkMTZkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhOWMzYjM3OTIyZDQyY2Q4MmYzYWJmMWI0ODI1NWJhMzEwODY1YmQ3NjQ5NGVjZTRkZDk3NDQ5Njg3NTYyZWU2In0"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L682-L774",
+          "version": "repo-lines-v1:sha256:534bc93c7e9ad0e3ec187c414bc8a92544f78de11bc0babbb439ea2acc71e442:eyJzZWxlY3RlZExpbmVDb3VudCI6OTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ1OTYzMzRhMWRhZGY2ZWJkMDkzMTA2ZDdlZmYxODhmNjYzMGNkNDJmNDk5ZGJmZTVjMGNhOWQ3NjUzMDJkZWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVkOGQxYzBhYzM4YmI0Njc5NGFkMzIwZGRjZDM1ZGIyYmJiZDFhMDEwZjY3ODkyYzM2MzY2NjM2OTU2MmFmNDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUxODg3Yzg1YzcyNTIzZTA5ZmIyZDZiMjZjMGNjNTAwNWQ0NzgzNTkwMjRhOTdiMzBhODVlZjgxOGM0ZGU4YWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3ZTE4NWRmYzA4ZGU0MmE5NDU4NzE4YTM1ZjAwNWMwOGZjOTYxN2Y4YTA2Mzk1YTUxZmE2NmNiODgxNjUyZmEifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L886-L999",
+          "version": "repo-lines-v1:sha256:7e05eaef68e23cd0553026516abefd7a6e3d2fb04f223591afd00ae0594b360e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkYzI1OTc1Zjc0NThhNmFiNmY3ZDI4MTc4ODRmNjgwMzE0YjdiZDgwOTI0MDY1OTQ0ZmY2OWM4Y2RhMjIwNjAxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3NjE5MmE2MzRmZmY1MmQ3NWIyMWU5OTM5NGZjMzRhODEwZTI3N2U1NDkxMjc4MTM5NGU4M2JiMWZmYTkzZjkxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1MDk2YjVmZWY5ZDY3OGJhYmJhMzE0YjhlMDI2YTQzMWI2MDJlNDllMWIyNDIxZTk2OWI4NWFkMWQ4ZTU2NzZlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0MjNjOTJkYTQzMDBkM2Q0ZGRkMGY4YmI2NzhkOTk5YjQ5YTE1YmY0NzIxZmQwYzIzMDY0YjMwMWY4NTFkYWM1In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_b159a891353348cfafddedc4eeff0dac",
+      "statement": "The CLI's internal/cmd/root.go now holds only command-tree execution, exit-code translation, and OIDC-to-STS retry helpers; the root command definition and the PersistentPreRunE role-selection/authentication hook live in internal/cmd/cli.go (buildRootCommand/commandPreRun), and the task/session-launch orchestration previously in start_task.go now lives in internal/cmd/start_session.go as runStartSession, invoked by the `session create` command.",
+      "evidence": [
+        {
+          "resource": "repo://internal/cmd/cli.go#L24-L52",
+          "version": "repo-lines-v1:sha256:81401a75cdb0fe68462add2f2d7316debd23fc8b2e8db9deecb1a119f9852743:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiZjI5NjBiMjg2OTc5NDk1YmE2NThiYTdjNzBhYzlmOGM5ZDczNzNhNzNjZmE0NjNmNDIxYWI2NTFjYjUyNjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc5NDhjMjUxMjJkOWE4ZDI1ZjlhODY2ODU3MWYxZGNkNWNjMzdiNDExODQ4ODc4YjI1NTA1N2MxZjQxMjgzZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdhZjY4NWU5MTQ4ZDUzMjk4MGVlM2JmNGM1OGYyOTVhZjVkMWMyMTY4ODJkZGFiYmNhMjJiNDUzMWZhYzdkNzkifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/root.go#L1-L52",
+          "version": "repo-lines-v1:sha256:763408570184c35bf7623d5775cdf51b65e0765825e9a3f293b66261d39fd7cf:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljNzgzNTVjNGRhMzdkZjhmNzA4ZjE0M2ZlMTkxNzNkYzE0NmFkY2Q5OWQxNjM2NTk0ZDI2NWM1NDA3NzU1YmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzOWIwMjVlYjhhN2M1OGU5NWNkNGE5Y2I4ZjI1OGFlNmI5YmI2YzFkOTU1YWMxMjhkOTEzMWZhZmY5OTU4NDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhkNGQ3YTA5OWY3MWY4YTViMDdiOWQyNzFmZDNjYWUwYTY4YTI4YjNiNzliZjA0ZGE4ZDQ5MTY3ZDdmNGZjMmYifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/start_session.go#L33-L162",
+          "version": "repo-lines-v1:sha256:2594907b7532745b71ccd3341fad641dc12edf6ce504ea6e66c64870ce5d3ad5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNTExYWZjM2MyOTE4NjEyZDg3MDBkOGUzZTljNDlmNzExMDJjMzM5NTlmZTkzNzAzNzFhYTIwOTA2MDQ5NmQ0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNDdmMWYyMjUzNjI0NmJhYjA1Zjg4ZjJkNDRjMmM4NWExNThlZjM3MmVjZDBmYTA2ZWJjZmY2ZTBkNGVlNDYyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0YmYxZGI5YjgyMGMwZmM0ZTRlZTUyMmRhZTI3ZmE3ZjJjMjg0ZWQ2OTM0NzVmNTMxNmM0YWIzZDUzMTIwZTU0In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_122462732b204913a3b8320e863778d4",
+      "statement": "The repository also contains components/trusted-actions, a Trusted Actions service built as a fully separate Go module (github.com/openshift-online/rosa-trusted-actions), its own container image build, and its own Terraform roots (components/trusted-actions/terraform/global and .../regional); no code path in the create-investigation Lambda, the regional ECS task definition, or entrypoint.sh references Trusted Actions, so the Boundary investigation container's architectural reachability to TA's execution API is unbuilt and unwired, not an existing integration.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Containerfile#L1-L10",
+          "version": "repo-lines-v1:sha256:970e81d9ce42a4f95873b3f4d9def0792cf061dfda03c0b18f950377959637d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5OTc0NzYwYTY5ZGZlMjMzYzkyYjFkYmRhYmYwMGM4Mjc4NWU1ODMyOWNhZTc3ZDBhOTc3ZDJhNWI0MmMzYjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiZmNlNWIzMzhhODkzZGY2ZDhiOWE3ZWE3NmNjOTFlYmViY2JmZjE0N2JiNTAwZWE0NDRmMmZmZTNkYWI2YzQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNjZTk5MTc2ODM5Zjg3MTZjYmUzMjRlNTA4NWY1NGQyZTdkY2UzMDk5MTAyNzQ5YjkzMzZmNDYzZjg4Zjc5NTkifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/go.mod#L1-L3",
+          "version": "repo-lines-v1:sha256:64a9cccb71c111d0be4705eae9ee72a1d1e34f07e0cc6fa9614287a87a523727:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjE2MTE0ZTI3MDE5ZTNhZTIyM2ZlMDY1ODMyYWVhYTQ4YTU4ZWI5ZWZmNWIwZDIxNjEwYzlhMjRhNDVhMjg5NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzUxZWYyMjcyMDllYjAyM2RkMjc2ODBhNjAwZWNhNTcwNzU4NWY1ZjM2MTI0NDljNjA4ODVjMWU4Njc2Zjg4NyJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L1-L8",
+          "version": "repo-lines-v1:sha256:0bc530cfcf6c746e76b3174bdeec95c3d2d072dd856dea5dd31c1cca590c11bd:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGZiZGNlYmZlOTJiNmQ5MDE5YzkzMDAwNGRhYTA3MmQzOWYzZDAyNTMxZGY0NTQwM2M5ZTJjYWY2YzU0MGZiYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmMwYjBlMDU0N2Y5YmI5MjljOWU2ZTgxZDI5Zjg3NDdiYTk4MzZjZjE0MTc5MjJjOTcyMjRmMTcxMWE0YjkwZSJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/ecs.tf#L61-L159",
+          "version": "repo-lines-v1:sha256:025fb0ceacd765b39c8a693c5303b93379799fa4f25d83d0b2b79ee9342a30cb:eyJzZWxlY3RlZExpbmVDb3VudCI6OTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L1-L8",
+          "version": "repo-lines-v1:sha256:70291be41e7572d57b0413bb789134762b3124b9b6021a24922b2b64af901ee0:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTMwM2VjZGQ0YTRkMTBmMTljNzNmZDQyZmQxMjQzN2ZkMzM1NGE4MjY4MTYwNWRhNTI1NWE5N2EzOTA2OGRiYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYTMwM2VjZGQ0YTRkMTBmMTljNzNmZDQyZmQxMjQzN2ZkMzM1NGE4MjY4MTYwNWRhNTI1NWE5N2EzOTA2OGRiYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTEyYzYwNTIyYzUyMjU4M2UwZTcxOTAzMDMxZTFhMTM3YzI2NWQxZTQ0NjVlZDQzYWZiOTNlZTdkZjk4MTYwZSJ9"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-05T16:02:21.720Z"
+    "at": "2026-11-10T16:03:08.957Z"
   }
 }

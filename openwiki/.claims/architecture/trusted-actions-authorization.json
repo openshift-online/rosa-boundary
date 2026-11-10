@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:ae258c769962199ac144a4bf56dee06b07e605cc93aaeaeb5db3e44e5598e5c8",
+  "claims": [
+    {
+      "id": "claim_bfda53ee15084ef38184e1ea60230f9d",
+      "statement": "Every request under /api/v0/trusted-actions passes through an ordered middleware chain: OCM JWKS signature validation, JWT authentication (auth.Middleware.AuthenticateAccountJWT), request-level audit middleware, RoleAuthzMiddleware.AuthorizeAPI, then ActionAuthzMiddleware.CheckActionAccess.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L374-L390",
+          "version": "repo-lines-v1:sha256:45c599fb72055e701a6ada953f43a95b1bfa3618101b8d22fd95a88ca12cdcc3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYTVhMWVkOTg1MzFkODc5Y2NhNzBjYjMyZWZlZDM3Yjg0ODk4Y2YwNzlhOTVlZDM1NmFjMzMwNjBkOWVkZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmODA5MmZmZjllOGM3YmUyZTE5OTg3ZGU1NDEyOTg1ODNkNTM4Mzc1MzM2ZjJkMWQyMzlmODZhYTQwYTM0YjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1OTczNTcyY2Y0ZjEwZWVjNjcxYTNmZDhjZTJiOGViN2RiODRmOTllZTllMmY5YWY2N2E4NjE0M2FmMWJhMmYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authn.go#L29-L47",
+          "version": "repo-lines-v1:sha256:82b1d9a32c8d4b0de6a30561f45d6749439b044417d7729d6cc5ef803e86bed0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljYWVkMTdjNTQ3ZWQzNzJjOTY5YTc4ZTM3MTA2ODA5ZWU1NTJkMjAzNGM0YzcwZGM1MGYwZjY3MzU3MmY4NjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlhN2ZlM2I5YmI4YzdiZTEwZWFmYjg4OTBiY2FiNDVhNzA5ZGQxM2JlNDQ1MjI0MzY4YzUyMjEwNWRkNTdiZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYyOWI3ZjRlZTE2NTE1ODgzNDcxYzljMzQzMjljYTRjZDk1NDFhMWFmM2MzYzUzY2YzZTY0M2FjZTFiMTc0MWEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authz.go#L98-L144",
+          "version": "repo-lines-v1:sha256:65185e854d7d62fe63bef304469b7c92bfbdd3e8590f243e7e8eebbc16e03b8c:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5NDQyYWJhOTBjNTQwNzkzZmE1ODg0YThkMDk1NTEzN2UxMzg2Yzg0ZDI5YjM4Zjg5ZmRkNTNmNGRkYjJlMDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_83651a6e348b402baef93c1b9b6dfa75",
+      "statement": "The OCM JWKS validation wrapper (authentication.NewHandler) is only applied to the router when the auth policy is not disabled, and is skipped entirely under ROSA_TA_AUTH=disabled to avoid a network call and a startup failure in mock mode.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L392-L422",
+          "version": "repo-lines-v1:sha256:be6b22db053cf421a2c49201097b68eef8dc02ae06aacc10242c6044439719c9:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3OTRlMjE0YTAyY2Q4NTY1NTgwNGQ5MTUwNWQ5ZGVjOTQzOWUyNmVjZGM0MmE2MjJjZDUwNDEyNzViZjkzZTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUyYWIzMmVlYzU2YWNhM2U3MWJjMWIxZmQzNGFmZTU2NTg0ZDlkYmU4YTA5NTUxMGJkNDEzOTUxYmUzZGE2OGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxZjY3MTVhYjQwMTE4OWNlY2I0YmE1ZWIzZmFmYjZhOWRjYTQzNDc2ZDM2YmY4Y2MxM2JjMTY3MTYyYmRkMTMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7bdaa99512f3499d8fbbb15e7276d590",
+      "statement": "auth.Middleware.AuthenticateAccountJWT extracts CallerIdentity from the verified JWT via GetCallerIdentityFromJWT, reading username/email/clientId from RHSSO claim keys with a preferred_username fallback for RHD-shaped tokens, and returns HTTP 401 if the token is missing or has no username claim.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authn.go#L29-L47",
+          "version": "repo-lines-v1:sha256:82b1d9a32c8d4b0de6a30561f45d6749439b044417d7729d6cc5ef803e86bed0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljYWVkMTdjNTQ3ZWQzNzJjOTY5YTc4ZTM3MTA2ODA5ZWU1NTJkMjAzNGM0YzcwZGM1MGYwZjY3MzU3MmY4NjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlhN2ZlM2I5YmI4YzdiZTEwZWFmYjg4OTBiY2FiNDVhNzA5ZGQxM2JlNDQ1MjI0MzY4YzUyMjEwNWRkNTdiZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYyOWI3ZjRlZTE2NTE1ODgzNDcxYzljMzQzMjljYTRjZDk1NDFhMWFmM2MzYzUzY2YzZTY0M2FjZTFiMTc0MWEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/context.go#L50-L80",
+          "version": "repo-lines-v1:sha256:6bed7ba6f9131200fe5c87bd639c867619d08554ba2a5c2caf168283a93e31c9:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmMGM5OTkyMDQ1MjQ5MGY0YzYzZThkM2Q4NGM1ODVlZDU2MDBjNWRhYTI2MDM3YzRiZjRhYzUwY2ZjNGFkYzMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZjMzAxMDI0OGQxNTgwNWM3MTllYjMxYTZiMDdjYTc0ZmI4OGZkYWQ2ZGVjOTk0ZTBkMTQyOTNiZWJlNzY2MWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ab80db76ba0248959eb9818e8d001fd9",
+      "statement": "RoleAuthzMiddleware.AuthorizeAPI iterates the server's configured RoleMapping list in order and calls ocm.Authorization.AccessReview(username, \"get\", role.AMSResource) for each until one returns allowed=true; the first matching role is stored in the request context and later mappings are not tried.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authz.go#L90-L135",
+          "version": "repo-lines-v1:sha256:8774bc284a4c2625b47ab9e3fc02a162d82597cf16e6fed0b1a6772208e1dffc:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMxYzlmNGJlZThmOWVjNTFiNzA0NjIxY2QxNmYyODU4NzNmOWQwNjFjM2JjMzkzMDExNmUwZWZmNWVjZTU5MDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0ZWZjNDk0MThkMjZkY2YxMjliMjJhNmFhMjExMDhjZWVjMzc2NzdhMzJkMDhlOWQ1ZmVlMzVkZGE2NmJiOWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyZmFhMjEyNmM0ZTM2Yzg2OWE2NTljNjE5ODQ0MTRhZDkyYjM4YzdjYmMxZjM2YzVjZjI1YzY2MDIwNzdhOGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc1ODI5MjI1ZDNhOTE0NWE5YTQ1MTI1MTU4OWZkMjNiMzc3NTg1ZDM3MTZiMGRlMDkwNjgyMDU0OTg1MWNkMDQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6577f6619cf942c1b379f120c8d85041",
+      "statement": "RoleAuthzMiddleware returns HTTP 500 only if every configured role's AccessReview call errors; if all calls succeed but none report the caller allowed, it returns HTTP 403 instead.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authz.go#L109-L144",
+          "version": "repo-lines-v1:sha256:728e928353d95115deaaf0c9f936df782eb2af032793f7863dae8fe3efb8217d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhNmJmNDliMWNlYmRjMmQ4NGIyZWEyZDA1ZmRmYzcyMWQ2MDk5NTczMzZjNjBlZjQ0YTZhMThlMmM4NmYwZDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwMWIyOGYwNTRiMmUwZTE0YjA4Y2E5YzExNjE5NzFiMGViMzZiYWQ3OTE2ZjgxZmFmNjgyZWNiZWU5YjU2OTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6642b4f2b1ed461cbc2bb78f8ec0805e",
+      "statement": "ActionAuthzMiddleware.CheckActionAccess runs as route middleware that only enforces on requests carrying an {action} URL parameter; it looks the action up in the catalog (404 if unknown) and denies with 403 if the role resolved by RoleAuthzMiddleware is not present in the action's AllowedRoles.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authz.go#L56-L89",
+          "version": "repo-lines-v1:sha256:f182ea903db1a2526b5b043c6296162f2025f8973f3b5d56894e8bd0e95a7097:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4N2IyMjMwMzI5NzNhMmIxNDAyNjQwOTNhZTI3OGUyZWI0NzA5YjFiMjE4NjQ4OThmMzQzYjc1MzJlZTNmNzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQzZTE1M2UwYmM4Yjk4NmVlNmE3YjBmNjJjODNiNjNlNDVkNGRjMWQ5NTI5ODMzMjJhYWJiNzQxZDU4OTBiZmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_99e126ad7cc84edda1e616a0acd405a7",
+      "statement": "The Trusted Actions catalog defines exactly three roles — SREP, ConfigurationAnomalyDetection, and ROSAAiAgent — and every registered ActionDefinition declares its own AllowedRoles subset of these.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L163-L175",
+          "version": "repo-lines-v1:sha256:70262249f39f7bb1d4440e27dc39d7f4afa6b742766c47fd6e8a4546b8c349f1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4YzM0ZDEzNGUxOTlhZTRlM2ZlOGQyMDNhNmM0ODBiNDI1ZGE2NmQ3ZWYyYzM0MTY0MjA5MjUyNjIyMzE4NjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmMTU5Yzk2ZWIwMzUwNjQ0ZTMyOThjNGM0NzgwMDVmNDg0NzJlZmY4NDFmZjNiMTM2N2YwYzMzZmU5ZTRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc4NWMwMmZjMjJiNTM1NTYwODk5NDliZjEzN2E3N2UwMzQxYjNiMzIxZGNlMWIxYzI5NzA5ZmI2NDk1OWNiMDEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L37-L48",
+          "version": "repo-lines-v1:sha256:2b9e117e32d6d18a4ff20aa9f72b73c86856431f339999c4b85d30c0697819cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM0YzVhYjQ4YjZmN2QzN2I1N2I5ZmQxM2ZkMGRjYjJjYjFkYjQyYjZkOWIyMGY1ODM5MDA5Y2E4ZDRmZTVjYjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVjNTVlZjJlMTBhNzFhMDliMmI5ZDdkMWM3NTQ1ZjQ4MGVjZWVlMmM2OTg2MjBjZjIyM2JiNWM4ZWNkOWZjNzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3ZDBkNTlkYjhiNmI3OWNiMmE0YjY2MzI3ZGU3ZTA3YzgwNjljZGU2ZTNkM2VkOTI4NzQ0ZTZiMDc0OTM5NmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIzZjlkMjdkM2EwZjk3NTI3OWQ4MDhiNDU0ZTA4ZWUzYjY2ZThiMzFkYzVmZTFiMjVjZjM0MzU5N2M5ZGM5YjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d9843aa797474d2eb45d660f31f71160",
+      "statement": "The aws-terminate action is restricted to the SREP role alone (unlike every other catalog action, which allows all three roles), because terminating an EC2 instance is irreversible and is deliberately kept unreachable by automated callers like ROSAAiAgent.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L163-L175",
+          "version": "repo-lines-v1:sha256:70262249f39f7bb1d4440e27dc39d7f4afa6b742766c47fd6e8a4546b8c349f1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4YzM0ZDEzNGUxOTlhZTRlM2ZlOGQyMDNhNmM0ODBiNDI1ZGE2NmQ3ZWYyYzM0MTY0MjA5MjUyNjIyMzE4NjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmMTU5Yzk2ZWIwMzUwNjQ0ZTMyOThjNGM0NzgwMDVmNDg0NzJlZmY4NDFmZjNiMTM2N2YwYzMzZmU5ZTRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc4NWMwMmZjMjJiNTM1NTYwODk5NDliZjEzN2E3N2UwMzQxYjNiMzIxZGNlMWIxYzI5NzA5ZmI2NDk1OWNiMDEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_bae767108dca4c31b6a88952b4441df9",
+      "statement": "AllowedRoles is a property of each catalog ActionDefinition and is enforced entirely at the HTTP layer by ActionAuthzMiddleware before an execution is ever queued; a disallowed caller never reaches the handler that would create the execution.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authz.go#L56-L89",
+          "version": "repo-lines-v1:sha256:f182ea903db1a2526b5b043c6296162f2025f8973f3b5d56894e8bd0e95a7097:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4N2IyMjMwMzI5NzNhMmIxNDAyNjQwOTNhZTI3OGUyZWI0NzA5YjFiMjE4NjQ4OThmMzQzYjc1MzJlZTNmNzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQzZTE1M2UwYmM4Yjk4NmVlNmE3YjBmNjJjODNiNjNlNDVkNGRjMWQ5NTI5ODMzMjJhYWJiNzQxZDU4OTBiZmYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L18-L28",
+          "version": "repo-lines-v1:sha256:82126c0743cf154733f0e82ec5cb31345c81587437a4f827efdbef8626940404:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2M2Q5YmVhOTRhZWQ3M2MwMzU5YjMyMzU2OWMyOWUyNzRmYzAzNGYwZTQ1Y2YwMGIwMGZiZDJjZTU1ZmEwN2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM3Y2Y2NjVjYzYwZjRlYTcyZGFlOTI1ODE2ZTkxMWNiMDRhNzQzZTNjN2Y0NzY5Y2IyYmVlMTE3ZGE3ZjQ5ZmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZiY2EwNTQzMTdiNzc2ZWM2ZTRkYmFlNzMxN2JkYTQzNGE2YTNkZGI5YmZiYmEzMzczYjJjNTdhM2E1NDg1ZmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0a069556e44d4f2e95b787beb0798244",
+      "statement": "Role-to-AMS-resource mappings are loaded from the 'roles' key of the server's YAML config file (config.RoleMapping{ID, AMSResource}); the server fatally refuses to start under enabled/ocmconfig auth policy if no roles are configured or if any role entry has an empty id or amsResource, and the legacy ROSA_TA_ROLES_CONFIG environment variable is no longer read (only triggers a startup warning).",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L128-L135",
+          "version": "repo-lines-v1:sha256:33b8e37f9e9f2b00a947ddbf2aaa7ba5ebd13157ff8e94e7afc7377f1dc53d82:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiY2ExZjNkNjdjMjU3M2RmNWQ2NTNhMTU2NjYwOTVkYjY5MzBiMGM4Y2VmMTkzNWYxZTJiYmU3NGFkZTNmOWYyMiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjRlZmM0OTQxOGQyNmRjZjEyOWIyMmE2YWEyMTEwOGNlZWMzNzY3N2EzMmQwOGU5ZDVmZWUzNWRkYTY2YmI5ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjQ4Y2IxOWFmZTI0ODlhYzhlNjkxNjVhNWVlNjljMjY0M2M3ODk5ODAzZDcyMjVlN2E1YzJhNzc2ZTRkN2Y4YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWI2YWFmYjE0ZWU0NmIzYWZlMjBmOTFjODJhM2RiN2VkZTdmMDdlZjU5NTkwOWY2YTIzZDhlZjgzZTU2OWM4ZiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L178-L182",
+          "version": "repo-lines-v1:sha256:8f6e99e3bf945e0eb114c7d177249368f1813d97c2678251ef8c0e73d483a093:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjhlOGM2MGZhMDczYTM0NmFkMGJmZjE1NTU2YzY5ZDRlMDcyMDJmMzczMjkxNzMxNmMyZGExZjZiZmM0M2I3MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzk3NjczY2Q1OWNiMzUxNWM3ZmRmZDkyYjJmMGU2ZGIxNzY0MDM3OGM2YjZkYjNiMmEwYzZjYmQ5NDA3YTNmNiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYTNkMDcyYzY5OWFjZDhlNGZiYjQxMWEyNDllZGVmMmI4MjVmNDIxM2U5YWIyMTkyOWRiOTU5MjAwOTE4MzNmYSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L23-L27",
+          "version": "repo-lines-v1:sha256:d1b7f5d5d5a27a3b2a727bd2a878fe10d87a9e9e117c691f8935809992469a27:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzQwNGNmMzc3ZjY2NWYyMTYzMTY5Y2M0NDdjNWQ0OTkyNTQ0YjlhYjA5NTM3ZmZhOTZkMjY1ODI1OGVkMmIxNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGIyMGZhYmY4OGY5NDE3Y2Q4OWRjNzJmOGNiZWZjY2JhNTc0NWIwODU5ZjU0YTM5MTI4ODU4ODNiN2MxYTE3YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjZjZjlmM2I4MzNiODMwYWY4NjA1NDFjODg4N2ZjMjUwZDczNDAwYTAxNmQ5YjAzZDczZDBkOTY1OGVhYjY5MiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_b6d9f614e7ff483daf172bf35ae33df3",
+      "statement": "ocm.Authorization.AccessReview is the sole point where role resolution contacts OCM: it chooses between AMS self-access-review and account-access-review endpoints depending on whether the username matches the OCM connection's own identity, and returns whether that username may perform the given action against the given AMS resource type.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/ocm/authorization.go#L1-L74",
+          "version": "repo-lines-v1:sha256:f8b4ccf9ed34893d143a5588688bc285e28e7c8b343f92ba6722e56b300de292:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM1YjZhMWI2NGZiNmE1YTQ5ZjIxODM3MjA4MjM0MGJmZmIxNzRhMmUyMTkxMDE3MmEyMDA3MTljODAwMDFmOWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_1963111c342f4c74a52ffb1a5d28c082",
+      "statement": "Resource-level authorization runs inside Executor.Execute after a worker dequeues an execution: once the target Scope derives or receives the request's Target, Scope.Authorize is called, and a denial aborts the run (recorded as DecisionDenied/OutcomeSkipped) without ever calling Scope.Run.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L93-L159",
+          "version": "repo-lines-v1:sha256:f384618a4ea92aea25534aaf7ce36ff6fa75ff714c39c678938eb868eb45d2f8:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxODJjMGEyMDRlOTA3MjU1ZWQ1NDQzYTVhY2M4MzU5N2FhMjljMGM3ZmQxMmE4YjVkNTAzY2IwZDY4MDAwNzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZjNiNWU4ZTk3NGFhMTBhZmE1NmY5NzMyYWE4MzIyZTY0OWRkN2QzYWMwNDI0MmJiODg0YTY2ODA5ZTQ1MDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a4218be4a85b4daaa64c64fab5b6c5a1",
+      "statement": "internal/authorization.Authorizer (constructed via authorization.New) is a namespace/secret allowlist wired into KubeScope as its resource-level authorizer; KubeScope.Authorize translates the derived Kubernetes ResourceTarget into an authorization.Request before calling it.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/authorization.go#L1-L72",
+          "version": "repo-lines-v1:sha256:1d35c03c15bcb3efad48a05ae2849e9a101ae157b580279029e6ec924d35b24b:eyJzZWxlY3RlZExpbmVDb3VudCI6NzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUyMTU4NDExZGE0NDczNjRlODJhZTQwNGFlZjgzNGMzOWZjNWFkMjRmNTg3ZWJhNDFkODgxNWUwMjY5NTQ2NWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/kube.go#L14-L71",
+          "version": "repo-lines-v1:sha256:305f12839ac4d0b6f32c599ca4e7ea3412ecd0c2ff6818c1b0b64194aa85e358:eyJzZWxlY3RlZExpbmVDb3VudCI6NTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU5YzNlNzNhMGRjZWVjNDU3OWZiMDNiY2QzN2M5N2QwZmZkYWNhOTU4YTMyNmUwNGEyM2YxYmI5OWJiNjliZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVkYTI2NGNhMzk0MDZlYmIxZTVlNTBkNzc5YzU5ZDdhYTQ3YWE1NGQ4NTdlN2ExYjk0NjdlY2E2ZmE3NzJiZWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjEyOWE1OGI5NTJiODQwMWM3YmIzOWQxNzE3ZGNiMGNmZWVhODY0YTkyZmI0YWFmZWY4Nzg1NTJiYTI0N2FmNTQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e37d0bab3a8e49aa888ff9bf55492718",
+      "statement": "internal/authorization.Authorizer operates in an explicit permissive mode when no namespace allowlist (ROSA_TA_ALLOWED_NAMESPACES) is configured: every request is allowed. This is intended only for local development; the server does not refuse to start in this mode, so production deployments must set the allowlist explicitly to get any enforcement.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/authorization.go#L45-L52",
+          "version": "repo-lines-v1:sha256:bdb125469fa419a9590c0559a6aaec5df290fd1f3e694de41592305235b7233f:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTRmOWVhYTIwMzViMmNjNTJmYmEwOTYxMTBhNTk1NTkyZTNiMGJjZmY2MTI1MzRjYzM1NDcwNDNjMmQ2Zjg5ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjdjZGE4MmRhNjA2MjM4ZTA1ZTYyMzk5NTY5YzVlZTAzOTkzNDE5NjQ4YWU1ZDQzYTJiZjhjZDYzNDdmODI2MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjI5NjQwNzljM2M1YzgxNTIwZWYzM2EyYjlkMmUxNWExYjg0ZDcyODBkYjg1OTBkY2Q2NTc0N2UzZTAxMmE0MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjViY2MwMDkwMWMwZGQ4YWRlNzhhZjUwMmRmYjY2ZDQ0NjFmYWFkMjZmNmQ1ZGEyNDkwNDlmZGFmOGZlMGQ2NyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_6d8fbeb8af69405f8b068b4244e9430d",
+      "statement": "When a namespace allowlist is configured, internal/authorization.Authorizer denies a namespaced target with no namespace, denies any namespace not in the allowlist, and for the secrets resource type additionally requires the resource name be non-empty and the namespace/secretName key be present in a separate secrets allowlist, even if the namespace itself is allowed.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/authorization.go#L54-L71",
+          "version": "repo-lines-v1:sha256:29cbc36006a250e58c012a549b446d5cee528b5fbd524f7b52985ed5f6be4bcb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0NjhlNjEyMjRiOGZmNThjM2JjZTk2OTAwYmVkOWY2YzVhMzAzMGU0Nzk4OGEzZDAyNjU2Mzk0MDYxNmJmMjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2N2VjYTA4ZjA1YzI3YWI2NTk2ODk2NDgzMjlkMTNmNjQwMjMzY2ZhZWY5MjFkZDEwMzMwZjU5NTVkNWVmN2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY3YjJjMzE3Yjk1ZDgyMTE4NWU3MGM0Y2I4ZTQ4YzJjOWQ2OWY5MmYyNTkwNjNmMDVmYjlhZTdiY2FiMTdmY2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f9a1005455ee445f9d78782c09495610",
+      "statement": "KubeScope.DeriveTarget always marks a request-derived Kubernetes target as namespaced (never cluster-scoped), because previously trusting a caller-supplied or absent namespace to imply cluster scope let a caller bypass the namespace allowlist by omitting a namespace.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/kube.go#L33-L54",
+          "version": "repo-lines-v1:sha256:90662aa1cfa9efe3cdf491840f339a74a59229e31e4d3a34cc4effb9af886486:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZjMzY1YzU2NTdiZjc5NDM1YTI4YmJlYzM3ZmJkNjZjZTJjMjg0Njk1ZDFlMmJjYjcwZDRlOWY5MTZkZmEzZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVmNWI2MzQzMWZjMDA0ODc4YWVlNzlmYThmZDQ1OGM1YTU4Y2Q5MjhmODAxY2UxYzMyZDA1ZWM0MDkzYjk0MzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM0NDJlNWU0ZjAyMzFlMTVhZjkyYWNjYjFhZjk5Yjk4NzRiNjNhNDZiM2ZmYzVmZWQyOTgyMDJiYTZjZmY2MjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8fa13a65c9f34d738d0bc4b7bb10f077",
+      "statement": "AWS resource-level authorization uses a separate AWSAuthorizer/AWSRequest/AWSPolicy type family (internal/authorization/aws.go) rather than sharing the Kubernetes Authorizer/Request types, deliberately, because Kubernetes namespace/secret rules have no meaning for AWS and a shared type could let an AWS request be silently judged by them.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L1-L16",
+          "version": "repo-lines-v1:sha256:26dea417d5269436b24cc13a3e8ac5bb32945e82e7ff309ae1fa97371dc1ce10:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUyMTU4NDExZGE0NDczNjRlODJhZTQwNGFlZjgzNGMzOWZjNWFkMjRmNTg3ZWJhNDFkODgxNWUwMjY5NTQ2NWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVlNTdkMWZjNWM0ZWQyMTBjZWIwYmMzNzQ0NGU3NTM4ODBiM2ZlZDdhY2I1MGQ0MzA4ZDhjMGJhOGU4YmEyZGQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ce955ec5f5984c8c85e1e34d9ffe9143",
+      "statement": "Unlike the Kubernetes authorizer, AWSAuthorizer has no permissive mode: an empty AllowedRegions set denies every AWS request rather than allowing it, and the server refuses to start entirely if the resolved AWS region allowlist is empty, rather than starting and denying every AWS request at runtime.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L251-L260",
+          "version": "repo-lines-v1:sha256:c62d9cc3ab9cb55f5c20d532864d8fc5cc6e4fb14a5611e0a2558892cb26e6ff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhMWYzZTExZTQzMGRlNjUxOWY5MDJmMTRjMzI1MTE0MzIxY2RlNGNkZGQ5NzAwNDFiYzQ0ZWEzNWEyNDY0NDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIyZjJmZjVmZWVjNjBmNTg3YzhmYWU0ZTg3ZjgwOWE2NjFjZmZlZDZiNDdhYWU1ZjZkNmEyNjUzYWE4OTUyZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUzOGZmZDJlNWRiYmRlMTYyYWU2ZWYzN2M3ZmY3ZTVkZDQ1YTZhYTkwODlmNDY2OWIxZTkyOTU5MzRjMGVmMGUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L18-L28",
+          "version": "repo-lines-v1:sha256:b656ebde93084b637cc2ff86604a4bfdc6616de9fa9b525f94c0c64279d35b39:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI0NjM0ODFjOTY2M2JkNDk1MTNjN2VkNTMwNmFlZDIxNWFjNTk0MWQyM2Y0YjZjN2QzZmMzMzU5MmIyMTJiNzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmMWYzZWEwY2IwYzllNGQ1YzAxNjI4M2QyZGY3MDA3MDNkMDZjZGM4YTAyNmJiN2E2OWU4MDkyZDU4MGVjMDAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM5ZmZlM2IyM2QyNDFmOGUyNzgxNTljN2E3MmEyNWZmZTI1MjY3NjNmNjhhNTdlZTRlMjUxYTY1ZmYwODRhZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU4ZGQ1ZmQ3MWY1OTBlY2YxMzVhNDIzODA0NjAxMTIzNDg0MjQ0M2FlNThmNzBmODQyMWI4ZGU0YjgzZTJmMzcifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L84-L93",
+          "version": "repo-lines-v1:sha256:13b001b65a4e410e6b106c34501654c75f03395faf60f5ddea85ba84acc87521:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0NzY4YWQzNGM4YjQwYmU4NTlmMzJmOGMxYWQ1YTQ0NjBmZDYzNWNmMDFhZjY4YmIyM2ZhM2Y0OTcwNjM2YjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRiMDUyMzI2ZTg3NWRkOWViYWVjZGZlODkwMjBlYjUzYjE3YWZlZjVjNTU0ZjhjY2YzMWQ5ZmZmOTY1MmYxYmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg5NDQ5Y2I4YmJkMDc5NTU2YjMwOTc5MTA1YzhiMGMxY2FjNjRkYTE3Y2M5OTIyMjQwMDg0ZDdiMjYzMWE2NzgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_369cde096b9b409ebb402bbe8114b211",
+      "statement": "AWSAuthorizer.Authorize checks resource presence, then region membership in AllowedRegions, then — only for actions declaring a write Operation (aws-reboot's \"reboot\", aws-terminate's \"terminate\") — operation membership in AllowedOperations, which has no built-in default and so permits all AWS reads but denies all AWS writes when unconfigured.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L30-L36",
+          "version": "repo-lines-v1:sha256:28f6aa933bd5c3637e8c53bc9bdc6281ee0dc5e2f40b6955947254bbbfc5a7dd:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWZiYTQwYjc0M2UwZTgwZWUxNzYxOTQzOTg2ZWFiZGFmODYwY2NkYzU5Y2QzMTZkYTJiNTM0MWJkZjEzMWU5ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzZkN2IxYjAxY2M2OTE0NDNiNDc4Yzc4NTE3ZmM1OTIwMmNhOWJmNTY4YTU0Y2U0MDJlNjZlMjM2YmJjNDg2YSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGFjN2Y3NzhjYzRiNzQ3YzBjZjNlMzJkMjlkNTNjMTZlOTk4NDI2MWYwOGUwM2YyNWU4YjI5ODdmNWYzMjU0NyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODQzZmIzMTk3MWMyZTliNTIyNzFmYTU4MjljNmRhNTQ0NDc5YzFlNzNkODJiYmRkMTMwNGYyZDU3YmFkNTllZSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L99-L124",
+          "version": "repo-lines-v1:sha256:079656bfba430f66b08840f23f7961360c1db4b22c2e30cc63df3b05910fcd01:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0ZGU3NjE4NGMyMzNjYzM5MTk2Y2YyMTNmNzViYmI4NTAzMjY0OTJkNGY0YWIxMzBmYzJmNzhlOGJiMTNjZjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjViZjY3N2M2N2RjNmNhZTcwZTJjOGExZDdjOGNlNWQ2OGQ2YjRiZTU2NWMwNGY1ZGQzM2Q4MWMyMzg2MzdjNGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L91-L114",
+          "version": "repo-lines-v1:sha256:d53c581a8b1af850ae71f766cab0aa33d7f210d009bffb011d0121cf990fc600:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMxZmVmOGFkZjI0MTgyNDhjNjE1NzZiYjY3YTkyNTVjZDliZjdjZDBmMTkwNDI4ZjM3Y2NiMmZkZjNjYzlkYzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI2YjhlNGQxNGIwYTAzYTY4YzA4ODhjZGRjMTc4NGY0ODU2ODZkZmYwMmJmYTE1MzIwY2E0MzE5ZTg1MTUwMzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRmZGY5NjVmMGQzZWZiNjc2YThiODg0MDQ3YmExZjQ0ZTQ1NzVkYjEyZmEyMGNhYzc2ZDcxMTBiMmRhY2IwYmUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_846dfc77af014ea592defd95f21cfe6f",
+      "statement": "ROSA_TA_AUTH selects the auth policy (disabled/enabled/ocmconfig); disabled uses a hardcoded mock identity (dev-user) and unconditionally grants the SREP role, skipping JWKS validation, JWT parsing, and AMS calls, and the server refuses to start under this mode unless ROSA_TA_KUBECONFIG and ROSA_TA_AWS_ENDPOINT_URL are both also set, preventing the mock role from reaching real backplane or AWS infrastructure.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L179-L203",
+          "version": "repo-lines-v1:sha256:725db4fcdd15b9ac5a7197e1fc68fd0fc1d34d8807b95d6db9596502858dde69:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk0YWRkMTdlY2Y0OTkxYzNiNTFhNTdjNzZjYjVkYmIyZTc4NTNmOTlmNDQ1OGVkMDg5NDUwNjNjM2EzMzUyODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJiMTliMDEzZTNmMWRmYzdmMzM5ODUzMTA2OWZjNjZjMGY1ZWI4YTE1OGUwYzk4ZTBhNzA4ZDkzZjk0ZmEyZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIzYmZmYzRiMDI0NjUxNmYyYjBjN2M3YWVmYjE5MzQyNmJkZmI1YzY4MzRhNDA2Mzc1ZjcwN2Q3Mjc1Yzc4MGMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authn_mock.go#L1-L25",
+          "version": "repo-lines-v1:sha256:6c48f0bdbeee499a76f9ead670e8e637197b858d284349eed7ff6de54831425a:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiZTZlMTBhMzY3ZWQzMWFiY2M5NWRiZmFkYTA3Mjg2MjFmODJkZjMwNTU5YTQyZjRmMDczMzRjODlmYTc4YTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/auth/authz_mock.go#L1-L29",
+          "version": "repo-lines-v1:sha256:a507f02c0f9489513537bc64728235c027ae5ced1c76f5532f68d91065c759c2:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiZTZlMTBhMzY3ZWQzMWFiY2M5NWRiZmFkYTA3Mjg2MjFmODJkZjMwNTU5YTQyZjRmMDczMzRjODlmYTc4YTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L198-L215",
+          "version": "repo-lines-v1:sha256:9a0501a66843bde66acdd935d116946ffc71826538d9380420aaab984459dd00:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE5MWJkODFhYTcxYzk5Njg3OGI2YWFjOWI3YThhOGU4ZjMyMjY0ZGQ5ODIzOTAzNTc2MzlkMDI5YWI3OThkZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVhZDM3N2EwMGE1YjdjNmU4YmMyNDU0ZmMwNWJiYzQ4OWJjNGFmYTY2NmRlZDQ1ODMwZmFkMDU0MzdhZWZhNWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjNWJiZjRmZGUwNTFjMmRiZmYyZDZjMTcyY2JlN2I3Mzk2NmRiOTg0MTJkZGRlZDc1NGNhMGY0ODNjY2I5YmUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_472f254f0279498d9370931f4233d078",
+      "statement": "ROSA_TA_ALLOWED_ACCOUNTS is parsed into Config.AllowedAccounts as a comma-separated list but, in the current codebase, is not read by any authorization check (RoleAuthzMiddleware, ActionAuthzMiddleware, or the internal/authorization allowlists) — it is a declared but currently unenforced configuration field.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L236-L236",
+          "version": "repo-lines-v1:sha256:9baf45e91f31d5e06ae8505d535e0fe952e57679caec1eaf95662f52db28fc75:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWJhZjQ1ZTkxZjMxZDVlMDZhZTg1MDVkNTM1ZTBmZTk1MmU1NzY3OWNhZWMxZWFmOTU2NjJmNTJkYjI4ZmM3NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOWJhZjQ1ZTkxZjMxZDVlMDZhZTg1MDVkNTM1ZTBmZTk1MmU1NzY3OWNhZWMxZWFmOTU2NjJmNTJkYjI4ZmM3NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmU2N2QwYTU2MmRkZGRlYmE5YTMwNmFkYzFlNWM5ZDY3ZmE3OWZlNjA2YTFmMDcyMWJmMmY4MzcxN2U2ZGJmOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWMwM2EyMTYyYTJkYzcyM2U5Y2M1NDRiMmE5YmY4NDFjYTJhNzlmMjg0NmU4YWNhM2RjY2UzMDEyYThkNTllNSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L55-L55",
+          "version": "repo-lines-v1:sha256:c338ea83e8286da83ea99ec23d2a8713ee7eda6550d661377f0fa22902667047:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzMzOGVhODNlODI4NmRhODNlYTk5ZWMyM2QyYTg3MTNlZTdlZGE2NTUwZDY2MTM3N2YwZmEyMjkwMjY2NzA0NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzMzOGVhODNlODI4NmRhODNlYTk5ZWMyM2QyYTg3MTNlZTdlZGE2NTUwZDY2MTM3N2YwZmEyMjkwMjY2NzA0NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWM0MGNlOTBhMjdkNzFjMGQxYjRlYzUyNThhN2U0NGY3YWJjMTMwZWQ3NTY2NjA1ZDBjMzdhOGVhMDdkOWUzYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODNmMDkwODJlZDBkYjFlMzRhZjBjOTBjZDFjODZhMGNjNDljNzVkMmYxZGZiZTZhYzliYTZlODY0ODc0ZDAxNyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_7bdb0506af424b75a593ae84e68820d0",
+      "statement": "ROSA_TA_ALLOWED_NAMESPACES and ROSA_TA_ALLOWED_SECRETS are comma-separated environment variables parsed by getStringSliceEnv and passed into authorization.New to construct the Kubernetes resource-level allowlist used by KubeScope.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L220-L220",
+          "version": "repo-lines-v1:sha256:078a2faff3587f0adf0012857c8eb54a376e43e00b33e574cc1f3489966c87b7:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDc4YTJmYWZmMzU4N2YwYWRmMDAxMjg1N2M4ZWI1NGEzNzZlNDNlMDBiMzNlNTc0Y2MxZjM0ODk5NjZjODdiNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDc4YTJmYWZmMzU4N2YwYWRmMDAxMjg1N2M4ZWI1NGEzNzZlNDNlMDBiMzNlNTc0Y2MxZjM0ODk5NjZjODdiNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYmU4ZGEwMTJjZWI4OWUyNzU4ZDQ0NDhjZThkNDY1NjhhMjJlYWE3NDk3YTdmMmI5ZWUwZTFlMmJhYTVkZDMxZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTUxYmJlYzNmMTRjODM4Mzk1NjY1YWUzNzlhMTAyMTFhOTU4NWQ5M2RlODNmYjA1YmUwNzIzM2QyYmY2MGI0MiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L270-L271",
+          "version": "repo-lines-v1:sha256:39817af85ed9b0d88de8833fea3a08021c87305d0d4d842991ff3c28464c1638:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzljZDZhNGVjZGU3MDQ3MDVkOWIzMjU5ZjM2Y2Y5MWZhMjQ2M2Q0NzM5MTI0NDVjMDA2Yzg4ZjJhNjI0ZDIxNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjJkOThiYmI3M2Y4MTQyMDI2Njg2ZmE0YmRlYzg5M2NjZGNiMmMwOTQ1NjAzNjZmMzhmMDFmNDlhNjZhODE1ZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTAyYmE4Njk1OTY0ZjkwYmEyM2MyOGEyYjYyNzdiZmI2NTU2NTMyYTUyYmE5MzhmNDc0ZDQ1N2RkOWM0Yzc4ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGYxY2QzYjJiMGM2MGI1MTY1ZDcxZTkxYTNiN2UzMTFkMDY0ZWMzMWZiYWQxZGMwMmM4MDZjODQ5NWYyODYzMCJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L341-L354",
+          "version": "repo-lines-v1:sha256:5ecdcba84e151a3eb461e9eda41402b00f31fcf28b37263072c751c8203de497:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhNzhmZjVlN2E5MDlmNmI0MjRlNTc4YTdiYmIxOTJhZTFlZTQ3MWQyZGZjMmMyNDA5MjJjZWIyZWZkNGUzZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImViMzk2Y2FlMzAyM2FkZjM4ZTFiYjgyMTg2YmY5YWFlZjFkODAwYmY3OTNmZmYyZjJkZDliMDVjOWQ0N2JhM2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c8432796b5fb4238ae1175e87eb04974",
+      "statement": "ROSA_TA_AWS_ALLOWED_REGIONS and ROSA_TA_AWS_ALLOWED_OPERATIONS configure the AWS resource-level allowlist; AllowedRegions falls back to the empty authorization.DefaultAllowedRegions if unset in both environment and config file, while AllowedOperations has no fallback default at all, and configuring any AWS write operation is logged as a startup warning since it widens the server's ability to mutate customer cloud infrastructure.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L262-L273",
+          "version": "repo-lines-v1:sha256:00c2677f394d926d6036c7595fb18a368a66b187c578cf521458546ea8ab5cb8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhODQxNzE4NThkMDBjNTk4MmEwOGE5NjkxZWVlMWYyOGE4NTVkY2QyNWEyZjFlNGIzOGQ3YmZlMTAwNTdlMDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMzNDE1OTI1ZWZkYjgwZWFmYzFkNzE5MjZiMWQzOTQ3ZDI5YWE5OGZjNjE3Yjk0MjliYzc2NDc5NTkyY2Q4YzEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg5ZGU3MjNiODQ1ZGFlNzMwYWM2Yzc4MzdlOTA0NmU5MDA4ZWM4M2QxYWY3MTAxOTU4OWE5ODE5ZTk4OGFjOTgifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L188-L196",
+          "version": "repo-lines-v1:sha256:bf4aff0fa7efe0eea4773f3a0d04b4d2fd6c339f11cb48ce3d9b78a901a9bccf:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjQ5NDJiZWVkYzRhZWExNDEzMjQ1ZDgwMDhmMjM2MThhZmQzOWVlMjhlMGFkYTgxMTM2MmNmYzYyYTM2MzBiMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjdjZGE4MmRhNjA2MjM4ZTA1ZTYyMzk5NTY5YzVlZTAzOTkzNDE5NjQ4YWU1ZDQzYTJiZjhjZDYzNDdmODI2MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzY2YjAzMDZmMjA2NWJiMWM1NzExMWRhODlmMWQ0NzljNzhmZjg1NTZhNDg0NDJiMTY3OWZmYTA3YmU0OWMzMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzU1MjA5ZTBiZjhlYjY5NjgzNTRmZTg3YWFiMWFjMzFkYmIxNzA5MGQ5NzMyMzY5NzQ0MjY0YzcxOWIzZGMyYSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L272-L275",
+          "version": "repo-lines-v1:sha256:f134a9fc126b477acffdbd9a1e3be89788793c4a6bfa68f98c81041ae2331057:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzAyYWVhNWViODE0ZDE2ZjdkNzgzZTkxODI2NWY3MGY5MWQ0M2MxODdjZWEwZjcwZDBiNTZkYjgwM2ZlMjg0YSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYmE0Nzc3ZGM5YzNkNDA5MzM0OWU4NjdhOTk4Y2ZiOTViNjVlZDNlOTI2YjVhMzAyOTNkMDU1MmI4ZTg5MmIwMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjdmODYwZjVmODhkZGM2NDJiMzJjYjA0NmY3NzRlMjEyOTA5Y2ZiOWQzMmI4ZDFlMDZkYjBlNGE3ZmI2ZmVlYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYTM5NmVkZWM1ODcyNzRkYjA1NmJhMTdiODA3MDU0MjVhZDFlZDJjYzdlMTQyMzY2ZDEwN2MxNzU0Yzg2NjRlYSJ9"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-10T16:03:08.957Z"
+  }
+}

@@ -34,10 +34,12 @@ OpenWiki periodic should incorporate TA source after merge; verify that it
 does, rather than copying the old wiki or creating another under `components/`.
 
 `components/trusted-actions/OWNERS` and `hcp-terraform/rosa-trusted-actions/OWNERS`
-exclude inherited Boundary owners. `.tekton/OWNERS` gives TA its own approvals
-for its pipeline files while retaining Boundary ownership of Boundary pipelines
-and the shared approval file. Validate the intended TA-only, Boundary-only,
-and mixed PR approvals with Prow/Tide before relying on independent merging.
+add TA approvers **without excluding** repository-root `OWNERS` approvers.
+`.tekton/OWNERS` adds component-specific approvers through path filters and
+also inherits root approvers for all pipelines and its own policy file. Thus a
+root-listed approver should be sufficient even when absent from a nested
+`OWNERS` file. Validate TA-only, Boundary-only, and mixed PR approval and
+merge behavior with Prow/Tide; file configuration alone is not live evidence.
 
 ## Deployment is **not** switched by this import
 

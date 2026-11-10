@@ -28,7 +28,7 @@ Repository skills live in `.agents/skills/`; `.claude/skills` points to the same
 
 - Boundary's CLI, container, and Lambda applications still live at the repository root; `components/trusted-actions/` is a separate Go module, image, API, CLI, and test tree. Root `go test ./...` and root Make targets do **not** test the TA module. Do not move Boundary's `lambda/` into `components/` as part of the source-import milestone; paths in Terraform, tests, Makefiles, and Konflux must be migrated together in a separate change.
 - The TA source import did not change deployed infrastructure. Boundary's `deploy/account/`, `deploy/network/`, and `deploy/regional/` and TA's `components/trusted-actions/terraform/global/` and `terraform/regional/` are separate Terraform roots and states. Never copy TA resources into a Boundary root or enable a duplicate TA stack merely because the code now shares a repository.
-- `.tekton/` contains separately scoped Boundary container, Boundary Lambda, and TA image pipelines; component ownership is defined in nested `OWNERS` files. A TA-only change must not silently alter Boundary build/deployment behavior. Verify Prow ownership and external CI bindings on real PRs rather than assuming the source layout proves independent merging.
+- `.tekton/` contains separately scoped Boundary container, Boundary Lambda, and TA image pipelines; nested `OWNERS` files add component approvers while inheriting root approvers. A TA-only change must not silently alter Boundary build/deployment behavior. Verify Prow ownership and external CI bindings on real PRs rather than assuming the source layout proves independent merging.
 
 ## CLI quickstart context
 

@@ -1,8 +1,7 @@
-# Pipeline definitions share this directory but not their approval policy.
-# Match paths relative to .tekton/; changes to this OWNERS file remain
-# Boundary-owned because they can change approvals for either component.
-options:
-  no_parent_owners: true
+# Pipeline definitions share this directory. Parent OWNERS approvers can
+# approve any pipeline change; the filters add component-specific approvers.
+# Match paths relative to .tekton/; changes to this OWNERS file also match
+# the Boundary filter because they can change approvals for either component.
 
 filters:
   '^(rosa-boundary-|create-investigation-lambda-).*\.yaml$|^OWNERS$':

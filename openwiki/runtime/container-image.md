@@ -8,6 +8,8 @@ sources:
     resource: repo://build/github_dl.py
   - id: openwiki-source-5bbd0f06f9c4be6fd19a6126
     resource: repo://build/platforms.sh
+  - id: openwiki-source-0c8fbb0cb792daa3e3dfb497
+    resource: repo://build/sre_tools.py
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
   - id: openwiki-source-f1bd1e0a9201f149b775a09c
@@ -18,10 +20,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-b696734e098932f3853bbb51
     resource: repo://tests/shell/entrypoint.bats
+generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-05T16:02:21.720Z
-generated: { by: "openwiki/0.7.1", at: "2026-11-05T16:02:21.720Z" }
+    at: 2026-11-10T16:03:08.957Z
 ---
 
 # Container image and task runtime
@@ -30,9 +32,15 @@ The image built from `Containerfile` is the operator environment run by ECS Farg
 
 ## Build and architecture selection
 
-The root Makefile builds AMD64 and ARM64 variants with Podman and can assemble them into one manifest list. `platform_convert` resolves architecture placeholders from the target build platform: it reads `uname -m` (`x86_64`/`amd64` or `aarch64`/`arm64`) and substitutes a caller-supplied ARM or x86 string into either a positional URL fragment or a file in place; the Containerfile uses this for the backplane-tools and Claude release assets. The backplane-tools installer and Claude Code are downloaded in independent builder stages through `github_dl`, which locates release assets and validates the selected asset against a published checksum. GitHub credentials are passed through build secret mounts. tmux is built separately from a pinned source tarball and checked against its SHA256 before compilation.
+The root Makefile's `build-amd64` and `build-arm64` targets each invoke `podman build` with `--platform linux/amd64` / `linux/arm64` against the root `Containerfile`, forwarding GitHub credentials as build secrets (`GITHUB_TOKEN` and the three `GITHUB_APP_*` values) only when those environment variables are set. The `manifest` target depends on `build` (both architecture builds) and then uses `podman manifest create`/`add` to combine the two per-architecture tags (`rosa-boundary:latest-amd64`, `rosa-boundary:latest-arm64`) into one manifest list; `all` runs `build` followed by `manifest`. `verify-image-tools` separately runs the already-built image's own filesystem, unprivileged and network-isolated, through the embedded tool-inventory check rather than rebuilding anything.
 
-The final stage installs runtime packages, copies only selected outputs from the builder stages, sets up alternatives and shell completions, creates the `sre` user, and places the skeleton home under `/etc/skel-sre` for first-run initialization. OpenShift client versions are installed under `/opt/openshift` and selected by the entrypoint when `OC_VERSION` names an installed version.
+The Containerfile pins its UBI 9 base image by digest (`registry.access.redhat.com/ubi9/ubi@sha256:...`) and defines four builder stages — `tools-base`, `sre-tools`, `claude-builder`, `tmux-builder` — feeding a single `final` stage that is the only one shipped. `tools-base` installs `github_dl` (`build/github_dl.py`) and `platform_convert` (`build/platforms.sh`) and asserts that `TARGETARCH` matches the architecture Podman actually built for, failing the build rather than mislabeling a host-architecture binary. `platform_convert` resolves `@@PLATFORM@@` placeholders from the real build platform: it reads `uname -m` (`x86_64`/`amd64` or `aarch64`/`arm64`) and substitutes a caller-supplied ARM or x86 string into either a positional argument or a file in place.
+
+The `sre-tools` stage installs `ocm`, `ocm-backplane`, `osdctl`, `yq`, `oc`, and the AWS CLI through `build/sre_tools.py`, a fixed-source installer kept separate from `github_dl`'s own verification path: for the four GitHub-hosted CLIs it shells out to `github_dl download --exact_asset <arch-specific-name>` so GitHub credentials and checksum verification stay in `github_dl`, while `aws` and `oc` are fetched directly and checked against a GPG-signed manifest (`verify_signature`, pinned signer key fingerprints) instead of a GitHub release checksum. Every tool install is followed by a separate `--network=none` `--validate-installed` run that re-derives the installed binary's actual version and architecture from its own output and compares them against the pinned, recorded values, so verification never shares a build step with network access. `claude-builder` downloads Claude Code directly through `github_dl download --platform ... --checksum_file SHASUMS256.txt`, which lists the release's assets, resolves the matching SHA256 record, downloads that exact asset, and hashes the bytes before accepting them. `tmux-builder` is independent of `tools-base`: it downloads a pinned tmux source tarball, checks it against a hard-coded SHA256 before extracting or compiling it, and builds tmux from source because UBI 9's repositories do not carry it.
+
+The `final` stage installs runtime packages, copies only the selected outputs from `sre-tools`, `claude-builder`, and `tmux-builder` (never the builder stages' secrets or verification tooling), registers the AWS CLI through `alternatives`, generates shell completions, creates the non-root `sre` user with passwordless `sudo`, and copies `skel/sre/` to `/etc/skel-sre` for the entrypoint to seed `/home/sre` at first run. OpenShift client versions are installed under `/opt/openshift` and selected by the entrypoint when `OC_VERSION` names an installed version. A final `--network=none` bind-mounted `RUN` re-verifies the shipped filesystem offline as `sre` before the image is tagged, and `ENTRYPOINT`/`CMD` wire the image to `entrypoint.sh` with a default command of `sleep infinity`.
+
+Trusted Actions, a separate component under `components/trusted-actions/`, ships its own `Containerfile` and Make targets (a Go build image layered onto a minimal runtime image) that this page and the root Makefile do not build or cover; see that component's own build tooling for details.
 
 ## Container startup and workload
 
@@ -88,8 +96,8 @@ The bats suite sources the entrypoint without running it, checks that startup re
 
 ## Evidence-backed claims
 
-- The root Makefile builds separate AMD64 and ARM64 images and assembles their tags into a manifest; the Containerfile uses a pinned UBI 9 digest and builder stages feeding one final image. [build targets](repo://Makefile#L31-L61) · [base and stages](repo://Containerfile#L1-L23) · [final stage](repo://Containerfile#L167-L244)
-- The image build resolves architecture-specific assets and validates GitHub release assets against published checksums using secret-mounted credentials; tmux source is SHA256 checked before compile. [platform resolution](repo://build/platforms.sh#L115-L140) · [GitHub checksum verification](repo://build/github_dl.py#L187-L235) · [Containerfile download stages](repo://Containerfile#L47-L124) · [tmux build](repo://Containerfile#L127-L164)
+- The root Makefile's `build-amd64`/`build-arm64` targets build separate AMD64 and ARM64 images with Podman and the `manifest` target assembles their tags into one manifest list; the Containerfile uses a digest-pinned UBI 9 base and five builder stages feeding one final image that alone ships. [build-amd64/build-arm64](repo://Makefile#L30-L50) · [manifest target](repo://Makefile#L67-L75) · [base and tools-base stage](repo://Containerfile#L1-L23) · [final stage](repo://Containerfile#L191-L274)
+- `sre_tools.py` calls `github_dl` to fetch exact, architecture-named release assets for GitHub-hosted CLIs while verifying `aws`/`oc` against GPG-signed manifests instead; `github_dl` itself matches a checksum record to the requested asset and hashes the downloaded bytes before accepting them, and tmux's source tarball is SHA256 checked before compilation. [sre-tools stage](repo://Containerfile#L47-L124) · [claude-builder/tmux-builder stages](repo://Containerfile#L127-L164) · [github_dl asset/checksum matching](repo://build/github_dl.py#L225-L271) · [platform resolution](repo://build/platforms.sh#L120-L140)
 - The entrypoint rejects credential paths that are missing or EFS-backed, prepares them as mode `0700`, then runs the requested workload as `sre` while the root shell retains signal handling. [mount verification/setup](repo://entrypoint.sh#L46-L80) · [workload process and traps](repo://entrypoint.sh#L82-L93) · [drop privilege and wait](repo://entrypoint.sh#L167-L183)
 - Both normal exit and signal cleanup use a bounded S3 sync that excludes OCM and kubeconfig paths and disables symlink following; bats tests assert those protections. [sync and cleanup](repo://entrypoint.sh#L3-L44) · [sync tests](repo://tests/shell/entrypoint.bats#L88-L134) · [exit-path test](repo://tests/shell/entrypoint.bats#L176-L204)
 - The ECS task definition configures a persistent home with task-scoped OCM/kubeconfig overlays and can gate startup on a healthy loopback kube-proxy sidecar. [task mounts and dependency](repo://deploy/regional/ecs.tf#L103-L159) · [proxy sidecar](repo://deploy/regional/ecs.tf#L175-L224)

@@ -8,10 +8,12 @@ sources:
     resource: repo://deploy/regional/ecs.tf
   - id: openwiki-source-e9906b078522ed0a08c64ff1
     resource: repo://entrypoint.sh
+  - id: openwiki-source-d2f66eb6a0ccf1ed7a35e866
+    resource: repo://internal/cmd/cli.go
   - id: openwiki-source-d7354d29c32fc341220a6474
     resource: repo://internal/cmd/credentials_ocm.go
-  - id: openwiki-source-b123c673a5b90ca2010ffe64
-    resource: repo://internal/cmd/start_task.go
+  - id: openwiki-source-2452fe2ff931e1490d573519
+    resource: repo://internal/cmd/start_session.go
   - id: openwiki-source-eca4b2873500f4fd4beb595a
     resource: repo://internal/credentials/ocm/auth_test.go
   - id: openwiki-source-3850d0f3cd234df78e878ee6
@@ -28,37 +30,38 @@ sources:
     resource: repo://tests/shell/entrypoint.bats
   - id: openwiki-source-c04443047d939230f4be0809
     resource: repo://utils/rosa-boundary-credential-helper
-generated: { by: "openwiki/0.7.1", at: "2026-11-03T16:15:29.447Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-03T16:15:29.447Z
+    at: 2026-11-10T16:03:08.957Z
+generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
 ---
 
 # Credential lifecycle and task-scoped state
 
 OCM credentials are deliberately handled separately from the persistent investigation home. The CLI obtains a fresh OCM access token, transfers a minimal request over an ECS Exec session, and the in-container helper validates and installs an access-token-only OCM configuration. The OCM config and kubeconfig live on empty task-scoped volumes mounted over EFS-backed home paths; they are removed when the task ends and are excluded from the container's S3 audit sync.
 
+This page covers only Boundary's own CLI-to-task OCM credential handoff; the Trusted Actions component has a separate OCM client/auth stack (`internal/ocm`, `internal/auth` under `components/trusted-actions`) for its own JWT validation and AMS checks, documented in [Trusted Actions authorization](../architecture/trusted-actions-authorization.md).
+
 ## Acquisition and request preparation
 
-`credentials configure ocm <task-id>` and `start-task --with-credentials ocm` both resolve to the shared `configureOCMForTask` helper, so both entrypoints follow the identical acquire -> transfer -> install sequence; `start-task` only runs it once the task is `RUNNING` and ECS Exec is confirmed ready, preserving as much of the fresh token's useful lifetime as possible.
+`rosa-boundary session credentials configure ocm <session-id>` and `rosa-boundary session create <cluster-id> --with-credentials ocm` both resolve to the shared `configureOCMForSession` helper, so both entrypoints follow the identical acquire -> transfer -> install sequence; the `session create` path only runs it once the new session reaches `RUNNING` (unless `--no-wait` was requested, which is rejected together with `--with-credentials`) and ECS Exec is confirmed ready, preserving as much of the fresh token's useful lifetime as possible. (The standalone `session start`/`session stop` subcommands have been removed in favor of `session create`/`session close`; invoking them now returns a pointer to the replacement.)
 
-The `Authenticator.Acquire` method selects between an authorization-code flow (`FlowAuthCode`) and a device flow (`FlowDevice`); any other value is rejected. Neither flow reads or writes a token cache. The default flow is derived from the existing `--use-device-code`/config preference, but both `credentials configure ocm` (`--auth-flow`) and `start-task` (`--ocm-auth-flow`) accept an OCM-only override that selects `auth-code` or `device` independently of that global default; `auth-code` requires a local callback listener, while `device` never opens a browser. The authorization-code implementation binds a local callback listener on `127.0.0.1:9998`, validates OAuth state with a constant-time comparison, uses PKCE, and exchanges the code for a token that is immediately reduced to its access token and expiry via `accessTokenOnly`, which also clears the SDK `oauth2.Token`'s `AccessToken` and `RefreshToken` fields. The device flow validates the device-authorization challenge (code, user code, verification URL, expiry) before polling for a token and applies the same reduction. When an `authstatus.Reporter` is attached (JSON output mode), `Acquire` emits provider-tagged `authenticated`/`device_authorization`/failure events on stderr instead of (or alongside) human status text; auth failures deliberately avoid wrapping the underlying OAuth error, since `oauth2.RetrieveError` can carry a raw token-endpoint response body.
+The `Authenticator.Acquire` method selects between an authorization-code flow (`FlowAuthCode`) and a device flow (`FlowDevice`); any other value is rejected. Neither flow reads or writes a token cache. The default flow is derived from the existing `--use-device-code`/config preference, but both `session credentials configure ocm` (`--auth-flow`) and `session create` (`--ocm-auth-flow`) accept an OCM-only override that selects `auth-code` or `device` independently of that global default; `auth-code` requires a local callback listener, while `device` never opens a browser. The authorization-code implementation binds a local callback listener on `127.0.0.1:9998`, validates OAuth state with a constant-time comparison, uses PKCE, and exchanges the code for a token that is immediately reduced to its access token and expiry via `accessTokenOnly`, which also clears the SDK `oauth2.Token`'s `AccessToken` and `RefreshToken` fields. The device flow validates the device-authorization challenge (code, user code, verification URL, expiry) before polling for a token and applies the same reduction. Status updates (authorization URL, device code, waiting messages) are always plain human-readable text written to stderr through the injected `Status` callback, regardless of the command's `--output` mode; auth failures deliberately avoid wrapping the underlying OAuth error, since `oauth2.RetrieveError` can carry a raw token-endpoint response body, so `ocmAuthError` classifies the failure into a small reason set (`canceled`, `expired`, `denied`, `invalid_response`, `network`, `other`) instead of propagating it.
 
-Before transfer, `configureOCMForTask` calls `prepareCredentialTask`, which verifies the task is `RUNNING` and waits for the ECS Exec agent in the `rosa-boundary` container before any token is requested. Only after that readiness check does it acquire the token, resolve the OCM environment to an approved canonical API URL, and call `MarshalRequest` to serialize exactly `access_token` and `url`. The in-memory token's access-token field is cleared immediately after marshaling, and the serialized request buffer is zeroed byte-by-byte in a deferred cleanup once the ECS Exec transfer completes (success or failure).
+Before transfer, `configureOCMForSession` calls `prepareCredentialSession`, which verifies the session's underlying ECS task is `RUNNING` and waits for the ECS Exec agent in the `rosa-boundary` container before any token is requested. Only after that readiness check does it acquire the token, resolve the OCM environment to an approved canonical API URL, and call `MarshalRequest` to serialize exactly `access_token` and `url`. The in-memory token's access-token field is cleared immediately after marshaling, and the serialized request buffer is zeroed byte-by-byte in a deferred cleanup once the ECS Exec transfer completes (success or failure).
 
-<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Parse error on line 11: ...); clear token field CLI->>ECS: Exec Expecting '()', 'SOLID_OPEN_ARROW', 'DOTTED_OPEN_ARROW', 'SOLID_ARROW', 'SOLID_ARROW_TOP', 'SOLID_ARROW_BOTTOM', 'STICK_ARROW_TOP', 'STICK_ARROW_BOTTOM', 'SOLID_ARROW_TOP_DOTTED', 'SOLID_ARROW_BOTTOM_DOTTED', 'STICK_ARROW_TOP_DOTTED', 'STICK_ARROW_BOTTOM_DOTTED', 'SOLID_ARROW_TOP_REVERSE', 'SOLID_ARROW_BOTTOM_REVERSE', 'STICK_ARROW_TO -->
-```text
+```mermaid
 sequenceDiagram
     participant CLI as rosa-boundary CLI
     participant OCMAuth as OCM Authenticator
     participant ECS as ECS Exec Session
     participant Helper as credential-helper (task)
 
-    CLI->>ECS: DescribeTask / WaitForExecAgent
+    CLI->>ECS: DescribeTask and WaitForExecAgent
     ECS-->>CLI: RUNNING, exec agent ready
     CLI->>OCMAuth: Acquire(flow)
     OCMAuth-->>CLI: access token, expiry
-    CLI->>CLI: MarshalRequest(access_token, url); clear token field
+    CLI->>CLI: MarshalRequest(access_token, url) then clear token field
     CLI->>ECS: ExecuteCommand(configure ocm)
     CLI->>Helper: send base64 request after ready marker
     Helper->>Helper: validate with ocm whoami, install candidate config
@@ -85,8 +88,8 @@ Go tests cover token reduction, OAuth state/PKCE, environment allowlisting, toke
 
 ## Evidence-backed claims
 
-- OCM acquisition supports fresh auth-code and device flows without a cache, selected by an explicit per-command override or a global device-code default; both flows reduce OAuth results to the access token and expiry while clearing the access/refresh fields on the SDK token object. [flow selection and authenticator](repo://internal/credentials/ocm/auth.go#L22-L88) · [access-token reduction](repo://internal/credentials/ocm/auth.go#L374-L382) · [auth tests](repo://internal/credentials/ocm/auth_test.go#L42-L103)
-- Before any ECS Exec transfer, the CLI confirms the task is `RUNNING` and the Exec agent is ready, then serializes only the access token and approved URL, clears the in-memory token field, and zeroes the serialized request buffer after transfer completes. [task readiness check](repo://internal/cmd/credentials_ocm.go#L188-L209) · [token acquisition and request lifecycle](repo://internal/cmd/credentials_ocm.go#L130-L186) · [request shape and checks](repo://internal/credentials/ocm/request.go#L8-L23)
+- OCM acquisition supports fresh auth-code and device flows without a cache, selected by an explicit per-command override or a global device-code default; both flows reduce OAuth results to the access token and expiry while clearing the access/refresh fields on the SDK token object. [flow selection and authenticator](repo://internal/credentials/ocm/auth.go#L22-L88) · [access-token reduction](repo://internal/credentials/ocm/auth.go#L338-L346) · [auth tests](repo://internal/credentials/ocm/auth_test.go#L42-L103)
+- Before any ECS Exec transfer, the CLI confirms the task is `RUNNING` and the Exec agent is ready, then serializes only the access token and approved URL, clears the in-memory token field, and zeroes the serialized request buffer after transfer completes. [session readiness check](repo://internal/cmd/credentials_ocm.go#L263-L284) · [token acquisition and request lifecycle](repo://internal/cmd/credentials_ocm.go#L214-L260) · [request shape and checks](repo://internal/credentials/ocm/request.go#L8-L23)
 - Configure transfer waits for a readiness marker before sending the request, requires helper success, bounds output and time, and rejects malformed protocol completion. [stream protocol](repo://internal/credentials/ocm/transfer.go#L43-L200) · [protocol tests](repo://internal/credentials/ocm/transfer_test.go#L19-L129)
 - The task helper accepts only bounded JSON with exactly access-token and URL fields at approved API URLs, validates a candidate using `ocm whoami` before replacing the active config, and clears OCM and kubeconfig state on request. [configure validation/install](repo://utils/rosa-boundary-credential-helper#L49-L141) · [clear operation](repo://utils/rosa-boundary-credential-helper#L143-L151) · [helper tests](repo://tests/shell/credential-helper.bats#L66-L162)
 - Credential paths are separate empty ECS volumes overlaying the persistent EFS home, and startup rejects missing or NFS-backed overlays; S3 sync excludes both credential trees and does not follow symlinks. [task volume definitions](repo://deploy/regional/ecs.tf#L71-L93) · [mount guard](repo://entrypoint.sh#L46-L80) · [audit sync](repo://entrypoint.sh#L3-L34) · [entrypoint tests](repo://tests/shell/entrypoint.bats#L15-L47) · [sync exclusion tests](repo://tests/shell/entrypoint.bats#L88-L174)

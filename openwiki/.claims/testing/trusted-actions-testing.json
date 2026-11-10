@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:825203fdb4fd5a4d4fe233de086e5b53c479f0e91b2d2c5165784b532dd5e796",
+  "claims": [
+    {
+      "id": "claim_7aded801f04d4338a2dd5e812a077099",
+      "statement": "Trusted Actions is an independent Go module under components/trusted-actions/ with its own go.mod and Makefile; root-level `go test ./...` and root Makefile targets do not exercise it, so Trusted Actions commands must be run from components/trusted-actions/ (e.g. `make -C components/trusted-actions test`).",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L1-L20",
+          "version": "repo-lines-v1:sha256:1b9093d34b01c9d1f993ae36fa2464b3d5d17084770084d133950016c9c70c96:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcwOTFmNDE1YjJlN2IzZDI0M2UyZDBiYzc3ZTI5MzlmZTc0NzBjMTkwZjhmOGRmYjgzNzM3MzE3YTRmMzQ3ZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmMjEyOGZhM2NiMmEwM2E3ZTdmOWRiZmJlODM2MmQ1YzY4ZTU3MDU3ZmQ2ZTI0OWZiZWVkZTI0NjA2OGJkMWYifQ"
+        },
+        {
+          "resource": "repo://docs/trusted-actions-source-colocation.md#L20-L26",
+          "version": "repo-lines-v1:sha256:e820d6c829bcd9f8b92cd040cbd8dff603e9d444803e8d3bc67687316e989419:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDRhOGUwZDZhM2I1N2YyZGZhNjkzZDE1MDRmMGY5YzI2Y2QyNGY2MzU5NzgwZTE2MzBkMWM4YTczODRmMTk4OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjA3NjQ2OThmMTMyMDM2MTgyY2JkNmQ1NDIwZTI3OWFlOWQwZDUwYTZiNWQwZjJmZGIyODliNjU4OGFlNDI5MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjljNTI2MGNjMGUxMTBmMDM0MWEzZmQ3MGY3YzkyOWJmNTA3NDFlYmJkNDI4OWM5MjNjNTExOTBhZjZlZTRjZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzRjYjRlZGE1MWIxYzBjMmRmZjUzODRkNjdlYzM2ZGY1NTNiMzMwZWMyMDZlN2MzMGQ4NmJmYTNhMTUyM2UxMSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_fc16c335028e4568abcfa717727a7845",
+      "statement": "`make test` in components/trusted-actions/Makefile generates OpenAPI code, compiles (but does not run) the tests/actions integration tests under the `integration` build tag, then runs `go test -v ./...` covering SQLite-backed tests only; Postgres-backed store tests require TEST_POSTGRES_URL and run via the separate `make test-postgres` target.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L124-L133",
+          "version": "repo-lines-v1:sha256:d29049950069e00fd2e91ffe7cffb0e0b0330268716e225b776e6c667880ad6e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZjNGQzN2E5MTMzNGJjZTIwMTg1ODcwZWVhZmRmZDA5ZTJlMzQxNTczYjgwMzFmYTA5ZGUyNTY4OGNmNWZkYzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4YTdkOTE0NWU3ODdlMDcxOWU2MjU5OGM3ZTM1Y2RkNDZkNmIzMzE4ZWFkMzQzNGIyMmQ4YjAzNWYxMWYzYzkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRlY2M3ZDdmMzY4OTQ0MDQ2Y2VmNDgwNWE4MDZjZGEzZTRiN2ZlODQzMjYxMTM4OGExMDIxODMzMWYzMmUzNjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBjMDNlODg0OGIwZmMyOTUzMDc4MWVjOGI5MWYzNWJmOWVjMTIzZGFjYjM1MDA4MmQ4YmRjMzA5MDQwMTA1MmYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L164-L177",
+          "version": "repo-lines-v1:sha256:100d30cb33031125cb68218e4817d59efd050ee82fc2b13003514dad9387b003:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MWI3NWU2Yzc1MTRmNGRiNGE4NTZhMDE1OWI4ZjliMDc0NzdmYjhjODljMmEzMzEwMjk0Njc0NzExMjcyMzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkOWY2ZjcwM2NiNTQ3NWViZTI5ZTFmYTM2NDk5OWM0NTY1ZWVjNjQ0OTU3MDBmNWI1ZDk1YTAyODdlMjNmZmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM2MGRjN2YwNWRkNTI2YmI1NjYzOGU1ZGExOTE5YTdlYWVmYTU4NzMzN2VlMmU4M2FlMDA1ZWJlYzdjNmVjNWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlOGVlYmZiMTBjODBlYTE1MWFhOTJkNjg4YmJjMjQ1NzFmNTZhYTgwYmYwYjMyZGRjNjUyMzkxODg4OWQ1ZDUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_08363ec9d9e14d40966137ad6a48647b",
+      "statement": "`make test-race` runs `go test -race -v ./...` and `make test-coverage` runs `go test -coverprofile=coverage.out ./...` followed by `go tool cover -html` to produce coverage.html.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L131-L138",
+          "version": "repo-lines-v1:sha256:9cbdebdaaf481668f5ce7d048ee7ceb3fda9be9ea7056a1da7a1f542543e658b:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjE3OGI5ZmU3ZjE1YzI1NTI2MjJjMWQ3Mjk1MzNiYjdiZTE3YWI5ZTMyMGE5N2RjMmMwYjA4YmJkOGRkMGRlMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjYxY2M5NWM1NjdlNTRmMzU1OTE4NTdjZDQ3ZGZmNDk0ZDY0ZmU2NTM5ZTkyNTY3NzI3ZTcwYWJkMWNjNjBlYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDE3MzY2ZGM3ZDk1MWNkNzIwNzRlYTVhYTY1OTkxMGNhNDA1ODZjMjg0NDExOWY0MjRmODQ2Yjk4YTdiNjlkOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWVkY2JjNTcxMzg2ZDAxMjQ5MzIxNjBkMzM1N2VkYmFlMzcxN2U3NDAwYmRkODM4MTAxZDM0OTVkYjMyNDc1OCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_0249b8119bfe4463b6858f4c6f028c39",
+      "statement": "`make test-integration` starts the server in the background via `make run`, waits, runs scripts/test-api.sh against it, and stops the server (killing it and failing if the script fails); `make test-api` runs scripts/test-api.sh directly against an already-running server without managing the server lifecycle.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L191-L204",
+          "version": "repo-lines-v1:sha256:dbbbf27de57426b8f9a999b95ed5bf60b912648786c0d4bc60af24699afceac1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRiMWNlM2ZkNmY3Y2JlNzIzOTdiNmRkMzBlMDZjZjEwNjczMDVjMGQzMzUzMTNhNDViYjE3YzU0OGMyNWY2NjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3Y2UxZjQ0ZTRjMWMzZmU3OTc1OWIyYjIwNWI2MzYxODA1OGNiYzA0OTc0NWMxNGFlOWM0ODI0MDI5NTliZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1ZDYwMTViMDZmMWRkODI2OTIxMGQzNmNkMGJkNmZjMjcxNzI3YzkxZDBkMjMxNTc4MmE3ZGZjZWNhODg3YjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdhYTllM2NiNDZjOWIxN2FkMjdhOTk4YTY2Zjk5NzBiZGE4MTNkNzVkMWI2N2NkOGJiY2ZhZGM1N2M5NTZmZGEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/scripts/test-api.sh#L60-L84",
+          "version": "repo-lines-v1:sha256:4deca551d735c99e94c25353119825cef4e8f489019230f1675cd4c01701c20d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhNzQyNTg5Yzg1Yzg2ZmZlZDVhZTc5ODFkNjljN2JmZWJiNDFkZDkwM2NmN2NiMWRmZWZjMGYxNWFiNzJkMTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyNDUwNzhhYWU3ODY3NzZlMDI0ZWNmMzZmZTFhYWQ5ZjZhZjM3NTkwZWVmMWM3MWExNWFmN2FlNDQyMWE5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk4OWY3MDQ4OTQ1YTg1ZWEwMTI0MzQ1NDFhMTdiNzBkNDA3MjY4NjYwYWRjZWNkZjM1ZTNiYzE3ODlhMTI5MDcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a1a19ba4f01b483b9ffcce37c7e5cff4",
+      "statement": "`make test-actions` runs the tests/actions integration tests (-tags=integration) against the mock Backplane server started by `make mock-backplane`, while `make test-actions-proxy` runs the subset matched by `-run Proxy` against the proxy Backplane server started by `make proxy-backplane`, which requires a real KUBECONFIG.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L206-L214",
+          "version": "repo-lines-v1:sha256:d34fabdecd173dbb8439faae4642234d4d062230ec3848c9fd861f3b1978c401:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWVkNzlhZTlkMDU4MTRlZTVkY2VmMTAyY2U1MDBiNDAzMTRkZDg1ZTM4NDVkZjU3YjI4ZDZmOTljNTc0ZmMxYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjE4YWE4YmE2ZjVjYmQ5Mjc2ZjE1ODhiZjA1Nzc3NjEzODdmMGQxMDcwNjZjYThmYjMyZjUyMWU3ODMwMWZmMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTQ3NzM4YjU0YThhNTA3OGE2ZmE3NTVhZWYxYzFlNzgyYjY0MTYwNGUyNzhlMWMxODhlYmNlMTRmZDNjOTA3YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODkzM2M3YThjNGYwMzJlYjM0NjJiY2NjYTkxNWJmZGE1N2M0MjU2NWM0M2NmZjZkNmMwNWQ1M2MxYTA2Nzg1MyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_48739654106849cd894c2057eb5450d1",
+      "statement": "Trusted Actions enforces patch coverage >= 80% on all PRs via Codecov, with internal/handlers/ and internal/config/ called out as the primary coverage targets, per TESTING.md, CONTRIBUTING.md, and docs/adding-a-trusted-action.md.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/CONTRIBUTING.md#L25-L25",
+          "version": "repo-lines-v1:sha256:f8ee1d55ee5d0054692e17d1f8aa57bc6d55ed0ba1baf5eac072f6ce2226d53e:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjhlZTFkNTVlZTVkMDA1NDY5MmUxN2QxZjhhYTU3YmM2ZDU1ZWQwYmExYmFmNWVhYzA3MmY2Y2UyMjI2ZDUzZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjhlZTFkNTVlZTVkMDA1NDY5MmUxN2QxZjhhYTU3YmM2ZDU1ZWQwYmExYmFmNWVhYzA3MmY2Y2UyMjI2ZDUzZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODhlMWZmMDg5MDQyY2M3ZjA5ZmQzZWFhYWRlMjVlZTIxMDQ2ZDM4OWM1ZmEzMGE0YjJmNDQ3OWVjODYwOWFlMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjUzNGM4NjQ3YjY0ZGRkYjIyZGY5YjExYTdiZTZjZjE4MTIzYWIwNmI0NjI5ZGY1ZGExZDQwMzYzYzIwNmM0YiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/TESTING.md#L92-L97",
+          "version": "repo-lines-v1:sha256:4f8b8181f906bae247a9e87f2faa2876f9542526da1390607edced80382db8a1:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWY2ZTJmZWI4NjUwYWIxOThjODc3NWY4ZmRjOGMyM2JiYzNlYTE3Y2E2NWRjMzM5ZGJmNWZiZjNiMmZiOWQ0MyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjgwMjAxMDZlODZhZjgxZWQ2NDJlNzQ1MzA1NGMyOTdjNDMzOTkyNDNhZDkzMjEzODRkZTcxMDFiMTUzZjUxZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODgwOTE4YWM2NDMwNzA0MDMwMDQzMjc4YWJiMTY3MDAxYzY4MzQzZmM1YTNhZGY3ZjgyYjYxNjk1MjliODRhZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDU4OTMwZTFlZjZkYWFmYWE3NGY3YjNjZWQ2ZjM4ZTE5NjJhMzlhNWQyMjYxYzI3M2FmOTVkNGI3YTIzZmVlMyJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/docs/adding-a-trusted-action.md#L240-L244",
+          "version": "repo-lines-v1:sha256:4c031abafbe9122dff2af1f77867331be8d616b7df54dba9d8c768e191144e8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDIxNTJmMGNiYTdlOTg2Y2FjODFkZGUzNTdmMjY2MTQwNTQ4YTAzYmRhOGNmMWMzODg3MzYyMWUyN2M1NmNiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDQyNzBmZTM0MzkyMzFkMGNiNjk5NDc5M2RkNGU1ZDgzMWFlNjI5Njg0ODIzNzRmZGRhYzg4N2QwNTFmY2MzYSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWM5ZDNhYzMwNGY4ZmY2MmFjNDBhM2E1NDBmZDc2NTcyNDkxMThhNGI5NzkwNTJiNDEzY2RlYjY3YjE3YjdiMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWI2ZmYwNDQyYjhjNmRmZGM0ZjlmZWQxN2QxZDNkN2ZlZjZhNWE5YzQzYjM0N2U5Mzc5ZTZiZTAxY2FkZjkyYSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_48b5a16a0374462ab97aa68dd720ff74",
+      "statement": "components/trusted-actions/codecov.yml is a Trusted-Actions-specific Codecov configuration (precision/rounding, require_ci_to_pass: no, gcov branch detection, ignore list for **/mocks and **/zz_generated*.go), distinct from the repository root's codecov.yml which sets an auto/informational project and patch target for the Boundary side of the monorepo.",
+      "evidence": [
+        {
+          "resource": "repo://codecov.yml",
+          "version": "repo-file-v1:sha256:817d35a773ba3fc7997ae99e20ad0fdc1b2ea2e56f6494f5e5b89de5acab0898"
+        },
+        {
+          "resource": "repo://components/trusted-actions/codecov.yml",
+          "version": "repo-file-v1:sha256:aab4347cedff75a1c93ca75d69307cf580e53167042a78dff1f9c99ab6038996"
+        }
+      ]
+    },
+    {
+      "id": "claim_5c74fb414c6f4670b9cde620052f6bbb",
+      "statement": "TESTING.md additionally excludes vendor/, node_modules/, internal/openapi/ (generated code), **/*_test.go, tools.go, and docs/ from coverage accounting.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/TESTING.md#L110-L119",
+          "version": "repo-lines-v1:sha256:0acf64363782b3597e1b45258fbc0599152c9eaff0d85580e80fa493727b6d3a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiYWVlOTVjYTRiMTU4ZThiMGY3NTRjMjQxNGNkYzgxMmM3Yzg2N2FjMTY0NTA4NmFkZjIzYmRiZjJlZDE4YTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyZTZkYjgxZWM1MTY1ZmUxMWZjMmNhYWI5ZTVkNTE5NDVlNTk0NmE2NzIzNmE3ZWUwOWZmNWJkZDkxMDIwNjUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcwYzU2MjFiYjllOGRlM2QwZmNkZDc3ZjcwYjM3MDhhMTNiM2JiNmY5ZDE3MzZiYjEwMzBmZTZhNzg5NGM0NzEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYzYmZlMTg1NDgxZmMxNGYxMDBjMGZiODY2YTZkNzI2OWE5ZTFmNTAzOWRhYTcwZWEyZGZkODFmYjU5ZTIwNWMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_dc3bd27cf6b34f26a33ab54e80309f5a",
+      "statement": "Trusted Actions tests use only the Go standard library testing package and net/http/httptest (no testify, gomega, or similar frameworks), follow a Test<Type>_<Method>[_<Scenario>] naming convention, use table-driven subtests via t.Run, and ensure per-test isolation by constructing a fresh handler instance and logger in each test with no shared mutable state.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/TESTING.md#L53-L90",
+          "version": "repo-lines-v1:sha256:3495e45754047afed401523683e412d787e42287d4148bd869c5ce0576682d9f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyMGFmZTQzMTgwMDk5Y2Q3ODAwZmU1ZGI5MzBjNDhhODQzZjgyZGZhYThhMjlmZjAxZjg0ZGQ3Mzg3ZmRlMGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3YzA2YzU2MWQ1YzMyNzM0MzY4NTI2OGE0NmIzMzkxZjM5OThlZWU4OTBkMmJlNTFmMGQyMWNjNGE1M2FlNmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg4MDkxOGFjNjQzMDcwNDAzMDA0MzI3OGFiYjE2NzAwMWM2ODM0M2ZjNWEzYWRmN2Y4MmI2MTY5NTI5Yjg0YWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ0NWM3MjYzYjhhNzZlN2Y5NzY5OGMwZTFhYjVlMjM4ZTdlODc2YWQ0MmVlYjc3NDUyMTE1Nzc0Y2VlMGM4ZDUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e59d3fb8de3a4bd588c393f08ed595bb",
+      "statement": "components/trusted-actions/integration/ is a podman-compose-based, disposable end-to-end test harness driven by itest-up.sh, itest-run.sh, and itest-down.sh (also exposed as make itest-up/itest-run/itest-down) that exercises a real HTTP -> auth middleware -> executor -> disposable kind cluster -> response path using mock auth (ROSA_TA_AUTH=disabled) and a local Kubernetes cluster, with no OCM or Backplane dependency.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L179-L190",
+          "version": "repo-lines-v1:sha256:0a3ac2d2e394ad5d0fa7d05a4236715017143b1189a78dfb145955a366a58ec6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwY2UwMWQ5Y2I2YzA5MjcwN2QwZmIwMDJiM2NhNGI1YTkyNTc1ZjgxZDMxMDgwMzJlNjJhNzRkMmFhZDZmNWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkMmVmY2M2MTIyNDY3OTJhNWE4OWIxZjljODgyZjFkNTBlYThkODhjOTg4OGQzMDJkMTQ1MDUxZTNkMzAwMDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5MmIxZjZmNGI3OTZlZGVmODQ2ZDI3ZDFiNDMyYzQzNGZiMjJlM2ZkNjEzOGFhY2Y5MjMwODk5MmU3ZDExMzMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/integration/itest-down.sh",
+          "version": "repo-file-v1:sha256:8b30409eca8eb0e76a5ff9b06cbb88e7268d4dc21a9c0a95be2c1c488dbc1f11"
+        },
+        {
+          "resource": "repo://components/trusted-actions/integration/itest-run.sh#L1-L20",
+          "version": "repo-lines-v1:sha256:ac5058886ac39cb72e86e610134373026a8fed53273684132fb670b92bf45cf8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NzVmOTI4NTQ2YWVlNzg1NWNiMWRiOWFmYzhhYjNmMWE4YTM0ZDQzZGU1YmJkNjJmNzA3NmQ3YmE5ZjM5MTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4MWMxMDVhOTM5ZTlmMzM1OWEzZGY5NGQ1ODQxNzMxY2VjNWQzZTk5MzdkOWJjYzgxOGM0N2M1ZjNiODljNGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImEwMTBiODMwNmIzMGY2OTI5MzMxZGM3NjVhNmFhZDM2OTY2ZTAzOTAwYjAwZTA0OWE5OGFiMjAyNDA0MjkwNjQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/integration/itest-up.sh",
+          "version": "repo-file-v1:sha256:6150790f6721c7e7a5d193533c4c421449ad3d2d2072176c36a0b11c3c01c94d"
+        }
+      ]
+    },
+    {
+      "id": "claim_d5b90b5ec51a47b4855e9216ecfb7976",
+      "statement": "itest-up.sh creates or reuses a kind cluster, starts the podman-compose localstack stack, waits for both to become healthy, applies fixtures (a pull secret and a Prometheus deployment) from integration/fixtures/, and waits for at least two Prometheus alert-evaluation cycles before returning ready.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/integration/itest-up.sh#L30-L93",
+          "version": "repo-lines-v1:sha256:65b75fe36b8fc6013516b8d560574c08c52892f4260bccde55fb2a8b66026159:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUzZGU4M2E5MTZmYmRmMDJmNWMwNjJiYmYzNDAzMTI1NTg0YmQwNWFjZTA1OGY3YmIyYzMzYjA0ZGViZDI0NGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3N2UyOWQ4MGQyNTczZTliYzdkNjkyZmIyZTg1ZDBmMTdmNDk2NTBlMTU3ZjkxY2VkMzhlYWQyZjc5NWU5ZDMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEzNzZhOTM5ZGQ0YTNhZGU5YjJlOTAxOWViMTZiZDc2YzRhNjQ5MDIwYWY0NmFmOGU2OTU5ZDI1MWUyZmIyNWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM5MDgzM2RiN2RlYzFlYjRjM2MyZGVjYjVkZTM0OTk2YjI0ODYyNzI4OWY1NGQzY2Q1MTViYjVjMTJmMjk2NWMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e84e7ce946194531849290ac6587d399",
+      "statement": "itest-run.sh exercises one action per execution scope against the kind/localstack environment (a kube-api `get` on kube-system pods and an aws-api `aws-get` sweep of EC2/Route53 resources), polling GET /runs/{id} until each reports status: succeeded, and also submits an invalid-param request asserting the execution fails to confirm input validation survives the full HTTP path; five aws-get resources requiring LocalStack Pro are not covered by this harness and are instead covered only by unit tests against fakes in internal/actions.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/integration/README.md#L34-L73",
+          "version": "repo-lines-v1:sha256:b495dcbbae0082107cd718433be0fda92f85088764ab7441c5f1054e13ea726d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExNDA3MjdlMGRmOTY1OGQxNDgwZTNjMDBiNGFmNDJlOWQ1MzAwOTA3NDA4YTBhNGIyZWZiNTljNjUyMjU1OGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5MGQxMTc0MWY1MTI0Mzg1YmRmN2Y4YTM2Yjc3YTQ4ZWU3NmFmNzRiZWJjMTdjNjQwZGU2YjY2MzNhYWIwNTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVhODUyMDI5ZjJjMjczYWQwMjRmOGM5MTU5Mzc3ZDYyMmVhODljMWU4M2Y0ZGE0ZDA1ZDQwY2MwYzdhYWFkOGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJmM2UzNjgyNTZkMTY1NDRlNjNjMTMzMWE1NDdhYzk4MzU3OTQxZjhjNDBlYWVhYTlhYjUyMjZmODk0NGVjZDcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_bcb766eb751d4219989a780b2d49536a",
+      "statement": "components/trusted-actions/tests/actions/ holds Go integration tests under the `integration` build tag that exercise individual trusted actions end-to-end against a running Backplane stand-in; TestMain probes MOCK_BACKPLANE_URL (default http://localhost:8087) and PROXY_BACKPLANE_URL (default http://localhost:8088) for availability and honors a TEST_BACKPLANE=mock|proxy selector that exits the test binary immediately with an error if the requested backend is unreachable.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/tests/actions/main_test.go#L1-L88",
+          "version": "repo-lines-v1:sha256:b6b789d97b74662f6a30d59f3b775081f21af4791ec59b3487780f2bf36510a7:eyJzZWxlY3RlZExpbmVDb3VudCI6ODgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiMTQwMzJlYWIyZDJkOThlYTYyOWM5ODVlYzZjNmVkNTFjYzcxZjVkMjM1Y2Q1NmFjNjJkMmE4MzM2YzA1N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRiNTg3YmJjYmFkYjQ0M2M0NzVjNWNmNjVlZjlkYWEzZTczODljYmI0MDY1YmE0ODQ1ZDZjY2VlNmI3YTg1Y2MifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b979ccb8b558499f9994fcd2fce20a7f",
+      "statement": "components/trusted-actions/tests/mock-backplane/ is a standalone fake Backplane API server built on the Imposter mock engine, started via `make mock-backplane` (Imposter Go native engine v5, auto-restart disabled) listening on MOCK_BACKPLANE_PORT (default 8087), using in-memory state that resets on restart and fixture cluster data in data/cluster.json keyed by {clusterId}:{kubernetes path} with declared RBAC identity (API group, resource, namespace) per entry.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L216-L225",
+          "version": "repo-lines-v1:sha256:65f6e0f2c622a66702ec84ff8fce18fb0984c86d8ce9a7dd715ef938b22dd8a3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM1Njk4MzdhYmVkODZlMGExYjI4NmE3Y2Q5NjcyMGUxZjQ2MjAwNGZjZjg0NzI1ZTUzZjY2MDQyZGRjOTE1ZmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMwMjY1OWQ4MmQzZjNkOWFmYmQzMDdjYzAxMmVjNDcwODNkZDY2ZWU1ZTQ4ZWJmNGEyNmZlMWFiNmY0MGFiNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE4NTA1MzI0OTNlZDdmZDBiODZlZjAxMmQ3MWY3MDk5NmExYTQ5OGNhY2UwODAwZWY1YmY0YjM4MjE0NjQyNTcifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/tests/mock-backplane/README.md#L1-L100",
+          "version": "repo-lines-v1:sha256:43be73d67afbbffe8e2fc544ea41e68c71fb16d806b42d0d31d02506c9414239:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMTM0YzQ0Nzg4YTgyZjc5YmExYzJkNzIwNmU4ODUxYzVkMWY2NTY0YmQwMmRlY2U4ZDc3YmNhZjEwOTk0OGM4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MCwicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjNTQ3NzQxYWY1ZGQwODQ5YzU4OTFmMjc3ZWZiOTA0Y2M0OWI1NDZkODVmZGEzYzUwZTBjMGUxOTYzZDYwMjE4In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_dd53e2d60ed74399bacd0bb4ce505ed6",
+      "statement": "The mock-backplane server distinguishes a modeled-but-absent fixture resource (HTTP 501) from a resource that exists but was never granted to the requesting trusted action (HTTP 403), so a gap in fixture coverage cannot be mistaken for a legitimate not-found or a passing negative test; kubectl cannot be used directly against the mock because it does not model Kubernetes API discovery endpoints.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/tests/mock-backplane/README.md#L34-L80",
+          "version": "repo-lines-v1:sha256:712b62afead6fec4ea0cd84e20943a055b88c0dedde2673ee621ae0f05ea16f2:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2OTk4ZjkzN2IwMjBmNDFiYTU1MzEwZTdmODY3OTUzMzcyMjI0MzY4ZWEzYWI1NDc4YWZjYTcyYzViNTU3M2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEzODg0ZmQ0YjVkM2NkZjIxNDU4ZGEyYjk0NzU1ZDExOTYxZjI3NmZlZTk3MjdhNGM4MDgwZGMyODI2YTViY2EiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU4OWVmNTFhZWVjNWY2YzMwZTgyNjJmOTU5Mjk1ZGJlY2M3ZTJmNDQ2MDgwNzYzNzVjZjVjZWIwMTA3M2FlNDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBkYmJhMDEwMDNjNmU1MjdhMzBiZWMxYmM4NTY4NzVmNDZiNTZjZTZiZjRmMzZiZGY5YjAxZDE5MDIwMzUzMDkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_39ae2624886b49789e4adf65bf0ee924",
+      "statement": "components/trusted-actions/tests/proxy-backplane/ is a recording/replay-style reverse proxy used by integration tests to reach a real Kubernetes API: it accepts a base64-encoded kubeconfig at registration (POST /backplane/trustedactions/{clusterId}), builds an http.Transport from its TLS credentials, and forwards arbitrary HTTP methods on the returned proxyUri to the live upstream cluster (injecting the kubeconfig's bearer token) until the registered entry is deleted; it runs via `make proxy-backplane` on PROXY_BACKPLANE_PORT (default 8088).",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L226-L229",
+          "version": "repo-lines-v1:sha256:b213f7d68d5ba008e9d25726a18f7e31686e5049ce39bc842012b3fad0e0e618:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzhjM2VlYTUwMmQ2Mjc2NzNhYzRlOWJiNTYzNGE4MTQ4MTUzMWRlYjA4YzY5Mjg1MmVkYWMxMWU1ZTRmZTljYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiM2EwM2RiZjc1MWIxNTZjZTI1NTE5YzhhYzIxZmJjNmE3N2U4ZGIzNWEzYjM5YWVhNTg5N2VjNTk1NGU0ZWI4NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNWU4Nzc0ZjhmYjZjOWU2Y2JkNzE3MjI5NTc0ODEwMThjM2I2OTVhMTc2MGZhMzU5MzYwYjBiNWRjNWY2MTVhZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDJiZmFjZDlhZGUwNjdlM2I2OTUzNGMzYTNmM2NiNjY5MjQ1MWZlNzVmMjhiMDMxODI1NGJjZjBmZTM4ZDA5ZSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/tests/proxy-backplane/README.md#L1-L36",
+          "version": "repo-lines-v1:sha256:ae01d37dd50ca005561f18f4aa38f5edaad1cc40a39005b359a4fafd70a2a7f2:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmMmRmNThlY2U5YjQyNDY0OTQ0Y2M2YzEzMmEwYWJmNWE3YzAyMDAwYTliYzhhNjZlMGVlOGZhYzIxNzIxYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3YzA2YzU2MWQ1YzMyNzM0MzY4NTI2OGE0NmIzMzkxZjM5OThlZWU4OTBkMmJlNTFmMGQyMWNjNGE1M2FlNmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkyMWQ3YmEzMzBhOGE3YzQyZjVhYjA5YTg3ZTFkNWQwNDI1ZmY2NDQ4YTM2Yjk5ZDRmZGY2ZTA4Yjg0NGJkYTYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_8147c99e42a843ff964b17f356857ca2",
+      "statement": "Trusted Actions' Tekton PipelineRun definitions (.tekton/rosa-trusted-actions-pull-request.yaml and .tekton/rosa-trusted-actions-push.yaml) exist in this monorepo and are adapted for components/trusted-actions, but their pipelinesascode.tekton.dev/on-cel-expression triggers are prefixed with `false &&`, making them structurally present but unconditionally inactive as a deliberate pre-cutover hold, so CI for this component is not currently running from this monorepo and the original openshift-online/rosa-trusted-actions repository remains the active development and CI source of record.",
+      "evidence": [
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml",
+          "version": "repo-file-v1:sha256:1ab2f3107ff5634cd1522bb0b3fcf0db9763e2f63f9cab92ff6f840756e308db"
+        },
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml",
+          "version": "repo-file-v1:sha256:9a613ba2d3b0f229f9d23ab13121c1b77acfdc77e8d4509c5b014d3f413f5bc8"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-10T16:03:08.957Z"
+  }
+}

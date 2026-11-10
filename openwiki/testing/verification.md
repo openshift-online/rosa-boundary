@@ -3,7 +3,14 @@ type: testing
 title: Testing and verification strategy
 description: Maps Go, Lambda, shell, Terraform IAM/model, and LocalStack tests to their contracts, including legacy-staleness regressions, test-discovery boundaries, and known account-test drift.
 tags: [testing, unit-tests, integration-tests, localstack, ci]
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-10T16:03:08.957Z
 sources:
+  - id: openwiki-source-56c54c10348f1e72daffc214
+    resource: repo://components/trusted-actions/go.mod
+  - id: openwiki-source-4c833b02bf6d5fc7a2476dea
+    resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-7afccf6bb50a66b861c2b750
     resource: repo://deploy/account/Makefile
   - id: openwiki-source-e0e8c15f232fd81f46f03e41
@@ -44,15 +51,16 @@ sources:
     resource: repo://tests/localstack/required_services.py
   - id: openwiki-source-80fcaf58926aeda8dd2be405
     resource: repo://tests/unit/test_reap_investigations_staleness.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-05T16:02:21.720Z" }
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-05T16:02:21.720Z
+generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
 ---
 
 # Testing and verification strategy
 
 The repository uses several test layers because no single environment covers the CLI, container scripts, Terraform policy shape, Lambda logic, and AWS API interactions. Go and Python unit tests isolate logic; bats tests exercise shell behavior; Terraform tests use a mocked provider for input constraints; LocalStack tests exercise service APIs and relationships between AWS resources. Prow's `tests/localstack/ci-run.sh` adds service/readiness gates, Docker-compatible ECS task execution, JUnit artifacts, and failure logs around the LocalStack suite.
+
+## Scope: root suites do not cover `components/trusted-actions`
+
+Everything on this page describes the root `rosa-boundary` module's test layers — the Go CLI module rooted at the repository's top-level `go.mod`, the Lambda handlers under `lambda/`, the root Makefile's targets, and `tests/localstack`/`tests/unit`. `components/trusted-actions` is a separate Go module with its own `go.mod`, its own `Makefile`, and its own test suite; root `go test ./...` (via `make test-cli`/`make test-coverage`) does not walk into it, and none of the root Makefile's `test`, `test-all`, or `check` targets invoke it either, because Go module boundaries stop package discovery at the nested `go.mod` and the root Makefile never shells into `components/trusted-actions/`. To run that component's tests, use its own Makefile from the repository root: `make -C components/trusted-actions test` (or `cd components/trusted-actions && make test`). See [Trusted Actions testing and CI](trusted-actions-testing.md) for its unit/integration layers, mock-dependency strategy, and Codecov gate instead of duplicating that detail here.
 
 ## Unit and focused tests
 
@@ -96,14 +104,14 @@ Use the narrow unit suite for code paths that can be isolated and the focused ba
 
 ## Evidence-backed claims
 
-- The root Makefile defines separate Go, Lambda, build-helper, and LocalStack test targets; LocalStack fast mode requires a running endpoint, while full mode starts and tears down the stack. [LocalStack targets](repo://Makefile#L70-L112) · [Lambda targets](repo://Makefile#L159-L174) · [build helper target](repo://Makefile#L176-L185) · [Go test targets](repo://Makefile#L206-L214)
-- The Makefile now defines three Lambda unit suites: the investigation Lambda suite runs with pytest, and the reap-tasks and reap-investigations suites both run with `unittest`; `test-lambda` aggregates all three, with the reap-investigations suite covering staleness/grace-period detection, EFS access-point and directory cleanup, task-definition deregistration, and identifier/path-traversal validation. [root Lambda targets](repo://Makefile#L159-L174) · [reap-tasks tests](repo://lambda/reap-tasks/test_handler.py#L7-L44) · [reap-investigations staleness/EFS cleanup tests](repo://lambda/reap-investigations/test_handler.py#L56-L213) · [task-definition deregistration tests](repo://lambda/reap-investigations/test_handler.py#L636-L692) · [identifier/path-traversal validation tests](repo://lambda/reap-investigations/test_handler.py#L840-L1015)
+- The root Makefile defines separate Go, Lambda, build-helper, and LocalStack test targets; LocalStack fast mode requires a running endpoint, while full mode starts and tears down the stack. [LocalStack targets](repo://Makefile#L86-L127) · [Lambda targets](repo://Makefile#L175-L190) · [build helper target](repo://Makefile#L191-L201) · [Go test targets](repo://Makefile#L221-L229)
+- The Makefile now defines three Lambda unit suites: the investigation Lambda suite runs with pytest, and the reap-tasks and reap-investigations suites both run with `unittest`; `test-lambda` aggregates all three, with the reap-investigations suite covering staleness/grace-period detection, EFS access-point and directory cleanup, task-definition deregistration, and identifier/path-traversal validation. [root Lambda targets](repo://Makefile#L175-L190) · [reap-tasks tests](repo://lambda/reap-tasks/test_handler.py#L7-L44) · [reap-investigations staleness/EFS cleanup tests](repo://lambda/reap-investigations/test_handler.py#L56-L213) · [task-definition deregistration tests](repo://lambda/reap-investigations/test_handler.py#L636-L692) · [identifier/path-traversal validation tests](repo://lambda/reap-investigations/test_handler.py#L840-L1015)
 - LocalStack pytest fixtures check the health endpoint and require configured AWS services before returning service clients against the local endpoint; health polling itself is delegated to the shared `check_ready.require_ready` helper. [service requirements](repo://tests/localstack/required_services.py#L1-L6) · [health-gate / `localstack_available` fixture chain](repo://tests/localstack/conftest.py#L27-L45) · [shared boto config fixture](repo://tests/localstack/conftest.py#L48-L57) · [per-service client fixtures](repo://tests/localstack/conftest.py#L60-L165)
 - The local compose configuration uses LocalStack's local Lambda and ECS executors with a persistence volume, while slow reaper integration tests skip in local mode because tasks do not reach RUNNING; the Prow script sets a Docker-compatible ECS executor. [local compose executor block](repo://tests/localstack/compose.yml#L1-L28) · [integration skip condition](repo://tests/localstack/integration/test_task_timeout.py#L16-L78) · [Prow Docker-compatible executor setup](repo://tests/localstack/ci-run.sh#L64-L88)
 - The Prow runner waits for required services and initialized SSM state, writes JUnit results, rejects an all-skipped suite, and captures LocalStack logs on exit. [service and SSM readiness](repo://tests/localstack/ci-run.sh#L131-L235) · [pytest and JUnit gate](repo://tests/localstack/ci-run.sh#L237-L274) · [log collection trap](repo://tests/localstack/ci-run.sh#L43-L62)
 - Local-only bats tests validate the CI runner's JUnit, readiness, and log collection helpers without launching LocalStack or Podman. [ci-run bats scope and setup](repo://tests/localstack/ci-run.bats#L1-L22) · [JUnit and log tests](repo://tests/localstack/ci-run.bats#L24-L79) · [readiness tests](repo://tests/localstack/ci-run.bats#L81-L101)
 - Terraform's model test uses a mocked AWS provider and includes success for an approved profile plus failure cases for a bare model ID and missing model agreement. [mock provider setup](repo://deploy/regional/tests/claude_default_model.tftest.hcl#L12-L66) · [model test cases](repo://deploy/regional/tests/claude_default_model.tftest.hcl#L78-L115)
 - Staleness regression tests assert that idle missing-`CreatedAt` investigations are stale, matching running tasks protect both legacy and old investigations, ages inside/outside a 168-hour threshold differ, and unrelated tasks do not protect the target investigation; the Lambda `unittest` suite separately covers missing timestamps at zero and nonzero grace values. [zero/nonzero grace cases](repo://lambda/reap-investigations/test_handler.py#L821-L838) · [grace-period boundary cases](repo://lambda/reap-investigations/test_handler.py#L921-L955) · [standalone staleness tests](repo://tests/unit/test_reap_investigations_staleness.py#L56-L158)
-- The standalone `tests/unit` staleness pytest module is not selected by the Lambda Make targets, which run `unittest test_handler` from the Lambda directory; it imports the handler directly, whose boto3 clients are constructed at import time, so selecting the pure staleness tests still requires an isolated pytest/boto3 and test-AWS import environment. [Make recipes](repo://Makefile#L159-L174) · [handler module-level boto3 clients](repo://lambda/reap-investigations/handler.py#L26-L49) · [standalone test imports and handler import](repo://tests/unit/test_reap_investigations_staleness.py#L8-L23)
+- The standalone `tests/unit` staleness pytest module is not selected by the Lambda Make targets, which run `unittest test_handler` from the Lambda directory; it imports the handler directly, whose boto3 clients are constructed at import time, so selecting the pure staleness tests still requires an isolated pytest/boto3 and test-AWS import environment. [Make recipes](repo://Makefile#L175-L190) · [handler module-level boto3 clients](repo://lambda/reap-investigations/handler.py#L26-L49) · [standalone test imports and handler import](repo://tests/unit/test_reap_investigations_staleness.py#L8-L23)
 - Mocked IAM tests guard regional identity/attachment ownership, non-colliding policy names, local scopes, and explicit Bedrock service trust. [regional ownership](repo://deploy/regional/tests/iam-ownership.tftest.hcl#L98-L121) · [second-region scopes](repo://deploy/regional/tests/iam-ownership.tftest.hcl#L193-L233) · [multi-region trust test](repo://deploy/account/tests/shared-iam.tftest.hcl#L96-L107)
 - The account baseline's source-level ownership assertion now expects exactly five shared `aws_iam_role_policy_attachment` resources, reconciling the three pre-reaper attachments with the investigation reaper's added basic and VPC execution attachments; it no longer references the removed `deploy/account/imports.tf`. [baseline assertion](repo://deploy/account/tests/baseline.tftest.hcl#L69-L84) · [reaper attachments](repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf#L10-L19)

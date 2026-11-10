@@ -1,26 +1,30 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:bb30ec48e998958f6d295afef6f5ee05d30f33054769e8bdea78d8402e9ae053",
+  "pageVersion": "sha256:eba2e8e887f51f4c0eea3aa30d5572bb0d3cfe84b9ea233b6d34f857b7dcb6dd",
   "claims": [
     {
       "id": "claim_7f2dfd61cb3e4d3eb4577088e2e0533e",
-      "statement": "The CLI invokes the create-investigation Lambda with the SigV4-signed AWS SDK client and derives the task ID and SRE role ARN from its response; the Lambda itself validates the operator, provisions or reuses an investigation EFS access point, and can launch a Fargate task using a per-investigation task definition derived from the regional task definition.",
+      "statement": "The CLI's investigation-creation path is split across two commands that both call the create-investigation Lambda with a SigV4-signed AWS SDK client: `investigation create` (internal/cmd/create_investigation.go) invokes it with skip_task=true to provision or reuse only the EFS access point, while `session create` (internal/cmd/start_session.go) invokes it without that flag to also launch the ECS Fargate task, deriving the session/task ID from the returned task ARN and the SRE role ARN from the response (falling back to the profile's configured role only if the Lambda omits one). The Lambda itself (lambda/create-investigation/handler.py) validates the OIDC operator and required group membership before dispatching to a shared routine that provisions or reuses an investigation EFS access point and can launch a Fargate task using a per-investigation task definition derived from the regional task definition.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/ecs.tf#L62-L82",
           "version": "repo-lines-v1:sha256:caba5d5c0ad13a13b9dc32d6669a0d7c671d18c63df7bc2e9d214f5ca7b7f35d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkZGQ2NmZkNzJmOGRkZTAwMzY2OGE1MTk5NjFkMmNhNWU1MTA3NWE2YjhlMmMxMWYxMWU5NmNkNjdlOTRmMzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY1YTFlNzhiNTZhZTc5M2JlNGEwYzBiNWEyMmRiM2Q4MWJjYjY4ZTUxYzEzODExNWJhNzYwZjVhYTg5MmJiNTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiMGFlMGNlYzAzOGJhMjM1NzkwZmQwZDQ0OTllYmRhYzVhYWI2NmUzNjZhZDUxOTA4ZGU0NjQ5NjlhYTc2MGQifQ"
         },
         {
-          "resource": "repo://internal/cmd/start_task.go#L105-L117",
-          "version": "repo-lines-v1:sha256:2623d14d525a29d7cbdf1ae0e50e9478e825572a85b6e21b65fd7f0604613997:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhkYmU2Yzg5NzE2M2FjMWU1ODAwZmMxNmJlMjdhODZiNjZkMjI4NDhmN2U0YmU3OTIwYTI3ZWFhMzVjYTcxOGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNjZjc3ZDE5YTg5ZDQ5Zjc1ZTNiM2YwM2ExNWM2NzExYzE5M2FiMGNlYjExZDU4NGIyNDQ1NzQxMjMxMzAyNmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZmMGQwYmMwNzMxYjIzYjIzZDAxYWZkYTgyOTg3YjViMjExNjI3ZTkxMGQzMDViYTFkM2Y1MGFkYTE4OGUzY2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU3ZTE2ZTI5MTU3YmRlY2FlN2Y3MjE0MTUwZmZmZTBhZWZmMGVlYmY1MDQ1Y2VmYjJiMDU2NTYzNjkyNzIzYTQifQ"
+          "resource": "repo://internal/cmd/create_investigation.go#L40-L60",
+          "version": "repo-lines-v1:sha256:b8505651efd14353be09e15d8b886c2f02da94be8938b88557035a4681eaef92:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkOGI2ZGVlNjEzMTU3ZjIxZDMyNWVmNGZkY2JmZTI2NzM4NGZmODgyZTc4MDNlZTNhYTc1MWJhMDM4OWE1N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1N2JjZGM1NTFiNDU5MDY3ODM3NDZkZTg1NWRkODQwMjJmMWZhOGYxMzM3MzUzOGE3NTc1ZjY4ZjRjZjY2NDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4NzE1YzkyMmRlM2U2OWJkMWM3YWY2OTA1NmE5MDI1YjI0ZjY5MmZiZGEzMzFlN2I5MzBiZjlhNjU3MzhiMzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkYjk1YTA1MTk4NzM0OTA1NWM3NGVlMzY4NTYzNTNkMmYxMDBhM2I1MWE2NmYzYTM4ZjkyY2UxZGI1YjZhNTMifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L175-L281",
-          "version": "repo-lines-v1:sha256:8d207ea1482bb09d98106b99d2d303229d7f17ef2c0a1c06fc2143f79e70683e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzMDg4OWY0NDRkNWE4NmRmNzE2ZDk2MTU5YzcxNjgxODJmMmM1ZTYxMjI5ZTY5MDk3Y2JkZDI3OGQ5ODllMTk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJmOWIxOTgyZThkZDc0ODExODE0NmIzOWEyZDAwNjJmNDA4MWUzNDc3OWI4Njc1YzIzNGM0ZmIxMjRkYzM5MzkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYzU2OGU0MTZiMjk0Yjc2NTNhY2VjYzhkYzFlMmMxNjdmMjlmYmNhZjVkN2YyZDc4N2Y0MDUwNDk0Nzc4OWE2IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2YWM2NGI2ZmM2NDA3MDYxNDVlMjQzMmE4MzQ5YzkyNTExN2M4YTc4MmNkYzZmY2UxMWU1ZDI5NDY4NGQ0Nzg5In0"
+          "resource": "repo://internal/cmd/start_session.go#L59-L98",
+          "version": "repo-lines-v1:sha256:61867f9a248fa3ad4650d6ad218d0fca7c6d227f3985ea90d69d4e87ab557051:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmNiMThmOWE5NDk5YTFhYTNkMjU4MGExMDkzZWM5NDkwNmIzYzI4YmU0NWQ2YTA5NDdhNjJkMjVhYzg0ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4NzE1YzkyMmRlM2U2OWJkMWM3YWY2OTA1NmE5MDI1YjI0ZjY5MmZiZGEzMzFlN2I5MzBiZjlhNjU3MzhiMzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNWM4ZmFkOTg2YjMyYjViZDk4NzRjOWM3ZTBjYzUyY2UyZjZhY2MxYjU5NjIyNTRhYTZmMmRiMDc3MzVmMWEifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L676-L999",
-          "version": "repo-lines-v1:sha256:94e983ccb4dfe34d10d67ced6900b5da60c53b00ac2e5c932554f99d5b387690:eyJzZWxlY3RlZExpbmVDb3VudCI6MzI0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkYjVhY2Y0Y2ZlNzAxZWQ0MzNlMDNlNTliOTIwM2JiZTMxY2Q2MDNjYzljZDVlNzYzNDZjZTllOTBlYTc1MzU5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlNmIwNDQ5MTQ2OTcyMmU4MzYzYTk0ZTQwNDQ1MzhlMDEzYTJhMjE3ZTM2YjFlNTY4YmE2MGFjYjdiNGM4ZjJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyY2JiY2I0MDk5NTNkNDVkNjZjMGE2ZDc0ZTQ1ZWRlZDljOGFhM2EwODgwYTk3ODhhYjdlOTg0NTBkYjYwN2JiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhN2NiYTczZWVmNTNjODJkZmRiODQxYTBjMDNjNGZiZWU1ZDUzMWUwZTg4ZGRlNmIxY2JhMGQ5ZGNjYzM3ODUwIn0"
+          "resource": "repo://lambda/create-investigation/handler.py#L693-L1051",
+          "version": "repo-lines-v1:sha256:62297c1138f82495a6e4ee75fb3c149fa531d3f7a03bf498c1de715a8a1cfd60:eyJzZWxlY3RlZExpbmVDb3VudCI6MzU5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhMzA5YWYwMTMyYjViMTUzM2VhZmU2NTIzN2ZiZjZmNTI1MzE4NmYzNGYwNTIzYmZiNGUzZmVmMTQ1MGM0ZDk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlNmIwNDQ5MTQ2OTcyMmU4MzYzYTk0ZTQwNDQ1MzhlMDEzYTJhMjE3ZTM2YjFlNTY4YmE2MGFjYjdiNGM4ZjJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0YTRiZWYyYzg3NWNjMjgyYjY2ZTM1YzZmODc1MjNjMmNiMWJlOWViZTVhMThlZGFjZTA4ZTdjYjljZTkyNDI4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhN2NiYTczZWVmNTNjODJkZmRiODQxYTBjMDNjNGZiZWU1ZDUzMWUwZTg4ZGRlNmIxY2JhMGQ5ZGNjYzM3ODUwIn0"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py#L79-L300",
+          "version": "repo-lines-v1:sha256:1bb2b1eac3b03498a48dddf52b8e49b9087e5651e159fde6b5ef6d6d5768f22d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJmOWIxOTgyZThkZDc0ODExODE0NmIzOWEyZDAwNjJmNDA4MWUzNDc3OWI4Njc1YzIzNGM0ZmIxMjRkYzM5MzkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIzYTIyNDcxMmExZDczYjM0NGRmOGFkZjFjYzNhYjNhYjIyYjE1OTEwNTE3MjBhZmViYWE0Y2U0NDNlN2RkYWU0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiNGNkYzQzYmMzODc4NTQ0OTVkMDU5YjAwNWZlOGVlMTIwYTcxOWZiYzQ2YTgxN2Y1ZWFmN2RjZDY2MGU5ZDNhIn0"
         }
       ]
     },
@@ -33,8 +37,8 @@
           "version": "repo-lines-v1:sha256:e4fcd9a35c78acbe1fac399231466eec57ed3063356457ee0f7721e2725605da:eyJzZWxlY3RlZExpbmVDb3VudCI6MTg4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4YjdkN2I2OTgzNWUzM2QyYmUwODRlNmNlMTVmZjM0NzgxZjdkNDc1YjBmZDZjMzM0N2Q4OTQ5Mzg1N2I1YTA1IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxOGU0ODZkMjRkZWFkY2Y0YmFlNDMzY2IxNjkwNjhmMDE5MzgzODk0YzE1MWE0YWU0YWJlNzcxOTE2MTRjMTYzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyYTgxMzU2NTkyNmFlZGM1YzFkZTM0ZDY5MDRkNzI3OGNjN2RiMTdkMDBhOTY4NmI3NGI1Y2NkNDFiMDA2OTkzIn0"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L330-L521",
-          "version": "repo-lines-v1:sha256:3609a7f0b93901334bfacf0cc94f5227e8004368795d452a750631b321db290b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTkyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkNmU4ZTNmNjVmMGZhZTFiNWNlMjk5YWZiMTVhMDg2NmYxYjAwMzYxNzQ2MTBiYzkzODFmNmMyZTA0NzQ5ZTZkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxOGU0ODZkMjRkZWFkY2Y0YmFlNDMzY2IxNjkwNjhmMDE5MzgzODk0YzE1MWE0YWU0YWJlNzcxOTE2MTRjMTYzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1ODAzZWY3N2ZlNWE4NTE2ZTM2OTBjNTEwOWJlYTY0NmFlMTUxZWI2MTQxZDIzYWY3NDA2MDZiYjA2MTczYjdjIn0"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L330-L520",
+          "version": "repo-lines-v1:sha256:9e6a4ff37c116d8bd15c6c93d1bbe46ab3f6cfdf036701fac06ece3ad3f85e00:eyJzZWxlY3RlZExpbmVDb3VudCI6MTkxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkNmU4ZTNmNjVmMGZhZTFiNWNlMjk5YWZiMTVhMDg2NmYxYjAwMzYxNzQ2MTBiYzkzODFmNmMyZTA0NzQ5ZTZkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJiNDIyMzliMWJkODJiODVlZDUwYzE4YWJlNmI4ZTk5Nzg3NTVkYWM2ZmQ4MDQwOTI0YzhhODgwYzUyZjA2NWQyIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxOGU0ODZkMjRkZWFkY2Y0YmFlNDMzY2IxNjkwNjhmMDE5MzgzODk0YzE1MWE0YWU0YWJlNzcxOTE2MTRjMTYzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5MDJmZjYzYTc2NTRkZGM3Y2M2NDg5MjM3MDRjOGNhMmIyMGQ0MmY3Y2RiNGQzYTQzYmE0MGU5NTRmY2M1YTAxIn0"
         },
         {
           "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L36-L69",
@@ -42,7 +46,7 @@
         },
         {
           "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L523-L706",
-          "version": "repo-lines-v1:sha256:6c614ddfb8bfdeb91775b2295f788ffeb84b48d0509c347f4f024460a165cfcf:eyJzZWxlY3RlZExpbmVDb3VudCI6MTg0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyMDRmYjdjMmM5ZWI4MzkyYjA3OTUzZDdlNzI1YjFhZmU3NzMzYzgwZTAzMzUwNTU0NmRiNDJjODU3YmY5ZGM4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxOGU0ODZkMjRkZWFkY2Y0YmFlNDMzY2IxNjkwNjhmMDE5MzgzODk0YzE1MWE0YWU0YWJlNzcxOTE2MTRjMTYzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5ZjM1N2FjMGVhMTQ0YzZkY2Y0NDFmODgxMTdmMmZjNjc0YTEwZDY3NDcwZTYyZmYyNWFhZDdjMDIyZjgyNmE1In0"
+          "version": "repo-lines-v1:sha256:72f90a734a6cd744d80485641de6a13312468bfbb22c74b70e007cdfa57a5bbf:eyJzZWxlY3RlZExpbmVDb3VudCI6MTg0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyMDRmYjdjMmM5ZWI4MzkyYjA3OTUzZDdlNzI1YjFhZmU3NzMzYzgwZTAzMzUwNTU0NmRiNDJjODU3YmY5ZGM4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxOGU0ODZkMjRkZWFkY2Y0YmFlNDMzY2IxNjkwNjhmMDE5MzgzODk0YzE1MWE0YWU0YWJlNzcxOTE2MTRjMTYzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5ZjM1N2FjMGVhMTQ0YzZkY2Y0NDFmODgxMTdmMmZjNjc0YTEwZDY3NDcwZTYyZmYyNWFhZDdjMDIyZjgyNmE1In0"
         },
         {
           "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L71-L139",
@@ -63,30 +67,44 @@
           "version": "repo-lines-v1:sha256:9896ad7cb11e578bd7494f779c01929a20eda4c0f86854db5a98d43e0372f360:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjJkZjVkY2JhYzBkZWZkM2NjMzZlOTliNDg0MjM0NjRjMWM3YzdiNTliMzM1YzYyMzQxMmRkYzM2ZjI1YjY0ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTJiZGE3MjcxZDEzNmE0Y2FkMjNjZWRjOWQwMjY2ZWEzZDNjYTIwMzUxOGYzNzI2ZjJiMTVhNGIzMWYyOWFmMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzcwZDZhMzMwMTI3OWE5ZjI1MDdkOTc2OTMzODYzOTQ1ZGQ3ZTY1ZTJlYWE1MDg1YzgyZjlkZGRmNDY0NGQ3MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzRiZWMxZmM3OWE3MjhmMWY4NTg3YTQ2ZGVhODRmZWQzNzFjMGVlNzBiZTk5OWQ3YWUyMTk0NjA5OWEyMzI2OCJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1121-L1372",
-          "version": "repo-lines-v1:sha256:d77d8991fb9cb5c55796314acb76a9ee10ab2e372694966631e3b1ecd4d9f752:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1MzA4NDJmMjc0NjhhYzJjYTEyMDRkMTMyYjE3ZWU5NjMxNzEyZjRlYzA3ZjBjYjllY2Q3ZDFlNzE4NmRmYzAxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwM2IzNDc3MTI2YzJkNmFhMmUwZmYzYzYxMWJmNGE4OTM2MWRiZWMyNzMyMGU2ZjM5ZmJkMTMyZDZjODhlMTdhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MiwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJkZjczOWEwNmMxY2JiMTI0NGUzMzYzZDM4YmNmOWZhNTBjZTg0ZmVkMzk5YzIxOTNhM2M3ZjA4ZDU5OTE4YjJhIn0"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1136-L1394",
+          "version": "repo-lines-v1:sha256:80ff16f9a5c4d4026e615f26bf06970ca0c45edb726b35d681dd79a3b01817d7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjU5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1MzA4NDJmMjc0NjhhYzJjYTEyMDRkMTMyYjE3ZWU5NjMxNzEyZjRlYzA3ZjBjYjllY2Q3ZDFlNzE4NmRmYzAxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwM2IzNDc3MTI2YzJkNmFhMmUwZmYzYzYxMWJmNGE4OTM2MWRiZWMyNzMyMGU2ZjM5ZmJkMTMyZDZjODhlMTdhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MiwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJkZjczOWEwNmMxY2JiMTI0NGUzMzYzZDM4YmNmOWZhNTBjZTg0ZmVkMzk5YzIxOTNhM2M3ZjA4ZDU5OTE4YjJhIn0"
         },
         {
           "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L709-L722",
           "version": "repo-lines-v1:sha256:389937a7c2faf0cd3a943e70d4974d2b273e66e718eb634762e2840fb30ee465:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwY2Q2ZjJmOGVhZjI2OTMwNjgzNmFlYmJhYWZhMzQ4OGI0NzEyNjhiOTQ0MTZmNTE3ZGViOTU2MjliODcyZjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEyODg3YmY0Zjk5ZWRiYzNlZTA4YmI0NzYzY2NkYTIzNDlhOWEwMjIwYWRjMGZjNDQwY2FlYWU0MTY4MTFhMGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBjNGE0Mzg4ZjllODBjODJiOGZiMzJkNDgxNGQwMGU5YTJiNTRkNjk5ZTk3MzExNTEyOTVmODIwNjJjZTFiZTcifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L726-L890",
-          "version": "repo-lines-v1:sha256:d9bc903bd17b8dab2173365d3c66b07c23b9b5dd1f0fc89034fd4cc3299207e3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTY1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1NDg3NTVhOGEwZWYyZjMyZTVjMGFjNjVjNDVhMzNlZDlmMzMyNGQyMjVkNjNiZDFkZTA4NWUzMWU3NTNmYzU5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwYzRhNDM4OGY5ZTgwYzgyYjhmYjMyZDQ4MTRkMDBlOWEyYjU0ZDY5OWU5NzMxMTUxMjk1ZjgyMDYyY2UxYmU3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5N2JjNzFmNDhhNGZjNzAwYjE2YWIwNzY5OGRhOTI4NjM2NzZmMWJkNmFmMWRjMjhjYmQzYWU3ZWNkMzE5M2JkIn0"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L726-L905",
+          "version": "repo-lines-v1:sha256:c5df6f817e8165f053534feee1c4f04dbb606242e2dd15b46f19692a0ab53d68:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1NDg3NTVhOGEwZWYyZjMyZTVjMGFjNjVjNDVhMzNlZDlmMzMyNGQyMjVkNjNiZDFkZTA4NWUzMWU3NTNmYzU5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwYzRhNDM4OGY5ZTgwYzgyYjhmYjMyZDQ4MTRkMDBlOWEyYjU0ZDY5OWU5NzMxMTUxMjk1ZjgyMDYyY2UxYmU3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5N2JjNzFmNDhhNGZjNzAwYjE2YWIwNzY5OGRhOTI4NjM2NzZmMWJkNmFmMWRjMjhjYmQzYWU3ZWNkMzE5M2JkIn0"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L737-L740",
-          "version": "repo-lines-v1:sha256:954d985a3d594a29f4cb12f0c10b73c715917dc87384bcb1bfd7d1a6f7781a93:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTYzOTYxODFiMjMxYjg5YWUwYjU5NzA2YzhlOWFkZjA2MGEzYjgxMTZlODZmNWUwMWVlZmNhZDhkZjA1ODQ2OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMWU2NzNhYmQ0NTdhOTdlZWExN2E2MDA2MmViMGZhZWE2YmRmMDk0ODY4Y2M2YjhmOGMwZWJkYTJmNjFlZDQyZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmE3MTNlMzY5ZGU3MzUyYjgzOWRlYzM0ZjIzODNiNTQ0MzYxN2Y1MTE5ZGZjYjA3ODQwMjgwNmM2NzcyNWI3NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMGZiMDRmNGE0MmQ3NDlhYzdmMjRhZjdhNzlhOWI1NzlhYzRhNmYxNDBlZWY0NTg4NDdlOThjY2IyMzYxODQ3YyJ9"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L751-L754",
+          "version": "repo-lines-v1:sha256:6f8937fffd4ad24577e220cb136a6c38c3144191bfd6059a2d5390b671e7f2e7:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTkzZmM5Nzg5NDE0MDYyMzA5NmNhOWRiNzE1NDQyMmQ0MDQ0Y2RkYmZjOTVhZDQwZGFhNzg1ZjliOTM0MmNmYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMGU2ZjJhZjA0ZjE3ZTlkM2FjMTU5ZjY1N2RkZDU4YTk4MWRjNmVjMTY2NGQ3YzUxZTQ2MTI3N2M4YzI0YmRlMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjg1MDM4MmYwNjA4OGI2ZWM5NDgzNzYxMDdlMWM5ODVjMWZmY2I1NzYyMTA3ZDA0NmYxYWExYWEwY2M3YzgyZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGUxMGEwYTEyNTg4NTMwMGVkOGZiNWVhOWMxMTY0YzY0ZjZmZmRiNDQyNjA2OGZmYTI3MGY2NmU0NTc4ZmE5OCJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L894-L1117",
-          "version": "repo-lines-v1:sha256:2571184d9712905ab18a6bcd44156d86601cc8ecb7b97a1171d4a0152bea28c5:eyJzZWxlY3RlZExpbmVDb3VudCI6MjI0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlYjFkMTI4YjZjM2ViMzQ2NTBkOTYwOGNhZWMxNmI3MTIwYjQ1ZWI0N2RhM2NkYjU5YWE3NmE4MDdkZDc3ODI5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5N2JjNzFmNDhhNGZjNzAwYjE2YWIwNzY5OGRhOTI4NjM2NzZmMWJkNmFmMWRjMjhjYmQzYWU3ZWNkMzE5M2JkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwM2IzNDc3MTI2YzJkNmFhMmUwZmYzYzYxMWJmNGE4OTM2MWRiZWMyNzMyMGU2ZjM5ZmJkMTMyZDZjODhlMTdhIn0"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L909-L1132",
+          "version": "repo-lines-v1:sha256:6c3747a72ec70a82e8f39ac300e69efb604dcc5c59efd5276e8ee73611c9ae70:eyJzZWxlY3RlZExpbmVDb3VudCI6MjI0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlYjFkMTI4YjZjM2ViMzQ2NTBkOTYwOGNhZWMxNmI3MTIwYjQ1ZWI0N2RhM2NkYjU5YWE3NmE4MDdkZDc3ODI5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5N2JjNzFmNDhhNGZjNzAwYjE2YWIwNzY5OGRhOTI4NjM2NzZmMWJkNmFmMWRjMjhjYmQzYWU3ZWNkMzE5M2JkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwM2IzNDc3MTI2YzJkNmFhMmUwZmYzYzYxMWJmNGE4OTM2MWRiZWMyNzMyMGU2ZjM5ZmJkMTMyZDZjODhlMTdhIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_d5a3037869d34ec8a3503ee03f222c01",
+      "statement": "Trusted Actions' own HCP Terraform project and Tekton build pipelines were imported byte-for-byte but are not wired into this repository's live automation: hcp-terraform/rosa-trusted-actions/main.tf still targets github_repo_name = \"rosa-trusted-actions\" (the original repository), and the copied .tekton/rosa-trusted-actions-push.yaml and rosa-trusted-actions-pull-request.yaml pipelines carry a literal `false &&` guard on their Pipelines-as-Code trigger expression plus a comment stating it must only be removed at a coordinated Konflux cutover, and still publish to quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions.",
+      "evidence": [
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml#L1-L28",
+          "version": "repo-lines-v1:sha256:a7700e9579c4295ab5fdc7835f05dad41d2ed4ff5eff75a1cdc84efc66da8095:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2NDc5N2Y1ZTU1YzM0ZjA4MmE2ZTg0ZjdlZTdlYzE4NTE5MGEzYTAzOWY1NzNjZjVlOGY4ZDlkODY4MzQ2ZDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjExNzUzYjljNTBkNTc2ZDViNWNmN2Q3NTZhMGM1ZmVjMDBkYWZiZjMwMjdjOThiN2Q4YWQ1OGZlYzEwZjBlNjYifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L15-L45",
+          "version": "repo-lines-v1:sha256:8b646b1dc3099d79732e8eb0325dec493181d5b36a6b0517cd8f518a4cda3634:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFhODE1NGM4NWVkZDk3NzdjNzFiZGFhMjI2ZjMwZTZiZDI4ZjUyZGIxMDJmYjI0ZDczNmM3YzI5ZWMzZDk1NjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5NWEyNDI2NzkyMjA4OWEzMjQyZmRmMTcwN2E1MWU1MDYzNzk2NDk3MGYyYmZkMmVlMmVlMDQxZWU2OTBhZGYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwNDMyYmZjZjQ1YjZkYjUwYjIwNDQxZjExYmQxMGE0MGUzMGU3NzA3ZDcwYjYxMzYwZTIyNDEwZmU2MGNhZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRmMWZkMTIwYTUzMTk4N2E0ZTU1NzgyMWY5ZjI2Y2QxMzk5MGFhOTc0MDE3NDFkMjJjNjVjYWE0YWQ4Y2M0MTEifQ"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-05T16:02:21.720Z"
+    "at": "2026-11-10T16:03:08.957Z"
   }
 }

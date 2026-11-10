@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:bdeea2fb7350d2321a31d9b3dcc7bcd5a82930d9e89a826265e12896bd35a015",
+  "claims": [
+    {
+      "id": "claim_7edddde747824182be3063aaf40fc1e9",
+      "statement": "internal/audit.Record captures one execution-attempt audit entry with timestamp, caller ID, action name, target (concrete type determines serialized shape), cluster ID, an allowed/denied Decision, an optional DenyReason, a success/failure/skipped Outcome, and an optional Error string.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/audit/audit.go",
+          "version": "repo-file-v1:sha256:f2c2ea730fd01c092ddd9897f841b0a0e064d997915684a481e53a2706c8d5e9"
+        }
+      ]
+    },
+    {
+      "id": "claim_0c71b61ea71c4617b2a3f55c3fe5ddd9",
+      "statement": "internal/middleware/audit.go's NewAuditLogger middleware attaches a per-request *AuditContext to the request context before calling the next handler, lets handlers enrich it via SetAuditContext/GetAuditContext, and after the handler returns persists a models.AuditEntry (method, path, caller username, status code, and any handler-set execution/Jira/approval/target-cluster fields) through store.CreateAuditEntry using a detached 5-second-timeout context so the write survives cancellation of the original request context; a failed write is logged but does not fail the response.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/middleware/audit.go",
+          "version": "repo-file-v1:sha256:52bb8999ec51771e6ce499c6c3754aa8a74fdef70d03dcd60796347d418faad0"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/models/audit.go",
+          "version": "repo-file-v1:sha256:a20b2c3c6597562de41c809855e7a984d0e5e8067f7884d4ebb1f7c7d0d8688a"
+        }
+      ]
+    },
+    {
+      "id": "claim_5e9bdf157a854ad4a17382e5619b20ed",
+      "statement": "executor.Executor.Execute builds an audit.Record at the start of each call and logs it via a deferred e.auditor.Log(rec) call, so every exit path — missing scope, target-derivation failure, authorization denial, scope execution failure, or success — results in exactly one audit record being logged regardless of execution outcome.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L93-L159",
+          "version": "repo-lines-v1:sha256:f384618a4ea92aea25534aaf7ce36ff6fa75ff714c39c678938eb868eb45d2f8:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxODJjMGEyMDRlOTA3MjU1ZWQ1NDQzYTVhY2M4MzU5N2FhMjljMGM3ZmQxMmE4YjVkNTAzY2IwZDY4MDAwNzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZjNiNWU4ZTk3NGFhMTBhZmE1NmY5NzMyYWE4MzIyZTY0OWRkN2QzYWMwNDI0MmJiODg0YTY2ODA5ZTQ1MDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c836e9ad1e69475ba703e678910c95e0",
+      "statement": "executor.Failure separates a caller-facing Message from an underlying Cause, and Executor.Execute's auditedCause helper unwraps a *Failure so the audit record's Error field records the underlying cause rather than the user-facing wording.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L59-L178",
+          "version": "repo-lines-v1:sha256:a0b6c5d81c24281e38e8546ba484a3bbe7215799c3e5711415a1b318e769a729:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJiMGUyNTFkZGJmYTAyZmU5NTQzNTVmOGRmZDhkYTA4NzgxZTJmNWZmYzFkZmI4YmY1MDQ2ZGI5ZmNmMDk4MzY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwMzNlOTk1OTgxYTQwYjQ0ZmUyY2RmNTBkNTUwMDg0M2E5MGVhYmQ3MjMyMmVhZTNkYTRjYjE4ZjhiMjllNDUyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+        }
+      ]
+    },
+    {
+      "id": "claim_25c624e45b9848bf8f81d3738dc0b195",
+      "statement": "In the regional Trusted Actions Terraform, a CloudWatch Logs subscription filter on the ECS app log group (/ecs/APP_NAME) matching lines with msg == \"audit record\" forwards those lines to a Kinesis Data Firehose delivery stream, which writes them into that same region's own S3 app bucket under the audit-logs/ prefix, with delivery errors written to an audit-logs-errors/ prefix in the same bucket and Firehose's own operational errors logged to a dedicated /aws/kinesisfirehose/APP_NAME-audit-logs CloudWatch log group.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf",
+          "version": "repo-file-v1:sha256:f23a3ddbb60b4f776d087e5a0fc1e0475940dcc844790db70e22b24b36aa5fdb"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/cloudwatch.tf",
+          "version": "repo-file-v1:sha256:15679afd7afaf36af26ea27b3e390be0b512ab24a2f3ceb475534a44a6c795ff"
+        }
+      ]
+    },
+    {
+      "id": "claim_5f8353b16d7a426cba9f4e8c9b1b5fc3",
+      "statement": "The Firehose-to-S3 delivery stream for Trusted Actions' audit pipeline explicitly depends on the region's S3 Object Lock configuration resource, ensuring WORM retention is in place before Firehose can deliver any audit records to the bucket.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf#L33-L57",
+          "version": "repo-lines-v1:sha256:2e91fe7803021fdb2510b7201e67ddb0030af2e1f80a47e8f3888afe944713d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmOWU2NzQyYjA4YTU5NTRhZTliNTU5Zjc2NzQ0ZmIwZTc1MGRkYzM2Y2NlMzEzZjg5Mjg4YzVhZTE1OGM2OTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUyZjliMGUwMjA5YTlkN2UwMDM2NDVhOGFiMGEwYzgzYWNjYzJmMmNjOTk4OTIwNWQxYjhjYjcwOWU1YWFlZDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_bfbce9bf5b3b451da0a0be5c93f2f8bd",
+      "statement": "Trusted Actions' account-global IAM policies for the CloudWatch-to-Firehose and Firehose-to-S3 roles use region-wildcarded ARNs (e.g. arn:aws:firehose:*:ACCOUNT:deliverystream/APP_NAME-audit-logs and arn:aws:s3:::ACCOUNT-ENVIRONMENT-SUFFIX-*) so a single global role works against every region's identically-named Firehose stream and S3 bucket without the global workspace needing to enumerate per-region resource ARNs.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/terraform/global/iam.tf#L1-L41",
+          "version": "repo-lines-v1:sha256:ec6d1eb72e83d5b6a6802bc6e8e1b6f4d8eef32482500d03373232ff69c9db06:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExNzY4Y2RhNmQwOTc0ZTI5NWFlZDcyYWY4Nzk3YzYyODQ5YmI2OGM3YzU3ZmY3ZDIxMTRiODFiMjhhMzA3MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiYWZlZmQ4OWNhNDNhYTVlOGI4MzI4YmM5YWM2ZDMwYTZkNmI0ODY2N2Y0ZDI4ODJjOGY4NGUxMmM2MGQwZTAifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/global/iam.tf#L219-L263",
+          "version": "repo-lines-v1:sha256:b1c80e1796f1c6317b56edf669a5e1feacb63dc8b53ebc60db2ffa8fd726d499:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRiZjY0YzVmYmZkYmM2YTZjNWUyZmIyMjE4OGFhZDk2YzI0MjJjOTYxM2QzZGZmOGI4NGNmNmY4ZjMyZGEzZTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5567abbc69384531be3df91015adc883",
+      "statement": "The global IAM workspace documents an accepted limitation that its S3 wildcard ARN pattern is not path-aware, so a crafted object key could in principle bypass prefix-anchored statements like audit-logs/*; this is treated as low-risk because only the Trusted Actions task role (which already has broad GetObject/ListBucket on the bucket) could craft such a key, and fixing it would require enumerating concrete per-region bucket ARNs, defeating the region-count-agnostic design.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/terraform/global/iam.tf#L1-L41",
+          "version": "repo-lines-v1:sha256:ec6d1eb72e83d5b6a6802bc6e8e1b6f4d8eef32482500d03373232ff69c9db06:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExNzY4Y2RhNmQwOTc0ZTI5NWFlZDcyYWY4Nzk3YzYyODQ5YmI2OGM3YzU3ZmY3ZDIxMTRiODFiMjhhMzA3MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiYWZlZmQ4OWNhNDNhYTVlOGI4MzI4YmM5YWM2ZDMwYTZkNmI0ODY2N2Y0ZDI4ODJjOGY4NGUxMmM2MGQwZTAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_720e4f80431441749e7168a3de0ffb36",
+      "statement": "Trusted Actions' ARCHITECTURE.md Security section names exactly two controls: account allowlisting through configuration and audit logging of all API calls with caller identity.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L162-L166",
+          "version": "repo-lines-v1:sha256:a920779186151dc58240b69e502ba86d83454392c04cd6fa18bc048e6077f53b:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzgzNDA0ZmQ4NmMzZDVjNDU5OTk5YWFjZWMwNDc4NzZkMDM2Y2U3MWNhM2IzZTQ4ODhmZjg0ODA5ZjlmOWY2NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZmM5OTRiZTNiOTNiYjkyMzk2MTFiODVkMjIwZmQ5YmQyMzI0MzdjZDE2M2E0YzUxZGE4NzI4YzdhZThmOWE4OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjcxNWI4YmUwM2NlZjI2Y2JmODlmZWJlYWYxZWQ2ZjNjZjhmODk5ZjEyYzU1ZjdhODZjY2M0OTJlMzJkZmFlZiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_9ccd07800fa24ddd8ddeb40174a6c3ff",
+      "statement": "Account allowlisting is implemented via the ROSA_TA_ALLOWED_ACCOUNTS environment variable, read into config.Config.AllowedAccounts, and set per regional deployment through terraform/regional/ecs.tf's var.allowed_accounts, functioning as a preventive control independent of and complementary to the audit-logging detective control.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L230-L240",
+          "version": "repo-lines-v1:sha256:5bdab72e1564e92fd26e426f0b8584218a3c17da39bf48cd6be01268d0d87f32:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI0MDdmNjdjYjdlYjA4ODk2M2Y1NjQ1MTNmMTI3MzJhNjU0NWM0OGViOGQ5OTE4NTRiMzYwZWNhYzMyMTYyMGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkwZTlkMDI0M2UzZWE4MmQ3NTM5ODU0ZmE2MTI0MDUwYzRkZjY1YzRjMWM2ZWFjZWFiNTFhMGQ1NjJiZDJlMDQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L31-L49",
+          "version": "repo-lines-v1:sha256:9d0aaaa7eb2cfc2cbb13867ceb2958771de0c329857bed1ce203030622f706a5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYzNjU5M2U1ZmVlZDJmYWVhNWRmMGY3Y2VjZWU4NTA5NWU0M2U0MDc5Nzg5NTNkMWIyOTQzZWZlZWM1OGU3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwNjQ4Zjc3ZmQ1YTljNjNiM2NkZDBhZjQ5ZGFhMTI5OTIyMGI3NTQxZTg4Y2ExN2VmZTFhNmExMTRiOWZmMmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1ZDVjNDZhOTY2NWM5MWYzOTU1OWQ3ZjI1NmY1NzU1YmU1MmZlNjgzNjc2MTJjZmYyMDdjZDIxNjRkZWQxZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE0MzZjOTZhNDQ4M2ExM2ZhYzU0ZmExY2RkZTM2NzVkMjEyMThlNmFjYTE5YTk5NTI0ZWQ2NDJiMjc0YmM4YjgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b0b2fac5dbdd4c679988110afc90f305",
+      "statement": "Trusted Actions' audit pipeline (per-call audit.Record plus the CloudWatch-to-Firehose-to-S3 regional pipeline) is a distinct, unrelated system from ROSA Boundary's audit trail (CloudWatch session transcripts, S3 workspace snapshots, Bedrock payload logs, and CloudTrail), operating in a separate AWS footprint with its own buckets, log groups, and retention/Object Lock configuration; the two should not be described as unified or shared.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/audit/audit.go",
+          "version": "repo-file-v1:sha256:f2c2ea730fd01c092ddd9897f841b0a0e064d997915684a481e53a2706c8d5e9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf",
+          "version": "repo-file-v1:sha256:f23a3ddbb60b4f776d087e5a0fc1e0475940dcc844790db70e22b24b36aa5fdb"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-10T16:03:08.957Z"
+  }
+}

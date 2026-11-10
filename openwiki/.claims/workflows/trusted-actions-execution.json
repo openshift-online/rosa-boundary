@@ -1,0 +1,318 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:bb2a2172c59111ab5d64bea30ab41d67ff210d2c7a3611f97a1645d4eb421d6c",
+  "claims": [
+    {
+      "id": "claim_3cdf4a9b1fee4625859a5a2ef10e5ef9",
+      "statement": "APIHandler.CreateExecution (POST /{action}/run) validates the action exists in the catalog, decodes the request body into openapi.ExecutionRequest, builds a models.Execution via models.ExecutionFromRequest with status 'pending', persists it with store.CreateExecution, and returns 202 Accepted with a HAL self-link to GET /runs/{id} — it never calls the executor synchronously.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L87-L142",
+          "version": "repo-lines-v1:sha256:f389c59320278e37643dbc04fdd5a7f6ad34c826815a555a4e7bdc89659e3f09:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5ZGQ4ZDY3MmIyYTE3NDZiOGM3NzRjYmQxNWFiOWU3ZWU1OGE3ZGEyNzA1MjVkMDM3ZTRlNDY2YjljYTNhZDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1NWQxNzExNTFmY2MxMzYyZDA3NzRhNTRmOTBlNTY0NGQ5MzBlMGQ3NWFkNmViYTdmNDVmZmRkOTk1MDcyMGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmYjk3NmExMTIxMjkzYWY4NWEzM2EyZWM5YzczMTBhMWYwYWExYjk4NjE1YWZmNjA1ZTNhNDVjYmI3ZGJhYTkifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/models/execution.go#L81-L108",
+          "version": "repo-lines-v1:sha256:e79c8afc8fed3f59cc41c44b10aa0987d30a4fd726e92d84a722c03729647dae:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJmOGQxNjc2ZGVkZjlhZjI4ZTNkZDVjZjAzZGZlOGIwNDdhOTE0MmYxNGI0YWQ1YTQ0MmFkNDg5MzJiYTVhMjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJmZWRiMmE5YmI5OWM5MDFkNzc2NzY0OTJiM2FjOTRmNzI2YmQzNDc5NGUxMjJiOTVmNjhhNGM5MTgzYjI0YjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_57af4d30b2024ed1bbb0862c5ee40e04",
+      "statement": "After persisting a new execution, APIHandler calls notifier.Notify() (satisfied by worker.Pool via the ExecutionNotifier interface) to wake a worker immediately instead of waiting for the next poll interval.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L112-L120",
+          "version": "repo-lines-v1:sha256:0789d7fae062224825e25a6178d068750d20e22de0dccebb2d67f89d41edec08:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTg1OTMyMzc4MGM5YzE1YmYyMGFhMjQ1YTc3MjRjYzM2MDEwYzVhOWY2Yzc3MTg1N2FjNTEyNjEyMGZhZTNlYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDFmYjg5ZmU2MjkxMzIwZGJhMmMzMjAxMGM2YWFkZjM1ODYyNjc3NGE5NGJiM2YzOWFjOWRmNzZkNDBmZWI5NCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2E1MzAxODk1ZTlhMTRlZjlhNDM4YmJiM2JhYTg4NmJhYzY4MTc3ZjE1NWU4ZDhkYzI1ZjRhMjgyMmViNDRmZiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L25-L31",
+          "version": "repo-lines-v1:sha256:90225b4d139a5177a6bc01c15d016a50fa96397cccd1264ae8d50dcf6caa021d:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZWVkZGU2ZTczOWVkODRmNjQ1MGYxM2MyZDIwN2EzZjQ0YmU2MmQ0YTU2M2EwMWYwYzA5MWFmNzJkZjk0YTM3NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNThkZGUwYWQyZTQyNjgwMmNjMzc2OWE2OTk1M2ZkNGQ5ZmRkMmYyN2EwZmQyN2NmNDExNjIxZTNiMjMzYTY1MSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzFlY2Y4ZGRmMGZiYzcwNDYyNGM5N2E1YjdlNjU0YzY4MTQ4MDlmZTRhYWVjNTgzOGI1MWJmOTg4ODhlYzljZSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_ee6e3bb662c145f4803ea8dfe9757891",
+      "statement": "worker.Pool runs a configurable number of goroutines that each loop calling store.ClaimNextExecution; when nothing is pending they block on either the pool's Notify channel or a pollInterval ticker, so correctness never depends on a notify actually arriving.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L31-L48",
+          "version": "repo-lines-v1:sha256:a9021dfd1744ef3df2204d8527599c9ca4d85abb4abb4a9deb3cf8a615139402:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4MDUwMmQ1NDE5ZWE2YzA1MDI0NDc5MjhmN2YzYTFjZmEwMzA1NDM4M2RhM2UwNTQxYTY2MzBlYmZhOTk4MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcyMmRhMjA2MjVhZGM4NWFmNGMyY2EyMzMzYjQ0NTk5ODM5ZjI3M2Q3OWMwNTIxOTRjYTY1OGNkYzA1Y2IxMGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRlYjNkZmFmYmViMGMzNzhkNTI5MjljZDllOWI1OWJiMzgwMmE4YzQwOTEzYzFjOGQ4YzRmZmU5Y2I4OTFhYWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY4OTAyMzVkNTdhZTEyNzhlYzdiNDdiNmI3Yjc1NTA5ODdmNTExY2E0ODAzNzZmMjE1ZTc5Yjg1MjQwNzA5MDkifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L93-L124",
+          "version": "repo-lines-v1:sha256:ff247c5707616d209ae31a6ec760297cb5ccbeb836074c3f1c40af2cbff7f97e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyM2Y3NTMzYWJjZmE0NTk5MjVmZmE5NjU4MWU2ZDgxNWEwMTNhNjM4ZmUzMGQ4YWM2NjA2M2MxNWNlZWViMGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgzZTAwNGQ1MmY1Mzc0OTdiNDhiODlhMzlkN2MyMmM2MmU0Nzk5YzgyZDFiMzU4ZWE0YTNmMDg0OThjMjBmOTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVlNzk2MTk0MWM3YzA0YzVjMTk3Nzg4NTAwNmI4MGU1NGQ3YjJjM2E0MzJmNjhlOTE0YWJlOGU3ODlhMjQ3NWIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5c78d3ab71ae4f82a5b509427d7f74af",
+      "statement": "ClaimNextExecution atomically selects the oldest pending execution and transitions it to 'running' inside one transaction; SQLiteStore relies on a single serialized connection while PostgresStore uses SELECT ... FOR UPDATE SKIP LOCKED so concurrent workers/replicas never claim the same row.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/postgres.go#L231-L274",
+          "version": "repo-lines-v1:sha256:00a4edab11ba9e8625c4b218263b77bbca74255992db5b6578bbac4dc6505491:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZlOWU0ZWVmM2EzYTE1NzE3MDRiZDdkZjBmMDcwMzVjMDExYjY0ZjViMTcyYTFiNDU1NjM0N2JkNjhhNjFkNWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE2MzFiNmUyY2EwN2Q4YmFmMGViNDRlNzQ5ZGJmNDkwYjM5MmUzYTUzNGVmNjEwMjI3NzExNDZjZGY5YWYxYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU3YTM0NTE3N2I3MWNhOGQ2MWE2MDU4MTUzNDgzNDdmOTRlOWM1YWJiZTc5MTBjOTJhYmMwNWIwMjRjMThkNGUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/sqlite.go#L238-L277",
+          "version": "repo-lines-v1:sha256:c803f4c4bf3f8e45bff9de37c533a02487bcc6f5f0881e65e12d7090ef3303a4:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4ZWZmMDFjNjgxM2M3NDg4YTQ1YTYwNTAxODM1NzEwMGU2MDQ3YWY1YjlmZmVjMWU1YmIyMjMzMzAyOTI3ZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE2MzFiNmUyY2EwN2Q4YmFmMGViNDRlNzQ5ZGJmNDkwYjM5MmUzYTUzNGVmNjEwMjI3NzExNDZjZGY5YWYxYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY5NzQyMWVhNTJhZGJiMjVmMjlkNWEyMmEzNGQzYjAwODA2Yjk1MWEzMGEyNGUwNTlhZTMzZDg4ZThkN2ZmZDMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9aa3f15d070e448daaf1f503ff3a3743",
+      "statement": "worker.Pool.New clamps concurrency to at least 1 and a non-positive pollInterval to a 5s default; production defaults are WorkerConcurrency=4, WorkerPollInterval=5s, WorkerExecutionTimeout=2m, each overridable via ROSA_TA_WORKER_CONCURRENCY / ROSA_TA_WORKER_POLL_INTERVAL / ROSA_TA_WORKER_EXECUTION_TIMEOUT.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L160-L162",
+          "version": "repo-lines-v1:sha256:e79a1d00d562a14bd9e80ad3ed4356595724041f8d2023f99da4b16d30b58420:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjI3MDg0NzZhMWFhOWVmYmU3YzcyNDYzZjFjMGU5NDkyNTdjODUwMmM4MjRlZWZiY2U2MWQ2OTA1OTc0OTA3ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDU5NGI5MzJjYTI4NTQ0ZGU4Y2YzMWZkOWM0NjEwYmIyNmNiMDA0YjRmMTIzYzAwZTdlMzc2NGJhNzNkMmJkMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGQ0NGVlZjQ5YjZlODgzYTdjODUzNmI0MTZjZWUyNGRjNTJmOWM2YzdiYTk4Y2JhOWVkNzkzYWI5MGY1MTMwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzY5Y2UxYWRkMmRjNTBjZmMzOThiYTRmYmVlZGI5ODg3NjIzNGY0MTNkOWZhZGJiMjNjOTNiYWEwNjc2YmQ5MSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L253-L256",
+          "version": "repo-lines-v1:sha256:67b0f47f42cd5d194a8cd431331e635d773e156526ac1d7be7fbc5ad713c1735:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTgxMTVkYTk4ZWNkYzI0ZDRiNzFhMDgyNGNiN2QzODhmMTk0YzYwODllMTEzNjhiNDY3Yzg2Y2RmZjhlYzkwNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTYyNDhiZDI3MmE0YjkzNWIwYTUwMWMxZTM3NTUzZWYyZmJhZjcyMzFiYTZjOGJiNDZiNzZjMGJlZWE1M2Y0NiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzg2Y2VkMjk2NzMyMzlhZDkyNTEyNTAwZWViZTAzMDBkOTRkMmNiMzA1NTZjYTcwMGZhOTM3MTI5NDNmZTcyYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTFhZjcwMzZkMTNlMmZlNzdiYjViOWYyZTcwM2UyNWJmMWU1YzI5MTk5MTgzZGJkY2VjNWFiZDQ0NWZiNmY5NCJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L72-L82",
+          "version": "repo-lines-v1:sha256:12eb46962cda147c8c59b7541a0774655577ad814fb2a639e42231a521646581:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1MTAxMDM5ZmU3ODBhNmVhZTNhMDJiMGM4NzdlNzA2MDA5NmY3ZGM3OWQyYTJhMWE2YTk1OTM0ZTRhZWMzNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAyNmY1NmQzYWJmMTYxNzk3MTliOWQwMmQ4N2FlYWM4ZDRmMWQ5MmNkZmQ4MDk3ZjRmNmQ3OGQzYmRmYzRmYzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1MjlmODczNjE0MDIzMjI3ZmMxNzNmZTRiOWNlM2RkYzg4OWM4Mjk5M2VmYzEzNjg5N2ZjYjQxYjU1ODMzNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ2YTUwMzNmNDA1MDEzZjcxODc2YmE5OGU4YmE0MGRmYjk2NWUwZTI0MmQ5NGZlMjY1NWU3OTQ5MzdiYjU5ZjgifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L46-L68",
+          "version": "repo-lines-v1:sha256:3e52656ba1386663f583de21b99c3725056cc519564f032e37bcf7c20e63ec6d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3NmMwOWQ1YzFhMzAxNTkxZWRkYmRmOGE3ZWIyZWU0MDRjNDQ2NTA4OGE3YzViYmNiZDEwMzNmM2JlMWRhOTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVkNTM3NjljZTFiYTkyNGVjNjUwNTdiMTc4ZDFhNWY2ODkxMGEzN2Y4OWQ0MDdlNWZjMWIzNzVmMjQ4OWViYWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZiN2ZjNTMyZDNkODJlZmMwZmFhYzIxZWI3Y2I0MWNmODE3YmQxZTU2N2M4Mjc0YzlhMGM4YWNkNzMyZmMxYzYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e22510669d724921ae76b055cee3178e",
+      "statement": "Pool.process maps a Runner's RunResult to a terminal status, converts the action result via models.OutputFromActionResult (forcing status to 'failed' on conversion error), and persists it with store.UpdateExecutionWithResult using a context detached from cancellation (context.WithoutCancel) but bounded by its own timeout, so a shutdown-time cancellation cannot leave an execution stuck at 'running'.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L126-L161",
+          "version": "repo-lines-v1:sha256:52d667c6015b12e0b78bf219e417241cc17586dbc58b731bb7e8ac1433ffb4a8:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcxOTcwZTU2OTQxNDhmYTcxNWJmZmFlOTJlN2RiNTg3OWZkZWI5YjExMDRiNmFhNzJiMjkxZjk3M2FkNTY5ZjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_036f9d166c734c4987b1ad2ecafe3afb",
+      "statement": "The failure reason (RunResult.Reason) is only surfaced via structured logging today; neither the executions table nor the generated openapi.Execution type has a column/field to persist or return it to API callers.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L131-L142",
+          "version": "repo-lines-v1:sha256:7f86fe1a56a1bd9a65a29309aeea104efa90bc829cf9690ae527a9c43f6864d4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5Nzk2NjY1YjU2YzJjZWI4NGMwYjk1ZjJmNTU5NWUyYTVmOWY3ZTIyNmNlMDgzZmNhMjA3YjNhYmNmNDJmMGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAwMDAxYjMzMTFmNjUyMDI1MWMwYzY2YzRjODUwM2IyNDM1NjFjNGNiYTg3MWE4Y2JiYmQzY2RjNGZiZDY5MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0MTVjYjRkZWMxNDYyMzYyMzk5ZmRiOWQyNzQxYzJkYzFjNWUwM2I5ZTFiNWUzNjM1MWM0OTlmYjk4MTY2MGIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_231922ff44034101be417ac7d53da1cc",
+      "statement": "On SIGINT/SIGTERM, cmd/server cancels the worker pool's context, gives the HTTP server up to 30s to drain, then waits up to the remainder of that same 30s window for in-flight worker executions (Pool.Wait) before exiting, warning if that wait times out.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L444-L469",
+          "version": "repo-lines-v1:sha256:0b5e75814d34f0bebaf895c054f5d303be213a01e3d13a6cae1acb50d72186d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiNzJlYTZkYWZhM2QzNTE4NTA4ZTdmN2RlOTg1YWUzYTU2ODg5YjA1MjI3OGI5MTgxMGQ1ZTZkNzY2Yzg1MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIzMzZjNWZiYTNlZjNmYmQ0ODRmMGQwODAxNDBjZTgyMjkzMjJmYWQzNDY2Y2E0ZDliOGRiYjA1YmJkYWI0ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNDI2NWEyY2JiYmU2NzFjNjBlZjYyMzFiYmMzYjZjNzE2MTE0OGNmNDkxNmUzZDYyMDI3ZTM5OWIwNDRhNDkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7e21a5adc2994c1794523a089b5eb16a",
+      "statement": "models.Execution persists status as one of the openapi.ExecutionStatus values (pending, running, succeeded, failed, timed_out), but only pending/running/succeeded/failed are ever written by the current pipeline; no code path sets timed_out, since a worker execution timeout surfaces as an executor error and is mapped to 'failed' like any other error.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/openapi/api.go#L107-L127",
+          "version": "repo-lines-v1:sha256:aca39a0517d77ce029653c15731e113fe63926cef1ee97b93d1a8619d8f454c4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYyYjcyYWM5YjNmMzA2M2IyNTRlYjlhZDE5MTk5OTJiYjMyNDdiYzM4YThkN2RiZGZiY2QwMTgzNTk0MThhYWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhZTcxMjA2MTBlZTI2NDczZTdmMzFhOGE2YWVjYzI1ZmI3NmEyOGIwNWMzNDZmZDFiZDE4MGQ5Nzg3NmY3ZTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc0YjU0OWFkNDE4OTc2ZjdlMmM5YWU0MGRjZjM2MzQ1NzY3MGVlZmFkZWQ2YTQ2YjUwOGRlMWNlYjgzZjJiMDYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/executor_runner.go#L125-L130",
+          "version": "repo-lines-v1:sha256:d49a3958b41804b1c05cfe63e77d7678eabeacbd0f44a60e2f720dbe623d9612:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDJkNmI1Y2QzYTFjNGIyZTQ3YzJiYzIyYjZkZWI3YjYxMTQ5YTg5MTA2Y2Y3NDRhMWU3ZWFkOTU4MzY5ZTFiZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjlkZTk4Y2QyOTVkNmRlNzc3NTcyNTNhNmM3YmNhNWZlMTk3MTIwMzExOTc3ZmE4ZmU3NDAxNTFmZTI5MjFjNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/executor_runner.go#L83-L102",
+          "version": "repo-lines-v1:sha256:aadf648b5c7206fdf779fd82c51ca502dd6e50318385127edb6f8cd2e10bd1e6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRhMzE2YjI0MGVmMjczMTc0MTIyNWY1YjgxN2QwNjk3MDNmMDRjNGZiYmNiY2M1YWUyMDE3MTQxNzdkYmRhZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlkZmY4NTE4Y2U3NTUzNDc1MjdkMGM1Y2ViYmUwZTI2ZDA2ZDQ4MTJjMWNlOTVjN2QzZDAzY2I0NTZlNzJjZTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM4MTI5YzE1NzQ4NWExYjQ3YzllOWE3ZTQ2NGRlMWY2Y2QxMjU2OGZmNDI2YThiZDE5Y2Y4MmFiMWZhY2Q1NTcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_12481880449342cab16b33fa5da91b78",
+      "statement": "ExecutorRunner.Run resolves the persisted action name via actions.CreateAction and decodes the persisted JSON params back into map[string]string, runs Executor.Execute under a per-execution timeout context, and always calls Execute with Target left nil so the resolved Scope derives the target from params.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/executor_runner.go#L104-L123",
+          "version": "repo-lines-v1:sha256:672f9f58316e41b4ff0f4e64edd0729ea7d32ec24cabbeb0c4e8ed0a7a01cf10:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwYjg4OWE2NzQ2NTVlY2FhNDEyM2YzOThkMWYzMDAzZWUzZDYyYWE4NjRmMDU1NmViYTJiNTM4NDM1YzVkODAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjllNjQ2OTRlZGU2ZDZiYWQ5NjFkNTQxODgxZTRiOGUzZTIyNjcyMDViNDM0MjE0M2Q4YmIxNDQ3OGEwYmZkYzUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/executor_runner.go#L48-L95",
+          "version": "repo-lines-v1:sha256:c89a8424b7db6bd1aabb14e687fc87836b71118d94defe97cf42bf5384e36fd6:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNlMWZjYzU0Y2Y0ZGExOThkZjA0NjhkY2U1NzFlMTU1OWQxOTNmM2JlZGUzN2E5OTQwYWY4MDVhYzU1YjlmMzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc4Y2Q2NzNhMjEwMjcwZmQzYTI5NjJkN2JkOTY0MjY0Y2M0ZjgwNjUxNGQ4Y2M1YzhjYWRjYTRkODI1YmY5ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyMTY1MTE3ZWE3ODcwOTE0M2YxZWUzMjQ5NWYzOWI2MDc2ZTEyMDRiOTYzNzhkNDc1MTZlN2RiZmFkOGY1NDcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c5cc3848540a435ca574c37e3cf5e40f",
+      "statement": "ExecutorRunner.Run distinguishes a result.Error (which includes both genuine action failures and target-derivation failures that never reached authorization) from a result.Error==nil && !result.Allowed denial, but both are mapped to the same worker-level 'failed' execution status since the OpenAPI ExecutionStatus enum has no distinct 'denied' state.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/executor_runner.go#L125-L130",
+          "version": "repo-lines-v1:sha256:d49a3958b41804b1c05cfe63e77d7678eabeacbd0f44a60e2f720dbe623d9612:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDJkNmI1Y2QzYTFjNGIyZTQ3YzJiYzIyYjZkZWI3YjYxMTQ5YTg5MTA2Y2Y3NDRhMWU3ZWFkOTU4MzY5ZTFiZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjlkZTk4Y2QyOTVkNmRlNzc3NTcyNTNhNmM3YmNhNWZlMTk3MTIwMzExOTc3ZmE4ZmU3NDAxNTFmZTI5MjFjNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/executor_runner.go#L83-L102",
+          "version": "repo-lines-v1:sha256:aadf648b5c7206fdf779fd82c51ca502dd6e50318385127edb6f8cd2e10bd1e6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRhMzE2YjI0MGVmMjczMTc0MTIyNWY1YjgxN2QwNjk3MDNmMDRjNGZiYmNiY2M1YWUyMDE3MTQxNzdkYmRhZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlkZmY4NTE4Y2U3NTUzNDc1MjdkMGM1Y2ViYmUwZTI2ZDA2ZDQ4MTJjMWNlOTVjN2QzZDAzY2I0NTZlNzJjZTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM4MTI5YzE1NzQ4NWExYjQ3YzllOWE3ZTQ2NGRlMWY2Y2QxMjU2OGZmNDI2YThiZDE5Y2Y4MmFiMWZhY2Q1NTcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5d0e36328abf4d5f802976b00b9ee788",
+      "statement": "Executor.Execute builds an audit.Record and logs it via a deferred call registered before any scope resolution, target derivation, authorization, or run logic executes, guaranteeing exactly one audit entry per execution regardless of outcome.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L93-L100",
+          "version": "repo-lines-v1:sha256:7e95ffa19584ab68c6941bb6178fb1e2e01fc71550a83c61ba46b7a561ec8005:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDE4MmMwYTIwNGU5MDcyNTVlZDU0NDNhNWFjYzgzNTk3YWEyOWMwYzdmZDEyYThiNWQ1MDNjYjBkNjgwMDA3MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWIxYjdiMDNkMjE3ODE0NTNkMTdkNTMzYzMxZTJiNjc3YzYzNDllOTM5NDE1NzhkMGFiYzcxMzI4NDZhZTQyMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjI5NjQwNzljM2M1YzgxNTIwZWYzM2EyYjlkMmUxNWExYjg0ZDcyODBkYjg1OTBkY2Q2NTc0N2UzZTAxMmE0MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzkyOGM0N2UyMzNjOTYwMmE2MmRmYjA5MWQzZjMyYzIwZDE0MmRmYWU5OGY3M2UxMDg4ZWVhZmZjNjMwMThiNiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_f336d17e9ee84ce2ad989c8b492eee88",
+      "statement": "Executor.Execute treats three terminal states as distinct and audits each differently: no scope configured or authorization denial (DecisionDenied/OutcomeSkipped, Result.Allowed=false, no Error), target-derivation failure before authorization ran (OutcomeFailure, Result.Error set, Allowed left false, explicitly not reported as a denial), and a post-authorization Scope.Run failure (OutcomeFailure with the audited cause, Result.Allowed=true but Error set).",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L101-L159",
+          "version": "repo-lines-v1:sha256:b3d9117ee3501a1c6605e1d4eda1a9686d13879c2556ac73e341f6d8eb491e47:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlNTBiM2U4OWIwY2E4ZmNmZTZjMzgxZGQ3NmYwZjQ3NWZhYmIzN2U5ZjI5YmYwZjI1YjY4MWZhOGZmNDYyYzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZjNiNWU4ZTk3NGFhMTBhZmE1NmY5NzMyYWE4MzIyZTY0OWRkN2QzYWMwNDI0MmJiODg0YTY2ODA5ZTQ1MDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_cea71cb265e447fc9f5363140dde4526",
+      "statement": "executor.Failure separates a caller-facing Message from an underlying Cause; Executor.auditedCause unwraps a *Failure via errors.As and records Cause (not the Failure's combined Error() string) in the audit trail, so the audited cause stays independent of a scope's caller-facing wording, while Cause is optional and Error() falls back to Message alone when nil.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L170-L178",
+          "version": "repo-lines-v1:sha256:19414eb2867868ea0fa93f944a5fa2cfe7755de5fb9a57d46e9cc8b9819d0ffa:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDgwYTg3ZmMxZTcwNGE3YzllMGQwZTEwMGQwNTBlMTQ5NWI0YTI4ZWZmODkyNDU0ZjE1NGY3MDZhMTI2NzUzNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTYzMWI2ZTJjYTA3ZDhiYWYwZWI0NGU3NDlkYmY0OTBiMzkyZTNhNTM0ZWY2MTAyMjc3MTE0NmNkZjlhZjFhMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L59-L77",
+          "version": "repo-lines-v1:sha256:f397a2bd68b59b5e4e722879284f182fbebf93d2ccecaa43c176b117645c3415:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwZTI1MWRkYmZhMDJmZTk1NDM1NWY4ZGZkOGRhMDg3ODFlMmY1ZmZjMWRmYjhiZjUwNDZkYjlmY2YwOTgzNjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM3ZTJkMmFkOTY2MDg0N2M4MmY4NWE2YTYyODRlNDc0NjY0YWE3MDI4OGJjZjMwNWUxNDA0NDE0M2MwZTZkZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAzM2U5OTU5ODFhNDBiNDRmZTJjZGY1MGQ1NTAwODQzYTkwZWFiZDcyMzIyZWFlM2RhNGNiMThmOGIyOWU0NTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNlZDE0MjcyNTQ2Y2YxOWM3MDY3NDVhMzJhOTU0N2UyOWJiN2VjMDk4NDE3NjhhMTZiMTRiMTE3YmVlYjU5MDgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_fd44cb1d758049669183878da31fec11",
+      "statement": "executor.Scope is the interface boundary that keeps Executor domain-agnostic (Supports, DeriveTarget, Authorize, Run); its doc comment states a new scope cannot be added without separately deciding how it authorizes, and Executor.scopeFor dispatches to the first registered scope whose Supports(action) returns true.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L161-L168",
+          "version": "repo-lines-v1:sha256:c185e9121ef8d2b317bdef2c63d580ac5e752b2591063358697ae969aabbcd4d:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDg2MWUzODM3MmFkOTE4NWY3OGMwMmY0ZTZjYzM0OTZmMmI0YWI1MzZiOTEyM2I1NWI2MjcxMWZhOTZlZGFlNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjI5NjQwNzljM2M1YzgxNTIwZWYzM2EyYjlkMmUxNWExYjg0ZDcyODBkYjg1OTBkY2Q2NTc0N2UzZTAxMmE0MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGEyZWI5YTYzMDVjZjQyM2YzZjIxNTU4ODgwZjQ0Mzc1ODc2MDE1Y2I3OGYzYzFiZDZhZjAzNmNiNTk1MTNhYiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L34-L57",
+          "version": "repo-lines-v1:sha256:54ec93c29d8f83a7c3dd2ce9075624a3060afc41bc8c815b91a9e30febd0e711:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkODRiYjI5YzMxMTIyYmZkM2Y2NTRjYTA1ODAyNWQ3NTZjNjA1ZjFiMTU5ZmM0NTgwNmRhNjQwMzA4MWE4ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiM2Q1OTI2ODFkMjBlNjhkMTE2N2Y3ZjBjYTBkZGYzNWJkYmVjYTkxZDM1NjJiMDI0NDExYjYyOWMwNmRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVjNDQ2NjMyNjQxMzIwZGY4NmUzMTQzNjBkNThiYmNlNjA5YTMxNWNhNjUzMmM0MTdhNzYyYTE3NWQ3ODY4NjkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0210054ac3dd4236a49c525192f70358",
+      "statement": "KubeScope and AWSScope are both implemented and both registered with the executor in cmd/server/main.go and cmd/action-cli/main.go; AWS is not an unimplemented or undecided extension point but a working second scope with its own authorization story.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L323-L328",
+          "version": "repo-lines-v1:sha256:34ba078fbf379b9686b26b10ba3bfc14e4c045fcb3fc003c3fbb5dc5d204f4cd:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWQzNDdlZTk1ZGMzNDM4MmRlNjBiZjgxYmRlM2Y1ZWZlZmZmNzg2MGQ0ZTg4YzcwZDA3NDg2OGNiMjgwN2Q3YSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2Q0MGU1ZjZkYzZjMzc1OGU1ZmMyZTI4ZDE5ZmUzNzRiNTY0ZDc3MThkMTVlNDlhMTYxOGI4NTRkMjgwYTkxMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNWM2YjQ3NDNiOTliZTM3N2YzMDJlNWM3ZTc5YjM0ZTdiOTY3MjM0YTcwMzk2NWUwZWZiMjJmZjc5MGM5Njk0ZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzY4ZDBlYzk4MGIyYjA4ZDEwODM2NTYwMDY5ODA3YzFjZjdjMTFlYWJmNmY2N2Q3MDI1MDQwYWYxY2YxY2U5MCJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L1-L31",
+          "version": "repo-lines-v1:sha256:18cc499cf443c03b1528f093a88cdae7680b84e1e3585020b082070c6b586193:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4MDZlZjg3ZWY4ODk5MGE2YjNkYzdhMzliNjMwODU3ZTg4MmQ4MjY5NDdmNDg4OThhY2U5ZDlmYTFjMzk2OWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUyMWM1YzU3ZWVlNzY5MTRiNDUyMDlhZDVjNWU1NGJkMGIxMTNjOTE5ZmY2MDZiZTBkOWEzODJjMDRmOTcxN2QifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/kube.go#L12-L26",
+          "version": "repo-lines-v1:sha256:2c0b7c8bfacf6b801172662ab4b9c75e8ed5083a58d0c9882c45578425df22cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJiMzQ1MmM5NjdjNDE3OWJiM2VhNTFiZTRkYTRlYjM3OWFlZmI0NGVhZTk1YTMzY2U1Yzk4ODUzYmRlZjUxZTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1MWMxODYyNDc0ZGRmNWExMzQ1MjkzMjAyNmE5OWNjMTJjODljYTAzNGY3MGI2NGU0Zjc4YWQwOWU2YmJiYzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZlYWYxYWVkMGE0ZGNhODFhZTI2Y2E5NzhiNmJhYzZkNTE5YTUzMjIxYTc3YzAwMmViMzlkZGRhN2I2ZTc3YmMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c6dcaf42b2d343e9944bb44c02dde0a0",
+      "statement": "KubeScope.DeriveTarget builds an actions.ResourceTarget purely from caller-supplied params and always sets ClusterScoped to false, deliberately never inferring cluster-scoping from an absent namespace, because doing so previously let a caller bypass the namespace allowlist entirely.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/kube.go#L33-L54",
+          "version": "repo-lines-v1:sha256:90662aa1cfa9efe3cdf491840f339a74a59229e31e4d3a34cc4effb9af886486:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZjMzY1YzU2NTdiZjc5NDM1YTI4YmJlYzM3ZmJkNjZjZTJjMjg0Njk1ZDFlMmJjYjcwZDRlOWY5MTZkZmEzZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVmNWI2MzQzMWZjMDA0ODc4YWVlNzlmYThmZDQ1OGM1YTU4Y2Q5MjhmODAxY2UxYzMyZDA1ZWM0MDkzYjk0MzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM0NDJlNWU0ZjAyMzFlMTVhZjkyYWNjYjFhZjk5Yjk4NzRiNjNhNDZiM2ZmYzVmZWQyOTgyMDJiYTZjZmY2MjQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b197c904ccc14651abf1a951a2a2490b",
+      "statement": "KubeScope.Run requests a Backplane session scoped to exactly the RBAC rules the action's RequiredRBAC(target) declares (plus a pod executor when the action's UsesPodExec() is true), giving each primitive action its own least-privilege session rather than reusing one standing session.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/backplane/backplane.go#L17-L23",
+          "version": "repo-lines-v1:sha256:41efdc177ad924380498bf86c270eccec7cd5a866ee12a40819078d5d0b43e81:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2FlNDU1OWM0Y2Q4ZGQyNzg2ZjE0ZjQxZTQzYmRjMzJiNDg2ZGY3MWY0MGNmY2Q3YzJlMmM0MTI2NTY0NWQ1ZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYmExNDg1NzE3MzM1MTMzNWY3NzZiNzMxNDJlNjgwYTY1ZWI4MmQxMGM1ZDQ1MzdjYThiODg4NjI5MzZjYjJiZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTlkMjg3NTczMjc5ZDBkZWJhNjc5Y2RjMTI3ZmRhNDYxNjZkNTViYTViZGQxYmMyY2NjYWYxNGNkZWRkYjNkZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjEsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/kube.go#L83-L101",
+          "version": "repo-lines-v1:sha256:5d68d38af562834be5bc7436996db9e91a53ad76b9652c00176259c0f9486e99:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4NmQyYmNiOGJmODRkMzVkY2IzOTgxNTE2NjY0NjUxZjgzYTQ4ZWE0YmI4YjJhMDZlYzU4ZDJmZTE3YmEyYzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY2NTZkMzhjM2Y5NzczMWFmNzQ0YWFhZjk3MzVhYTYzYjk4MTQ0MjBlMzU5YTIwYzgzNWVmNjVkYjUwNzhhZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlMzAyYjNlNjIzZTcxNjZiYjdmZjE2MDNmNDc0Y2Q5YTdlNjFjZmI5ZDUxMzllOGViMDM2NjFjODI2NWY5ZmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4192189895b843f39ec04d1a10302d47",
+      "statement": "AWSScope.DeriveTarget always resolves the AWS region from the target cluster itself via the AWS client provider's DefaultRegion lookup rather than from caller-supplied params, and for AWSWriteAction actions additionally refuses a caller-supplied resource param that disagrees with what the write action actually acts on and resolves the cluster's infrastructure ID from OCM for an ownership check.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L33-L89",
+          "version": "repo-lines-v1:sha256:4fb645f9b60f8c19d1e488925b1ea793455858e1e747c77ac0b990613e127bd6:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyNzAwMTdkNzAxNjYyMzhmMDkzOWUzZTI4NWE2NjQ5MDI2ZDZiM2QwNWRkNmFhZWJkYTZjYzYyOTJlMmI3N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVmNWI2MzQzMWZjMDA0ODc4YWVlNzlmYThmZDQ1OGM1YTU4Y2Q5MjhmODAxY2UxYzMyZDA1ZWM0MDkzYjk0MzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiNTg1ZGI5MTM4NDA0MjQwYmUxODZiZjY0OWU1MTViMTFmMzdlZWIxNmM1N2IzZGFlNTYwZmFmMWZhZmU2MWEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f1622cfe709645a5ab1de7818980eca1",
+      "statement": "AWSScope.Authorize checks the resolved region against a region allowlist and, for write actions, the action's self-declared Operation() against a separately configured operation allowlist; both AWS allowlists (AllowedRegions and AllowedOperations) default to empty, so an unconfigured deployment can neither read nor write any AWS resource.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L18-L49",
+          "version": "repo-lines-v1:sha256:284bf0a192c12a1c38d9a29c50246d1949358c471f20b984373d75d8a2ffc560:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI0NjM0ODFjOTY2M2JkNDk1MTNjN2VkNTMwNmFlZDIxNWFjNTk0MWQyM2Y0YjZjN2QzZmMzMzU5MmIyMTJiNzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM5ZmZlM2IyM2QyNDFmOGUyNzgxNTljN2E3MmEyNWZmZTI1MjY3NjNmNjhhNTdlZTRlMjUxYTY1ZmYwODRhZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0NmRkM2IzMDMwNDY4YjQ1ZDQ4ZWU3NTcxYzgxMmRmZTZjOWExZmUwMjNhZDI5MDFkMTQxMzhiM2MxOWE2MDQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L91-L114",
+          "version": "repo-lines-v1:sha256:d53c581a8b1af850ae71f766cab0aa33d7f210d009bffb011d0121cf990fc600:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMxZmVmOGFkZjI0MTgyNDhjNjE1NzZiYjY3YTkyNTVjZDliZjdjZDBmMTkwNDI4ZjM3Y2NiMmZkZjNjYzlkYzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI2YjhlNGQxNGIwYTAzYTY4YzA4ODhjZGRjMTc4NGY0ODU2ODZkZmYwMmJmYTE1MzIwY2E0MzE5ZTg1MTUwMzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRmZGY5NjVmMGQzZWZiNjc2YThiODg0MDQ3YmExZjQ0ZTQ1NzVkYjEyZmEyMGNhYzc2ZDcxMTBiMmRhY2IwYmUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_a51b6063afef44d2a42d90de0a829957",
+      "statement": "catalog.ActionDefinition declares three write-safety metadata fields — DryRunAction, WriteCooldownSeconds, and Approval — surfaced via GET /{action}, but no action registered in catalog.New() sets any of them, and no code in the worker, executor, or either scope reads or enforces them; docs/adding-a-trusted-action.md explicitly states there is no approval enforcement system today.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/docs/adding-a-trusted-action.md#L208-L211",
+          "version": "repo-lines-v1:sha256:23b04ccc3f2596ff2430ed2504b6a84e53ee92dbc12be31e998569ec9682d00b:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjhjNDI0YjdiMzFkNWQ2MGViMmJlZWZlZTdmYzFmZGEyNWZiNDNmM2IwN2Q3NmQ1MGY3YzcxYjUzMzE3ZWFmMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOTM1MDc0ODc4YjU0ZDQyNmYwZmVmZmJiMjM2ZmMxZThhNDZmODI0MWIxZGU2MzY4ZDZhMmIxMjJjOGMxN2FmMiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTMyZWFjYjY5OTJkNjcwYTg3NjczMTVmOTQwMTgwOWI1ZWQ1Y2JkNWRkM2ZlMGM1ZTA1YjgzYjQ5M2I0MmYyMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjQwYzk3MzIxODM1MWMwODM1YjEzNDE0ZmE5ZTc2YTEwNDJhMzUxMGYxMzRiMjg4Y2I2ODJhNTA1NmE4ZDQyYyJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/docs/adding-a-trusted-action.md#L329-L329",
+          "version": "repo-lines-v1:sha256:63230ed2fb46ba8506d5713acd60e076bc9e6929c0387d0f1246738c60efd761:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjMyMzBlZDJmYjQ2YmE4NTA2ZDU3MTNhY2Q2MGUwNzZiYzllNjkyOWMwMzg3ZDBmMTI0NjczOGM2MGVmZDc2MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjMyMzBlZDJmYjQ2YmE4NTA2ZDU3MTNhY2Q2MGUwNzZiYzllNjkyOWMwMzg3ZDBmMTI0NjczOGM2MGVmZDc2MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjBjOTlkYzU4MmVjMTE3MTI4YzZhZWRiMDBkNmRlZDZiZWUyNjA2ZmM5NjkwOWE1NjgyYWUzZDVlMmQ0OGY0NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDk1ZWRlMWJhMzM2N2IxNDM1NDJmYzQwNDk4YWExNTk1YzUwMzk3Njk2OGQzYzkzMGI1ZjAxNjE3YjYwZjU0OCJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L18-L28",
+          "version": "repo-lines-v1:sha256:82126c0743cf154733f0e82ec5cb31345c81587437a4f827efdbef8626940404:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2M2Q5YmVhOTRhZWQ3M2MwMzU5YjMyMzU2OWMyOWUyNzRmYzAzNGYwZTQ1Y2YwMGIwMGZiZDJjZTU1ZmEwN2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM3Y2Y2NjVjYzYwZjRlYTcyZGFlOTI1ODE2ZTkxMWNiMDRhNzQzZTNjN2Y0NzY5Y2IyYmVlMTE3ZGE3ZjQ5ZmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZiY2EwNTQzMTdiNzc2ZWM2ZTRkYmFlNzMxN2JkYTQzNGE2YTNkZGI5YmZiYmEzMzczYjJjNTdhM2E1NDg1ZmYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L248-L260",
+          "version": "repo-lines-v1:sha256:bee2c432ba1ede1d086adcd0c99a8c7345aece3fe0180e240432d125496112a6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiZDE3YTVkMzkwN2QxNDdjOTdkMTYyNjFhYjFhNzJlOTFlNDdlOTAwYmJiNWRhMWY0ZTA2ODEwN2RkYzkyMTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJkMWQ3ZTc1MTM0Mzc3OTU3YTM4ZjE2ZjA5ODQyNTYwMGM3M2E4MTNlM2VmNzJiMDk5YWM3ZDYyMTRmMmE3ODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUxZWQxZjUxMmY5MTBlMWU2MjQ3YWE5YjI0MzM4NDk4MzU0OTQ0MDcxODg1ZDlkMzgzNmY5Nzk4MjZhYTY4MjQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L42-L178",
+          "version": "repo-lines-v1:sha256:f13c7bab2c24dda8cba394aebbf99509f863a385a4e419284313604da2dc0763:eyJzZWxlY3RlZExpbmVDb3VudCI6MTM3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0OGMzNGQxMzRlMTk5YWU0ZTNmZThkMjAzYTZjNDgwYjQyNWRhNjZkN2VmMmMzNDE2NDIwOTI1MjYyMjMxODYyIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI3N2RmZTY0YTBiNTJkMDQ4YmVkNGNjMTFiZjQ0OGNmNWRiY2UxYzhlNDA1MzQxOGE0NzQ3YzcxZWM3MTU0NDA4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjYjNlNDJkZmM3ZGQ4ZjA3MjA0MTJhYjAyOGQ0ZTdkOWM2NGI4OGQxMzU3N2YzMTgzMzNlMzNlMTY5YjQwNGFmIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_037e5fb85937430fadfd6ba11515a0a1",
+      "statement": "GET /runs/{id} returns execution metadata and separately probes store.GetExecutionOutput only to decide whether to attach an output HAL link, without inlining the output; GET /runs/{exec_id}/output returns the persisted ExecutionOutput (Message plus a Resources list that is always serialized as an empty list rather than null) once a run reaches a terminal status.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L315-L381",
+          "version": "repo-lines-v1:sha256:01f3fe0e48fb2d608543646cc5cc26338818a30400e4bc31baa7afc1f1d68044:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE0MzhjYjVjZGVlM2IzZTQwMTBiOWZkNjc5N2E0NzhlYTc5YTIxYTk0NDM4NTQxZTI2NjEyNDdkNTQ3NzQ3OTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzMDMxYzgxODViMWY2ODZlZDIzZmM4OTRkYzZmZjBlN2M0YTMzNWVjZGEyZmE2N2ZlN2Q3Y2I0MDNlZTJjNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkNmIxYzEzODEzYmYyY2YzNmZlNGEwNTk1MTA1YmNiNTE2NGVjYTExZDZiMjg0OTViZDAxNGRiYjNlNDBjZmEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/models/output.go#L13-L29",
+          "version": "repo-lines-v1:sha256:0ab7bc5c2f468acbcb6cb0a091cbba35a1bd260e57a5e5a9382a338334cf7388:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3MGNlNWI5Y2I1YmJhMmUzNDRhOTRmOWE5NWY1ZjRkY2Y3ZmNiNjI2ODFlZDRlNDI1NWNlMjE5MTgyYTY5MmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkNmFmNDRiZGJkMmZlZTBiM2NkZDA3NjZjNGI0YmYxNzhjMDRhMThjMGEwMGI2NjBlY2MwYWNlNDZjNjdkMzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwZTdlMTI5MTlkZmZiOGRmMmNjZDZkY2ViMTdmYTA0MjlmMzIzOGNlZTZhOTFjOTFkOTI4ODFlODJjOGQwODkifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-10T16:03:08.957Z"
+  }
+}

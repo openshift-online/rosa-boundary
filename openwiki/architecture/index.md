@@ -1,4 +1,7 @@
 # Files
 
-- [Identity and access control](identity-and-access.md) - Explains how CLI OIDC login, Lambda authorization, AWS role assumption, and session-tag ABAC combine to authorize ROSA Boundary actions and ECS Exec access.
-- [System overview and boundaries](system-overview.md) - Maps the ROSA Boundary CLI, AWS identity, investigation Lambda, Fargate runtime, persistent and task-scoped storage, and the two independent scheduled reaper Lambdas by responsibility.
+- [Identity and access control](identity-and-access.md) - Explains how CLI OIDC login, Lambda-side token validation, AWS role assumption, and session-tag ABAC combine to authorize Boundary CLI/Lambda actions and ECS Exec access.
+- [Monorepo components: Boundary and Trusted Actions](monorepo-and-trusted-actions.md) - Explains how the ROSA Boundary and Trusted Actions (TA) products co-exist as independently owned, built, and deployed components in the `rosa-boundary` repository after a files-only source import, and precisely what that import did and did not change.
+- [System overview and boundaries](system-overview.md) - Maps the ROSA Boundary CLI, AWS identity, investigation Lambda, Fargate runtime, persistent and task-scoped storage, and the two independent scheduled reaper Lambdas by responsibility, and situates this flow relative to the co-located but independently built/deployed Trusted Actions component.
+- [Trusted Actions authorization model](trusted-actions-authorization.md) - Explains how Trusted Actions resolves caller identity and role against OCM AMS, allowlists actions per role at the HTTP layer, and separately authorizes namespace/secret and AWS region/operation access inside the execution scope.
+- [Trusted Actions architecture](trusted-actions-overview.md) - Explains Trusted Actions' two-layer architecture (HTTP request handling vs. asynchronous action execution), its OpenAPI-first code generation pipeline, and the plugin model for adding new actions.

@@ -7,11 +7,13 @@ import of Trusted Actions into
 The initial imported baseline is the TA `main` commit
 `8ce39a7344b52444576fc1e44ab1f532fd0dfac4`. These counts and comparisons
 describe **that revision**, not all changes subsequently made in the TA repo.
-The latest reconciled TA `main` revision is
-`483f325fef305507b1e2471aa4cdaf6858cf3018` (2026-11-10, including
-[upstream PR #158](https://github.com/openshift-online/rosa-trusted-actions/pull/158));
-see [the refresh record](#refresh-of-2026-11-10). Use that revision, rather than
-the initial baseline, for the next incremental source comparison.
+The refresh includes **the current upstream TA `main` tip**, fetched and
+verified on 2026-11-10:
+`483f325fef305507b1e2471aa4cdaf6858cf3018` (including
+[upstream PR #158](https://github.com/openshift-online/rosa-trusted-actions/pull/158)).
+There were no later upstream `main` commits at verification. See
+[the refresh record](#refresh-of-2026-11-10); use this SHA as the starting
+point only when checking for *future* upstream changes.
 No TA Git history was imported; the original repository remains the historical
 reference and must not be archived until the source/CI/deployment cutover is
 validated with its owners. See [source co-location](trusted-actions-source-colocation.md)
@@ -254,9 +256,11 @@ removed. `DEVELOPMENT.md`, `README.md`, the add-action guide, and the docs
 agent now point to the new paths. The hook README was already identical to
 upstream. This does not switch TA's CI, release, or HCP sources.
 
-For the **next** refresh, compare against
-`483f325fef305507b1e2471aa4cdaf6858cf3018`; there is no longer a
-`CLAUDE.md` → `AGENTS.md` rename to repeat.
+This PR includes upstream `main` through
+`483f325fef305507b1e2471aa4cdaf6858cf3018`, confirmed still to be the
+upstream tip on 2026-11-10. If TA `main` changes **after** this refresh,
+compare the new tip with that SHA; there is no longer a `CLAUDE.md` →
+`AGENTS.md` rename to repeat.
 
 ## Cutover boundary
 

@@ -32,6 +32,17 @@ variables {
   enable_metrics_read_role            = false
   metrics_read_trusted_principal_arns = []
   metrics_read_session_duration       = 3600
+
+  # Publishers are always present; their detailed trust assertions live in
+  # content-publishing.tftest.hcl. The dedicated replication identity is also always present.
+  github_actions_provider_arn        = "arn:aws:iam::123456789012:oidc-provider/token.actions.githubusercontent.com"
+  github_actions_audience            = "sts.amazonaws.com"
+  content_publisher_session_duration = 3600
+  content_publisher_sources = {
+    ops-sop               = { repository = "openshift/ops-sop", branch = "master" }
+    managed-notifications = { repository = "openshift/managed-notifications", branch = "master" }
+    rosa-claude-plugins   = { repository = "openshift-online/rosa-claude-plugins", branch = "main" }
+  }
 }
 
 run "legacy_identity_trust_tags_and_common_attachments" {

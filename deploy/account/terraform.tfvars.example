@@ -39,6 +39,25 @@ metrics_read_trusted_principal_arns = []
 # metrics_read_trusted_principal_arns = ["arn:aws:iam::210987654321:role/example-collector"]
 metrics_read_session_duration = 3600
 
+# Content publishing and replication identities. Identity and trust only: the
+# prefix-scoped bucket and key permissions are a separate, later regional
+# change. Publishers and the dedicated content replication role are always
+# created. The latter is NOT the audit replication role above. Check the account's
+# existing OIDC providers and review its plan before applying. Git-managed
+# Boundary workspaces require manual approval of applies.
+# Set false to reference a GitHub Actions provider another state owns instead
+# of creating one here. Combine with adopt_existing_resources to import one.
+create_github_actions_oidc_provider = true
+# Defaults already name the three agreed sources; override only to add or
+# retire one. Branches are plain names, never refs. Audience is always
+# sts.amazonaws.com and is not configurable.
+# content_publisher_sources = {
+#   ops-sop               = { repository = "openshift/ops-sop", branch = "master" }
+#   managed-notifications = { repository = "openshift/managed-notifications", branch = "master" }
+#   rosa-claude-plugins   = { repository = "openshift-online/rosa-claude-plugins", branch = "main" }
+# }
+content_publisher_session_duration = 3600
+
 # Match original trust inputs, especially nondefaults. abac_tag_key remains a
 # regional permission-policy input; all regional stacks must match the JWT tags.
 oidc_session_duration         = 3600

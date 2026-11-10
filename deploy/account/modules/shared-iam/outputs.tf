@@ -12,3 +12,24 @@ output "roles" {
     metrics_read               = var.enable_metrics_read_role ? { name = aws_iam_role.metrics_read[0].name, arn = aws_iam_role.metrics_read[0].arn } : null
   }
 }
+
+# Deliberately separate from roles above: that map's entries are
+# a fixed set of flat name/arn objects, and adding configuration-dependent keys
+# to it would make its shape vary by workspace.
+output "content_publisher_roles" {
+  description = "Per-source GitHub Actions publisher identities, keyed by the stable source key."
+  value = {
+    for key, role in aws_iam_role.content_publisher : key => {
+      name       = role.name
+      arn        = role.arn
+      repository = var.content_publisher_sources[key].repository
+      branch     = var.content_publisher_sources[key].branch
+      subject    = "repo:${var.content_publisher_sources[key].repository}:ref:refs/heads/${var.content_publisher_sources[key].branch}"
+    }
+  }
+}
+
+output "content_replication_role" {
+  description = "Dedicated content replication identity, separate from audit replication."
+  value       = { name = aws_iam_role.content_replication.name, arn = aws_iam_role.content_replication.arn }
+}

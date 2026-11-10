@@ -66,4 +66,12 @@ module "shared_iam" {
   enable_metrics_read_role            = var.enable_metrics_read_role
   metrics_read_trusted_principal_arns = var.metrics_read_trusted_principal_arns
   metrics_read_session_duration       = var.metrics_read_session_duration
+
+  # Content publishing and replication identities. Identity and
+  # trust only; prefix-scoped bucket and key grants stay in deploy/regional.
+  # Provider ownership is account-local; no regional resources are referenced.
+  github_actions_provider_arn        = local.github_actions_provider_arn
+  github_actions_audience            = local.github_actions_audience
+  content_publisher_sources          = var.content_publisher_sources
+  content_publisher_session_duration = var.content_publisher_session_duration
 }

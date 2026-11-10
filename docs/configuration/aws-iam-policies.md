@@ -263,6 +263,93 @@ No `Describe`/`List` permission for any other AWS service is granted, so a
 collector that needs metrics from another service still requires a reviewed
 change to this grant, not a configuration change on the caller's side.
 
+## Content publishing and replication identities
+
+Every deployment of [`deploy/account`](../../deploy/account/README.md) creates
+one publisher role per configured source repository and creates or resolves the
+account's GitHub Actions OIDC provider. Publishers have no enablement flag.
+A separate replication role dedicated to content buckets is also always created,
+independently of the optional audit replication identity.
+
+**These identities carry no permissions.** As with every other shared role, the
+grants are owned by the regional root and arrive in a separate, later change.
+An enabled role is assumable but holds no content access from this
+configuration until then. Nothing in the account root references a bucket, a
+KMS key or another Terraform state. This describes what the account state
+declares; it is not a claim that no resource-based policy elsewhere names the
+role, which only an account review can establish.
+
+| Identity | Role name | Trusted by |
+| --- | --- | --- |
+| ops-sop publisher | `<prefix>-publisher-ops-sop` | GitHub Actions, `openshift/ops-sop` on `master` |
+| managed-notifications publisher | `<prefix>-publisher-managed-notifications` | GitHub Actions, `openshift/managed-notifications` on `master` |
+| rosa-claude-plugins publisher | `<prefix>-publisher-rosa-claude-plugins` | GitHub Actions, `openshift-online/rosa-claude-plugins` on `main` |
+| content replication | `<prefix>-content-replication-role` | `s3.amazonaws.com` |
+
+Each publisher's trust policy is a single statement:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Effect": "Allow",
+    "Action": "sts:AssumeRoleWithWebIdentity",
+    "Principal": { "Federated": "arn:aws:iam::<account-id>:oidc-provider/token.actions.githubusercontent.com" },
+    "Condition": {
+      "StringEquals": {
+        "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+        "token.actions.githubusercontent.com:sub": "repo:openshift/ops-sop:ref:refs/heads/master"
+      }
+    }
+  }]
+}
+```
+
+`StringEquals` with a scalar subject restricts trust to the configured repository
+and default-branch subject; it does **not** restrict the triggering event to a
+merge. Scheduled runs, `workflow_dispatch` and `pull_request_target` workflows
+can also present a matching default-branch subject. Privileged publishing
+workflows must not check out or execute untrusted PR code, and their triggers
+and permissions require separate review in the source repositories.
+
+A list of subjects, a second audience, or a subject such as
+`repo:openshift/ops-sop:pull_request` would expand the accepted subjects or
+audiences. This configuration cannot express them: the subject is built from a
+fixed template and the inputs are validated, so colons, full refs, wildcards
+and empty values are rejected before a policy is rendered.
+
+Be precise about the operator, because it is easy to state this wrongly. Under
+`StringEquals` the subject is matched literally, so a `*` inside the value is
+an ordinary character and would match no token any workflow presents — such a
+subject is inert, not broad. Under `StringLike`, `*` and `?` are
+metacharacters; a `StringLike` condition whose value contains neither still
+matches exactly one string. The risk is the combination of `StringLike` with a
+value containing a metacharacter, which is why this configuration both emits
+`StringEquals` and refuses to store a `*`.
+
+Note also what validation does *not* do. It constrains the shape of each value;
+it does not restrict which owner, repository or branch an operator configures.
+Trust is pinned to the three agreed sources by the configured
+`content_publisher_sources` — the shipped defaults — and the account tests
+assert the complete rendered subject set, so an unconfigured repository or
+branch is excluded by the rendered policy rather than by input validation.
+Repointing a publisher at a fork or another branch is a deliberate, reviewable
+configuration change.
+
+Terraform tests assert the rendered documents; they do not exercise
+AWS, so real enforcement still needs an actual `AssumeRoleWithWebIdentity` from
+a publishing workflow.
+
+The content replication role's trust is S3 service only, with no condition,
+matching the existing audit replication role exactly. It is a separate identity
+so content replication and audit replication never share permissions.
+
+Consume the identities through the account outputs — `content_publisher_roles`,
+`content_publisher_role_arns`, `content_replication_role_arn` and
+`github_actions_oidc_provider_arn` — rather than reconstructing names. See the
+[account README](../../deploy/account/README.md) for the provider create /
+reference / adopt modes and the enablement order.
+
 ## Creating Policies
 
 ```bash

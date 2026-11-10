@@ -20,8 +20,8 @@ def require(condition, message):
 
 
 def commands(names):
-    for name in names:
-        require(shutil.which(name), f"Missing {name}; follow local setup, then resume this step")
+    missing = [name for name in names if not shutil.which(name)]
+    require(not missing, f"Missing {', '.join(missing)}; follow local setup, then resume this step")
 
 
 def succeeds(command, message):
@@ -56,6 +56,9 @@ def check(step, summary=None):
     require((ROOT / "Makefile").is_file(), "Missing repository Makefile")
     commands(("git", "make"))
     if step == 1:
+        missing = [name for name in TOOLS if not shutil.which(name)]
+        if missing:
+            print(f"NOTE step 1: tools still missing (needed by step 3): {', '.join(missing)}")
         return
     if step == 2:
         commands(("terraform", "podman", "uv"))

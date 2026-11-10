@@ -17,3 +17,6 @@ resume, ask for confirmation without secrets. Do not inspect Terraform credentia
 files. Token presence is asserted in step 4; license activation is proven only by
 successful startup, and private-module access by isolated initialization in step 5.
 HCP login grants no deployment approval. Next: step 3.
+A personal LocalStack token works only with a Pro licence (ECS/EFS); step 4 startup
+proves it. `terraform login` opens a browser for a user token pasted at the
+terminal prompt; see the runbook. Neither step relates to Keycloak (step 6).

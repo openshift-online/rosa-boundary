@@ -6,6 +6,28 @@
 
 Modular, tested, API to interact with ROSA clusters. Based on OpenAPI.
 
+## RTA CLI
+
+`rta` is a command-line client for the Trusted Actions API. Until the GitHub release cutover, download it from the [original repository's latest release](https://github.com/openshift-online/rosa-trusted-actions/releases). For a local build in this checkout, run `go build ./cmd/rta` from `components/trusted-actions/`. The imported `make build-rta` GoReleaser path still needs a monorepo follow-up; Boundary does not yet publish TA releases.
+
+```bash
+# Point at the RTA server (or pass --server on each call)
+export RTA_SERVER=https://rta.example.com
+
+# Authenticate with OCM (or pass --token=$(ocm token) on each call)
+ocm login
+
+# Explore available commands
+rta --help
+
+# List actions, describe parameters, run against a cluster
+rta action list
+rta action describe get
+rta action run get --cluster <id> --jira OHSS-1234 --param resource=pods --param version=v1 --param namespace=openshift-monitoring
+```
+
+Use `rta <command> --help` for details on any command. All commands support `-o json` for machine-readable output.
+
 ## Prerequisites
 
 - Go 1.21+
@@ -183,7 +205,7 @@ make fmt
 ### CLI Flags (Server Settings)
 
 ```bash
-./bin/rosa-trusted-actions-server --listen-addr=":3000" --log-level="debug" --log-json
+rosa-trusted-actions-server --listen-addr=":3000" --log-level="debug" --log-json
 ```
 
 ### Config File
@@ -240,8 +262,7 @@ Base path: `/api/v0/trusted-actions`
 
 To add a new Trusted Action, see
 [docs/adding-a-trusted-action.md](./docs/adding-a-trusted-action.md) (or the
-[`add-trusted-action`](./.claude/skills/add-trusted-action/SKILL.md) Claude
-Code skill).
+[`add-trusted-action`](./.agents/skills/add-trusted-action/SKILL.md) agent skill).
 
 ## Project Structure
 

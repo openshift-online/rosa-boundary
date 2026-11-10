@@ -4,9 +4,16 @@ This inventory was checked on 2026-11-06. It records the **files-only**
 import of Trusted Actions into
 `openshift-online/rosa-boundary` and how to refresh it while
 `openshift-online/rosa-trusted-actions` remains the active development source.
-The imported baseline is the TA `main` commit
+The initial imported baseline is the TA `main` commit
 `8ce39a7344b52444576fc1e44ab1f532fd0dfac4`. These counts and comparisons
 describe **that revision**, not all changes subsequently made in the TA repo.
+The refresh includes **the current upstream TA `main` tip**, fetched and
+verified on 2026-11-10:
+`483f325fef305507b1e2471aa4cdaf6858cf3018` (including
+[upstream PR #158](https://github.com/openshift-online/rosa-trusted-actions/pull/158)).
+There were no later upstream `main` commits at verification. See
+[the refresh record](#refresh-of-2026-11-10); use this SHA as the starting
+point only when checking for *future* upstream changes.
 No TA Git history was imported; the original repository remains the historical
 reference and must not be archived until the source/CI/deployment cutover is
 validated with its owners. See [source co-location](trusted-actions-source-colocation.md)
@@ -21,7 +28,7 @@ artifacts. The paths below are relative to each repository root:
 | Original TA paths | Destination in Boundary | Count | Treatment |
 | --- | --- | ---: | --- |
 | All tracked paths except the five groups below | `components/trusted-actions/<original path>` | 231 | Keep the independent Go module, source, docs, OpenAPI, test fixtures, image build, `terraform/global/`, and `terraform/regional/` together. Includes TA `.claude/` helpers, `codecov.yml`, `.gitignore`, and `LICENSE`. |
-| `CLAUDE.md` | `components/trusted-actions/AGENTS.md` | 1 | Replace the old startup guide with component-specific contributor guidance; do not keep both guides. |
+| `CLAUDE.md` | `components/trusted-actions/AGENTS.md` | 1 | **Initial import only:** replaced the old startup guide with component-specific contributor guidance. Upstream PR #158 subsequently renamed its own guide to `AGENTS.md`; later refreshes map `AGENTS.md` directly, without another transition. |
 | `.github/renovate.json` | Root `renovate.json` | 1 | Reconcile TA rules into Boundary's existing repo-level config; remove the nested `.github/` directory. |
 | `hcp-terraform/rosa-trusted-actions/{main.tf,variables.tf,terraform.auto.tfvars}` | `hcp-terraform/rosa-trusted-actions/` | 3 | Byte-for-byte copy of TA's HCP meta-workspace definition and tracked variables. Its original VCS repo and working directories are intentionally **not** switched by the import. |
 | `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Root `.tekton/` | 2 | Update the repo annotation to Boundary, the build context to `components/trusted-actions`, and PR/push change filters to the component and each pipeline file. Keep the TA image destination separate. **Post-import:** Boundary-side event triggers are guarded with `false &&` until cutover (see below). |
@@ -131,7 +138,8 @@ branch/worktree; leave both source checkouts and local-only files intact.
 
 1. Coordinate a candidate source revision with TA owners. Fetch the TA
    repository's upstream `main`, record its full SHA (`NEW_TIP`), and compare
-   it to the last imported TA SHA (`BASE`, initially the SHA above). If `main`
+   it to the last reconciled TA SHA (`BASE`, currently
+   `483f325fef305507b1e2471aa4cdaf6858cf3018`). If `main`
    has moved again before cutover, repeat this comparison. Update the recorded
    baseline here only **after** the new snapshot has actually been copied and
    validated; preserve the earlier revision in the PR description.
@@ -161,14 +169,17 @@ branch/worktree; leave both source checkouts and local-only files intact.
    belong in `components/trusted-actions/`, root `.tekton/`, root
    `hcp-terraform/`, or a shared repo-root config. Reconcile new TA `.github/`
    configuration into the appropriate root config rather than restoring a
-   nested `.github/`. Keep the component's `AGENTS.md` as the sole agent startup
-   guide instead of restoring the original `CLAUDE.md`. Never import the old
+   nested `.github/`. Upstream now has `AGENTS.md`: reconcile its guidance into
+   the existing component-specific `AGENTS.md` rather than overwriting it;
+   do not restore the deleted original `CLAUDE.md`. Never import the old
    `openwiki/` directory or a TA `.openwikiignore`; root OpenWiki owns the
    combined wiki and has its own update workflow.
-4. Reconcile the twelve transformed files above rather than reverting them:
+4. Reconcile the historical twelve transformed files above rather than reverting them:
    retain TA-only Prow ownership, correct Konflux source/context/path filters
    **and the pre-cutover `false &&` hold**, keep the four formatting-only fixes,
-   and retain the root Renovate and component AGENTS.md reconciliation.
+   and retain the root Renovate and component AGENTS.md reconciliation. New
+   upstream skills live under `.agents/skills/` with matching `.claude/skills/`
+   symlinks; preserve those paths under the component.
    Compare and review HCP Terraform
    definitions and **tracked auto tfvars** without exposing secrets.
    Do not change the TA HCP workspace VCS binding, working directories,
@@ -184,6 +195,72 @@ branch/worktree; leave both source checkouts and local-only files intact.
    OpenWiki** update and old periodic retirement must be reviewed. Keep a
    per-file mapping and source SHA in the refresh PR so remaining drift is
    observable.
+
+## Refresh of 2026-11-10
+
+Source: TA upstream `main` at
+`4f1cb9ec953b1e8c050ed0d70bae897467ae4092`, compared with initial import
+`8ce39a7344b52444576fc1e44ab1f532fd0dfac4`. The upstream comparison
+has **14 changed paths** (9 modified, 5 added); it has no tracked deletions.
+All 288 tracked paths (including excluded generated wiki files) were
+inventoried. No original-repository history or local untracked files were
+imported. The original TA repository remains the development and release
+source until coordinated cutover.
+
+| Upstream changes | Destination / treatment |
+| --- | --- |
+| `Containerfile`, `DEVELOPMENT.md`, `Makefile`, `README.md` | Refreshed under `components/trusted-actions/`; the runtime is digest-pinned and the imported Make targets invoke GoReleaser, but these targets are **not** validated monorepo build paths. The README clarifies that GitHub releases still come from the original repository. Fixed the upstream Makefile's mismatched `build-cli` phony declaration. |
+| `.gitignore`, `.goreleaser.yaml`, `VERSION` | Kept under `components/trusted-actions/`. The existing component ignore already had `/dist/`, so the upstream duplicate `dist/` entry was dropped. The component-local GoReleaser config is **not at the repository root**; root-level GoReleaser will not discover it without a follow-up to select the config and adapt nested build paths. Neither this config nor `VERSION` publishes a release on its own. |
+| `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Refreshed the changed task-bundle digests in the root pipelines; retained Boundary source annotation, nested build context/path filters, and **both `false &&` pre-cutover guards**. No Boundary-side TA event build was enabled. |
+| `.github/renovate.json` | Reconciled the Hummingbird runtime digest rule into root `renovate.json`, scoped to the component Containerfile, without importing the original boilerplate preset or automerge policy. |
+| `CLAUDE.md` | Did not restore the original repo startup file. Updated `components/trusted-actions/AGENTS.md` with the new build/release guidance; the original repo's OpenWiki instructions do not belong in the component. |
+| `.github/workflows/{actions.lock,tag-and-release.yml,verify-lockfile.yml}` | **Not installed** as Boundary root workflows. The original tag-and-release workflow is explicitly restricted to `openshift-online/rosa-trusted-actions`, assumes a root `VERSION`/Go module, and uses unscoped `v*` tags; the lockfile and verifier govern that old workflow set. Before enabling a Boundary release, review a TA-specific tag namespace, nested working directory and GoReleaser path, GitHub permissions, lockfile scope, and old-repo release handoff with owners. Do not copy a live tag-and-release workflow as a source sync. |
+| `openwiki/**` | Still excluded; root Boundary OpenWiki remains the only generated wiki. No TA `.openwikiignore` was tracked. |
+
+The TA HCP definitions, Terraform resource files, Go source/tests, and the
+existing deployment image were unchanged by the upstream delta. This refresh
+is **not** a CI, release, Konflux, or Terraform source cutover. Validate
+TA-only PR checks and the root OpenWiki update separately before declaring
+those integrations complete. Local `make test`, `go build ./...`, root
+pre-commit on changed files, and JSON/YAML parsing passed; a GoReleaser
+snapshot build, actual Konflux/Prow runs, and a container build were **not**
+exercised. The next upstream delta, PR #158, is reconciled below; for later
+refreshes use the newer baseline stated after that section.
+
+**GoReleaser follow-up:** The imported `.goreleaser.yaml` stays under
+`components/trusted-actions/`. It will not work as-is for a Boundary-root
+release invocation, which expects to find its config at the invocation root;
+the original release workflow also assumes root-level source and `VERSION`.
+Adapt config discovery, nested build paths, and release workflow/namespace
+in a separately reviewed change. Do not move the config or declare the
+imported `make build*` targets proven as part of this source refresh.
+
+### Follow-up: upstream PR #158
+
+[PR #158](https://github.com/openshift-online/rosa-trusted-actions/pull/158)
+merged into TA `main` as `483f325fef305507b1e2471aa4cdaf6858cf3018`.
+Relative to `4f1cb9ec953b1e8c050ed0d70bae897467ae4092`, it renames
+`CLAUDE.md` to `AGENTS.md`, moves the `add-trusted-action` skill and local
+e2e reference from `.claude/skills/` to `.agents/skills/`, adds a relative
+`.claude/skills/add-trusted-action` symlink, and updates the docs/agent links.
+The upstream tracked tree now has 289 paths; no old-repo wiki or local-only
+files were copied.
+
+The new upstream `AGENTS.md` is **not** a `CLAUDE.md` conversion to perform at
+the monorepo boundary: TA already uses the shared filename. Its standalone
+repo guidance was reviewed and reconciled into the existing component-specific
+`components/trusted-actions/AGENTS.md`, not copied over Boundary's monorepo
+guidance. The new skill files and relative symlink map under
+`components/trusted-actions/`; the old real `.claude/skills/` files were
+removed. `DEVELOPMENT.md`, `README.md`, the add-action guide, and the docs
+agent now point to the new paths. The hook README was already identical to
+upstream. This does not switch TA's CI, release, or HCP sources.
+
+This PR includes upstream `main` through
+`483f325fef305507b1e2471aa4cdaf6858cf3018`, confirmed still to be the
+upstream tip on 2026-11-10. If TA `main` changes **after** this refresh,
+compare the new tip with that SHA; there is no longer a `CLAUDE.md` →
+`AGENTS.md` rename to repeat.
 
 ## Cutover boundary
 

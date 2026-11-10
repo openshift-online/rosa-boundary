@@ -67,13 +67,13 @@ Invoke when:
 ### Make Targets
 When `Makefile` changes, sync:
 - `DEVELOPMENT.md` command reference
-- `AGENTS.md` working-in-this-component section
+- `AGENTS.md` development commands section
 - `README.md` if new primary targets added
 
 ### Pre-commit Hooks
 When `.pre-commit-config.yaml` changes, sync:
 - `CONTRIBUTING.md` validation section
-- `AGENTS.md` validation guidance
+- `AGENTS.md` validation strategy
 
 ### Dependencies
 When `go.mod` changes (major versions), sync:

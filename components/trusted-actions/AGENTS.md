@@ -38,6 +38,15 @@ remains `github.com/openshift-online/rosa-trusted-actions`.
   test-race` when concurrency is affected. After OpenAPI changes, run `make
   generate` and check the generated diff. Choose additional checks from the
   [testing guide](TESTING.md) and actual Makefile recipes.
+- The imported `make build`, `build-rta`, and `build-server` targets invoke
+  GoReleaser, but are not validated monorepo build paths. The imported
+  `.goreleaser.yaml` lives in this component, not at the repository root;
+  a root-level GoReleaser release invocation will not find it as-is. Adapt
+  config selection and nested source paths in a follow-up before relying on
+  these targets or enabling a Boundary TA release. For now, use `go build
+  ./cmd/rta` or `go build ./cmd/server` from this directory for a local build.
+  The component also has its own `VERSION`; do not use a Boundary-root `v*`
+  tag or enable the old repository's release workflow without a reviewed cutover.
 - The repo-root `renovate.json`, `.coderabbit.yaml`, and
   `.pre-commit-config.yaml` govern both components. The copied component
   `.pre-commit-config.yaml` is not run by the repository's Git hook or root
@@ -50,5 +59,8 @@ remains `github.com/openshift-online/rosa-trusted-actions`.
   source is covered there after a root OpenWiki update; do not recreate the
   old component-local generated wiki or add a component `.openwikiignore`.
 
-This component retains `.claude/` helper material from the original repository;
-it does not replace this AGENTS.md as contributor guidance.
+Upstream Trusted Actions now uses `AGENTS.md` too. Keep this monorepo-specific
+component guide rather than copying the standalone repo's root guide over it;
+reconcile future upstream guidance changes into this file. Agent skills live in
+`.agents/skills/`, with `.claude/skills/` symlinks for Claude Code discovery.
+The component retains `.claude/` helper material from the original repository.

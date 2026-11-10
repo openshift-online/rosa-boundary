@@ -3,6 +3,7 @@
   "automerge": true,
   "enabledManagers": [
     "gomod",
+    "dockerfile",
     "pep621",
     "terraform",
     "pre-commit",
@@ -12,6 +13,9 @@
   ],
   "tekton": {
     "managerFilePatterns": ["/^\\.tekton\\/rosa-trusted-actions-.*\\.yaml$/"]
+  },
+  "dockerfile": {
+    "managerFilePatterns": ["/^components\\/trusted-actions\\/Containerfile$/"]
   },
   "customManagers": [
     {
@@ -145,6 +149,15 @@
       "matchManagers": ["tekton"],
       "matchFileNames": [".tekton/rosa-trusted-actions-*.yaml"],
       "automerge": false
+    },
+    {
+      "description": "Review Trusted Actions Hummingbird runtime digest updates",
+      "matchManagers": ["dockerfile"],
+      "matchFileNames": ["components/trusted-actions/Containerfile"],
+      "matchPackageNames": ["registry.access.redhat.com/hi/core-runtime"],
+      "matchUpdateTypes": ["digest"],
+      "automerge": false,
+      "platformAutomerge": false
     },
     {
       "description": "Group all GitHub Actions updates into a single PR",

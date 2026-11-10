@@ -23,8 +23,7 @@ cd rosa-trusted-actions
 # Install all dependencies
 make deps
 
-# Standalone repository: install its pre-commit hooks here.
-# Boundary monorepo: instead run these commands from the repository root.
+# Install pre-commit hooks
 pip install pre-commit
 pre-commit install
 
@@ -37,9 +36,16 @@ make all
 ### Building
 
 ```bash
-make build              # Full build (generate + compile)
-make build-linux        # Cross-compile for Linux
+make build              # Build server and rta (snapshot, current OS/arch)
+make build-all          # Build all release targets (linux, darwin)
 ```
+
+These upstream GoReleaser targets have **not** been made functional for the
+Boundary monorepo: `.goreleaser.yaml` is nested under this component, not at
+the repository root, so a root-level release invocation will not discover it.
+The config, paths, and release workflow need a follow-up adaptation before
+these targets are relied on. For local compilation in this checkout, run
+`go build ./cmd/rta` or `go build ./cmd/server` from this directory.
 
 ### Running Locally
 
@@ -52,7 +58,7 @@ cp .env.example .env
 make run                # Starts on :8080
 
 # Or with custom flags
-./bin/rosa-trusted-actions-server --listen-addr=":3000" --log-level="debug" --log-json
+go run ./cmd/server --listen-addr=":3000" --log-level="debug" --log-json
 ```
 
 ### Code Generation
@@ -80,9 +86,9 @@ Lint configuration is in `.golangci.yml`. All PRs must pass linting.
 
 To author a new Trusted Action (implementation, policy/catalog, tests, review,
 and deployment), see
-[docs/adding-a-trusted-action.md](docs/adding-a-trusted-action.md). Claude Code
-users can also drive this via the
-[`add-trusted-action`](.claude/skills/add-trusted-action/SKILL.md) skill.
+[docs/adding-a-trusted-action.md](docs/adding-a-trusted-action.md). Coding agents
+can also use the
+[`add-trusted-action`](.agents/skills/add-trusted-action/SKILL.md) skill.
 
 ### Testing
 

@@ -5,8 +5,8 @@ Comprehensive LocalStack Pro-based testing infrastructure for rosa-boundary AWS 
 ## Overview
 
 These tests exercise emulated AWS APIs, policy structure, and selected CLI
-workflows. They do not prove real AWS authorization, container execution, or
-production behavior:
+workflows. Optional content-sync runtime tests also execute containers locally;
+none of these prove real AWS authorization or production behavior:
 
 - **S3**: Audit bucket with WORM compliance and Object Lock
 - **IAM**: Roles, policies, OIDC providers, tag-based authorization
@@ -213,7 +213,8 @@ Both start a single container:
 
 ### Task Lifecycle Focus
 
-ECS tests validate task submission and management, not container internals:
+Most ECS tests validate task submission and management, not container internals
+(the content-sync runtime test below is an explicit exception):
 
 - **Tested**: Task definition registration, run-task API, tagging, stop-task
 - **Not Tested**: Container execution, ECS Exec sessions, actual container logs
@@ -227,6 +228,75 @@ structure. Some policy-simulation cases are explicitly skipped because LocalStac
 does not evaluate the required ECS resource-tag conditions. A passing local run
 is not evidence of real cross-user isolation or IAM enforcement; those assertions
 require separately approved live verification.
+
+## Content-sync runtime coverage
+
+`integration/test_content_sync_runtime.py` has two distinct levels. Both use the
+**current shipped script bytes**, passed to Bash exactly as in the task definition,
+and the image's real AWS CLI. No stub AWS executable, production script changes,
+GitHub Action, or real AWS account is needed. Fixtures own unique unversioned S3
+buckets; tests remove only their buckets, container/volume, and ECS resources.
+They never start/stop LocalStack or change its global executor configuration.
+
+Prerequisites: an already-ready LocalStack, a prebuilt Boundary image containing
+Bash/GNU timeout/AWS CLI, and Podman (or `CONTENT_SYNC_TEST_ENGINE=docker`). Build
+through `make build-amd64` when needed; this test does not build or pull images.
+With the existing Compose network and image, from the repository root:
+
+```bash
+CONTENT_SYNC_TEST_IMAGE=localhost/rosa-boundary:latest-amd64 ECS_EXECUTOR=local \
+  uv run --group localstack pytest \
+  tests/localstack/integration/test_content_sync_runtime.py -v -ra
+uv run --group localstack pytest tests/unit/test_content_sync_runtime_guards.py -v
+```
+
+**Level 1** starts a standalone image container with a unique named volume at the
+fixed `/opt/rosa-content` destination, with the sidecar's read-only root filesystem
+and dropped capabilities. Defaults are network `rosa-boundary-test`
+and endpoint `http://localstack:4566`; override with `CONTENT_SYNC_TEST_NETWORK`
+and `CONTENT_SYNC_CONTAINER_ENDPOINT` for an existing local topology. The host
+fixture uses `LOCALSTACK_ENDPOINT` (default `http://localhost:4566`). Runtime
+endpoints must explicitly use local HTTP port 4566 (loopback/private IP or the
+recognized LocalStack service names). Only dummy credentials are supplied;
+personal AWS configuration is not mounted. Missing image configuration produces
+an explicit skip; a configured but missing image or broken runtime fails.
+
+Assertions: all three prefixes exhaust bounded retries against a test-owned
+missing bucket without terminating; creating/populating that bucket recovers
+without restarting the script; nested skills/assets, SOPs and notifications are
+byte-exact across `ops-sop/`, `rosa-claude-plugins/` and
+`managed-notifications/`; periodic sync propagates updates and remote deletion
+while preserving unrelated content. Script logs are saved under pytest's per-test temporary path
+(printed by the test, available with `-s` or on failure). Use `--basetemp` to retain
+these under your validation artifact directory. This is S3/CLI/script execution,
+**not ECS task execution**.
+
+**Level 2** is marked `slow` and skips explicitly on `ECS_EXECUTOR=local`. On an
+already configured Docker-backed LocalStack executor, provision the same prebuilt
+image in the executor's engine and run:
+
+```bash
+ECS_EXECUTOR=docker CONTENT_SYNC_TEST_IMAGE=localhost/rosa-boundary:latest-amd64 \
+  CONTENT_SYNC_ECS_ENDPOINT=http://localstack:4566 \
+  uv run --group localstack pytest \
+  tests/localstack/integration/test_content_sync_runtime.py -k ecs -v -ra
+```
+
+The endpoint must actually be reachable from executor containers; use its private
+IP if the executor network does not resolve the service name. Changing the pytest
+variable does **not** enable the server executor. Missing image/endpoint
+configuration is an explicit skip, not successful execution. Configured execution
+that cannot start containers or share the volume fails by bounded timeout.
+
+This registers/runs an ECS EC2/bridge test task with an anonymous task-shared host
+volume: writable sidecar, read-only consumer, no startup dependency. The consumer
+writes a control S3 marker **before the content bucket exists**, proving startup
+is not blocked by content availability. It then rejects a write as root on its
+read-only mount, reads all three prefixes (including nested assets) produced by
+the sidecar, and writes a separate success marker. ECS lifecycle status alone
+cannot satisfy the test. This tests emulated ECS execution/mount semantics, not
+the deployed Fargate task definition, EFS, real IAM, or production networking.
+No automatic CI image provisioning has been added.
 
 ## Terraform Testing
 
@@ -251,7 +321,9 @@ LocalStack simulates WORM compliance but may differ from real AWS. Verify produc
 
 ### Fargate Task Execution
 
-LocalStack simulates task submission but actual container execution varies. We test task lifecycle, not container behavior.
+LocalStack simulates task submission but actual container execution varies.
+Most tests cover lifecycle only; the opt-in content-sync runtime test requires
+container execution and shared-volume evidence as described above.
 
 ### Container Image Pull
 

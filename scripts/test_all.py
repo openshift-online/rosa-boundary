@@ -117,7 +117,7 @@ def terraform_checks(runner, files):
         snapshot = Path(temp)
         for name in files:
             path = Path(name)
-            if path.parts[0] in ("deploy", "hcp-terraform", "lambda") and path.suffix in (".tf", ".hcl", ".py", ".json") and not name.endswith(".tfvars.json"):
+            if path.parts[0] in ("deploy", "hcp-terraform", "lambda") and path.suffix in (".tf", ".hcl", ".py", ".json", ".sh") and not name.endswith(".tfvars.json"):
                 dest = snapshot / name
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(ROOT / name, dest)

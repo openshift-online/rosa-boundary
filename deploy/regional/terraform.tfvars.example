@@ -153,3 +153,11 @@ required_groups = ["ai-sd-sre"]
 #     }
 #   }
 # }
+
+# Always-on asynchronous content sidecar. Bucket/Region/prefix paths are derived.
+# content_sync_interval       = 300
+# content_sync_backoff        = 5
+# content_sync_timeout        = 120
+# content_sync_cpu            = 64
+# content_sync_memory         = 128
+# task_ephemeral_storage_gib  = 21

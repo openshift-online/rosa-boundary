@@ -68,6 +68,14 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
   execution_role_arn       = data.aws_iam_role.execution.arn
   task_role_arn            = data.aws_iam_role.task.arn
 
+  ephemeral_storage {
+    size_in_gib = var.task_ephemeral_storage_gib
+  }
+
+  volume {
+    name = "content"
+  }
+
   # EFS volume for /home/sre
   volume {
     name = "sre-home"
@@ -103,8 +111,10 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
   container_definitions = jsonencode(concat(
     [
       {
-        name        = "rosa-boundary"
-        image       = var.container_image
+        name  = "rosa-boundary"
+        image = var.container_image
+        # Reserve the remaining CPU shares for the interactive workload.
+        cpu         = var.container_cpu - var.content_sync_cpu - (var.enable_kube_proxy ? 2 : 0)
         essential   = true
         stopTimeout = 120
 
@@ -142,6 +152,11 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
 
         mountPoints = [
           {
+            sourceVolume  = "content"
+            containerPath = "/opt/rosa-content"
+            readOnly      = true
+          },
+          {
             sourceVolume  = "sre-home"
             containerPath = "/home/sre"
             readOnly      = false
@@ -172,10 +187,54 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
         }
       }
     ],
+    [
+      {
+        name        = "content-sync"
+        image       = var.container_image
+        essential   = false
+        cpu         = var.content_sync_cpu
+        memory      = var.content_sync_memory
+        stopTimeout = 15
+        entryPoint  = ["/bin/bash", "-c", "${file("${path.module}/content-sync.sh")}\nmain"]
+        command     = []
+        restartPolicy = {
+          enabled              = true
+          ignoredExitCodes     = [0]
+          restartAttemptPeriod = 60
+        }
+        environment = [
+          { name = "CONTENT_BUCKET", value = aws_s3_bucket.content.id },
+          { name = "AWS_REGION", value = data.aws_region.current.region },
+          { name = "CONTENT_PREFIXES", value = join(" ", values(var.content_prefixes)) },
+          { name = "CONTENT_SYNC_INTERVAL", value = tostring(var.content_sync_interval) },
+          { name = "CONTENT_SYNC_BACKOFF", value = tostring(var.content_sync_backoff) },
+          { name = "CONTENT_SYNC_TIMEOUT", value = tostring(var.content_sync_timeout) }
+        ]
+        mountPoints = [{
+          sourceVolume  = "content"
+          containerPath = "/opt/rosa-content"
+          readOnly      = false
+        }]
+        readonlyRootFilesystem = true
+        linuxParameters = {
+          initProcessEnabled = true
+          capabilities       = { drop = ["ALL"] }
+        }
+        logConfiguration = {
+          logDriver = "awslogs"
+          options = {
+            "awslogs-group"         = aws_cloudwatch_log_group.rosa_boundary.name
+            "awslogs-region"        = data.aws_region.current.region
+            "awslogs-stream-prefix" = "content-sync"
+          }
+        }
+      }
+    ],
     var.enable_kube_proxy ? [
       {
         name      = "kube-proxy"
         image     = var.container_image
+        cpu       = 2
         essential = true
 
         command = [

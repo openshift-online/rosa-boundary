@@ -473,7 +473,7 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `security_group_id` | Fargate security group ID |
 | `efs_security_group_id` | EFS security group ID |
 | `cloudwatch_log_group` | CloudWatch log group name |
-| `content_bucket_name` | Published-content bucket name (empty when disabled) |
+| `content_bucket_name` | Published-content bucket name |
 | `content_bucket_arn` | Published-content bucket ARN; a replica Region supplies this to the source Region |
 | `content_bucket_region` | Region the content bucket lives in |
 | `content_bucket_kms_key_arn` | Resolved AWS-managed `alias/aws/s3` key ARN; a replica Region supplies this to the source Region |
@@ -843,3 +843,52 @@ make destroy
 ## License
 
 See parent repository LICENSE file.
+
+## Asynchronous task content
+
+Every task includes a nonessential `content-sync` container using the main image.
+Its explicit Bash entryPoint embeds `content-sync.sh`; image entrypoint, audit
+setup and home initialization never run there. The empty task volume is writable
+only in the sidecar and read-only at `/opt/rosa-content` in the main container.
+No EFS home, kubeconfig or OCM credential overlays are mounted in the sidecar.
+Containers still share the task IAM role; mounts are not separate IAM identities.
+The existing regional content read grant is reused without additional permissions.
+
+Bucket and Region come from regional resources. `content_prefixes` **values**
+(not publisher identity keys) determine both remote prefixes and matching local
+subdirectories. There is no enable flag, alternate root or duplicate bucket input.
+The main container never waits for content; its existing optional kube-proxy
+HEALTHY dependency is unchanged. Content can be absent, stale or partially updated.
+Ordinary `aws s3 sync --delete` propagates updates and deletions, without manifests,
+atomic publication, home links, marketplace installation or executable installation.
+
+Defaults: 300 seconds between passes, three attempts per prefix, 5-second initial
+backoff doubling up to 60 seconds, 120 seconds per attempt plus 5 seconds to kill
+an unresponsive client. Failures do not skip other prefixes; a full failing prefix
+can delay their turn by its bounded retries. Each attempt logs only prefix, attempt
+and exit status (including timeout status), not raw AWS output or credentials.
+TERM/INT/HUP interrupt sleeps and forward termination to the active timeout
+process, which forwards it to AWS and forcibly ends it within five seconds.
+
+`content_sync_interval`, `content_sync_backoff`, `content_sync_timeout`,
+`content_sync_cpu` (64 shares), `content_sync_memory` (128 MiB hard limit) and
+`task_ephemeral_storage_gib` (21 GiB total including images and scratch) are tunable.
+CPU shares are not a hard Fargate CPU cap. The main workload receives the
+remaining task CPU shares after the sidecar and the proxy's existing minimum
+of two shares, so content sync does not outweigh an unspecified main-container
+CPU share. Memory must remain below task memory;
+size the total task budget for the session and optional proxy too. Ephemeral
+storage is shared, not a per-content quota; publishers must bound content size.
+
+ECS restartPolicy ignores graceful exit 0 and uses the supported minimum
+`restartAttemptPeriod = 60`. ECS restarts eligible nonzero exits only after the
+container has run at least 60 seconds. **An earlier crash is not automatically
+recovered**; content may stay unavailable until a new task. A sidecar failure does
+not stop the investigation. Verify restart eligibility, Fargate registration,
+actual S3/KMS reads and proxy/session survival in a separately approved live test.
+
+Local evidence: `bats tests/shell/content-sync.bats`, `make test-shell`,
+`make lint-shell`, and isolated regional mocked Terraform tests (including equality
+of the actual embedded script). These do not establish live AWS behavior. The
+existing image supplies Bash, GNU coreutils timeout/sleep and AWS CLI v2; no new
+runtime dependencies or current-source image build are implied by local-image checks.

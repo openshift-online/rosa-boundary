@@ -76,8 +76,13 @@ The later source refresh includes TA's GoReleaser configuration and component
 `VERSION`, but not its original-repository GitHub Actions release/lockfile
 workflows. TA GitHub releases continue through the original repository until
 a separately reviewed monorepo release workflow, tag namespace, permissions,
-and action pinning are established. These files do not change HCP bindings or
-turn on the held Konflux pipelines.
+and action pinning are established. In particular, the imported
+`components/trusted-actions/.goreleaser.yaml` is **not** at the monorepo root:
+a root-level GoReleaser invocation cannot discover it as-is. Follow up to
+adapt config selection, nested build paths, and release execution before
+treating the imported build targets or release config as working in Boundary.
+Do not move the config as part of this source refresh. These files do not
+change HCP bindings or turn on the held Konflux pipelines.
 
 Upstream [TA PR #158](https://github.com/openshift-online/rosa-trusted-actions/pull/158)
 renamed its startup file to `AGENTS.md` and moved its shared skill to

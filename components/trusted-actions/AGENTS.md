@@ -38,11 +38,15 @@ remains `github.com/openshift-online/rosa-trusted-actions`.
   test-race` when concurrency is affected. After OpenAPI changes, run `make
   generate` and check the generated diff. Choose additional checks from the
   [testing guide](TESTING.md) and actual Makefile recipes.
-- `make build`, `build-rta`, and `build-server` use GoReleaser snapshots and
-  write to `dist/`; they download a pinned GoReleaser if needed. The component
-  has its own `VERSION` and `.goreleaser.yaml`, but Boundary does not yet
-  publish TA GitHub releases. Do not use a Boundary-root `v*` tag or enable
-  the old repository's release workflow without a reviewed release cutover.
+- The imported `make build`, `build-rta`, and `build-server` targets invoke
+  GoReleaser, but are not validated monorepo build paths. The imported
+  `.goreleaser.yaml` lives in this component, not at the repository root;
+  a root-level GoReleaser release invocation will not find it as-is. Adapt
+  config selection and nested source paths in a follow-up before relying on
+  these targets or enabling a Boundary TA release. For now, use `go build
+  ./cmd/rta` or `go build ./cmd/server` from this directory for a local build.
+  The component also has its own `VERSION`; do not use a Boundary-root `v*`
+  tag or enable the old repository's release workflow without a reviewed cutover.
 - The repo-root `renovate.json`, `.coderabbit.yaml`, and
   `.pre-commit-config.yaml` govern both components. The copied component
   `.pre-commit-config.yaml` is not run by the repository's Git hook or root

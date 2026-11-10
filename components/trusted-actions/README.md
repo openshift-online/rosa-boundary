@@ -8,7 +8,7 @@ Modular, tested, API to interact with ROSA clusters. Based on OpenAPI.
 
 ## RTA CLI
 
-`rta` is a command-line client for the Trusted Actions API. Until the GitHub release cutover, download it from the [original repository's latest release](https://github.com/openshift-online/rosa-trusted-actions/releases) or build a local snapshot with `make build-rta` (output in `dist/`). The Boundary repository does not yet publish TA releases.
+`rta` is a command-line client for the Trusted Actions API. Until the GitHub release cutover, download it from the [original repository's latest release](https://github.com/openshift-online/rosa-trusted-actions/releases). For a local build in this checkout, run `go build ./cmd/rta` from `components/trusted-actions/`. The imported `make build-rta` GoReleaser path still needs a monorepo follow-up; Boundary does not yet publish TA releases.
 
 ```bash
 # Point at the RTA server (or pass --server on each call)

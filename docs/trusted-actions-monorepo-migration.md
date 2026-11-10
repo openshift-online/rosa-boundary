@@ -207,8 +207,8 @@ source until coordinated cutover.
 
 | Upstream changes | Destination / treatment |
 | --- | --- |
-| `Containerfile`, `DEVELOPMENT.md`, `Makefile`, `README.md` | Refreshed under `components/trusted-actions/`; the runtime is digest-pinned and local builds use GoReleaser snapshots. The README clarifies that GitHub releases still come from the original repository. Fixed the upstream Makefile's mismatched `build-cli` phony declaration. |
-| `.gitignore`, `.goreleaser.yaml`, `VERSION` | Kept under `components/trusted-actions/`. The existing component ignore already had `/dist/`, so the upstream duplicate `dist/` entry was dropped. The GoReleaser configuration and version are new component-local files; neither publishes a release on its own. |
+| `Containerfile`, `DEVELOPMENT.md`, `Makefile`, `README.md` | Refreshed under `components/trusted-actions/`; the runtime is digest-pinned and the imported Make targets invoke GoReleaser, but these targets are **not** validated monorepo build paths. The README clarifies that GitHub releases still come from the original repository. Fixed the upstream Makefile's mismatched `build-cli` phony declaration. |
+| `.gitignore`, `.goreleaser.yaml`, `VERSION` | Kept under `components/trusted-actions/`. The existing component ignore already had `/dist/`, so the upstream duplicate `dist/` entry was dropped. The component-local GoReleaser config is **not at the repository root**; root-level GoReleaser will not discover it without a follow-up to select the config and adapt nested build paths. Neither this config nor `VERSION` publishes a release on its own. |
 | `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Refreshed the changed task-bundle digests in the root pipelines; retained Boundary source annotation, nested build context/path filters, and **both `false &&` pre-cutover guards**. No Boundary-side TA event build was enabled. |
 | `.github/renovate.json` | Reconciled the Hummingbird runtime digest rule into root `renovate.json`, scoped to the component Containerfile, without importing the original boilerplate preset or automerge policy. |
 | `CLAUDE.md` | Did not restore the original repo startup file. Updated `components/trusted-actions/AGENTS.md` with the new build/release guidance; the original repo's OpenWiki instructions do not belong in the component. |
@@ -224,6 +224,14 @@ pre-commit on changed files, and JSON/YAML parsing passed; a GoReleaser
 snapshot build, actual Konflux/Prow runs, and a container build were **not**
 exercised. The next upstream delta, PR #158, is reconciled below; for later
 refreshes use the newer baseline stated after that section.
+
+**GoReleaser follow-up:** The imported `.goreleaser.yaml` stays under
+`components/trusted-actions/`. It will not work as-is for a Boundary-root
+release invocation, which expects to find its config at the invocation root;
+the original release workflow also assumes root-level source and `VERSION`.
+Adapt config discovery, nested build paths, and release workflow/namespace
+in a separately reviewed change. Do not move the config or declare the
+imported `make build*` targets proven as part of this source refresh.
 
 ### Follow-up: upstream PR #158
 

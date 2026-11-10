@@ -40,6 +40,13 @@ make build              # Build server and rta (snapshot, current OS/arch)
 make build-all          # Build all release targets (linux, darwin)
 ```
 
+These upstream GoReleaser targets have **not** been made functional for the
+Boundary monorepo: `.goreleaser.yaml` is nested under this component, not at
+the repository root, so a root-level release invocation will not discover it.
+The config, paths, and release workflow need a follow-up adaptation before
+these targets are relied on. For local compilation in this checkout, run
+`go build ./cmd/rta` or `go build ./cmd/server` from this directory.
+
 ### Running Locally
 
 ```bash

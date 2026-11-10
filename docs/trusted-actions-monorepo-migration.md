@@ -41,7 +41,7 @@ files are:
 
 | File at destination (original path if different) | Difference |
 | --- | --- |
-| `components/trusted-actions/OWNERS` | Added `options.no_parent_owners: true` so parent Boundary owners cannot approve TA-only changes. |
+| `components/trusted-actions/OWNERS` | At **initial import**, added `options.no_parent_owners: true` to exclude parent Boundary approvers. This was subsequently removed; see the ownership correction below. |
 | `components/trusted-actions/cmd/rta/main.go` | Added final newline via pre-commit. |
 | `components/trusted-actions/openapi/paths/README.md` | Removed trailing whitespace on three lines. |
 | `components/trusted-actions/tests/mock-backplane/backplane.yaml` | Removed trailing whitespace on one line. |
@@ -61,6 +61,15 @@ and its two Boundary image pipelines were also edited for co-location. Apart
 from the TA rules folded into root `renovate.json`, these are not copied TA
 source files. There was no TA repo-local CodeRabbit config to copy;
 Boundary's root `.coderabbit.yaml` adds TA-specific review instructions.
+
+**Ownership correction (2026-11-10):** The original import set
+`no_parent_owners: true` in the component, TA HCP, and `.tekton/` ownership
+files. That excluded root-listed approvers from TA-only changes even when
+those approvers were intended to be sufficient. All three exclusions have
+been removed. The nested lists and Tekton path filters still add their
+component-specific approvers, while root `OWNERS` approvers now inherit into
+all three locations. Verify real TA-only, Boundary-only, and mixed PR
+approval/merge behavior with Prow/Tide before considering the policy proven.
 
 **One OpenWiki in the monorepo:** keep the existing Boundary root `openwiki/`
 and let its scheduled OpenWiki update incorporate Trusted Actions source after
@@ -175,7 +184,7 @@ branch/worktree; leave both source checkouts and local-only files intact.
    `openwiki/` directory or a TA `.openwikiignore`; root OpenWiki owns the
    combined wiki and has its own update workflow.
 4. Reconcile the historical twelve transformed files above rather than reverting them:
-   retain TA-only Prow ownership, correct Konflux source/context/path filters
+   retain TA-specific Prow approvers **and parent-owner inheritance**, correct Konflux source/context/path filters
    **and the pre-cutover `false &&` hold**, keep the four formatting-only fixes,
    and retain the root Renovate and component AGENTS.md reconciliation. New
    upstream skills live under `.agents/skills/` with matching `.claude/skills/`

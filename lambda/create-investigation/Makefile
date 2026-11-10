@@ -24,6 +24,7 @@ clean: ## Remove build artifacts and dependencies
 	@echo "Cleaning build artifacts..."
 	rm -rf ./__pycache__
 	rm -rf ./bin
+	rm -rf ./awslambdaric*
 	rm -rf ./boto*
 	rm -rf ./certifi*
 	rm -rf ./cffi*
@@ -38,7 +39,9 @@ clean: ## Remove build artifacts and dependencies
 	rm -rf ./PyJWT*
 	rm -rf ./requests*
 	rm -rf ./s3transfer*
+	rm -rf ./simplejson*
 	rm -rf ./six*
+	rm -rf ./snapshot_restore_py*
 	rm -rf ./urllib3*
 	rm -rf ./*.dist-info
 	rm -rf ./*.so

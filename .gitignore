@@ -23,6 +23,7 @@ htmlcov/
 .coverage
 
 # Lambda dependencies (installed at build time)
+lambda/**/awslambdaric*
 lambda/**/boto*
 lambda/**/certifi*
 lambda/**/cffi*
@@ -37,7 +38,9 @@ lambda/**/python_dateutil*
 lambda/**/PyJWT*
 lambda/**/requests*
 lambda/**/s3transfer*
+lambda/**/simplejson*
 lambda/**/six*
+lambda/**/snapshot_restore_py*
 lambda/**/urllib3*
 lambda/**/*.dist-info
 lambda/**/package/
@@ -67,16 +70,18 @@ bin/
 # Generated SARIF (built from adversary-findings.json)
 adversary-findings.sarif
 
-# Claude Code worktrees
+# Claude Code
 .claude/worktrees/
 
 # Local OpenCode agents, commands, and skills (copied into worktrees as needed)
 .opencode/
+opencode.json
 
 # Temporary files
 *.tmp
 *.backup
 .DS_Store
+.spec/
 
 # Editor
 .vscode/

@@ -14,7 +14,7 @@ dependencies = [
 [dependency-groups]
 localstack = [
     "pytest==9.2.0",
-    "boto3==1.43.126",
+    "boto3==1.43.127",
     "requests==2.34.2",
     "PyJWT==2.15.1",
     "cryptography==50.0.2",

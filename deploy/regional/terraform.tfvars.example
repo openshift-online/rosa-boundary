@@ -118,3 +118,32 @@ required_groups = ["ai-sd-sre"]
 # workspace has created the role (enable_metrics_read_role). The role itself is
 # account-owned; this flag only attaches its permissions.
 # enable_metrics_read_grant = true
+
+# ---------------------------------------------------------------------------
+# Published content storage. Always created in every regional deployment.
+# ---------------------------------------------------------------------------
+# The regional content bucket and task read grant are unconditional. The bucket
+# is <account>-<project>-<stage>-<region>-content and is encrypted with the
+# Region's AWS-managed alias/aws/s3 key, which the first apply bootstraps.
+
+# Publisher grants. Supply only in the publishing source Region, using the
+# account root's content_publisher_role_arns output. Keys must match
+# content_prefixes.
+# content_publisher_role_arns = {
+#   ops-sop               = "arn:aws:iam::<account>:role/rosa-boundary-<stage>-publisher-ops-sop"
+#   managed-notifications = "arn:aws:iam::<account>:role/rosa-boundary-<stage>-publisher-managed-notifications"
+#   rosa-claude-plugins   = "arn:aws:iam::<account>:role/rosa-boundary-<stage>-publisher-rosa-claude-plugins"
+# }
+
+# Cross-Region replication, owned by the source Region only. Leave empty until
+# the destination Region has been applied: bucket_arn and kms_key_arn are read
+# from that Region's content_bucket_arn and content_bucket_kms_key_arn outputs.
+# Never invent these values — an unapplied Region has no AWS-managed key yet.
+# content_replication_role_arn = "arn:aws:iam::<account>:role/rosa-boundary-<stage>-content-replication-role"
+# content_replication_destinations = [
+#   {
+#     region      = "us-west-2"
+#     bucket_arn  = "arn:aws:s3:::<account>-rosa-boundary-<stage>-us-west-2-content"
+#     kms_key_arn = "arn:aws:kms:us-west-2:<account>:key/<resolved-aws-s3-key-id>"
+#   },
+# ]

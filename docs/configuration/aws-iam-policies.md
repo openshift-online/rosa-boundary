@@ -601,6 +601,61 @@ variable "create_boundary_iam_resources" {
 }
 ```
 
+## Published content grants (regional)
+
+Every `deploy/regional` deployment creates its content bucket, bootstraps the
+regional AWS-managed key and attaches the shared task role's content read grant.
+Publisher grants are created only for supplied publisher role ARNs in the source
+Region; replication grants are created only when destinations are configured.
+The identities themselves are created by `deploy/account`; the regional state
+only grants them permissions, and every policy name carries the regional suffix
+so one Region cannot overwrite another's.
+
+**Publisher** (`content-publish-<key>`, one per source key, source Region only):
+
+| Action | Resource | Why it is needed |
+|---|---|---|
+| `s3:ListBucket` (conditioned on `s3:prefix`) | content bucket | `aws s3 sync` enumerates the prefix |
+| `s3:PutObject` | `<bucket>/<prefix>*` | covers PutObject, CreateMultipartUpload, UploadPart, CompleteMultipartUpload |
+| `s3:DeleteObject` | `<bucket>/<prefix>*` | `--delete` removes objects no longer in the source |
+| `s3:AbortMultipartUpload` | `<bucket>/<prefix>*` | the CLI aborts a failed multipart upload |
+| `kms:GenerateDataKey` | regional `aws/s3` key | required by PutObject and CreateMultipartUpload under SSE-KMS |
+| `kms:Decrypt` | regional `aws/s3` key | required by UploadPart and CompleteMultipartUpload |
+
+Deliberately absent, each because no actual call path uses it: `s3:GetObject`
+(sync compares size and last-modified time from the listing), `s3:PutObjectTagging`
+(the CLI sets no tags), `kms:Encrypt` (SSE-KMS writes use GenerateDataKey), and
+`kms:DescribeKey` (never called, and the `kms:ViaService` condition would deny a
+direct call anyway because it does not arrive through S3).
+
+Supplied role ARNs must be **path-less** (`arn:<partition>:iam::<account>:role/<name>`),
+which is the only shape `deploy/account` emits. `PutRolePolicy` takes a role
+name and role names are unique per account, so a path-qualified ARN whose
+basename matched a real role would attach the policy to a role other than the
+one the ARN names. Such input is rejected rather than silently normalised.
+
+**Runtime** (`s3-content-read`, on the shared task role): `s3:ListBucket` and
+`s3:GetObject` on the local Region's published prefixes plus `kms:Decrypt`. This
+direction genuinely downloads and decrypts, so both are required. It has no
+write action and no cross-Region ARN. The task role is shared across Regions,
+so its effective permissions are the union of these regional grants; this does
+not isolate task identities by Region.
+
+**Replication** (`content-replication`, owned by the source Region): exactly the
+minimal AWS-documented SSE-KMS replication set —
+`s3:GetReplicationConfiguration`, `s3:ListBucket`,
+`s3:GetObjectVersionForReplication`, `s3:GetObjectVersionAcl`,
+`s3:ReplicateObject`, `s3:ReplicateDelete`, `kms:Decrypt` on the source key and
+`kms:Encrypt` on each destination key. `kms:GenerateDataKey` is omitted: it is
+needed only to replicate plaintext objects. Bucket default SSE-KMS encrypts
+uploads that omit the encryption header; the policy rejects explicitly different
+algorithms and SSE-C. This identity is separate from the audit
+replication role, which must never carry content permissions.
+
+KMS statements are scoped by `kms:EncryptionContext:aws:s3:arn` to the relevant
+object ARNs — correct because S3 Bucket Keys are not enabled — and by
+`kms:ViaService` to the S3 endpoint of each key's own Region.
+
 ## Next Steps
 
 - [User Access Guide](../runbooks/user-access-guide.md) - End-user authentication workflow

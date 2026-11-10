@@ -1,5 +1,12 @@
 # Mock plans: no ECR resources are created in AWS.
 mock_provider "aws" {
+  mock_data "aws_kms_alias" {
+    defaults = { target_key_arn = "arn:aws:kms:us-west-2:123456789012:key/22222222-2222-2222-2222-222222222222" }
+  }
+  mock_resource "aws_s3_bucket" {
+    defaults = { arn = "arn:aws:s3:::boundary-test-audit" }
+  }
+
   mock_data "aws_partition" {
     defaults = { partition = "aws", dns_suffix = "amazonaws.com" }
   }
@@ -17,6 +24,15 @@ mock_provider "aws" {
   }
 }
 mock_provider "archive" {}
+
+# Keep content and audit identities distinct under mocking.
+override_resource {
+  target = aws_s3_bucket.content
+  values = {
+    arn = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+    id  = "123456789012-rosa-boundary-dev-us-west-2-content"
+  }
+}
 
 variables {
   aws_account_id           = "123456789012"

@@ -1,5 +1,9 @@
 # Mocked applies expose rendered grant scopes without touching AWS or live state.
 mock_provider "aws" {
+  mock_data "aws_kms_alias" {
+    defaults = { target_key_arn = "arn:aws:kms:us-east-1:123456789012:key/22222222-2222-2222-2222-222222222222" }
+  }
+
   mock_resource "aws_lambda_function" {
     defaults = { arn = "arn:aws:lambda:us-east-1:123456789012:function:boundary-test" }
   }
@@ -41,6 +45,15 @@ mock_provider "aws" {
   }
 }
 mock_provider "archive" {}
+
+# Keep content and audit identities distinct under mocking.
+override_resource {
+  target = aws_s3_bucket.content
+  values = {
+    arn = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-east-1-content"
+    id  = "123456789012-rosa-boundary-dev-us-east-1-content"
+  }
+}
 
 variables {
   aws_account_id               = "123456789012"

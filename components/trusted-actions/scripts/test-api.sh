@@ -42,7 +42,7 @@ test_endpoint() {
     if [ "$http_code" -ge 200 ] && [ "$http_code" -lt 300 ]; then
         echo -e "${GREEN}✓ ($http_code)${NC}"
         # Pretty print JSON if jq is available
-        if command -v jq &> /dev/null; then
+        if command -v jq &>/dev/null; then
             echo "Response:" && jq . /tmp/api_response.json | head -20
         else
             echo "Response:" && cat /tmp/api_response.json | head -20
@@ -59,7 +59,7 @@ test_endpoint() {
 
 # Check if server is running
 echo -n "Checking server health... "
-if curl -s "$SERVER_URL/health" > /dev/null; then
+if curl -s "$SERVER_URL/health" >/dev/null; then
     echo -e "${GREEN}✓ Server is running${NC}"
 else
     echo -e "${RED}✗ Server is not responding${NC}"

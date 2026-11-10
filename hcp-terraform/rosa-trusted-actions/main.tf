@@ -40,9 +40,9 @@ module "rosa_trusted_actions" {
       terraform_version      = "1.16.0"
       auto_apply             = false
       auto_apply_run_trigger = false
-      working_directory      = "terraform/global"
+      working_directory      = "components/trusted-actions/terraform/global"
       github_repo_org        = "openshift-online"
-      github_repo_name       = "rosa-trusted-actions"
+      github_repo_name       = "rosa-boundary"
       variable_set_names     = ["rosa-trusted-actions-rosa-boundary-stage-rosa-trusted-actions-aws-dynamic-creds"]
       # Lets the regional workspace read this workspace's outputs via
       # terraform_remote_state — required for the regional root's
@@ -115,9 +115,9 @@ module "rosa_trusted_actions" {
       terraform_version      = "1.16.0"
       auto_apply             = false
       auto_apply_run_trigger = false
-      working_directory      = "terraform/regional"
+      working_directory      = "components/trusted-actions/terraform/regional"
       github_repo_org        = "openshift-online"
-      github_repo_name       = "rosa-trusted-actions"
+      github_repo_name       = "rosa-boundary"
       # Queues a regional run whenever the global workspace applies
       # successfully (module-managed run trigger, resolved by name since
       # it's a sibling workspace in this same module invocation).

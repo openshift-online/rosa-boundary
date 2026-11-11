@@ -20,7 +20,9 @@ image URI. Promote a new URI only after an approved SHA exists in every Region.
 
 Deploy [`../account`](../account/README.md) before a new regional deployment.
 This root now consumes existing IAM roles by name and OIDC providers by issuer
-URL; it no longer owns role/trust definitions or the Bedrock monthly budget.
+URL; account-owned runtime role/trust definitions and the Bedrock monthly
+budget remain in the account root. Managed S3 Files uses a separate service
+role, not the shared task or execution role.
 It **does own regional inline policies** on those shared roles, referencing the
 actual resources created here. Configure `account_role_name_prefix` to match
 the shared account identity prefix (empty retains the legacy `project-stage`
@@ -74,14 +76,15 @@ graph. Older examples below that describe role creation must use the account roo
 - **S3 Bucket**: WORM-compliant audit bucket for investigation artifacts
 - **EFS Filesystem**: Encrypted persistent storage for `/home/sre`
 - **ECS Cluster**: Fargate cluster with Container Insights
-- **ECS Task Definition**: Complete task definition with EFS mount
-- **IAM Roles**: Looked up from account-owned execution/task roles, not created here
+- **ECS Task Definition**: Task definition with EFS home and read-only per-prefix S3 Files content mounts
+- **IAM Roles**: Account-owned execution/task roles are looked up; S3 Files uses a separate service role
 - **IAM permission grants**: Regional inline policies on shared account roles; common AWS-managed attachments remain account-owned
 - **Security Groups**: For Fargate tasks and EFS mount targets
 - **Bedrock Runtime interface endpoint**: Private DNS and an HTTPS-only security group restricted to the Fargate task security group; one endpoint ENI per task AZ
 - **CloudWatch Log Group**: For container logs
 - **Bedrock cost budget**: Account-owned monthly spend alerts (not created here)
 - **Content bucket**: Regional published-content bucket, separate from the audit bucket
+- **Managed S3 Files**: Per-prefix content mounts at `/opt/rosa-content/<prefix>`; see [task content](#managed-s3-files-task-content)
 
 ### Bedrock cost alerts
 
@@ -273,8 +276,10 @@ operator action — Terraform does not backfill.
 
 ### Grants
 
-Three regional inline policies, all on roles the account root owns, all carrying
-the regional policy suffix:
+The bucket publishing, direct-read and replication policies below attach to
+account-owned roles and carry the regional policy suffix. They are distinct
+from the S3 Files service role and filesystem client authorization described
+under [task content](#managed-s3-files-task-content):
 
 | Policy | Role | Scope |
 |---|---|---|
@@ -296,10 +301,10 @@ A map **key** (`ops-sop`, `rosa-claude-plugins`, `managed-notifications`)
 selects the account-owned publisher identity and names the IAM policy. Account
 publishers are unconditional; regional grants remain opt-in. The map **value**
 is the S3 prefix, and with its trailing slash removed it is also the
-content-relative local path a consumer should materialise it at. Defaults
-currently match their keys, but custom keys and nested prefixes need not:
-`handbook = "ops-sop/v2/"` must map to `ops-sop/v2`, not `handbook`.
-This storage change exports that contract; it does not implement the consumer.
+path below `/opt/rosa-content` where the per-prefix S3 Files mount is attached.
+Defaults currently match their keys, but custom keys and nested prefixes need
+not: `handbook = "ops-sop/v2/"` mounts at `/opt/rosa-content/ops-sop/v2`,
+not `/opt/rosa-content/handbook`.
 
 Prefix values are constrained to `/`-terminated segments of `[A-Za-z0-9._-]`.
 That is an allowlist, not a denylist of known-bad characters: these values are
@@ -455,6 +460,7 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `replication` | object | `null` | Shared topology: `primary_region` and `destinations` keyed by Region, each with optional `content = { bucket_arn, kms_key_arn, content_prefixes }` |
 | `content_noncurrent_version_days` | number | `30` | Expiry for superseded content versions; independent of `retention_days` |
 | `content_bucket_force_destroy` | bool | `false` | Allow destroying a populated content bucket |
+| `task_ephemeral_storage_gib` | number | `21` | Total Fargate ephemeral storage for images and task scratch (21–200 GiB); not a managed content quota |
 
 ## Outputs
 
@@ -844,51 +850,81 @@ make destroy
 
 See parent repository LICENSE file.
 
-## Asynchronous task content
+## Managed S3 Files task content
 
-Every task includes a nonessential `content-sync` container using the main image.
-Its explicit Bash entryPoint embeds `content-sync.sh`; image entrypoint, audit
-setup and home initialization never run there. The empty task volume is writable
-only in the sidecar and read-only at `/opt/rosa-content` in the main container.
-No EFS home, kubeconfig or OCM credential overlays are mounted in the sidecar.
-Containers still share the task IAM role; mounts are not separate IAM identities.
-The existing regional content read grant is reused without additional permissions.
+Published content is exposed through AWS-managed S3 Files, not a task-local
+sync sidecar or a writable task-shared content volume. Each configured
+`content_prefixes` **value** selects a bucket prefix and a read-only mount at
+`/opt/rosa-content/<prefix>` (with the trailing slash removed). Bucket and
+Region come from the regional content resources; publisher identity keys do
+not determine the local directory names.
 
-Bucket and Region come from regional resources. `content_prefixes` **values**
-(not publisher identity keys) determine both remote prefixes and matching local
-subdirectories. There is no enable flag, alternate root or duplicate bucket input.
-The main container never waits for content; its existing optional kube-proxy
-HEALTHY dependency is unchanged. Content can be absent, stale or partially updated.
-Ordinary `aws s3 sync --delete` propagates updates and deletions, without manifests,
-atomic publication, home links, marketplace installation or executable installation.
+This requires AWS provider **6.41.0 or later** (within the configured major-version
+constraint), which supports ECS `s3files_volume_configuration`. The deployment
+identity must be authorized to create the regional S3 Files resources and service
+role, pass that role to the service, and configure bucket EventBridge notifications.
+There is one mount target per filesystem per task Availability Zone; NFS ingress
+is restricted to the Fargate task security group. ECS enforces TLS and task-role
+IAM authentication for these volumes. See the AWS documentation for
+[ECS integration](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/s3files-volumes.html)
+and [S3 Files prerequisites](https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-prereq-policies.html).
 
-Defaults: 300 seconds between passes, three attempts per prefix, 5-second initial
-backoff doubling up to 60 seconds, 120 seconds per attempt plus 5 seconds to kill
-an unresponsive client. Failures do not skip other prefixes; a full failing prefix
-can delay their turn by its bounded retries. Each attempt logs only prefix, attempt
-and exit status (including timeout status), not raw AWS output or credentials.
-TERM/INT/HUP interrupt sleeps and forward termination to the active timeout
-process, which forwards it to AWS and forcibly ends it within five seconds.
+### Read-only access and separate identities
 
-`content_sync_interval`, `content_sync_backoff`, `content_sync_timeout`,
-`content_sync_cpu` (64 shares), `content_sync_memory` (128 MiB hard limit) and
-`task_ephemeral_storage_gib` (21 GiB total including images and scratch) are tunable.
-CPU shares are not a hard Fargate CPU cap. The main workload receives the
-remaining task CPU shares after the sidecar and the proxy's existing minimum
-of two shares, so content sync does not outweigh an unspecified main-container
-CPU share. Memory must remain below task memory;
-size the total task budget for the session and optional proxy too. Ephemeral
-storage is shared, not a per-content quota; publishers must bound content size.
+The task mounts are read-only. The task-role and filesystem policies explicitly
+deny `s3files:ClientWrite` and `s3files:ClientRootAccess` on the content
+filesystems: the mount flag alone is not the authorization boundary.
+The task receives only the filesystem client access needed to read content.
+Keep these restrictions scoped to content, not the writable EFS home or audit
+path. Direct S3 access and filesystem client access are separate permission
+surfaces; a read-only mount does not itself restrict S3 API calls. A separate
+task-role deny blocks direct mutation of the regional content bucket.
 
-ECS restartPolicy ignores graceful exit 0 and uses the supported minimum
-`restartAttemptPeriod = 60`. ECS restarts eligible nonzero exits only after the
-container has run at least 60 seconds. **An earlier crash is not automatically
-recovered**; content may stay unavailable until a new task. A sidecar failure does
-not stop the investigation. Verify restart eligibility, Fargate registration,
-actual S3/KMS reads and proxy/session survival in a separately approved live test.
+The regional stack owns a separate S3 Files service role for AWS-managed
+synchronization with the backing content bucket and its KMS key, including
+service-side object writes and managed EventBridge rules. It is not the task
+role, execution role, publisher role, or cross-Region replication role. Service-side permissions do
+not grant the task filesystem write access, and publisher permissions must
+not be copied to the task role. Publishers continue updating their authorized
+S3 prefixes; tasks consume the managed filesystem view.
 
-Local evidence: `bats tests/shell/content-sync.bats`, `make test-shell`,
-`make lint-shell`, and isolated regional mocked Terraform tests (including equality
-of the actual embedded script). These do not establish live AWS behavior. The
-existing image supplies Bash, GNU coreutils timeout/sleep and AWS CLI v2; no new
-runtime dependencies or current-source image build are implied by local-image checks.
+### Startup and synchronization semantics
+
+Content mounts are a **task startup dependency**. Fargate must establish the
+configured mounts before the workload starts; a mount authorization,
+availability, or network failure can prevent startup. This is not the former
+best-effort sidecar model in which the session started without content.
+Successful mounting does not prove that all recently published objects are
+already visible.
+
+AWS manages synchronization between S3 and the filesystem view. There is no
+Boundary polling interval, retry/backoff loop, sidecar resource budget, or
+restart policy to tune. Updates and deletions can take time to appear, and
+synchronization is **not atomic** across files or prefixes. Readers must tolerate
+stale or partially updated content; neither a successful mount nor an S3
+publication command establishes a coherent multi-file snapshot.
+
+`task_ephemeral_storage_gib` remains configurable (default 21 GiB, range
+21–200 GiB) for container images and task scratch. It is not a per-prefix
+capacity limit or the storage budget for managed S3 Files content.
+
+### Verification boundary
+
+Local source and mocked Terraform checks can validate mount paths, read-only
+flags, IAM policy structure, and separation of service and task roles. They
+cannot prove real Fargate mount behavior, effective `ClientWrite` denial,
+S3/KMS service-role access, or AWS synchronization timing. LocalStack lifecycle
+tests are not managed S3 Files runtime evidence; see the
+[LocalStack testing guide](../../tests/localstack/README.md#managed-s3-files-coverage).
+
+Before rollout, verify that the deployed create-investigation Lambda image has
+an ECS SDK model supporting `s3filesVolumeConfiguration`: it re-registers the
+base task volumes for each investigation. The source lockfile supports this;
+an older deployed image is not verified by local tests.
+
+A separately approved live test must verify startup with working mounts,
+startup failure when mount access is denied, reads at each configured prefix
+(including small and large SSE-KMS objects), rejected filesystem writes and
+direct S3 mutations, and eventual visibility of publisher updates and deletes.
+Do not treat those observations as an atomic-publication guarantee. No
+deployment or live verification is implied by the cleanup of the old sidecar.

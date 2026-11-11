@@ -236,7 +236,7 @@ fmt: ## Format Go and shell code
 	gofmt -w .
 	@echo "Formatting shell scripts..."
 	@if command -v shfmt > /dev/null 2>&1; then \
-		shfmt -w -i 4 entrypoint.sh deploy/regional/content-sync.sh deploy/regional/examples/; \
+		shfmt -w -i 4 entrypoint.sh deploy/regional/examples/; \
 	else \
 		echo "shfmt not installed, skipping shell formatting"; \
 	fi
@@ -253,7 +253,7 @@ lint: ## Lint Go code and shell scripts
 
 lint-shell: ## Run strict ShellCheck on entrypoint, examples, and Compose wrapper
 	@command -v shellcheck >/dev/null 2>&1 || { echo "ERROR: shellcheck is required"; exit 1; }
-	shellcheck entrypoint.sh deploy/regional/content-sync.sh deploy/regional/examples/*.sh tests/localstack/compose.sh
+	shellcheck entrypoint.sh deploy/regional/examples/*.sh tests/localstack/compose.sh
 
 # Security findings
 validate-findings: ## Validate adversary-findings.json schema

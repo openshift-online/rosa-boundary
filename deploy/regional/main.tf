@@ -3,8 +3,9 @@ terraform {
 
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
+      source = "hashicorp/aws"
+      # ECS s3files_volume_configuration was introduced in 6.41.0.
+      version = ">= 6.41.0, < 7.0"
     }
   }
 }

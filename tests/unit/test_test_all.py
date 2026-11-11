@@ -235,12 +235,12 @@ def test_terraform_snapshot_includes_embedded_shell(tmp_path):
     module = tmp_path / "deploy/regional"
     module.mkdir(parents=True)
     (module / "main.tf").write_text('terraform {}')
-    (module / "content-sync.sh").write_text("embedded shell fixture")
+    (module / "embedded-script.sh").write_text("embedded shell fixture")
     runner = runner_module.Runner(tmp_path)
 
     def inspect_snapshot(name, command, cwd, env):
-        assert (cwd / "content-sync.sh").read_text() == "embedded shell fixture"
+        assert (cwd / "embedded-script.sh").read_text() == "embedded shell fixture"
         return True
 
     with patch.object(runner_module, "ROOT", tmp_path), patch.object(runner, "run", side_effect=inspect_snapshot):
-        runner_module.terraform_checks(runner, ["deploy/regional/main.tf", "deploy/regional/content-sync.sh"])
+        runner_module.terraform_checks(runner, ["deploy/regional/main.tf", "deploy/regional/embedded-script.sh"])

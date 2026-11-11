@@ -594,58 +594,8 @@ variable "content_bucket_force_destroy" {
   default     = false
 }
 
-variable "content_sync_interval" {
-  description = "Seconds between complete content sync passes."
-  type        = number
-  default     = 300
-  validation {
-    condition     = floor(var.content_sync_interval) == var.content_sync_interval && var.content_sync_interval >= 30 && var.content_sync_interval <= 86400
-    error_message = "content_sync_interval must be an integer from 30 through 86400."
-  }
-}
-
-variable "content_sync_backoff" {
-  description = "Initial retry delay in seconds; doubles up to 60 seconds, with three attempts per prefix."
-  type        = number
-  default     = 5
-  validation {
-    condition     = floor(var.content_sync_backoff) == var.content_sync_backoff && var.content_sync_backoff >= 1 && var.content_sync_backoff <= 60
-    error_message = "content_sync_backoff must be an integer from 1 through 60."
-  }
-}
-
-variable "content_sync_timeout" {
-  description = "Maximum seconds per sync attempt, plus five seconds for forced termination."
-  type        = number
-  default     = 120
-  validation {
-    condition     = floor(var.content_sync_timeout) == var.content_sync_timeout && var.content_sync_timeout >= 1 && var.content_sync_timeout <= 900
-    error_message = "content_sync_timeout must be an integer from 1 through 900."
-  }
-}
-
-variable "content_sync_cpu" {
-  description = "CPU shares reserved for content sync; must leave task capacity for the session."
-  type        = number
-  default     = 64
-  validation {
-    condition     = floor(var.content_sync_cpu) == var.content_sync_cpu && var.content_sync_cpu >= 2 && var.content_sync_cpu <= 256 && var.content_sync_cpu <= var.container_cpu - 4
-    error_message = "content_sync_cpu must be an integer from 2 through 256, leaving at least two CPU shares each for the session and optional proxy."
-  }
-}
-
-variable "content_sync_memory" {
-  description = "Hard memory limit in MiB for content sync; must leave task memory for the session."
-  type        = number
-  default     = 128
-  validation {
-    condition     = floor(var.content_sync_memory) == var.content_sync_memory && var.content_sync_memory >= 64 && var.content_sync_memory <= 512 && var.content_sync_memory < var.container_memory
-    error_message = "content_sync_memory must be an integer from 64 through 512 and smaller than the task budget."
-  }
-}
-
 variable "task_ephemeral_storage_gib" {
-  description = "Total task ephemeral storage in GiB, shared by images, content and other task scratch data."
+  description = "Total task ephemeral storage in GiB, shared by container images and task scratch data; managed S3 Files content mounts are separate."
   type        = number
   default     = 21
   validation {

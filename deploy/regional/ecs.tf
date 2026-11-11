@@ -72,8 +72,16 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
     size_in_gib = var.task_ephemeral_storage_gib
   }
 
-  volume {
-    name = "content"
+  # ECS always enables TLS and task-role IAM authentication for S3 Files.
+  dynamic "volume" {
+    for_each = aws_s3files_file_system.content
+    content {
+      name = "content-${volume.key}"
+      s3files_volume_configuration {
+        file_system_arn = volume.value.arn
+        root_directory  = "/"
+      }
+    }
   }
 
   # EFS volume for /home/sre
@@ -114,7 +122,7 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
         name  = "rosa-boundary"
         image = var.container_image
         # Reserve the remaining CPU shares for the interactive workload.
-        cpu         = var.container_cpu - var.content_sync_cpu - (var.enable_kube_proxy ? 2 : 0)
+        cpu         = var.container_cpu - (var.enable_kube_proxy ? 2 : 0)
         essential   = true
         stopTimeout = 120
 
@@ -150,12 +158,13 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
           }
         ]
 
-        mountPoints = [
-          {
-            sourceVolume  = "content"
-            containerPath = "/opt/rosa-content"
+        mountPoints = concat([
+          for key, prefix in var.content_prefixes : {
+            sourceVolume  = "content-${key}"
+            containerPath = "/opt/rosa-content/${trim(prefix, "/")}"
             readOnly      = true
-          },
+          }
+          ], [
           {
             sourceVolume  = "sre-home"
             containerPath = "/home/sre"
@@ -171,7 +180,7 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
             containerPath = "/home/sre/.kube"
             readOnly      = false
           }
-        ]
+        ])
 
         logConfiguration = {
           logDriver = "awslogs"
@@ -184,49 +193,6 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
 
         linuxParameters = {
           initProcessEnabled = true
-        }
-      }
-    ],
-    [
-      {
-        name        = "content-sync"
-        image       = var.container_image
-        essential   = false
-        cpu         = var.content_sync_cpu
-        memory      = var.content_sync_memory
-        stopTimeout = 15
-        entryPoint  = ["/bin/bash", "-c", "${file("${path.module}/content-sync.sh")}\nmain"]
-        command     = []
-        restartPolicy = {
-          enabled              = true
-          ignoredExitCodes     = [0]
-          restartAttemptPeriod = 60
-        }
-        environment = [
-          { name = "CONTENT_BUCKET", value = aws_s3_bucket.content.id },
-          { name = "AWS_REGION", value = data.aws_region.current.region },
-          { name = "CONTENT_PREFIXES", value = join(" ", values(var.content_prefixes)) },
-          { name = "CONTENT_SYNC_INTERVAL", value = tostring(var.content_sync_interval) },
-          { name = "CONTENT_SYNC_BACKOFF", value = tostring(var.content_sync_backoff) },
-          { name = "CONTENT_SYNC_TIMEOUT", value = tostring(var.content_sync_timeout) }
-        ]
-        mountPoints = [{
-          sourceVolume  = "content"
-          containerPath = "/opt/rosa-content"
-          readOnly      = false
-        }]
-        readonlyRootFilesystem = true
-        linuxParameters = {
-          initProcessEnabled = true
-          capabilities       = { drop = ["ALL"] }
-        }
-        logConfiguration = {
-          logDriver = "awslogs"
-          options = {
-            "awslogs-group"         = aws_cloudwatch_log_group.rosa_boundary.name
-            "awslogs-region"        = data.aws_region.current.region
-            "awslogs-stream-prefix" = "content-sync"
-          }
         }
       }
     ],
@@ -282,6 +248,15 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
       }
     ] : []
   ))
+
+  # Do not publish a runnable revision before mounts and restrictive policies
+  # exist. Policy propagation still needs verification before launching tasks.
+  depends_on = [
+    aws_iam_role_policy.task_content_files,
+    aws_iam_role_policy.task_content,
+    aws_s3files_mount_target.content,
+    aws_s3files_file_system_policy.content,
+  ]
 
   tags = local.common_tags
 }

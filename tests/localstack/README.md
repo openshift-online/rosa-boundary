@@ -5,8 +5,8 @@ Comprehensive LocalStack Pro-based testing infrastructure for rosa-boundary AWS 
 ## Overview
 
 These tests exercise emulated AWS APIs, policy structure, and selected CLI
-workflows. Optional content-sync runtime tests also execute containers locally;
-none of these prove real AWS authorization or production behavior:
+workflows. They do not validate managed S3 Files mounts or synchronization,
+nor do they prove real AWS authorization or production behavior:
 
 - **S3**: Audit bucket with WORM compliance and Object Lock
 - **IAM**: Roles, policies, OIDC providers, tag-based authorization
@@ -213,8 +213,8 @@ Both start a single container:
 
 ### Task Lifecycle Focus
 
-Most ECS tests validate task submission and management, not container internals
-(the content-sync runtime test below is an explicit exception):
+ECS lifecycle tests validate task submission and management, not container
+internals or managed S3 Files mounts:
 
 - **Tested**: Task definition registration, run-task API, tagging, stop-task
 - **Not Tested**: Container execution, ECS Exec sessions, actual container logs
@@ -229,74 +229,32 @@ does not evaluate the required ECS resource-tag conditions. A passing local run
 is not evidence of real cross-user isolation or IAM enforcement; those assertions
 require separately approved live verification.
 
-## Content-sync runtime coverage
+## Managed S3 Files coverage
 
-`integration/test_content_sync_runtime.py` has two distinct levels. Both use the
-**current shipped script bytes**, passed to Bash exactly as in the task definition,
-and the image's real AWS CLI. No stub AWS executable, production script changes,
-GitHub Action, or real AWS account is needed. Fixtures own unique unversioned S3
-buckets; tests remove only their buckets, container/volume, and ECS resources.
-They never start/stop LocalStack or change its global executor configuration.
+Published content now uses AWS-managed S3 Files with read-only per-prefix mounts
+at `/opt/rosa-content/<prefix>`. IAM explicitly denies `s3files:ClientWrite` on
+content filesystems, and a separate S3 Files service role accesses the backing bucket
+and KMS key. The task role is not the service role. See the
+[regional content documentation](../../deploy/regional/README.md#managed-s3-files-task-content)
+for the identity and prefix-path contract.
 
-Prerequisites: an already-ready LocalStack, a prebuilt Boundary image containing
-Bash/GNU timeout/AWS CLI, and Podman (or `CONTENT_SYNC_TEST_ENGINE=docker`). Build
-through `make build-amd64` when needed; this test does not build or pull images.
-With the existing Compose network and image, from the repository root:
+The former sidecar script, shell tests, container runtime tests, and their
+endpoint-guard unit tests have been removed. Running an AWS CLI sync in a local
+container would not exercise the replacement's managed filesystem behavior.
+There is no content runtime image or executor opt-in in this suite.
 
-```bash
-CONTENT_SYNC_TEST_IMAGE=localhost/rosa-boundary:latest-amd64 ECS_EXECUTOR=local \
-  uv run --group localstack pytest \
-  tests/localstack/integration/test_content_sync_runtime.py -v -ra
-uv run --group localstack pytest tests/unit/test_content_sync_runtime_guards.py -v
-```
+Source and mocked Terraform checks can inspect mount wiring and IAM policy
+structure; LocalStack ECS submission tests can exercise lifecycle APIs. Neither
+establishes that Fargate can mount S3 Files or that AWS enforces the explicit
+write deny. The mounts are a task startup dependency, unlike the old optional
+sidecar; failed mount setup can prevent the workload from starting.
 
-**Level 1** starts a standalone image container with a unique named volume at the
-fixed `/opt/rosa-content` destination, with the sidecar's read-only root filesystem
-and dropped capabilities. Defaults are network `rosa-boundary-test`
-and endpoint `http://localstack:4566`; override with `CONTENT_SYNC_TEST_NETWORK`
-and `CONTENT_SYNC_CONTAINER_ENDPOINT` for an existing local topology. The host
-fixture uses `LOCALSTACK_ENDPOINT` (default `http://localhost:4566`). Runtime
-endpoints must explicitly use local HTTP port 4566 (loopback/private IP or the
-recognized LocalStack service names). Only dummy credentials are supplied;
-personal AWS configuration is not mounted. Missing image configuration produces
-an explicit skip; a configured but missing image or broken runtime fails.
-
-Assertions: all three prefixes exhaust bounded retries against a test-owned
-missing bucket without terminating; creating/populating that bucket recovers
-without restarting the script; nested skills/assets, SOPs and notifications are
-byte-exact across `ops-sop/`, `rosa-claude-plugins/` and
-`managed-notifications/`; periodic sync propagates updates and remote deletion
-while preserving unrelated content. Script logs are saved under pytest's per-test temporary path
-(printed by the test, available with `-s` or on failure). Use `--basetemp` to retain
-these under your validation artifact directory. This is S3/CLI/script execution,
-**not ECS task execution**.
-
-**Level 2** is marked `slow` and skips explicitly on `ECS_EXECUTOR=local`. On an
-already configured Docker-backed LocalStack executor, provision the same prebuilt
-image in the executor's engine and run:
-
-```bash
-ECS_EXECUTOR=docker CONTENT_SYNC_TEST_IMAGE=localhost/rosa-boundary:latest-amd64 \
-  CONTENT_SYNC_ECS_ENDPOINT=http://localstack:4566 \
-  uv run --group localstack pytest \
-  tests/localstack/integration/test_content_sync_runtime.py -k ecs -v -ra
-```
-
-The endpoint must actually be reachable from executor containers; use its private
-IP if the executor network does not resolve the service name. Changing the pytest
-variable does **not** enable the server executor. Missing image/endpoint
-configuration is an explicit skip, not successful execution. Configured execution
-that cannot start containers or share the volume fails by bounded timeout.
-
-This registers/runs an ECS EC2/bridge test task with an anonymous task-shared host
-volume: writable sidecar, read-only consumer, no startup dependency. The consumer
-writes a control S3 marker **before the content bucket exists**, proving startup
-is not blocked by content availability. It then rejects a write as root on its
-read-only mount, reads all three prefixes (including nested assets) produced by
-the sidecar, and writes a separate success marker. ECS lifecycle status alone
-cannot satisfy the test. This tests emulated ECS execution/mount semantics, not
-the deployed Fargate task definition, EFS, real IAM, or production networking.
-No automatic CI image provisioning has been added.
+AWS-managed synchronization is asynchronous and **not atomic** across files
+or prefixes. Mount success is not proof of freshness or a complete multi-file
+publication. A separately approved real AWS test is needed for mount startup
+and failure behavior, per-prefix reads, rejected writes, service-role S3/KMS
+access, and eventual propagation of updates and deletions. This local suite
+does not deploy resources or prove those behaviors.
 
 ## Terraform Testing
 
@@ -322,8 +280,8 @@ LocalStack simulates WORM compliance but may differ from real AWS. Verify produc
 ### Fargate Task Execution
 
 LocalStack simulates task submission but actual container execution varies.
-Most tests cover lifecycle only; the opt-in content-sync runtime test requires
-container execution and shared-volume evidence as described above.
+Lifecycle tests do not prove real Fargate execution or managed S3 Files mount
+and synchronization behavior; see [coverage limits](#managed-s3-files-coverage).
 
 ### Container Image Pull
 

@@ -18,6 +18,12 @@ a failed assertion blocks progress, not permission to skip it.
 6. [Personal AWS and Keycloak access](references/06-personal-access.md)
 7. [Approved live verification and PR handoff](references/07-live.md)
 
+For steps 6–7, use the [deployment input checklist](references/06-personal-access.md#deployment-input-checklist)
+to collect missing configuration together, before planning or requesting an apply.
+The [deployment command map](references/07-live.md#deployment-command-map)
+locates each Boundary Terraform plan/apply boundary. Neither is a substitute for
+current source verification or approval of each actual plan.
+
 ## Pause and resume contract
 
 Before asking the user to install, authenticate, obtain access, edit private

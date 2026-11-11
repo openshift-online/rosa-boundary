@@ -10,7 +10,7 @@ This baseline adds no audit-reader role and does not manage organization access.
 `enable_lambda_ecr_source` (off by default) manages the ordinary, private
 `rosa-boundary/create-investigation-lambda` ECR repository in the account
 provider Region. The staging account workspace enables it in `us-east-1` and
-auto-applies successful plans. `us-east-1` is the Git-managed workspace's
+requires manual approval before applying plans. `us-east-1` is the Git-managed workspace's
 `aws_region`, not an independent Lambda source-region variable: changing it also requires
 coordinated app-interface ECR registration and Konflux release-destination and
 credential changes. The repository uses AES256 encryption, immutable tags,
@@ -22,8 +22,9 @@ credential's role; no cross-account repository policy is configured.
 registry-wide, prefix-filtered ECR replication rule from the source repository
 to the listed Regions in the same account. Stage the `us-west-2` destination
 repository first; only after that workspace applies, set the account workspace
-variable to `["us-west-2"]` in a separate PR. Staging workspaces auto-apply and
-cannot be assumed to run in order within a single meta-workspace change.
+variable to `["us-west-2"]` in a separate PR. Staging workspaces require manual
+applies; approve them in dependency order rather than assuming ordering within
+a single meta-workspace change.
 The filter is a **prefix**, not an exact repository-name match. ECR replication
 configuration is a whole-registry singleton: before merging an enabling change,
 confirm its plan does not replace unrelated rules. If other rules already exist,
@@ -34,8 +35,8 @@ pull-through-cache rule and Lambda image URI remain in the regional root.
 For a new account or repository, check for an existing repository in the
 account/Region (import instead of creating a duplicate), verify account and
 Region, and confirm the credential role's push scope **before enabling** this
-resource. If the account's AWS resource plan needs review before apply, gate
-auto-apply first through a reviewed PR (see
+resource. Review and explicitly approve the account's AWS resource plan before
+applying; keep automatic applies disabled (see
 [`docs/staging-deployment.md`](../../docs/staging-deployment.md)); the meta-workspace
 speculative plan only shows the variable change. A Terraform plan does not
 prove an image push.
@@ -50,6 +51,7 @@ to exist.
 | Owner | Resources |
 | --- | --- |
 | Account | Execution, task, shared SRE, invoker, create-investigation Lambda, reaper Lambda, Bedrock logging, optional S3 replication and optional metrics-read role identities/trust |
+| Account | Optional GitHub Actions OIDC provider, content publisher role identities/trust and the dedicated content replication role identity |
 | Account | ECS execution managed-policy attachment and the two Lambda basic-execution attachments |
 | Account | OIDC providers, Bedrock budget and approved model agreements |
 | Regional | Execution Secrets Manager, task audit/Bedrock/Exec/logging/KMS, SRE ABAC/lifecycle, invoker, Lambda lifecycle, Bedrock log delivery, optional replication and optional metrics-read inline policies |
@@ -107,6 +109,11 @@ region; do not rely on defaults if an existing deployment uses different values.
   before enabling its logging; do not replace the region restriction with `*`.
 - Account `enable_s3_replication_role` creates the shared replication identity
   when any regional stack needs it; replication grants remain regional.
+- Every account creates or resolves the GitHub Actions OIDC provider and creates
+  one publisher identity per source repository. Configure these with
+  `create_github_actions_oidc_provider`, `content_publisher_sources` and
+  `content_publisher_session_duration`. The dedicated content replication
+  identity is also always created, independently of the audit replication flag.
 
 Preserve `tags`, provider `default_tags` and `ignored_tag_keys`, including the
 original roles' Region tag even though their identities are account-global.
@@ -135,8 +142,8 @@ the regional backend/state.
 
 Both halves are off by default and must be enabled in two separate, reviewed
 applies. The regional root resolves the role **by name**, so enabling both at
-once is unsafe: staging workspaces auto-apply and are not guaranteed to run in
-order within one meta-workspace change, and the regional lookup fails with
+once is unsafe: workspaces are not guaranteed to run in dependency order within
+one meta-workspace change, and the regional lookup fails with
 `NoSuchEntity` if it runs before the account apply.
 
 1. Merge with both flags off. This is a no-op in every workspace.
@@ -169,6 +176,113 @@ recreating a trusted caller role breaks trust until the policy is re-applied.
 Supply the caller ARNs through a workspace **variable set**, not by inlining
 them in the Git-managed meta-workspace definition, when the caller's account and
 role name should not be published in this repository.
+
+### Content publishing identities: provider modes, subjects and sequencing
+
+Every deployment of this account root creates the three configured publisher
+identities and creates or resolves the GitHub Actions OIDC provider. There is
+no publisher enablement flag. This applies to development, staging and
+production account plans; review provider ownership in each account before
+applying. A dedicated content replication identity is always created.
+It is **not** the audit replication
+role created by `enable_s3_replication_role`. These identities carry no content
+permissions: the prefix-scoped bucket and key grants belong to the regional
+root, in a later change. Until those land, a role is assumable but holds no
+content access from this configuration — the same intended fail-safe as the
+metrics reader. That is a
+statement about what this state declares, not a guarantee that no resource
+policy elsewhere in the account names the role; verify the account if that
+matters.
+
+Role names and the published contract, which downstream regional and publishing
+work consumes, are stable:
+
+| Source key | Repository | Default branch | Role name |
+| --- | --- | --- | --- |
+| `ops-sop` | `openshift/ops-sop` | `master` | `<prefix>-publisher-ops-sop` |
+| `managed-notifications` | `openshift/managed-notifications` | `master` | `<prefix>-publisher-managed-notifications` |
+| `rosa-claude-plugins` | `openshift-online/rosa-claude-plugins` | `main` | `<prefix>-publisher-rosa-claude-plugins` |
+| — | — | — | `<prefix>-content-replication-role` |
+
+Publisher source keys allow up to 21 characters, and every generated IAM role
+name must fit 64 characters. With the default sources, the longest suffix is
+`-publisher-managed-notifications` (32 characters), so `role_name_prefix` must
+be at most 32 characters. Longer prefixes require shorter custom source keys;
+validation rejects combinations that exceed the IAM limit.
+
+Outputs: `content_publisher_roles` (name, ARN, repository, branch and exact
+subject per key), `content_publisher_role_arns`, `content_replication_role_arn`
+and `github_actions_oidc_provider_arn`. The last is populated whether this state
+created the provider or referenced an existing one, so a consumer never has to
+know which. `shared_roles` is unchanged.
+
+Each publisher trusts exactly one subject,
+`repo:<owner>/<repo>:ref:refs/heads/<default-branch>`, with audience
+`sts.amazonaws.com`, using `StringEquals` and a scalar value. The audience is a
+literal and is not configurable. This is a repository/branch restriction, not a
+merge-event restriction: scheduled, manually dispatched and `pull_request_target`
+workflows can also match. Publishing workflows must not execute untrusted PR
+code; review their triggers and permissions separately.
+
+Two different things keep that narrow, and it is worth not conflating them:
+
+- **Syntax validation** on `content_publisher_sources` rejects wildcards,
+  colons, full refs and empty values. That is what stops any input becoming a
+  pull-request, merge-ref or environment subject, because the subject is built
+  from a fixed `repo:<repository>:ref:refs/heads/<branch>` template and no
+  value can smuggle in its own `:` segment. It does **not** restrict which
+  owner, repository or branch you configure: pointing a publisher at a fork or
+  a different branch is possible, as a deliberate and reviewable configuration
+  change. Introducing GitHub environment subjects, by contrast, would require a
+  trust-policy change, not just configuration.
+- **The configured sources** are what actually pin trust to the three agreed
+  repositories and their default branches. The shipped defaults are those
+  three, and the account tests assert the complete rendered subject set, so an
+  unconfigured repository or branch is excluded by the rendered policy rather
+  than by input validation.
+
+On operators: `StringEquals` compares the subject literally, so a `*` in a
+configured value would match no real token — inert, not broad. Rejecting `*` at
+the input is therefore defence in depth: it keeps a stored value from becoming
+a live wildcard if the condition operator were ever changed to `StringLike`,
+where `*` and `?` are metacharacters. `StringLike` with a value containing no
+metacharacter behaves like `StringEquals`; the hazard is the combination, not
+either alone. Keep `StringEquals`.
+
+Separate identities per repository are deliberate: one shared publisher would
+let a compromised workflow in one repository write another's content once
+grants exist.
+
+The OIDC provider has three modes, because an account may already have one.
+AWS permits one provider per issuer URL per account, so none of these can
+silently create a duplicate; the wrong choice fails loudly without destroying
+anything.
+
+| Mode | Settings | Meaning |
+| --- | --- | --- |
+| Create | `create_github_actions_oidc_provider = true` (default) | This state creates and owns the provider. Fails with `EntityAlreadyExists` if one exists. |
+| Reference | `create_github_actions_oidc_provider = false` | The provider is looked up by issuer URL and not managed here. Fails the plan with `NoSuchEntity` if none exists. |
+| Adopt | `create_github_actions_oidc_provider = true` and `adopt_existing_resources = true` | The existing provider is imported into this state, as the handoff procedure below does for other singletons. |
+
+No thumbprint is pinned for this issuer. The argument is optional and computed
+on the AWS provider this root uses, and AWS maintains the trust chain for
+`token.actions.githubusercontent.com`, so a pinned fingerprint would be a
+rotation liability rather than a control. That is a property of this
+configuration only: it does **not** predict that referencing or importing a
+provider in a particular account produces an empty plan. **Before applying,
+inventory that account's existing OIDC providers, choose the mode, and review
+the resulting plan.** The Git-managed Boundary workspaces require manual
+applies (`auto_apply = false` and `auto_apply_run_trigger = false` in
+`hcp-terraform/rosa-boundary/main.tf`). Explicitly approve each account plan
+before applying; a merge alone does not create these identities.
+
+Enable in this order, matching the content design's apply order: account
+identities, then regional content buckets and scoped grants, then source
+replication configuration, then the first publisher runs. Reverse it to
+withdraw: remove the regional grants before deleting the identities here, or
+the role delete conflicts with its attached policy. Removing a publisher source
+from the map destroys its role. The dedicated replication identity has no
+enablement flag; deleting it requires an explicit account configuration change.
 
 ## Existing deployment handoff
 
@@ -223,7 +337,7 @@ one region's grants must not remove another region's policies or common
 attachments. Review a destroy plan with the same care as deployment.
 
 The staging account workspace now owns the imported shared identities and
-account-wide resources and auto-applies successful plans. The handoff procedure
+account-wide resources and requires manual approval of applies. The handoff procedure
 above is historical for staging; do not run it again against the current state.
 For a new deployment with existing resources still in regional state, keep both
 workspaces gated until the reviewed release/import is complete. Workspace

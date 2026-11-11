@@ -128,6 +128,31 @@ variable "metrics_read_session_duration" {
   default     = 3600
 }
 
+variable "create_github_actions_oidc_provider" {
+  description = "Create and own the GitHub Actions OIDC provider in this state. Set false to reference a provider another state owns, looked up by issuer URL. Combine with adopt_existing_resources to import an existing provider instead. Check the account's actual providers, and review its plan, before enabling."
+  type        = bool
+  default     = true
+}
+
+variable "content_publisher_sources" {
+  description = "Source repositories that may publish content, keyed by a stable short identifier used in the role name and the outputs. Each branch is a plain default-branch name, not a ref: the trust subject is built as repo:<repository>:ref:refs/heads/<branch>. Note rosa-claude-plugins uses main while the other two use master. Validation constrains syntax: wildcards, colons, full refs and empty values are rejected, so no input can become a pull-request, merge-ref or environment subject. It does not restrict which owner, repository or branch you configure - changing those is a deliberate, reviewable change, and these defaults are what pin the three agreed sources."
+  type = map(object({
+    repository = string
+    branch     = string
+  }))
+  default = {
+    ops-sop               = { repository = "openshift/ops-sop", branch = "master" }
+    managed-notifications = { repository = "openshift/managed-notifications", branch = "master" }
+    rosa-claude-plugins   = { repository = "openshift-online/rosa-claude-plugins", branch = "main" }
+  }
+}
+
+variable "content_publisher_session_duration" {
+  description = "Maximum session duration in seconds for the content publisher roles. A publishing workflow is short-lived and needs no long session."
+  type        = number
+  default     = 3600
+}
+
 variable "oidc_session_duration" {
   type    = number
   default = 3600

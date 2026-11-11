@@ -522,7 +522,7 @@ variable "content_publisher_role_arns" {
 }
 
 variable "content_replication_role_arn" {
-  description = "ARN of the dedicated content replication identity from the account root's content_replication_role_arn output. Required in the source Region when content_replication_destinations is non-empty; this identity is separate from the audit replication role and is never reused for audit data."
+  description = "ARN of the dedicated content replication identity from the account root's content_replication_role_arn output. Required in primary_region when replication has populated content destinations; this identity is separate from the audit replication role and is never reused for audit data."
   type        = string
   default     = ""
 
@@ -532,36 +532,48 @@ variable "content_replication_role_arn" {
   }
 }
 
-variable "content_replication_destinations" {
-  description = "Replica Regions this source Region replicates published content into. Each entry needs the destination bucket ARN and the destination Region's resolved AWS-managed alias/aws/s3 key ARN, both read from that Region's own content_bucket_arn / content_bucket_kms_key_arn outputs after it has been applied. Empty keeps replication configured but inactive: no replication configuration is rendered."
-  type = list(object({
-    region      = string
-    bucket_arn  = string
-    kms_key_arn = string
-  }))
-  default = []
+variable "replication" {
+  description = "Generic same-account replication topology, shared with deploy/account. Only primary_region owns content source rules and grants. Populate destination content from that Region's bucket, resolved aws/s3 key and content_prefixes outputs after bootstrap; omit content until ready."
+  type = object({
+    primary_region = string
+    destinations = map(object({
+      content = optional(object({
+        bucket_arn       = string
+        kms_key_arn      = string
+        content_prefixes = map(string)
+      }))
+    }))
+  })
+  default  = null
+  nullable = true
 
   validation {
-    condition     = alltrue([for dest in var.content_replication_destinations : can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]$", dest.region))])
-    error_message = "Each content_replication_destinations region must be an AWS Region identifier such as us-west-2."
+    condition = var.replication == null ? true : (
+      can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]$", var.replication.primary_region)) &&
+      alltrue([for region in keys(var.replication.destinations) : can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]$", region))])
+    )
+    error_message = "replication.primary_region and destination keys must be AWS Region identifiers such as us-west-2."
   }
 
   validation {
-    condition     = alltrue([for dest in var.content_replication_destinations : can(regex("^arn:aws[a-z-]*:s3:::[a-z0-9.-]+$", dest.bucket_arn))])
-    error_message = "Each content_replication_destinations bucket_arn must be a bucket ARN (arn:<partition>:s3:::<bucket>) with no key suffix."
+    condition     = var.replication == null ? true : !contains(keys(var.replication.destinations), var.replication.primary_region)
+    error_message = "replication.destinations must exclude primary_region; a source cannot replicate to itself."
   }
 
   validation {
-    condition = alltrue([
-      for dest in var.content_replication_destinations :
-      can(regex("^arn:aws[a-z-]*:kms:${dest.region}:[0-9]{12}:key/.+$", dest.kms_key_arn))
+    condition = var.replication == null ? true : alltrue([
+      for destination in values(var.replication.destinations) :
+      destination.content == null ? true : can(regex("^arn:aws[a-z-]*:s3:::[a-z0-9.-]+$", destination.content.bucket_arn))
     ])
-    error_message = "Each content_replication_destinations kms_key_arn must be a KMS key ARN located in that entry's own region: S3 requires the replica key to live in the destination Region."
+    error_message = "Each replication destination content.bucket_arn must be a bucket ARN (arn:<partition>:s3:::<bucket>) with no key suffix."
   }
 
   validation {
-    condition     = length(distinct([for dest in var.content_replication_destinations : dest.region])) == length(var.content_replication_destinations)
-    error_message = "content_replication_destinations must list each destination Region at most once; two entries for one Region would produce duplicate replication rules."
+    condition = var.replication == null ? true : alltrue([
+      for region, destination in var.replication.destinations :
+      destination.content == null ? true : can(regex("^arn:aws[a-z-]*:kms:${region}:[0-9]{12}:key/.+$", destination.content.kms_key_arn))
+    ])
+    error_message = "Each replication destination content.kms_key_arn must be a KMS key ARN located in that destination's own Region."
   }
 }
 

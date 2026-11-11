@@ -13,6 +13,25 @@ provider "tfe" {
   organization = "hp-platform-engineering"
 }
 
+locals {
+  # Pass this same configuration to account and regional roots. Destination
+  # keys drive ECR; content metadata activates S3 only after replica bootstrap.
+  replication_topology = {
+    stage = {
+      primary_region = "us-east-1"
+      destinations = {
+        us-west-2 = { content = null }
+      }
+    }
+    prod = {
+      primary_region = "us-east-1"
+      destinations = {
+        us-west-2 = { content = null }
+      }
+    }
+  }
+}
+
 module "rosa_boundary" {
   source  = "app.terraform.io/hp-platform-engineering/workspaces/tfe"
   version = "0.0.23"
@@ -172,8 +191,8 @@ module "rosa_boundary" {
         {
           # The us-west-2 destination repository is deployed. Enable filtered
           # account-owned replication after reviewing registry-wide rules.
-          key      = "lambda_ecr_replication_regions"
-          value    = "[\"us-west-2\"]"
+          key      = "replication"
+          value    = jsonencode(local.replication_topology.stage)
           category = "terraform"
           hcl      = true
         },
@@ -184,7 +203,7 @@ module "rosa_boundary" {
         },
         {
           key      = "aws_region"
-          value    = "us-east-1"
+          value    = local.replication_topology.stage.primary_region
           category = "terraform"
         },
         {
@@ -341,6 +360,13 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
+          # Inactive until destination bucket/key/prefix outputs are reviewed.
+          key      = "replication"
+          value    = jsonencode(local.replication_topology.stage)
+          category = "terraform"
+          hcl      = true
+        },
+        {
           # ROSAENG-68790: match the account workspace's shared IAM role prefix.
           key      = "account_role_name_prefix"
           value    = "rosa-boundary-stage"
@@ -359,7 +385,7 @@ module "rosa_boundary" {
         },
         {
           key      = "aws_region"
-          value    = "us-east-1"
+          value    = local.replication_topology.stage.primary_region
           category = "terraform"
         },
         {
@@ -534,9 +560,15 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
+          key      = "replication"
+          value    = jsonencode(local.replication_topology.stage)
+          category = "terraform"
+          hcl      = true
+        },
+        {
           # Account root owns the ordinary source repository in us-east-1.
           key      = "lambda_ecr_destination_source_region"
-          value    = "us-east-1"
+          value    = local.replication_topology.stage.primary_region
           category = "terraform"
         },
         {
@@ -747,8 +779,8 @@ module "rosa_boundary" {
         {
           # The source repository must already exist and the west destination
           # must have applied before the registry-wide rule is enabled.
-          key      = "lambda_ecr_replication_regions"
-          value    = "[\"us-west-2\"]"
+          key      = "replication"
+          value    = jsonencode(local.replication_topology.prod)
           category = "terraform"
           hcl      = true
         },
@@ -759,7 +791,7 @@ module "rosa_boundary" {
         },
         {
           key      = "aws_region"
-          value    = "us-east-1"
+          value    = local.replication_topology.prod.primary_region
           category = "terraform"
         },
         {
@@ -977,6 +1009,13 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
+          # Inactive until destination bucket/key/prefix outputs are reviewed.
+          key      = "replication"
+          value    = jsonencode(local.replication_topology.prod)
+          category = "terraform"
+          hcl      = true
+        },
+        {
           # Matches deploy/account regional_iam_contract.account_role_name_prefix.
           key      = "account_role_name_prefix"
           value    = "rosa-boundary-prod"
@@ -997,7 +1036,7 @@ module "rosa_boundary" {
         },
         {
           key      = "aws_region"
-          value    = "us-east-1"
+          value    = local.replication_topology.prod.primary_region
           category = "terraform"
         },
         {
@@ -1231,10 +1270,16 @@ module "rosa_boundary" {
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
+          key      = "replication"
+          value    = jsonencode(local.replication_topology.prod)
+          category = "terraform"
+          hcl      = true
+        },
+        {
           # Account workspace owns the source repository in us-east-1. Create
           # this destination before enabling account-wide replication.
           key      = "lambda_ecr_destination_source_region"
-          value    = "us-east-1"
+          value    = local.replication_topology.prod.primary_region
           category = "terraform"
         },
         {

@@ -54,9 +54,9 @@ run "staging_lambda_ecr_source_is_ordinary_and_immutable" {
 run "replication_is_source_owned_and_filtered" {
   command = plan
   variables {
-    stage                          = "stage"
-    enable_lambda_ecr_source       = true
-    lambda_ecr_replication_regions = ["us-west-2"]
+    stage                    = "stage"
+    enable_lambda_ecr_source = true
+    replication              = { primary_region = "us-east-1", destinations = { "us-west-2" = {} } }
   }
   assert {
     condition = (
@@ -73,7 +73,7 @@ run "replication_is_source_owned_and_filtered" {
 run "replication_requires_source" {
   command = plan
   variables {
-    lambda_ecr_replication_regions = ["us-west-2"]
+    replication = { primary_region = "us-east-1", destinations = { "us-west-2" = {} } }
   }
   expect_failures = [aws_ecr_replication_configuration.create_investigation_lambda[0]]
 }
@@ -81,8 +81,8 @@ run "replication_requires_source" {
 run "multiple_destinations_share_one_filtered_rule" {
   command = plan
   variables {
-    enable_lambda_ecr_source       = true
-    lambda_ecr_replication_regions = ["us-west-2", "eu-west-1"]
+    enable_lambda_ecr_source = true
+    replication              = { primary_region = "us-east-1", destinations = { "us-west-2" = {}, "eu-west-1" = {} } }
   }
   assert {
     condition = (
@@ -96,17 +96,94 @@ run "multiple_destinations_share_one_filtered_rule" {
 run "replication_rejects_source_region" {
   command = plan
   variables {
-    enable_lambda_ecr_source       = true
-    lambda_ecr_replication_regions = ["us-east-1"]
+    enable_lambda_ecr_source = true
+    replication              = { primary_region = "us-east-1", destinations = { "us-east-1" = {} } }
   }
-  expect_failures = [var.lambda_ecr_replication_regions]
+  expect_failures = [var.replication]
 }
 
-run "replication_rejects_duplicate_destinations" {
+run "replication_rejects_wrong_primary_region" {
+  command = plan
+  variables {
+    enable_lambda_ecr_source = true
+    replication              = { primary_region = "eu-west-1", destinations = { "us-west-2" = {} } }
+  }
+  expect_failures = [var.replication]
+}
+
+run "empty_shared_destinations_do_not_manage_ecr_replication" {
+  command = plan
+  variables {
+    replication = { primary_region = "us-east-1", destinations = {} }
+  }
+  assert {
+    condition     = length(aws_ecr_replication_configuration.create_investigation_lambda) == 0
+    error_message = "An empty topology must not manage registry-wide replication."
+  }
+}
+
+run "s3_readiness_does_not_change_ecr_destinations" {
+  command = plan
+  variables {
+    enable_lambda_ecr_source = true
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        us-west-2 = { content = {
+          bucket_arn       = "arn:aws:s3:::test-content"
+          kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/test"
+          content_prefixes = { ops-sop = "ops-sop/" }
+        } }
+        eu-west-1 = {}
+      }
+    }
+  }
+  assert {
+    condition = toset([
+      for destination in aws_ecr_replication_configuration.create_investigation_lambda[0].replication_configuration[0].rule[0].destination : destination.region
+    ]) == toset(["us-west-2", "eu-west-1"])
+    error_message = "ECR must use every destination key regardless of S3 handoff readiness."
+  }
+}
+
+# PR plans use existing HCP inputs until the meta-workspace rename is applied.
+run "legacy_workspace_input_preserves_existing_replication_before_meta_apply" {
   command = plan
   variables {
     enable_lambda_ecr_source       = true
-    lambda_ecr_replication_regions = ["us-west-2", "us-west-2"]
+    lambda_ecr_replication_regions = ["us-west-2"]
+  }
+  assert {
+    condition = (
+      length(aws_ecr_replication_configuration.create_investigation_lambda) == 1 &&
+      aws_ecr_replication_configuration.create_investigation_lambda[0].replication_configuration[0].rule[0].destination[0].region == "us-west-2"
+    )
+    error_message = "Legacy HCP inputs must preserve the existing registry replication rule before the meta-workspace migration."
+  }
+}
+
+run "matching_inputs_are_allowed_during_migration" {
+  command = plan
+  variables {
+    enable_lambda_ecr_source       = true
+    lambda_ecr_replication_regions = ["us-west-2"]
+    replication                    = { primary_region = "us-east-1", destinations = { us-west-2 = {} } }
+  }
+  assert {
+    condition = (
+      length(aws_ecr_replication_configuration.create_investigation_lambda) == 1 &&
+      aws_ecr_replication_configuration.create_investigation_lambda[0].replication_configuration[0].rule[0].destination[0].region == "us-west-2"
+    )
+    error_message = "Matching legacy and generic inputs must retain the same rule."
+  }
+}
+
+run "conflicting_migration_inputs_are_rejected" {
+  command = plan
+  variables {
+    enable_lambda_ecr_source       = true
+    lambda_ecr_replication_regions = ["us-west-2"]
+    replication                    = { primary_region = "us-east-1", destinations = { eu-west-1 = {} } }
   }
   expect_failures = [var.lambda_ecr_replication_regions]
 }

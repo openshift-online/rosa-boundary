@@ -74,13 +74,18 @@ resource "aws_iam_role_policy" "content_publisher" {
 
   lifecycle {
     precondition {
+      condition     = var.replication == null ? true : var.aws_region == var.replication.primary_region
+      error_message = "Publisher content handoff requires replication.primary_region to match this workspace aws_region; replicas must not activate publisher grants."
+    }
+
+    precondition {
       condition     = contains(keys(var.content_prefixes), each.key)
       error_message = "Every content_publisher_role_arns key must name a prefix in content_prefixes. An unrecognised key is rejected rather than silently granted nothing."
     }
 
     precondition {
-      condition     = startswith(var.content_publisher_role_arns[each.key], local.content_role_arn_prefix)
-      error_message = "Each content_publisher_role_arns value must be a role in this workspace's own account and partition; these grants never cross an account boundary."
+      condition     = var.content_publisher_role_arns[each.key] == "${local.content_role_arn_prefix}${local.account_role_name_prefix}-publisher-${each.key}"
+      error_message = "Each publisher ARN must identify this account's expected <account_role_name_prefix>-publisher-<key> role; never attach publishing permissions to a different role."
     }
   }
 
@@ -191,8 +196,8 @@ resource "aws_iam_role_policy" "content_replication" {
 
   lifecycle {
     precondition {
-      condition     = startswith(var.content_replication_role_arn, local.content_role_arn_prefix)
-      error_message = "content_replication_role_arn must be a role in this workspace's own account and partition."
+      condition     = var.content_replication_role_arn == "${local.content_role_arn_prefix}${local.account_role_name_prefix}-content-replication-role"
+      error_message = "content_replication_role_arn must identify this account's expected <account_role_name_prefix>-content-replication-role."
     }
   }
 
@@ -232,7 +237,7 @@ resource "aws_iam_role_policy" "content_replication" {
         },
       ],
       [
-        for destination in var.content_replication_destinations : {
+        for destination in local.content_replication_destinations : {
           Sid      = "ReplicateInto${replace(title(replace(destination.region, "-", " ")), " ", "")}"
           Effect   = "Allow"
           Action   = ["s3:ReplicateObject", "s3:ReplicateDelete"]
@@ -242,7 +247,7 @@ resource "aws_iam_role_policy" "content_replication" {
       [
         # The replica key lives in the destination Region, so its ViaService
         # condition names that Region's S3 endpoint, not this one's.
-        for destination in var.content_replication_destinations : {
+        for destination in local.content_replication_destinations : {
           Sid      = "EncryptReplicasIn${replace(title(replace(destination.region, "-", " ")), " ", "")}"
           Effect   = "Allow"
           Action   = ["kms:Encrypt"]

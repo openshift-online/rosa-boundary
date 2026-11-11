@@ -135,15 +135,21 @@ required_groups = ["ai-sd-sre"]
 #   rosa-claude-plugins   = "arn:aws:iam::<account>:role/rosa-boundary-<stage>-publisher-rosa-claude-plugins"
 # }
 
-# Cross-Region replication, owned by the source Region only. Leave empty until
-# the destination Region has been applied: bucket_arn and kms_key_arn are read
-# from that Region's content_bucket_arn and content_bucket_kms_key_arn outputs.
-# Never invent these values — an unapplied Region has no AWS-managed key yet.
+# Shared generic topology, accepted unchanged by deploy/account and all Regions.
+# Leave replication null, or omit content, until destination outputs exist.
+# Only primary_region owns source replication rules and grants; replicas may
+# receive the same topology but must not receive publisher role handoff.
+# Never invent bucket/key metadata: copy the destination's exported outputs.
 # content_replication_role_arn = "arn:aws:iam::<account>:role/rosa-boundary-<stage>-content-replication-role"
-# content_replication_destinations = [
-#   {
-#     region      = "us-west-2"
-#     bucket_arn  = "arn:aws:s3:::<account>-rosa-boundary-<stage>-us-west-2-content"
-#     kms_key_arn = "arn:aws:kms:us-west-2:<account>:key/<resolved-aws-s3-key-id>"
-#   },
-# ]
+# replication = {
+#   primary_region = "us-east-1"
+#   destinations = {
+#     us-west-2 = {
+#       content = {
+#         bucket_arn  = "arn:aws:s3:::<account>-rosa-boundary-<stage>-us-west-2-content"
+#         kms_key_arn = "arn:aws:kms:us-west-2:<account>:key/<resolved-aws-s3-key-id>"
+#         content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+#       }
+#     }
+#   }
+# }

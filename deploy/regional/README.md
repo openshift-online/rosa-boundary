@@ -194,6 +194,12 @@ initialisation only: it is outside every published and replicated prefix,
 nothing reads it, and no grant covers it, so a publisher's
 `aws s3 sync --delete` can never remove it.
 
+The bucket policy also rejects an explicit KMS key ID other than the resolved
+regional `aws/s3` key ARN, so a writer cannot publish content that tasks cannot
+decrypt. An absent key ID remains allowed for default encryption and multipart
+parts. The reserved bootstrap runs before that policy because the policy needs
+the key ARN; replication waits for the policy to be installed.
+
 ### Publishing
 
 Publishing jobs should pass `--sse aws:kms`:
@@ -241,13 +247,24 @@ Destination identifiers are plain inputs, never another Region's remote state,
 so there is no cross-state cycle. Activating replication is a staged handoff and
 no value may be invented:
 
-1. Apply the destination Region with no `content_replication_destinations`.
+1. Apply the destination Region with `replication = null` (or omit destination content metadata).
    Its bucket, key bootstrap and task read grant are always included.
-2. Read its `content_bucket_arn` and `content_bucket_kms_key_arn` outputs.
-3. Supply those two real values in the source Region's
-   `content_replication_destinations`, along with
+2. Read its `content_bucket_arn`, `content_bucket_kms_key_arn`, and
+   `content_prefixes` outputs. Include the exported prefix map as
+   `content_prefixes` in each destination entry; Terraform rejects replication
+   unless it exactly matches the source map.
+3. Supply those three exported values in the source Region's
+   `replication.destinations[<region>].content`, along with
    `content_replication_role_arn` from the account root.
 4. Apply the source Region, which creates the rules.
+
+The account root accepts the exact same `replication` object. Region keys must
+be valid and destinations must exclude `primary_region`, even before content is
+populated. The same topology may be supplied to replicas: only the workspace
+whose `aws_region` equals `primary_region` creates source replication rules and
+grants. Publisher role handoff must likewise be activated only in that primary
+workspace. Null or destinations without content keep S3 replication inactive;
+ECR still uses every destination key regardless of content readiness.
 
 Point publishers at the source only once the rules exist. S3 live replication
 covers only objects written after a rule is created; to seed a newly added
@@ -435,7 +452,7 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `content_prefixes` | map(string) | three agreed prefixes | Published prefixes keyed by source key; values must be distinct and non-overlapping |
 | `content_publisher_role_arns` | map(string) | `{}` | Publisher role ARNs from the account root; supply only in the publishing source Region |
 | `content_replication_role_arn` | string | `""` | Account-owned content replication identity; required when destinations are set |
-| `content_replication_destinations` | list(object) | `[]` | Replica Regions, each with the destination bucket ARN and that Region's resolved `aws/s3` key ARN |
+| `replication` | object | `null` | Shared topology: `primary_region` and `destinations` keyed by Region, each with optional `content = { bucket_arn, kms_key_arn, content_prefixes }` |
 | `content_noncurrent_version_days` | number | `30` | Expiry for superseded content versions; independent of `retention_days` |
 | `content_bucket_force_destroy` | bool | `false` | Allow destroying a populated content bucket |
 

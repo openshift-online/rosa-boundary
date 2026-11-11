@@ -26,12 +26,19 @@ locals {
   # on map iteration order.
   content_prefix_keys = sort(keys(var.content_prefixes))
 
-  content_replication_enabled = length(var.content_replication_destinations) > 0
+  # A shared topology must never give replica states source-owned grants.
+  content_replication_destinations = var.replication == null ? [] : [
+    for region, destination in var.replication.destinations :
+    merge(destination.content, { region = region })
+    if destination.content != null && var.aws_region == var.replication.primary_region
+  ]
+
+  content_replication_enabled = length(local.content_replication_destinations) > 0
 
   # One rule per (destination, prefix). The stride is the prefix count rather
   # than a fixed number, so priorities stay unique for any number of prefixes.
   content_replication_rules = merge([
-    for destination_index, destination in var.content_replication_destinations : {
+    for destination_index, destination in local.content_replication_destinations : {
       for prefix_index, prefix_key in local.content_prefix_keys :
       "${destination.region}:${prefix_key}" => {
         id          = "replicate-${prefix_key}-to-${destination.region}"
@@ -47,7 +54,7 @@ locals {
   # Expected destination bucket names under the shared convention. A supplied
   # ARN that disagrees is rejected rather than silently replicated into.
   content_expected_destination_bucket_arns = {
-    for destination in var.content_replication_destinations :
+    for destination in local.content_replication_destinations :
     destination.region => "arn:${data.aws_partition.current.partition}:s3:::${data.aws_caller_identity.current.account_id}-${var.project}-${var.stage}-${destination.region}-content"
   }
 }
@@ -148,6 +155,19 @@ resource "aws_s3_bucket_policy" "content" {
         }
       },
       {
+        # Absent headers use the bucket default and permit UploadPart. An
+        # explicit key must be the resolved regional aws/s3 key ARN.
+        Sid       = "DenyUploadsWithAnotherKMSKey"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:PutObject"
+        Resource  = "${aws_s3_bucket.content.arn}/*"
+        Condition = {
+          StringNotEquals = { "s3:x-amz-server-side-encryption-aws-kms-key-id" = local.content_kms_key_arn }
+          Null            = { "s3:x-amz-server-side-encryption-aws-kms-key-id" = "false" }
+        }
+      },
+      {
         # SSE-C uses its own header, so it would slip past the statement above
         # whose Null guard only inspects x-amz-server-side-encryption, and S3
         # honours an explicit SSE-C request over the bucket default. A
@@ -210,7 +230,9 @@ resource "aws_s3_object" "key_bootstrap" {
 
   depends_on = [
     aws_s3_bucket_server_side_encryption_configuration.content,
-    aws_s3_bucket_policy.content,
+    # The bucket policy needs the resolved key ARN, so it must follow this
+    # bootstrap rather than create a dependency cycle. This reserved object
+    # explicitly requests aws:kms without a key ID and cannot use another key.
   ]
 }
 
@@ -234,12 +256,17 @@ resource "aws_s3_bucket_replication_configuration" "content" {
   lifecycle {
     precondition {
       condition     = var.content_replication_role_arn != ""
-      error_message = "content_replication_role_arn is required when content_replication_destinations is set: S3 replication needs the account-owned content replication identity."
+      error_message = "content_replication_role_arn is required when replication has active content destinations: S3 replication needs the account-owned content replication identity."
+    }
+
+    precondition {
+      condition     = alltrue([for destination in local.content_replication_destinations : destination.content_prefixes == var.content_prefixes])
+      error_message = "Destination content_prefixes must match the source map exactly; copy each destination's exported map with its bucket and key outputs before enabling replication."
     }
 
     precondition {
       condition = alltrue([
-        for destination in var.content_replication_destinations :
+        for destination in local.content_replication_destinations :
         destination.region != var.aws_region
       ])
       error_message = "A content replication destination may not be this workspace's own aws_region; a bucket cannot replicate to itself."
@@ -247,7 +274,7 @@ resource "aws_s3_bucket_replication_configuration" "content" {
 
     precondition {
       condition = alltrue([
-        for destination in var.content_replication_destinations :
+        for destination in local.content_replication_destinations :
         destination.bucket_arn == local.content_expected_destination_bucket_arns[destination.region]
       ])
       error_message = "Each content replication destination bucket_arn must match the shared convention <account>-<project>-<stage>-<region>-content in this account and partition. A mismatch means the ARN belongs to another account, stage or naming scheme."
@@ -255,7 +282,7 @@ resource "aws_s3_bucket_replication_configuration" "content" {
 
     precondition {
       condition = alltrue([
-        for destination in var.content_replication_destinations :
+        for destination in local.content_replication_destinations :
         can(regex("^arn:${data.aws_partition.current.partition}:kms:${destination.region}:${data.aws_caller_identity.current.account_id}:key/", destination.kms_key_arn))
       ])
       error_message = "Each content replication destination kms_key_arn must be in this account and partition and in that destination's own Region. Cross-account replication would require a customer-managed key, which this design does not use."
@@ -300,6 +327,7 @@ resource "aws_s3_bucket_replication_configuration" "content" {
 
   depends_on = [
     aws_s3_bucket_versioning.content,
+    aws_s3_bucket_policy.content,
     aws_iam_role_policy.content_replication,
     aws_iam_role_policy.content_publisher,
     aws_iam_role_policy.task_content,

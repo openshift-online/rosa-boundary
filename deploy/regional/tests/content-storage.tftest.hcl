@@ -148,6 +148,18 @@ run "content_bucket_protections" {
   command = apply
 
   assert {
+    condition = length([
+      for statement in jsondecode(aws_s3_bucket_policy.content.policy).Statement :
+      statement if statement.Sid == "DenyUploadsWithAnotherKMSKey" &&
+      statement.Effect == "Deny" &&
+      statement.Action == "s3:PutObject" &&
+      statement.Condition.StringNotEquals["s3:x-amz-server-side-encryption-aws-kms-key-id"] == data.aws_kms_alias.content_s3.target_key_arn &&
+      statement.Condition.Null["s3:x-amz-server-side-encryption-aws-kms-key-id"] == "false"
+    ]) == 1
+    error_message = "Explicit foreign KMS keys must be denied without blocking absent headers or multipart parts."
+  }
+
+  assert {
     condition     = aws_s3_bucket.content.bucket == "123456789012-rosa-boundary-dev-us-east-1-content"
     error_message = "The content bucket must follow the <account>-<project>-<stage>-<region>-content convention derived from the audit bucket's local."
   }
@@ -433,7 +445,8 @@ run "publisher_and_runtime_grants_are_minimal" {
 }
 
 run "non_legacy_region_policy_names_carry_the_regional_suffix" {
-  command = apply
+  command   = apply
+  state_key = "west-region"
 
   variables {
     aws_region           = "us-west-2"
@@ -441,6 +454,37 @@ run "non_legacy_region_policy_names_carry_the_regional_suffix" {
     content_publisher_role_arns = {
       ops-sop = "arn:aws:iam::123456789012:role/rosa-boundary-dev-publisher-ops-sop"
     }
+  }
+
+  override_data {
+    target = data.aws_region.current
+    values = { region = "us-west-2", name = "us-west-2" }
+  }
+  override_data {
+    target = data.aws_kms_alias.content_s3
+    values = { target_key_arn = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333" }
+  }
+  override_resource {
+    target = aws_s3_bucket.content
+    values = {
+      arn = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+      id  = "123456789012-rosa-boundary-dev-us-west-2-content"
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      for statement in jsondecode(aws_iam_role_policy.task_content.policy).Statement :
+      statement.Sid != "ReadPublishedContent" || toset(statement.Resource) == toset([
+        for prefix in values(var.content_prefixes) : "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content/${prefix}*"
+      ])
+      ]) && one([
+      for statement in jsondecode(aws_iam_role_policy.task_content.policy).Statement :
+      statement.Resource == "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333" &&
+      statement.Condition.StringLike["kms:ViaService"] == "s3.us-west-2.amazonaws.com"
+      if statement.Sid == "DecryptPublishedContent"
+    ])
+    error_message = "The west Region task grant must scope S3 and KMS to west Region resources."
   }
 
   assert {
@@ -457,13 +501,18 @@ run "replication_rules_and_grant" {
 
   variables {
     content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
-    content_replication_destinations = [
-      {
-        region      = "us-west-2"
-        bucket_arn  = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
-        kms_key_arn = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
-      },
-    ]
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+            kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
   }
 
   assert {
@@ -586,18 +635,25 @@ run "two_destinations_keep_priorities_unique_across_regions" {
 
   variables {
     content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
-    content_replication_destinations = [
-      {
-        region      = "us-west-2"
-        bucket_arn  = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
-        kms_key_arn = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
-      },
-      {
-        region      = "eu-west-1"
-        bucket_arn  = "arn:aws:s3:::123456789012-rosa-boundary-dev-eu-west-1-content"
-        kms_key_arn = "arn:aws:kms:eu-west-1:123456789012:key/44444444-4444-4444-4444-444444444444"
-      },
-    ]
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+            kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+        "eu-west-1" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-eu-west-1-content"
+            kms_key_arn      = "arn:aws:kms:eu-west-1:123456789012:key/44444444-4444-4444-4444-444444444444"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
   }
 
   assert {
@@ -662,16 +718,21 @@ run "rejects_a_replica_key_outside_its_destination_region" {
   command = plan
 
   variables {
-    content_replication_destinations = [
-      {
-        region      = "us-west-2"
-        bucket_arn  = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
-        kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/33333333-3333-3333-3333-333333333333"
-      },
-    ]
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+            kms_key_arn      = "arn:aws:kms:us-east-1:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
   }
 
-  expect_failures = [var.content_replication_destinations]
+  expect_failures = [var.replication]
 }
 
 run "rejects_replicating_to_the_source_region_itself" {
@@ -679,16 +740,21 @@ run "rejects_replicating_to_the_source_region_itself" {
 
   variables {
     content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
-    content_replication_destinations = [
-      {
-        region      = "us-east-1"
-        bucket_arn  = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-east-1-content"
-        kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/33333333-3333-3333-3333-333333333333"
-      },
-    ]
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-east-1" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-east-1-content"
+            kms_key_arn      = "arn:aws:kms:us-east-1:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
   }
 
-  expect_failures = [aws_s3_bucket_replication_configuration.content]
+  expect_failures = [var.replication]
 }
 
 run "rejects_a_destination_bucket_outside_the_naming_convention" {
@@ -696,13 +762,18 @@ run "rejects_a_destination_bucket_outside_the_naming_convention" {
 
   variables {
     content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
-    content_replication_destinations = [
-      {
-        region      = "us-west-2"
-        bucket_arn  = "arn:aws:s3:::someone-elses-bucket"
-        kms_key_arn = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
-      },
-    ]
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::someone-elses-bucket"
+            kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
   }
 
   expect_failures = [aws_s3_bucket_replication_configuration.content]
@@ -859,4 +930,180 @@ run "rejects_a_path_qualified_replication_role_arn" {
   }
 
   expect_failures = [var.content_replication_role_arn]
+}
+
+run "rejects_publishing_grants_on_the_task_role" {
+  command = plan
+  variables {
+    content_publisher_role_arns = { ops-sop = "arn:aws:iam::123456789012:role/rosa-boundary-dev-task-role" }
+  }
+  expect_failures = [aws_iam_role_policy.content_publisher]
+}
+
+run "rejects_a_destination_with_a_different_prefix_map" {
+  command = plan
+
+  variables {
+    content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+            kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/v2/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
+  }
+
+  expect_failures = [aws_s3_bucket_replication_configuration.content]
+}
+
+run "rejects_replication_grants_on_the_audit_role" {
+  command = plan
+
+  variables {
+    content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-s3-replication-role"
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+            kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
+  }
+
+  expect_failures = [aws_iam_role_policy.content_replication]
+}
+
+run "replica_accepts_shared_populated_topology_without_source_grants" {
+  command = apply
+  variables {
+    aws_region                   = "us-west-2"
+    content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+            kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition = (
+      length(aws_s3_bucket_replication_configuration.content) == 0 &&
+      length(aws_iam_role_policy.content_replication) == 0 &&
+      length(output.content_replication_rule_ids) == 0
+    )
+    error_message = "Only the primary workspace may own source replication rules and grants."
+  }
+}
+
+run "unpopulated_destinations_do_not_activate_content" {
+  command = apply
+  variables {
+    replication = {
+      primary_region = "us-east-1"
+      destinations   = { us-west-2 = {}, eu-west-1 = { content = null } }
+    }
+  }
+  assert {
+    condition = (
+      length(aws_s3_bucket_replication_configuration.content) == 0 &&
+      length(aws_iam_role_policy.content_replication) == 0 &&
+      length(output.content_replication_rule_ids) == 0
+    )
+    error_message = "Only the primary workspace may own source replication rules and grants."
+  }
+}
+
+run "rejects_publisher_handoff_in_a_replica" {
+  command = plan
+  variables {
+    replication                 = { primary_region = "us-west-2", destinations = {} }
+    content_publisher_role_arns = { ops-sop = "arn:aws:iam::123456789012:role/rosa-boundary-dev-publisher-ops-sop" }
+  }
+  expect_failures = [aws_iam_role_policy.content_publisher]
+}
+
+run "rejects_invalid_primary_region" {
+  command = plan
+  variables {
+    replication = { primary_region = "invalid", destinations = {} }
+  }
+  expect_failures = [var.replication]
+}
+
+run "rejects_invalid_region_key_even_without_content" {
+  command = plan
+  variables {
+    replication = { primary_region = "us-east-1", destinations = { invalid = {} } }
+  }
+  expect_failures = [var.replication]
+}
+
+run "rejects_source_destination_even_without_content" {
+  command = plan
+  variables {
+    replication = { primary_region = "us-east-1", destinations = { us-east-1 = {} } }
+  }
+  expect_failures = [var.replication]
+}
+
+run "replica_validates_bucket_metadata_too" {
+  command = plan
+  variables {
+    aws_region                   = "us-west-2"
+    content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "not-a-bucket-arn"
+            kms_key_arn      = "arn:aws:kms:us-west-2:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.replication]
+}
+
+run "replica_validates_key_region_too" {
+  command = plan
+  variables {
+    aws_region                   = "us-west-2"
+    content_replication_role_arn = "arn:aws:iam::123456789012:role/rosa-boundary-dev-content-replication-role"
+    replication = {
+      primary_region = "us-east-1"
+      destinations = {
+        "us-west-2" = {
+          content = {
+            bucket_arn       = "arn:aws:s3:::123456789012-rosa-boundary-dev-us-west-2-content"
+            kms_key_arn      = "arn:aws:kms:us-east-1:123456789012:key/33333333-3333-3333-3333-333333333333"
+            content_prefixes = { ops-sop = "ops-sop/", managed-notifications = "managed-notifications/", rosa-claude-plugins = "rosa-claude-plugins/" }
+          }
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.replication]
 }

@@ -18,11 +18,11 @@ scan-on-push and a 25-tagged-image retention policy; `force_delete` is disabled.
 Same-account publication relies on IAM permissions of the generated ECR
 credential's role; no cross-account repository policy is configured.
 
-`lambda_ecr_replication_regions` (empty by default) configures a single
+`replication` (null by default) configures a single
 registry-wide, prefix-filtered ECR replication rule from the source repository
 to the listed Regions in the same account. Stage the `us-west-2` destination
 repository first; only after that workspace applies, set the account workspace
-variable to `["us-west-2"]` in a separate PR. Staging workspaces require manual
+`replication.destinations` to include `us-west-2` in a separate PR. Staging workspaces require manual
 applies; approve them in dependency order rather than assuming ordering within
 a single meta-workspace change.
 The filter is a **prefix**, not an exact repository-name match. ECR replication
@@ -56,6 +56,60 @@ to exist.
 | Account | OIDC providers, Bedrock budget and approved model agreements |
 | Regional | Execution Secrets Manager, task audit/Bedrock/Exec/logging/KMS, SRE ABAC/lifecycle, invoker, Lambda lifecycle, Bedrock log delivery, optional replication and optional metrics-read inline policies |
 | Regional | ECS/EFS/S3/KMS/Lambda/logging resources, regional resource policies and invocation logging configuration |
+
+## Shared replication topology and content handoff
+
+For HCP-managed deployments, `replication_topology` in
+[`hcp-terraform/rosa-boundary/main.tf`](../../hcp-terraform/rosa-boundary/main.tf)
+is the shared source of primary and replica Regions for ECR and published-content
+S3. Each environment's `primary_region` supplies the account `aws_region`, the
+primary regional `aws_region`, and the replica's Lambda ECR source Region.
+The same environment object is passed as `replication` to the account and all
+regional roots. Its `destinations` map keys select ECR replica Regions; optional
+`content` metadata enables S3 for those same destinations. There is no independent
+S3 Region list. Local deployments must pass that same object to both roots.
+The former `content_replication_destinations` input is removed. The account
+root temporarily accepts `lambda_ecr_replication_regions` as a migration fallback:
+PR plans still see existing HCP inputs until the meta-workspace applies the
+rename. When both inputs are present, their destination Regions must match.
+Remove the fallback only after both account workspaces use `replication`; do not
+approve deletion of the live ECR replication rule as part of this input rename.
+
+A replica's `content = null` deliberately leaves S3 replication **inactive**;
+it does not disable the existing ECR replication destination. Bootstrap and apply
+the destination regional bucket first, then collect its `content_bucket_arn`,
+`content_bucket_kms_key_arn`, `content_bucket_region`, and `content_prefixes`
+outputs. In a separately reviewed PR replace that replica's null handoff with:
+
+```hcl
+content = {
+  bucket_arn       = "<destination content_bucket_arn output>"
+  kms_key_arn      = "<destination content_bucket_kms_key_arn output>"
+  content_prefixes = { /* exact destination content_prefixes output */ }
+}
+```
+
+The map key must match `content_bucket_region`; the exported prefix map must
+match the source's map exactly. Do not construct a key ARN from `alias/aws/s3`,
+a bucket name, or an assumed key ID. The primary regional root derives S3 rules
+from this map; replica roots receive the same object but never own source
+replication grants or rules, and must not get publisher grants. Also supply the account output
+`content_replication_role_arn` to the primary before enabling; this topology
+change does not create that grant or supply invented resource identities.
+
+Both environments currently retain null content handoffs, so this change does
+not activate S3 replication or change ECR's requested destination list. This is
+a one-way output handoff via reviewed Git configuration, not remote-state access
+or account ownership of regional buckets/keys. Keep workspace apply gates
+unchanged, review downstream resource plans, and apply in dependency order.
+Changing the primary Region also changes the account provider endpoint used
+for model agreements: treat that as a migration, not a replication-only toggle.
+
+Offline topology/handoff regression checks (no providers or credentials):
+
+```bash
+python3 -m unittest discover -s deploy/account/tests -p 'test_replication_topology.py' -v
+```
 
 ## Ownership and multi-region permissions
 

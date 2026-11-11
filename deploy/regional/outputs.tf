@@ -156,7 +156,7 @@ output "content_bucket_name" {
 }
 
 output "content_bucket_arn" {
-  description = "ARN of the regional published-content bucket. Supply this to a source Region's content_replication_destinations when this Region is a replica."
+  description = "ARN of the regional published-content bucket. Supply this to a source Region's replication.destinations[<region>].content when this Region is a replica."
   value       = aws_s3_bucket.content.arn
 }
 
@@ -166,7 +166,7 @@ output "content_bucket_region" {
 }
 
 output "content_bucket_kms_key_arn" {
-  description = "Resolved ARN of this Region's AWS-managed alias/aws/s3 key, discovered after the bootstrap write rather than assumed. Supply this to a source Region's content_replication_destinations when this Region is a replica."
+  description = "Resolved ARN of this Region's AWS-managed alias/aws/s3 key, discovered after the bootstrap write rather than assumed. Supply this to a source Region's replication.destinations[<region>].content when this Region is a replica."
   value       = data.aws_kms_alias.content_s3.target_key_arn
 }
 
@@ -176,6 +176,6 @@ output "content_prefixes" {
 }
 
 output "content_replication_rule_ids" {
-  description = "IDs of the replication rules this source Region actually owns, one per destination and prefix. Empty when replication is configured but not yet activated, so the output never reports a rule that was not rendered."
+  description = "IDs of the replication rules this primary Region actually owns, one per populated content destination and prefix. Empty in replicas, when replication is null, or before destination content metadata is populated; never reports a rule that was not rendered."
   value       = local.content_replication_enabled ? sort([for rule in values(local.content_replication_rules) : rule.id]) : []
 }

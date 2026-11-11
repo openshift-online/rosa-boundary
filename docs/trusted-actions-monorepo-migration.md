@@ -131,12 +131,20 @@ or HCP deployment, nor Boundary's own image pipelines.
 At the coordinated CI cutover, confirm the final TA source refresh and owners'
 approval, review old-repo build/release activity and any pending runs, and
 confirm the new repository/component binding and image/release destination.
-Then remove `false &&` from **both** TA CEL expressions in a reviewed PR;
+Then remove `false &&` from the TA CEL expressions in reviewed cutover changes;
 retain/validate their event, branch, and path filters. Exercise a Boundary TA
-PR build and a main-push build, check image provenance and snapshot/release
-behavior, and only then retire the original TA triggers. Do not re-enable
-Boundary builds while the old-repo workflow still owns the shared destination
-without a coordinated isolation plan.
+main-push build and, after the PR guard is removed, a TA PR build; check image
+provenance and snapshot/release behavior before retiring the original TA
+triggers. Do not re-enable Boundary builds while the old-repo workflow still
+owns the shared destination without a coordinated isolation plan.
+
+The draft push-trigger cutover change removes the guard from the Boundary TA
+`main` push pipeline only. Do not merge it until the above destination and
+release checks are complete: a merge changes the push pipeline file and can
+immediately start a build, publish an image, and create a snapshot/release
+attempt. The Boundary TA pull-request pipeline remains guarded so opening the
+draft PR cannot itself start a TA build. Re-enable its CEL expression in a
+separate, coordinated change once the shared destination is safe to use.
 
 ## Refresh from the still-active TA repository
 

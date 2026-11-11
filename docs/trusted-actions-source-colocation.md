@@ -63,11 +63,14 @@ plans for unexpected resource actions. No workspace variables should be edited
 directly in HCP.
 
 The copied TA image PipelineRuns in `.tekton/` use the nested build context and
-TA-specific path filters. Boundary-side TA PR/push event triggers are held with
-`false &&` until the [coordinated CI cutover](trusted-actions-monorepo-migration.md#pre-cutover-konflux-trigger-hold);
-the initial import did trigger a TA build on Boundary main. External Konflux
-repository/component bindings,
-Prow jobs, the old-repo TA OpenWiki periodic, Renovate/Codecov/CodeQL, required
+TA-specific path filters. Boundary-side TA PR/push event triggers were held
+with `false &&` after the import; the [staged CI cutover](trusted-actions-monorepo-migration.md#pre-cutover-konflux-trigger-hold)
+removes both guards. Updating the cutover PR can start a TA PR build; merging
+it can start a TA main-push build. Verify the shared destination and release
+path before treating either build as safe.
+The initial import did trigger a TA build on Boundary main. External Konflux
+repository/component bindings, Prow jobs, the old-repo TA OpenWiki periodic,
+Renovate/Codecov/CodeQL, required
 checks and release paths still need independent validation and coordinated
 cutover. The existing Boundary OpenWiki periodic continues to update the one
 root wiki; do not rebind the TA periodic to the nested component. The TA image

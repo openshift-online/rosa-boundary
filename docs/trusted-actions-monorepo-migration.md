@@ -30,7 +30,7 @@ artifacts. The paths below are relative to each repository root:
 | `CLAUDE.md` | `components/trusted-actions/AGENTS.md` | 1 | **Initial import only:** replaced the old startup guide with component-specific contributor guidance. Upstream PR #158 subsequently renamed its own guide to `AGENTS.md`; later refreshes map `AGENTS.md` directly, without another transition. |
 | `.github/renovate.json` | Root `renovate.json` | 1 | Reconcile TA rules into Boundary's existing repo-level config; remove the nested `.github/` directory. |
 | `hcp-terraform/rosa-trusted-actions/{main.tf,variables.tf,terraform.auto.tfvars}` | `hcp-terraform/rosa-trusted-actions/` | 3 | Byte-for-byte copy of TA's HCP meta-workspace definition and tracked variables. Its original VCS repo and working directories are intentionally **not** switched by the import. |
-| `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Root `.tekton/` | 2 | Update the repo annotation to Boundary, the build context to `components/trusted-actions`, and PR/push change filters to the component and each pipeline file. Keep the TA image destination separate. **Post-import:** Boundary-side event triggers are guarded with `false &&` until cutover (see below). |
+| `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Root `.tekton/` | 2 | Update the repo annotation to Boundary, the build context to `components/trusted-actions`, and PR/push change filters to the component and each pipeline file. Keep the TA image destination separate. **Post-import:** Boundary-side event triggers were guarded with `false &&` pending cutover (see below). |
 | `openwiki/**` | **Not imported** | 45 | Generated TA wiki pages, Claims sidecars, and state belong to the former repository; maintain one combined wiki at Boundary's root `openwiki/`. Do not copy a future TA `.openwikiignore` either. |
 
 The component directory is therefore **not** a complete one-to-one copy of
@@ -116,10 +116,10 @@ future source files.
 The initial import's Boundary-side TA Pipeline-as-Code definitions were **live**:
 the TA push pipeline ran after the import merged, despite the Konflux component
 source binding still pointing at the original TA repository. Both
-`.tekton/rosa-trusted-actions-{pull-request,push}.yaml` now prefix their
-`pipelinesascode.tekton.dev/on-cel-expression` with `false &&`. Once this
-change merges, Boundary PR and main-push events should not start these TA
-pipelines, publish into the existing TA Quay image repository, or produce TA
+`.tekton/rosa-trusted-actions-{pull-request,push}.yaml` were changed to prefix their
+`pipelinesascode.tekton.dev/on-cel-expression` with `false &&`. During that
+hold, Boundary PR and main-push events could not start these TA pipelines,
+publish into the existing TA Quay image repository, or produce TA
 snapshots/releases via those event-triggered builds. The full PipelineRuns and
 their original path filters remain in Git for cutover. This guard does **not**
 cancel already queued/running builds or prevent manually submitted PipelineRuns
@@ -127,15 +127,18 @@ and other external triggers; verify those separately if needed. It does not
 change the original TA repository's CI, Konflux source binding, release path,
 or HCP deployment, nor Boundary's own image pipelines.
 
-At the coordinated CI cutover, confirm the final TA source refresh and owners'
-approval, review old-repo build/release activity and any pending runs, and
-confirm the new repository/component binding and image/release destination.
-Then remove `false &&` from **both** TA CEL expressions in a reviewed PR;
-retain/validate their event, branch, and path filters. Exercise a Boundary TA
-PR build and a main-push build, check image provenance and snapshot/release
-behavior, and only then retire the original TA triggers. Do not re-enable
-Boundary builds while the old-repo workflow still owns the shared destination
-without a coordinated isolation plan.
+The staged cutover PR removes the guard from **both** Boundary TA pipelines;
+their event, `main` branch, component and pipeline-file path filters remain.
+Its PR pipeline change can start a TA build for that PR, publishing an
+`on-pr-{{revision}}` image into the existing TA Quay repository. Do not treat
+opening or updating the PR as inert: confirm the final TA source refresh,
+owners' approval, old-repo build/release activity and pending runs, and the
+repository/component binding and shared image/release destination (or an
+isolation plan) before relying on the build. Do not merge until these cutover
+checks are complete: merging changes the push pipeline file and can start a
+`main` build, publish an image, and create a snapshot/release attempt. Verify
+both PR and main-push builds, image provenance, and snapshot/release behavior
+before retiring the original TA triggers.
 
 ## Refresh from the still-active TA repository
 
@@ -184,7 +187,7 @@ branch/worktree; leave both source checkouts and local-only files intact.
    combined wiki and has its own update workflow.
 4. Reconcile the historical twelve transformed files above rather than reverting them:
    retain TA-specific Prow approvers **and parent-owner inheritance**, correct Konflux source/context/path filters
-   **and the pre-cutover `false &&` hold**, keep the four formatting-only fixes,
+   **and the current cutover trigger state**, keep the four formatting-only fixes,
    and retain the root Renovate and component AGENTS.md reconciliation. New
    upstream skills live under `.agents/skills/` with matching `.claude/skills/`
    symlinks; preserve those paths under the component.

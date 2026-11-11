@@ -693,7 +693,7 @@ localstack = [
 requires-dist = [
     { name = "podman-compose", specifier = "==1.6.0" },
     { name = "pre-commit", specifier = "==4.7.0" },
-    { name = "skillsaw", specifier = "==0.22.0" },
+    { name = "skillsaw", specifier = "==0.23.0" },
     { name = "tool", specifier = "==0.8.0" },
 ]
 
@@ -819,7 +819,7 @@ wheels = [
 
 [[package]]
 name = "skillsaw"
-version = "0.22.0"
+version = "0.23.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "json5" },
@@ -830,9 +830,9 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "wcmatch" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b8/98/a2853c5107dc257e13ac37661c31d009476d516babca88e35771ada2a82f/skillsaw-0.22.0.tar.gz", hash = "sha256:2d3621d8a5754bd60e8cca661b9dce904fa8e01fe4bab17a8358d6fca5516c1a", size = 1367394, upload-time = "2026-10-16T17:05:21.958Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/df/2385f52bee63a656d6d87b5dee33c5ba64bdb58dc77f8b7bcf6ba4e94a22/skillsaw-0.23.0.tar.gz", hash = "sha256:2aba429ff644d4f67144fb017f5eac38e78b679cde7b1be4a20cadf0bd40ce26", size = 1499766, upload-time = "2026-11-07T22:40:21.255Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/a4/cc3c4c41717a3ce2d587b3cb386cc6e762ef6dfe1f97a8f7f5dec8c5c913/skillsaw-0.22.0-py3-none-any.whl", hash = "sha256:7c4b4f48961d9b1676831aeb65396ddc59a18efac39e505b0dfe500f4c055906", size = 1073561, upload-time = "2026-10-16T17:05:19.832Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/35/50548861c859e18556e7a5f139baa7d165675429d4260f2ee7e505be737d/skillsaw-0.23.0-py3-none-any.whl", hash = "sha256:d345d7ceb3b8c488917a623bc443b64b9dd3e843ba706352f91fccb11b2ce900", size = 1182242, upload-time = "2026-11-07T22:40:18.69Z" },
 ]
 
 [[package]]

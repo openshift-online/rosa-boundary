@@ -7,7 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "podman-compose==1.6.0",
     "pre-commit==4.7.0",
-    "skillsaw==0.22.0",
+    "skillsaw==0.23.0",
     "tool==0.8.0",
 ]
 

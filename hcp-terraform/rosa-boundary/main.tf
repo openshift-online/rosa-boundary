@@ -75,8 +75,8 @@ module "rosa_boundary" {
       working_directory      = "deploy/network"
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
@@ -159,8 +159,8 @@ module "rosa_boundary" {
       working_directory      = "deploy/account"
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
@@ -336,8 +336,8 @@ module "rosa_boundary" {
       working_directory      = "deploy/regional"
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
@@ -529,8 +529,8 @@ module "rosa_boundary" {
       working_directory      = "deploy/regional"
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds"]
       variables = [
         {
@@ -733,8 +733,8 @@ module "rosa_boundary" {
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
       execution_mode         = "remote"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
@@ -916,8 +916,8 @@ module "rosa_boundary" {
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
       execution_mode         = "remote"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
@@ -972,8 +972,8 @@ module "rosa_boundary" {
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
       execution_mode         = "remote"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
@@ -1143,8 +1143,8 @@ module "rosa_boundary" {
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
       execution_mode         = "remote"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {
@@ -1226,8 +1226,8 @@ module "rosa_boundary" {
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
       execution_mode         = "remote"
-      auto_apply             = false
-      auto_apply_run_trigger = false
+      auto_apply             = true
+      auto_apply_run_trigger = true
       variable_set_names     = ["rosa-boundary-rosa-boundary-prod-default-aws-dynamic-creds"]
       variables = [
         {

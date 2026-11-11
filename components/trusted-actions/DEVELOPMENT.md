@@ -16,16 +16,18 @@ This document explains how to set up a local development environment for the ROS
 ## Initial Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/openshift-online/rosa-trusted-actions.git
-cd rosa-trusted-actions
+# Clone the monorepo and enter the Trusted Actions component
+git clone https://github.com/openshift-online/rosa-boundary.git
+cd rosa-boundary/components/trusted-actions
 
 # Install all dependencies
 make deps
 
-# Install pre-commit hooks
+# Install repository-root pre-commit hooks from the rosa-boundary root
+cd ../..
 pip install pre-commit
 pre-commit install
+cd components/trusted-actions
 
 # Generate code and build
 make all

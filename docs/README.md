@@ -50,7 +50,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 - [**Contributing**](../CONTRIBUTING.md) - Local tool setup, LocalStack access, and validation workflows (no live AWS account required)
 - [**Development Standards**](development-standards.md) - Contribution rules and pre-PR quality gates
 - [**Dependency Management Automation**](dependency-management-automation.md) - Mintmaker/Renovate version updates and Dependabot security alerts
-- [**Trusted Actions Monorepo Migration Inventory**](trusted-actions-monorepo-migration.md) - Source-file mapping, deviations, and refresh checklist before cutover
+- [**Trusted Actions Migration Snapshot**](trusted-actions-monorepo-migration.md) - Point-in-time artifact locations, deployment boundaries, and migration outcome (2026-11-11)
 
 ## Quick Start
 

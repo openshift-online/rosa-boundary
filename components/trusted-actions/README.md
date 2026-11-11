@@ -1,6 +1,6 @@
 # ROSA Trusted Actions
 
-[![Prow Status](https://prow.ci.openshift.org/badge.svg?jobs=pull-ci-openshift-online-rosa-trusted-actions-main-make-test)](https://prow.ci.openshift.org/badge.svg?jobs=pull-ci-openshift-online-rosa-trusted-actions-main-make-test)
+[![Prow Status](https://prow.ci.openshift.org/badge.svg?jobs=pull-ci-openshift-online-rosa-boundary-main-trusted-actions-make-test)](https://prow.ci.openshift.org/badge.svg?jobs=pull-ci-openshift-online-rosa-boundary-main-trusted-actions-make-test)
 
 ## Overview
 

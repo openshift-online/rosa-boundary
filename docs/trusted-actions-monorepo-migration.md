@@ -7,13 +7,12 @@ import of Trusted Actions into
 The initial imported baseline is the TA `main` commit
 `8ce39a7344b52444576fc1e44ab1f532fd0dfac4`. These counts and comparisons
 describe **that revision**, not all changes subsequently made in the TA repo.
-The refresh includes **the current upstream TA `main` tip**, fetched and
-verified on 2026-11-10:
+The previous refresh included upstream TA `main` through
 `483f325fef305507b1e2471aa4cdaf6858cf3018` (including
 [upstream PR #158](https://github.com/openshift-online/rosa-trusted-actions/pull/158)).
-There were no later upstream `main` commits at verification. See
-[the refresh record](#refresh-of-2026-11-10); use this SHA as the starting
-point only when checking for *future* upstream changes.
+The subsequent 2026-11-11 refresh reconciles upstream `main` through
+`119b5d522eb2e12459ee1bdc2835a9385821e9a8` as described below. Use
+that SHA as the baseline when checking for further upstream changes.
 No TA Git history was imported; the original repository remains the historical
 reference and must not be archived until the source/CI/deployment cutover is
 validated with its owners. See [source co-location](trusted-actions-source-colocation.md)
@@ -148,7 +147,7 @@ branch/worktree; leave both source checkouts and local-only files intact.
 1. Coordinate a candidate source revision with TA owners. Fetch the TA
    repository's upstream `main`, record its full SHA (`NEW_TIP`), and compare
    it to the last reconciled TA SHA (`BASE`, currently
-   `483f325fef305507b1e2471aa4cdaf6858cf3018`). If `main`
+   `119b5d522eb2e12459ee1bdc2835a9385821e9a8`). If `main`
    has moved again before cutover, repeat this comparison. Update the recorded
    baseline here only **after** the new snapshot has actually been copied and
    validated; preserve the earlier revision in the PR description.
@@ -271,16 +270,36 @@ upstream tip on 2026-11-10. If TA `main` changes **after** this refresh,
 compare the new tip with that SHA; there is no longer a `CLAUDE.md` →
 `AGENTS.md` rename to repeat.
 
+## Refresh of 2026-11-11
+
+Source: TA upstream `main` at
+`119b5d522eb2e12459ee1bdc2835a9385821e9a8`, compared with the previous
+refreshed revision `483f325fef305507b1e2471aa4cdaf6858cf3018`. All 289
+tracked paths were inventoried; the delta contains 18 modified paths and no
+additions or deletions. Ten changes to old-repository `openwiki/**` remain
+excluded; the three old-repository GitHub release/lockfile workflow files
+remain deferred pending a separately reviewed release cutover.
+
+| Upstream changes | Destination / treatment |
+| --- | --- |
+| `cmd/server/main.go`, `internal/rta/action.go`, `internal/rta/command_test.go`, `openapi/paths/catalog.yaml`, `openapi/paths/{action}.yaml` | Reconciled under `components/trusted-actions/`: catalog and describe now require a CLI token and are no longer marked unauthenticated in the API spec. No generated API files changed upstream. |
+| `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` | Updated only the `apply-tags` and `rpms-signature-scan` task-bundle pins in Boundary's root pipelines. Preserve Boundary's source annotations, nested context/path filters and both pre-cutover `false &&` guards; this source refresh does not enable event-triggered builds. |
+| `hcp-terraform/rosa-trusted-actions/main.tf` | Upstream disabled both workload auto-apply settings. Boundary already made the same change and separately points its existing global/stage definitions to Boundary's repository and component Terraform roots; do not overwrite that rebind with the old repository's paths. |
+| `openwiki/**` | Still excluded; the Boundary root wiki is the only monorepo wiki. |
+
+Boundary's newer component Go dependency updates and monorepo-specific
+guidance/ownership, CI and release integration are preserved rather than
+replaced by the original repository's older copies. This refresh does not
+apply HCP/AWS resources or complete Konflux, release, or external CI cutover.
+
 ## Cutover boundary
 
-The imported TA HCP meta-root still points the **existing** TA global/stage
-workspaces to `openshift-online/rosa-trusted-actions` at `terraform/global`
-and `terraform/regional`. Their state, dynamic-credential role group, remote
-state sharing, run triggers, and deployed image remain separate from Boundary.
-The source refresh is not a workspace or AWS resource migration. Before a
-VCS/working-directory rebind, verify live HCP settings and queued runs, gate
-auto-apply, and review both the meta-workspace plan and the downstream AWS
-plans with deployment owners. Never create a duplicate TA stack in Boundary's
-regional state or assume a meta plan proves a no-op AWS apply. Keep the old
-repo available for development until the new PR, push, release, and HCP paths
-are proven and a final `main`-to-import comparison has no unreviewed changes.
+Boundary's Git-managed definitions now target the **existing** TA global/stage
+workspaces at `openshift-online/rosa-boundary` and
+`components/trusted-actions/terraform/{global,regional}` with both auto-apply
+settings disabled. A merged definition alone does not prove that the existing
+meta-workspace has rebound, the live settings have reconciled, or downstream
+AWS plans are safe. Review live identities, state, runs, and both workload
+plans with deployment owners before any applies. Do not create a duplicate TA
+stack or assume a meta plan proves a no-op AWS apply. Keep the old repo
+available until the new CI, push, release, and HCP paths are proven.

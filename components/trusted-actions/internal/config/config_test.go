@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -304,6 +305,7 @@ func clearLoadEnv(t *testing.T) {
 		"ROSA_TA_OCM_CLIENT_ID",
 		"ROSA_TA_OCM_CLIENT_SECRET",
 		"ROSA_TA_OCM_TOKEN",
+		"ROSA_TA_OCM_SCOPES",
 		"DATABASE_URL",
 		"ROSA_TA_WORKER_CONCURRENCY",
 		"ROSA_TA_WORKER_POLL_INTERVAL",
@@ -550,6 +552,43 @@ func TestLoad_ProviderSettingsFromFile(t *testing.T) {
 		if tc.got != tc.want {
 			t.Errorf("%s = %q, want %q", tc.name, tc.got, tc.want)
 		}
+	}
+}
+
+func TestLoad_OCMScopesFromFile(t *testing.T) {
+	clearLoadEnv(t)
+	path := filepath.Join(t.TempDir(), "c.yaml")
+	content := "ocm:\n  scopes:\n    - openid\n    - api.ocm\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	want := []string{"openid", "api.ocm"}
+	if !reflect.DeepEqual(cfg.OCMScopes, want) {
+		t.Errorf("OCMScopes = %v, want %v", cfg.OCMScopes, want)
+	}
+}
+
+func TestLoad_OCMScopesEnvOverridesFile(t *testing.T) {
+	clearLoadEnv(t)
+	path := filepath.Join(t.TempDir(), "c.yaml")
+	content := "ocm:\n  scopes:\n    - from-file\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	t.Setenv("ROSA_TA_OCM_SCOPES", "openid,from-env")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	want := []string{"openid", "from-env"}
+	if !reflect.DeepEqual(cfg.OCMScopes, want) {
+		t.Errorf("OCMScopes = %v, want %v", cfg.OCMScopes, want)
 	}
 }
 

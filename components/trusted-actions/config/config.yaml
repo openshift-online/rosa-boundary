@@ -51,3 +51,14 @@ roles:
 #   assume_initial_arn: ""
 #   # Proxy used to reach the backplane API.
 #   proxy_url: ""
+
+# Settings for the OCM connection that are safe to commit. The client ID,
+# secret and token are not among them and stay environment-only, as above:
+# nothing that authenticates belongs in this file.
+
+# ocm:
+#   # OpenID scopes requested when obtaining a token, for the OCM connection
+#   # and the backplane one alike. Empty keeps the SDK's default of "openid";
+#   # a value here replaces that default rather than adding to it, so list
+#   # "openid" explicitly to keep it.
+#   scopes: []

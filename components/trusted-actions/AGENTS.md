@@ -19,8 +19,8 @@ automatically describe this API server.
   spec and run `make generate` rather than editing generated code by hand.
 - `terraform/global/` and `terraform/regional/` are independent roots and
   states; they are not part of Boundary's `deploy/` Terraform states. The
-  copied HCP definitions at the repository root have not switched deployment
-  source; see [source co-location](../../docs/trusted-actions-source-colocation.md).
+  HCP definitions at the repository root now point the existing workspaces
+  at Boundary; see [migration and current layout](../../docs/trusted-actions-monorepo-migration.md).
 
 ## Working in this component
 
@@ -59,8 +59,8 @@ remains `github.com/openshift-online/rosa-trusted-actions`.
   source is covered there after a root OpenWiki update; do not recreate the
   old component-local generated wiki or add a component `.openwikiignore`.
 
-Upstream Trusted Actions now uses `AGENTS.md` too. Keep this monorepo-specific
-component guide rather than copying the standalone repo's root guide over it;
-reconcile future upstream guidance changes into this file. Agent skills live in
+The archived original repository used `AGENTS.md` too. Keep this
+monorepo-specific component guide rather than copying its standalone root
+guide over it. Agent skills live in
 `.agents/skills/`, with `.claude/skills/` symlinks for Claude Code discovery.
 The component retains `.claude/` helper material from the original repository.

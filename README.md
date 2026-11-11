@@ -4,7 +4,7 @@ Multi-architecture container and CLI for managing ephemeral SRE investigations o
 
 Trusted Actions source is also available in [components/trusted-actions/](components/trusted-actions/README.md).
 It remains a separate Go module, container image, and Terraform deployment;
-see [source co-location and cutover](docs/trusted-actions-source-colocation.md).
+see [migration and current layout](docs/trusted-actions-monorepo-migration.md).
 Boundary's Lambda applications still live in [`lambda/`](lambda/) for now; they
 likely belong under `components/boundary/` in a separately validated layout refactor.
 
@@ -150,9 +150,8 @@ rosa-boundary investigation close my-cluster incident-42
 
 Boundary still builds from the repository root. Trusted Actions is a separate
 Go module and image under `components/`; its Terraform roots remain separate
-from Boundary's. The copied Trusted Actions HCP definitions have **not** been
-switched to this repository as their deployment source (see
-[source co-location and cutover](docs/trusted-actions-source-colocation.md)).
+from Boundary's. Its existing HCP workspaces now use this repository as their
+deployment source (see [migration and current layout](docs/trusted-actions-monorepo-migration.md)).
 
 ```
 rosa-boundary/
@@ -168,7 +167,7 @@ rosa-boundary/
 │   └── trusted-actions/    # Independent Go module, server, CLI, image
 │       ├── go.mod, Makefile, Containerfile
 │       ├── cmd/, internal/, openapi/, config/
-│       ├── tests/, integration/, docs/, openwiki/
+│       ├── tests/, integration/, docs/
 │       └── terraform/
 │           ├── global/     # Trusted Actions account-wide state
 │           └── regional/   # Trusted Actions regional state
@@ -183,7 +182,7 @@ rosa-boundary/
 │   └── rosa-trusted-actions/ # Trusted Actions HCP definitions (separate)
 ├── .tekton/                # Separate Boundary, Lambda, and TA image pipelines
 ├── tests/                  # Boundary tests, including LocalStack
-└── docs/                   # Boundary architecture, runbooks, cutover guide
+└── docs/                   # Boundary architecture, runbooks, migration record
 ```
 
 ## CLI Reference

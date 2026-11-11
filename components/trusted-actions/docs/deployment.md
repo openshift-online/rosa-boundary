@@ -83,18 +83,22 @@ See [docs/networking.md](networking.md) for the DNS and TLS architecture.
 
 ## HCP Terraform (CI/CD)
 
-Workspaces are managed in `hcp-terraform/rosa-trusted-actions/main.tf`.
-Apply that configuration first to create the workspaces. Both workspaces have
-`auto_apply = true`, so once created, a VCS push that produces a clean plan
-applies automatically — no manual "Confirm & Apply" step in the HCP Terraform
-UI.
+The existing workspaces are managed by the Boundary repository's
+[`hcp-terraform/rosa-trusted-actions/main.tf`](../../../hcp-terraform/rosa-trusted-actions/main.tf).
+The meta-workspace and both workload workspaces were rebound in place from the
+archived Trusted Actions repository. Inspect the current Git-managed settings
+**and live HCP runs/settings** before planning or approving changes: the
+cutover temporarily set `auto_apply` and `auto_apply_run_trigger` to `false`,
+then [restored both to `true`](https://github.com/openshift-online/rosa-boundary/pull/517)
+after successful workspace runs. Do not assume an old runbook describes
+today's apply gate; the first meta cutover run auto-applied unexpectedly.
 
 ### Workspace summary
 
 | Workspace                     | Working directory    | Must apply before       |
 |-------------------------------|----------------------|-------------------------|
-| `rosa-trusted-actions-global` | `terraform/global`   | all regional workspaces |
-| `rosa-trusted-actions-stage`  | `terraform/regional` | —                       |
+| `rosa-trusted-actions-global` | `components/trusted-actions/terraform/global`   | all regional workspaces |
+| `rosa-trusted-actions-stage`  | `components/trusted-actions/terraform/regional` | —                       |
 
 ### Apply order
 
@@ -106,47 +110,24 @@ UI.
 2. rosa-trusted-actions-stage    (reads global outputs via remote state)
 ```
 
-A `tfe_workspace_run_trigger` queues the regional run automatically after a
-successful global apply, and `auto_apply_run_trigger = true` means that
-queued run applies automatically too — the whole chain from a global push to
-a regional apply requires no manual intervention. Each regional workspace is
-also granted read access to the global workspace's state via
-`tfe_workspace_settings` — no extra configuration needed.
+The `source_workspaces` setting queues a stage run after a successful global
+apply. Whether that queued run applies automatically depends on the current
+`auto_apply_run_trigger` setting and effective HCP configuration. The global
+workspace permits the stage workspace to read its remote state via
+`remote_state_consumer_workspaces`. Review global and stage plans separately;
+the meta plan alone does not establish whether AWS resources will change.
 
 ### Workspace variables
 
-**Global workspace** (`rosa-trusted-actions-global`):
-
-| Variable                  | Sensitive | Notes                                            |
-|---------------------------|-----------|--------------------------------------------------|
-| `aws_region`              | no        | Provider region, e.g. `us-east-1`                |
-| `environment`             | no        | `stage` or `prod`                                |
-| `s3_bucket_name_suffix`   | no        | Suffix segment of the IAM wildcard ARN pattern; must match the regional workspace's value |
-| `internal_fqdn`           | no        | e.g. `rosa-trusted-actions.internal.company.com` |
-| `public_zone_id`          | no        | Route 53 public zone ID (add when ready for TLS) |
-| `backplane_client_secret` | **yes**   |                                                  |
-| `ocm_client_secret`       | **yes**   |                                                  |
-| `ocm_token`               | **yes**   |                                                  |
-
-**Regional workspace** (`rosa-trusted-actions-stage`):
-
-| Variable              | Sensitive | Notes                                          |
-|-----------------------|-----------|------------------------------------------------|
-| `aws_region`          | no        | e.g. `us-east-1`                               |
-| `environment`         | no        | `stage` or `prod`                              |
-| `vpc_id`              | no        | Leave empty to let Terraform create a VPC      |
-| `s3_bucket_name_suffix` | no      | Suffix segment of the bucket name; must match the global workspace's value |
-| `private_subnet_ids`  | no        | Two subnets in different AZs                   |
-| `public_subnet_ids`   | no        | Two subnets (needed only when `vpc_id` is set) |
-| `container_image`     | no        | Full image URI with digest                     |
-| `backplane_url`       | no        |                                                |
-| `backplane_client_id` | no        |                                                |
-| `internal_fqdn`       | no        | Must match global workspace value              |
-| `public_zone_id`      | no        | Must match global workspace value              |
-
-IAM ARNs and the Secrets Manager ARN are **not** workspace variables in the
-regional workspace — they are read automatically from the global workspace's
-remote state. The S3 bucket is owned by the regional workspace itself.
+The [workspace definitions](../../../hcp-terraform/rosa-trusted-actions/main.tf)
+are the source of truth for Git-managed stage variables. In particular, the
+stage workspace now supplies the complete `app_config` file rather than only
+individual Backplane/OCM settings. Both workspaces have AWS dynamic credential
+attachments and the global workspace shares state with stage. Keep sensitive
+credentials in approved sensitive variables/variable sets; never commit them
+or edit the Git-managed workspace variables directly in HCP. Regional IAM
+ARNs and the Secrets Manager ARN come from global remote state. The regional
+workspace owns its own S3 bucket.
 
 ---
 
@@ -312,22 +293,24 @@ aws logs filter-log-events \
 
 ## Adding a New Region
 
-1. Apply the global workspace once — it is already multi-region aware (IAM
-   policies use `arn:aws:*:*` wildcards for region).
+1. Reuse the existing global workspace and review its output/state sharing;
+   its IAM policy covers regional buckets by name. Do not create a duplicate
+   global stack for each region.
 
 2. Create a new HCP Terraform workspace entry in
    `hcp-terraform/rosa-trusted-actions/main.tf` following the
    `rosa-trusted-actions-stage` block. Set `working_directory =
-   "terraform/regional"` and provide the region-specific variables.
+   "components/trusted-actions/terraform/regional"` and provide the
+   region-specific variables, including `app_config`.
 
-3. Add the new workspace ID to `tfe_workspace_settings.global_state_sharing`
-   so it can read the global remote state.
+3. Add the new workspace name to the global definition's
+   `remote_state_consumer_workspaces` so it can read global remote state.
 
-4. Add a `tfe_workspace_run_trigger` pointing the new workspace at the global
-   workspace.
+4. Set the new workspace's `source_workspaces` to the global workspace.
 
-5. Apply the new workspace. `terraform_remote_state` will pick up the global
-   outputs automatically.
+5. Review the resulting HCP plans and effective apply settings with the
+   deployment owners before applying. `terraform_remote_state` then reads
+   the global outputs.
 
 For local testing of the new region, follow the [Local Testing](#local-testing)
 steps with the appropriate `aws_region`, `vpc_id`, and subnet variables for

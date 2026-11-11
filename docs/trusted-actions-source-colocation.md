@@ -4,8 +4,8 @@ Trusted Actions files were copied from `openshift-online/rosa-trusted-actions`
 `main` at `8ce39a7344b52444576fc1e44ab1f532fd0dfac4`. This is a files-only
 import. No Trusted Actions commits or per-file Git history were imported; the
 original repository remains the historical reference. A source refresh from TA
-`main` through `483f325fef305507b1e2471aa4cdaf6858cf3018` is described in the
-[migration inventory](trusted-actions-monorepo-migration.md#refresh-of-2026-11-10).
+`main` through `119b5d522eb2e12459ee1bdc2835a9385821e9a8` is described in the
+[migration inventory](trusted-actions-monorepo-migration.md#refresh-of-2026-11-11).
 Do not archive it until
 the separate CI and deployment-source cutover has been verified with its owners.
 See the [migration inventory and refresh procedure](trusted-actions-monorepo-migration.md)
@@ -43,24 +43,24 @@ merge behavior with Prow/Tide; file configuration alone is not live evidence.
 
 ## Deployment is **not** switched by this import
 
-The copied TA HCP configuration still targets the original TA GitHub repository
-and its original `terraform/global` and `terraform/regional` working directories.
+The initial import did not switch the TA HCP configuration. Later Boundary
+changes target the existing global and stage workspaces at the Boundary
+repository and `components/trusted-actions/terraform/{global,regional}`;
+both workload auto-apply settings are disabled in the Git-managed definitions.
 The existing TA global and stage HCP workspaces own their current AWS resources;
 the regional root still reads the named global workspace's remote state. This
-import does not bind the TA meta-workspace or workload workspaces to Boundary,
-transfer state, apply Terraform, or create a second TA stack in Boundary's
-regional state. Boundary's workspace definitions and AWS resources are unchanged.
+source refresh does not rebind the live meta-workspace, transfer state, apply
+Terraform, or create a second TA stack in Boundary's regional state. Verify
+live reconciliation independently; a merged definition is not an HCP run.
 
-Before switching the deployment source, coordinate the TA meta-workspace's VCS
-binding with its bootstrap owner. Change the *existing* Git-managed TA workspace
-definitions to point at `openshift-online/rosa-boundary` and
-`components/trusted-actions/terraform/{global,regional}` while preserving workspace
-identities, variable sets, run triggers, and remote-state permissions. Inspect
-live auto-apply settings and queued runs and gate affected workspaces **before**
-the VCS change: the copied TA definitions currently specify both `auto_apply`
-and `auto_apply_run_trigger` as `true`. A meta plan does not show downstream AWS
-changes; separately review downstream plans for no unexpected resource actions.
-No workspace variables should be edited directly in HCP.
+Coordinate the TA meta-workspace's VCS rebind with its bootstrap owner; the
+Git-managed workload definitions have already moved, but their live settings
+and the meta-workspace's actual VCS binding need verification. Preserve existing
+workspace identities, variable sets, run triggers, and remote-state permissions.
+Inspect live auto-apply settings and queued runs before allowing applies. A
+meta plan does not show downstream AWS changes; separately review downstream
+plans for unexpected resource actions. No workspace variables should be edited
+directly in HCP.
 
 The copied TA image PipelineRuns in `.tekton/` use the nested build context and
 TA-specific path filters. Boundary-side TA PR/push event triggers are held with

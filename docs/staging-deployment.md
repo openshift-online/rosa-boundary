@@ -72,6 +72,24 @@ Changes cascade downward via run triggers: a successful apply at L1 triggers L2,
 
 ## How a Code Change Becomes Live
 
+Merging to `main` has two different effects:
+
+- **Infrastructure:** HCP Terraform plans changes to affected workspaces.
+  Account and regional stacks in staging and production auto-apply successful
+  plans. Production networks and staging `us-west-2` network also auto-apply;
+  staging `us-east-1` network and both AWS-credentials workspaces require
+  manual apply. Check the resulting runs: a merge alone does not prove the
+  infrastructure changed successfully.
+- **Container images:** Relevant source changes trigger Konflux builds. An
+  eligible automatic Boundary release publishes the ECS image to Quay and the
+  Lambda image to the staging and production source ECR repositories in `us-east-1`;
+  each account replicates its Lambda image to `us-west-2`. This makes images
+  available but does **not** deploy them. To use a new image in either
+  environment, separately review and merge its commit-SHA pin in
+  [`hcp-terraform/rosa-boundary/main.tf`](../hcp-terraform/rosa-boundary/main.tf).
+  Staging and production have separate pins; neither is a promotion of the
+  other. Check the HCP runs and deployed image after the pin change.
+
 ### Infrastructure Changes (Terraform)
 
 The workload workspaces are VCS-connected to the `openshift-online/rosa-boundary` GitHub repository. The flow from code change to deployed infrastructure is:
@@ -80,13 +98,13 @@ The workload workspaces are VCS-connected to the `openshift-online/rosa-boundary
 2. **Speculative plan runs automatically** on any workspace whose `working_directory` contains changed files. HCP Terraform posts the plan output as a PR check.
 3. **Review and merge** the PR through normal GitHub review.
 4. **VCS trigger fires** on merge to `main`, queuing a plan on the affected workspace(s).
-5. **Staging workspaces auto-apply** successful plans, including plans triggered by the meta-workspace. The account/regional state migration and the second staging region are complete, so the temporary manual gates have been removed. The production Account, Network, and Regional workspaces auto-apply on the same terms in both regions; `rosa-boundary-prod-aws-creds` deliberately keeps manual apply as an extra approval gate for production AWS credential and IAM trust changes.
+5. **Affected account and regional workspaces auto-apply** successful plans in staging and production, including runs triggered by the meta-workspace. Production networks and staging `us-west-2` network also auto-apply; staging `us-east-1` network and both AWS-credentials workspaces have manual apply. Check the owning workspace definition before relying on any approval gate.
 
 For a PR changing `hcp-terraform/rosa-boundary/main.tf`, the meta-workspace
 speculative plan shows changes to HCP workspace settings or variables, **not**
 the downstream AWS resource plan. Review that meta plan before merging. If an
 AWS resource plan needs human approval before apply, first gate the affected
-staging workload workspace through a separate reviewed PR setting both
+workload workspace through a separate reviewed PR setting both
 `auto_apply = false` and `auto_apply_run_trigger = false`. Verify HCP has
 reconciled both settings and inspect queued runs before relying on the gate;
 restore auto-apply after reviewing and applying the downstream change. Do not
@@ -100,37 +118,40 @@ separately in the meta-workspace.
 
 ### Container Image Updates
 
-The Lambda image has an ordinary ECR source repository in the account workspace
-(`us-east-1`). The `us-west-2` regional workspace owns a matching destination
-repository, and the account workspace owns the filtered ECR replication rule.
-The regional Terraform image URI now references this ordinary account-local
-repository. Konflux publication and replication do **not** change a deployed
-Lambda; the Git-managed `lambda_image_tag` variable selects the image on apply.
-Before promoting a Lambda image pin through Git, verify the approved image is
-present in every intended Region. Replication is asynchronous and does not copy
-images pushed before the rule was enabled. Review account-wide replication
-rules before merging a registry-wide configuration: a successful staging plan
-auto-applies, and a new resource can overwrite rules owned by another workload.
-Apply the destination repository first, then enable account replication with
-the shared `replication` object (`primary_region = "us-east-1"` and
-`destinations = { us-west-2 = { content = null } }`) in a **separate** PR.
-Pass the same object to account and regional roots; populate `content` only
-from reviewed destination bucket/key/prefix outputs when S3 is ready. Both
-workspaces auto-apply after a meta-workspace reconciliation, so enabling both
-at once could let replication create the destination with default settings
-before regional Terraform can create its managed repository.
+The Konflux push pipelines are path-filtered: a merge that changes only docs
+or Terraform does not necessarily build a new image. The ECS and Lambda
+components can have **different commit SHAs**. A qualifying automatic release
+publishes the Lambda image to both accounts' ordinary ECR source repositories;
+the account-owned replication rules copy new images to their `us-west-2`
+repositories. Replication is asynchronous and does not backfill older images.
+Before selecting a Lambda pin, verify its image and a usable rollback are
+available in **each target account and Region**, with the expected architecture.
+The Lambda URI uses the ECR repository in its own account and Region, not a
+Quay pull-through cache. The ECS task image continues to come from Quay.
 
-The staging deployment references Konflux-built container images:
+The staging and production regional configurations reference Konflux-built images:
 
 - **rosa-boundary container**: `quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:<commit-sha>`
 - **Lambda container**: `<account>.dkr.ecr.<region>.amazonaws.com/rosa-boundary/create-investigation-lambda:<commit-sha>`
 
 To deploy a new container image version:
 
-1. Merge the container/Lambda code change to `main`. Konflux builds and pushes the image.
-2. Update the selected image pin in `hcp-terraform/rosa-boundary/main.tf` (`container_image` for ECS, `lambda_image_tag` for Lambda), after confirming that the selected Lambda SHA exists in its account's regional ECR repository.
-3. Open a PR with the tag update. The meta-workspace speculative plan shows the workspace variable changing, not the ECS task definition or Lambda function resource plan. If that downstream plan needs review before apply, gate the regional workspace first as described above.
-4. Merge. The staging regional workspace queues a plan and auto-applies it if successful.
+1. Confirm the relevant Konflux build and automatic release succeeded; for
+   Lambda, also confirm replication to the intended destination Regions.
+2. Open a PR updating the selected SHA in `hcp-terraform/rosa-boundary/main.tf`:
+   `container_image` for ECS or `lambda_image_tag` for Lambda, in the desired
+   staging and/or production regional workspaces. Review the meta-workspace
+   speculative plan; it shows workspace-variable changes, **not** the downstream
+   ECS task definition or Lambda resource plan. Gate a regional workspace first
+   as described above if its AWS plan needs approval before apply.
+3. Merge the pin PR, check the meta-workspace and affected regional HCP runs,
+   then verify the deployed image and representative runtime behavior. A
+   successful release, replication, or merge alone is not deployment evidence.
+
+For changes to ECR replication itself, review account-wide rule ownership and
+deploy a new destination repository before enabling its replication rule; see
+the [account-root ECR configuration](../deploy/account/ecr-lambda.tf) and
+[regional destination configuration](../deploy/regional/ecr-lambda-destination.tf).
 
 ### Workspace Definition Changes (L2)
 
@@ -140,14 +161,14 @@ Changes to workspace configuration itself (adding variables, changing auto-apply
 
 ## Workspaces
 
-All workspaces live in the **`rosa-boundary`** project within the **`hp-platform-engineering`** HCP Terraform organization and are connected to the `openshift-online/rosa-boundary` GitHub repository. The four workload workspaces run **Terraform 1.16.0** (an exact, reviewed runtime pin), while the Terraform configurations declare a wider compatibility constraint of **`>= 1.15, < 2.0`**. The `meta-rosa-rosa-boundary` workspace runtime is managed separately by infra-platform.
+All workspaces live in the **`rosa-boundary`** project within the **`hp-platform-engineering`** HCP Terraform organization and are connected to the `openshift-online/rosa-boundary` GitHub repository. The workload workspace definitions pin **Terraform 1.16.0**, while the Terraform configurations declare a wider compatibility constraint of **`>= 1.15, < 2.0`**. The `meta-rosa-rosa-boundary` workspace runtime is managed separately by infra-platform.
 
 ### rosa-boundary-stage-network
 
 | Attribute | Value |
 |-----------|-------|
 | **Working directory** | `deploy/network/` |
-| **Auto-apply** | Yes |
+| **Auto-apply** | No (manual apply) |
 | **Purpose** | VPC, subnets, NAT gateway, S3 gateway endpoint |
 | **Variable sets** | `rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds` |
 
@@ -158,7 +179,7 @@ Manages the network foundation for the staging account: a `/20` VPC (`10.80.0.0/
 | Attribute | Value |
 |-----------|-------|
 | **Working directory** | `hcp-terraform/aws-creds/rosa-boundary-stage/` |
-| **Auto-apply** | Yes |
+| **Auto-apply** | No (manual apply) |
 | **Purpose** | AWS OIDC provider and IAM roles for dynamic credentials |
 | **Variable sets** | `rosa-boundary-tfe-creds`, `rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds` |
 
@@ -220,7 +241,7 @@ HCP Terraform authenticates to the `rosa-boundary-stage` AWS account (`150100906
 
 1. An IAM OIDC provider in the AWS account trusts `app.terraform.io` as an identity provider.
 2. Dedicated IAM roles (`plan` and `apply`) have trust policies scoped to the specific HCP Terraform organization, project, and workspace, and further restricted by run phase (`plan` or `apply`).
-3. A variable set (`rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds`) containing `TFC_AWS_PROVIDER_AUTH=true`, `TFC_AWS_PLAN_ROLE_ARN`, and `TFC_AWS_APPLY_ROLE_ARN` is attached to all four workload workspaces.
+3. A variable set (`rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds`) containing `TFC_AWS_PROVIDER_AUTH=true`, `TFC_AWS_PLAN_ROLE_ARN`, and `TFC_AWS_APPLY_ROLE_ARN` is attached to the staging workload workspaces.
 4. The AWS Terraform provider automatically reads these environment variables and authenticates via `sts:AssumeRoleWithWebIdentity` -- no changes needed in workload Terraform code.
 
 The plan role defaults to `ReadOnlyAccess` and the apply role defaults to `AdministratorAccess`.
@@ -449,10 +470,10 @@ This pattern applies at every layer -- bootstrap workspaces, meta-workspaces, an
 | **State** | Local `.tfstate` or S3 backend | HCP Terraform remote state |
 | **Variables** | `.env` + `terraform.tfvars` (gitignored) | Defined as code in `hcp-terraform/rosa-boundary/main.tf` |
 | **AWS credentials** | Local AWS CLI profile or env vars | OIDC dynamic credentials via variable set |
-| **Lambda packaging** | ZIP (built locally by `make apply` via `build-lambda`) | Container image from Quay (HCP Terraform cannot run local build scripts) |
-| **Apply gate** | Immediate | Successful plans auto-apply in staging and production; only `rosa-boundary-prod-aws-creds` requires manual confirmation |
+| **Lambda packaging** | ZIP (built locally by `make apply` via `build-lambda`) | Container image from ordinary ECR in the Lambda's account and Region (HCP Terraform cannot run local build scripts) |
+| **Apply gate** | Immediate | Account and regional plans auto-apply in staging and production; network and AWS-credentials exceptions are listed above |
 | **Backend config** | `cloud.tf` or local state | Set externally by meta-workspace; no `cloud.tf` in workload directories |
-| **Container image** | ECR (manually pushed) | Quay (Konflux pipeline, pinned by commit SHA) |
+| **ECS task image** | ECR (manually pushed) | Quay (Konflux-built, pinned by commit SHA) |
 
 The `Makefile` and `.env` workflow in `deploy/regional/` remains a local-development convenience. HCP Terraform does not use them -- it runs `terraform init` and `terraform plan/apply` directly in the working directory with variables supplied through workspace configuration and variable sets.
 

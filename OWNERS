@@ -25,8 +25,8 @@ filters:
       - AlexSmithGH    # Alexander Smith
       - eth1030        # Emika Hammond
       - BATMAN-JD      # Justin Downie
-  # CLI implementation and Lambda trees only. Shared docs, infrastructure,
-  # root tests, and governance do not classify a PR.
-  '^(cmd/rosa-boundary/|internal/|lambda/)':
+  # CLI and Lambda trees, Boundary regional deployment, and its HCP workspace.
+  # Shared docs, other infrastructure, root tests, and governance do not classify a PR.
+  '^(cmd/rosa-boundary/|internal/|lambda/|deploy/regional/|hcp-terraform/rosa-boundary/)':
     labels:
       - component/boundary

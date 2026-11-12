@@ -112,7 +112,10 @@ images pushed before the rule was enabled. Review account-wide replication
 rules before merging a registry-wide configuration: a successful staging plan
 auto-applies, and a new resource can overwrite rules owned by another workload.
 Apply the destination repository first, then enable account replication with
-`lambda_ecr_replication_regions = ["us-west-2"]` in a **separate** PR. Both
+the shared `replication` object (`primary_region = "us-east-1"` and
+`destinations = { us-west-2 = { content = null } }`) in a **separate** PR.
+Pass the same object to account and regional roots; populate `content` only
+from reviewed destination bucket/key/prefix outputs when S3 is ready. Both
 workspaces auto-apply after a meta-workspace reconciliation, so enabling both
 at once could let replication create the destination with default settings
 before regional Terraform can create its managed repository.

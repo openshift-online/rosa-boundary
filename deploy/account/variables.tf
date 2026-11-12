@@ -18,14 +18,53 @@ variable "enable_lambda_ecr_source" {
   default     = false
 }
 
+# Transitional input: PR plans can run before the meta-workspace renames its
+# existing HCP variable. Remove only after both account workspaces have applied
+# the generic replication input and no callers supply this legacy value.
 variable "lambda_ecr_replication_regions" {
-  description = "Destination Regions for source-region Lambda ECR image replication. Empty disables replication; the account root owns the whole registry-wide configuration."
+  description = "Deprecated migration fallback. Use replication; if both inputs are supplied their destination Regions must match."
   type        = list(string)
   default     = []
 
   validation {
-    condition     = length(distinct(var.lambda_ecr_replication_regions)) == length(var.lambda_ecr_replication_regions) && alltrue([for region in var.lambda_ecr_replication_regions : can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", region)) && region != var.aws_region])
-    error_message = "Replication destinations must be unique explicit Regions other than the source aws_region."
+    condition = (
+      length(distinct(var.lambda_ecr_replication_regions)) == length(var.lambda_ecr_replication_regions) &&
+      alltrue([for region in var.lambda_ecr_replication_regions : can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", region)) && region != var.aws_region])
+    )
+    error_message = "Legacy replication destinations must be unique explicit Regions other than aws_region."
+  }
+
+  validation {
+    condition     = var.replication == null || length(var.lambda_ecr_replication_regions) == 0 ? true : toset(var.lambda_ecr_replication_regions) == toset(keys(var.replication.destinations))
+    error_message = "Legacy lambda_ecr_replication_regions must match replication destination keys during migration; independent ECR/S3 Region choices are not supported."
+  }
+}
+
+variable "replication" {
+  description = "Shared ECR and published-content S3 topology. Pass the same value to the account and regional roots. Null disables replication; destination keys select ECR Regions, and optional content metadata activates S3 after destination bootstrap."
+  type = object({
+    primary_region = string
+    destinations = map(object({
+      content = optional(object({
+        bucket_arn       = string
+        kms_key_arn      = string
+        content_prefixes = map(string)
+      }))
+    }))
+  })
+  default = null
+
+  validation {
+    condition = var.replication == null ? true : (
+      can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", var.replication.primary_region)) &&
+      alltrue([for region in keys(var.replication.destinations) : can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]+$", region)) && region != var.replication.primary_region])
+    )
+    error_message = "Replication requires explicit AWS Regions and destinations other than primary_region."
+  }
+
+  validation {
+    condition     = var.replication == null ? true : var.replication.primary_region == var.aws_region
+    error_message = "The account provider aws_region must equal replication.primary_region; changing the provider endpoint is a coordinated migration."
   }
 }
 

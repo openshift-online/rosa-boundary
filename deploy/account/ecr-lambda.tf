@@ -42,13 +42,20 @@ resource "aws_ecr_lifecycle_policy" "create_investigation_lambda_source" {
 # in the account root; the filter limits this rule to the Lambda image path.
 # Before enabling, review any other rules in this account: this resource
 # manages the complete registry replication configuration, not just this rule.
+locals {
+  # Existing workspace inputs must preserve the live rule while the HCP
+  # meta-workspace migration is still pending. Generic input is authoritative;
+  # variable validation rejects any conflicting legacy destination list.
+  replication_regions = var.replication == null ? sort(var.lambda_ecr_replication_regions) : sort(keys(var.replication.destinations))
+}
+
 resource "aws_ecr_replication_configuration" "create_investigation_lambda" {
-  count = length(var.lambda_ecr_replication_regions) > 0 ? 1 : 0
+  count = length(local.replication_regions) > 0 ? 1 : 0
 
   replication_configuration {
     rule {
       dynamic "destination" {
-        for_each = var.lambda_ecr_replication_regions
+        for_each = toset(local.replication_regions)
         content {
           region      = destination.value
           registry_id = var.aws_account_id

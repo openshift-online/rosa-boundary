@@ -16,6 +16,16 @@ oidc_client_id                    = "rosa-boundary-sre"
 # Copy the original activation manifest and retain its management endpoint above.
 bedrock_model_agreements = {}
 
+# Shared ECR/S3 configuration: pass the same object to all regional roots.
+# Null (default) disables replication. Enable only after reviewing registry-wide
+# ECR rules and provisioning destinations. Populate content from real regional
+# bucket/key/prefix outputs later; null leaves S3 inactive without disabling ECR.
+# enable_lambda_ecr_source = true
+# replication = {
+#   primary_region = "us-east-1"
+#   destinations = { us-west-2 = { content = null } }
+# }
+
 # One identity set, shared by EVERY regional stack. No resource ARNs required.
 role_name_prefix       = "rosa-boundary-dev"
 legacy_role_tag_region = "us-east-1"

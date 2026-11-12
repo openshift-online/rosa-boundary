@@ -81,6 +81,7 @@ graph. Older examples below that describe role creation must use the account roo
 - **Bedrock Runtime interface endpoint**: Private DNS and an HTTPS-only security group restricted to the Fargate task security group; one endpoint ENI per task AZ
 - **CloudWatch Log Group**: For container logs
 - **Bedrock cost budget**: Account-owned monthly spend alerts (not created here)
+- **Content bucket**: Regional published-content bucket, separate from the audit bucket
 
 ### Bedrock cost alerts
 
@@ -154,6 +155,172 @@ before the ownership-release apply; confirm the staging regional workspace's
 manual-apply gate is active in HCP Terraform. For subsequent changes, review
 speculative plans before merge and verify readers after apply; a merged PR
 does not prove that its HCP run completed successfully.
+
+## Published content storage
+
+Every regional deployment creates
+`<account>-<project>-<stage>-<region>-content`, a bucket for SRE content
+published from its source repositories, along with key bootstrap and the shared
+task role's regional read grant. There is no bucket enablement flag. This
+applies to development, staging and production plans; review and approve each
+plan before applying. It is deliberately separate from the audit bucket:
+audit data is write-once evidence under Object Lock, published content is
+mutable and read by every task. Publisher grants are created only for supplied
+publisher role ARNs; replication is created only when destinations are supplied.
+
+Protections: versioning, all four public-access-block flags, a TLS-only deny,
+and `force_destroy = false` so destroying a populated bucket fails loudly. There
+is **no** Object Lock — this is replaceable content, not evidence — and **no**
+lifecycle rule that expires current objects; cleanup is limited to noncurrent
+versions and abandoned multipart uploads.
+
+### Encryption and the AWS-managed key
+
+Default encryption is SSE-KMS with the Region's **AWS-managed** `alias/aws/s3`
+key. No customer-managed key is created and no AWS-managed key policy is
+edited. S3 Bucket Keys are deliberately not enabled: they would move the KMS
+encryption context from the object ARN to the bucket ARN and would require
+`kms:Decrypt` for the replication principal in the replica key's *key policy*,
+which cannot be authored for an AWS-managed key.
+
+AWS creates `aws/s3` on first use in an account and Region, so it may already
+exist here or may not; either way its ARN is account- and Region-specific and
+must never be guessed. The first apply writes one empty object at
+`_bootstrap/key-init`, which makes an SSE-KMS request and so **guarantees the
+key is available**, then reads whatever ARN is actually in place and publishes
+it as `content_bucket_kms_key_arn`. The bootstrap establishes availability; it
+is not evidence that the key was absent beforehand. That object is key
+initialisation only: it is outside every published and replicated prefix,
+nothing reads it, and no grant covers it, so a publisher's
+`aws s3 sync --delete` can never remove it.
+
+The bucket policy also rejects an explicit KMS key ID other than the resolved
+regional `aws/s3` key ARN, so a writer cannot publish content that tasks cannot
+decrypt. An absent key ID remains allowed for default encryption and multipart
+parts. The reserved bootstrap runs before that policy because the policy needs
+the key ARN; replication waits for the policy to be installed.
+
+### Publishing
+
+Publishing jobs should pass `--sse aws:kms`:
+
+```bash
+aws s3 sync ./content "s3://${CONTENT_BUCKET}/ops-sop/" --delete --sse aws:kms
+```
+
+Two mechanisms together make "no unencrypted or SSE-S3 object exists here" an
+enforced invariant, which in turn lets the replication role omit
+`kms:GenerateDataKey`:
+
+- the bucket policy denies any upload that **asks for** an algorithm other than
+  `aws:kms`; and
+- bucket default encryption (`aws:kms`) encrypts any upload that asks for
+  nothing.
+
+The deny is guarded with `Null = "false"` so it applies only to requests that
+actually supplied the `x-amz-server-side-encryption` header. That guard is
+required for correctness, not leniency: AWS accepts that request header on
+`PutObject`, `CopyObject`, `POST Object` and `CreateMultipartUpload` but **not**
+on `UploadPart`, and a negated IAM condition operator evaluates to true when its
+key is absent. An unguarded `StringNotEquals` would therefore deny every
+`UploadPart` — which is authorised as `s3:PutObject` — and break multipart
+uploads for exactly the large files the publisher grant's multipart permissions
+exist to serve.
+
+Server-side encryption with customer-provided keys (SSE-C) is denied outright
+by a second statement: it uses a different request header, so the guard above
+does not cover it, and an SSE-C object could be read by neither the task role
+nor the replication role.
+
+A real multipart upload has not been executed against a deployed bucket; that
+check is listed under deferred activation verification below.
+
+### Replication
+
+The source Region owns exactly one replication configuration, with one rule per
+destination and prefix, unique priorities, prefix-only filters, delete-marker
+replication and the SSE-KMS opt-in S3 requires. Replication is same-account and
+cross-Region, which AWS supports with an AWS-managed key; the restriction that
+requires a customer-managed key applies only to cross-**account** replication.
+
+Destination identifiers are plain inputs, never another Region's remote state,
+so there is no cross-state cycle. Activating replication is a staged handoff and
+no value may be invented:
+
+1. Apply the destination Region with `replication = null` (or omit destination content metadata).
+   Its bucket, key bootstrap and task read grant are always included.
+2. Read its `content_bucket_arn`, `content_bucket_kms_key_arn`, and
+   `content_prefixes` outputs. Include the exported prefix map as
+   `content_prefixes` in each destination entry; Terraform rejects replication
+   unless it exactly matches the source map.
+3. Supply those three exported values in the source Region's
+   `replication.destinations[<region>].content`, along with
+   `content_replication_role_arn` from the account root.
+4. Apply the source Region, which creates the rules.
+
+The account root accepts the exact same `replication` object. Region keys must
+be valid and destinations must exclude `primary_region`, even before content is
+populated. The same topology may be supplied to replicas: only the workspace
+whose `aws_region` equals `primary_region` creates source replication rules and
+grants. Publisher role handoff must likewise be activated only in that primary
+workspace. Null or destinations without content keep S3 replication inactive;
+ECR still uses every destination key regardless of content readiness.
+
+Point publishers at the source only once the rules exist. S3 live replication
+covers only objects written after a rule is created; to seed a newly added
+destination with content that already exists, run **S3 Batch Replication** as an
+operator action — Terraform does not backfill.
+
+### Grants
+
+Three regional inline policies, all on roles the account root owns, all carrying
+the regional policy suffix:
+
+| Policy | Role | Scope |
+|---|---|---|
+| `content-publish-<key>` | `<prefix>-publisher-<key>` | List, upload, delete and abort multipart in **one** prefix; `kms:GenerateDataKey` and `kms:Decrypt` on the regional key |
+| `s3-content-read` | shared task role | List and get the published prefixes of the **local** bucket; `kms:Decrypt` |
+| `content-replication` | `<prefix>-content-replication-role` | Source version reads, destination replicate/delete, source `kms:Decrypt` and destination `kms:Encrypt` |
+
+The publisher grant has no `s3:GetObject`: `aws s3 sync` decides what to upload
+from the listing's size and last-modified time and never reads the destination
+object. `kms:Decrypt` is present because multipart `UploadPart` and
+`CompleteMultipartUpload` require it. Each regional runtime grant is read-only
+and names only its own bucket. The task role itself is shared across Regions:
+its effective permissions are the union of all attached regional grants. This
+is not a per-Region task-identity isolation boundary.
+
+### Prefix values, source keys and local paths
+
+A map **key** (`ops-sop`, `rosa-claude-plugins`, `managed-notifications`)
+selects the account-owned publisher identity and names the IAM policy. Account
+publishers are unconditional; regional grants remain opt-in. The map **value**
+is the S3 prefix, and with its trailing slash removed it is also the
+content-relative local path a consumer should materialise it at. Defaults
+currently match their keys, but custom keys and nested prefixes need not:
+`handbook = "ops-sop/v2/"` must map to `ops-sop/v2`, not `handbook`.
+This storage change exports that contract; it does not implement the consumer.
+
+Prefix values are constrained to `/`-terminated segments of `[A-Za-z0-9._-]`.
+That is an allowlist, not a denylist of known-bad characters: these values are
+interpolated into IAM `Resource` ARNs and `StringLike` conditions, where **both
+`*` and `?` are wildcards**, and into policy text where `${...}` is a policy
+variable. Permitting `?` alone would allow `?bootstrap/`, whose rendered
+pattern matches the reserved `_bootstrap/` object. The same grammar excludes
+whitespace and `:` so a value stays safe inside the space-delimited
+`KEY:PREFIX` handoff a content consumer parses. Nested paths such as
+`ops-sop/v2/` remain configurable.
+
+### Deferred activation verification
+
+These require an authorised deployment and have **not** been performed:
+
+- a real `aws s3 sync --sse aws:kms` upload, including a file large enough to
+  trigger `CreateMultipartUpload` / `UploadPart` / `CompleteMultipartUpload`,
+  to confirm the bucket policy admits every multipart phase;
+- resolution of the real regional `alias/aws/s3` key ARNs;
+- actual replication of an object and of a delete marker to the replica Region,
+  and the replication role's effective KMS permissions there.
 
 ## Execution Modes
 
@@ -282,6 +449,12 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `subnet_ids` | list(string) | **required** | Subnet IDs (minimum 2 for HA) |
 | `log_retention_days` | number | `7` | CloudWatch log retention period |
 | `tags` | map(string) | `{}` | Additional tags for resources |
+| `content_prefixes` | map(string) | three agreed prefixes | Published prefixes keyed by source key; values must be distinct and non-overlapping |
+| `content_publisher_role_arns` | map(string) | `{}` | Publisher role ARNs from the account root; supply only in the publishing source Region |
+| `content_replication_role_arn` | string | `""` | Account-owned content replication identity; required when destinations are set |
+| `replication` | object | `null` | Shared topology: `primary_region` and `destinations` keyed by Region, each with optional `content = { bucket_arn, kms_key_arn, content_prefixes }` |
+| `content_noncurrent_version_days` | number | `30` | Expiry for superseded content versions; independent of `retention_days` |
+| `content_bucket_force_destroy` | bool | `false` | Allow destroying a populated content bucket |
 
 ## Outputs
 
@@ -300,6 +473,12 @@ See [Investigation Lifecycle](#investigation-lifecycle) below for detailed examp
 | `security_group_id` | Fargate security group ID |
 | `efs_security_group_id` | EFS security group ID |
 | `cloudwatch_log_group` | CloudWatch log group name |
+| `content_bucket_name` | Published-content bucket name (empty when disabled) |
+| `content_bucket_arn` | Published-content bucket ARN; a replica Region supplies this to the source Region |
+| `content_bucket_region` | Region the content bucket lives in |
+| `content_bucket_kms_key_arn` | Resolved AWS-managed `alias/aws/s3` key ARN; a replica Region supplies this to the source Region |
+| `content_prefixes` | Published content prefixes keyed by source key |
+| `content_replication_rule_ids` | Replication rule IDs this source Region owns (empty until activated) |
 
 ## Credential Volumes
 

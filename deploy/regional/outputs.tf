@@ -147,3 +147,35 @@ output "lambda_invoker_role_arn" {
   description = "ARN of the IAM role SREs assume to invoke the Lambda function URL via SigV4"
   value       = data.aws_iam_role.lambda_invoker.arn
 }
+
+# Regional published-content storage contract.
+
+output "content_bucket_name" {
+  description = "Name of the regional published-content bucket."
+  value       = aws_s3_bucket.content.id
+}
+
+output "content_bucket_arn" {
+  description = "ARN of the regional published-content bucket. Supply this to a source Region's replication.destinations[<region>].content when this Region is a replica."
+  value       = aws_s3_bucket.content.arn
+}
+
+output "content_bucket_region" {
+  description = "Region the content bucket lives in, so a consumer never has to infer it from the bucket name."
+  value       = data.aws_region.current.region
+}
+
+output "content_bucket_kms_key_arn" {
+  description = "Resolved ARN of this Region's AWS-managed alias/aws/s3 key, discovered after the bootstrap write rather than assumed. Supply this to a source Region's replication.destinations[<region>].content when this Region is a replica."
+  value       = data.aws_kms_alias.content_s3.target_key_arn
+}
+
+output "content_prefixes" {
+  description = "Published content prefixes keyed by source key, the single source of truth for publisher grants and the runtime subdirectory layout."
+  value       = var.content_prefixes
+}
+
+output "content_replication_rule_ids" {
+  description = "IDs of the replication rules this primary Region actually owns, one per populated content destination and prefix. Empty in replicas, when replication is null, or before destination content metadata is populated; never reports a rule that was not rendered."
+  value       = local.content_replication_enabled ? sort([for rule in values(local.content_replication_rules) : rule.id]) : []
+}

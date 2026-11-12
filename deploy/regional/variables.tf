@@ -446,3 +446,150 @@ variable "investigation_grace_period_hours" {
     error_message = "Investigation grace period must be between 1 and 720 hours (30 days)"
   }
 }
+
+# ---------------------------------------------------------------------------
+# regional content storage, SSE-KMS replication and grants.
+# Every Region has a content bucket and task read grant. Publisher grants and
+# source-owned replication remain opt-in through their respective inputs.
+# ---------------------------------------------------------------------------
+
+variable "content_prefixes" {
+  description = "Published content prefixes, keyed by the stable source key shared with the account publisher identities (deploy/account content_publisher_sources). The KEY selects the publisher identity only. The VALUE is both the S3 key prefix and, with its trailing slash removed, the content-relative local path a consumer materialises it at - even when a custom source key differs from that path. Values must be distinct and non-overlapping so one publisher can never list, overwrite or delete another's content."
+  type        = map(string)
+  default = {
+    ops-sop               = "ops-sop/"
+    rosa-claude-plugins   = "rosa-claude-plugins/"
+    managed-notifications = "managed-notifications/"
+  }
+
+  validation {
+    condition     = length(var.content_prefixes) > 0
+    error_message = "content_prefixes must contain at least one published prefix so the unconditional task read grant has nonempty resources and list conditions."
+  }
+
+  validation {
+    condition     = alltrue([for key in keys(var.content_prefixes) : can(regex("^[a-z0-9][a-z0-9-]*$", key))])
+    error_message = "content_prefixes keys must be lowercase alphanumeric with internal hyphens; a key names an IAM policy and selects a publisher identity."
+  }
+
+  # An allowlist grammar, not a denylist. These values are interpolated into IAM
+  # Resource ARNs and StringLike conditions, where BOTH '*' and '?' are
+  # wildcards, and into IAM policy text, where "${...}" is a policy variable.
+  # Rejecting only '*' would still let '?bootstrap/' render
+  # "<bucket>/?bootstrap/*", which matches the reserved "_bootstrap/key-init".
+  # The same grammar keeps the value safe as a shell path and inside the
+  # space-delimited KEY:PREFIX handoff a content consumer parses, so space,
+  # ':' and backslash are excluded too.
+  validation {
+    condition = alltrue([
+      for prefix in values(var.content_prefixes) :
+      can(regex("^([A-Za-z0-9][A-Za-z0-9._-]*/)+$", prefix)) && !strcontains(prefix, "..")
+    ])
+    error_message = "Each content_prefixes value must be one or more '/'-terminated path segments of [A-Za-z0-9._-] starting with an alphanumeric, and must not contain '..'. This excludes the IAM wildcards '*' and '?', IAM policy-variable syntax, whitespace, ':' and backslash, any of which could widen the rendered grant or break the KEY:PREFIX handoff."
+  }
+
+  validation {
+    condition = alltrue([
+      for prefix in values(var.content_prefixes) :
+      !startswith(prefix, "_bootstrap/") && !startswith("_bootstrap/", prefix)
+    ])
+    error_message = "'_bootstrap/' is reserved for Terraform-owned key initialisation and must never be published or replicated, nor may a published prefix be an ancestor of it. The grammar above guarantees this is a literal comparison, with no wildcard that could match it."
+  }
+
+  validation {
+    condition     = length(distinct(values(var.content_prefixes))) == length(values(var.content_prefixes))
+    error_message = "content_prefixes values must be unique: two keys sharing a prefix would grant each publisher write access to the other's content."
+  }
+
+  validation {
+    condition = alltrue([
+      for outer in values(var.content_prefixes) :
+      length([for inner in values(var.content_prefixes) : inner if inner != outer && startswith(outer, inner)]) == 0
+    ])
+    error_message = "content_prefixes values must not overlap: no prefix may be a prefix of another, or the shorter one's publisher would also control the longer one's objects."
+  }
+}
+
+variable "content_publisher_role_arns" {
+  description = "Publisher role ARNs keyed by the same source key as content_prefixes, taken from the account root's content_publisher_role_arns output. Supplied only in the publishing source Region; elsewhere leave empty so no publisher grant is attached. Empty disables the publisher grants entirely."
+  type        = map(string)
+  default     = {}
+
+  validation {
+    condition     = alltrue([for arn in values(var.content_publisher_role_arns) : can(regex("^arn:aws[a-z-]*:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_-]+$", arn))])
+    error_message = "Each content_publisher_role_arns value must be a path-less IAM role ARN (arn:<partition>:iam::<account>:role/<name>), which is what deploy/account emits. A path-qualified ARN is rejected rather than silently normalised: PutRolePolicy takes only the role name, so a wrong path with a real basename would attach the policy to a different role than the ARN names."
+  }
+}
+
+variable "content_replication_role_arn" {
+  description = "ARN of the dedicated content replication identity from the account root's content_replication_role_arn output. Required in primary_region when replication has populated content destinations; this identity is separate from the audit replication role and is never reused for audit data."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.content_replication_role_arn == "" || can(regex("^arn:aws[a-z-]*:iam::[0-9]{12}:role/[A-Za-z0-9+=,.@_-]+$", var.content_replication_role_arn))
+    error_message = "content_replication_role_arn must be empty or a path-less IAM role ARN (arn:<partition>:iam::<account>:role/<name>), matching what deploy/account emits. A path-qualified ARN is rejected for the same reason as the publisher ARNs."
+  }
+}
+
+variable "replication" {
+  description = "Generic same-account replication topology, shared with deploy/account. Only primary_region owns content source rules and grants. Populate destination content from that Region's bucket, resolved aws/s3 key and content_prefixes outputs after bootstrap; omit content until ready."
+  type = object({
+    primary_region = string
+    destinations = map(object({
+      content = optional(object({
+        bucket_arn       = string
+        kms_key_arn      = string
+        content_prefixes = map(string)
+      }))
+    }))
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.replication == null ? true : (
+      can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]$", var.replication.primary_region)) &&
+      alltrue([for region in keys(var.replication.destinations) : can(regex("^[a-z]{2}(-[a-z]+)+-[0-9]$", region))])
+    )
+    error_message = "replication.primary_region and destination keys must be AWS Region identifiers such as us-west-2."
+  }
+
+  validation {
+    condition     = var.replication == null ? true : !contains(keys(var.replication.destinations), var.replication.primary_region)
+    error_message = "replication.destinations must exclude primary_region; a source cannot replicate to itself."
+  }
+
+  validation {
+    condition = var.replication == null ? true : alltrue([
+      for destination in values(var.replication.destinations) :
+      destination.content == null ? true : can(regex("^arn:aws[a-z-]*:s3:::[a-z0-9.-]+$", destination.content.bucket_arn))
+    ])
+    error_message = "Each replication destination content.bucket_arn must be a bucket ARN (arn:<partition>:s3:::<bucket>) with no key suffix."
+  }
+
+  validation {
+    condition = var.replication == null ? true : alltrue([
+      for region, destination in var.replication.destinations :
+      destination.content == null ? true : can(regex("^arn:aws[a-z-]*:kms:${region}:[0-9]{12}:key/.+$", destination.content.kms_key_arn))
+    ])
+    error_message = "Each replication destination content.kms_key_arn must be a KMS key ARN located in that destination's own Region."
+  }
+}
+
+variable "content_noncurrent_version_days" {
+  description = "How long a superseded version of a published content object is kept before expiry. Deliberately separate from retention_days, which governs audit Object Lock and CloudWatch Logs: audit evidence retention and published-content version history are unrelated, and one must not silently move the other. No lifecycle rule ever expires a current object."
+  type        = number
+  default     = 30
+
+  validation {
+    condition     = var.content_noncurrent_version_days >= 1 && var.content_noncurrent_version_days <= 365
+    error_message = "content_noncurrent_version_days must be between 1 and 365 days."
+  }
+}
+
+variable "content_bucket_force_destroy" {
+  description = "Allow Terraform to delete the content bucket while it still holds objects. Default false so a destroy of a populated content bucket fails loudly; published content is reproducible from its source repositories but should never disappear silently."
+  type        = bool
+  default     = false
+}

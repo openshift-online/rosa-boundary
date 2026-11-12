@@ -311,6 +311,10 @@ regional deployments are long-lived.
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `internal_fqdn` | `""` | Same FQDN as the global workspace. Creates the Private Hosted Zone, alias A record, and (with `public_zone_id`) the regional ACM certificate. Must match the global workspace value (enforced by precondition). |
-| `public_zone_id` | `""` | Route 53 ID of the public apex zone. Required for regional certificate issuance — the validation CNAME itself is managed by the global workspace. Leave empty to skip the ACM certificate (HTTP only). |
-| `alb_certificate_arn` | `""` | Bypass for manual certificate management. Set instead of `public_zone_id` when managing the certificate outside Terraform. |
+| `internal_fqdn` | `""` | Same FQDN as the global workspace. Creates the Private Hosted Zone, alias A record, and the regional ACM certificate when the global workspace resolved a public zone. Must match the global workspace value (enforced by precondition). |
+| `alb_certificate_arn` | `""` | Bypass for manual certificate management. Set when the global workspace has no public zone or when managing the certificate outside Terraform. |
+
+The regional workspace reads the public zone ID from the global workspace's
+remote state (`local.global.public_zone_id`) rather than declaring its own
+variable — the zone that backs the validation CNAME is wherever global put it,
+and a separately configured regional value could only ever be a mismatch.

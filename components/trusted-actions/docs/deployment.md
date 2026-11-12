@@ -7,11 +7,13 @@ Infrastructure is split into two Terraform roots that must be applied in order:
 | Root         | Path                  | Scope                                                                                                      | Apply cadence    |
 |--------------|-----------------------|------------------------------------------------------------------------------------------------------------|------------------|
 | **global**   | `terraform/global/`   | Account-wide: IAM, Secrets Manager, ACM validation CNAME                                                   | Once per account |
-| **regional** | `terraform/regional/` | One deployment per AWS region: VPC, ALB, ECS, EC2, EBS, S3 bucket, CloudWatch, Route 53 PHZ, regional ACM certificate | Once per region  |
+| **regional** | `terraform/regional/` | One deployment per AWS region: VPC, ALB, ECS on Fargate, Aurora, S3 bucket, CloudWatch, Route 53 PHZ, regional ACM certificate | Once per region  |
 
 The regional root reads IAM ARNs, the Secrets Manager ARN, and the public
 hosted zone ID directly from the global workspace's Terraform state via
-`terraform_remote_state`. No values need to be copied by hand. The S3 bucket
+`terraform_remote_state`. The only value copied by hand is `db_password`,
+which is authored in Vault — see
+[docs/database-and-compute.md](database-and-compute.md). The S3 bucket
 is created directly in each regional workspace — `s3_bucket_name_suffix` must
 match the value set in the global workspace so its IAM wildcard ARN covers
 the bucket.
@@ -22,7 +24,7 @@ the bucket.
 flowchart LR
     subgraph GLOBAL["terraform/global — apply ONCE per AWS account"]
         direction TB
-        IAM["IAM roles & policies<br/>ecs_instance, task, task_execution,<br/>cwl_to_firehose, firehose_audit_logs<br/><i>(task_app / firehose policies grant S3 access<br/>via wildcard ARN ACCOUNT-ENV-SUFFIX-*)</i>"]
+        IAM["IAM roles & policies<br/>task, task_execution, read_secrets,<br/>cwl_to_firehose, firehose_audit_logs<br/><i>(task_app / firehose policies grant S3 access<br/>via wildcard ARN ACCOUNT-ENV-SUFFIX-*)</i>"]
         SECRETS["Secrets Manager secret<br/>ocm_client_secret, ocm_token,<br/>backplane_client_secret"]
         DNSG["ACM validation CNAME<br/>(public hosted zone, optional)"]
     end
@@ -32,7 +34,8 @@ flowchart LR
         direction TB
         NET1["VPC, subnets, IGW, NAT,<br/>route tables, security groups"]
         ALB1["ALB + listeners + target group"]
-        ECS1["ECS cluster, EC2 host + EBS volume,<br/>task definition, service"]
+        ECS1["ECS cluster on Fargate,<br/>task definition, service"]
+        DB1["Aurora PostgreSQL cluster +<br/>credentials secret"]
         S31["S3 bucket<br/>ACCOUNT-ENV-SUFFIX-us-east-1"]
         AUDIT1["CloudWatch log group → Firehose<br/>→ S3 (audit-logs/)"]
         DNS1["Private Hosted Zone +<br/>regional ACM certificate"]
@@ -43,7 +46,8 @@ flowchart LR
         direction TB
         NET2["VPC, subnets, IGW, NAT,<br/>route tables, security groups"]
         ALB2["ALB + listeners + target group"]
-        ECS2["ECS cluster, EC2 host + EBS volume,<br/>task definition, service"]
+        ECS2["ECS cluster on Fargate,<br/>task definition, service"]
+        DB2["Aurora PostgreSQL cluster +<br/>credentials secret"]
         S32["S3 bucket<br/>ACCOUNT-ENV-SUFFIX-eu-central-1"]
         AUDIT2["CloudWatch log group → Firehose<br/>→ S3 (audit-logs/)"]
         DNS2["Private Hosted Zone +<br/>regional ACM certificate"]
@@ -71,6 +75,9 @@ flowchart LR
 
 See [docs/networking.md](networking.md) for the DNS and TLS architecture.
 
+> **Not yet deployed.** The regional root has never been applied in any
+> environment. See [docs/database-and-compute.md](database-and-compute.md) for
+> the Aurora/Fargate design decisions.
 ---
 
 ## Table of Contents
@@ -121,14 +128,46 @@ the meta plan alone does not establish whether AWS resources will change.
 ### Workspace variables
 
 The [workspace definitions](../../../hcp-terraform/rosa-trusted-actions/main.tf)
-are the source of truth for Git-managed stage variables. In particular, the
-stage workspace now supplies the complete `app_config` file rather than only
-individual Backplane/OCM settings. Both workspaces have AWS dynamic credential
-attachments and the global workspace shares state with stage. Keep sensitive
-credentials in approved sensitive variables/variable sets; never commit them
-or edit the Git-managed workspace variables directly in HCP. Regional IAM
-ARNs and the Secrets Manager ARN come from global remote state. The regional
-workspace owns its own S3 bucket.
+in the Boundary repository are the source of truth for Git-managed workspace
+variables; the stage workspace supplies the complete `app_config` file rather
+than only individual Backplane/OCM settings. Keep sensitive credentials in
+approved sensitive variables/variable sets; never commit them or edit the
+Git-managed workspace variables directly in HCP.
+
+**Global workspace** (`rosa-trusted-actions-global`):
+| Variable                  | Sensitive | Notes                                            |
+|---------------------------|-----------|--------------------------------------------------|
+| `aws_region`              | no        | Provider region, e.g. `us-east-1`                |
+| `environment`             | no        | `stage` or `prod`                                |
+| `s3_bucket_name_suffix`   | no        | Suffix segment of the IAM wildcard ARN pattern; must match the regional workspace's value |
+| `internal_fqdn`           | no        | e.g. `rosa-trusted-actions.internal.company.com` |
+| `public_zone_id`          | no        | Route 53 public zone ID (add when ready for TLS) |
+| `backplane_client_secret` | **yes**   |                                                  |
+| `ocm_client_secret`       | **yes**   |                                                  |
+| `ocm_token`               | **yes**   |                                                  |
+
+**Regional workspace** (`rosa-trusted-actions-stage`):
+
+| Variable              | Sensitive | Notes                                          |
+|-----------------------|-----------|------------------------------------------------|
+| `aws_region`          | no        | e.g. `us-east-1`                               |
+| `environment`         | no        | `stage` or `prod`                              |
+| `vpc_id`              | no        | Leave empty to let Terraform create a VPC      |
+| `s3_bucket_name_suffix` | no      | Suffix segment of the bucket name; must match the global workspace's value |
+| `private_subnet_ids`  | no        | Two subnets in different AZs                   |
+| `public_subnet_ids`   | no        | Two subnets (needed only when `vpc_id` is set) |
+| `container_image`     | no        | Full image URI with digest                     |
+| `app_config`          | no        | Complete application config file (config.yaml); see the workspace definitions |
+| `public_zone_id`      | no        | Must match global workspace value              |
+| `db_password`         | **yes**   | Aurora master password; authored in Vault      |
+
+`db_password` never rotates. Changing it rotates the Aurora master password on
+the next apply and breaks every running task, so a forced ECS deployment must
+follow — see [docs/database-and-compute.md](database-and-compute.md).
+
+IAM ARNs and the Secrets Manager ARN are **not** workspace variables in the
+regional workspace — they are read automatically from the global workspace's
+remote state. The S3 bucket is owned by the regional workspace itself.
 
 ---
 
@@ -226,10 +265,12 @@ terraform apply \
   roles:
     - id: SREP
       amsResource: BackplaneOsdSrepResource
-'
+' \
+  -var="db_password=$ROSA_TA_DB_PASSWORD"
 ```
 
-Or with var-files:
+Or with var-files — keep the password out of the in-repo file, as the global
+root does:
 
 ```hcl
 # terraform/regional/terraform.tfvars  (gitignored)
@@ -256,9 +297,18 @@ app_config            = <<-YAML
 YAML
 ```
 
+```hcl
+# $HOME/.config/rosa-ta/regional-secrets.tfvars  (outside the repo)
+db_password = "..."   # from Vault
+```
+
+A file separate from the global root's `secrets.tfvars`: each root warns about
+variables it does not declare, so sharing one file across both is noisy.
 
 ```bash
-terraform apply -var-file=terraform.tfvars
+terraform apply \
+  -var-file=terraform.tfvars \
+  -var-file=$HOME/.config/rosa-ta/regional-secrets.tfvars
 ```
 
 ### How the override works
@@ -281,7 +331,9 @@ Destroy regional before global (global owns IAM roles that regional's ECS
 tasks depend on at runtime).
 
 ```bash
-cd terraform/regional && terraform destroy -var-file=terraform.tfvars
+cd terraform/regional && terraform destroy \
+  -var-file=terraform.tfvars \
+  -var-file=$HOME/.config/rosa-ta/regional-secrets.tfvars
 cd ../global          && terraform destroy \
   -var-file=terraform.tfvars \
   -var-file=$HOME/.config/rosa-ta/secrets.tfvars
@@ -320,11 +372,13 @@ aws logs filter-log-events \
    its IAM policy covers regional buckets by name. Do not create a duplicate
    global stack for each region.
 
-2. Create a new HCP Terraform workspace entry in
-   `hcp-terraform/rosa-trusted-actions/main.tf` following the
-   `rosa-trusted-actions-stage` block. Set `working_directory =
+2. Create a new HCP Terraform workspace entry in the Boundary repository's
+   [`hcp-terraform/rosa-trusted-actions/main.tf`](../../../hcp-terraform/rosa-trusted-actions/main.tf)
+   following the `rosa-trusted-actions-stage` block. Set `working_directory =
    "components/trusted-actions/terraform/regional"` and provide the
-   region-specific variables, including `app_config`.
+   region-specific variables, including `app_config`. Each region gets its
+   **own** Aurora cluster, so author a fresh `db_password` in Vault for it
+   rather than reusing another region's.
 
 3. Add the new workspace name to the global definition's
    `remote_state_consumer_workspaces` so it can read global remote state.

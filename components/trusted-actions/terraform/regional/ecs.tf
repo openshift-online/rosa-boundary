@@ -28,8 +28,13 @@ locals {
     { name = "ROSA_TA_JWK_CERT_URL", value = var.jwk_cert_url },
     { name = "ROSA_TA_ALLOWED_ACCOUNTS", value = var.allowed_accounts },
     { name = "AWS_REGION", value = var.aws_region },
-    { name = "DATABASE_URL", value = "/data/trusted_actions.db" },
     { name = "ROSA_TA_CONFIG_HASH", value = sha256(local.app_config_effective) },
+    { name = "ROSA_TA_DB_HOST", value = aws_rds_cluster.main.endpoint },
+    { name = "ROSA_TA_DB_PORT", value = tostring(aws_rds_cluster.main.port) },
+    { name = "ROSA_TA_DB_NAME", value = var.db_name },
+    { name = "ROSA_TA_DB_USER", value = var.db_username },
+    { name = "ROSA_TA_DB_SSLMODE", value = "verify-full" },
+    { name = "ROSA_TA_DB_SSLROOTCERT", value = "/etc/ssl/certs/rds-global-bundle.pem" },
     ],
     [for name, value in local.compat_env : { name = name, value = value } if value != ""],
   )
@@ -64,6 +69,10 @@ locals {
     { name = "ROSA_TA_OCM_CLIENT_SECRET", valueFrom = "${local.global.secretsmanager_secret_arn}:ocm_client_secret::" },
     { name = "ROSA_TA_OCM_TOKEN", valueFrom = "${local.global.secretsmanager_secret_arn}:ocm_token::" },
     { name = "ROSA_TA_BACKPLANE_CLIENT_SECRET", valueFrom = "${local.global.secretsmanager_secret_arn}:backplane_client_secret::" },
+    {
+      name      = "ROSA_TA_DB_PASSWORD"
+      valueFrom = "${aws_secretsmanager_secret.db.arn}:password::"
+    },
   ]
 }
 
@@ -77,15 +86,13 @@ resource "aws_s3_object" "config" {
 }
 
 resource "aws_ecs_task_definition" "app" {
-  family             = var.app_name
-  task_role_arn      = local.global.iam_role_task_arn
-  execution_role_arn = local.global.iam_role_task_execution_arn
-  network_mode       = "bridge"
-
-  volume {
-    name      = "sqlite-data"
-    host_path = "/mnt/ecs-data"
-  }
+  family                   = var.app_name
+  task_role_arn            = local.global.iam_role_task_arn
+  execution_role_arn       = local.global.iam_role_task_execution_arn
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
 
   volume {
     name = "config-data"
@@ -124,7 +131,6 @@ resource "aws_ecs_task_definition" "app" {
       portMappings = [{ containerPort = 8080, hostPort = 8080, protocol = "tcp" }]
 
       mountPoints = [
-        { sourceVolume = "sqlite-data", containerPath = "/data", readOnly = false },
         { sourceVolume = "config-data", containerPath = "/config", readOnly = true },
       ]
 
@@ -153,9 +159,15 @@ resource "aws_ecs_service" "app" {
   name                 = var.app_name
   cluster              = aws_ecs_cluster.main.id
   task_definition      = aws_ecs_task_definition.app.arn
-  desired_count        = 1
-  launch_type          = "EC2"
+  desired_count        = 2
+  launch_type          = "FARGATE"
   force_new_deployment = true
+
+  network_configuration {
+    subnets          = [local.private_subnet_a, local.private_subnet_b]
+    security_groups  = [aws_security_group.ecs_task.id]
+    assign_public_ip = false
+  }
 
   load_balancer {
     target_group_arn = aws_lb_target_group.app.arn
@@ -163,13 +175,10 @@ resource "aws_ecs_service" "app" {
     container_port   = 8080
   }
 
-  ordered_placement_strategy {
-    type  = "binpack"
-    field = "cpu"
-  }
-
-  deployment_minimum_healthy_percent = 0
-  deployment_maximum_percent         = 100
+  deployment_minimum_healthy_percent = 100
+  deployment_maximum_percent         = 200
+  health_check_grace_period_seconds  = 60 # the task runs migrations before serving /health
+  enable_execute_command             = true
 
   depends_on = [
     aws_lb_listener.http,

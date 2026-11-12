@@ -1,5 +1,11 @@
 # Mocked applies expose rendered grant scopes without touching AWS or live state.
 mock_provider "aws" {
+  mock_resource "aws_iam_role" {
+    defaults = { arn = "arn:aws:iam::123456789012:role/content-files-service" }
+  }
+  mock_resource "aws_s3files_file_system" {
+    defaults = { arn = "arn:aws:s3files:us-east-1:123456789012:file-system/fs-0123456789abcdef0" }
+  }
   mock_data "aws_kms_alias" {
     defaults = { target_key_arn = "arn:aws:kms:us-east-1:123456789012:key/22222222-2222-2222-2222-222222222222" }
   }
@@ -111,10 +117,10 @@ run "legacy_policy_names_ownership_and_original_scopes" {
   }
   assert {
     condition = alltrue([for f in fileset(path.module, "*.tf") :
-      length(regexall("resource \\\"aws_iam_role\\\"|resource \\\"aws_iam_openid_connect_provider\\\"|aws_iam_role_policies_exclusive|aws_iam_role_policy_attachments_exclusive", file("${path.module}/${f}"))) == 0 &&
+      length(regexall("resource \\\"aws_iam_role\\\"|resource \\\"aws_iam_openid_connect_provider\\\"|aws_iam_role_policies_exclusive|aws_iam_role_policy_attachments_exclusive", replace(file("${path.module}/${f}"), "resource \"aws_iam_role\" \"content_files\"", ""))) == 0 &&
       length(regexall("resource \\\"aws_iam_role_policy_attachment\\\"", file("${path.module}/${f}"))) == 0
     ]) && length(regexall("from = aws_iam_role_policy\\.", file("${path.module}/account-handoff.tf"))) == 0
-    error_message = "Regional state owns no identities or managed policy attachments; all shared IAM resources are in account workspace."
+    error_message = "Only the regional content_files service role may be owned here; shared identities and managed attachments remain in account state."
   }
   assert {
     condition = (

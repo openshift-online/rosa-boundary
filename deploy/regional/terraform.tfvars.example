@@ -153,3 +153,8 @@ required_groups = ["ai-sd-sre"]
 #     }
 #   }
 # }
+
+# Managed S3 Files mounts published prefixes read-only at /opt/rosa-content/<prefix>.
+# Bucket/Region/prefix paths are derived; AWS manages synchronization.
+# Ephemeral storage is for container images and task scratch, not managed content.
+# task_ephemeral_storage_gib = 21

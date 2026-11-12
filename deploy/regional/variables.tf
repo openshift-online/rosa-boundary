@@ -587,3 +587,13 @@ variable "content_bucket_force_destroy" {
   type        = bool
   default     = false
 }
+
+variable "task_ephemeral_storage_gib" {
+  description = "Total task ephemeral storage in GiB, shared by container images and task scratch data; managed S3 Files content mounts are separate."
+  type        = number
+  default     = 21
+  validation {
+    condition     = floor(var.task_ephemeral_storage_gib) == var.task_ephemeral_storage_gib && var.task_ephemeral_storage_gib >= 21 && var.task_ephemeral_storage_gib <= 200
+    error_message = "task_ephemeral_storage_gib must be an integer from 21 through 200."
+  }
+}

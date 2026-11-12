@@ -142,7 +142,8 @@ resource "aws_iam_role_policy" "content_publisher" {
 }
 
 # Runtime grant on the shared task role: read the local Region's content and
-# decrypt it. No write action, and no ARN outside this Region's own bucket.
+# decrypt it. The separate task_content_files policy enforces read-only access
+# even if another identity policy grants broader permissions.
 resource "aws_iam_role_policy" "task_content" {
   name = "s3-content-read${local.regional_policy_suffix}"
   role = data.aws_iam_role.task.id
@@ -166,7 +167,7 @@ resource "aws_iam_role_policy" "task_content" {
         # required here even though the publisher grant does not need them.
         Sid      = "ReadPublishedContent"
         Effect   = "Allow"
-        Action   = ["s3:GetObject"]
+        Action   = ["s3:GetObject", "s3:GetObjectVersion"]
         Resource = local.content_object_arns
       },
       {

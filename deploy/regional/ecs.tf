@@ -68,6 +68,22 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
   execution_role_arn       = data.aws_iam_role.execution.arn
   task_role_arn            = data.aws_iam_role.task.arn
 
+  ephemeral_storage {
+    size_in_gib = var.task_ephemeral_storage_gib
+  }
+
+  # ECS always enables TLS and task-role IAM authentication for S3 Files.
+  dynamic "volume" {
+    for_each = aws_s3files_file_system.content
+    content {
+      name = "content-${volume.key}"
+      s3files_volume_configuration {
+        file_system_arn = volume.value.arn
+        root_directory  = "/"
+      }
+    }
+  }
+
   # EFS volume for /home/sre
   volume {
     name = "sre-home"
@@ -103,8 +119,10 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
   container_definitions = jsonencode(concat(
     [
       {
-        name        = "rosa-boundary"
-        image       = var.container_image
+        name  = "rosa-boundary"
+        image = var.container_image
+        # Reserve the remaining CPU shares for the interactive workload.
+        cpu         = var.container_cpu - (var.enable_kube_proxy ? 2 : 0)
         essential   = true
         stopTimeout = 120
 
@@ -140,7 +158,13 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
           }
         ]
 
-        mountPoints = [
+        mountPoints = concat([
+          for key, prefix in var.content_prefixes : {
+            sourceVolume  = "content-${key}"
+            containerPath = "/opt/rosa-content/${trim(prefix, "/")}"
+            readOnly      = true
+          }
+          ], [
           {
             sourceVolume  = "sre-home"
             containerPath = "/home/sre"
@@ -156,7 +180,7 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
             containerPath = "/home/sre/.kube"
             readOnly      = false
           }
-        ]
+        ])
 
         logConfiguration = {
           logDriver = "awslogs"
@@ -176,6 +200,7 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
       {
         name      = "kube-proxy"
         image     = var.container_image
+        cpu       = 2
         essential = true
 
         command = [
@@ -223,6 +248,15 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
       }
     ] : []
   ))
+
+  # Do not publish a runnable revision before mounts and restrictive policies
+  # exist. Policy propagation still needs verification before launching tasks.
+  depends_on = [
+    aws_iam_role_policy.task_content_files,
+    aws_iam_role_policy.task_content,
+    aws_s3files_mount_target.content,
+    aws_s3files_file_system_policy.content,
+  ]
 
   tags = local.common_tags
 }

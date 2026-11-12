@@ -1984,17 +1984,27 @@ class TestPerInvestigationTaskDef:
             for mount in proxy_cd.get('mountPoints', [])
         )
 
-    def test_preserves_unrelated_base_volume_and_mount(self):
-        """Dynamic definitions derive unrelated volume and SRE mount settings from the base."""
+    @pytest.mark.parametrize('volume,path', [
+        ({'name': 'task-cache'}, '/var/cache/task'),
+        ({
+            'name': 'content-ops-sop',
+            's3filesVolumeConfiguration': {
+                'fileSystemArn': 'arn:aws:s3files:us-east-1:123456789012:file-system/fs-0123456789abcdef0',
+                'rootDirectory': '/',
+            },
+        }, '/opt/rosa-content/ops-sop'),
+    ])
+    def test_preserves_unrelated_base_volume_and_mount(self, volume, path):
+        """Dynamic definitions preserve native S3 Files volumes and read-only mounts."""
         import copy
 
         base_task_def = copy.deepcopy(self.BASE_TASK_DEF)
         base_td = base_task_def['taskDefinition']
-        base_td['volumes'].append({'name': 'task-cache'})
+        base_td['volumes'].append(volume)
         sre_cd = next(cd for cd in base_td['containerDefinitions'] if cd['name'] == 'rosa-boundary')
         sre_cd['mountPoints'].append({
-            'sourceVolume': 'task-cache',
-            'containerPath': '/var/cache/task',
+            'sourceVolume': volume['name'],
+            'containerPath': path,
             'readOnly': True,
         })
 
@@ -2018,13 +2028,13 @@ class TestPerInvestigationTaskDef:
             )
 
         call_kwargs = mock_ecs.register_task_definition.call_args[1]
-        assert {'name': 'task-cache'} in call_kwargs['volumes']
+        assert volume in call_kwargs['volumes']
         generated_sre = next(
             cd for cd in call_kwargs['containerDefinitions'] if cd['name'] == 'rosa-boundary'
         )
         assert {
-            'sourceVolume': 'task-cache',
-            'containerPath': '/var/cache/task',
+            'sourceVolume': volume['name'],
+            'containerPath': path,
             'readOnly': True,
         } in generated_sre['mountPoints']
 

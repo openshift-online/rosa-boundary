@@ -5,8 +5,8 @@ Comprehensive LocalStack Pro-based testing infrastructure for rosa-boundary AWS 
 ## Overview
 
 These tests exercise emulated AWS APIs, policy structure, and selected CLI
-workflows. They do not prove real AWS authorization, container execution, or
-production behavior:
+workflows. They do not validate managed S3 Files mounts or synchronization,
+nor do they prove real AWS authorization or production behavior:
 
 - **S3**: Audit bucket with WORM compliance and Object Lock
 - **IAM**: Roles, policies, OIDC providers, tag-based authorization
@@ -213,7 +213,8 @@ Both start a single container:
 
 ### Task Lifecycle Focus
 
-ECS tests validate task submission and management, not container internals:
+ECS lifecycle tests validate task submission and management, not container
+internals or managed S3 Files mounts:
 
 - **Tested**: Task definition registration, run-task API, tagging, stop-task
 - **Not Tested**: Container execution, ECS Exec sessions, actual container logs
@@ -227,6 +228,33 @@ structure. Some policy-simulation cases are explicitly skipped because LocalStac
 does not evaluate the required ECS resource-tag conditions. A passing local run
 is not evidence of real cross-user isolation or IAM enforcement; those assertions
 require separately approved live verification.
+
+## Managed S3 Files coverage
+
+Published content now uses AWS-managed S3 Files with read-only per-prefix mounts
+at `/opt/rosa-content/<prefix>`. IAM explicitly denies `s3files:ClientWrite` on
+content filesystems, and a separate S3 Files service role accesses the backing bucket
+and KMS key. The task role is not the service role. See the
+[regional content documentation](../../deploy/regional/README.md#managed-s3-files-task-content)
+for the identity and prefix-path contract.
+
+The former sidecar script, shell tests, container runtime tests, and their
+endpoint-guard unit tests have been removed. Running an AWS CLI sync in a local
+container would not exercise the replacement's managed filesystem behavior.
+There is no content runtime image or executor opt-in in this suite.
+
+Source and mocked Terraform checks can inspect mount wiring and IAM policy
+structure; LocalStack ECS submission tests can exercise lifecycle APIs. Neither
+establishes that Fargate can mount S3 Files or that AWS enforces the explicit
+write deny. The mounts are a task startup dependency, unlike the old optional
+sidecar; failed mount setup can prevent the workload from starting.
+
+AWS-managed synchronization is asynchronous and **not atomic** across files
+or prefixes. Mount success is not proof of freshness or a complete multi-file
+publication. A separately approved real AWS test is needed for mount startup
+and failure behavior, per-prefix reads, rejected writes, service-role S3/KMS
+access, and eventual propagation of updates and deletions. This local suite
+does not deploy resources or prove those behaviors.
 
 ## Terraform Testing
 
@@ -251,7 +279,9 @@ LocalStack simulates WORM compliance but may differ from real AWS. Verify produc
 
 ### Fargate Task Execution
 
-LocalStack simulates task submission but actual container execution varies. We test task lifecycle, not container behavior.
+LocalStack simulates task submission but actual container execution varies.
+Lifecycle tests do not prove real Fargate execution or managed S3 Files mount
+and synchronization behavior; see [coverage limits](#managed-s3-files-coverage).
 
 ### Container Image Pull
 

@@ -5,6 +5,12 @@
 # enforcement, real alias/aws/s3 key ARNs or actual replication behaviour, all
 # of which stay deferred until an authorised environment exists.
 mock_provider "aws" {
+  mock_resource "aws_iam_role" {
+    defaults = { arn = "arn:aws:iam::123456789012:role/content-files-service" }
+  }
+  mock_resource "aws_s3files_file_system" {
+    defaults = { arn = "arn:aws:s3files:us-east-1:123456789012:file-system/fs-0123456789abcdef0" }
+  }
   mock_resource "aws_lambda_function" {
     defaults = { arn = "arn:aws:lambda:us-east-1:123456789012:function:boundary-test" }
   }
@@ -424,8 +430,8 @@ run "publisher_and_runtime_grants_are_minimal" {
   assert {
     condition = toset(flatten([
       for statement in jsondecode(aws_iam_role_policy.task_content.policy).Statement :
-      flatten([statement.Action])
-    ])) == toset(["s3:ListBucket", "s3:GetObject", "kms:Decrypt"])
+      flatten([statement.Action]) if statement.Effect == "Allow"
+    ])) == toset(["s3:ListBucket", "s3:GetObject", "s3:GetObjectVersion", "kms:Decrypt"])
     error_message = "The runtime task grant must be read and decrypt only: it downloads content and must never write it."
   }
 

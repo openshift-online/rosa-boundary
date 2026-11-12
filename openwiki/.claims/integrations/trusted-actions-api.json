@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:623ab051e6a4e1d6180ee4a2fbe537815b02dd2e53acac39c142f5588f599e8b",
+  "pageVersion": "sha256:e73bf220b76c656484581939277708970974c6b99a75ec94f80412a921670fec",
   "claims": [
     {
       "id": "claim_6e2e7f06ae7f4a33a04ae7f46be88040",
@@ -16,7 +16,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/openapi/paths/catalog.yaml",
-          "version": "repo-file-v1:sha256:ffc233e3b5b8c56b54209269801da8865bfde33d8182d3aa5616af9b40c230d9"
+          "version": "repo-file-v1:sha256:e6ac91a038bc0b411b780dad399422baf832c6fca3b030b09ea85fa5f232e72d"
         },
         {
           "resource": "repo://components/trusted-actions/openapi/paths/runs.yaml",
@@ -32,7 +32,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/openapi/paths/%7Baction%7D.yaml",
-          "version": "repo-file-v1:sha256:677aafdee283775f6bf7bf4876d25b0ac2203050404409f4ff426190a5f919e4"
+          "version": "repo-file-v1:sha256:0ed600467924764e945c43891f079f2eb5020029b75a591547cff7ae8f4cd87c"
         },
         {
           "resource": "repo://components/trusted-actions/openapi/paths/%7Baction%7D%40run.yaml",
@@ -42,11 +42,15 @@
     },
     {
       "id": "claim_70cbf6803ceb469a9ff9a95f89aab9b9",
-      "statement": "The Trusted Actions OpenAPI document declares a single global security scheme, ocm_jwt, an HTTP bearer JWT validated against the Red Hat SSO JWKS endpoint with caller identity taken from the username claim (falling back to preferred_username); the /health endpoint is served outside the OpenAPI-defined contract directly by cmd/server/main.go and is explicitly marked public to the OCM authentication handler.",
+      "statement": "The Trusted Actions OpenAPI document declares a single global security scheme, ocm_jwt, an HTTP bearer JWT validated against the Red Hat SSO JWKS endpoint with caller identity taken from the username claim (falling back to preferred_username); the /health endpoint is served outside the OpenAPI-defined contract directly by cmd/server/main.go, registered before the /api/v0/trusted-actions route group, and is explicitly marked public (Public(\"^/health$\")) to the conditionally-applied OCM authentication handler so it works without a token when auth is enabled.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L367-L412",
-          "version": "repo-lines-v1:sha256:dc8069c7477ef1fc82d5e4e67e6178fb48036427b1bb345449ebae217d727fd6:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg0NWUxZGM0YjJlMzJiMmE4YWMyMGJlMzZkNDc0MDY0OWY0NzRiNTNiMmY4ODlhNmNjODc3ZDBiOGYyYjJkZDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxNTA2ODUxNWU3ZWQ2Nzg4MGNkMDk0ZDE0MDM2YTk2ZDUxMmU3OTUyZjI1ZTEyY2JlZDNiNDI1ZjhmZjkyYjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc3NWE4ZjBiZmUxMjU4MjdlZTBjMmU2YzA3NTNmNzc0NTVjYWYzZDI2YTkyODc3Yzg1ZmRkODU4NWNlZTAwMjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3NmZjZDliZjA3NzI4NDljY2ZmOWI2NGFjZTc1YWZlNDVjNjE3YmY0NzM0YjQ2MzczMTZiMWViN2U1ZDFiZWYifQ"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L367-L372",
+          "version": "repo-lines-v1:sha256:ce590c86e0bcb5e22cb7580c40c3c695e90ab1e234c21d5dc6a68425a1dadcc5:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODQ1ZTFkYzRiMmUzMmIyYThhYzIwYmUzNmQ0NzQwNjQ5ZjQ3NGI1M2IyZjg4OWE2Y2M4NzdkMGI4ZjJiMmRkNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNzdhOWI1ZTkwMTljOGRiODc4M2VjOWMzZmViYjBhMmM5ODYyZjYxYTA1YzMwOGZlODk1ZTRhOWJlZDAzZWRiMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzc1YThmMGJmZTEyNTgyN2VlMGMyZTZjMDc1M2Y3NzQ1NWNhZjNkMjZhOTI4NzdjODVmZGQ4NTg1Y2VlMDAyOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjE5NjEyNmVjNWU5OTlmNWE1OTMxYmU5OTIzM2MzOGY2MDYyYmY5OGFiZWNkYjRlNWVmYzZhOWE1ZThhMjY2MSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L394-L418",
+          "version": "repo-lines-v1:sha256:673c446d7602721c16e6df68fe7226149d12e8c3abd2dfe056cac63acffe25b3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkZWIwNjU3OTRlMjY3NWNmNDY4MGViOWU5ZjQzNjI2Y2U4MDE3MmJmNjI3ZGQwYjg1Njc2OWEwMWVkNzhhNTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk0NWQ3NmMwMGJhODZjMTM2NGJlYTY0NTk1MzVjNzYyNjE4MmNlN2FiNjg1YzU3YzMwZjdlN2EzNmY3NzM1NTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxZjY3MTVhYjQwMTE4OWNlY2I0YmE1ZWIzZmFmYjZhOWRjYTQzNDc2ZDM2YmY4Y2MxM2JjMTY3MTYyYmRkMTMifQ"
         },
         {
           "resource": "repo://components/trusted-actions/openapi/components/securitySchemes/ocm_jwt.yaml",
@@ -60,19 +64,23 @@
     },
     {
       "id": "claim_35fc445fb0954e7192e6b07d98cb56ff",
-      "statement": "Catalog and describe endpoints declare security: [] in the OpenAPI spec, but the server currently applies authentication, audit-logging, and authorization middleware to the entire /api/v0/trusted-actions route group including those two routes; a TODO in cmd/server/main.go notes this mismatch is unresolved.",
+      "statement": "As of the current OpenAPI document, no path file (including catalog.yaml and {action}.yaml) declares a security: [] override; the ocm_jwt scheme is applied globally in openapi.yaml with no per-path exceptions, so every documented route under /api/v0/trusted-actions, including catalog (GET /) and describe (GET /{action}), requires the bearer token. This matches the server's actual enforcement: cmd/server/main.go mounts the whole /api/v0/trusted-actions sub-tree as one chi route group wrapped in authentication, audit-logging, and authorization middleware before any handler in that group runs, so there is no current authn-vs-spec mismatch on catalog/describe.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L374-L390",
-          "version": "repo-lines-v1:sha256:45c599fb72055e701a6ada953f43a95b1bfa3618101b8d22fd95a88ca12cdcc3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYTVhMWVkOTg1MzFkODc5Y2NhNzBjYjMyZWZlZDM3Yjg0ODk4Y2YwNzlhOTVlZDM1NmFjMzMwNjBkOWVkZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmODA5MmZmZjllOGM3YmUyZTE5OTg3ZGU1NDEyOTg1ODNkNTM4Mzc1MzM2ZjJkMWQyMzlmODZhYTQwYTM0YjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1OTczNTcyY2Y0ZjEwZWVjNjcxYTNmZDhjZTJiOGViN2RiODRmOTllZTllMmY5YWY2N2E4NjE0M2FmMWJhMmYifQ"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L378-L386",
+          "version": "repo-lines-v1:sha256:ab207d57e290faf8f85e6b007b7c6b933249b30eebb714e71d30dc7cc87627ac:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiY2UyNjE1YzcwMWI5MTBiNGVkNDRhNzM1ZWVmMDIzOWUzMGRhZTUwN2I1OTM2MzBkNDI2YjczNTY3YzQ2YWEyOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNzdhOWI1ZTkwMTljOGRiODc4M2VjOWMzZmViYjBhMmM5ODYyZjYxYTA1YzMwOGZlODk1ZTRhOWJlZDAzZWRiMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjQwZWViYjc2ZmI1ZGVmYWE1M2M2ODkzMzY2Y2ZkMTA1NGQ5YWIwNTA4MDkyNGM5Y2U3MjBkMzQ5MjBiM2MxYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjU5NzM1NzJjZjRmMTBlZWM2NzFhM2ZkOGNlMmI4ZWI3ZGI4NGY5OWVlOWUyZjlhZjY3YTg2MTQzYWYxYmEyZiJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/openapi/paths/catalog.yaml#L1-L10",
-          "version": "repo-lines-v1:sha256:97ff046deec189dd2a24713d1f3191b638c5be3d1a04d71fa8059064af94150c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3NjE0OGFmMzQxYmJjYWFhMjEyNjQ0ZmQ1NjE4MDMyYTI2NTVkNjBhZTE1NDUwYTJlODFlNTFlYzNhMzY2MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhMDU2OWMzNDUxMzJiYzg3MTNlNzRmMjc0ZDQ2NDI3MDdlYTNkMzIxMjViMTE0MTZlOWY2YTNkZmE3MjIzZmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ3MzU2ZjZmZmMyYjhjYzI1NjllNWEwN2I4YmJlYzc4MTE2ZGZkYmZiMzJlMTI3OGE4YmFiZDMzYWIxNTYwYzkifQ"
+          "resource": "repo://components/trusted-actions/openapi/openapi.yaml#L42-L62",
+          "version": "repo-lines-v1:sha256:7496cdbf47ce848e69dcc19e9e06011d5fd51f8730a21d4b930ea0fdcb6b8a74:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBlNThkZWU4OTAzYjAwYzliMzczMzQyYWQ3MjRiM2Y0OGNlMDUzNzU5Y2ViNmM1ZmExZDFkNjIyMDEyMTkxZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRiYmNjYjcxM2E3Yjc5NjA4OWY2ZjFhZTY3NTI3OWIwZDM3OWNhOTkyNmNiZThiNmI3MGU4N2MyZDJkNGI3NGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFhZjI1MzYxOGUzMTdiZjJkMTlhNGJmMDE1YzlkNGY1MDM5NGU2MmY0ZTE5MDI3MTRhNmZiMzdkZWZjNDQzZTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/openapi/paths/%7Baction%7D.yaml#L1-L11",
-          "version": "repo-lines-v1:sha256:cefb64de45e027aa7a6c8fdff3c25e5dce4681c817ff2f15f2e11d4aba59a290:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3NjE0OGFmMzQxYmJjYWFhMjEyNjQ0ZmQ1NjE4MDMyYTI2NTVkNjBhZTE1NDUwYTJlODFlNTFlYzNhMzY2MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlkZTEyNmRlMTExYTg5NDg0YzVjZTdhMjk5NGVhMjU1NDI4MzVjOTVlZWVlZjA3ODcyMzgwMmQyYjUwNTFiOTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMxMDkyZjgzY2E2OWI2OWNhOTcwM2EwNWI3Y2M2Zjg3NGNmMTk1OGU2YTQyYjI1NzY5M2MwMTUzOTkxNWZmZGEifQ"
+          "resource": "repo://components/trusted-actions/openapi/paths/%7Baction%7D.yaml",
+          "version": "repo-file-v1:sha256:0ed600467924764e945c43891f079f2eb5020029b75a591547cff7ae8f4cd87c"
+        },
+        {
+          "resource": "repo://components/trusted-actions/openapi/paths/catalog.yaml",
+          "version": "repo-file-v1:sha256:e6ac91a038bc0b411b780dad399422baf832c6fca3b030b09ea85fa5f232e72d"
         }
       ]
     },
@@ -81,7 +89,7 @@
       "statement": "At request time, the server validates caller JWTs against OCM's JWKS endpoint via an OCM SDK authentication handler, then internal/auth.Middleware.AuthenticateAccountJWT extracts the caller identity from request context and rejects requests with a missing username claim with 401.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L400-L420",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L396-L416",
           "version": "repo-lines-v1:sha256:67fd2888b10fc35b412ea73867235998f6146e3cd1097e88de19f22d4cdc6f55:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczYmU1OGUyNzVlNDhkZGE2OGZjOWQwYjMwNGU3MGFlOGY3YTg4MzExMjM3ZTNjOWYzNTFmMjFhZjQ5ZWFjMDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNiMWZiZGI5OTE1YWIwN2UxODM5NTE3NzQxMDg3NzZlMzIxOGYwZjM0NTE0MzgzOWU3ZGJmZDE0YzAxOWRkMDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQwZjE2MWY3ZjkyMTVhOTRlNWI4MDFlMmYwZjRjNmQxYmM5OWE4ZDA5NGEzMTQwNGNiM2FiNGRhMWM3NzJkMDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIyZjJmZjVmZWVjNjBmNTg3YzhmYWU0ZTg3ZjgwOWE2NjFjZmZlZDZiNDdhYWU1ZjZkNmEyNjUzYWE4OTUyZWYifQ"
         },
         {
@@ -170,11 +178,15 @@
     },
     {
       "id": "claim_f76db2eaf63646299c1e348624150998",
-      "statement": "At this import, no code in internal/cmd (the rosa-boundary CLI's command package) or the root Containerfile calls the Trusted Actions API or links an rta client; any Boundary-CLI-to-Trusted-Actions call path is an intended future integration rather than an exercised code path today.",
+      "statement": "At this import, no code in internal/cmd (the rosa-boundary CLI's command package) or the repository-root Containerfile calls the Trusted Actions API or links an rta client; the root Containerfile instead builds the unrelated rosa-boundary SRE-tools investigation image (ocm, backplane-cli, osdctl, optional Claude Code) and is not the build file for the Trusted Actions server, which ships from its own components/trusted-actions/Containerfile. Any Boundary-CLI-to-Trusted-Actions call path is an intended future integration rather than an exercised code path today.",
       "evidence": [
         {
-          "resource": "repo://Containerfile",
-          "version": "repo-file-v1:sha256:fdaaa46fc3481edf9eea2ceea0c451fd7a8d76171727e6bf744497de5bbf154a"
+          "resource": "repo://Containerfile#L1-L23",
+          "version": "repo-lines-v1:sha256:2eea9f13c2888b3a7f993238980057c13e4498623e0c3fae2dd4088930dad5f4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/Containerfile",
+          "version": "repo-file-v1:sha256:50c494a09f6b08bbaed9da3f2ca83672733ed7db7452a89a688f00161ce7cdbb"
         },
         {
           "resource": "repo://components/trusted-actions/cmd/rta/main.go#L1-L17",
@@ -195,10 +207,20 @@
           "version": "repo-lines-v1:sha256:df1d036cbbf3df46e2045071e082245ece204c7f53ecf0a4e022bff9bb228f47:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZGYxZDAzNmNiYmYzZGY0NmUyMDQ1MDcxZTA4MjI0NWVjZTIwNGM3ZjUzZWNmMGE0ZTAyMmJmZjliYjIyOGY0NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGYxZDAzNmNiYmYzZGY0NmUyMDQ1MDcxZTA4MjI0NWVjZTIwNGM3ZjUzZWNmMGE0ZTAyMmJmZjliYjIyOGY0NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzJjOTRkNmVjOTQ2NjFjNjY2NTY5ZmJmMzJjMTE3YmQxZWUwNjU1MTRiZjUyN2JmNGM3OWZlOWM2N2I2OGRmNiJ9"
         }
       ]
+    },
+    {
+      "id": "claim_92c4baca575b4bc1acd6be0d2c02e990",
+      "statement": "The Trusted Actions server is built and shipped from components/trusted-actions/Containerfile, a two-stage build: a registry.access.redhat.com/hi/go builder stage runs `go build -o bin/rosa-trusted-actions-server ./cmd/server`, and the binary is copied into a digest-pinned registry.access.redhat.com/hi/core-runtime image that exposes port 8080, runs as non-root user 1001, and sets ENTRYPOINT [\"rosa-trusted-actions-server\"].",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Containerfile",
+          "version": "repo-file-v1:sha256:50c494a09f6b08bbaed9da3f2ca83672733ed7db7452a89a688f00161ce7cdbb"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

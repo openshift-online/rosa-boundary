@@ -1,12 +1,13 @@
 ---
 type: workflow
 title: Trusted Actions execution pipeline
-description: Traces how a validated POST .../{action}/run request becomes a persisted, asynchronously executed, and auditable Trusted Actions outcome, across the store, worker pool, executor, and scope layers.
-tags: [trusted-actions, worker-pool, executor, scope, backplane, audit, execution, catalog]
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
+description: Traces a trusted action from CLI/API request (rta action run or any direct POST .../{action}/run) through persistence, worker-pool claiming, scope-based authorization, and cluster execution, to the always-written audit record and the polled result.
+tags: [trusted-actions, cli, rta, worker-pool, executor, scope, backplane, audit, execution, catalog]
 sources:
+  - id: openwiki-source-b4d4b45d5e0381ad76cf80b7
+    resource: repo://components/trusted-actions/cmd/action-cli/main.go
+  - id: openwiki-source-24686d7a4469971452a0c7ec
+    resource: repo://components/trusted-actions/cmd/action-cli/README.md
   - id: openwiki-source-11418ec52755ac005ca19730
     resource: repo://components/trusted-actions/cmd/server/main.go
   - id: openwiki-source-2d8b922c7e5e8b7514a7bbff
@@ -33,6 +34,14 @@ sources:
     resource: repo://components/trusted-actions/internal/models/output.go
   - id: openwiki-source-f710c4d6aa9327fd7bfc55c4
     resource: repo://components/trusted-actions/internal/openapi/api.go
+  - id: openwiki-source-ed6c0498a7148fe3a6bfdec0
+    resource: repo://components/trusted-actions/internal/rta/action.go
+  - id: openwiki-source-a3e72d493525ffc9456be3d3
+    resource: repo://components/trusted-actions/internal/rta/auth.go
+  - id: openwiki-source-a6c0f8d599d4aca7d9811870
+    resource: repo://components/trusted-actions/internal/rta/client.go
+  - id: openwiki-source-2acf8cecbee106a6b2feb9d9
+    resource: repo://components/trusted-actions/internal/rta/command.go
   - id: openwiki-source-824369b5e1742f66c9b0ba61
     resource: repo://components/trusted-actions/internal/store/postgres.go
   - id: openwiki-source-0a4dbcd3f9f3b6e51a1a5f7a
@@ -41,23 +50,27 @@ sources:
     resource: repo://components/trusted-actions/internal/worker/executor_runner.go
   - id: openwiki-source-fea1c4c690d64395b484bcdb
     resource: repo://components/trusted-actions/internal/worker/pool.go
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-12T16:02:44.301Z
 ---
 
 # Trusted Actions execution pipeline
 
-This page traces a single Trusted Actions run end to end: from the HTTP
-handler that persists it, through the background worker pool that claims and
-executes it, to the executor's scope-based authorization and run, down to the
-audit record that is always written, and finally to how a caller retrieves
-the result. It is scoped to Trusted Actions
-(`components/trusted-actions/`) only. Boundary's own asynchronous
-investigation system (ECS tasks, EFS workspaces) is an unrelated mechanism in
-the same monorepo — see
+This page traces a single Trusted Actions run end to end: from the CLI/API
+request that triggers it, through the HTTP handler that persists it, through
+the background worker pool that claims and executes it, to the executor's
+scope-based authorization and run, down to the audit record that is always
+written, and finally to how a caller retrieves the result. It is scoped to
+Trusted Actions (`components/trusted-actions/`) only. Boundary's own
+asynchronous investigation system (ECS tasks, EFS workspaces) is an unrelated
+mechanism in the same monorepo — see
 [Investigation lifecycle](investigation-lifecycle.md) — and shares no code,
 store, or worker pool with what is described here.
 
-For the HTTP surface and request/response shapes, see
+For the HTTP surface, request/response shapes, and a comparison of the three
+command-line entry points (`rta`, `action-cli`, `test-client`), see
 [Trusted Actions API](../integrations/trusted-actions-api.md). For how a
 caller's identity and role are resolved before an execution is even queued,
 and for the second authorization layer inside the executor, see
@@ -71,7 +84,8 @@ For how results are surfaced in the audit log, see
 
 ```mermaid
 flowchart TD
-    A["POST /{action}/run<br/>(authenticated + role-checked)"] --> B["APIHandler.CreateExecution<br/>internal/handlers/api.go"]
+    Z["rta action run <action><br/>(internal/rta.Client)"] -->|"POST /{action}/run<br/>(authenticated + role-checked)"| A
+    A["Any ocm_jwt-authenticated client"] --> B["APIHandler.CreateExecution<br/>internal/handlers/api.go"]
     B --> C["store.CreateExecution<br/>status = pending"]
     C --> D["APIHandler calls notifier.Notify()"]
     D --> E["worker.Pool.workerLoop"]
@@ -97,9 +111,65 @@ flowchart TD
     K --> T
     O --> T
     T --> U["GET /runs/{id}<br/>GET /runs/{exec_id}/output"]
+    U -.->|"rta polls every 2s<br/>until terminal status"| Z
 ```
 
-## 1. Persistence: `POST /{action}/run`
+## 1. Discovery and request: the `rta` CLI
+
+`rta` (`cmd/rta` + `internal/rta`) is the reference end-user client for this
+whole pipeline; it issues exactly the HTTP requests described in the rest of
+this page and nothing else — it holds no in-process executor, catalog, or
+store. `rta.NewCommand()` (`internal/rta/command.go`) builds a cobra tree with
+three subcommand groups wired to the same `internal/rta.Client`
+(`action`, `execution`, `audit`), plus `version`:
+
+- **`rta action list`** calls `Client.Catalog` (`GET /`) and **`rta action
+  describe <action>`** calls `Client.Describe` (`GET /{action}`) — this is
+  the "discovered" half of the workflow: a caller finds out what actions
+  exist and what parameters they take (name, required/optional, default,
+  description) before ever submitting one.
+- **`rta action run <action> --cluster <id> --jira <ticket> [--param
+  k=v]...`** (`internal/rta/action.go`) parses `--param key=value` flags into
+  a `map[string]string`, builds an `openapi.ExecutionRequest{TargetCluster,
+  Jira, Params, DryRun, Force}`, and calls `Client.CreateExecution` — a plain
+  `POST /{action}/run` identical in shape to any other authenticated caller
+  of the API. This is the "requested" step: `rta` performs no
+  authorization or validation of its own beyond parsing the command line;
+  every check described later on this page (role allowlist, scope
+  authorization) happens server-side after this call lands.
+- With `--no-wait`, `run` prints the `202`-accepted `Execution` (`pending`)
+  and returns immediately. Without it, `waitForCompletion` polls
+  `Client.GetExecution` (`GET /runs/{id}`) on a 2-second ticker until status
+  is `succeeded`, `failed`, or `timed_out`, bounded by the command's
+  `--timeout` (default 5 minutes); on success or failure it also fetches
+  `Client.GetExecutionOutput` (`GET /runs/{exec_id}/output`) to print the
+  action's message/resources or the failure reason.
+- **`rta execution list|get|output`** and **`rta audit list`** expose the
+  same `GET /runs`, `GET /runs/{id}`, `GET /runs/{exec_id}/output`, and
+  `GET /audit` endpoints for inspecting executions and the request-level
+  audit trail after the fact, independent of whichever client submitted the
+  run.
+
+`Client` (`internal/rta/client.go`) prefixes every call with
+`/api/v0/trusted-actions`, resolves its bearer token from `--token` or
+(`internal/rta/auth.go`) an OCM CLI config file's access token, refuses to
+send that token over a non-HTTPS, non-loopback server URL, and rejects any
+redirect that would downgrade HTTPS to plain HTTP — the CLI itself enforces
+transport security for the credential that the server-side authentication
+layer (see [Trusted Actions authorization model](../architecture/trusted-actions-authorization.md))
+will go on to validate. A non-2xx response is decoded into an `*APIError`
+carrying the request method/path, status code, and the server's `code`/
+`reason` (from `openapi.Error`) when present, so CLI error output reflects
+the same denial/failure reasons the server itself produced. `rta` is not the
+only way to reach this API — any `ocm_jwt`-authenticated HTTP client can
+issue the same `POST /{action}/run`, and `cmd/action-cli` bypasses the HTTP
+layer entirely by driving the same `internal/executor.Executor` in-process;
+see [Trusted Actions API](../integrations/trusted-actions-api.md) for how all
+three command-line entry points (`rta`, `action-cli`, `test-client`) compare.
+Everything from here on describes what happens once a `POST /{action}/run`
+request — from `rta` or any other caller — reaches the server.
+
+## 2. Persistence: `POST /{action}/run`
 
 `APIHandler.CreateExecution` (`internal/handlers/api.go`) looks the action up
 in the catalog (`404` if unknown), decodes the JSON body into
@@ -130,13 +200,13 @@ current pipeline (`pending` at creation, `running` on claim, and
 `succeeded`/`failed` on completion); `timed_out` is a declared state with no
 code path that sets it today, since a worker-side execution timeout surfaces
 as an `Executor` error and is mapped to `failed` like any other error (see
-§4). `ApprovalState`, `Scope`, `Type`, `Revision`, `ManifestWorkName`,
+§5). `ApprovalState`, `Scope`, `Type`, `Revision`, `ManifestWorkName`,
 `RunnerSeconds`, `UploadSeconds`, and `DurationSeconds` are also part of the
-persisted/returned shape; `ExecutorRunner` (§3) does not populate the
+persisted/returned shape; `ExecutorRunner` (§4) does not populate the
 manifest-work/runner/uploader fields, since it calls `Executor.Execute`
 synchronously rather than performing a two-phase dispatch.
 
-## 2. Worker pool: claiming pending work
+## 3. Worker pool: claiming pending work
 
 `worker.Pool` (`internal/worker/pool.go`) is an in-process pool of
 goroutines, each running `workerLoop`. On every iteration a worker calls
@@ -183,7 +253,7 @@ worker pool's context first, then the HTTP server is given 30s to drain, then
 the pool is given the remainder of that same deadline to let in-flight
 `Run` calls finish before the process exits.
 
-## 3. `ExecutorRunner`: resolving and decoding a claimed execution
+## 4. `ExecutorRunner`: resolving and decoding a claimed execution
 
 `ExecutorRunner.Run` (`internal/worker/executor_runner.go`) turns the opaque,
 persisted `models.Execution` back into a typed request the executor can run:
@@ -195,7 +265,7 @@ persisted `models.Execution` back into a typed request the executor can run:
 2. `decodeParams(exec.Params)` unmarshals the persisted JSON params back into
    `map[string]string` (an empty map if none were given).
 3. A per-execution context is derived with `context.WithTimeout(ctx,
-   executionTimeout)` (default 2 minutes, see §2) so a hung backplane or
+   executionTimeout)` (default 2 minutes, see §3) so a hung backplane or
    cluster call cannot block a worker goroutine indefinitely.
 4. `executor.Executor.Execute` is called with `Target` left `nil` — the
    resolved `Scope`'s `DeriveTarget` is responsible for building a target
@@ -212,7 +282,7 @@ request path and into the background worker pool.
 
 - `result.Error != nil` → `status: "failed"`, logged as an execution failure.
   This is reached both for a genuine action failure *and* for a request that
-  never reached authorization at all (target derivation failed) — see §4 for
+  never reached authorization at all (target derivation failed) — see §5 for
   why the executor itself keeps these conceptually distinct even though the
   worker currently collapses both into the same terminal status.
 - `result.Error == nil && !result.Allowed` → also mapped to `status:
@@ -223,7 +293,7 @@ request path and into the background worker pool.
 - `result.Error == nil && result.Allowed` → `status: "succeeded"`, with
   `result.Output` carried through as the `RunResult.Output`.
 
-## 4. `Executor.Execute`: scope resolution, authorization, and run
+## 5. `Executor.Execute`: scope resolution, authorization, and run
 
 `internal/executor/executor.go` is the domain-agnostic core of the pipeline.
 It holds a list of `Scope`s and, for every `Request`, builds an `audit.Record`
@@ -294,7 +364,7 @@ e.g. `AWSScope.DeriveTarget`'s resource-mismatch check — means nothing
 technically failed; the request was understood and refused on its own terms,
 and is audited as-is.
 
-## 5. `Scope`: the domain boundary
+## 6. `Scope`: the domain boundary
 
 `executor.Scope` is the interface that keeps `Executor` itself domain-agnostic:
 
@@ -355,7 +425,7 @@ so adding a third scope (or extending either existing one to a new resource
 kind) still requires designing that domain's own authorization checks rather
 than reusing either existing `Authorizer`.
 
-## 6. Write-action safeguards declared in the catalog
+## 7. Write-action safeguards declared in the catalog
 
 `catalog.ActionDefinition` (`internal/catalog/catalog.go`) carries three
 fields intended as write-safety metadata, surfaced through
@@ -381,14 +451,14 @@ is "no approval enforcement system today" — defaulting to `Approval:
 described on this page. The only write-time safeguards actually enforced at
 runtime are the resource-level allowlists inside `Scope.Authorize` (the
 Kubernetes namespace/secret allowlist and the AWS region/operation
-allowlist described in §5), plus the HTTP-layer, per-action
+allowlist described in §6), plus the HTTP-layer, per-action
 `AllowedRoles` check that runs before an execution is ever queued (see
 [Trusted Actions authorization model](../architecture/trusted-actions-authorization.md)).
 Treat `DryRunAction`/`WriteCooldownSeconds`/`Approval` as declared intent in
 the catalog schema, not as an active gate on the execution path documented
 above.
 
-## 7. Retrieving results: `GET /runs/{id}` and `GET /runs/{exec_id}/output`
+## 8. Retrieving results: `GET /runs/{id}` and `GET /runs/{exec_id}/output`
 
 `APIHandler.GetExecution` (`GET /runs/{id}`) fetches the row via
 `store.GetExecution`, converts it with `Execution.ToOpenAPI`, and separately
@@ -404,4 +474,8 @@ execution sees `status: "pending"`; between claim and completion, `"running"`;
 after completion, `"succeeded"` or `"failed"` with output retrievable (for a
 successful run) from the output endpoint. There is no push/webhook
 notification back to the caller — retrieval is poll-only, as documented in
-the OpenAPI spec's suggested workflow (`openapi/openapi.yaml`).
+the OpenAPI spec's suggested workflow (`openapi/openapi.yaml`). `rta action
+run` (§1) implements exactly this poll loop on the caller's behalf — a
+2-second `GetExecution` ticker followed by one `GetExecutionOutput` call once
+a terminal status is reached — so a caller who does not pass `--no-wait`
+never has to script the polling described here themselves.

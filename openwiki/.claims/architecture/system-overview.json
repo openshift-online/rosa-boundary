@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:e67956a1cdea020bcbf20629b111e0805bedcd19813177e6684aa08d2c07a1c9",
+  "pageVersion": "sha256:72986e7818ef588e48b201934ae7936a0a2cd3d6f2089c3d7871f3c34c79633d",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
@@ -247,10 +247,48 @@
           "version": "repo-lines-v1:sha256:70291be41e7572d57b0413bb789134762b3124b9b6021a24922b2b64af901ee0:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTMwM2VjZGQ0YTRkMTBmMTljNzNmZDQyZmQxMjQzN2ZkMzM1NGE4MjY4MTYwNWRhNTI1NWE5N2EzOTA2OGRiYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYTMwM2VjZGQ0YTRkMTBmMTljNzNmZDQyZmQxMjQzN2ZkMzM1NGE4MjY4MTYwNWRhNTI1NWE5N2EzOTA2OGRiYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTEyYzYwNTIyYzUyMjU4M2UwZTcxOTAzMDMxZTFhMTM3YzI2NWQxZTQ0NjVlZDQzYWZiOTNlZTdkZjk4MTYwZSJ9"
         }
       ]
+    },
+    {
+      "id": "claim_21de6334d8d249e89d78f7e48a0f9586",
+      "statement": "cmd/rosa-boundary/main.go is a minimal entrypoint that only calls cmd.Execute(); the Boundary CLI's Go module is github.com/openshift-online/rosa-boundary (go 1.26.0, toolchain go1.27.4), a module entirely separate from the independently versioned components/trusted-actions Go module.",
+      "evidence": [
+        {
+          "resource": "repo://cmd/rosa-boundary/main.go#L1-L9",
+          "version": "repo-lines-v1:sha256:72ca3934f42acadcd236749550c974e27328e001a5f0d7c6082e105d9e5b6c1a:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZGYxZDAzNmNiYmYzZGY0NmUyMDQ1MDcxZTA4MjI0NWVjZTIwNGM3ZjUzZWNmMGE0ZTAyMmJmZjliYjIyOGY0NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://go.mod#L1-L6",
+          "version": "repo-lines-v1:sha256:9b37fc209ede8bd64ecb49a67611fa8747e26356254f8cdf3e1b21c9a3804561:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjQxOTI0MGUxMjZjZTNlMDRmOWZiNTAzMjdmYzBmMDk0ZWU3YzRhN2ZlYmZkNTQzZjgxYTRjYmNjZmUyNTQyYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGY0ODZiOGZhYjk0YzU0OTdlZWM1MmU1ZWM4YmVhMmI1ZmY4M2Y4MTYwODdhMzAzYzNmMzUwYjhjY2YxMDJkNyJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_b55af256c8184effa2d84cfb2373b4ad",
+      "statement": "The root Containerfile builds the ECS Fargate operator image as five stages (tools-base, sre-tools, claude-builder, tmux-builder, final); sre-tools, claude-builder, and tmux-builder only fetch and verify tool binaries, and final is the only stage that ships, copying verified outputs from the other three and installing entrypoint.sh as ENTRYPOINT with CMD defaulting to sleep infinity.",
+      "evidence": [
+        {
+          "resource": "repo://Containerfile#L1-L23",
+          "version": "repo-lines-v1:sha256:2eea9f13c2888b3a7f993238980057c13e4498623e0c3fae2dd4088930dad5f4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
+        },
+        {
+          "resource": "repo://Containerfile#L191-L274",
+          "version": "repo-lines-v1:sha256:70edcfac0aeaff0444ec0099a887424ae74e6881803587388764c98deec8d5a7:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzZWJmNWIzNGJkNmE4MmY1NDc1OGM0OGVjMDg4NzA3NmMxNTViZmNiYzc5NjIxZmU3YmVjMzI1YWQyNGUzMDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwMmY1OTM1NGExN2ZiNjgwZTljMjE2YmZkMGQ2NjUxNGNjOTM0ZWFlZmU4MTU3MGNkN2U2ZjQwNWQ4NzQ0YzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_e1ce5c957fa945beab3f52bab0ac871b",
+      "statement": "Per AGENTS.md, Boundary's Lambda handlers (lambda/) and Terraform roots (deploy/account/, deploy/regional/) still live at the repository root rather than under a components/boundary/ layout; a move under components/ is noted as a future, separately validated refactor that has not occurred, and Boundary's lambda/ must not be moved into components/ incidentally.",
+      "evidence": [
+        {
+          "resource": "repo://AGENTS.md#L27-L31",
+          "version": "repo-lines-v1:sha256:1e46b21a8d746db5854cb3b955c0e4e51de6a8c68588214b76850bb310444c7d:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjJiZWEyNjEwZGQ5MTljZTQ1NDJmY2UzNGE0YTljMDAyNDRjNjk3OWYyOWU4ODg4MTM0YmMwNzY0YzM4M2M0ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGY3MjQ4ODViNjBlN2NjNjdkN2ZmZjQzYzVlOTI0MDc5MGIzYjc0MDI4Yzg3ZDZhM2U4ZDE2ZDgwMmJhYWY0MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzJkOTY2ZjU4MjVlN2Q2YjYzNWE5NmMzMTUwOTY5ZDA5YzZlNGZiNGVlM2FhNTcwOWYxZWZmYTc3ZTYzYWYzNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTdiM2JlZDhkNzIyYzU3N2NhMGI1NzYyYjYxNTgzY2YzMDM5YjMxNTY2Njg2MDZmMTY5N2VmZGUwYThlNjgzYSJ9"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

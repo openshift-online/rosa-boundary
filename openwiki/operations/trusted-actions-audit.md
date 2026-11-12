@@ -1,16 +1,17 @@
 ---
 type: operational-reference
 title: Trusted Actions audit and logging
-description: Explains Trusted Actions' structured per-call audit.Record model, how middleware and the executor inject and emit it, and the regional CloudWatch-to-Firehose-to-S3 pipeline that ships those records — distinct from ROSA Boundary's own audit flows.
+description: Explains Trusted Actions' two audit mechanisms — the per-request AuditEntry row written by middleware.NewAuditLogger into its SQLite-backed store, and the per-execution audit.Record the executor logs through the regional CloudWatch-to-Firehose-to-S3 pipeline — and how each is actually persisted, distinct from ROSA Boundary's own audit flows.
 tags: [audit, logging, operations, trusted-actions, cloudwatch, firehose, s3]
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
 sources:
   - id: openwiki-source-1907132ec84c53dc704aba84
     resource: repo://components/trusted-actions/ARCHITECTURE.md
+  - id: openwiki-source-11418ec52755ac005ca19730
+    resource: repo://components/trusted-actions/cmd/server/main.go
   - id: openwiki-source-20a8df8ec754179859478d6e
     resource: repo://components/trusted-actions/internal/audit/audit.go
+  - id: openwiki-source-841d8327bed5ef33a6f00f10
+    resource: repo://components/trusted-actions/internal/audit/mock.go
   - id: openwiki-source-25960f1da7fae36f9a10e870
     resource: repo://components/trusted-actions/internal/config/config.go
   - id: openwiki-source-65433781c88c8141f580330f
@@ -19,6 +20,10 @@ sources:
     resource: repo://components/trusted-actions/internal/middleware/audit.go
   - id: openwiki-source-fa9f309e7fc236ae68cbe6fa
     resource: repo://components/trusted-actions/internal/models/audit.go
+  - id: openwiki-source-0a4dbcd3f9f3b6e51a1a5f7a
+    resource: repo://components/trusted-actions/internal/store/sqlite.go
+  - id: openwiki-source-1c3bf184f6289c69968a14d7
+    resource: repo://components/trusted-actions/internal/store/store.go
   - id: openwiki-source-4f6d0f20d8e4f1405213641f
     resource: repo://components/trusted-actions/terraform/global/iam.tf
   - id: openwiki-source-822962ecabbb3b7359bc985b
@@ -27,7 +32,10 @@ sources:
     resource: repo://components/trusted-actions/terraform/regional/cloudwatch.tf
   - id: openwiki-source-6955d983b4d48fea403e850a
     resource: repo://components/trusted-actions/terraform/regional/ecs.tf
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-12T16:02:44.301Z
 ---
 
 # Trusted Actions audit and logging
@@ -106,7 +114,23 @@ flowchart TD
 
 A `Scope.Run` failure is wrapped in `executor.Failure`, which separates the caller-facing `Message` from the underlying `Cause`; `auditedCause` unwraps a `*Failure` so the audit trail records the real cause rather than the pipeline's user-facing wording.
 
-(repo://components/trusted-actions/internal/executor/executor.go, repo://components/trusted-actions/internal/middleware/audit.go, repo://components/trusted-actions/internal/models/audit.go)
+`NewAuditLogger` is wired into the request chain in `cmd/server/main.go`, inside the `router.Route("/api/v0/trusted-actions", …)` group — chi applies `authnMiddleware.AuthenticateAccountJWT`, then `middleware.NewAuditLogger(dataStore, logger)`, then `authzMiddleware.AuthorizeAPI`, before reaching any handler. Because the audit middleware wraps the authorization step and the handler, its deferred `CreateAuditEntry` write captures the final response status (including a `403` from `AuthorizeAPI` denying the call) and whatever username authentication already resolved, for every request under that route group. `actionAuditor`, the `audit.Logger` the executor logs through, is a second, independent piece of wiring: `main.go` constructs it as `audit.NewMockLogger(logger)` — the codebase's only production `audit.Logger` implementation is named `MockLogger` and keeps its records only in an in-process slice for tests; durability for `audit.Record` therefore depends entirely on its `logrus` line (tagged `"audit record"`) reaching the CloudWatch → Firehose → S3 pipeline below, not on any database write. A comment at this point in `main.go` flags this as known technical debt: `internal/audit.Logger` (per-action decision/outcome) and the request-level `AuditEntry` store predate each other — one is a holdover from a pre-HTTP-server CLI tool — and were never unified into one persisted trail.
+
+(repo://components/trusted-actions/internal/executor/executor.go, repo://components/trusted-actions/internal/middleware/audit.go, repo://components/trusted-actions/internal/models/audit.go, repo://components/trusted-actions/cmd/server/main.go#L205-L221, repo://components/trusted-actions/cmd/server/main.go#L374-L386, repo://components/trusted-actions/internal/audit/mock.go)
+
+## From request to persisted record: the database behind `AuditEntry`
+
+The per-request `AuditEntry` rows written by `NewAuditLogger` land in whichever `store.Store` implementation `cmd/server/main.go` opens at startup via `store.New(ctx, cfg.DatabaseURL, …)`. `store.New` picks the backend purely from the `DATABASE_URL` scheme: a `postgres://` or `postgresql://` prefix selects `PostgresStore`; anything else — including an empty string — falls back to `SQLiteStore`, whose own doc comment calls it "intended for local development and testing" and recommends `PostgresStore` "for production deployments."
+
+`terraform/regional/ecs.tf`'s `container_environment` sets `DATABASE_URL` to the literal path `/data/trusted_actions.db` (not a `postgres://` DSN), so every regional deployment of this service runs on the SQLite backend despite that guidance. That file is not ephemeral container storage: the task definition declares a `sqlite-data` volume bound to host path `/mnt/ecs-data` and mounts it at `/data` in the app container, and the ECS service runs with `launch_type = "EC2"` and `desired_count = 1`. In practice this means:
+
+- The `audit_entries` table (written by `NewAuditLogger`) and the `executions` table both live in one SQLite file on the local disk of the single EC2 container instance backing the service — there is no managed database, replication, or automated backup in this Terraform for that file.
+- `SQLiteStore` additionally forces a single open connection (`db.SetMaxOpenConns(1)`) to avoid "database is locked" errors on the file, so all audit-entry and execution writes on a given task are serialized through that one connection.
+- Losing the EC2 instance or its host volume loses the full `AuditEntry` history and all `Execution` rows kept in the application database. The CloudWatch → Firehose → S3 copy of `audit.Record` log lines (below) is unaffected by this, since it is shipped continuously out of the container and never depends on the SQLite file — the two audit layers therefore have independent durability stories.
+
+The same `container_environment` block also sets `ROSA_TA_S3_BUCKET` (to the region's own `aws_s3_bucket.app`) and `ROSA_TA_S3_KEY_PREFIX` (`"trusted-actions"`), which populate `config.Config.S3Bucket`/`S3KeyPrefix`. As of this review no other application code path reads those two config fields back out — they are not where `AuditEntry` or `audit.Record` data is persisted. The bucket they name is, however, the same bucket the Firehose pipeline below writes audit log lines into (under `audit-logs/`) and that Terraform itself uses to distribute `config.yaml` (under `config/`) — one physical S3 bucket serves three unrelated purposes (an unused app-level storage slot, the Firehose audit-log sink, and Terraform's config object), reached through entirely different code paths.
+
+(repo://components/trusted-actions/internal/store/store.go#L57-L65, repo://components/trusted-actions/internal/store/sqlite.go#L24-L57, repo://components/trusted-actions/internal/store/postgres.go#L20-L22, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34, repo://components/trusted-actions/terraform/regional/ecs.tf#L78-L145, repo://components/trusted-actions/terraform/regional/ecs.tf#L151-L163, repo://components/trusted-actions/internal/config/config.go#L50-L52, repo://components/trusted-actions/internal/config/config.go#L238-L240, repo://components/trusted-actions/terraform/regional/audit_logs.tf#L41-L44)
 
 ## Regional CloudWatch → Firehose → S3 pipeline
 
@@ -142,12 +166,12 @@ The global IAM comment documents a known, accepted limitation: AWS ARN wildcards
 
 Trusted Actions' `ARCHITECTURE.md` lists exactly two controls under its Security section: account allowlisting and audit logging of all API calls with caller identity. In practice:
 
-- **Account allowlisting** is enforced via the `ROSA_TA_ALLOWED_ACCOUNTS` environment variable (comma-separated AWS account IDs), read into `config.Config.AllowedAccounts` and set per regional deployment through `terraform/regional/ecs.tf`'s `var.allowed_accounts`. It gates which calling AWS accounts may use the API at all, independent of the audit pipeline.
-- **Audit logging** is the two-layer mechanism described above: the per-request `AuditEntry` store and the per-execution `audit.Record` / CloudWatch → Firehose → S3 pipeline.
+- **Account allowlisting** is enforced via the `ROSA_TA_ALLOWED_ACCOUNTS` environment variable (comma-separated AWS account IDs), read into `config.Config.AllowedAccounts` and set per regional deployment through `terraform/regional/ecs.tf`'s `var.allowed_accounts`, which sits in the same `container_environment` block as the `ROSA_TA_S3_BUCKET`/`ROSA_TA_S3_KEY_PREFIX`/`DATABASE_URL` entries discussed above. It gates which calling AWS accounts may use the API at all, independent of the audit pipeline.
+- **Audit logging** is the two-layer mechanism described above: the per-request `AuditEntry` store (persisted in the SQLite file described in [From request to persisted record](#from-request-to-persisted-record-the-database-behind-auditentry)) and the per-execution `audit.Record` / CloudWatch → Firehose → S3 pipeline.
 
 The two controls are complementary, not interchangeable: allowlisting is a preventive control decided before a request is authorized, while the audit record set is a detective control recording what was attempted and its outcome — including attempts an allowlisted but unauthorized caller made and that were denied or skipped.
 
-(repo://components/trusted-actions/ARCHITECTURE.md#L162-L166, repo://components/trusted-actions/internal/config/config.go#L230-L240, repo://components/trusted-actions/terraform/regional/ecs.tf#L38-L44)
+(repo://components/trusted-actions/ARCHITECTURE.md#L162-L166, repo://components/trusted-actions/internal/config/config.go#L55, repo://components/trusted-actions/internal/config/config.go#L242-L243, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34)
 
 ## Relationship to other pages
 

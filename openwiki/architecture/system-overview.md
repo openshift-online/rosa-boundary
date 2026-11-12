@@ -1,9 +1,11 @@
 ---
 type: architecture
-title: System overview and boundaries
-description: Maps the ROSA Boundary CLI, AWS identity, investigation Lambda, Fargate runtime, persistent and task-scoped storage, and the two independent scheduled reaper Lambdas by responsibility, and situates this flow relative to the co-located but independently built/deployed Trusted Actions component.
-tags: [architecture, system-overview, aws, ecs, investigations, trusted-actions, monorepo]
+title: ROSA Boundary System Overview
+description: Maps the ROSA Boundary Go CLI and control-plane code layout, the ephemeral SRE investigation container on ECS Fargate, the Lambda-based investigation lifecycle, and the Terraform stacks that wire them together, and situates this flow relative to the co-located but independently built/deployed Trusted Actions component.
+tags: [architecture, system-overview, aws, ecs, fargate, go, investigations, trusted-actions, monorepo]
 sources:
+  - id: openwiki-source-8037e2358a2c4f9b2c722a11
+    resource: repo://AGENTS.md
   - id: openwiki-source-40c7b4fa49977c539f479848
     resource: repo://cmd/rosa-boundary/main.go
   - id: openwiki-source-3f40daa0f36e1ee6c8e9b501
@@ -12,6 +14,8 @@ sources:
     resource: repo://components/trusted-actions/go.mod
   - id: openwiki-source-6955d983b4d48fea403e850a
     resource: repo://components/trusted-actions/terraform/regional/ecs.tf
+  - id: openwiki-source-8ea12a05c67ed54e49e49437
+    resource: repo://Containerfile
   - id: openwiki-source-f4745022f20c2f39d1db313b
     resource: repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf
   - id: openwiki-source-ee86c0d48b646d4bc6813442
@@ -26,6 +30,8 @@ sources:
     resource: repo://deploy/regional/variables.tf
   - id: openwiki-source-e9906b078522ed0a08c64ff1
     resource: repo://entrypoint.sh
+  - id: openwiki-source-7bd911fdd3026b7b031a01e3
+    resource: repo://go.mod
   - id: openwiki-source-d2f66eb6a0ccf1ed7a35e866
     resource: repo://internal/cmd/cli.go
   - id: openwiki-source-7a5e071b6b6192c80a6918aa
@@ -40,15 +46,23 @@ sources:
     resource: repo://lambda/reap-tasks/handler.py
   - id: openwiki-source-30a9bbeef6a7c1bda59eab80
     resource: repo://tests/localstack/integration/test_full_workflow.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
+    at: 2026-11-12T16:02:44.301Z
 ---
 
-# System overview and boundaries
+# ROSA Boundary System Overview
 
-ROSA Boundary is an operator CLI plus a regional AWS runtime for ephemeral SRE investigations. The system separates operator authentication and orchestration from privileged resource creation and task execution: the Go CLI obtains OIDC-backed AWS credentials, the create-investigation Lambda validates the user's token and provisions the investigation, and ECS Fargate runs the SRE tool container. Two independent scheduled Lambdas reclaim resources on different horizons — one enforces per-task deadlines, the other garbage-collects whole stale investigations. Terraform owns the regional AWS resources; the repository's Kustomize manifests separately define the Keycloak deployment components.
+ROSA Boundary is an operator CLI plus a regional AWS runtime for ephemeral SRE investigations. The system separates operator authentication and orchestration from privileged resource creation and task execution: the Go CLI obtains OIDC-backed AWS credentials, the create-investigation Lambda validates the user's token and provisions the investigation, and ECS Fargate runs the SRE tool container built from the root `Containerfile`. Two independent scheduled Lambdas reclaim resources on different horizons — one enforces per-task deadlines, the other garbage-collects whole stale investigations. Terraform owns the regional AWS resources; the repository's Kustomize manifests separately define the Keycloak deployment components.
+
+## Code layout and build artifacts
+
+Boundary's control plane is a single Go module, `github.com/openshift-online/rosa-boundary` (Go 1.26, built with the `go1.27.4` toolchain), distinct from the separate `components/trusted-actions/` module described in [Monorepo and Trusted Actions](monorepo-and-trusted-actions.md). `cmd/rosa-boundary/main.go` is a two-line entrypoint that calls `cmd.Execute()`; essentially all CLI behavior lives under `internal/`: `internal/cmd` holds the Cobra command tree and the shared pre-run hook, `internal/auth` implements the OIDC browser/device flows, `internal/aws` wraps STS/ECS/EFS/session calls, `internal/credentials` manages OCM and kubeconfig helpers, `internal/config` persists CLI configuration/profiles, `internal/lambda` is the typed client `session create` uses to invoke the create-investigation Lambda directly, and `internal/output` formats human and JSON output.
+
+The ECS task image is built from the root `Containerfile`, a digest-pinned UBI 9 multi-stage build with five stages — `tools-base` (shared curl/python3/verification helpers), `sre-tools` (ocm, ocm-backplane, osdctl, yq, oc, AWS CLI, each pinned and checksum/signature verified), `claude-builder` (Claude Code via a verified GitHub download), `tmux-builder` (tmux compiled from a SHA256-checked source tarball, since UBI 9's repositories omit it), and `final`, the only stage that ships. `final` copies the verified tool outputs from the other three stages, creates the non-root `sre` user, installs `entrypoint.sh` as `ENTRYPOINT`, and defaults `CMD` to `sleep infinity`. See [Container image and task runtime](../runtime/container-image.md) for the full build and startup detail; this page covers only how that image fits into the investigation lifecycle.
+
+Lambda handlers (`lambda/create-investigation/`, `lambda/reap-tasks/`, `lambda/reap-investigations/`) and the Terraform roots under `deploy/account/` and `deploy/regional/` remain at the repository root rather than under `components/`; per `AGENTS.md`, Boundary's `lambda/` tree is expected to move under a future `components/boundary/` layout, but that refactor has not happened and must not be assumed. Trusted Actions' own container, Go module, and Terraform roots are entirely separate and are out of scope for this page.
 
 ## Responsibility boundaries
 
@@ -118,6 +132,9 @@ LocalStack integration tests create representative IAM, ECS, and EFS resources a
 - Handover blocks on active sessions, empty task details, and ECS/SSM errors, but skips the SSM lookup for containers without a `runtimeId`; it stops tasks and waits for termination only after preflight. [handover guard and ordering](repo://lambda/create-investigation/handler.py#L682-L774)
 - Account Terraform owns the shared investigation-reaper role and its basic/VPC execution managed-policy attachments; regional roots look up shared roles and use region-suffixed inline policies outside the one legacy region. [shared reaper identity and attachments](repo://deploy/account/modules/shared-iam/lambda-reap-investigations.tf#L1-L19) · [regional lookup and suffix contract](repo://deploy/regional/account-iam.tf#L1-L35) · [account handoff outputs](repo://deploy/account/outputs.tf#L1-L12)
 - LocalStack integration tests verify relationships between provisioned task tags, shared-role ABAC, access points, and task-definition mounts; execution of actual task containers is conditionally skipped for the local executor. [full workflow assertions](repo://tests/localstack/integration/test_full_workflow.py#L21-L137) · [container-execution condition](repo://tests/localstack/integration/test_full_workflow.py#L214-L220)
+- `cmd/rosa-boundary/main.go` only calls `cmd.Execute()`; the Boundary CLI module (`github.com/openshift-online/rosa-boundary`, Go 1.26 with the go1.27.4 toolchain) implements all command behavior in `internal/` packages, separate from the independently versioned `components/trusted-actions` Go module. [CLI entrypoint](repo://cmd/rosa-boundary/main.go#L1-L9) · [Boundary module](repo://go.mod#L1-L6)
+- The root `Containerfile` builds the Fargate operator image as five stages — `tools-base`, `sre-tools`, `claude-builder`, `tmux-builder`, and `final` — where only `final` is shipped and the other four exist solely to fetch and verify tool binaries. [stage list and dependencies](repo://Containerfile#L1-L23) · [final stage composition](repo://Containerfile#L191-L274)
+- Per `AGENTS.md`, Boundary's Lambda handlers (`lambda/`) and Terraform roots (`deploy/account/`, `deploy/regional/`) remain at the repository root rather than under a `components/boundary/` layout; that move is called out as a future, separately validated refactor and has not occurred. [component-boundary guidance](repo://AGENTS.md#L27-L31)
 
 ## Relationship to the co-located Trusted Actions component
 
@@ -128,6 +145,7 @@ No code in this flow calls Trusted Actions: the create-investigation Lambda, the
 ## Related pages
 
 - [Investigation lifecycle](../workflows/investigation-lifecycle.md) — handover, close, timeout, and garbage-collection details.
+- [Container image and task runtime](../runtime/container-image.md) — full `Containerfile` build/verification detail and entrypoint startup/shutdown behavior.
 - [Regional infrastructure](../infrastructure/regional-runtime.md) and [HCP workspaces](../infrastructure/hcp-terraform-workspaces.md) — resource ownership and staging's regional states.
 - [Identity and access](identity-and-access.md) and [auditing](../operations/audit-and-logging.md) — authorization and operational evidence.
 - [Monorepo and Trusted Actions](monorepo-and-trusted-actions.md) — ownership, build, and deployment independence of the co-located Trusted Actions component.

@@ -1,18 +1,22 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:825203fdb4fd5a4d4fe233de086e5b53c479f0e91b2d2c5165784b532dd5e796",
+  "pageVersion": "sha256:1ffe9b0a8e1368c6e49d2acbaa17a2499673594481755b1d74acdf9bd43f0a24",
   "claims": [
     {
       "id": "claim_7aded801f04d4338a2dd5e812a077099",
-      "statement": "Trusted Actions is an independent Go module under components/trusted-actions/ with its own go.mod and Makefile; root-level `go test ./...` and root Makefile targets do not exercise it, so Trusted Actions commands must be run from components/trusted-actions/ (e.g. `make -C components/trusted-actions test`).",
+      "statement": "Trusted Actions is an independent Go module (module github.com/openshift-online/rosa-trusted-actions) under components/trusted-actions/ with its own go.mod and Makefile; root-level `go test ./...` and root Makefile targets do not exercise it, so Trusted Actions commands must be run from components/trusted-actions/ (e.g. `make -C components/trusted-actions test`), as stated directly in docs/trusted-actions-monorepo-migration.md: \"Run Trusted Actions builds and tests from components/trusted-actions/; Boundary's root Go and Make commands do not cover its separate module.\"",
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/Makefile#L1-L20",
           "version": "repo-lines-v1:sha256:1b9093d34b01c9d1f993ae36fa2464b3d5d17084770084d133950016c9c70c96:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcwOTFmNDE1YjJlN2IzZDI0M2UyZDBiYzc3ZTI5MzlmZTc0NzBjMTkwZjhmOGRmYjgzNzM3MzE3YTRmMzQ3ZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmMjEyOGZhM2NiMmEwM2E3ZTdmOWRiZmJlODM2MmQ1YzY4ZTU3MDU3ZmQ2ZTI0OWZiZWVkZTI0NjA2OGJkMWYifQ"
         },
         {
-          "resource": "repo://docs/trusted-actions-source-colocation.md#L20-L26",
-          "version": "repo-lines-v1:sha256:e820d6c829bcd9f8b92cd040cbd8dff603e9d444803e8d3bc67687316e989419:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDRhOGUwZDZhM2I1N2YyZGZhNjkzZDE1MDRmMGY5YzI2Y2QyNGY2MzU5NzgwZTE2MzBkMWM4YTczODRmMTk4OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjA3NjQ2OThmMTMyMDM2MTgyY2JkNmQ1NDIwZTI3OWFlOWQwZDUwYTZiNWQwZjJmZGIyODliNjU4OGFlNDI5MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjljNTI2MGNjMGUxMTBmMDM0MWEzZmQ3MGY3YzkyOWJmNTA3NDFlYmJkNDI4OWM5MjNjNTExOTBhZjZlZTRjZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzRjYjRlZGE1MWIxYzBjMmRmZjUzODRkNjdlYzM2ZGY1NTNiMzMwZWMyMDZlN2MzMGQ4NmJmYTNhMTUyM2UxMSJ9"
+          "resource": "repo://components/trusted-actions/go.mod#L1-L5",
+          "version": "repo-lines-v1:sha256:f13267c6d4b4c5f55f97e7d32cf5819046b2858e3389d3d240fbfd1459381b7c:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDM4NWNlZDlmNjhhZjE1OTJiZTZiMzFjNDgyZDY0NmMwYzBjN2ZkOTEzZTA1YjI3MzhiOTRkOWYzZTk1ZmQ1NiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmM4NzlmZTM3MjE1NDUzMWU0N2NjNTEwYzczYTg0ZjgzOGMxZDdmODI1NzQ4MzdmNGY1MWQ2MzM4MjkzMTA1YiJ9"
+        },
+        {
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L22-L24",
+          "version": "repo-lines-v1:sha256:5c301886c2b8694a504ca6eec89a7a61361798182a1a8ce2155460244a1fd06c:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOTMxMTJmYWE1MGMzMWVmMWQwNTA4MzIxZDg3ZmM3OGY0NDMxYWY5ZGJlYjUxMTFiY2UxN2FjZTBiMDIwZDI3OCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWRmNjE5NzJiMjA5YTljMTQ3MWYxOTIyMmRhODdiZmJhMmI2ODBhZGNkNjJmZDlhOWIyNmVlMzNmM2I3MTY5YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2FjYmJhMjZmM2FjYjUwYjIxMzRlMDNiOThkM2JkZGJkOTExNmZlZDk1MjAxZjVhZWQ2NzFlYjJlNjllMzYxNiJ9"
         }
       ]
     },
@@ -21,11 +25,11 @@
       "statement": "`make test` in components/trusted-actions/Makefile generates OpenAPI code, compiles (but does not run) the tests/actions integration tests under the `integration` build tag, then runs `go test -v ./...` covering SQLite-backed tests only; Postgres-backed store tests require TEST_POSTGRES_URL and run via the separate `make test-postgres` target.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L124-L133",
+          "resource": "repo://components/trusted-actions/Makefile#L129-L138",
           "version": "repo-lines-v1:sha256:d29049950069e00fd2e91ffe7cffb0e0b0330268716e225b776e6c667880ad6e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZjNGQzN2E5MTMzNGJjZTIwMTg1ODcwZWVhZmRmZDA5ZTJlMzQxNTczYjgwMzFmYTA5ZGUyNTY4OGNmNWZkYzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4YTdkOTE0NWU3ODdlMDcxOWU2MjU5OGM3ZTM1Y2RkNDZkNmIzMzE4ZWFkMzQzNGIyMmQ4YjAzNWYxMWYzYzkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRlY2M3ZDdmMzY4OTQ0MDQ2Y2VmNDgwNWE4MDZjZGEzZTRiN2ZlODQzMjYxMTM4OGExMDIxODMzMWYzMmUzNjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBjMDNlODg0OGIwZmMyOTUzMDc4MWVjOGI5MWYzNWJmOWVjMTIzZGFjYjM1MDA4MmQ4YmRjMzA5MDQwMTA1MmYifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/Makefile#L164-L177",
+          "resource": "repo://components/trusted-actions/Makefile#L169-L182",
           "version": "repo-lines-v1:sha256:100d30cb33031125cb68218e4817d59efd050ee82fc2b13003514dad9387b003:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MWI3NWU2Yzc1MTRmNGRiNGE4NTZhMDE1OWI4ZjliMDc0NzdmYjhjODljMmEzMzEwMjk0Njc0NzExMjcyMzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJkOWY2ZjcwM2NiNTQ3NWViZTI5ZTFmYTM2NDk5OWM0NTY1ZWVjNjQ0OTU3MDBmNWI1ZDk1YTAyODdlMjNmZmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM2MGRjN2YwNWRkNTI2YmI1NjYzOGU1ZGExOTE5YTdlYWVmYTU4NzMzN2VlMmU4M2FlMDA1ZWJlYzdjNmVjNWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlOGVlYmZiMTBjODBlYTE1MWFhOTJkNjg4YmJjMjQ1NzFmNTZhYTgwYmYwYjMyZGRjNjUyMzkxODg4OWQ1ZDUifQ"
         }
       ]
@@ -35,7 +39,7 @@
       "statement": "`make test-race` runs `go test -race -v ./...` and `make test-coverage` runs `go test -coverprofile=coverage.out ./...` followed by `go tool cover -html` to produce coverage.html.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L131-L138",
+          "resource": "repo://components/trusted-actions/Makefile#L136-L143",
           "version": "repo-lines-v1:sha256:9cbdebdaaf481668f5ce7d048ee7ceb3fda9be9ea7056a1da7a1f542543e658b:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjE3OGI5ZmU3ZjE1YzI1NTI2MjJjMWQ3Mjk1MzNiYjdiZTE3YWI5ZTMyMGE5N2RjMmMwYjA4YmJkOGRkMGRlMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZjYxY2M5NWM1NjdlNTRmMzU1OTE4NTdjZDQ3ZGZmNDk0ZDY0ZmU2NTM5ZTkyNTY3NzI3ZTcwYWJkMWNjNjBlYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDE3MzY2ZGM3ZDk1MWNkNzIwNzRlYTVhYTY1OTkxMGNhNDA1ODZjMjg0NDExOWY0MjRmODQ2Yjk4YTdiNjlkOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWVkY2JjNTcxMzg2ZDAxMjQ5MzIxNjBkMzM1N2VkYmFlMzcxN2U3NDAwYmRkODM4MTAxZDM0OTVkYjMyNDc1OCJ9"
         }
       ]
@@ -45,7 +49,7 @@
       "statement": "`make test-integration` starts the server in the background via `make run`, waits, runs scripts/test-api.sh against it, and stops the server (killing it and failing if the script fails); `make test-api` runs scripts/test-api.sh directly against an already-running server without managing the server lifecycle.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L191-L204",
+          "resource": "repo://components/trusted-actions/Makefile#L196-L209",
           "version": "repo-lines-v1:sha256:dbbbf27de57426b8f9a999b95ed5bf60b912648786c0d4bc60af24699afceac1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRiMWNlM2ZkNmY3Y2JlNzIzOTdiNmRkMzBlMDZjZjEwNjczMDVjMGQzMzUzMTNhNDViYjE3YzU0OGMyNWY2NjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3Y2UxZjQ0ZTRjMWMzZmU3OTc1OWIyYjIwNWI2MzYxODA1OGNiYzA0OTc0NWMxNGFlOWM0ODI0MDI5NTliZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1ZDYwMTViMDZmMWRkODI2OTIxMGQzNmNkMGJkNmZjMjcxNzI3YzkxZDBkMjMxNTc4MmE3ZGZjZWNhODg3YjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdhYTllM2NiNDZjOWIxN2FkMjdhOTk4YTY2Zjk5NzBiZGE4MTNkNzVkMWI2N2NkOGJiY2ZhZGM1N2M5NTZmZGEifQ"
         },
         {
@@ -59,7 +63,7 @@
       "statement": "`make test-actions` runs the tests/actions integration tests (-tags=integration) against the mock Backplane server started by `make mock-backplane`, while `make test-actions-proxy` runs the subset matched by `-run Proxy` against the proxy Backplane server started by `make proxy-backplane`, which requires a real KUBECONFIG.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L206-L214",
+          "resource": "repo://components/trusted-actions/Makefile#L211-L219",
           "version": "repo-lines-v1:sha256:d34fabdecd173dbb8439faae4642234d4d062230ec3848c9fd861f3b1978c401:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWVkNzlhZTlkMDU4MTRlZTVkY2VmMTAyY2U1MDBiNDAzMTRkZDg1ZTM4NDVkZjU3YjI4ZDZmOTljNTc0ZmMxYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjE4YWE4YmE2ZjVjYmQ5Mjc2ZjE1ODhiZjA1Nzc3NjEzODdmMGQxMDcwNjZjYThmYjMyZjUyMWU3ODMwMWZmMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTQ3NzM4YjU0YThhNTA3OGE2ZmE3NTVhZWYxYzFlNzgyYjY0MTYwNGUyNzhlMWMxODhlYmNlMTRmZDNjOTA3YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODkzM2M3YThjNGYwMzJlYjM0NjJiY2NjYTkxNWJmZGE1N2M0MjU2NWM0M2NmZjZkNmMwNWQ1M2MxYTA2Nzg1MyJ9"
         }
       ]
@@ -121,7 +125,7 @@
       "statement": "components/trusted-actions/integration/ is a podman-compose-based, disposable end-to-end test harness driven by itest-up.sh, itest-run.sh, and itest-down.sh (also exposed as make itest-up/itest-run/itest-down) that exercises a real HTTP -> auth middleware -> executor -> disposable kind cluster -> response path using mock auth (ROSA_TA_AUTH=disabled) and a local Kubernetes cluster, with no OCM or Backplane dependency.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L179-L190",
+          "resource": "repo://components/trusted-actions/Makefile#L184-L195",
           "version": "repo-lines-v1:sha256:0a3ac2d2e394ad5d0fa7d05a4236715017143b1189a78dfb145955a366a58ec6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwY2UwMWQ5Y2I2YzA5MjcwN2QwZmIwMDJiM2NhNGI1YTkyNTc1ZjgxZDMxMDgwMzJlNjJhNzRkMmFhZDZmNWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkMmVmY2M2MTIyNDY3OTJhNWE4OWIxZjljODgyZjFkNTBlYThkODhjOTg4OGQzMDJkMTQ1MDUxZTNkMzAwMDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5MmIxZjZmNGI3OTZlZGVmODQ2ZDI3ZDFiNDMyYzQzNGZiMjJlM2ZkNjEzOGFhY2Y5MjMwODk5MmU3ZDExMzMifQ"
         },
         {
@@ -173,7 +177,7 @@
       "statement": "components/trusted-actions/tests/mock-backplane/ is a standalone fake Backplane API server built on the Imposter mock engine, started via `make mock-backplane` (Imposter Go native engine v5, auto-restart disabled) listening on MOCK_BACKPLANE_PORT (default 8087), using in-memory state that resets on restart and fixture cluster data in data/cluster.json keyed by {clusterId}:{kubernetes path} with declared RBAC identity (API group, resource, namespace) per entry.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L216-L225",
+          "resource": "repo://components/trusted-actions/Makefile#L221-L230",
           "version": "repo-lines-v1:sha256:65f6e0f2c622a66702ec84ff8fce18fb0984c86d8ce9a7dd715ef938b22dd8a3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM1Njk4MzdhYmVkODZlMGExYjI4NmE3Y2Q5NjcyMGUxZjQ2MjAwNGZjZjg0NzI1ZTUzZjY2MDQyZGRjOTE1ZmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMwMjY1OWQ4MmQzZjNkOWFmYmQzMDdjYzAxMmVjNDcwODNkZDY2ZWU1ZTQ4ZWJmNGEyNmZlMWFiNmY0MGFiNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE4NTA1MzI0OTNlZDdmZDBiODZlZjAxMmQ3MWY3MDk5NmExYTQ5OGNhY2UwODAwZWY1YmY0YjM4MjE0NjQyNTcifQ"
         },
         {
@@ -197,7 +201,7 @@
       "statement": "components/trusted-actions/tests/proxy-backplane/ is a recording/replay-style reverse proxy used by integration tests to reach a real Kubernetes API: it accepts a base64-encoded kubeconfig at registration (POST /backplane/trustedactions/{clusterId}), builds an http.Transport from its TLS credentials, and forwards arbitrary HTTP methods on the returned proxyUri to the live upstream cluster (injecting the kubeconfig's bearer token) until the registered entry is deleted; it runs via `make proxy-backplane` on PROXY_BACKPLANE_PORT (default 8088).",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L226-L229",
+          "resource": "repo://components/trusted-actions/Makefile#L231-L234",
           "version": "repo-lines-v1:sha256:b213f7d68d5ba008e9d25726a18f7e31686e5049ce39bc842012b3fad0e0e618:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzhjM2VlYTUwMmQ2Mjc2NzNhYzRlOWJiNTYzNGE4MTQ4MTUzMWRlYjA4YzY5Mjg1MmVkYWMxMWU1ZTRmZTljYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiM2EwM2RiZjc1MWIxNTZjZTI1NTE5YzhhYzIxZmJjNmE3N2U4ZGIzNWEzYjM5YWVhNTg5N2VjNTk1NGU0ZWI4NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNWU4Nzc0ZjhmYjZjOWU2Y2JkNzE3MjI5NTc0ODEwMThjM2I2OTVhMTc2MGZhMzU5MzYwYjBiNWRjNWY2MTVhZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDJiZmFjZDlhZGUwNjdlM2I2OTUzNGMzYTNmM2NiNjY5MjQ1MWZlNzVmMjhiMDMxODI1NGJjZjBmZTM4ZDA5ZSJ9"
         },
         {
@@ -208,21 +212,43 @@
     },
     {
       "id": "claim_8147c99e42a843ff964b17f356857ca2",
-      "statement": "Trusted Actions' Tekton PipelineRun definitions (.tekton/rosa-trusted-actions-pull-request.yaml and .tekton/rosa-trusted-actions-push.yaml) exist in this monorepo and are adapted for components/trusted-actions, but their pipelinesascode.tekton.dev/on-cel-expression triggers are prefixed with `false &&`, making them structurally present but unconditionally inactive as a deliberate pre-cutover hold, so CI for this component is not currently running from this monorepo and the original openshift-online/rosa-trusted-actions repository remains the active development and CI source of record.",
+      "statement": "Trusted Actions' Tekton PipelineRun definitions (.tekton/rosa-trusted-actions-pull-request.yaml and .tekton/rosa-trusted-actions-push.yaml) exist in this monorepo, are adapted for components/trusted-actions (repo annotation, path-context, pathChanged() filters), and as currently written their pipelinesascode.tekton.dev/on-cel-expression triggers are plain CEL conditions (not prefixed with `false &&` or otherwise unconditionally disabled) that fire on pull_request/push events to main whose changed paths match components/trusted-actions/*** or the pipeline's own .tekton file; both files retain the comment '# Enable only at the coordinated cutover after checking the shared image/release destination' directly above the expression, which records prior pre-cutover intent but is not enforced by the YAML itself, so live/firing CI status must be verified against the current Konflux source/image bindings rather than inferred from this file content alone.",
       "evidence": [
         {
-          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml",
-          "version": "repo-file-v1:sha256:1ab2f3107ff5634cd1522bb0b3fcf0db9763e2f63f9cab92ff6f840756e308db"
+          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml#L1-L37",
+          "version": "repo-lines-v1:sha256:da54428d8ea519e1a7867663e2a8e2f4be7449735cd0b01e60897d1ff4372d0f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2YzhhNDNiOWRhYzY1MTBkOGZlM2QzZWFmNzg3YjI1OTI4NjExNzcyMjhmOTBiYjAyZmQyOTAyYTcwNjgwNzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiZDM2NTExMWRlY2EyOGYxZTRlZTA2Yjk5M2JlNDY4NDM1Y2NhMDJhZDJmOWVkMTcxNDQ5ZDU2ODc3Njg3MmYifQ"
         },
         {
-          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml",
-          "version": "repo-file-v1:sha256:9a613ba2d3b0f229f9d23ab13121c1b77acfdc77e8d4509c5b014d3f413f5bc8"
+          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml#L1-L34",
+          "version": "repo-lines-v1:sha256:78113d5823c9214ceb5bc68416a9ab426f703fc5ee449a212b9d4a32e3ccd261:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2YzhhNDNiOWRhYzY1MTBkOGZlM2QzZWFmNzg3YjI1OTI4NjExNzcyMjhmOTBiYjAyZmQyOTAyYTcwNjgwNzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNiZDM2NTExMWRlY2EyOGYxZTRlZTA2Yjk5M2JlNDY4NDM1Y2NhMDJhZDJmOWVkMTcxNDQ5ZDU2ODc3Njg3MmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_38a34b597d4b42ca9acfc95c7f760e8f",
+      "statement": "components/trusted-actions/internal/config/config_test.go and internal/rta/command_test.go are representative of the component's stdlib-only, table-driven test style applied to two different surfaces: config_test.go table-tests environment-variable parsing helpers (getEnv, getBoolEnv, getIntEnv, getDurationEnv, getPositiveIntEnv, getPositiveDurationEnv, getStringSliceEnv) and the Load() config-merge path (file vs. env precedence, AWS allowed regions/operations, OCM Backplane settings, auth policy) including file-read/parse error cases, while command_test.go drives the `rta` CLI's Cobra command tree via NewCommand() with captured stdout/stderr buffers to assert on text/JSON output and user-facing error paths (unknown subcommand with suggestion, unknown flag, missing arguments, missing server).",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config_test.go#L15-L80",
+          "version": "repo-lines-v1:sha256:1e6d6563c6e03ca5928e4955e34f81f9d4e0bbdc2e577fd1341b24aea8f9a52d:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjMjVhNjQ4MTUzODViNTE0ODkzMzc4MGRjZmFlN2JkNmE4ZDIxNTlkNjFmNzI2MDU5NjkxNTIyMGMwNDFmOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlNmZjM2E2YTg5OGU1NDY0Mzg5NGNiYTExMTYxMjE5MmUwYzUyNGIwZjY5ZGVkMzI1N2U5ZjQyN2QwYTgzNDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImExODhhZDQ4MTA1ZTJhNTU5ZTE5MDYyNmY2NmYxNzIxMjI0MGQxYTQzYWY0OTYwMTJmM2Y5NWE0NzI2Mjk3NDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNkZmNiNjA5YTlmMTc1MDZmMjFlYTFlZDExODBkYmZkOWM3ODZkYjVkNTg4ZjVjODUwNTIzYjkwYzQzOWY0NzEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config_test.go#L216-L330",
+          "version": "repo-lines-v1:sha256:5d1ef8a77462322c713b18623aa8a9cd68c59ce73a5ec48cf2c340c9ad90b67d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMTg5ODcyNWJlN2YwMTZiY2FhNjE1NDUxMzFhMjIwMDFmZjRlZDQ0YzQ2YzRhMWE3OWVlYjhjOTU0ODlkMGZjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkMDYzOTA5NTQ5OTEzYzJlZWJiYjJmNjY0YzEyMTYwMGIxMmU4ODdkY2Y2ZmUzOTA1MTFiZTgxMzEwNjAwNGY2IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5M2M4Yzg3ZTU3ODRmN2JjNmQ0YTUyZDU0OWE3ZGY0NzBmOTJhMTRjYmE3ZDc5MTViOWVhY2VjOTNmNjY1MTcxIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4ZjI0Njg4MzMyYjVlOGZmZGNhMjVlOGY5N2Q3YmFlMDdlYWM4ZGMxMmU2NmM5Yzg1MzM5Yjg5NTZiZGE0NjA4In0"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/command_test.go#L16-L67",
+          "version": "repo-lines-v1:sha256:3e9250f14a92379dff48a27906ced4f06222761d456aee6851b8e7766c4aba80:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBhOTk0MmFiMDA3M2E3NmQxODRjZTM3MmJlNWI2YTY3OWQyZTQ2OGRlNTcxNGZjYTBmMWE4Y2JhYzM0OWJhODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4M2NiMWZjZDBmMzNhNjM0NjFhYjYzYjkyYjY2ZTYyOTNlOTRmNTgxZjliZTc5Yjc3MzNmMjdhOWI0ZjE1MmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI0NWVlN2VlOTA3NDc0YmJlNzNiMTlkY2U4Njk3MjE3Y2EwMDJiZDIxZWY3ZWU3NGI4ZmVkOWIxMjVkZTRkNWIifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/command_test.go#L297-L324",
+          "version": "repo-lines-v1:sha256:fbd35c4e862b4981cbd53c535b286a18a3997e17038e690379425c71839d8164:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmNjI1Y2JkZmU3Yzg2MzM3YmZkNmNlOTI0NjQwNjcxOTA3MjYxYWFhNDI4Mzk0Mzc3YTU4MWY3ODlhNzhiMTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJlNWZmNzBkZDllMzA2YTYyMTQwZTMwZmNmYzQ3Mjg3YTIzY2ZkNmYzZmE3YzBmMjY2MTNhMjZmMDdhYjBiNmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlMGQ1MDRkM2Q4NjcxODlkZTUyODEzZmNhMzI1ZWQ4M2FlZjFhNTNmN2Y1NjhjYmZjMWY5YWEyZDI3YjZlYTcifQ"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

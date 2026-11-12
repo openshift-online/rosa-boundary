@@ -93,7 +93,7 @@ RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py osdctl \
         --version "${OSDCTL_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
 
 # renovate: datasource=github-releases depName=mikefarah/yq
-ARG YQ_VERSION="v4.54.2"
+ARG YQ_VERSION="v4.54.3"
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \

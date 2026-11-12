@@ -28,3 +28,5 @@ maintainers:
   - zmird-r
   - gvnnn
   - xiaoyu74
+labels:
+  - component/trusted-actions

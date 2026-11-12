@@ -1,22 +1,36 @@
-approvers:
-- tiwillia       # Tim Williams
-- jhjaggars      # Jesse Jaggars
-- kseiter-rh     # Kevin Seiter
-- xiaoyu74       # Shawn Bai
-- bergmannf      # Florian Bergmann
-- RaphaelBut     # Raphael But
-- geowa4         # George Adams
-- AlexSmithGH    # Alexander Smith
-- eth1030        # Emika Hammond
-- BATMAN-JD      # Justin Downie
-reviewers:
-- tiwillia       # Tim Williams
-- jhjaggars      # Jesse Jaggars
-- kseiter-rh     # Kevin Seiter
-- xiaoyu74       # Shawn Bai
-- bergmannf      # Florian Bergmann
-- RaphaelBut     # Raphael But
-- geowa4         # George Adams
-- AlexSmithGH    # Alexander Smith
-- eth1030        # Emika Hammond
-- BATMAN-JD      # Justin Downie
+# Prow owners-label adds component labels for changed paths. Filters match
+# paths relative to this directory. Keep ownership independent of labels:
+# everyone listed here can still review and approve either component.
+filters:
+  '.*':
+    approvers:
+      - tiwillia       # Tim Williams
+      - jhjaggars      # Jesse Jaggars
+      - kseiter-rh     # Kevin Seiter
+      - xiaoyu74       # Shawn Bai
+      - bergmannf      # Florian Bergmann
+      - RaphaelBut     # Raphael But
+      - geowa4         # George Adams
+      - AlexSmithGH    # Alexander Smith
+      - eth1030        # Emika Hammond
+      - BATMAN-JD      # Justin Downie
+    reviewers:
+      - tiwillia       # Tim Williams
+      - jhjaggars      # Jesse Jaggars
+      - kseiter-rh     # Kevin Seiter
+      - xiaoyu74       # Shawn Bai
+      - bergmannf      # Florian Bergmann
+      - RaphaelBut     # Raphael But
+      - geowa4         # George Adams
+      - AlexSmithGH    # Alexander Smith
+      - eth1030        # Emika Hammond
+      - BATMAN-JD      # Justin Downie
+  # Boundary runtime, tests, infrastructure, and component-specific files.
+  '^(build/|cmd/|data/|deploy/|hcp-terraform/(aws-creds/|rosa-boundary/)|internal/|lambda/|scripts/|skel/|tests/|utils/|\.spec/|Containerfile$|\.containerignore$|entrypoint\.sh$|\.env\.example$|go\.(mod|sum)$|\.shellcheckrc$|codecov\.yml$)':
+    labels:
+      - component/boundary
+  # Root governance, documentation, and tooling can affect both components.
+  '^(\.agents/|\.chai-bot/|\.claude/|\.github/|\.opencode/|\.pre-commit-config\.yaml$|\.coderabbit\.yaml$|\.gitignore$|AGENTS\.md$|CONTRIBUTING\.md$|Makefile$|mise\.toml$|openwiki/|OWNERS$|pyproject\.toml$|README\.md$|renovate\.json$|uv\.lock$|docs/)':
+    labels:
+      - component/boundary
+      - component/trusted-actions

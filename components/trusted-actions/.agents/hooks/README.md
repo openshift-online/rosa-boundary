@@ -55,7 +55,7 @@ This repository uses **pre-commit** for quality checks and validation. Claude Co
 
 **Manual Usage**:
 ```bash
-.claude/hooks/pre-edit.sh path/to/file.go
+.agents/hooks/pre-edit.sh path/to/file.go
 ```
 
 ---

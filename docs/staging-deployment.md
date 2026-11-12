@@ -308,6 +308,33 @@ This opens a browser for SSO authentication and stores a token in `~/.terraform.
 
 Workspace variables for the staging deployment are defined as code in `hcp-terraform/rosa-boundary/main.tf`, not set manually in the HCP Terraform UI. This file is the source of truth, which keeps variable values version-controlled and reviewable through PRs.
 
+### Content publishing permissions
+
+The `rosa-boundary-stage-regional` workspace supplies
+`content_publisher_role_arns` for all three account-owned publisher roles.
+The regional root attaches the grants; creating the roles in the account
+workspace alone does not authorize publishing. The replica workspace does not
+receive publisher ARNs.
+
+Publish to the role's matching destination prefix, for example:
+
+```bash
+aws s3 sync ./ops-sop/ s3://150100906299-rosa-boundary-stage-us-east-1-content/ops-sop/ --delete --sse aws:kms
+```
+
+The policy allows `s3:ListBucket` only with that prefix, and `s3:PutObject`,
+`s3:DeleteObject`, and `s3:AbortMultipartUpload` only beneath it. It allows
+`kms:GenerateDataKey` and `kms:Decrypt` on the regional AWS-managed S3 key
+only through S3 with that prefix's object encryption context. These cover
+listing, uploads, deletion, multipart uploads and failed-upload cleanup;
+no bucket-root listing, object download, ACL or tagging grants are needed.
+
+After merging a publisher handoff change, verify the meta-workspace has
+reconciled the variable and the source regional run has attached the policies
+before rerunning publishing. Review both plans: staging source regional runs
+are configured to auto-apply. Mocked tests do not prove live policy attachment
+or GitHub OIDC and S3/KMS enforcement.
+
 ### Updating Regional Workspace Variables
 
 To change a variable for `rosa-boundary-stage-regional`:

@@ -367,6 +367,18 @@ module "rosa_boundary" {
           hcl      = true
         },
         {
+          # Account state creates the identities; only the source Region attaches
+          # prefix-scoped S3 sync --delete and SSE-KMS publishing permissions.
+          key = "content_publisher_role_arns"
+          value = jsonencode({
+            ops-sop               = "arn:aws:iam::150100906299:role/rosa-boundary-stage-publisher-ops-sop"
+            managed-notifications = "arn:aws:iam::150100906299:role/rosa-boundary-stage-publisher-managed-notifications"
+            rosa-claude-plugins   = "arn:aws:iam::150100906299:role/rosa-boundary-stage-publisher-rosa-claude-plugins"
+          })
+          category = "terraform"
+          hcl      = true
+        },
+        {
           # ROSAENG-68790: match the account workspace's shared IAM role prefix.
           key      = "account_role_name_prefix"
           value    = "rosa-boundary-stage"

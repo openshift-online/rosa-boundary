@@ -339,6 +339,26 @@ run "publisher_and_runtime_grants_are_minimal" {
   }
 
   assert {
+    condition = alltrue([
+      for key, policy in aws_iam_role_policy.content_publisher : alltrue([
+        for statement in jsondecode(policy.policy).Statement :
+        statement.Sid != "ListOwnPrefix" || (
+          statement.Effect == "Allow" &&
+          toset(statement.Action) == toset(["s3:ListBucket"]) &&
+          statement.Resource == aws_s3_bucket.content.arn &&
+          toset(statement.Condition.StringLike["s3:prefix"]) == toset([
+            var.content_prefixes[key], "${var.content_prefixes[key]}*",
+          ])
+        )
+        ]) && length([
+        for statement in jsondecode(policy.policy).Statement : statement
+        if statement.Sid == "ListOwnPrefix"
+      ]) == 1
+    ])
+    error_message = "Every publisher needs ListObjectsV2 permission on the bucket, restricted to its own sync destination prefix."
+  }
+
+  assert {
     condition     = length(aws_s3_bucket_replication_configuration.content) == 0 && length(aws_iam_role_policy.content_replication) == 0
     error_message = "Publisher role ARNs alone must not enable replication."
   }
@@ -387,11 +407,14 @@ run "publisher_and_runtime_grants_are_minimal" {
 
   assert {
     condition = alltrue([
-      for policy in values(aws_iam_role_policy.content_publisher) : alltrue([
+      for key, policy in aws_iam_role_policy.content_publisher : alltrue([
         for statement in jsondecode(policy.policy).Statement :
         statement.Sid != "UseRegionalS3ManagedKey" || (
+          statement.Effect == "Allow" &&
+          toset(statement.Action) == toset(["kms:GenerateDataKey", "kms:Decrypt"]) &&
           statement.Resource == "arn:aws:kms:us-east-1:123456789012:key/22222222-2222-2222-2222-222222222222" &&
-          statement.Condition.StringLike["kms:ViaService"] == "s3.us-east-1.amazonaws.com"
+          statement.Condition.StringLike["kms:ViaService"] == "s3.us-east-1.amazonaws.com" &&
+          statement.Condition.StringLike["kms:EncryptionContext:aws:s3:arn"] == "${aws_s3_bucket.content.arn}/${var.content_prefixes[key]}*"
         )
       ])
     ])

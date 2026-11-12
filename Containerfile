@@ -15,7 +15,7 @@
 # stages 2-5 run in parallel once their dependencies complete.
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
-ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:961b1473e79d0bfe6dcd11c0c2e7fbf824716319e31f9acda2789b191989c3d5
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:3c3fa194551e503333f03a017bf418fc1f658545db1e2df1e58ccc67e203c324
 
 
 # Stage 1: tools-base

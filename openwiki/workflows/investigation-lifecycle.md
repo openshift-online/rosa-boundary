@@ -1,13 +1,19 @@
 ---
 type: workflow
 title: Investigation lifecycle
-description: Traces investigation workspace creation, session launch/handover, operator connection, timeout enforcement, garbage collection, and closing across the CLI, Lambda, ECS, and EFS.
-tags: [investigations, lifecycle, ecs, efs, workflow, garbage-collection]
+description: Traces investigation workspace creation, session launch/handover, operator connection, timeout enforcement, garbage collection, and closing across the CLI, Lambda, ECS, and EFS, including how the create-investigation Lambda's own ZIP/container-image packaging fits into the trigger path.
+tags: [investigations, lifecycle, ecs, efs, workflow, garbage-collection, lambda, container-build]
 sources:
+  - id: openwiki-source-9b833cdb720fbc838fdd392a
+    resource: repo://deploy/regional/ecr.tf
+  - id: openwiki-source-d176128a85129af793772942
+    resource: repo://deploy/regional/lambda-create-investigation.tf
   - id: openwiki-source-81b84da9542934c33f2e42d7
     resource: repo://deploy/regional/lambda-reap-investigations.tf
   - id: openwiki-source-a7f1ddde1efa89d5bfad2d5c
     resource: repo://deploy/regional/lambda-reap-tasks.tf
+  - id: openwiki-source-a055ff9a3fcbd2c0a0fc4ee2
+    resource: repo://deploy/regional/variables.tf
   - id: openwiki-source-9c181bb7100aaf770ed7b6d2
     resource: repo://internal/aws/efs.go
   - id: openwiki-source-3eb89a64c83d3140ea6ba8c4
@@ -20,8 +26,14 @@ sources:
     resource: repo://internal/cmd/start_session.go
   - id: openwiki-source-6bf774b758d1eaaf7cc21e94
     resource: repo://internal/cmd/stop_session.go
+  - id: openwiki-source-ded7ace1e37f1ab771ccaf0b
+    resource: repo://lambda/create-investigation/Containerfile
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
+  - id: openwiki-source-ae0e11fbe7ed89eafcab9312
+    resource: repo://lambda/create-investigation/Makefile
+  - id: openwiki-source-a26915e357fc9eaad3cc4090
+    resource: repo://lambda/create-investigation/pyproject.toml
   - id: openwiki-source-dee88de5f65c3f85b9074174
     resource: repo://lambda/create-investigation/test_handler.py
   - id: openwiki-source-d796a031add13f67891a2f24
@@ -34,10 +46,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-80fcaf58926aeda8dd2be405
     resource: repo://tests/unit/test_reap_investigations_staleness.py
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+    at: 2026-11-12T16:02:44.301Z
 ---
 
 # Investigation lifecycle
@@ -139,9 +151,30 @@ Cleanup has ordered steps with explicit partial-progress rules:
 
 The handler checks the remaining-time budget before each access point and during backup traversal/uploads, reserving roughly 30 seconds where possible and allowing partial progress across invocations. These checks reduce timeout exposure; they do not make upload/deletion atomic or guarantee that a long individual upload or filesystem operation finishes before Lambda termination. Likewise, the final running-task recheck narrows a race window but is not a lock against a task starting afterward. Note the asymmetry with the CLI's `investigation close`: that command aborts the whole operation on a single step's failure, while `reap-investigations` continues to the task-definition deregistration step even when directory or access-point cleanup failed or was skipped.
 
+## How the Lambda itself reaches ECS: packaging and container build
+
+`create-investigation` is the trigger for everything above — a Lambda Function URL invocation (SigV4-authenticated, OIDC token validated inside the handler) that the CLI and `--connect` wiring call for both `investigation create` and `session create`. How that Lambda's own code is packaged is independent of the ECS Fargate investigation container it launches (see [Container image and task runtime](../runtime/container-image.md) for that separate build), but `deploy/regional/lambda-create-investigation.tf` supports two different packaging modes for the Lambda's own deployable artifact, selected by the `lambda_package_type` Terraform variable (`"Zip"` default, or `"Image"`):
+
+- **ZIP packaging (default).** `data.archive_file.create_investigation_lambda` zips `lambda/create-investigation/` excluding `Containerfile`, `pyproject.toml`, `uv.lock`, tests, and other non-runtime files, and `aws_lambda_function.create_investigation_zip` deploys it with the standard `python3.11` managed runtime.
+- **Container image packaging.** `aws_lambda_function.create_investigation_image` instead deploys from `image_uri`, built from the resolved ECR pull-through-cache path (`<account>.dkr.ecr.<region>.amazonaws.com/<project>-quay/<lambda_image_repository>:<lambda_image_tag>`). This mode exists for HCP Terraform remote-execution compatibility and requires `lambda_image_repository` and a non-empty, immutable `lambda_image_tag` (a git SHA or release version, not `latest` — Lambda resolves the tag to a digest at deploy time and will not notice if the tag later moves). The `aws_ecr_pull_through_cache_rule.quay` resource only maps the project-scoped ECR prefix to `quay.io`; it does not pull images on demand, so the image must already be copied into ECR (e.g. via `skopeo`) before `terraform apply` creates the Lambda function — see `docs/runbooks/lambda-zip-to-image-migration.md`.
+
+`lambda/create-investigation/Containerfile` builds that optional container image using AWS's "alternative base image" approach: Red Hat UBI9 Minimal instead of the AWS-provided Lambda base, because Konflux Enterprise Contract policy rejects non-Red Hat base images. It has two stages, both from the same digest-pinned `BASE_IMAGE` to keep glibc ABI compatible with compiled wheels:
+
+1. **`builder`** installs Python 3.11 plus `gcc`/`libffi-devel`/dev headers, copies in a pinned `uv` binary, then runs `uv export --frozen --no-dev --no-emit-project` against `pyproject.toml`/`uv.lock` to produce a pip-compatible lockfile and `pip install`s those pinned wheels into `/deps`. Exporting from the lockfile (rather than installing from `pyproject.toml` directly) keeps the image's dependency set frozen to exactly what `uv.lock` records, including transitive pins.
+2. **The final stage** installs only the bare Python 3.11 interpreter (no compiler, no `pip`), copies `/deps` and `handler.py` from the builder, sets `LAMBDA_TASK_ROOT=/var/task` and `PYTHONPATH`, and runs the handler through `awslambdaric` (`ENTRYPOINT ["python3.11", "-m", "awslambdaric"]`, `CMD ["handler.lambda_handler"]`) — the pip-installed AWS Lambda Runtime Interface Client that replaces the bootstrap the official AWS base image would otherwise supply. The Containerfile deliberately omits a `USER` directive: AWS Lambda overrides the container's runtime identity with its own non-root user regardless, so a `USER` instruction would have no effect; this is unrelated to the investigation container's own `sre`-user requirement.
+
+`pyproject.toml` pins the Lambda's runtime dependencies — `PyJWT`, `cryptography`, `requests`, `boto3`, and `awslambdaric==4.2.3` — with a separate `dev` group (`moto[ecs,efs,iam,kms,s3,sts]`, `pytest`, `pytest-cov`, `pytest-mock`) that `--no-dev`/`--no-emit-project` excludes from both the ZIP package and the container image; only `handler.py` and its pinned runtime dependencies ship. The Lambda's own `Makefile` mirrors this for local work: `make deps`/`make build`/`make package` produce the ZIP artifact (installing dependencies inside the official `public.ecr.aws/lambda/python:3.11` image for Linux-compatible wheels), while `make build-image`/`make push-image` build and publish the optional container image from the same `Containerfile`. Both packaging paths ship identical handler logic — the ZIP/image choice affects only how the Lambda's code and dependencies are delivered to AWS Lambda, not the trigger, authentication, EFS access-point, or ECS task-launch behavior documented above.
+
 ## Failure boundaries and tests
 
+<!-- openwiki: broken internal link [../testing/verification.md#focused-investigation-staleness-regression-tests] heading anchor "focused-investigation-staleness-regression-tests" does not exist in "../testing/verification.md". Fix the href or restore the target, then delete this comment. -->
 Lambda unit tests cover skip-task behavior, access-point reuse, handover guards, task definition shaping, and rollback differences for newly created versus reused access points. For the handover guard, they cover empty task details and active-session/SSM-error failures, but not a task whose container lacks `runtimeId`. `close_investigation_test.go` covers owner-tag rejection and acceptance, malformed/missing ID-token subject claims, family-prefix scoping that excludes neighboring investigations, and `sameClosePlan` detecting both a newly appeared session and a session transitioning into the shutting-down state — the checks that gate the pre-mutation re-resolve. The `reap-investigations` unit tests cover the happy-path reap, running-task and grace-period skips, strict age boundaries, legacy missing timestamps at zero/nonzero grace values, tag/path validation failures, partial-failure cleanup rules, required S3 backup configuration and failure/exclusion behavior, and pagination. A separate pytest module under `tests/unit/` checks legacy eligibility and matching-task protection, 168-hour ages, and unrelated-task filtering; the Lambda Make targets do not discover that module. See [testing and verification](../testing/verification.md#focused-investigation-staleness-regression-tests). LocalStack integration tests check EFS/ECS relationships, `investigation close` ownership/ambiguity/ IAM-policy scoping, task-definition family scoping, and the end-to-end deadline-tag/reaper path. Slow cases that require a task to reach `RUNNING` are skipped with LocalStack's local ECS executor.
+
+## Related pages
+
+- [System overview and boundaries](../architecture/system-overview.md) places the Lambda-triggered creation flow within the CLI/Lambda/ECS request path as a whole.
+- [Container image and task runtime](../runtime/container-image.md) covers the separate build and runtime behavior of the ECS Fargate investigation container that `create-investigation` launches — distinct from the Lambda's own packaging covered above.
+- [ROSA Boundary auditing and logging flows](../operations/audit-and-logging.md) covers how investigation sessions (ECS Exec transcripts, container shutdown sync, Lambda logs, reaper backups) are audited across this lifecycle.
 
 ## Evidence-backed claims
 

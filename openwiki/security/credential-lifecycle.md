@@ -1,95 +1,144 @@
 ---
 type: security
-title: Credential lifecycle and task-scoped state
-description: Traces the short-lived OCM access-token handoff over ECS Exec and the task-side validation, isolated storage, cleanup, and audit-sync exclusions that contain credential state.
-tags: [credentials, ocm, ecs-exec, isolation, security]
-sources:
-  - id: openwiki-source-f1bd1e0a9201f149b775a09c
-    resource: repo://deploy/regional/ecs.tf
-  - id: openwiki-source-e9906b078522ed0a08c64ff1
-    resource: repo://entrypoint.sh
-  - id: openwiki-source-d2f66eb6a0ccf1ed7a35e866
-    resource: repo://internal/cmd/cli.go
-  - id: openwiki-source-d7354d29c32fc341220a6474
-    resource: repo://internal/cmd/credentials_ocm.go
-  - id: openwiki-source-2452fe2ff931e1490d573519
-    resource: repo://internal/cmd/start_session.go
-  - id: openwiki-source-eca4b2873500f4fd4beb595a
-    resource: repo://internal/credentials/ocm/auth_test.go
-  - id: openwiki-source-3850d0f3cd234df78e878ee6
-    resource: repo://internal/credentials/ocm/auth.go
-  - id: openwiki-source-21c70a2f73642c7cd6de7cc0
-    resource: repo://internal/credentials/ocm/request.go
-  - id: openwiki-source-716f140eaf7debf8f0d9c2e5
-    resource: repo://internal/credentials/ocm/transfer_test.go
-  - id: openwiki-source-d4da704e445d83f85e926aea
-    resource: repo://internal/credentials/ocm/transfer.go
-  - id: openwiki-source-6ec62643545a8bc315d38b31
-    resource: repo://tests/shell/credential-helper.bats
-  - id: openwiki-source-b696734e098932f3853bbb51
-    resource: repo://tests/shell/entrypoint.bats
-  - id: openwiki-source-c04443047d939230f4be0809
-    resource: repo://utils/rosa-boundary-credential-helper
+title: Credential Lifecycle
+description: Explains how Boundary issues short-lived AWS credentials and identities — GitHub OIDC federation for CI/content publishing, Keycloak-federated IAM roles for SREs, and the shared-iam Terraform module that defines and scopes both — without ever storing long-lived AWS keys.
+tags: [credentials, iam, oidc, keycloak, github-actions, terraform, security]
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+    at: 2026-11-12T16:02:44.301Z
+sources:
+  - id: openwiki-source-1d84986d55624099423b4413
+    resource: repo://deploy/account/github-oidc.tf
+  - id: openwiki-source-7abd92951c465f5a76e176f4
+    resource: repo://deploy/account/main.tf
+  - id: openwiki-source-509075f8404cde427a1990b6
+    resource: repo://deploy/account/modules/shared-iam/content-publishing.tf
+  - id: openwiki-source-d25a030029a9183fad61b582
+    resource: repo://deploy/account/modules/shared-iam/lambda-invoker.tf
+  - id: openwiki-source-c2905a327012a93813a2dd05
+    resource: repo://deploy/account/modules/shared-iam/oidc.tf
+  - id: openwiki-source-118fae04cbe73352fe5c54ec
+    resource: repo://deploy/account/modules/shared-iam/variables.tf
+  - id: openwiki-source-ee86c0d48b646d4bc6813442
+    resource: repo://deploy/account/outputs.tf
+  - id: openwiki-source-88ce5728cbec2814062ae8aa
+    resource: repo://deploy/account/tests/content-publishing.tftest.hcl
+  - id: openwiki-source-e63bbacd264bc409c45ddf07
+    resource: repo://deploy/account/tests/shared-iam.tftest.hcl
+  - id: openwiki-source-03f3d05fc1af60a151214ce7
+    resource: repo://deploy/account/variables.tf
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
 ---
 
-# Credential lifecycle and task-scoped state
+# Credential Lifecycle
 
-OCM credentials are deliberately handled separately from the persistent investigation home. The CLI obtains a fresh OCM access token, transfers a minimal request over an ECS Exec session, and the in-container helper validates and installs an access-token-only OCM configuration. The OCM config and kubeconfig live on empty task-scoped volumes mounted over EFS-backed home paths; they are removed when the task ends and are excluded from the container's S3 audit sync.
+Boundary never distributes long-lived AWS access keys. Every human and automated actor that needs AWS permissions gets them by federating an external identity token into a short-lived STS session, through one of two OIDC trust relationships that terminate in the account-global `shared-iam` Terraform module:
 
-This page covers only Boundary's own CLI-to-task OCM credential handoff; the Trusted Actions component has a separate OCM client/auth stack (`internal/ocm`, `internal/auth` under `components/trusted-actions`) for its own JWT validation and AMS checks, documented in [Trusted Actions authorization](../architecture/trusted-actions-authorization.md).
+- **GitHub Actions OIDC** — CI workflows in three trusted source repositories assume per-repository publisher roles to push content, with no stored AWS secret in any workflow.
+- **Keycloak OIDC federation** — SREs (and a Lambda-invoking caller) assume a shared, attribute-based role using a Keycloak-issued JWT, with per-user isolation enforced through session tags rather than per-user IAM roles.
 
-## Acquisition and request preparation
+This page covers only Boundary's own AWS-identity federation and role issuance. It is separate from Trusted Actions' JWT/OCM-based credential model (its own token validation and AMS checks), which is documented in [Trusted Actions authorization](../architecture/trusted-actions-authorization.md), and from the task-scoped OCM credential handoff for SRE sessions, which is a distinct mechanism from the AWS role vending described here. For how these roles fit into the broader identity architecture, see [Identity and Access](../architecture/identity-and-access.md); for the Keycloak realm/client side of the federation, see [Keycloak Deployment](../integrations/keycloak-deployment.md); for how the sessions these roles create are logged, see [Audit and Logging](../operations/audit-and-logging.md).
 
-`rosa-boundary session credentials configure ocm <session-id>` and `rosa-boundary session create <cluster-id> --with-credentials ocm` both resolve to the shared `configureOCMForSession` helper, so both entrypoints follow the identical acquire -> transfer -> install sequence; the `session create` path only runs it once the new session reaches `RUNNING` (unless `--no-wait` was requested, which is rejected together with `--with-credentials`) and ECS Exec is confirmed ready, preserving as much of the fresh token's useful lifetime as possible. (The standalone `session start`/`session stop` subcommands have been removed in favor of `session create`/`session close`; invoking them now returns a pointer to the replacement.)
+## Where identities are defined
 
-The `Authenticator.Acquire` method selects between an authorization-code flow (`FlowAuthCode`) and a device flow (`FlowDevice`); any other value is rejected. Neither flow reads or writes a token cache. The default flow is derived from the existing `--use-device-code`/config preference, but both `session credentials configure ocm` (`--auth-flow`) and `session create` (`--ocm-auth-flow`) accept an OCM-only override that selects `auth-code` or `device` independently of that global default; `auth-code` requires a local callback listener, while `device` never opens a browser. The authorization-code implementation binds a local callback listener on `127.0.0.1:9998`, validates OAuth state with a constant-time comparison, uses PKCE, and exchanges the code for a token that is immediately reduced to its access token and expiry via `accessTokenOnly`, which also clears the SDK `oauth2.Token`'s `AccessToken` and `RefreshToken` fields. The device flow validates the device-authorization challenge (code, user code, verification URL, expiry) before polling for a token and applies the same reduction. Status updates (authorization URL, device code, waiting messages) are always plain human-readable text written to stderr through the injected `Status` callback, regardless of the command's `--output` mode; auth failures deliberately avoid wrapping the underlying OAuth error, since `oauth2.RetrieveError` can carry a raw token-endpoint response body, so `ocmAuthError` classifies the failure into a small reason set (`canceled`, `expired`, `denied`, `invalid_response`, `network`, `other`) instead of propagating it.
-
-Before transfer, `configureOCMForSession` calls `prepareCredentialSession`, which verifies the session's underlying ECS task is `RUNNING` and waits for the ECS Exec agent in the `rosa-boundary` container before any token is requested. Only after that readiness check does it acquire the token, resolve the OCM environment to an approved canonical API URL, and call `MarshalRequest` to serialize exactly `access_token` and `url`. The in-memory token's access-token field is cleared immediately after marshaling, and the serialized request buffer is zeroed byte-by-byte in a deferred cleanup once the ECS Exec transfer completes (success or failure).
+All identity and trust live in `deploy/account`, the account-global Terraform root. This root has no dependency on any regional state: it references no bucket, KMS key, or other regional resource, only identities. The actual AWS permissions granted to these identities are attached separately by regional Terraform roots, which look the roles up by name through the `regional_iam_contract` output — so a role can exist and be assumable before it holds any permissions, and permission changes never require recreating the identity.
 
 ```mermaid
-sequenceDiagram
-    participant CLI as rosa-boundary CLI
-    participant OCMAuth as OCM Authenticator
-    participant ECS as ECS Exec Session
-    participant Helper as credential-helper (task)
+flowchart LR
+    subgraph AccountRoot["deploy/account (account-global)"]
+        GHOIDC["github-oidc.tf\naws_iam_openid_connect_provider.github_actions"]
+        KCOIDC["oidc.tf\naws_iam_openid_connect_provider.keycloak / stage / prod"]
+        SharedIAM["module shared_iam\n(modules/shared-iam)"]
+    end
+    subgraph Regional["deploy/regional (per-region roots)"]
+        Grants["Permission policies\nattached by role name"]
+    end
+    GHActions["GitHub Actions workflow\n(ops-sop / managed-notifications / rosa-claude-plugins)"]
+    Keycloak["Keycloak realm (sre, stage, prod)"]
+    SRE["SRE operator"]
 
-    CLI->>ECS: DescribeTask and WaitForExecAgent
-    ECS-->>CLI: RUNNING, exec agent ready
-    CLI->>OCMAuth: Acquire(flow)
-    OCMAuth-->>CLI: access token, expiry
-    CLI->>CLI: MarshalRequest(access_token, url) then clear token field
-    CLI->>ECS: ExecuteCommand(configure ocm)
-    CLI->>Helper: send base64 request after ready marker
-    Helper->>Helper: validate with ocm whoami, install candidate config
-    Helper-->>CLI: success marker
-    CLI->>CLI: close stdin, zero request buffer
+    GHActions -- "OIDC token, aud=sts.amazonaws.com" --> GHOIDC
+    SRE -- "OIDC token via Keycloak" --> Keycloak --> KCOIDC
+    GHOIDC --> SharedIAM
+    KCOIDC --> SharedIAM
+    SharedIAM -- "content_publisher roles" --> Regional
+    SharedIAM -- "sre_shared, lambda_invoker roles" --> Regional
 ```
-*Acquire-to-install flow: the CLI never sends the credential payload until the task and Exec agent are confirmed ready, and clears both the token and the serialized request as soon as each is no longer needed.*
+*Identity creation and trust are account-global; the matching permission grants are a later, separate regional apply.*
 
-## Bounded ECS Exec protocol
+## GitHub OIDC for CI and content publishing
 
-The CLI's transfer protocol starts Session Manager with explicit streams and a timeout. For configuration, it waits for the helper's readiness marker before sending one base64-encoded request line, then keeps stdin open until the helper reports success. It closes stdin only after success so the task-side validation is not interrupted. Duplicate/out-of-order markers, early EOF, output over the configured maximum, cancellation, timeout, and unsuccessful plugin exit fail the transfer; protocol errors do not echo the credential payload.
+`deploy/account/github-oidc.tf` manages the account's GitHub Actions OIDC provider (issuer `https://token.actions.githubusercontent.com`) in one of three modes, selected by `create_github_actions_oidc_provider` and `adopt_existing_resources`:
 
-The clear operation sends no credential payload and requires only the success marker. Both operations invoke fixed task-side commands rather than accepting arbitrary helper commands from the request.
+- **create** (default) — this state creates and owns `aws_iam_openid_connect_provider.github_actions`.
+- **reference** — `create_github_actions_oidc_provider = false` looks the provider up by issuer URL via a data source instead of managing it; an account with no such provider fails the plan rather than silently creating one.
+- **adopt** — `create_github_actions_oidc_provider = true` together with `adopt_existing_resources = true` imports an existing provider into this state using Terraform's declarative `import` block.
 
-## Task-side validation and persistence
+Because AWS allows only one OIDC provider per issuer URL per account, an operator in the wrong mode fails loudly instead of creating a duplicate or silently destroying anything. No thumbprint is pinned for this provider: the argument is optional on the AWS provider version this root uses, and AWS maintains the GitHub Actions trust chain itself. Whichever mode produced the provider, `local.github_actions_provider_arn` resolves to its ARN, and the account root's `github_actions_oidc_provider_arn` output exposes that ARN so other consumers do not need to know which mode created it.
 
-The helper disables terminal echo, limits input to 65,536 bytes, uses a restrictive umask, and stores temporary request/candidate files inside the task-scoped OCM directory with mode `0600`. It accepts only an object with exactly the `access_token` and `url` keys and allows only the production, staging, or integration canonical API URL. It builds an OCM config with the fixed OCM client ID, `openid` scope, and token endpoint; no refresh or offline token is admitted. It runs `ocm whoami` against the candidate config with OCM environment overrides unset and discards both output streams, then moves the candidate into place only after validation succeeds. Temporary files are removed and terminal echo restored on exit.
+The audience, `sts.amazonaws.com`, is a hardcoded local rather than a variable, specifically so that no workspace configuration can widen which audience the publisher trust policies accept.
 
-Clear removes the installed OCM config, helper temporary files, and `/home/sre/.kube/config`, because kubeconfig may itself contain OCM-derived authentication state. The entrypoint fails closed if the two credential directories are missing mounts or are backed by NFS/EFS, initializes them with `sre` ownership and mode `0700`, and the audit sync excludes both directory trees.
+### Per-repository publisher roles
+
+`modules/shared-iam/content-publishing.tf` creates one `aws_iam_role.content_publisher` per entry in `var.content_publisher_sources` — never a single shared role for all sources. This is a deliberate isolation boundary: a compromised workflow in one source repository cannot write another repository's published content once the matching regional grants exist, because each role's trust policy pins a distinct GitHub ref subject.
+
+The default `content_publisher_sources` map pins three agreed sources:
+
+| Key | Repository | Branch |
+|---|---|---|
+| `ops-sop` | `openshift/ops-sop` | `master` |
+| `managed-notifications` | `openshift/managed-notifications` | `master` |
+| `rosa-claude-plugins` | `openshift-online/rosa-claude-plugins` | `main` |
+
+Each publisher role's trust policy requires `sts:AssumeRoleWithWebIdentity` from the GitHub Actions federated principal, under a `StringEquals` condition matching both the fixed audience and a subject built from a template: `repo:<repository>:ref:refs/heads/<branch>`. Terraform input validation on `content_publisher_sources` enforces syntax, not trust scope — it rejects a repository/branch value containing its own `:` segment, a `*`, or a full ref (such as `refs/pull/1/merge`), which is what would otherwise let an input turn into a pull-request, merge-ref, or environment subject. It does not and is not meant to restrict which owner, repository, or branch is configured; widening the trusted set is a deliberate, reviewed configuration change. A `aws_iam_role.content_publisher` precondition fails the plan if `github_actions_provider_arn` is ever empty, since the account root always resolves it by creating or looking up the provider.
+
+Each publisher role's `max_session_duration` is `var.content_publisher_session_duration` (default 3,600 seconds), reflecting that a publishing workflow run is short-lived and needs no long-lived session. `content-publishing.tf` attaches no permissions itself — a publisher role is assumable immediately but holds no content access until the matching regional grant exists, which is the module's fail-safe default. The per-source role, ARN, repository, branch, and exact rendered subject are exposed through the `content_publisher_roles` output, and the account root also publishes a flattened `content_publisher_role_arns` map that a publishing workflow assumes directly.
+
+A separate `aws_iam_role.content_replication` identity exists unconditionally, independent of audit replication, for S3 replication of Boundary content buckets. Its trust policy is service-only (`s3.amazonaws.com`, unconditioned `sts:AssumeRole`), deliberately matching the existing audit replication role's trust shape exactly, since adding a confused-deputy condition to only one of the two would be a drift that could surface at the worst time, during regional replication work.
+
+## Keycloak-federated IAM roles for SREs
+
+`deploy/account/oidc.tf` creates up to three Keycloak OIDC providers — a primary (`keycloak_issuer_url`), and optional `stage` and `prod` providers that are each created only when their issuer URL variable is non-empty. Unlike the GitHub Actions provider, these providers pin an explicit `thumbprint_list`, since they are existing singleton providers managed with their original identity (name, tags, audience, and thumbprint preserved across the migration into this root).
+
+`modules/shared-iam/oidc.tf` defines `aws_iam_role.sre_shared`, a single shared role every SRE assumes — not one role per user. Isolation across SREs is enforced through **attribute-based access control (ABAC)** rather than per-user roles:
+
+1. The Keycloak-issued JWT carries the user's unique identifier under the `https://aws.amazon.com/tags` claim.
+2. AWS STS automatically converts that claim into session tags during `AssumeRoleWithWebIdentity`, provided the trust policy also grants `sts:TagSession`.
+3. Regional permission policies reference `${aws:PrincipalTag/<tag-key>}` against resource tags (for example `ecs:ResourceTag/<tag-key>` on ECS tasks), so each SRE can only exec into tasks tagged as their own — enforced by the AWS API itself, with no per-user IAM role to create or retire.
+
+The role's trust policy has one `Allow` statement per configured Keycloak provider (primary always, `stage`/`prod` only when their issuer URL is set), each requiring `sts:AssumeRoleWithWebIdentity` and `sts:TagSession` and a `StringEquals` condition on `<issuer-domain>:aud` against that environment's own OIDC client ID. Two optional layers compose on top of the per-environment audience check:
+
+- `enable_uuid_allowlist` adds a `aws:RequestTag/uuid` condition restricting the session tag to an explicit `allowed_uuids` list. A `sre_shared` precondition fails the plan if the allowlist is enabled with an empty UUID list.
+- `enable_oidc_group_enforcement` adds a `aws:RequestTag/roles` condition requiring a specific `required_oidc_role` (default `ai-sd-sre`). A matching precondition fails the plan if group enforcement is enabled without a configured role.
+
+`aws_iam_role.lambda_invoker`, in `modules/shared-iam/lambda-invoker.tf`, renders the identical trust-policy shape (same providers, same audience/UUID/role conditions) so that an SRE's Keycloak token also yields SigV4 credentials for invoking the create-investigation Lambda's function URL. This is a first authentication layer at the AWS IAM/SigV4 level; the Lambda performs its own independent OIDC token validation afterward for application-level authorization. Its `max_session_duration` is fixed at the AWS minimum of 3,600 seconds, since its sessions are expected to be very short-lived regardless of the configurable `oidc_session_duration` used by `sre_shared`.
+
+`sre_shared`'s `max_session_duration` is `var.oidc_session_duration` (default 3,600 seconds, validated to the AWS-allowed range of 3,600–43,200 seconds across every session-duration variable in this module).
+
+## The shared-iam module as the issuance boundary
+
+`modules/shared-iam` is the one place that defines every account-global identity Boundary roles consume: ECS execution/task roles, the SRE and Lambda-invoker Keycloak-federated roles, GitHub Actions content-publisher and replication roles, Lambda reaper/invoker roles, optional S3 replication and metrics-read roles, and Bedrock invocation-logging roles. The module's own comments establish an explicit convention: it declares identity and trust only, never `inline_policy`, `managed_policy_arns`, or exclusive policy-attachment resources, because regional roots augment these same roles with permissions afterward. This separation is what lets the account root be applied independently of any region, and lets permission changes land without recreating or re-trusting an identity.
+
+The account root (`deploy/account/main.tf`) is the only caller of this module, passing in both OIDC trust material (`keycloak_provider_arn`, `stage`/`prod` variants, `github_actions_provider_arn`, `github_actions_audience`) resolved from `oidc.tf`/`github-oidc.tf`, and all scoping knobs (`content_publisher_sources`, `*_session_duration`, `enable_uuid_allowlist`, `allowed_uuids`, `enable_oidc_group_enforcement`, `required_oidc_role`). The module's `outputs.tf` exposes a flat `roles` map for the fixed identity set plus two separately shaped, configuration-dependent outputs — `content_publisher_roles` (per-source map) and `content_replication_role` — kept apart from `roles` specifically so that map's entries stay fixed flat name/ARN objects rather than varying by workspace.
+
+### Key invariants enforced in Terraform
+
+- `github_actions_audience` has no account-root variable at all, and `content_publisher_sources` validation rejects wildcards, colons, and full refs — both closing off ways a workspace could widen GitHub Actions trust.
+- A `content_publisher_sources` validation rejects two keys mapping to the same `repository:branch` pair, and another caps each rendered role name (`<prefix>-publisher-<key>`) at IAM's 64-character limit.
+- `metrics_read_trusted_principal_arns` validation requires a complete IAM role ARN or STS assumed-role session ARN — rejecting account roots, service principals, and especially a bare `*`, which IAM itself would otherwise accept as an anonymous principal.
+- Every `*_session_duration` variable is validated to the 3,600–43,200 second range AWS enforces for `max_session_duration`.
 
 ## Verification
 
-Go tests cover token reduction, OAuth state/PKCE, environment allowlisting, token-only request shape, and the framed transfer protocol including timeout/size/protocol failures without credential leakage. bats tests exercise the task helper's exact input schema, canonical URL checks, failed-validation rollback, file permissions, cleanup, and startup/S3 mount exclusions.
+`deploy/account/tests/shared-iam.tftest.hcl` and `content-publishing.tftest.hcl` run mocked `terraform test` applies (no real AWS calls) asserting the rendered JSON trust-policy documents: that `sre_shared` and `lambda_invoker` share an identical three-statement trust policy keyed to the primary/stage/prod providers with the configured audiences, UUID allowlist, and role-tag conditions; that session durations match configuration; and that the three content-publisher roles are separate identities with exactly the three agreed `repo:<repository>:ref:refs/heads/<branch>` subjects — never a fork, pull request, or environment subject. The suite explicitly notes a mocked test's limit: it shows what trust policy *document* this configuration renders, not that AWS STS actually refuses a mismatched token; that evidence requires a real `AssumeRoleWithWebIdentity` call against the live publishing workflow.
 
 ## Evidence-backed claims
 
-- OCM acquisition supports fresh auth-code and device flows without a cache, selected by an explicit per-command override or a global device-code default; both flows reduce OAuth results to the access token and expiry while clearing the access/refresh fields on the SDK token object. [flow selection and authenticator](repo://internal/credentials/ocm/auth.go#L22-L88) · [access-token reduction](repo://internal/credentials/ocm/auth.go#L338-L346) · [auth tests](repo://internal/credentials/ocm/auth_test.go#L42-L103)
-- Before any ECS Exec transfer, the CLI confirms the task is `RUNNING` and the Exec agent is ready, then serializes only the access token and approved URL, clears the in-memory token field, and zeroes the serialized request buffer after transfer completes. [session readiness check](repo://internal/cmd/credentials_ocm.go#L263-L284) · [token acquisition and request lifecycle](repo://internal/cmd/credentials_ocm.go#L214-L260) · [request shape and checks](repo://internal/credentials/ocm/request.go#L8-L23)
-- Configure transfer waits for a readiness marker before sending the request, requires helper success, bounds output and time, and rejects malformed protocol completion. [stream protocol](repo://internal/credentials/ocm/transfer.go#L43-L200) · [protocol tests](repo://internal/credentials/ocm/transfer_test.go#L19-L129)
-- The task helper accepts only bounded JSON with exactly access-token and URL fields at approved API URLs, validates a candidate using `ocm whoami` before replacing the active config, and clears OCM and kubeconfig state on request. [configure validation/install](repo://utils/rosa-boundary-credential-helper#L49-L141) · [clear operation](repo://utils/rosa-boundary-credential-helper#L143-L151) · [helper tests](repo://tests/shell/credential-helper.bats#L66-L162)
-- Credential paths are separate empty ECS volumes overlaying the persistent EFS home, and startup rejects missing or NFS-backed overlays; S3 sync excludes both credential trees and does not follow symlinks. [task volume definitions](repo://deploy/regional/ecs.tf#L71-L93) · [mount guard](repo://entrypoint.sh#L46-L80) · [audit sync](repo://entrypoint.sh#L3-L34) · [entrypoint tests](repo://tests/shell/entrypoint.bats#L15-L47) · [sync exclusion tests](repo://tests/shell/entrypoint.bats#L88-L174)
+- Boundary federates two distinct OIDC trust relationships — GitHub Actions for CI/content publishing and Keycloak (primary/stage/prod) for SREs and the Lambda invoker — into the account-global `shared-iam` module, which defines identity and trust only; permissions are attached separately by regional Terraform roots that look roles up by name. [account root wiring](repo://deploy/account/main.tf#L40-L77) · [module convention](repo://deploy/account/modules/shared-iam/iam.tf#L1-L1) · [regional contract output](repo://deploy/account/outputs.tf#L6-L12)
+- The GitHub Actions OIDC provider supports create/reference/adopt modes gated by `create_github_actions_oidc_provider` and `adopt_existing_resources`, pins no thumbprint, and resolves to `local.github_actions_provider_arn` regardless of which mode produced it; the trust audience `sts.amazonaws.com` is a hardcoded local with no corresponding account-root variable, closing off workspace-level audience widening. [provider modes](repo://deploy/account/github-oidc.tf#L1-L63) · [fixed audience](repo://deploy/account/github-oidc.tf#L29-L39) · [provider ARN output](repo://deploy/account/outputs.tf#L39-L41)
+- `modules/shared-iam/content-publishing.tf` creates one dedicated publisher IAM role per entry in `content_publisher_sources` (never a shared role), each trusting only the GitHub Actions provider under a `StringEquals` condition on the fixed audience and a subject built as `repo:<repository>:ref:refs/heads/<branch>`; validation on that variable rejects wildcards, embedded `:` segments, full refs, duplicate repository/branch pairs, and role names exceeding IAM's 64-character limit, and a role precondition fails the plan if the provider ARN is ever empty. [publisher role](repo://deploy/account/modules/shared-iam/content-publishing.tf#L38-L70) · [sources validation](repo://deploy/account/modules/shared-iam/variables.tf#L72-L113) · [default sources](repo://deploy/account/variables.tf#L176-L193)
+- A separate `content_replication` IAM role exists unconditionally (independent of audit replication) with a service-only, unconditioned `s3.amazonaws.com` trust policy deliberately mirroring the existing audit replication role's trust shape; neither `content-publishing.tf` role carries any attached permission in this file, so a role is assumable but grants no content access until a later regional change lands. [replication role](repo://deploy/account/modules/shared-iam/content-publishing.tf#L72-L89)
+- `sre_shared` and `lambda_invoker` render an identical ABAC trust policy across up to three Keycloak providers (primary always, stage/prod only when configured): each grants `sts:AssumeRoleWithWebIdentity` plus `sts:TagSession` under a per-environment audience condition, with optional `aws:RequestTag/uuid` allowlist and `aws:RequestTag/roles` group-enforcement conditions, each guarded by a plan-failing precondition when enabled without its required value. [sre_shared trust policy](repo://deploy/account/modules/shared-iam/oidc.tf#L9-L109) · [lambda_invoker trust policy](repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L1-L91) · [preconditions](repo://deploy/account/modules/shared-iam/oidc.tf#L100-L109)
+- ABAC isolation depends on STS auto-converting the Keycloak JWT's `https://aws.amazon.com/tags` claim into session tags during `AssumeRoleWithWebIdentity` (requiring `sts:TagSession` in the trust policy), which regional permission policies then match via `${aws:PrincipalTag/<tag>}` conditions against resource tags such as `ecs:ResourceTag/<tag>`, enforcing per-SRE task isolation at the AWS API layer without per-user IAM roles. [ABAC design comment](repo://deploy/account/modules/shared-iam/oidc.tf#L9-L18)
+- Session durations are bounded per role type: `sre_shared` uses the configurable `oidc_session_duration` (default 3,600s), `content_publisher` roles use `content_publisher_session_duration` (default 3,600s), and `lambda_invoker` is fixed at the AWS minimum of 3,600s regardless of configuration; every configurable session-duration variable is validated to AWS's 3,600–43,200 second range. [lambda_invoker fixed duration](repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L9-L11) · [session duration validations](repo://deploy/account/modules/shared-iam/variables.tf#L13-L19) · [publisher session duration default](repo://deploy/account/variables.tf#L189-L193)
+- Mocked `terraform test` suites assert the rendered trust-policy JSON for both the Keycloak-federated roles (provider principals, audiences, session-tag conditions, durations) and the GitHub Actions publisher roles (per-source identity, exact subject set, StringEquals/scalar/single-audience shape), while explicitly scoping that guarantee to the rendered document rather than live STS enforcement. [shared-iam trust assertions](repo://deploy/account/tests/shared-iam.tftest.hcl#L48-L80) · [content-publishing subject assertions](repo://deploy/account/tests/content-publishing.tftest.hcl#L1-L80)

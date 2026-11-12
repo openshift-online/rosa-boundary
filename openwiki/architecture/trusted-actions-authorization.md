@@ -1,11 +1,8 @@
 ---
 type: architecture
-title: Trusted Actions authorization model
-description: Explains how Trusted Actions resolves caller identity and role against OCM AMS, allowlists actions per role at the HTTP layer, and separately authorizes namespace/secret and AWS region/operation access inside the execution scope.
+title: Trusted Actions Authentication and Authorization
+description: Explains the Trusted Actions request pipeline's auth chain — JWKS-backed OCM JWT authentication, account-JWT middleware, audit logging middleware, API-level role authorization, and per-action access checks — plus the separate resource-level authorization performed inside the executor, and how auth is skipped for health checks and mock/dev mode.
 tags: [trusted-actions, authorization, authentication, ocm, ams, rbac, allowlist]
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
 sources:
   - id: openwiki-source-11418ec52755ac005ca19730
     resource: repo://components/trusted-actions/cmd/server/main.go
@@ -35,10 +32,15 @@ sources:
     resource: repo://components/trusted-actions/internal/executor/kube.go
   - id: openwiki-source-aaf6086dd1fdf7ae406890e7
     resource: repo://components/trusted-actions/internal/ocm/authorization.go
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+  - id: openwiki-source-f710c4d6aa9327fd7bfc55c4
+    resource: repo://components/trusted-actions/internal/openapi/api.go
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-12T16:02:44.301Z
 ---
 
-# Trusted Actions authorization model
+# Trusted Actions Authentication and Authorization
 
 Trusted Actions enforces authorization in two independent layers. The first layer runs entirely in HTTP middleware, before an execution is ever queued: it resolves the caller's identity and role against OCM Account Management Service (AMS), then checks that role against the role allowlist the target action declares in the catalog. The second layer runs later, inside the executor, after an action has already been queued and dequeued by a worker: it checks the concrete resource the action is about to touch (a Kubernetes namespace/secret, or an AWS region/operation) against a separate, independently configured allowlist. A request that clears the first layer can still be denied by the second.
 
@@ -50,11 +52,17 @@ This model is specific to Trusted Actions and shares no trust boundary, token fo
 
 Every request under `/api/v0/trusted-actions` passes through a fixed chain, wired in `cmd/server/main.go`:
 
-1. **OCM JWKS signature validation** — the OCM SDK's `authentication.NewHandler()` wraps the whole router (except `/health`) when auth is not disabled. It validates the JWT's signature against OCM's JWKS endpoint (`ROSA_TA_JWK_CERT_URL`, optionally overridden with a local `ROSA_TA_JWK_CERT_FILE`) and stores the verified token in the request context. This step never runs when `ROSA_TA_AUTH=disabled`.
-2. **JWT authentication** (`internal/auth/authn.go`, `Middleware.AuthenticateAccountJWT`) — pulls the verified token out of context via `GetCallerIdentityFromJWT`, extracts `username`/`email`/`clientId` (falling back to `preferred_username` for Red Hat SSO vs. RHD claim shapes), and rejects the request with `401` if no username claim is present. The resolved identity is stored in the request context as `CallerIdentity`.
-3. **Audit middleware injection** (`middleware.NewAuditLogger`) — records the request-level audit entry; it runs between authentication and role authorization so the audited identity is always the one JWT auth resolved.
-4. **`RoleAuthzMiddleware.AuthorizeAPI`** (`internal/auth/authz.go`) — iterates `config.RoleMapping` entries from the loaded role config (each mapping a role ID to an AMS resource type) in order, and calls `ocm.Authorization.AccessReview(ctx, username, "get", role.AMSResource)` for each until one returns `allowed=true`. The first matching role is written into the request context (`SetRoleInContext`) and the chain continues. If every AccessReview call errors, the request fails with `500`; if none match, it fails with `403`.
-5. **`ActionAuthzMiddleware.CheckActionAccess`** (`internal/auth/authz.go`) — runs as an OpenAPI route middleware only on requests that carry an `{action}` URL parameter (requests without one, e.g. catalog listing, pass straight through, since they are already behind authn/role-authz). It looks the action up in the catalog; an unknown action is `404`. It then compares the role resolved in step 4 against the action's `AllowedRoles`; a role not present in that list is `403`.
+`/health` is registered directly on the top-level `chi.Router` before the `/api/v0/trusted-actions` sub-route is wired, and is also declared `Public("^/health$")` to the outer JWKS wrapper, so it never passes through any authentication or authorization step — it is reachable even when the rest of the API would reject every request. Everything under `/api/v0/trusted-actions` runs through the following chain, in this order:
+
+0. **OCM JWKS signature validation** — the OCM SDK's `authentication.NewHandler()` wraps the entire `router` (built from `cmd/server/main.go`'s `chi.NewRouter()`, covering both `/health` and `/api/v0/trusted-actions`) in a single outer `http.Handler`, but this wrapper is only built and applied `if cfg.AuthPolicy != config.DisabledAuthPolicy`. When applied, it validates the JWT's signature against OCM's JWKS endpoint (`cfg.JWKCertURL`, sourced from `ROSA_TA_JWK_CERT_URL`, optionally overridden with a local `cfg.JWKCertFile`/`ROSA_TA_JWK_CERT_FILE`) and stores the verified token in the request context; `/health` is marked `Public` so the handler still never touches it. In mock/dev mode (`ROSA_TA_AUTH=disabled`) this entire wrapper — and the network call and startup `Fatal` it could trigger — is skipped, and `mainHandler` is the bare chi router.
+1. **JWT authentication** (`internal/auth/authn.go`, `Middleware.AuthenticateAccountJWT`, wired as `r.Use(authnMiddleware.AuthenticateAccountJWT)`) — pulls the verified token out of context via `GetCallerIdentityFromJWT`, extracts `username`/`email`/`clientId` (falling back to `preferred_username` for Red Hat SSO vs. RHD claim shapes), and rejects the request with `401` if no username claim is present. The resolved identity is stored in the request context as `CallerIdentity`. In mock mode this middleware is swapped for `MockMiddleware.AuthenticateAccountJWT`, which injects a hardcoded `dev-user` identity without reading the request at all.
+2. **Audit middleware injection** (`middleware.NewAuditLogger`, wired as `r.Use(middleware.NewAuditLogger(dataStore, logger))`) — records the request-level audit entry; it runs immediately after authentication and before role authorization, so the audited identity is always the one JWT auth resolved (real or mock).
+3. **`RoleAuthzMiddleware.AuthorizeAPI`** (`internal/auth/authz.go`, wired as `r.Use(authzMiddleware.AuthorizeAPI)`) — iterates `config.RoleMapping` entries from the loaded role config (each mapping a role ID to an AMS resource type) in order, and calls `ocm.Authorization.AccessReview(ctx, username, "get", role.AMSResource)` for each until one returns `allowed=true`. The first matching role is written into the request context (`SetRoleInContext`) and the chain continues. If every AccessReview call errors, the request fails with `500`; if none match, it fails with `403`. In mock mode this is `MockAuthzMiddleware.AuthorizeAPI`, which grants the `SREP` role unconditionally with no AMS call.
+4. **`ActionAuthzMiddleware.CheckActionAccess`** (`internal/auth/authz.go`) — not a `router.Use` chi middleware like the previous three; it is instead passed as `openapi.HandlerWithOptions(apiHandler, openapi.ChiServerOptions{BaseRouter: r, Middlewares: []openapi.MiddlewareFunc{actionAuthz.CheckActionAccess}})`, which applies it only to the generated OpenAPI routes, and only to the ones carrying an `{action}` URL parameter (requests without one, e.g. catalog listing, pass straight through, since they are already behind authn/role-authz). It looks the action up in the catalog; an unknown action is `404`. It then compares the role resolved in step 3 against the action's `AllowedRoles`; a role not present in that list is `403`.
+
+`openapi.HandlerWithOptions` is called with `BaseRouter: r` — the same `chi.Router` created by `router.Route("/api/v0/trusted-actions", ...)` — so it registers the generated routes (`GET /`, `GET /{action}`, `POST /{action}/run`, `GET /runs`, `GET /runs/{id}`, `GET /runs/{exec_id}/output`, `GET /audit`) directly on `r` via `r.Get`/`r.Post`, rather than building a fresh router and mounting it onto `r` with `r.Mount("/", ...)`. This is deliberate: `HandlerWithOptions` returns the same `r` it was given when `BaseRouter` is set, so mounting that return value back onto `r` would make `r` route into itself and recurse forever. Registering directly on `r` via `BaseRouter` avoids that infinite routing loop.
+
+The sequence below shows the chain as it runs under the `enabled`/`ocmconfig` auth policies; under `disabled` (mock mode), the JWKS and AMS steps are replaced by the hardcoded `dev-user`/`SREP` shortcuts described above, and `/health` bypasses the whole chain in either case.
 
 ```mermaid
 sequenceDiagram

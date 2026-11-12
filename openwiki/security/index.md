@@ -1,3 +1,3 @@
 # Files
 
-- [Credential lifecycle and task-scoped state](credential-lifecycle.md) - Traces the short-lived OCM access-token handoff over ECS Exec and the task-side validation, isolated storage, cleanup, and audit-sync exclusions that contain credential state.
+- [Credential Lifecycle](credential-lifecycle.md) - Explains how Boundary issues short-lived AWS credentials and identities — GitHub OIDC federation for CI/content publishing, Keycloak-federated IAM roles for SREs, and the shared-iam Terraform module that defines and scopes both — without ever storing long-lived AWS keys.

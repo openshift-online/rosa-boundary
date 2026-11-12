@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:bb2a2172c59111ab5d64bea30ab41d67ff210d2c7a3611f97a1645d4eb421d6c",
+  "pageVersion": "sha256:6138d330b20d76e5d1b14ee2c20b78c4f2725c68ad66f67f38388d7fbd9678b6",
   "claims": [
     {
       "id": "claim_3cdf4a9b1fee4625859a5a2ef10e5ef9",
@@ -63,11 +63,11 @@
       "statement": "worker.Pool.New clamps concurrency to at least 1 and a non-positive pollInterval to a 5s default; production defaults are WorkerConcurrency=4, WorkerPollInterval=5s, WorkerExecutionTimeout=2m, each overridable via ROSA_TA_WORKER_CONCURRENCY / ROSA_TA_WORKER_POLL_INTERVAL / ROSA_TA_WORKER_EXECUTION_TIMEOUT.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L160-L162",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L167-L169",
           "version": "repo-lines-v1:sha256:e79a1d00d562a14bd9e80ad3ed4356595724041f8d2023f99da4b16d30b58420:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjI3MDg0NzZhMWFhOWVmYmU3YzcyNDYzZjFjMGU5NDkyNTdjODUwMmM4MjRlZWZiY2U2MWQ2OTA1OTc0OTA3ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDU5NGI5MzJjYTI4NTQ0ZGU4Y2YzMWZkOWM0NjEwYmIyNmNiMDA0YjRmMTIzYzAwZTdlMzc2NGJhNzNkMmJkMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGQ0NGVlZjQ5YjZlODgzYTdjODUzNmI0MTZjZWUyNGRjNTJmOWM2YzdiYTk4Y2JhOWVkNzkzYWI5MGY1MTMwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzY5Y2UxYWRkMmRjNTBjZmMzOThiYTRmYmVlZGI5ODg3NjIzNGY0MTNkOWZhZGJiMjNjOTNiYWEwNjc2YmQ5MSJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L253-L256",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L262-L265",
           "version": "repo-lines-v1:sha256:67b0f47f42cd5d194a8cd431331e635d773e156526ac1d7be7fbc5ad713c1735:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTgxMTVkYTk4ZWNkYzI0ZDRiNzFhMDgyNGNiN2QzODhmMTk0YzYwODllMTEzNjhiNDY3Yzg2Y2RmZjhlYzkwNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTYyNDhiZDI3MmE0YjkzNWIwYTUwMWMxZTM3NTUzZWYyZmJhZjcyMzFiYTZjOGJiNDZiNzZjMGJlZWE1M2Y0NiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzg2Y2VkMjk2NzMyMzlhZDkyNTEyNTAwZWViZTAzMDBkOTRkMmNiMzA1NTZjYTcwMGZhOTM3MTI5NDNmZTcyYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTFhZjcwMzZkMTNlMmZlNzdiYjViOWYyZTcwM2UyNWJmMWU1YzI5MTk5MTgzZGJkY2VjNWFiZDQ0NWZiNmY5NCJ9"
         },
         {
@@ -105,7 +105,7 @@
       "statement": "On SIGINT/SIGTERM, cmd/server cancels the worker pool's context, gives the HTTP server up to 30s to drain, then waits up to the remainder of that same 30s window for in-flight worker executions (Pool.Wait) before exiting, warning if that wait times out.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L444-L469",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L440-L465",
           "version": "repo-lines-v1:sha256:0b5e75814d34f0bebaf895c054f5d303be213a01e3d13a6cae1acb50d72186d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiNzJlYTZkYWZhM2QzNTE4NTA4ZTdmN2RlOTg1YWUzYTU2ODg5YjA1MjI3OGI5MTgxMGQ1ZTZkNzY2Yzg1MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIzMzZjNWZiYTNlZjNmYmQ0ODRmMGQwODAxNDBjZTgyMjkzMjJmYWQzNDY2Y2E0ZDliOGRiYjA1YmJkYWI0ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNDI2NWEyY2JiYmU2NzFjNjBlZjYyMzFiYmMzYjZjNzE2MTE0OGNmNDkxNmUzZDYyMDI3ZTM5OWIwNDRhNDkifQ"
         }
       ]
@@ -309,10 +309,80 @@
           "version": "repo-lines-v1:sha256:0ab7bc5c2f468acbcb6cb0a091cbba35a1bd260e57a5e5a9382a338334cf7388:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3MGNlNWI5Y2I1YmJhMmUzNDRhOTRmOWE5NWY1ZjRkY2Y3ZmNiNjI2ODFlZDRlNDI1NWNlMjE5MTgyYTY5MmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkNmFmNDRiZGJkMmZlZTBiM2NkZDA3NjZjNGI0YmYxNzhjMDRhMThjMGEwMGI2NjBlY2MwYWNlNDZjNjdkMzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwZTdlMTI5MTlkZmZiOGRmMmNjZDZkY2ViMTdmYTA0MjlmMzIzOGNlZTZhOTFjOTFkOTI4ODFlODJjOGQwODkifQ"
         }
       ]
+    },
+    {
+      "id": "claim_6bb34489756a4fc9971dc7ba153dc298",
+      "statement": "The rta CLI (cmd/rta main + internal/rta.NewCommand) is purely an HTTP client of the Trusted Actions API: rta action list/describe call GET / and GET /{action} for discovery, and rta action run builds an openapi.ExecutionRequest from --cluster/--jira/--param/--dry-run/--force flags and calls Client.CreateExecution, a plain POST /{action}/run with no client-side authorization or validation beyond flag parsing.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L27-L172",
+          "version": "repo-lines-v1:sha256:a516196f5ddf7b059b7651029879032832c21d4d021a6b0269fa7876f1dfd322:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQ2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYjNmZGI4MTdjNmYzY2M3NmE3Y2UyMWRmODQxOWViMTA4N2Y3NTE1YTc3NjNhZWE0ODZjYWMyMmQ1NjY5MmM0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlNjgwNmYxNTVjNWFjMWFlMjcyMmNhMDZmMmFjOWNhZGNiODgxYjkxMjNjYjYyNGEzYzEwNDc1YjQ0NDlkYzJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNGFlZDM1ODI4MTNiMmRkODRlODgxODY5NDRlYWQ2OWY0MzJiZjg2ODk4OWY2Y2FjZmI3Y2VkMTQzY2UyMGI5IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJmZjBiM2M5N2I3YjI2YzZjMTRlZmMzYmFjMTc0OWMzMmYzOGJkMzMxY2YxZjUxY2JjNDU0MjBkYmQ4YjViNDNhIn0"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/command.go#L59-L67",
+          "version": "repo-lines-v1:sha256:d139589506d840f262ac7e5cbb797cc1ba4ce3993fc5f63dfe8a0dadcfb82b13:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTUwYmQxNTY2Y2MwNzVjZGM5OTUyYTcyNTc4Y2YzMjJlNmY4M2ZlMTViOTBjZjQwODBmNmQwMWNmYTBjNTU0MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWEzZTEwYjZkNTE3NGExMDUzMGE0Mjc5OTVhYzg3YjVmZDJiMGIxYjhjZmIyMDQ4NTBlN2IyNjc0Yzk1MmMyMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGRiNGNmZjIzNDU2YjYwYWUyYTA3ZDdlNWE1ZDhlMDJiZGJjNThjNmRkODI3NTk4MjhjZTMyMDNmODhjNjBmOCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_d3bd5e6765b342d4a5f2602bf0848926",
+      "statement": "rta action run without --no-wait calls waitForCompletion, which polls Client.GetExecution (GET /runs/{id}) on a 2-second ticker until the execution reaches a terminal status (succeeded, failed, or timed_out) or the command's --timeout (default 5 minutes) elapses, then fetches Client.GetExecutionOutput (GET /runs/{exec_id}/output) to print the result; --no-wait instead prints the 202-accepted pending Execution immediately.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L164-L247",
+          "version": "repo-lines-v1:sha256:3a13b48f0b2389b7f447c17731c23c33f5ab9457a182d6201b302cdff9675a95:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3ZjI0YTkwY2JmMDgyMDMzNmZhMjVlN2ViYjAwYTA0ZjAxYzFiOTY4OTU0MmZhZjA2MTM4YWYwMzcyNDRhNWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjViYWQ3Y2MyZGZhZmMyMTc1ZmEyZDk3MDRlMDIwMmY5NDA4M2E5ZGE2OWE1ODViMGIxOGM0OGJlYTIzNjI3NWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4MjBjYTNjYWJlNzgxMGY2ZjljN2IyYWJkNmMwODgyOTg0MTZjYzM1MTBlMDZmYTU5Njg4ZTM3OTM4ZmYyMGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdmNjk4ZTI5NTBkM2JmZDM1NTU5NGNkYzgyMWQ0ZmYxNDI0YzNiYzRkMDhmYWIyMjViZWRmMzhjMTU1YTYzMjMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L287-L317",
+          "version": "repo-lines-v1:sha256:50dc66b288f4f5fc7dcdc1b23e407059fa4916461ecf70c2f789c26976114e9d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI1YzMzMGJiYTYwMGY5ZTNjZjgwOWI5ODQxZGIwODYyY2I4NzdkN2EyZDY3ZWRhMTFhMjM0ODFmZTA0MjhkYjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlkYjJmZGU3NzIwNzVhMjllM2U0YzBhMzY4ZmFjZGQ3NDE0MGRiOThiMWVhM2E5NjExZDNhMmM0ZDdmNTliMmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/command.go#L12-L21",
+          "version": "repo-lines-v1:sha256:a2a8c7cdf7576949ccff5e26fc50a418fb5108678d6022d0983a9b96ec5c706a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3ZmVjYjgwZmU0MDhmNTBhODQ2ZGM0NTk3MzI3OTI2OGFhMTQwMjViMjJmZDkxYzVlMDY2ZTQwMDhmZjc2YjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkwZjgzNDg0NjVjNWQ0MDgwYTVlNGZlMDVhMDFiZDNjNzk1Njk2M2IxZmRjY2I3NjM3ZDBhY2IwYWE0ZDJjM2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5ZTZiYmYwNWFjNWNiMDI3MzQwY2Q3NTc0YmExZjJkMmFlNTA5NDg3ZmJiN2VkYjVjMGU2MjgxNzc5OGE4MTAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_76b0fd4c81754f92a93264e56e005ea4",
+      "statement": "internal/rta.Client prefixes every request with /api/v0/trusted-actions, resolves its bearer token from --token or an OCM CLI config file's access token (refusing to proceed if the OCM token is missing, empty, or expired), refuses to send a token over a non-HTTPS/non-loopback server URL, and rejects any redirect that would downgrade an HTTPS connection to plain HTTP.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/auth.go#L10-L40",
+          "version": "repo-lines-v1:sha256:d908758459df2c48ae288c09f412d0b003cd720437f1dbdb8bd93893e9f6d0cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3ZGFiZDUwMDk4NjA5ZDZhNWRkNzQ0NmJhYzMzMTk3MjE2ZDE2ZGVlZjI2M2EzOGViZDUwNWViZWIwZTRlMDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk0NDg0ZGIwNzE2OTc4OGNlM2UwNzVjMGVhOGM5ZDVmMDI0OTdlMzQxN2Y0OWFmMWI0NmU1MjNkYWE3MzA1MDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L35-L75",
+          "version": "repo-lines-v1:sha256:d5f1c43223993cb8d6a01169ba6f7852c9cadea3782e01a98e5fb7a08c371c71:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0NTNmYjM4NDlmODNmMDQzZGJmNGRiYzE1Y2I3MjBlZTIzYjhhMThkNjVkMzMzZDc3NzllMTllMWM3YmVhOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhkM2ViNjdiN2JkMTBjM2ZiODEwYTM2YzkxZWI2OWRjMTZhNmJkYWU1NTZiNDI0ZDA5ODZiOWY3MWRiZmRjY2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzNDNmMzJiOThhODM2NTIwNzk0MTM4OThiNWYxOGFiNTVkMGVmNmZiN2Q5MGY3YmI5ODM5OTU5NGFkMjM5NDgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9d25c7f93d3e497cace64fbfc043105b",
+      "statement": "A non-2xx response from the Trusted Actions API is decoded by internal/rta.Client into an *APIError carrying the request method/path, HTTP status code, and the server's structured code/reason from openapi.Error when present (falling back to a truncated raw response body), so rta surfaces the same denial/failure reasons the server produced rather than a generic HTTP error.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L193-L229",
+          "version": "repo-lines-v1:sha256:26d907b7900e98192625f9f052c1a9f7b87b5d79ae4dd8b8eff65ef41c383a08:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA5NjNiZmUzYTg2OWQ5ZGRmYjBhZDc4NWNmNjY4NTcxNzAyODFiMTUxZDdjZDQ5NjZhOWFjMWMxZTQ5NDU3ZTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE2MzFiNmUyY2EwN2Q4YmFmMGViNDRlNzQ5ZGJmNDkwYjM5MmUzYTUzNGVmNjEwMjI3NzExNDZjZGY5YWYxYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_af0eb05a08734c42a2dcfa94ab2f1706",
+      "statement": "cmd/action-cli remains a separate, standalone test CLI that does not call the HTTP API at all: it wires up the same internal/executor.Executor, authorization, audit, and backplane/AWS client machinery in-process to run one primitive action directly against a cluster via kubeconfig, bypassing the server, worker pool, and store entirely.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/action-cli/README.md#L1-L9",
+          "version": "repo-lines-v1:sha256:450d971c92b621401694e8487b884e6c5829ad1c294cc7bed49211964d2c806f:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjk5MzhlZmMxM2MxZWExMjljMTNjN2IxOTBhZjM0NzE1MjU1OTcwY2EzMmRhYzgyNDE1ZmQzMDA3NTcwMTk2ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDdjMDZjNTYxZDVjMzI3MzQzNjg1MjY4YTQ2YjMzOTFmMzk5OGVlZTg5MGQyYmU1MWYwZDIxY2M0YTUzYWU2ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjUxOTBiYjE0NjhhMzE1MzhhMTlhODkxZDg0NTJlMzdhY2JiZDNmMDUxMWU0Mzg1ZWExMDA2ODE4YjUxZjVmOSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/cmd/action-cli/main.go#L1-L20",
+          "version": "repo-lines-v1:sha256:68a56a330c1f692ea80b2dc42d251b7cfcb1641b134b77cbc545da7163f9352d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmMWQwMzZjYmJmM2RmNDZlMjA0NTA3MWUwODIyNDVlY2UyMDRjN2Y1M2VjZjBhNGUwMjJiZmY5YmIyMjhmNDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMGUyMzZmOTU2NGRjZTFlYTM5YmM3YWUwOWRmZmEyY2I5YTI1MWFmM2JkZDNmY2Q3YmFjMDM4ZGE3OWI1NDcifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

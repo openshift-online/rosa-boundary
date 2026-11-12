@@ -1,24 +1,20 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:fb2b94e94a8278023d3bf77f9245af9cf0e9ef2393890cf2dc4ae024bfa6bcef",
+  "pageVersion": "sha256:b9827f937741c5e2d27f574c0ad13037a96b1f60cb05630bbf014f57b150371b",
   "claims": [
     {
       "id": "claim_bb99a71168ed4f4ba678e9a32dbd25fd",
-      "statement": "Trusted Actions files were imported into openshift-online/rosa-boundary from openshift-online/rosa-trusted-actions main at pinned commit 8ce39a7344b52444576fc1e44ab1f532fd0dfac4 as a files-only copy with no Git commit history; the original TA repository remains the historical and active development source until a coordinated cutover.",
+      "statement": "Trusted Actions files were imported into openshift-online/rosa-boundary from openshift-online/rosa-trusted-actions as a files-only copy with no Git commit history, ending at a final reconciled source revision of 119b5d522eb2e12459ee1bdc2835a9385821e9a8; per the 2026-11-11 migration record the original TA repository is now archived and kept only as a historical reference, but this is a point-in-time snapshot and the repository's current archival state should be verified directly.",
       "evidence": [
         {
-          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L1-L13",
-          "version": "repo-lines-v1:sha256:14780eb6addf8c839c73d1c6ffbcff429a16e9d4ba1681cc3c7f181d4b055c32:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2N2M3ODQ5ZTRjNTYzNDY1Mjk2NzFmNjg3NGM0ZjllNjE2ZDliN2U2YTMyMzUxZTVjZTg2ZTYxOTliOTg0YjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM2M2Y5YmI3YmQ4YjRlMDFkMTNiYTQ4YmJjNDk4MDkwZTU2ODA1ZWI5ZDlhY2IxNGZjYzM5NTE4NWNlNjExZDAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA0NjZkYzkyZGVkOWZkZjdmZTJiNjUwMjJiZGQ4NjBhNTFhODMzZDE3MDRjZGQ3YWIzMmUyMzk3ZmI0ZmQ5NTUifQ"
-        },
-        {
-          "resource": "repo://docs/trusted-actions-source-colocation.md#L1-L9",
-          "version": "repo-lines-v1:sha256:9aa20c81f74b5a3b9049a990f52b9e083f710877c23f871e44271d1544dcbf23:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOGJlNzgwOWJhMjZjMzEwZmIwMmZmODc0NzdiOGU5YjcwYzJkODAyMTAxOGRkMGEyODMzMGZmZGE5ZGU0NTJlMiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWVmZmM0MjAxZmUzN2ZiMzhmZDIxYjQ3MWFjZTYzY2VlYzNhYmVkZjlhOTUzMDllMjQwMjIyZGVjMzM4MDIxMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTc0ZmE0ZWQ3ZjY0NDA5MmE5N2Y3OTFmN2MyMzMxZDIxNzQzN2Q3ZjRkYjhiYWU1MjcwMjk3MTQ2ZDEyYzRlMCJ9"
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L1-L37",
+          "version": "repo-lines-v1:sha256:cb6ce7b4425852fd336240a1e930d8386019724444b224ffa5c597080ad34ac7:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0YzkyNTQwODBiYjkxOTFhNmYxNGIxMjVkYTVhY2JiYzFiMGRmZDYyMTMxOTYwZDRiYjg4OTkyMTIzYmE5ODciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNlOGNlYzI0NGU5N2UzNzc0MmNhN2NhNWRiNjYzY2IwMjNjOGEyNzY2NjMyZmE0N2Q5Y2Q3MGQxYWQzYTkzMTIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYxZWJlYmQ3NWQwODYyMDg1MTU3YTJmNjBmNzA2YzI0YTVkMjcxYzUwNTI5ZjNhZDBiYTYyY2QyOTc4ZWZiM2YifQ"
         }
       ]
     },
     {
       "id": "claim_7a6b9007f2514ffc9fb60c2eccf4c86d",
-      "statement": "Boundary and Trusted Actions are built independently: Boundary uses the repository root go.mod/Makefile/Containerfile and deploy/{account,network,regional} Terraform roots, while Trusted Actions uses its own go.mod/Makefile/Containerfile and terraform/{global,regional} roots under components/trusted-actions/, and root Go/Make commands do not exercise the nested TA module.",
+      "statement": "Boundary and Trusted Actions are built independently: Boundary uses the repository root go.mod/Makefile/Containerfile/lambda/ and deploy/{account,network,regional} Terraform roots, while Trusted Actions uses its own go.mod (module github.com/openshift-online/rosa-trusted-actions)/Makefile/Containerfile and terraform/{global,regional} roots under components/trusted-actions/, and root Go/Make commands do not exercise the nested TA module.",
       "evidence": [
         {
           "resource": "repo://Makefile",
@@ -26,103 +22,103 @@
         },
         {
           "resource": "repo://components/trusted-actions/Makefile",
-          "version": "repo-file-v1:sha256:e630f80c6f837f3abc625b083fdf5176986791c687c3777f2ccb4b5aaa3f15d1"
+          "version": "repo-file-v1:sha256:8d746e8b2f531255adc11d6ae5ac23fa6ea149335c913c9525bb3b079f7b616f"
         },
         {
           "resource": "repo://components/trusted-actions/go.mod",
-          "version": "repo-file-v1:sha256:bf18f36130382d1e73b03e45fda747f761a9d94a3861bf977c9da0fea0dd4c56"
+          "version": "repo-file-v1:sha256:3e3883e7d13f5c6eca5fa0d0b805dd9bee46a4cbf324dfcd4e8204824d074d34"
         },
         {
-          "resource": "repo://docs/trusted-actions-source-colocation.md#L11-L26",
-          "version": "repo-lines-v1:sha256:f036e5cfe38c41def20485105cc6de7a0daf91359f12ce69968d5d31ff718406:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhMjIyYjE1YjE0NjkwYTIxMjYwMWFhNDY4MDg4ODQyYzY3YmYxZjM3N2U5YmEwNmYzZTUxNGJjMmRmZjE1MjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwNzY0Njk4ZjEzMjAzNjE4MmNiZDZkNTQyMGUyNzlhZTlkMGQ1MGE2YjVkMGYyZmRiMjg5YjY1ODhhZTQyOTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY0NWMyODk2MjUyZGVmMzA4ZGY2YzlmYTk3ODMyODU3YzNmMWE1YTU4MTM4ODQyNzk4ODI0NDUyMDA0ODBlNTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM0Y2I0ZWRhNTFiMWMwYzJkZmY1Mzg0ZDY3ZWMzNmRmNTUzYjMzMGVjMjA2ZTdjMzBkODZiZmEzYTE1MjNlMTEifQ"
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L50-L63",
+          "version": "repo-lines-v1:sha256:637eb8f5f74db25f8d14327d243de355fd28b52548def21f55eafacd7be37c08:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MmIwYWY3NzBiZTE1OTY5MTkwNDFiYzMxNGJiNzIzN2IwZjRmYTkwZjdmMjMyOTYyODJjZmQ5NzlkOThkYjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwMzk3M2Q4ZTMwZWEzMDg1N2QyMjYzYjJjNTQ2MzczYzQ5ZTBhYmQ0NDlmNGZlNTNlOTRkYjNjYTgwOTBhOGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmODAwMzNkNGVjNDUzMDAxMTM2MmFiOTA3YzRkNzJmODE1YzA1YzIyOGZiNTA1YjFjZTUwOTk2Y2IzMWZiNzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzNThkOTYzYTQyOGE4ZDdlNTU2MjNlNmE2ZmI2YTkyODA0NDk4ZjUzMDVmY2ZlNmMyMzA2NjVhOGY2Y2JlMDMifQ"
         },
         {
           "resource": "repo://go.mod",
-          "version": "repo-file-v1:sha256:6bd537dc1261dba898c9f892dde196a70ec91bd870a531e41833ff2bac9e3613"
+          "version": "repo-file-v1:sha256:8c391726016688ac589df3c0ceb137d628999e600588bce3ad34aaa2f659f8c6"
         }
       ]
     },
     {
       "id": "claim_0798a61c24024e20b9a1513dabf2d6c1",
-      "statement": "components/trusted-actions/OWNERS and hcp-terraform/rosa-trusted-actions/OWNERS both set options.no_parent_owners: true, excluding inherited Boundary owners from approving changes in those trees, while .tekton/OWNERS splits approval within the shared .tekton/ directory by filename pattern (Boundary-prefixed pipelines vs rosa-trusted-actions-*.yaml) and keeps the OWNERS file itself Boundary-owned.",
+      "statement": "components/trusted-actions/OWNERS and hcp-terraform/rosa-trusted-actions/OWNERS add a TA-specific approver/reviewer set without any no_parent_owners (or equivalent) restriction, so they add approvers while inheriting the root OWNERS catch-all approver set rather than excluding it; .tekton/OWNERS similarly splits approval within the shared .tekton/ directory by filename pattern (Boundary-prefixed pipelines and the OWNERS file vs rosa-trusted-actions-*.yaml) with its own header comment stating parent approvers can approve any pipeline change; current Prow/Tide merge behavior must still be checked on real PRs rather than inferred from these files alone.",
       "evidence": [
         {
           "resource": "repo://.tekton/OWNERS",
-          "version": "repo-file-v1:sha256:27924a4f3af51091b4fe0654e88a9007b6b378c5788452055ff5035f90e953a9"
+          "version": "repo-file-v1:sha256:df8e9cad1b9c519be18845a58fe0e1f002b1b6096e240b998d110078564143a8"
+        },
+        {
+          "resource": "repo://OWNERS",
+          "version": "repo-file-v1:sha256:7527d6f7666111c33e5aa4d4b72d89c0b587aabf93ab764a4df97c8bafc2bd30"
         },
         {
           "resource": "repo://components/trusted-actions/OWNERS",
-          "version": "repo-file-v1:sha256:9235d1942dbedbb390e22b6ab1382ea16a5937bea246eecca4f1026bc7421c58"
+          "version": "repo-file-v1:sha256:a033f183b468798a8cabd3243db2bcc675467090330008eacc956e9114a606b9"
+        },
+        {
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L57-L63",
+          "version": "repo-lines-v1:sha256:b6f4e9daaf5c807e211244664e2b423931e6d879bc577df27b51b43918d6865a:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjVhYTU1MjU4YWY1YWJhNmEyNDE5YThkZDY4ODM3YTdiZmUyODExNjU1MmJlYTRjNWU1MDgyM2NjNjdkNDVhZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiODAzOTczZDhlMzBlYTMwODU3ZDIyNjNiMmM1NDYzNzNjNDllMGFiZDQ0OWY0ZmU1M2U5NGRiM2NhODA5MGE4YyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWZjOWRlMzJmYWFhNGI0YmM3MWZiMWU3YjFiZTExODE4MzM0ZWU2YTk4YzNkZWRlMmIxMTYzMzY2M2QzYzY5YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDM1OGQ5NjNhNDI4YThkN2U1NTYyM2U2YTZmYjZhOTI4MDQ0OThmNTMwNWZjZmU2YzIzMDY2NWE4ZjZjYmUwMyJ9"
         },
         {
           "resource": "repo://hcp-terraform/rosa-trusted-actions/OWNERS",
-          "version": "repo-file-v1:sha256:9235d1942dbedbb390e22b6ab1382ea16a5937bea246eecca4f1026bc7421c58"
+          "version": "repo-file-v1:sha256:a033f183b468798a8cabd3243db2bcc675467090330008eacc956e9114a606b9"
         }
       ]
     },
     {
       "id": "claim_a13c7b630802436a897ac6112428ab30",
-      "statement": "The Boundary-side Tekton PR and push PipelineRun triggers for rosa-trusted-actions in .tekton/ are held inactive by a `false &&` prefix on their pipelinesascode.tekton.dev/on-cel-expression, added after the initial import unguardedly triggered a TA build on Boundary main; this hold must remain described as inactive pending a coordinated CI cutover and does not affect the original TA repository's CI, Konflux binding, or Boundary's own pipelines.",
+      "statement": "The .tekton/rosa-trusted-actions-pull-request.yaml and rosa-trusted-actions-push.yaml PipelineRuns no longer carry a false && prefix on their pipelinesascode.tekton.dev/on-cel-expression; the earlier pre-cutover hold has been removed (only a retained comment references the prior cutover gate), consistent with the 2026-11-11 migration record's statement that Konflux now builds the TA image from Boundary; current live Konflux source/component/image bindings and build activity must still be verified directly since the migration record is a point-in-time snapshot, not a live status feed.",
       "evidence": [
         {
-          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml#L9-L15",
-          "version": "repo-lines-v1:sha256:77774e46993a687a7cea7e78f655565ff1a9ff04d4d2b6089517c542e49d08c0:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDUwYjAxMjVlMmUyYzdmMjVhMTVkZjkwNzc3M2VhNTMzNDU1OTdiYTM5NGI2ZTljYWMzMmY1MTVlODI2NmUzNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2VjMTRiNjg4Nzc3YjhjZWVlYWZhNzlkYmNlYmYzNDRmMjk0NGY3NzNlMDk4MDEyYzJkNTRlZjk4Y2UwNzgwMiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDM4ZWVmMDNkYjgxYWJkNTIxNGJlYWU4YWI5MDI4MjBiMjJhOWE2YTFkMDg1ODg3NjAxY2ZiZWZjOWI0MjkyZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTEyYmUxMWFiYzgwNzNmZmVlOTkwNmE0MjhjYWMwNTgxN2E4YzQ4ZmUzYTVlYmY1ZDE0ODA3NTJlMGEwZmI1YyJ9"
+          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml#L1-L19",
+          "version": "repo-lines-v1:sha256:f9895b3daaabf72c4c42f30cf481d766eb5c8624ab24e30dbbd5c12aa6bc1c4c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc4NWMyNDJhM2Q4NTRjMjEwYTA4YzNlOGZiYzQ4NjdmMWRlOGQ0M2I1MTFiNjk1NWFiNmI3NDZjOWY5MmZmYTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg2YTYzZjNmNDJmMDE0M2FhNTM1NmY4OTA5NTgyNDdjYWQyNmFiYzliZjhlZWM0NDliNjM5NTYyZmI0MWY4MWIifQ"
         },
         {
-          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml#L8-L14",
-          "version": "repo-lines-v1:sha256:06ecaeda2ab90060e2867aadcab464e82ad47f6a258c4cfabd9c4a6de3c19e12:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTc0MDVlZjZjOGZiNmEzYmZiZTM1ODBhNmFjMjkzNGJjM2ZmNWQ0MWU4YjU3ZDlhZDg5MzY1MTljZDdlNTg2ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTc4ZDNlOTlmMmI2OWJjNTQ3NzY2M2JiNTViYTg3OWI4Zjk4NGI5NGIyM2YyNGQyOTZiYjI5N2I3ODczZDc5ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzExNjY1MjA3NzI1MDk3MjY0OWEwOTA1OTM0ZjY5NDlkMmZkMWQyNmJlYTMwN2ZlODU3YzI3ZmE0ZjBjZDBhYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTEyYmUxMWFiYzgwNzNmZmVlOTkwNmE0MjhjYWMwNTgxN2E4YzQ4ZmUzYTVlYmY1ZDE0ODA3NTJlMGEwZmI1YyJ9"
+          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml#L1-L19",
+          "version": "repo-lines-v1:sha256:6ebe94e6f5c678b5c3592df82532e3724cf1b11b445b177add3b7244ed4d73ab:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxMmFmOTZjNzM2YzUyZDRiNGU0NTlkZTJiNGQxZWRmNTI0OTY0YzE4OWFiMDM5MzFjYWFmOTIwNmExZTcwMGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM1ZDE5MGU3NTBlZTRiOWFjMWNmNTAwYmMxYzMyZDE2ZTk3OTBmNWFhZDJjZDRiODA4NDQ3YjU3MmY5NWQ5NGUifQ"
         },
         {
-          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L99-L123",
-          "version": "repo-lines-v1:sha256:84fb4f30db7ef2cca7d416a35c000927ddfa8567c1cdeb3036a80a3aba544687:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJmNGJmNTRlYWY3ZDA3NjQyNWM2ZTYyMjBlNTMyOWI4ZjFiYzBkNzc2YzliZjYxOWVkZDA4YzRlY2E0MTIyZGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIxYzczZTg2MDEwYTBjYzc4YjkzZGJjYWQ2NjZhMDEzMzMwMzMzNDliNzk0NDgzZjhjZmI5MTg1ZGYzMzcxYmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY3ODg0ZWVmZDNjMWNkMzU2MDM0MTg2NWE0ZDQzNjMyNGU5ODlkOGI3MDM5MTlkODVlZmNjMTljOTI3M2JiMWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxNmE0NGE4ZTIyZThmZmQwMDEzMWNkN2Q3ODU4NzU0MjE3ZjgzNjc0ODk1MWEyMTdjYmUyYWFiMzgyZjBiNWQifQ"
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L26-L32",
+          "version": "repo-lines-v1:sha256:eed20d893884e2150800ba27bb2c5c0595ef769ba156527b9e1ee8c7d8485665:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFmNWRlMmViODYwZWViY2FmY2E3MjY0ODdhMjYwZGUwZjk3ZDhmZDQwNDY2NjYyNjYwMTU3ZmM3NzkwZDM0NCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGQwMTYzMDU0YzA4M2MzOGNmMzQyZWUxMjg5ZWUyNTUxNGMwNDJhZTI4Y2UzZDY5NWYxOTY3ZTYxOWI2NzJmYSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTFmNjNiNDk3YWVkNjgxYmM2NDE1YTM5ODNhMTcwMmVhYWVlZjAwYzhmYjk4M2RhMDY3ZTg1OTMzNjk0YmZlMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGUwNWM4ZDA0MDBiNmNkMGE3NWY5MzU4ZTdkNTIzZGM3M2Q4MTAxZTRmNGExM2YxOTRhZmU1NzhiNTM3OTRlNyJ9"
         }
       ]
     },
     {
       "id": "claim_9867ea24f5754fcb8ca987d4a12d1cee",
-      "statement": "hcp-terraform/rosa-trusted-actions/ is a byte-for-byte copy of Trusted Actions' HCP meta-workspace definition (main.tf, variables.tf, terraform.auto.tfvars), but the live TA HCP workspaces, their VCS binding, and auto_apply/auto_apply_run_trigger settings are unchanged and still point at openshift-online/rosa-trusted-actions and its original terraform/global and terraform/regional directories; the import does not switch deployment source, transfer state, or create a second TA stack in Boundary's AWS footprint.",
+      "statement": "Per the 2026-11-11 migration record and the current hcp-terraform/rosa-trusted-actions/main.tf, the existing rosa-trusted-actions-global and rosa-trusted-actions-stage HCP workspaces were rebound in place to this repository (github_repo_org/name set to openshift-online/rosa-boundary) and to components/trusted-actions/terraform/{global,regional}, without moving their AWS state into Boundary's own Terraform stacks or creating a duplicate TA stack; auto_apply and auto_apply_run_trigger were temporarily disabled during the cutover and restored to true on 2026-11-11, matching the true/true values currently set in main.tf; current live HCP workspace bindings and settings must still be verified directly in HCP Terraform.",
       "evidence": [
         {
-          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L188-L200",
-          "version": "repo-lines-v1:sha256:50a1abd3b8e78e3e7967abf55063cd608df3f1a765789ddec1a2555d9f93e2a9:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM5MTM4YzZjOWQ4MGMyOTcyZmE0MTY1NzhiN2RhMDM3YWQzMjM1NjFlOTAxOTVkZGJhODc5YTdmYzhhNDBmNDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU5MmY1NzkxMzcxODBkNzMwNWYwYmZiMDA0MDNhZmFhNDkwN2MyYjBiMzQ1YzA0YjQ4NDNhNmNiYzM5Y2Q5NzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRiODRhOWQ3MmM2NDUyZmZlZWI5YjhkZjY4MGQwYWY4MDhhNzE2NDM5YjU0YWEzYjU0MDFmZGNiOGM5Zjc3MTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L64-L80",
+          "version": "repo-lines-v1:sha256:3dfc8cd4e93a4f41fc2aacf36f8cc102e6872b950853549eb1d9e3a337bcc5d8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc3OTUzYWY5MjNjMzAwZmE1MDUyZjQ2ZTEwZDVjZDIzN2NjM2RiMDQzODU3M2MxODAwZDMxYzAyNjI1ZDBkZTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjEwODFlNDZhOWZkNGY2MjRmOTUyYzk3NzFkZjBkYTczYjdlMmI1YWU1ZTNmM2U0ZjM0NjJjNjYzNDU3ZWY0NjEifQ"
         },
         {
-          "resource": "repo://docs/trusted-actions-source-colocation.md#L39-L58",
-          "version": "repo-lines-v1:sha256:ac45b72668d4802e03a9d44c3b66f89db070eed106b92e303ee4bb2a8aef424a:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkOTA3NjJkNDlkZWY2MTJmODhmM2EzYmJiMzk2ZDRhODk4NTA1MTc3MjI5ZjcyZDljNDc0MTQ1NmNjNTYyMDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExMjExNGE4YTU1NzExNWQ0OGE1MmQ0NmJiYmEwMmNlNjM4NDFmNjY1NzM5NWNiMDM0OTA2MzczMzI3YTFkMjAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ4YWE4NGQ2NWFmZDQzOTIxMTY5MTcyYTEyNjViOGU1MjAwM2Y2ODk1YWE1MTgyZmYyNjE1OGI0MWRjOTkxMWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkNjY4ZmQ4NTA3NTk0YTdhYjljZDE2OTg0YWU0YmQxNjZjOWJiMmI0N2NmNDdhY2Q3ZDM4ZTE1YjI4YmM1N2EifQ"
-        },
-        {
-          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf",
-          "version": "repo-file-v1:sha256:f31b2abcbf4cbcab0f033054620d4a977a3b0452145c1b67e7cbfed27d369a81"
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L39-L50",
+          "version": "repo-lines-v1:sha256:1a53cc664f14810cc458b8882787acc94e1d9258de9c0208f111ee99564f120b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmN2E1YTMzZWY1MTE4NzAwNTEzMjQzZWZjMmMwMjE2YzcxY2Q2Yjg3NzQxNzYzZjIwYmY4ZDVlZjY1Yzk3YTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxNzhiM2U5MzUyZGRkYWFjYTRhMTc5MDNlOGQ4ODhhZmI5ZTU0YzgwYmQ2Zjc4MTlmZjI3Mzg2YTIwZWI4NDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE3YmI4OWU3M2VmMjI3NGU0MWQ4OGVmMjAzNDYyZGM1OTVkNzY4NjQzMGRkNmUwOTYxNTViMjBhNjE0MDMxZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ3NzUzMGMxNzQyMDliNTdmZWVmN2I4ZWZmNDA0YWU5YjVlYjc2ZGE1MmZkOWIyNWI2OGE5OWRiOWJkNWZiOTEifQ"
         }
       ]
     },
     {
       "id": "claim_f71c97ab60f143009bfb3b48abcc1583",
-      "statement": "There is exactly one generated OpenWiki for the monorepo, rooted at openwiki/ in the repository root, covering both Boundary and Trusted Actions; the former standalone Trusted Actions wiki (generated pages, Claims sidecars, and any .openwikiignore) was not imported and is out of scope, and no second OpenWiki instance should be created under components/trusted-actions/.",
+      "statement": "There is exactly one generated OpenWiki for the monorepo, rooted at openwiki/ in the repository root, covering both Boundary and Trusted Actions; the former standalone Trusted Actions wiki's generated output was not imported and no second OpenWiki instance should be created under components/trusted-actions/.",
       "evidence": [
         {
-          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L58-L67",
-          "version": "repo-lines-v1:sha256:4d50542ea967df2874854500b2ea9685ef072895278862ce71551bce9a59d0b5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA2YjRlNDhiMjFkZTM1ZjQxYmYyNzZjYzQ1MzI5MzEzZjk5ZGFiZWRjNDgzZmZmYTFmMDFjNGU4ZWIzMDk5NGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjNjVmZmViZGY4OTAwYjNiZjZlNDc4OWZlYmVhNWFiYzE2MDA5NWI0MDYzN2FlZGNjMDY5NmMxOWEzN2RkZmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4Y2M4MGYwZmJjYTVmNTE3NWMwY2ZjYjAxZWNmY2FkODhlODQzMWM1Y2QyMzk4NWU5ZWQzZTdkZjgwNjJlM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVkZGNiZTcwMGFkOTYyN2MyMmQ5Y2I1ODgxYWRkNTdkZGU3ZTE1MTIxYjliM2U5ODZiMGJkZmVmODI4NzA3ZjgifQ"
-        },
-        {
-          "resource": "repo://docs/trusted-actions-source-colocation.md#L27-L31",
-          "version": "repo-lines-v1:sha256:a34bd4b9ccea882b46769da9b66728f3fe2b4894275fd91bfc6552ad7e036bc8:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGJmMjQyY2UwMjUwY2Y1NDdkYWU5MWE5MDEyNzg5ZDcyYTY3MGYzNTlmNTg1MzdiODcxMGQ4OWE5NDM2MTQ1MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2YyZThiMWZlZWE2NTc3YjYxNTdlNmUyMWEwNWZlMWMzZWFiNjlhY2QxNjliYjM5OWIxMTc1ZjEyMWM3ODU1ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzNhOWM3ZWM0MzAwNWU5YmIzMGViNjA0NmNmMzYwYjVlOGU4MzY1MzQ0YjA5ZTRhZjkwN2RlNzFjYTk4ZDM5MiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjM4MmY2YzNmNmNmNWRmNWI0NDViYmI5MGQxMWUzYmM0ODQ5Yzk5YjE4MjMzMjliNWU5NjNmNjA4NTU4NmZjNiJ9"
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L43-L44",
+          "version": "repo-lines-v1:sha256:967d35b63e63d8da01e4d3a3d9c9eda9cdd8a7fb6c05dc607145a391b23ce62b:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWNjZTI3MzI4ZWU3MjU2M2NhZmEyOWQ4NmJkMzRlMmVmZjUyNzQwOTdiOTlmY2U3ODZiMGZhYmY3MDYwNWZlYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOWEyYWM0MjFiYWFjMzhmNDhhMGU3ZTNhYTIyNjkyODk3ZDUxMjc5OThmMmMwY2ZkMjc1N2ExOTQ3NzZiMTg5NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWIzMTE3OGMwYmM5ZDBmYzZlZmJiODFiNTUyOGZhZGFiOWFlZjBkOThjMGI5ODc5OGU0M2E2MzJiYjcwNGY0YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2IyMWNjYzRiYjE0MGQ0MGYwODlmMzBkY2I5OGI3NTk5OTM2NjI1YTU5NjdiMzJjMGI0YjEyODc4YjgxZjY3YiJ9"
         }
       ]
     },
     {
       "id": "claim_c79cdcf5e9404f38acc5f0feb135029f",
-      "statement": "Of the 238 Trusted Actions files imported or reconciled at the pinned baseline, 226 are byte-for-byte copies and twelve were transformed (ownership metadata, Tekton repo/context/path-filter fields and the false && guard, whitespace/newline fixes, renovate.json reconciliation, and replacing CLAUDE.md with a component-scoped AGENTS.md); 45 TA-repo OpenWiki artifacts were intentionally not imported.",
+      "statement": "The current, consolidated docs/trusted-actions-monorepo-migration.md (an ~88-line point-in-time record dated 2026-11-11) no longer itemizes file-level import counts (the earlier 238/226/12/45 figures from the former two-document split do not appear in the repository); it instead describes reconciliation qualitatively: root-level Renovate/coderabbit/pre-commit configuration governs the combined repo with component guidance in components/trusted-actions/AGENTS.md, the original generated openwiki/ was not imported, and the old repository's GitHub release/lockfile workflows were not installed at the Boundary root.",
       "evidence": [
         {
-          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L15-L49",
-          "version": "repo-lines-v1:sha256:09538119b59f658f1628abaef891067ab7daa4e9ffcdabbed9378bca038a7457:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmMWU5YzEyNzM2MmM0YzRhMDJlYmU1YmRiYjNkZWI1YWMxOTc3OWNmNGQxMTViMjgyMDhkNTgyY2RlNTc1YjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU5MGFlYWFlMGMyMWYxYWNmNWJhZjVhOWQ5N2MzNGM2NWJhOTRlNzhjNmY4NmExM2YwYWE2OTc4MGIxNTU2NDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhjOTY4NjJhM2ExZjgyMmNlNzZkOWRiYjkxMGM2MDQxM2ExODNiODM2ZWJhYzY2YzcxMjNlYjk1MjFlYWNkZTIifQ"
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L1-L48",
+          "version": "repo-lines-v1:sha256:3d11ef95fd32491e81dcdbabc3851a7f4d3ed0ffda1d3dbf1b8ece39524e0f37:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0YzkyNTQwODBiYjkxOTFhNmYxNGIxMjVkYTVhY2JiYzFiMGRmZDYyMTMxOTYwZDRiYjg4OTkyMTIzYmE5ODciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4N2NjZTM2ODQ3YThiMDdmZWJhYzU0MmJhZWE5ZTJmMjlmZmIyZjAwM2UxNGU3ZmZhNmVkNzY2NGNmNDc3NTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0MTBkMjFlMGNlNDZhZDlhM2E0ODkxYTAwYWM3YTg4ODZkZDQ1YmM4OGQyNWU4MTE5OGUxNjRiMDVkMTIwNDcifQ"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:bdeea2fb7350d2321a31d9b3dcc7bcd5a82930d9e89a826265e12896bd35a015",
+  "pageVersion": "sha256:c2c862d53690b3a45739ee3915c36da0f72f31b5c4fc608888fd0699efe5d7e6",
   "claims": [
     {
       "id": "claim_7edddde747824182be3063aaf40fc1e9",
@@ -99,22 +99,26 @@
       "statement": "Trusted Actions' ARCHITECTURE.md Security section names exactly two controls: account allowlisting through configuration and audit logging of all API calls with caller identity.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L162-L166",
+          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L179-L183",
           "version": "repo-lines-v1:sha256:a920779186151dc58240b69e502ba86d83454392c04cd6fa18bc048e6077f53b:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzgzNDA0ZmQ4NmMzZDVjNDU5OTk5YWFjZWMwNDc4NzZkMDM2Y2U3MWNhM2IzZTQ4ODhmZjg0ODA5ZjlmOWY2NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZmM5OTRiZTNiOTNiYjkyMzk2MTFiODVkMjIwZmQ5YmQyMzI0MzdjZDE2M2E0YzUxZGE4NzI4YzdhZThmOWE4OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNjcxNWI4YmUwM2NlZjI2Y2JmODlmZWJlYWYxZWQ2ZjNjZjhmODk5ZjEyYzU1ZjdhODZjY2M0OTJlMzJkZmFlZiJ9"
         }
       ]
     },
     {
       "id": "claim_9ccd07800fa24ddd8ddeb40174a6c3ff",
-      "statement": "Account allowlisting is implemented via the ROSA_TA_ALLOWED_ACCOUNTS environment variable, read into config.Config.AllowedAccounts, and set per regional deployment through terraform/regional/ecs.tf's var.allowed_accounts, functioning as a preventive control independent of and complementary to the audit-logging detective control.",
+      "statement": "Account allowlisting is implemented via the ROSA_TA_ALLOWED_ACCOUNTS environment variable, read into config.Config.AllowedAccounts, and set per regional deployment through terraform/regional/ecs.tf's var.allowed_accounts (part of the same container_environment block that also sets ROSA_TA_S3_BUCKET/ROSA_TA_S3_KEY_PREFIX and DATABASE_URL), functioning as a preventive control independent of and complementary to the audit-logging detective control.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L230-L240",
-          "version": "repo-lines-v1:sha256:5bdab72e1564e92fd26e426f0b8584218a3c17da39bf48cd6be01268d0d87f32:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI0MDdmNjdjYjdlYjA4ODk2M2Y1NjQ1MTNmMTI3MzJhNjU0NWM0OGViOGQ5OTE4NTRiMzYwZWNhYzMyMTYyMGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkwZTlkMDI0M2UzZWE4MmQ3NTM5ODU0ZmE2MTI0MDUwYzRkZjY1YzRjMWM2ZWFjZWFiNTFhMGQ1NjJiZDJlMDQifQ"
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L242-L243",
+          "version": "repo-lines-v1:sha256:e8810c4098b17db044e0dcd39053bb05ca4873af59f7b895096b7efc01ca203f:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWUzZmI0MzliMTRhYjU1ZGI2N2E1ODU5ZDY2ODc5YTU3ZDEwNjg0N2QzMTc0MDBkYTE5YWNjYzU4YTgzOGQxZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOWJhZjQ1ZTkxZjMxZDVlMDZhZTg1MDVkNTM1ZTBmZTk1MmU1NzY3OWNhZWMxZWFmOTU2NjJmNTJkYjI4ZmM3NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGI2MTcxMmM5ZWY2MmZjZjgxMWQ5ZTU4YjJkZTQ4ZmQ4MTc3YmEyNzE3N2E4ZjEyY2U3YjUxYjk1NDY2ZmFmNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWMwM2EyMTYyYTJkYzcyM2U5Y2M1NDRiMmE5YmY4NDFjYTJhNzlmMjg0NmU4YWNhM2RjY2UzMDEyYThkNTllNSJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L31-L49",
-          "version": "repo-lines-v1:sha256:9d0aaaa7eb2cfc2cbb13867ceb2958771de0c329857bed1ce203030622f706a5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYzNjU5M2U1ZmVlZDJmYWVhNWRmMGY3Y2VjZWU4NTA5NWU0M2U0MDc5Nzg5NTNkMWIyOTQzZWZlZWM1OGU3NzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwNjQ4Zjc3ZmQ1YTljNjNiM2NkZDBhZjQ5ZGFhMTI5OTIyMGI3NTQxZTg4Y2ExN2VmZTFhNmExMTRiOWZmMmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1ZDVjNDZhOTY2NWM5MWYzOTU1OWQ3ZjI1NmY1NzU1YmU1MmZlNjgzNjc2MTJjZmYyMDdjZDIxNjRkZWQxZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE0MzZjOTZhNDQ4M2ExM2ZhYzU0ZmExY2RkZTM2NzVkMjEyMThlNmFjYTE5YTk5NTI0ZWQ2NDJiMjc0YmM4YjgifQ"
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L55-L55",
+          "version": "repo-lines-v1:sha256:c338ea83e8286da83ea99ec23d2a8713ee7eda6550d661377f0fa22902667047:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzMzOGVhODNlODI4NmRhODNlYTk5ZWMyM2QyYTg3MTNlZTdlZGE2NTUwZDY2MTM3N2YwZmEyMjkwMjY2NzA0NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzMzOGVhODNlODI4NmRhODNlYTk5ZWMyM2QyYTg3MTNlZTdlZGE2NTUwZDY2MTM3N2YwZmEyMjkwMjY2NzA0NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWM0MGNlOTBhMjdkNzFjMGQxYjRlYzUyNThhN2U0NGY3YWJjMTMwZWQ3NTY2NjA1ZDBjMzdhOGVhMDdkOWUzYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODNmMDkwODJlZDBkYjFlMzRhZjBjOTBjZDFjODZhMGNjNDljNzVkMmYxZGZiZTZhYzliYTZlODY0ODc0ZDAxNyJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34",
+          "version": "repo-lines-v1:sha256:38e94adcb3125f2927f982e12cc2020b130264b8de6090b19a2b9fe22fabc15a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
         }
       ]
     },
@@ -131,10 +135,92 @@
           "version": "repo-file-v1:sha256:f23a3ddbb60b4f776d087e5a0fc1e0475940dcc844790db70e22b24b36aa5fdb"
         }
       ]
+    },
+    {
+      "id": "claim_00822a374808446cbb9b1c58cf32b897",
+      "statement": "cmd/server/main.go selects the SQLiteStore backend for the application database (audit_entries and executions tables) because store.New treats any DATABASE_URL that is not a postgres:// or postgresql:// DSN as SQLite, and terraform/regional/ecs.tf sets DATABASE_URL to the literal path /data/trusted_actions.db, so the regional production deployment runs on SQLiteStore even though that store's own doc comment recommends PostgresStore for production.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/sqlite.go#L24-L37",
+          "version": "repo-lines-v1:sha256:b686f58fb19ab3d3b3fcc209ef43aaa870ffeb341de1786588e078ec1ebf0ab4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlN2EwMDQ5Mzg4MDJjY2NjOGFkZjdmMTgzZGVkMmM2NmY1Njc2MDdiYWVhOTdmNTYzZTVhNWIzMjFmYTk1MTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhYjJkOGNjOWJmMzlhZjEzOGU3ODgyZmYwNmU1ODg5YTMzMDVjYWYzMGU5Y2ZjOTI4OGU1ZDlkYmZmOTk0YjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA5YjYzZGJlMDVhNDY1Mzk3ZGUxOTMyZTU3MGUyN2MwNjRmY2JmNGM3ZmRhN2YyNTdiNDcwMTJhN2ZlMWI5ZjQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/store.go#L57-L65",
+          "version": "repo-lines-v1:sha256:345e8051f171cef0a4564722d96853a411af5cf69cd6bb167f37910db2b54e7e:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTE5OWExM2FjNzI0NDZhZWY2MDE1YTY0NDVlODE0ZGU3Njc3OTI0Nzg1MGU3Y2FjMjEyMDYxMmUxZWE2ZDYzNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTExMjE5NjBmZWQyNzc4M2M1OTBmYmYyYmU1NWE1MzExMWUwMGUzMGY0NTNmNmRkYjg3ZDY2NzJkNjc2MzkyMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2M3NjU5OGIzNDFiNTVkYmViNjcxOWJkMWFiMmYxZGQ5MmMxMGY5OTk3YmJkMzM1NzE0NjRjNGI0ZTRhMGQ2NCJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34",
+          "version": "repo-lines-v1:sha256:38e94adcb3125f2927f982e12cc2020b130264b8de6090b19a2b9fe22fabc15a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b94e6cdd697a43d0a2f6f5efdcae764e",
+      "statement": "The SQLite database file backing AuditEntry and Execution persistence is stored on a Docker volume (sqlite-data) bound to host path /mnt/ecs-data on the single EC2 container instance running the Trusted Actions ECS service (aws_ecs_service.app sets desired_count = 1, launch_type = \"EC2\"), so losing that instance or its host volume loses all persisted audit entries and execution records with no redundancy or backup configured in this Terraform.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L151-L163",
+          "version": "repo-lines-v1:sha256:0ddb0baae034b88f63d78c1d1684f570a170ec5a083b3a80706f9a1a1200744d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5N2FlN2IxNDdmNDU4YjYyN2EzNTgzZmYxNDMxZDQzYmU0MDE2NDcyN2EwYjhhNGYyYjA2NDU5OTgwN2ExODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzOGQzMjk0MWM5YmE0NWMzZWJjZmYwYzkyNmQxZmQwMWFiYjliZDQ4MGNhYjc3Y2ZmY2ZhNGQ1MGU2MjQzMjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjViZWVkMmM3ZDgxYmUwMTMyMmI3ODBjMjUxMGUyZTMxMDNkZjI2MzUyNDRiMDk5ZDFhYTVhNWZmN2ExMjUyNTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L78-L145",
+          "version": "repo-lines-v1:sha256:afbf481f280968d8c48a89a408d44277b98f10f05c90ce3fdd3c52d126415476:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJlNDEzODY2ZWRkZDVkMmNiMGE3NmY4NmJmMzkzYzViZjFjN2I3MDM0ZjBmNzY3ODY5ZTdlNjRlNGQ4NmEzMGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4N2JiZDBmOTNiY2Y1ZmE4ODAwYjFlYTkxMTJjZDIxNWQ1ZTk4YmYyY2VlZTBkMWEzMTlmNGM1ZTI5MzViMGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY3OGIyNjE2NmI5Mjg4ZmU3NDljMWIxZWRjZjUzM2VlMDA0YTExYmQxMmQ5NzFmYzljZDdmMzBiNjNlN2M4N2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY3YWU1NTIwMGIyYzk3YzQwM2MxZWIwNzFiNGVlYmFiMzM3OGM3NjAzZTlkNzcxYTQ1YTMyYzhlOWZlMjIzNDgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5fdcd44419074bac965bb5c576f8f429",
+      "statement": "The ROSA_TA_S3_BUCKET and ROSA_TA_S3_KEY_PREFIX environment variables set in terraform/regional/ecs.tf's container_environment populate config.Config.S3Bucket/S3KeyPrefix, but no other application code path reads those fields back out; the bucket they name is the same per-region aws_s3_bucket.app bucket that the separate Firehose audit pipeline writes to under audit-logs/ and that Terraform uses to distribute config.yaml under config/, reached through entirely unrelated code paths rather than through the app's own S3 config.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L238-L240",
+          "version": "repo-lines-v1:sha256:2bd8d4ccd837925ab53ce0964638dafc25d282daf3bc5c1ee03a830919226277:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTM0M2YwN2U5NjM2NjgyY2NjODNiMzdjMDhiZDhkMzg3YTQ0ZTg5YjZmNTllZTllOWQ0NjkwZDYzZTNlMzM3OCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjk0ZWVhYjEyN2JhMDVkZDk2ZjNiNDU4ZGRlYWZmNDkxY2I0ZjQ5OTcxYWM4YzFkNjA5Zjc1ZWYzYmM5YTZiOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMmM2ZDQzY2Q0NjIyMjVjYTdiODM1YzllZWU5OTdkMDFiYzcyZGY2NTc5NzFkM2Q5NzliNmZiNzMwMGU1NWFhNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2ViMzI0Y2FhMDE5M2RhOWQyNzI2NTI0ZTA5Y2RiZGYyZjQwY2Q0MGQzZGQyMmQ1NTc2YTA5ZjBkMTBkYTQwMiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L50-L52",
+          "version": "repo-lines-v1:sha256:7266197d939d7ae57b6a627fb5abd63976f9694928536a202a91640d4b180aa2:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNmZiZmI2OTMzN2ExZjg4Y2YyYzI5MzQ3MzdkZjAwMWNmMzI3MTY1OGUyZDMxOTViOGFiODg3MTc2YTNlNWJjYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTU1OTE2MTE5MzE1ODIxNWI0MmM3NzY1OTdkOTdlNzdjOThjNDFmMzQyNWFmOWM1N2NjZjM4ZjI5NTIzYjYzMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMmYyZDk3ZGIxOGQ5MmJjODg1ZmUwNDc1MTdkMjA2MzEzNzk5NTUwNmJjYzhkYTU5NWM2NjIyODI3YWQ1ODNkNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGI1MTg3OTJjMzI1NThlZTMzMjRhY2FkNjdhNTliZTM3NjYwZDhhZDA2MTAxNjk4ZjNhMzYwOGM5ODdjMDI4OSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf#L41-L44",
+          "version": "repo-lines-v1:sha256:100591fbf11aa894970309121b3787374294eef119eaacf306ad5149a82bf39c:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzhmYzcwNTZjYTIwN2E2ZGIyZWM4MDdjYzgyZDhlNGQ4NzY3ZWQ2NTczOWYxNzMwZjgxYTJjMWFkYzFmNTMyNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMThhNjQ4Y2RiMDIxZWZiMmEwM2FhNGU2MWI4NWQzNDRmYTVkMGIzY2ViMDVmYmY1ZmUyMDc0NzQzYTE1OTI0MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDBiMTk1MzY5OWE1YzA2OWExZDYyYjliOWQ5YTdiY2NmYmEwYmE4YWFkOWE0OGQ1MzAyNzMyYmExODY5ZTY0NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDk0NzQzZDNiMDMzZWNkODc1OTlmOGQwMTRhZDBhOGJjNTI1YmRhZTJjNTU0N2Y4ZTk1ZTI3OTQ1MGE0ZDc0MCJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34",
+          "version": "repo-lines-v1:sha256:38e94adcb3125f2927f982e12cc2020b130264b8de6090b19a2b9fe22fabc15a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7482bdb227534f5d8fa1a9712c07d30e",
+      "statement": "The executor's audit.Logger is wired in cmd/server/main.go as audit.NewMockLogger(logger), the codebase's only production audit.Logger implementation, which keeps audit.Record values only in an in-process slice for tests and otherwise relies solely on its logrus line (tagged \"audit record\") reaching the CloudWatch-to-Firehose-to-S3 pipeline for durability; a comment in main.go documents that this per-action audit.Logger and the request-level AuditEntry store predate each other and were never unified into one persisted trail.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L205-L221",
+          "version": "repo-lines-v1:sha256:2cd46fee264c25046da7dcd5c5913f738b7a2020bf2fdd9fdeeaf55dc70d543b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3OTRlMjE0YTAyY2Q4NTY1NTgwNGQ5MTUwNWQ5ZGVjOTQzOWUyNmVjZGM0MmE2MjJjZDUwNDEyNzViZjkzZTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3YmM0ODBlZjQ1N2FjNDU5NGI3Y2NjY2UyYzllZGU5YzhhYjNkZmY1OWJjODVjMDg3ZjJhNTM4YjI3OGYzMWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI2MGMwY2Y5M2NjYTAwNTZlYThhMTQ2MGZlZDA4NWM5Nzg0M2RmMTUyYjcxOTgyNGExM2EyNGNiOTM1YTRhOTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM0MGY4MWNiMjVjMWY4ZTk0OWQyZjc5N2Q3MTI4ZTgzNGQzMDA0YzVmODIxMTQ3M2Q4ZmIyMmE2NWJmYWQ2ZjUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/audit/mock.go",
+          "version": "repo-file-v1:sha256:7b7245c4bf32e014f204d859d0aeac81e00e400411bab14d25ef40d8ad5b72c5"
+        }
+      ]
+    },
+    {
+      "id": "claim_bd8b8e63d840411cabdeae8298eeb044",
+      "statement": "NewAuditLogger is mounted inside the authenticated /api/v0/trusted-actions chi route group between authnMiddleware.AuthenticateAccountJWT and authzMiddleware.AuthorizeAPI, so its deferred CreateAuditEntry write captures the final response status (including a 403 from AuthorizeAPI denying the call) and the username authentication already resolved, for every request that reaches that route group.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L374-L386",
+          "version": "repo-lines-v1:sha256:ee4aa30ed6e093f9ede9868761e66f51b51031fb055f8145fddb9d27f46b9020:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYTVhMWVkOTg1MzFkODc5Y2NhNzBjYjMyZWZlZDM3Yjg0ODk4Y2YwNzlhOTVlZDM1NmFjMzMwNjBkOWVkZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmODA5MmZmZjllOGM3YmUyZTE5OTg3ZGU1NDEyOTg1ODNkNTM4Mzc1MzM2ZjJkMWQyMzlmODZhYTQwYTM0YjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1OTczNTcyY2Y0ZjEwZWVjNjcxYTNmZDhjZTJiOGViN2RiODRmOTllZTllMmY5YWY2N2E4NjE0M2FmMWJhMmYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/middleware/audit.go#L39-L91",
+          "version": "repo-lines-v1:sha256:7493744722dc66b7def6498320674530840f558ecca67d744894d25fd9cacc18:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViYmIzMjlhM2I0MTExZWFmNGVkNzU0NzMzNWEzYjg3NWJjMjFkZGQ1Mzk5OTBhOWZlZGJmOGEwNzBlMTQ1ZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiYzg0NzUwMDMxMTE2YzA5Nzk2MWY0ZDEwNmU3YThjNjU3M2JhMmM0ZmQ2MDVjY2JkNTgxZDI2NGI0YmJlODAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

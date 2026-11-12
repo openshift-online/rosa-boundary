@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:9523793d341d89a486b2d20a61ac0e855a0faf9558a5d1124ae0d20e310c1eaf",
+  "pageVersion": "sha256:3a8f5f178357a4f4e677d7563c58892e1b1da3971f3e8cf252b520ac41a0182b",
   "claims": [
     {
       "id": "claim_dcc0df2d8d304d71876fefca31c6744e",
-      "statement": "The Containerfile uses a digest-pinned UBI 9 base, separates four builder stages from a single final image that alone ships, and the root Makefile's build-amd64/build-arm64 targets build AMD64/ARM64 variants with Podman while the manifest target combines their tags into one manifest list.",
+      "statement": "The Containerfile uses a digest-pinned, Renovate-managed UBI 9 base and defines five stages (tools-base, sre-tools, claude-builder, tmux-builder, final) where only final ships; sre-tools/claude-builder depend on tools-base while tmux-builder depends solely on BASE_IMAGE, so stages 2-5 can build in parallel under BuildKit/podman --layers except that final must still wait on the other three builder stages' copied outputs. The root Makefile's build-amd64/build-arm64 targets build AMD64/ARM64 variants with Podman while the manifest target combines their tags into one manifest list.",
       "evidence": [
         {
           "resource": "repo://Containerfile#L1-L23",
-          "version": "repo-lines-v1:sha256:5729574031302a8e4eadd7c39af75015ea0002f6295f8be0b4ad2d0061147132:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
+          "version": "repo-lines-v1:sha256:2eea9f13c2888b3a7f993238980057c13e4498623e0c3fae2dd4088930dad5f4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
         },
         {
           "resource": "repo://Containerfile#L191-L274",
@@ -26,27 +26,31 @@
     },
     {
       "id": "claim_e7155a2db30d4f658204f4639291bb01",
-      "statement": "sre_tools.py (invoked from the Containerfile's sre-tools stage) shells out to github_dl to fetch exact, architecture-named release assets for GitHub-hosted CLIs (ocm, ocm-backplane, osdctl, yq) while verifying aws and oc directly against GPG-signed manifests instead; github_dl's own download path matches a checksum record to the requested asset and hashes the downloaded bytes before accepting them, Claude Code is fetched the same way via github_dl in the claude-builder stage, and tmux's source tarball is checked against a hard-coded SHA256 before compilation in the independent tmux-builder stage.",
+      "statement": "sre_tools.py (invoked from the Containerfile's sre-tools stage, with GITHUB_TOKEN and GitHub App secrets mounted) shells out to github_dl to fetch exact, architecture-named release assets for GitHub-hosted CLIs (ocm, ocm-backplane, osdctl, yq) while verifying aws and oc directly against GPG-signed manifests instead; github_dl prefers a GitHub App token when all three app secrets are present and otherwise falls back to GITHUB_TOKEN, and matches a checksum record to the requested asset and hashes the downloaded bytes before accepting them. verify_sre_tools.py combines the six per-tool inventories into tool-versions.json during the sre-tools stage and re-verifies the shipped filesystem offline as the sre user before the final image is tagged. Claude Code is fetched the same way via github_dl in the claude-builder stage, and tmux's source tarball is checked against a hard-coded SHA256 before compilation in the independent tmux-builder stage.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L127-L164",
-          "version": "repo-lines-v1:sha256:7551e1cb4572b453456ecca07d24d9d11cf7e557ee83940f41e5d28c8d68ac63:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgxYmMxYTM0NGU4YzljZmFkYjQ1MTEwZTc4ODRlMzk5MmEyMGQ5ZDhkOTAxMzU1YjE2MzE5YjU4MWU2NDgyOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE5Yzc2MzQ1OWM3ZGVkMWE1MDY0NGZiNzgxMzQ3OTg3N2Y1ZjUyY2FjODcwOGZiYjhkNWVlYjc0NWZmODQxODEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQzZWIxYzg1MmUxZTUyMGRkZjk5YzY5YmRlMGM4MjdlNWY3MzE4YTQ3YTYwMDY0NzI4NTQzZjAzMmFmNjhiMTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU2YzUzN2U5NGE1YzY2MWZhOGJjNjhmYTc2OWRiOGZjZjFlYTc5MTJlZDkyZGYwOGVhNzFmNzkyYzEzYmZmZWUifQ"
+          "resource": "repo://Containerfile#L123-L188",
+          "version": "repo-lines-v1:sha256:024750f2ca4f2c4f81a12a0be16f227eb465a1a20d83089dd075ef988dc468e5:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjMTYyOTIwN2UyYjY5ODQ4YzJlNTFkZmQ3N2FlOGIyMzc5MTM5YmZjODg2YTZiYjJkZjdmZTVlYTliMDBlMjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY1ZWI2NmZkODRhZTc3NmQxMTdkZTZiZGExNjI4OWZjODJiYWQxOGM2MjA2ZTgxOWIwNDdlNjY0ZmM5MjBhZWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU1Y2RmNzRhZjE0ZmRiMGU1NmZhY2IwMGY5Y2FlY2UwNWYzYzNkYjU0NTM1Nzg3ZTlhZjVlZWVjZTg1MjljNjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlkNGQxNWFmYWJkMGRmZGE0NDFhYTlhOTg4MjhhODRlMGJiOWVhNjNjMjdhNjFhMjJiODg5ZWU0MDY2MGZmYzUifQ"
         },
         {
-          "resource": "repo://Containerfile#L47-L124",
-          "version": "repo-lines-v1:sha256:9c74b9262d35838b3c6b5fc77fbaf85a760cd71398206cb3d25f658340912db4:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYwNGE3MDRkYjI1MmM4ZDRjOTBmOTIyNjg0ZGJjM2Y0ZWQwN2RjODA2ZmI4OTMzZDRmMTNjOTMzYzRjMTUxNDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgzZGQ2ZjAzMTgxNTA5NTQyNjQ3ZTU4NWU0YWQ3NDUyNjVlMDQ4M2M2ODZmMDdjN2I2YzUyMmQyMTdiYjYyYTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVhYmY0ODI5N2IzMjJmZWI4N2Q2OWYwZjRmYjMxODBhNWNiNzI5N2E1YjM1Yjk2MGJhYWUwMTRiMzU1YTJjZDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE0MWY4NjhhZTE4YWEzMjRmMzUyNjAyNGI1NWM0ZDc5N2Q0NTY4ZTdiNmVkZDI0Yzc2NTI0OWE1NmIwMzBjMzQifQ"
+          "resource": "repo://Containerfile#L263-L268",
+          "version": "repo-lines-v1:sha256:6ddfd0327993f846c158490cb2b88e8c4ac7be5d59673c5cd7417912b7092cf9:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzNlNTA2MjNiN2QzNGFhMWUyNDQzM2EzYjZhZjllZjc0YTM1N2I4YzBlMjNhYjIzYzNjYzExYTY0ZjJjOTNjNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDRlYzI3MjcxNDQ4MDRlYWI2YTI2OGJhYWExZGE3MzRkMDUwNjk1NGQ4N2UyMjVlMDg5N2RkNjJkMGM5ZDkwOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTQxNTQ0MDE1MzgxZGZkY2E0NWJjYWUzYjZiMTE5MzFmYzY5NmUxOTJkM2U4MmQyZmY0MmUzYTNmMGI3ZTRjNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTMxYjY2ZTM4YTc0YmI3NTk1ZTFkNzY5MjQ1NzAwNTdlNDQxNTI1MGVmMTJlYzYzNTc3N2IzM2RkZWNjN2JmNyJ9"
+        },
+        {
+          "resource": "repo://Containerfile#L52-L121",
+          "version": "repo-lines-v1:sha256:f8366409cfe298bde218b9db9b64afb1442ba36abd96abbda9f6a316a0a1fd2b:eyJzZWxlY3RlZExpbmVDb3VudCI6NzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmYWZmNGY3ZWE4OTZlOWRmYjg0YjFmNGVkNTM0ZjEzYWQxOTE4OWFmMTA3NmY4MzU5MzA3ODcyM2ZkYjFmN2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiMmM5NDJlZTNiYjExNWI4MGFlODkzNmNhNmI2ZWUxYTBlNjNiMmY5NGY1YzY1MTY1YTIyMDczMzBjZjA4ZTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxMDA2MjZlMjAwZGI2ODNjODBjMDU3MzZiMDNkYzg5NTkzZWRiMDFmMjJlYzE1YTRiYjJiN2E2ZGI2M2RmZWQifQ"
+        },
+        {
+          "resource": "repo://build/github_dl.py#L1-L58",
+          "version": "repo-lines-v1:sha256:eda2a93619bf67c99bea162e845266610fa76d94f02271870d726c7be7578442:eyJzZWxlY3RlZExpbmVDb3VudCI6NTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2ODJjYmRiNGM4YjA3NTE4YmY0ODZjNTg5OTBmYzM5MTc4M2FhMjBhOTE2YmZiMjdhZDIxMWViMWQ1YzM2NDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyMGM1YWNkZTU3ODliMTA3MGUxNTdiZDE2ZDk0YWYxYmUxYTQ1OWFhZjMzODRmNTU5NGJjZGZkZGFkOTJjYzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZhMDY4YWExNjg2OTVmZmFjYjFiZGYyMWQwZWM2YzFjNWVjMGMyNTQ5ZDc4YmQ3MTZmMjI0MjAzZGVmNGQyOTMifQ"
         },
         {
           "resource": "repo://build/github_dl.py#L225-L271",
           "version": "repo-lines-v1:sha256:5bdf4fe8a1df16b75f1d440b3e481b5788b0628644fa12723f79d96529f7fa80:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY1OGVkZTFiZTdlM2Q0YTk2ZDEzMjNiN2MyOTRjMmIyOTY3YTgyYWUwNjUxZGIyM2ViNDhiMzc4MGNiMGE5NTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlYWFhYzdiOTVkNzAzNWMyYTEyY2RjNzMyZTc4YzA3MGQwMDQ4ZDA5Y2I1YzgyNmIxZjdkNmVlZWIxZjY1ZTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ4Mzk5YTAwNTU3OWYyMmRkYjM1MTZiOGY0Nzk1NWEyMDBlZDM0NmFlZjg2NWY0MDRlMmJhZTE4NzczMjg4OTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkxMjdhMTIxMmI2YTI4NGExZDQ2MjkxNjM4MmEyMDBjNjRiMjcyYjlhMDllNmZjYjk4ZmQxMjkzZWRlNjdjYjgifQ"
         },
         {
-          "resource": "repo://build/platforms.sh#L120-L140",
-          "version": "repo-lines-v1:sha256:2a0b304e6c55df011ffbe018d4d67d1163bd5e5c7a2e7f8e759d4d8478aa1b81:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2NzEwYWFlYWFmMmMyYjIyYjUxMGMxOTk4ZjNjYTE1MTJjNjA3ZDUzZmEzMWI1ZDRhYTNkMzA4YTdiOGVkYjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3NjlkMjM3Y2Q0MjBiOWQzOGI5ODFhMGE0ZjY3NzAxOTBhNGE4M2RjYTFmZTU2YzRmNWJhMWUyY2JjMGVmNzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4ODllNGI4NjQ4NGNmZmJhZjI2NWQyY2NlNjNmNzZhNjRiOTBiODMxZWQyM2QzODI2OGQ3ZDZjZDg5MmRkNDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM0NzRhZTlmZjdlMTkyOTUxNWYzZDZiODU2NjJmNWVjZjM4ZDVkMWJmMDE0OTE5ZmJmYmJmZmZmOTRkOWRkYjkifQ"
-        },
-        {
-          "resource": "repo://build/sre_tools.py#L192-L220",
-          "version": "repo-lines-v1:sha256:07da332c788a6e37fc5b6913ec620142dce30cc8d76e7ea8c880dc2e3b5b45a7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2ZjYzYjBlOTE2OTk2ZTdiNmZlNmFiYmE0ZTQ2NDhkYWUyMzVlM2M2MzQ5ZTNiZmE5NmU4N2E2ZDIwYWMzZGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUzMDI0ODA1YTc2Nzk1ZmU0ZmVlNmMzN2NlM2Y4NjQzMjRiNjBjNzFmZDFkMzNlMjY0MGMzM2I2NTM5YjI1YTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZlMWM0Yjc1MjQwNzk5MTZhM2RjYzcwYzBhZDI0OGM4Nzk0MzdkZjk2YTkyMmI4NjdkZTA3YTU4MmQyZTFlZDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA2ODY2NGNiMjgzNjUyNzM5NTI0OWI5ZjRkOWQyMWFmYjlmYmMzOWI0ZWU4MWZjOTI1NDYwZDJjOGFlNjY1ZDcifQ"
+          "resource": "repo://build/verify_sre_tools.py#L54-L95",
+          "version": "repo-lines-v1:sha256:cce47e5482b8a68b1d194b73d26f1bed88152c87494366c5e4e5b2dcc143b3fb:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkMGFjZDZkOTcwZGVlMzNmY2U4Yjk5NGFiMmE5NzMzNTNhMTA5MDdjYzBhYzA0N2E5MzI5Mjc4ZmIwYWJlYmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI2MzFiMDQyYjZlYTdlMGI3YmM5YmRkMDI4YjVjMWQ4NjU2MDU0MjM4MDcyNmM3ZGQzMjkwNDhhMzkyMmQ0NjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY2NzUzMDYzM2IyYzIyODZjN2FhZTJiZTZkNTYxNjc5NzVlZjM0YTNkMWE3ZDU2M2M1ODQzN2QxNGIwM2RmOWUifQ"
         }
       ]
     },
@@ -99,10 +103,28 @@
           "version": "repo-lines-v1:sha256:a1bf42560af525038d3d336172801f0261d886bbbd261d723e4a307e1cead407:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhYzU5OWMzNWI2MjE0YTY2NzcwMDllZTQ4N2RhODJhODcxYWEwYWEyMDQ3Nzk3MzAwNWFjNmYzMWNkZjVhNzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5N2IzMDY4ZjllNjdkMjg3ZjQ4MDkxN2Y0M2Y5NWM3OGRmNDA2ZjNkMDQxODJhNTE4YzY5ZWNiODk5OTgyYTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhmZmZjMjE2ZDk5MTI1YWIxODY3NjZjODM2NTY3OTE4NTVlZmE4OTg4YzI4NWMxMWZiN2RmNGIwMWYyZmY0ZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVkNDhhMThiMWE2ZDI5YjVmMjBhODRiMTUyNzRlYmUzYjk5OGNkOWEwYmI5MmY5NzNmMGEwYzUzNjg3M2UzZWUifQ"
         }
       ]
+    },
+    {
+      "id": "claim_170a90da4a6943b9a5bb4fb2019c2a64",
+      "statement": "The current Containerfile's final stage ships only a single pinned oc build directly at /usr/local/bin/oc and does not populate /opt/openshift/<version>/oc, so the entrypoint's OC_VERSION-driven 'alternatives --set oc' version switch is presently a no-op that falls through to its 'using default' warning unless that directory is populated by some other means.",
+      "evidence": [
+        {
+          "resource": "repo://Containerfile#L108-L111",
+          "version": "repo-lines-v1:sha256:6ea3eeb7c1885dd44b8cc7815436e0386bdd3cbde1fefd54bdfb3d2d2dfa4439:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYjY0YmU2ZjIxYjcyYmU0ZDcxNTA3YzFiMzI1YWY5NzQxN2EzMjQwMzIyZTMzYmMzM2QxZTcyODEzNGFmMjI1ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzhjZjM0ZjQyNjQ5MzMzYTM3ZDE1OGNhYjg5ZDcwOGNmMzI0OTg3M2ZiMzZlNmY1NmY4OWJlMWU1ZGQ1YjQyMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDhjZmI3MTE0OGNhYWEwNTQxZTY0MDNmMzdlODRjNWEyZDViYWIwYWZjNjQ1MDE4OTgyZmU1Y2E3ZGFlNmUyNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODllNzc1ZmQ5YmNlY2RkNjJmZDYwZjk3Njg5NDE3ZTVkZjI3ZDhhZGFkZjkzY2ZiMGExZWMyOTA1YTNmYmRjZCJ9"
+        },
+        {
+          "resource": "repo://Containerfile#L220-L244",
+          "version": "repo-lines-v1:sha256:00fc67f9b1912bd82557dfa4c7a041e6959fbd0ed41a6a58f2b082da4e30d26e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyYWFjNGRjOGNkZjUzMDE5ZGM2MzA3MDI0ODJiYTFjMzQwYTQwMjE0N2QxZDU0MmQ4MTk5M2U4YWY1MDUyZWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2YTMzOGM0MTAyMmJhODAzM2M4OWIyYWU3YjExYTZiMWVlMzZiZjU4NTgyNDNkZDQ5YjM3NDVjMTU3MWI5ODciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI5NDVhYmIyMjAxZTIzMDc1YTE3YTQ0YjdmYTIxZGQ3MGMxMTM4YzczNzkxMmQ4MmQzNzU1MzY3ZGU4ODUwMWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQzMjA4OGQxNGVhYzM3MzFiZTUxZWQ4ODFjZTA3MmJhOGFjY2JlZjM2NGIwYTAwNmZiODAxNTdkZmY3NzM5NGQifQ"
+        },
+        {
+          "resource": "repo://entrypoint.sh#L94-L101",
+          "version": "repo-lines-v1:sha256:33302095f430a6a7f7cc589cadc8acb283f0b6a65fe69dfb129a4c281b69aa30:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzc4NWVkMGRjN2NmM2MwNTNhMjQ0ODdjMmUzZDcwODYzODQ5NDg0MGNiNWFhM2RhNTE5NzEzNGM5ZTQwN2RhYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiODRlNzYwNDI2YThlM2E4NjBkZDE1MGU2YzExNzhiYWE2YmYxODI0YzU3ZmU4MjczYjAyYjRhNWNlNDUzYWE3MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNWNmNzYyYmU4ZmY1MjBjMzA2ZWZmMzAxMzBhOWM2N2JlY2NjMjFlM2Y3ZThkOGQwNDJlOGExN2U5ZTM1MTUyNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzhlOWI5ZjVhMTllYWQwNmZmNmMxMGViYTAyNTYxZmMxZjkxYzAzMDIzMjY5YmUyYzBmZDQ3ZTg3NzQ3ZmNhYSJ9"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

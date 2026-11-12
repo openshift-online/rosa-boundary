@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:ac0f7b543efe33c349a20dd4535c0477458f315c11e9ca26ffa7e924fdc458cb",
+  "pageVersion": "sha256:b64f201f0c8c2ff0c6387e67371f067574eef0df898fc3b9a203574fd1381a01",
   "claims": [
     {
       "id": "claim_6aa30656a4c94ab4928d40011e47bd4e",
@@ -83,10 +83,94 @@
           "version": "repo-lines-v1:sha256:deadaa3af5f5543519e4d34e11b7e8458fbc6d497c28b7934da4f1badf647991:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2MWEwMDJhM2VmN2JmM2FhMTQyMThjN2VmNWZjYzAwOWEzNWQ1YjhlYjBlNWEyNjUyM2JiMTA2ZmNjMzA0MmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyMDMyYzcyMzlmZTc2MjAyZTcxOGNhY2UxM2YzOGM0MmM3YjNiODZhN2VkMjlmMzJlYTZhZDk5ODAxMDFjYTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdlNWIwOTNmZWU5MzcwOTU4YjUwNTJmZmFkYjA4MDQwMWE4N2U5MmQyMzdiZDA1NGEwNDNhMGQ5ZDkwOWQ0YTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM1NTE3ZjY2MTkwMTI2ZDk0NmE4ZjhkMzkyNTE3ZDQ2NzU2ZjhiOTM1ZWRkZDFiNDYxYTUzNzBkNDljMDljNDMifQ"
         }
       ]
+    },
+    {
+      "id": "claim_459d8e0498934d5b97fa712dbff94ac2",
+      "statement": "deploy/account/github-oidc.tf manages the GitHub Actions OIDC provider in three mutually exclusive modes (create, reference-only via data lookup, or adopt via a declarative import block) selected by create_github_actions_oidc_provider and adopt_existing_resources, pins the client audience to the fixed local sts.amazonaws.com rather than exposing it as a variable, and omits a thumbprint because the AWS provider computes it.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/github-oidc.tf#L1-L63",
+          "version": "repo-lines-v1:sha256:0d1403e788eacf041036d9e8035773c6824818818c2b6bad13b76f2885255644:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljN2ZlYjA2ZWEzNDYzYWY3ZGE3YWZmMWY5ZThlZWU0ODBiYjI0MDc2ZTRkMDFlNjc1NWIwN2JlMjA3MmIxYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5MDJlYTIxNDMxN2U5Nzk0MWM5NDdkMDkzNjBhYjllNTIxYjUzMWYyZjIyZGQ5OTg3Y2JiYTRmMTU4ZjMwYTYifQ"
+        },
+        {
+          "resource": "repo://deploy/account/github-oidc.tf#L65-L72",
+          "version": "repo-lines-v1:sha256:375d187b78aea17b19b054a10dd236409f85fc2bb242a3a1568df64d00cb7240:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODM3NzgyNGZlYzFjZGZiN2E1NzE0YzA0NjRiMWRiNDA3YzAzZDgyN2NhYmFjYzU2ZWY2NTgzMTk5NjIzOWI1OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTYwZGFmNDgzYmY4ZGU0NTljMTdjOWYzNDllNWU1MjBhMDc4OWYxM2YwYWE1ZDdmZjJkNWFlYmU4NGU2OTc0NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
+        },
+        {
+          "resource": "repo://deploy/account/variables.tf#L170-L174",
+          "version": "repo-lines-v1:sha256:11616a8c9d548d5dbdff0aedc841631878af236e442d84ed60b944df41e13086:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTYyOGFlMWY0ZDk5NGU0ZjIxYjI1NDNjNjZhNTIzNzEzMDQxNmM5ZTNjZmU2NTEzYzgzNzJlMDZlNjliMmRhOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDljZjI5MDc4YzlkNzYxNzIwNjU1ZDE1M2VkMWFlODUzYmQxOGZiMDAyYWUzNjU0MDBjMWJjN2NhNTJhMTBlZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2Y3ZWY4NTcwZDIyMWRmYjQyMDQ5MjE2YWNjY2ZiNGUwNDZiZGI1OTljOTQ0Y2M4OWI1MmJmNWRjNjhmZmIyZiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_fefa8cd1c83a485289b17448eddcc47d",
+      "statement": "The shared-iam module creates one dedicated IAM role per configured GitHub content-publisher source (never a single shared publisher role), trusting GitHub Actions OIDC via StringEquals on a fixed repo:<repository>:ref:refs/heads/<branch> subject and the pinned audience; validation on content_publisher_sources rejects wildcards, colons, and full refs so no configured value can widen the trust subject to a pull request, merge ref, or GitHub Actions environment.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/content-publishing.tf#L18-L70",
+          "version": "repo-lines-v1:sha256:bbf2b39574412f8e58d2e73fe88d011ca12750337d8345fc38fd7421348e44cc:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgwYWUyZTkxOGI5MmU3NzdkN2I4Y2Q1ZTgyOGIxN2JlYjUwOTZhZWJmZWRkOTBlZWJjN2QwNWYyODE0ZmYzNTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY0MjdkOTkwNjI4YzMyZTI2YmUzYjMyMWQ0OWY1MzVlMDRlM2JlZGJiYzc5OTRmODg1NGI3NzAzMzg2N2FhYTIifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/variables.tf#L72-L113",
+          "version": "repo-lines-v1:sha256:3a08dd6d5a6558c5f8cf90b58bc34584fafce6db8c9a3fc3a88b974535ea939d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwNjE4YTYxNTM5MzA5Yzg1ZTA1ZDYyN2RlMGZlYTBlM2IwMjk0NDE1Zjg1OWRiM2E0NDEyMjlhNTYzMjIyMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjljNTVlYjc5NDQ0MTk3MTVhNTQwYWYyMTQyNmFjM2FlMTEyZDZiYjRiNjdiNzQ1OGQ2Nzg2ZDk3ODMzNTdlNmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMzZDkzNThhOWNhNzU4YzlkMTg0NWM3NTZmNTQ4MDliYzk0ZGJkZDliM2EyNWZjYTc3MzhhYzIxNzkzY2RjYTAifQ"
+        },
+        {
+          "resource": "repo://deploy/account/variables.tf#L176-L187",
+          "version": "repo-lines-v1:sha256:dbd0b1322ad05b12cd49a823cc58b465a853814dacc0472b8aa0e37a5e154e25:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwNjE4YTYxNTM5MzA5Yzg1ZTA1ZDYyN2RlMGZlYTBlM2IwMjk0NDE1Zjg1OWRiM2E0NDEyMjlhNTYzMjIyMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNjhlMmIzOTU1MzU3MzkyNDUxOWVhYzVkYTM0YzExMTdhMzZmNTQ0YmE3YmIxODc4NjhlZWU0NGRlZGE5ZjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk3ZWFhNjhmZmQ1ODQ0YzVjYjhiYzZiN2Y0Mjk0ZWQ0NjYxZjkxOTA5MmY3NTBhNTJlNzhkNjc1MGYzNzhhN2IifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_b6bf8e2a9d734a579e07ff19fcba8aee",
+      "statement": "A dedicated content-replication IAM role, separate from the account's pre-existing audit replication role, trusts the S3 service principal with no condition and is always created alongside the GitHub content-publisher roles, independent of whether audit replication is enabled.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/content-publishing.tf#L72-L89",
+          "version": "repo-lines-v1:sha256:391f1f136a27cf7f61c3b7e292026057d8981b2bbe265cc62033ffe3e70a900e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM5MTA4MjAzMzQzZTM3NDM0ZTU5N2I1ODBmYmExYTMzMGFmOGEzYjkyMjkwYTc5MDRkYTRiMzY4NzljZDJlOGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_62228a8589db427992f2f0bef47b2a17",
+      "statement": "The GitHub content-publishing and content-replication roles grant identity and trust only: the shared-iam module's content-publishing.tf references no bucket, KMS key, or region, so a publisher role is assumable but holds no content access until a separate regional Terraform change attaches S3/KMS permissions.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/content-publishing.tf#L1-L16",
+          "version": "repo-lines-v1:sha256:e1cb5573fc7ce43964404b061064648b0e8b2e880f4d9df8ebed950146f4424a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzZWJjNmJmYzkwMzAzZGRkYjJhOWZjYzY2OTYwNGVmZTBiZWUwYzJjODRlMDY1M2E2NDY4MjdmOTg2YjQwMzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIzZmExODY0NmQ0M2M1MzEyYTgzOTIwNDRmMzY0NDg1ZWUxMjkyOTBkYzExZWEwMWY5NTk0OWQ5ZmNmNzZjYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ1M2E2MmU3MjZiYmUxYTgwOWEyN2FmZGVmZWY1MGE1NmEyZGJkOWY5OThhOWM2NTE4OWMxOGY2MTUxNjJmNTcifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0bf43d255dfd465d87e5f76577be76b2",
+      "statement": "deploy/account/main.tf instantiates the shared_iam module exactly once as the sole creator of every account-global identity (SRE/invoker/Lambda roles, metrics-read, S3 replication, and the GitHub Actions publisher/replication roles), resolving the Keycloak and GitHub Actions OIDC provider ARNs in the account root beforehand and passing them into the module as inputs; regional Terraform roots only attach grants to these identities and never define their own.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/main.tf#L42-L77",
+          "version": "repo-lines-v1:sha256:6a9db877db55bb20eb240b652b869b881f7ef1bfbfde455000e568bf01c8fde7:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE3NTkwZDdlYjI4M2U1YmUwZWQ2NmQyYTRjNjBmMTI2ZWE2NjZmZDI1NDRlOWUyYmE3MGNlZmU3YmMzYjg2MjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5YTYzNzhkOTBiYzA5NzEyNWFkZTAyYWU0YTEwY2IyYWRiZmNiYmE1NzMzMjNhYjRhODBjZjQyOTBlOWJkYTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/oidc.tf#L1-L51",
+          "version": "repo-lines-v1:sha256:e6e94d6fedf53417fae87c255f5383c417f9a8cdd4116b19d9586bce52d7cc8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNzI4NDkzMzJkODc2MjEzZGFhNTM2ZGI2NWQwN2NlMjNkZjEzOGI3NTVkYWIxN2UwNDQ2OGI1M2M2OGU0NDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_fcd0296bd2314fbd84a609ab226a34fb",
+      "statement": "The shared-iam module's outputs separate a fixed-shape roles map of core operational identities from a configuration-dependent content_publisher_roles map keyed by source (name, ARN, repository, branch, trust subject) and a distinct content_replication_role, and the account root re-exports these alongside github_actions_oidc_provider_arn so the identity contract stays stable regardless of how many publisher sources or OIDC providers are configured.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/outputs.tf#L1-L35",
+          "version": "repo-lines-v1:sha256:11ae92b9f13a4f962582ab9589b6b4d8856a479fba049820749e5522c4c314d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjNWY5NWQyMmY1MTRlYjUyZTI1ZjcwYjEwM2Q2NDgxZWNhNzJkOWFmYWMzYzFlNTkwYmQ2NDQwMjBiNGQ0ODAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/account/outputs.tf#L22-L41",
+          "version": "repo-lines-v1:sha256:714d5cccd7d2e7b410649c5f2459580d8f02e4f2b9ce39b0eb1c885c1fe289a7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1NmUxNzM2NGJkOTUxMzZmNTdkZDE3NmVlNzI5MTlhYjM4MjkyOWU5N2VlM2VhM2U2YmU3NTBiOTk5MmExMTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzYTFlMjY4ZGY0ZDEwYTJkNTcwYzdkYTVhYmE2MThlZTlmNzc2YjJmNGQzMDM3Mzc4OTk0MmFjOGExYWY0OWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZhY2JlZjg0NmQzZDcwOThmZTg3MmViNDhhMWNjZTU1Mzk2ZTI4Y2FjN2U1MTZjNDQyNjI2NjVlZjg5ODJhZDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

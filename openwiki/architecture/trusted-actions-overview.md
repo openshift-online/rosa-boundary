@@ -1,16 +1,23 @@
 ---
 type: architecture
 title: Trusted Actions architecture
-description: Explains Trusted Actions' two-layer architecture (HTTP request handling vs. asynchronous action execution), its OpenAPI-first code generation pipeline, and the plugin model for adding new actions.
-tags: [trusted-actions, architecture, openapi, oapi-codegen, backplane, worker-pool, plugin, catalog]
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
+description: Explains Trusted Actions' two-layer architecture (HTTP request handling vs. asynchronous action execution), its Go module/CLI layout, its own container image, and the plugin model for adding new actions.
+tags: [trusted-actions, architecture, openapi, oapi-codegen, backplane, worker-pool, plugin, catalog, rta, containerfile]
 sources:
   - id: openwiki-source-1907132ec84c53dc704aba84
     resource: repo://components/trusted-actions/ARCHITECTURE.md
+  - id: openwiki-source-24686d7a4469971452a0c7ec
+    resource: repo://components/trusted-actions/cmd/action-cli/README.md
+  - id: openwiki-source-af30aa67a4a02a87c5864aa4
+    resource: repo://components/trusted-actions/cmd/rta/main.go
   - id: openwiki-source-11418ec52755ac005ca19730
     resource: repo://components/trusted-actions/cmd/server/main.go
+  - id: openwiki-source-94aa552eeee5287e6a76ff19
+    resource: repo://components/trusted-actions/cmd/test-client/main.go
+  - id: openwiki-source-3f40daa0f36e1ee6c8e9b501
+    resource: repo://components/trusted-actions/Containerfile
+  - id: openwiki-source-56c54c10348f1e72daffc214
+    resource: repo://components/trusted-actions/go.mod
   - id: openwiki-source-e0f5ab4b0b82d3d188b653f3
     resource: repo://components/trusted-actions/internal/actions/actions.go
   - id: openwiki-source-ca741c88383eefd799ab4729
@@ -21,22 +28,30 @@ sources:
     resource: repo://components/trusted-actions/internal/middleware/middleware.go
   - id: openwiki-source-f710c4d6aa9327fd7bfc55c4
     resource: repo://components/trusted-actions/internal/openapi/api.go
+  - id: openwiki-source-a6c0f8d599d4aca7d9811870
+    resource: repo://components/trusted-actions/internal/rta/client.go
+  - id: openwiki-source-2acf8cecbee106a6b2feb9d9
+    resource: repo://components/trusted-actions/internal/rta/command.go
   - id: openwiki-source-4c833b02bf6d5fc7a2476dea
     resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
   - id: openwiki-source-7a5e071b6b6192c80a6918aa
     resource: repo://internal/cmd/root.go
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-12T16:02:44.301Z
 ---
 
 Trusted Actions is an OpenAPI-based HTTP API that executes a fixed catalog of
 narrow, audited, role-gated operations ("trusted actions") against a managed
 OpenShift cluster, on behalf of callers it cannot otherwise trust with direct
 cluster access. Its source lives at
-<!-- openwiki: broken internal link [../../components/trusted-actions] file "../../components/trusted-actions" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`components/trusted-actions/`](../../components/trusted-actions), as a
-separately owned and built component inside the `rosa-boundary` monorepo; see
+[`components/trusted-actions/ARCHITECTURE.md`](../../components/trusted-actions/ARCHITECTURE.md),
+as a separately owned and built component inside the `rosa-boundary` monorepo
+(Go module `github.com/openshift-online/rosa-trusted-actions`, independent of
+the root `github.com/openshift-online/rosa-boundary` module); see
 [Monorepo components: Boundary and Trusted Actions](monorepo-and-trusted-actions.md)
 for how that co-location works.
 
@@ -74,12 +89,16 @@ architecture anticipates a future `aws-api` execution scope, but no action in
 the current catalog uses it to reach AWS directly.
 
 **The investigation-container edge is architectural, not yet wired in code.**
-Nothing in the Boundary root `Containerfile` or in `internal/cmd` (the
+Nothing in the Boundary root `Containerfile` (the multi-stage SRE-tools image
+that builds the investigation container; see below) or in `internal/cmd` (the
 `rosa-boundary` CLI's command package) currently calls the Trusted Actions API
 or links an `rta` client — there is no HTTP client code, SDK import, or
 command in this repository that issues a Trusted Actions request today.
 Treat the CLI-to-Trusted-Actions edge in the diagram above as the intended
-target topology, not as a currently exercised code path.
+target topology, not as a currently exercised code path. A human SRE inside
+that container can still reach Trusted Actions manually with the standalone
+`rta` CLI described below; what is missing is automatic invocation from the
+`rosa-boundary` CLI's own command tree.
 
 For how identity and role resolution actually work on the wire, see
 [Trusted Actions authorization model](trusted-actions-authorization.md). For
@@ -113,10 +132,13 @@ checks, the worker poll loop, and the backplane client lifecycle.
 ```
 components/trusted-actions/
 ├── cmd/
-│   ├── server              # main application entry point
-│   └── action-cli          # standalone action execution client
+│   ├── server              # main application entry point (HTTP server)
+│   ├── rta                 # thin main() wrapping internal/rta.NewCommand()
+│   ├── action-cli          # dev tool: drives the executor pipeline directly, bypassing HTTP
+│   └── test-client         # dev tool: HTTP client used to exercise the API during testing
 ├── internal/
 │   ├── openapi             # generated from openapi/ via oapi-codegen
+│   ├── rta                 # rta CLI implementation: HTTP client + cobra command tree
 │   ├── handlers            # ServerInterface implementation
 │   ├── catalog             # action registry
 │   ├── actions             # action implementations
@@ -130,6 +152,7 @@ components/trusted-actions/
 │   ├── middleware          # audit, logging, recovery
 │   └── config              # env + optional YAML config file
 ├── openapi/                # OpenAPI 3.0 specification source files
+├── Containerfile           # Trusted Actions' own, single-purpose server image
 └── api-spec.yaml           # Bundled OpenAPI spec (generated)
 ```
 
@@ -138,9 +161,42 @@ authentication/authorization middleware (real OCM-backed or a mock, depending
 on `ROSA_TA_AUTH`), constructs the Backplane client provider (a real
 Backplane-CLI-backed client, or a kubeconfig-backed one for local
 development), builds the `catalog.Catalog`, and starts the HTTP server
-(chi router) alongside the worker pool. `cmd/action-cli` is a standalone
-client that mirrors the same execution pipeline (authorization, audit,
-Backplane access) outside the HTTP server, for local/manual action runs.
+(chi router) alongside the worker pool. The binary it builds (bound by
+`Makefile`'s `MAIN_PATH=./cmd/server`) is `rosa-trusted-actions-server`, the
+same binary the component's `Containerfile` packages as its entrypoint.
+
+### The `rta` CLI and the two other command-line tools
+
+`cmd/rta` is a thin `main()` that only constructs and executes
+`rta.NewCommand()` from `internal/rta` — all of the CLI's behavior lives in
+that internal package, not in `cmd/rta/main.go` itself. `rta` is the
+operator-facing, HTTP-based client for the deployed service: its
+`internal/rta/client.go` `Client` type talks to the server's
+`/api/v0/trusted-actions` base path over plain `net/http`, decoding responses
+into the generated `internal/openapi` types (`TrustedActionCatalog`,
+`TrustedAction`, `Execution`, …), and its command tree (`action list`,
+`action describe`, `action run`, `execution …`, `audit …`, `version`) is
+built with the same `spf13/cobra`/`spf13/viper` stack as `cmd/server`.
+`NewCommand()` is deliberately decoupled from global state so that `rta` can
+later be re-hosted as a `rosactl` plugin without rewriting its command logic.
+The client enforces a basic transport invariant: it refuses to send a bearer
+token over plain HTTP unless the target host is `localhost`/loopback, and it
+rejects HTTP→HTTPS-downgrading redirects, so a misconfigured `--server` value
+cannot silently leak a caller's token.
+
+Two other `cmd/` entries exist purely as development tools and are **not**
+part of the `rta` CLI, the shipped server image, or the GoReleaser release
+path (`Makefile`'s `build-cli`/`build-test-client` targets call them out
+explicitly as dev tools, separate from the `build`/`build-all` targets that
+invoke GoReleaser for the server and `rta`):
+
+- `cmd/action-cli` drives the executor pipeline (authorization, audit
+  logging, Backplane client construction, action execution) directly against
+  a kubeconfig, bypassing the HTTP server entirely — useful for verifying an
+  action's behavior end-to-end without a running deployment.
+- `cmd/test-client` is a small HTTP client used to exercise a running
+  server's API during manual/integration testing; unlike `rta`, it is not
+  meant for operator use.
 
 ### Request-handling middleware stack
 
@@ -171,7 +227,10 @@ Trusted Actions' HTTP surface is defined before it is implemented:
    `ExecutionRequest`, `ActionType`, `Scope`), and chi-based routing
    registration. This file is machine-generated — **do not edit it by hand**;
    its header comment says as much, and any manual edit is lost the next time
-   `make generate` runs.
+   `make generate` runs. Both the server (`internal/handlers`) and the `rta`
+   CLI (`internal/rta`) import these generated types, so a spec change
+   propagates to both the request handler contract and the client's decoding
+   logic from the same generated file.
 4. **Implement** — `internal/handlers/api.go` defines `APIHandler`, which
    implements the generated `openapi.ServerInterface` (`Catalog`, `Describe`,
    `CreateExecution`, and the runs/audit endpoints) with Trusted Actions'
@@ -242,6 +301,43 @@ flowchart LR
     C -- "no" --> D["Inert: CreateExecution/Describe\nreturn 404, CheckActionAccess\nnever reaches it"]
     C -- "yes" --> E["Reachable via\nGET / , GET /{action},\nPOST /{action}/run"]
 ```
+
+## Container image: Trusted Actions' own `Containerfile`, not Boundary's
+
+Trusted Actions ships its own, deliberately minimal image, defined at
+[`components/trusted-actions/Containerfile`](../../components/trusted-actions/Containerfile) —
+**do not confuse this with the repository-root
+[`Containerfile`](../../Containerfile)**, which builds an entirely different
+artifact: Boundary's multi-stage SRE-tools investigation container (an
+ephemeral ECS Fargate shell environment with pinned SRE tooling, Claude Code,
+and tmux, run as the non-root `sre` user via SSM/ECS Exec). The two
+Containerfiles are owned by different components, build different binaries,
+ship to different purposes, and have no stage in common.
+
+Trusted Actions' own `Containerfile` is a plain two-stage build:
+
+1. **Builder stage** — `FROM registry.access.redhat.com/hi/go:latest AS
+   builder` copies `go.mod`/`go.sum`, runs `go mod download`, copies the rest
+   of the source, and runs
+   `go build -o bin/rosa-trusted-actions-server ./cmd/server`. Only the
+   server binary is built into the image — `rta`, `action-cli`, and
+   `test-client` are not part of this build and are not present in the
+   runtime image.
+2. **Runtime stage** — `FROM
+   registry.access.redhat.com/hi/core-runtime:latest@sha256:...` (pinned by
+   digest) copies only the compiled `rosa-trusted-actions-server` binary from
+   the builder stage into `/usr/local/bin/`, `EXPOSE`s port `8080` (matching
+   the server's `--listen-addr :8080` default), runs as non-root `USER 1001`,
+   and sets `ENTRYPOINT ["rosa-trusted-actions-server"]`.
+
+Operationally this means the Trusted Actions image is a single-process HTTP
+server with no shell-tooling payload, no SRE-facing exec surface, and a
+single hardcoded entrypoint — the opposite operational profile from the
+Boundary investigation container, which exists specifically to give an SRE
+an interactive shell with a curated toolset. Anyone changing how Trusted
+Actions is built or deployed should edit
+`components/trusted-actions/Containerfile`; changes to the root
+`Containerfile` have no effect on the Trusted Actions image or vice versa.
 
 ## Related pages
 

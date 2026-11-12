@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:59c1fd5bcc28bb50a0fc7bc8eaafbdc74452da4bd41c80da65a4dab4021e2536",
+  "pageVersion": "sha256:216c8fb62d7eba7b94c9a0bd6a0a0dc87cc58cb7db51c3cdef46b62149feded4",
   "claims": [
     {
       "id": "claim_0fd54466e61444af8b0cc04be2e11a4f",
@@ -50,15 +50,15 @@
     },
     {
       "id": "claim_9c25b28042004bb4a794fb98fb6e8f33",
-      "statement": "Account Terraform registers primary OIDC trust and optional stage and production providers, while the investigation Lambda routes tokens to configured issuer JWKS endpoints and verifies signature, expiration and audience.",
+      "statement": "Account Terraform creates up to three OIDC providers (dev keycloak, optional stage_keycloak, optional prod_keycloak), with the stage and prod providers gated by count on their issuer URL and failing their plan via lifecycle.precondition if their matching client ID or thumbprint is left blank while enabled; the investigation Lambda routes tokens to configured issuer JWKS endpoints and verifies signature, expiration and audience.",
       "evidence": [
         {
           "resource": "repo://deploy/account/oidc.tf#L1-L51",
           "version": "repo-lines-v1:sha256:e6e94d6fedf53417fae87c255f5383c417f9a8cdd4116b19d9586bce52d7cc8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNzI4NDkzMzJkODc2MjEzZGFhNTM2ZGI2NWQwN2NlMjNkZjEzOGI3NTVkYWIxN2UwNDQ2OGI1M2M2OGU0NDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L374-L457",
-          "version": "repo-lines-v1:sha256:460d1b087bb7c060f6debfc6fb5f5929d92304be292b09070624104492d537c0:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlN2M5NTdiY2I0NGZiNjczYzk4YjAwNTBhNzVkMzgwODJkYjgxZDkxOGRlMzEzYTNmMDdjMTIzNTMwNmQ3ZWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwOGZiYWU4NGJmODQ5OTQ2OTliNzRjNzMzOGViNjA5OGYwZWI2MTBlZmZjODJlODJmYzdmZjcwMjFhODk1M2MifQ"
+          "resource": "repo://lambda/create-investigation/handler.py#L374-L410",
+          "version": "repo-lines-v1:sha256:90112a555d520284f410a74d0a440c7c1049c69d615e36593ce4a1c2262dfb2e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyZTI2MTQyYjA3N2MwMjE2NWY1MThhYmZkZWNlNWE4ODFkYjdlNTA4ZjFjZWUyYzc5YjQyODYwZWIyOTdkYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjczM2U4NDg3Yzg1ZGZkY2Y5ZmE3YjkzYzc0NmM5NDYyNWFlNDdlMTIwYzc5N2U3OTFlNzM3ZjllZDdmZmM3M2QifQ"
         }
       ]
     },
@@ -117,10 +117,60 @@
           "version": "repo-lines-v1:sha256:60c1dea2e6fa969b4370ea0c2cef7f33be2801ecf047e8ad628bb46eb6f41ee8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImExMWNiMjc1Y2FkZWE3NGFmYzU3Y2JiNzBjOGJhNTAxYmRhZWQzOGY4NzdlNzgwMWU5MzE3MmI5MWNhNGQ1YTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVkMWIzYTg2ZTllZWY2MWQ3YjRiZGVkMWVhNjIxOGZkZTc3NDkzZjg1NDZiMTEyYjRhOWJlYTNiZTdmMzMzYWEifQ"
         }
       ]
+    },
+    {
+      "id": "claim_e6c595dbdab44f4c81dd1f67e62f7231",
+      "statement": "The shared_iam module receives each Keycloak OIDC provider's ARN and issuer URL from the account root (deploy/account/main.tf) rather than creating its own provider, and derives each trust condition's audience domain locally by splitting the ARN on 'oidc-provider/'.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/main.tf#L40-L65",
+          "version": "repo-lines-v1:sha256:6436e0fbc99d19c72fa17a4ad7151dd2cbd542422d7edb43196536c819df9860:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkMTdmZDMyMjE1NDk1ZTMwZTNhYmJhNWM3ZDM0YTg3YmRlZjRlZDQyMWY0YmI2ZTJiMTJiZTQ5Mjc4ZmNjYmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImEyZDYwODFiNDJhYjEyMTY2Yzk2NTQwNjhhZTRmMTJlMDA4NmZkNTQyNjcxMTJhYWMyZTc2MmIyYTgxYmQyMjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI4NWJjN2QwNmQ3YzgxZWNhYzVhMDIyNTg3OTgwZGYwNzRlODM4NzYxOWFmYzBmZjY5NWIxNGIyMzYzNThjMTYifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L1-L7",
+          "version": "repo-lines-v1:sha256:241d6432ff33e67aaca6ee5372a29de4b68417d63c0e8a303d26a1633a940e10:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDBiMzgzYjE1NDNiOTFhZGU3MjUyYzA5NmNmMGU0NDkwMTA4NDk3NzMwZWE2Y2QxMDIzYWNmMDJmMjdmZjRmZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDdkYzVhMzQxOTEwYTk0NTZhNThkOWU1ZGFhZjNlNTM3NDhiMjM1YzJkMTdlYWYxMDllYzBmZTBlNWZiZDc0ZSJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_ef7fb0ca6eb8441a83dc7263b8ecb799",
+      "statement": "aws_iam_role.sre_shared's max_session_duration is the configurable oidc_session_duration variable, validated to be between 3600 and 43200 seconds, while aws_iam_role.lambda_invoker's max_session_duration is hard-coded to the AWS minimum of 3600 seconds rather than configurable.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L9-L11",
+          "version": "repo-lines-v1:sha256:bf44b4a13c055f2dd7359435ee82db1e5a77b48510e3797dd50d3f06dde4cf5d:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTNkM2U2NTVjYTI4NGEwNTA0ZmI2MzI4OWM0N2M0ZGEyMjZmOTIxOTRhNjBhMTdlZDA5NTZjNzZhYmI5NDM5NiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTM2YTRjNDM1YjlkMmJkMGFhYzI0NjNiY2QxNWNlNGU2OGUyNDM2ZTczZTc3NGQ4Nzk5MTA5N2ZmYmZhNWQwNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiY2UxNDE0ZTVjYjUxNjE5NTRiZWM1ZTUxYzQ1MDJmMzEyZjk2YTIxYmJlMzU5MzhkMWMwMjVkMGMzMzBkMzg4OSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjljODQyMDNkYzNlZmJiYzM0YzUxMzg1NWZmOTgyOWY2ZTA5M2E4MDZkY2RhMjYxYmNhZGQ2NGJmZDBlYmJkNSJ9"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L19-L21",
+          "version": "repo-lines-v1:sha256:4187cad3656c18fa9946810b0fdb102c72deefd17d00d2e41dcbbd11dae8b8d5:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmM0MjNkODFkYzExMWVkOTdjNmFkMDIwNWU5MTliYmI1ODFlNzY2MWFlZjJkNzY2NDQzODAyODIzZmJhNzRhMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMWFmMGY5ODQzMGE0ODQzNzBmYjJkZTMxYTFiYWVlMTdhMjMzOTkxNDc2ZTAwZjc4MDEwYTQ4ZjE1MGI1YTYzNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjgwOWMzZmNhYjNlYjIyZGRhYzU4ODY1ZDcyYzBkYWVmMjc2YmU1MzM1MmQ5NDYyOWQ1YWU1NjA2NDBkMGEwZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjljODQyMDNkYzNlZmJiYzM0YzUxMzg1NWZmOTgyOWY2ZTA5M2E4MDZkY2RhMjYxYmNhZGQ2NGJmZDBlYmJkNSJ9"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/variables.tf#L13-L19",
+          "version": "repo-lines-v1:sha256:16758f03af788f874b9f8090340ef73af9a92094415471c49de4dcbe47897715:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMWVkOTk4MjFmNzI1NmI1OGFjYWFkZmRiNWJkNmFlMjIxNWY1MmQ0YTU5MTkxMDdkZDFmMDk4MDc4YTA5MzY3NiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDg5N2IyZjBhZjM3MWJjN2ZkZDZkNWM4YTU5MjFkZGNmY2ZiMDE4YjAxMmEyNGQ0NWMxZDcwOWYxNzQzZjJjYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDVmYWFiM2MyYzUyYjY4MzE1ZTQ3YjE0NTA5Y2UxNjU5Y2JhMWRjNmZjMTViZGU1NTJiNWE1MmRkMGFjNzRkZiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_5d434717657f4785889fe92a8e212863",
+      "statement": "Both aws_iam_role.sre_shared and aws_iam_role.lambda_invoker build an identical per-environment OIDC trust-condition pattern: an always-present StringEquals audience match against that environment's own client ID, plus an optional aws:RequestTag/uuid condition gated by enable_uuid_allowlist and an optional aws:RequestTag/roles condition restricted to required_oidc_role gated by enable_oidc_group_enforcement (default true, default role ai-sd-sre); module preconditions reject a blank allowed_uuids list or required_oidc_role while the corresponding switch is enabled.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L9-L86",
+          "version": "repo-lines-v1:sha256:f4b8de67887d1ee0c68f8608853af83deac6cd9a8d677f46f453a642acef84a2:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUzZDNlNjU1Y2EyODRhMDUwNGZiNjMyODljNDdjNGRhMjI2ZjkyMTk0YTYwYTE3ZWQwOTU2Yzc2YWJiOTQzOTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyMzUyNTg5YzM0ZDNjNjA2ODU5MzFiNmVjYzRkNTA5OTFhN2M1NmM4ZmJhMjg5NDExNDY1NzY5MDI3MmNhYzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNlMTQxNGU1Y2I1MTYxOTU0YmVjNWU1MWM0NTAyZjMxMmY5NmEyMWJiZTM1OTM4ZDFjMDI1ZDBjMzMwZDM4ODkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI3MzA1MGNjMjNiYzlmNjUzOGZmZDcyOWJjOGM5ZGM5YWQ3Y2E5YjhiMzM3MjZhMzRiMDBhNzZhODYyZTVkZWYifQ"
+        },
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L19-L109",
+          "version": "repo-lines-v1:sha256:204e88d3495f7013f0d481409d752fae8065f64ed8ed7e3648a376d0a53e468c:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZjNDIzZDgxZGMxMTFlZDk3YzZhZDAyMDVlOTE5YmJiNTgxZTc2NjFhZWYyZDc2NjQ0MzgwMjgyM2ZiYTc0YTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI4MDljM2ZjYWIzZWIyMmRkYWM1ODg2NWQ3MmMwZGFlZjI3NmJlNTMzNTJkOTQ2MjlkNWFlNTYwNjQwZDBhMGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBkMjZmM2U1NmY5MzU2Y2EzNGQ4OTZlZjU5YzI3NGU4Y2NmYmFiNTJkYmY0MGEwMWFlY2FiODRiM2MzNGMyMmQifQ"
+        },
+        {
+          "resource": "repo://deploy/account/variables.tf#L195-L214",
+          "version": "repo-lines-v1:sha256:6b36894cfe05c6cd60ed381eaf071a7e9c36f8a34f52476b0c5c4ee35da7bbfe:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlZDk5ODIxZjcyNTZiNThhY2FhZGZkYjViZDZhZTIyMTVmNTJkNGE1OTE5MTA3ZGQxZjA5ODA3OGEwOTM2NzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5Y2YyOTA3OGM5ZDc2MTcyMDY1NWQxNTNlZDFhZTg1M2JkMThmYjAwMmFlMzY1NDAwYzFiYzdjYTUyYTEwZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgwNTM2YWJiMzFiNjgxYzk3OTQyMWFiMTA0OWE0ZGQ3MzkyYTkzMWQyOTU1N2JhMjkyYWExMDYyMzQwMzg3OTcifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

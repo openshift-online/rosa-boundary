@@ -5,7 +5,7 @@ description: Describes the OpenAPI-defined Trusted Actions HTTP contract (catalo
 tags: [trusted-actions, openapi, http-api, ocm, backplane, cli, rta, jwt, access-review]
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
+    at: 2026-11-12T16:02:44.301Z
 sources:
   - id: openwiki-source-b4d4b45d5e0381ad76cf80b7
     resource: repo://components/trusted-actions/cmd/action-cli/main.go
@@ -17,6 +17,8 @@ sources:
     resource: repo://components/trusted-actions/cmd/server/main.go
   - id: openwiki-source-94aa552eeee5287e6a76ff19
     resource: repo://components/trusted-actions/cmd/test-client/main.go
+  - id: openwiki-source-3f40daa0f36e1ee6c8e9b501
+    resource: repo://components/trusted-actions/Containerfile
   - id: openwiki-source-187b428e5f23dada318540f3
     resource: repo://components/trusted-actions/internal/auth/authn.go
   - id: openwiki-source-183e5cfc1bc61537c23c9460
@@ -57,7 +59,7 @@ sources:
     resource: repo://components/trusted-actions/tests/proxy-backplane/main.go
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
 ---
 
 Trusted Actions exposes a single HTTP API, defined OpenAPI-first in
@@ -70,7 +72,8 @@ client are generated from it (see
 [Trusted Actions architecture](../architecture/trusted-actions-overview.md)
 for the codegen pipeline and the two-layer request/execution design). This
 page documents the contract itself, the external services it depends on at
-request time, and the command-line tooling built around it.
+request time, how the server itself is built and shipped, and the
+command-line tooling built around it.
 
 ## Route surface
 
@@ -93,21 +96,44 @@ Each path is defined in its own file under
 | `/audit` | `GET` | List API call audit log entries (every call except catalog/describe), paginated and filterable similarly to `/runs`; `404` if audit logging is not enabled |
 | `/health` | `GET` | Liveness/readiness probe; outside the OpenAPI document, served directly by `cmd/server/main.go` and explicitly marked public so health checks work without a token |
 
-Catalog and describe (`GET /` and `GET /{action}`) declare `security: []` in
-the OpenAPI spec, i.e. they are documented as not requiring the bearer token.
-At the server, however, the entire `/api/v0/trusted-actions` sub-tree —
-including these two routes — is currently wrapped in authentication,
-audit-logging, and authorization middleware as one chi route group; a `TODO`
-in `cmd/server/main.go` notes this mismatch and proposes splitting discovery
-into its own unauthenticated group, or having clients degrade gracefully, but
-neither has been done yet. Only `/health` is registered outside that group and
-listed as a public path to the OCM authentication handler.
+## Security scheme and enforcement
 
-The one security scheme, `ocm_jwt`, is declared in
-[`openapi/components/securitySchemes/ocm_jwt.yaml`](../../components/trusted-actions/openapi/components/securitySchemes/ocm_jwt.yaml)
-and applied globally in `openapi.yaml`: an HTTP bearer token in JWT format,
-validated against the Red Hat SSO JWKS endpoint, with caller identity read
-from the `username` claim (falling back to `preferred_username`).
+The OpenAPI document declares one security scheme, `ocm_jwt` — an HTTP
+bearer token in JWT format, validated against the Red Hat SSO JWKS endpoint,
+with caller identity read from the `username` claim (falling back to
+`preferred_username`) — and applies it **globally**, at the document level in
+`openapi.yaml`, with no per-path override. Every path under
+`/api/v0/trusted-actions`, including catalog (`GET /`) and describe
+(`GET /{action}`), is therefore documented as requiring the bearer token.
+
+This matches how the server actually enforces access: `cmd/server/main.go`
+mounts the entire `/api/v0/trusted-actions` sub-tree as one chi route group
+and wraps it in authentication, request-audit, and authorization middleware
+before any handler — including catalog and describe — runs:
+
+```go
+router.Route("/api/v0/trusted-actions", func(r chi.Router) {
+    r.Use(authnMiddleware.AuthenticateAccountJWT)
+    r.Use(middleware.NewAuditLogger(dataStore, logger))
+    r.Use(authzMiddleware.AuthorizeAPI)
+    openapi.HandlerWithOptions(apiHandler, openapi.ChiServerOptions{
+        BaseRouter:  r,
+        Middlewares: []openapi.MiddlewareFunc{actionAuthz.CheckActionAccess},
+    })
+})
+```
+
+Only `/health` is registered outside this group, directly on the root router,
+before the sub-tree route and before the JWKS wrapper is applied. When
+`cfg.AuthPolicy` is not `disabled`, `main.go` wraps the whole router (not just
+the API sub-tree) in an OCM SDK authentication handler
+(`authentication.NewHandler()...KeysURL(cfg.JWKCertURL)...Public("^/health$")`),
+which validates the bearer token's signature against the configured JWKS
+endpoint before any handler — including the health check — runs; `/health` is
+explicitly listed as the one public path so it works without a token.
+`internal/auth.Middleware.AuthenticateAccountJWT` then pulls the verified
+claims out of the request context, extracts the caller's username, and
+rejects the request with `401` if that claim is empty.
 
 ## External dependencies at request time
 
@@ -116,13 +142,7 @@ request; neither is bundled into the Trusted Actions binary.
 
 **OCM/AMS**, for identity and authorization:
 
-- JWT validation: when `cfg.AuthPolicy` is not disabled, `cmd/server/main.go`
-  wraps the router in an OCM SDK authentication handler
-  (`sdk.authentication.NewHandler`) configured with a JWKS URL (and optionally
-  a local keys file), which verifies the bearer token's signature before any
-  handler runs. `internal/auth.Middleware.AuthenticateAccountJWT` then pulls
-  the verified claims out of the request context and extracts the caller's
-  username, rejecting the request with `401` if that claim is empty.
+- JWT validation and username extraction happen as described above.
 - Authorization: `internal/ocm.Authorization.AccessReview` calls the OCM SDK's
   `AccessReview` (or `SelfAccessReview`, when the caller matches the service's
   own connection identity) endpoint, asking AMS whether the given username may
@@ -159,6 +179,26 @@ implementations at startup, mirrored in `cmd/action-cli/main.go`:
 Both providers implement the same `ClientProvider` interface, so the rest of
 the execution pipeline (authorization, action execution, audit) is unaware of
 which one backs a given deployment.
+
+## Container build and distribution
+
+The Trusted Actions server is built and shipped from its own
+[`components/trusted-actions/Containerfile`](../../components/trusted-actions/Containerfile),
+not from the repository-root `Containerfile`. The component's Containerfile
+is a small two-stage build: a `registry.access.redhat.com/hi/go` builder
+stage runs `go build -o bin/rosa-trusted-actions-server ./cmd/server`, and the
+resulting binary is copied into a `registry.access.redhat.com/hi/core-runtime`
+image (pinned by digest), which `EXPOSE`s port `8080`, runs as non-root user
+`1001`, and sets `ENTRYPOINT ["rosa-trusted-actions-server"]` — the same
+binary documented throughout this page.
+
+The repository-root `Containerfile` is unrelated: it builds the `rosa-boundary`
+CLI's ephemeral SRE investigation container (an AWS ECS Fargate image with
+`ocm`, `backplane-cli`, `osdctl`, and optionally Claude Code baked in), not any
+Trusted Actions artifact. Treat the two Containerfiles as building and
+shipping entirely separate images; see
+[Trusted Actions architecture](../architecture/trusted-actions-overview.md)
+for how the two components relate within the monorepo.
 
 ## Command-line entry points
 
@@ -210,10 +250,11 @@ Unlike the `rosa-boundary` CLI's investigation-container role sketched in
 architectural diagrams, no code in this repository currently calls the
 Trusted Actions API from that CLI. At this import, there is no HTTP client
 code, SDK import, or `rta`/Trusted-Actions reference in `internal/cmd` (the
-Boundary CLI's command package) or in the root `Containerfile`. Treat any
-Boundary-CLI-to-Trusted-Actions edge as an intended future integration, not a
-call path that exists in code today; re-verify against current source before
-relying on this absence.
+Boundary CLI's command package) or in the repository-root `Containerfile`
+(which, as noted above, builds the unrelated Boundary SRE-tools investigation
+image, not Trusted Actions). Treat any Boundary-CLI-to-Trusted-Actions edge as
+an intended future integration, not a call path that exists in code today;
+re-verify against current source before relying on this absence.
 
 ## Test harnesses that exercise the API without live dependencies
 
@@ -234,7 +275,7 @@ are wired into the test suites and CI.
 
 ## Related pages
 
-- [Trusted Actions architecture](../architecture/trusted-actions-overview.md) — two-layer design, OpenAPI codegen, plugin model for actions
+- [Trusted Actions architecture](../architecture/trusted-actions-overview.md) — two-layer design, OpenAPI codegen, plugin model for actions, and the container-build distinction between this component and the root Containerfile
 - [Trusted Actions authorization](../architecture/trusted-actions-authorization.md) — how OCM AccessReview and per-action Kubernetes RBAC combine
 - [Trusted Actions execution](../workflows/trusted-actions-execution.md) — the asynchronous execution/worker pipeline behind `POST /{action}/run`
 - [Trusted Actions testing](../testing/trusted-actions-testing.md) — depth on mock-backplane, proxy-backplane, and integration test setup

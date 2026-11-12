@@ -1,192 +1,40 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:76444bd169c9614083bcbfb413c0273498c6f2b40b4e05da695a77929ecbfae5",
+  "pageVersion": "sha256:26319593a8dc8f6167b807dd6fbe845f22a59b60291b609574296e8e23de9d0a",
   "claims": [
     {
-      "id": "claim_55b66afc53074753b90d8fe95bdc07fb",
-      "statement": "The root Makefile separates Go, Lambda, build-helper, and LocalStack test targets; fast LocalStack mode requires an existing endpoint, and full mode starts and shuts down the stack.",
-      "evidence": [
-        {
-          "resource": "repo://Makefile#L175-L190",
-          "version": "repo-lines-v1:sha256:0206e98ea6250d915eab437db566ebe8253c930a3be500c51c283b884e1862e1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIzOTE3NmIyZjAyMWFiMTk2MTA2OWE5MTAyNTNlMmZhY2ZkMWZlYjdlMGU0ZDJhOTg3ZjU5NmMzOTZmNDI4YjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkxYjVhMTFhMzQwNTUyNWQ3NzRjZWEyODBkNzdmNzQ0M2NmZTRkMDgzZjkwZTVhZjU0YTZkYmFkNmNkNzQyNTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM2Mzg5Mzc0MWJjYmFjNTRiNjlhOTE5ZTBmMzNkM2Y1ZGU2Nzk1N2E5ZDhhZjJlMWJjZjVlNGRkNmRiZGUzOGYifQ"
-        },
-        {
-          "resource": "repo://Makefile#L191-L201",
-          "version": "repo-lines-v1:sha256:d694d17b57cda75b76376f9e6912b8eb330248f082afe3b0e3a612d7883487ef:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjN2EyNTRlZjQ0YjM1OGMzOWExNjgyNjUxYzY3MzMyNjVjYTVjZjI4OTM4MWQ2ODkzOTBlYzkxMjQxNTcxYjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjNmUzZmQzMWM5NzdiMGIxODNhMTU3NzIxZTMzZDNjNDdlYWQyMmFlYmFkYzdiMGZjZGUxMGY1OWU3NDk4MDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJjMGRmOTNmN2NmNDlkNTkxNWZmZThjNjYyYTQxZGU3MzFmYzY3Zjk3ZTQ2YWFjYTYyZjFhYTU3ZWU2ODA5YWIifQ"
-        },
-        {
-          "resource": "repo://Makefile#L221-L229",
-          "version": "repo-lines-v1:sha256:05b209b9470b25a5d9007d072ed5d539c815f5ddcd682cdd330f84fe2132af22:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDlmYzdlODM0MTdmMTZmMzQ5YTg0MGJkNzhiMDg0NTZlZTk4M2YyZTY3MTYyYTVhMzAyMmIwYzAxMjEzYjFiYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzVmZmNkNDMxNjk1NGUzYWZkOWJjZDA0YjU0MWRmMzM1MTU2ZDgzNTdjMjQwZDg0NjAwNTM0ZjRlZGI5ZDRlMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTgzYjc3Y2RlNDMxNGRjNTVlMzlhYmQ1NjllYWQyMjA4NGU2NGUxOTdhOWZiMmMyZDJkZmU3MTViZGEzOTE4MSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYjU5OTYyZGEzYzI2MzQzZjQwYWNkMmYwMjAzNDdlNDk4N2FiY2ZhNzMzY2ZkODlhNTYxMWEyZjE0OTQ5OWYzOCJ9"
-        },
-        {
-          "resource": "repo://Makefile#L86-L127",
-          "version": "repo-lines-v1:sha256:122d28def0b861b9f3a9e89bbdc6b3fddd76556af7eb4e75790aa08b90d62720:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgzZDQ1M2QyNWM0ZjUwNzRmN2M0OGQ2MTI0NWU2YzRmMDc5OGI0NDU0MzkzM2E3ODg2YTI2M2VhYmU3NzAxMDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmOTM1Y2I3MTdkZmNiZmY2ZTViYzhhZWNiODI2OWIyZWZiMDllNzhmNDgxMTk4MDQwMjlmNTdkODMwOWM2MjgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFiNGY4ZWQ3ODU3MGFiNmNiNTA2MTY3MWM0MzQ3ZjUxNDE5NzFmNGY4MGRkNTUzNjFmYWVmYjFmZDVjODYzOTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVkNjNlOWE5OTFiMDVlNzI3OTQwYmMyZDFkODI1Y2VlYThiOTNmOTNkMDQ0ZTM2ZjdiMjUyZjNiN2ViM2JjZGYifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_82e2913944aa44319de555420787389e",
-      "statement": "The Makefile defines three Lambda unit suites: the investigation Lambda suite runs with pytest, and the reap-tasks and reap-investigations suites both run with unittest; the aggregate test-lambda target runs all three. The reap-investigations suite covers staleness/grace-period detection, EFS access-point and directory cleanup, ECS task-definition deregistration, and identifier/path-traversal validation.",
-      "evidence": [
-        {
-          "resource": "repo://Makefile#L175-L190",
-          "version": "repo-lines-v1:sha256:0206e98ea6250d915eab437db566ebe8253c930a3be500c51c283b884e1862e1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIzOTE3NmIyZjAyMWFiMTk2MTA2OWE5MTAyNTNlMmZhY2ZkMWZlYjdlMGU0ZDJhOTg3ZjU5NmMzOTZmNDI4YjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkxYjVhMTFhMzQwNTUyNWQ3NzRjZWEyODBkNzdmNzQ0M2NmZTRkMDgzZjkwZTVhZjU0YTZkYmFkNmNkNzQyNTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM2Mzg5Mzc0MWJjYmFjNTRiNjlhOTE5ZTBmMzNkM2Y1ZGU2Nzk1N2E5ZDhhZjJlMWJjZjVlNGRkNmRiZGUzOGYifQ"
-        },
-        {
-          "resource": "repo://lambda/reap-investigations/test_handler.py#L56-L213",
-          "version": "repo-lines-v1:sha256:c62b5bb31867c76d260d5ba0b4c0f364ce4f91be644cd8376a64362c79f9b6d7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3ODIwZjMxMzY3MGRmZjJiYjMzMDI1ZjZmYWJkODM2ZGVmMDdlOTlkYTgzM2VjODk4NzJjMjY5NDkzYTFiYzc3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJiNGE1M2IwYzQzZjM2MjY5ZmY0MTQ5ZDY1NmM3NDM0ZWQxMzYxY2ExZTdjYTYzZjFhYzE3ZGViYzdlYzFjZGRlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJkY2I0MmZhYzZlMDEyZmIwYWEzYWM5NGU4MTQ5YmNhNTU5NzcyMGMwMzdmZGE1NDRiZDYzN2MyM2I4OTU1MTA0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwMDdkZDFmMjQxN2QxMjE5MzhhOWJkMDc2N2ZlMzIzNDc4NzMwMmVhNGViZDc2N2Y4MTdiYjhjMWVhODhjZWQ4In0"
-        },
-        {
-          "resource": "repo://lambda/reap-investigations/test_handler.py#L636-L692",
-          "version": "repo-lines-v1:sha256:bc7f0429b147262f501ca025ef54d00538ed9ad9778a40e673b34d97ff37d9a4:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5MDlhNTNhNjE4ZDAyOGUxZDMwMDBjMGE3YWJjZWVjYmU1ZmIzN2Y0ZTUxMWVmZTQ2NjQzZmFkNmU2Njg3MmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc0YjljZTUwNmVkYmFhM2UwZjc1MjhmNGJlZmRhMGZiOThiZjI4NDI5MGMzYzljMTIyODc1NWY3MGYyMzJkMTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImViZmI3YjJjMWVhNWFmODA0OTY0ODk2MmVmZWRhYjczNDUwZGU2MWY1ZTdiZmU4ZDliZmM4OTA2ZmFmZTFlZTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA1NDIxMmI4NDIwYWFmZmQ0YzUyMDA2YTlkZjlhMTVjOTNmODZmN2Y2MGUzZmZjM2NmMjA0YTc2OTIwODAwMTYifQ"
-        },
-        {
-          "resource": "repo://lambda/reap-investigations/test_handler.py#L840-L1015",
-          "version": "repo-lines-v1:sha256:e45bcafe54cb0e60a2c142457733d83906006ff3250b032f1d1fdc80750982fc:eyJzZWxlY3RlZExpbmVDb3VudCI6MTc2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5MzcwNTZhNjkxNDBhYTk2N2Q2YTU4MGRjZmE5ODg4YWRhOWE0NDY3NzMyYmUxZDZlNTgzZmI4ZDVhNGMzZTQyIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyOTIwMjBjNWQ1OWY4NTU5OTYwNjIyNDAyYzg2ZTk1ZWViMWJmNWQzMDcwMmJjZjMwOGE2Mzk5YWIxMDIxMzBjIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjOTY5OWI4MmE1MzhiZjdmMzdlM2M0OWU2ZGJkZGZmNTY4ZmFjNjc5YTIzODA5NmU2YzFiNWUxNTYzOTAyMWRlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlZGYzMzFkMGFjMGI4ZjhlOTg2MDZjZTZjNzlhMmRhY2E3MWU4MmM4ZmEyYTAyNGVlODkwMGI0M2NhOTU3ZjI4In0"
-        },
-        {
-          "resource": "repo://lambda/reap-tasks/test_handler.py#L7-L44",
-          "version": "repo-lines-v1:sha256:4cb6813579d73f927a857165b4d2bd5b38ca90e7365bc1920c977c00c8ee522a:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3MjdhZGZmNTI0ZTA2MTYwMjJlYWRkOGY0YWYyMWEwNzc4YjI5ZmM0Yzc3YmRmZWZkMWFmY2UyY2JmNWU0YjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0NmI4ZDU4YTk5OWNhOTY4MjZkMTU5NzQzYmFhYmEyMWJjNDA3MDBmMzdjZWRiNTNmYzA3ZWI4YmU5MmU4N2MiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgxMWU4OWM3NmQzMmNiNTA0MTAwYzU3MGUwYWJkMDQ4Zjk0YmUwNGVhYjJmODg2YTU5OTUzZDAxZTZkYmQwMGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZTYzMzUzNzY5ZjQxNWQ2NjY5Y2IyMTg5YzZkZDg5Mzc5M2E1ODQ3Y2YzMmUzOTY0YTdjYWQ3NGY1OGQ5NDEifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_94da706703a746f6ab637cabf1f87855",
-      "statement": "LocalStack fixtures wait for the health endpoint and configured required services before constructing AWS SDK clients against the local endpoint; the health gate delegates to the shared check_ready.require_ready helper and fails via pytest.fail rather than skipping.",
-      "evidence": [
-        {
-          "resource": "repo://tests/localstack/conftest.py#L27-L45",
-          "version": "repo-lines-v1:sha256:684c2c52104b8395a8ffb17f89b3f3993593a3ec9d1f305512da2b21f31c6f48:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRlNmYwYzY2MzFkYmY5OGU1ZDM4ZGUxMDkzMDEzY2YzZDk3MDcyNDEwMjJlYzM3ZGRlOTRkMjNiMDg2MzIwZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUwOTI3ODFkMzQ4NjZhNTdjODIwZmZlNGU5NTgyZTQwYTljMmM0YzVkMTBlN2NjNmNkMWI0MWJlMTQ1ZWU0MjAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA4NWE0NTE2OGFkMzM5ZDI3MzZiOWMyOTUzZTllOWY0M2RkMDJiNTI0Mjk1ODE4ZGU1MDZhYTkyN2JiZjE1YWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0Y2ZmMGVjMmMxMjg2MDUxNTQ3YmU5NDk3MzMyZjU1YTJjZWFkOTczMzEyYWUyODljMDlmOTc4NjY2MmFiOGUifQ"
-        },
-        {
-          "resource": "repo://tests/localstack/conftest.py#L48-L57",
-          "version": "repo-lines-v1:sha256:620cb4f784f6557e0ebaee9a020f87d1572554e0e200c876627dd1b19f2d131f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRlZTI3NTY5ODczYjJiYzlhOTcwYjRmNDQxZmRiYTVkYTg0YTM3MTE2Nzk5ZGYzNGFiNGFjNWQyYzU2NmQyNDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIyMmMxYzIyN2NmOTMzNDlmZjAwYWI5ZGNhZGZhODcwMTdiZmM3N2NmOGZiYzlhYmIyZTA1MWYzNjcxYTFkODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0Y2ZmMGVjMmMxMjg2MDUxNTQ3YmU5NDk3MzMyZjU1YTJjZWFkOTczMzEyYWUyODljMDlmOTc4NjY2MmFiOGUifQ"
-        },
-        {
-          "resource": "repo://tests/localstack/conftest.py#L60-L165",
-          "version": "repo-lines-v1:sha256:002cf1ef43869dc31767bc3c3ae2c695e39fa2ed3a8938048e928babd589cc30:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkZWUyNzU2OTg3M2IyYmM5YTk3MGI0ZjQ0MWZkYmE1ZGE4NGEzNzExNjc5OWRmMzRhYjRhYzVkMmM1NjZkMjQzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzMGMxZjE4OGYxNDJlZDdhODI0NjgwYjIwNzE3MmM1NTE5YmM2MTRhNDhmZGE3Y2YxNjdlZGI4ZGRmNzk5NTZjIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4Y2M0YTdkMWNjNzk2YWJhM2U0NjcyMzMyN2Y1MTdlOWY4MTE5ODJkMjUwZjA3MDI5ODZlNGI1NzY0YWQ5NTg5IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1NGNmZjBlYzJjMTI4NjA1MTU0N2JlOTQ5NzMzMmY1NWEyY2VhZDk3MzMxMmFlMjg5YzA5Zjk3ODY2NjJhYjhlIn0"
-        },
-        {
-          "resource": "repo://tests/localstack/required_services.py#L1-L6",
-          "version": "repo-lines-v1:sha256:8e16d659fe0bb8a05c20ee98377516f0afa8dae58e9987b30e48f0c21c8371fa:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzEwOWY4ODU4NDkzMzdmZjZkZGRlYjI4MGViZDdhZmNhYjMxYzUyZGMyNjRkYmM2MDJhZjExZTkzMTE3ZDAyYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjhiY2Q2MDk5ZDNhY2EyMmMyMTM4M2M1OWE5OTc3M2I1NmE5ZDJkNDUxMzM2MTVlZTE2ZGFmY2Q0ZjE3YTc2MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
-        }
-      ]
-    },
-    {
-      "id": "claim_0ecfad2fe82a4be4a8ecb8b85c9c103d",
-      "statement": "Local LocalStack compose uses the local Lambda and ECS executors, which causes slow task-dependent integration tests to skip; the Prow runner sets a Docker-compatible ECS executor.",
-      "evidence": [
-        {
-          "resource": "repo://tests/localstack/ci-run.sh#L64-L88",
-          "version": "repo-lines-v1:sha256:43a0baaa3fbc766c24d436058c5172e6b8bd63f3be36f0dfd793d7b8d0a600c1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmOWE1YzllYjFhY2U3ZTY2MGNjMjM5NmM1ZjVlZGMxZDU2NDUyMjgzNWQ5YTk1ZmJjZTE0N2FhNmIyMzA4ZmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlN2ViMTA0NjEzMzgzM2I0YzBiNGFlMmE0NmM0OGZmNTE2ZDllNmU4YzIyZmQxNjRhZDMzZWFiYzNmYTE4NTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4YjgwMDhmMWU4YWZjMmUwM2U0MmIwOWRiMDZiNjVhZWVhNDYwZGQ1MWY1YzYwZGYyYjRkNDk0N2Y0NzA0MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3MzI2MGEwNzhiNzZkZjlmNTEyMmExOTU0OTM2ZTI3NWI4YjdhMjhhOTI4YzQ0N2JiN2JhNTQzOTdlZTJkMzQifQ"
-        },
-        {
-          "resource": "repo://tests/localstack/compose.yml#L1-L28",
-          "version": "repo-lines-v1:sha256:7ac6efbf2c8888c512a581fc3825a2c3c53f72bfabeb5d651c5c5cbf21490c73:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhNzNmY2NkYzk5ZWE4MzU5NjdjN2RlZTdlZmJlZDFmM2NhODcyNjBkOTI5MzE4NTBmZGQ2NmRhOGNiMTJmMWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyOWM5NzE0Zjk2YTBiNzI5MTg0MGMzMDE5NWRhMjg1N2I1ZWIzNjYwZmYyNmFkMWQyMzk2YzI5ZmNhZjgzZDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3NGZiOWZmNzU3NDQ3MjAzN2MzMWYwNjYxOWVlM2JkYzgxODM0N2ZhN2Y1MDc1NzBkZjlhNWY5MGU1ZTVmOWUifQ"
-        },
-        {
-          "resource": "repo://tests/localstack/integration/test_task_timeout.py#L16-L78",
-          "version": "repo-lines-v1:sha256:8a98fe8fcf17a486e83d0501752778585bf0ee1873a988de951b4f4851d8d04f:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYWI1OWM1ODY1Mjg1NmUyYjA3MDkxMmFiNmIyY2Q3ZDIyODcyODU1ZTQyNjRiNTllODc1MzcyOWUxMTFiZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NjVkMmIzYjlmNTRmOTY1NzI1MDA5M2RhNzFhZmQxY2Q3YTExM2RhNWIxNDFhZjE1MzYxYjZiMzM4NWFmOTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1YzFjNDYyZTJhMzlkNzQ3NTlmNWUxYjEyNmY3NjgzYTJiNzMwMTE4ZTE4ZjUxMjJiMDhjZWRlZWI2NTBlMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ0ZmE4Nzg4MmJiNTkyNzA4ZTY1ZGQ3MTZlN2NmMmM5ZWY5ZjM5YzExNzQ3MmUwMzk3ZTFiMmUzZTBjMDc5MTYifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_d4e8e573cffa4f7890ea1fb9de749d89",
-      "statement": "The Prow runner gates pytest on LocalStack service health and initialized SSM state, writes JUnit XML, fails an all-skipped suite, and collects LocalStack logs on exit.",
-      "evidence": [
-        {
-          "resource": "repo://tests/localstack/ci-run.sh#L131-L235",
-          "version": "repo-lines-v1:sha256:931f7cb35fe95acfe02815876feb6517f490a7d3d529c513676638e27d0dcab7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyZGQ5ZWQzZWZjNDIzNWEyMzBiY2Y4NTFlOWIwZmFmMjY2NDU2MjIzNzA0MmZmNGU0MTIzYjlmZTAyMWFmMDE2IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0NjBkMTk4YzQ4YmQ1ODNiOWZhY2JkNTJjMDZjNTRjOTM2ZThlODZiYTM2NzVkOTBiZGJmNzU5ZWM5NTllODIzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyMDFkMDVmZjY2MWZjNzc2ZTYyMjlkZDgzMzcxYjA0NGZmOTcwMjA0ZDY4MjEwMGQ5MmY1NDJjMzk5N2VhZThjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiMjg2OGUzZWMzMjJkNjg4MzIxYzFjNzY0MDdhMmJiZDFiODU5NTY0MmM3NjI4Y2EzNDBiYjBiYmMwNTRjNGVjIn0"
-        },
-        {
-          "resource": "repo://tests/localstack/ci-run.sh#L237-L274",
-          "version": "repo-lines-v1:sha256:2792459379f97808c1b0ce3eaf908ef81aff0db363fca94e00577dbafec05d29:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRiMDdhMTVhOGU2ZjE2MDBkOTEzNTZjMzYxZjcyMzhmYmQ0MGU2ZmZiNmQ0NTBjNzliZWJhYjE2M2I4Y2VlYmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhMjFjNWIzYmZmMDI5OWMwMTYxNDcwNDY4ZjM1NWU1YjRhZmNmMTdhNWY1OTNhYjY4Mzk0ZWY3YWYzMTljZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI2ODAwYjdlOTk3MDVhN2JhYjEyNGExYmZjYmIwYmQ5OGE3NWIyNjE0ZmEyMTEwYWI3ZTlmOWNkN2Q5MDgzMjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        },
-        {
-          "resource": "repo://tests/localstack/ci-run.sh#L43-L62",
-          "version": "repo-lines-v1:sha256:7ecaec07cff676c14add64ad300e461aa18e921fc1159acd649418aaf3f46e18:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYyMTRkNDdmNDUyMWI3N2IwOWRhODI0NWM3ODcxMjg1N2M1NGNiODBiOWMzMDNiMzM2YzM3YTM4NGQ3Mzg2MDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzk3ZTdhMTIzNmZmYWQzNGIxMTc1OWU0OTc1NWI0ODlkZDE0N2Y2ZDY3OWNlNTg0YzdiZGFiZmQwNTY4YjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE0NjM3YTQwZDRlOGNhZDMwZGI2NGE1NWE2NjQ5ODIwNmE5OGZkYjg0N2U1MzYwYmM3OGNiMDE4NGQyY2EwOTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJhMGE0YzEyNmQxMDJlMjJmYzA3NmI4NjE3NzM5ZDk0MjE3MjEzYzg0MjhkOGQ1NTcyMjg0YjJhNGVlNzE4ZjYifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_af8984f0b4e7452a94da877277f827e4",
-      "statement": "Local-only bats tests exercise the LocalStack CI runner's JUnit gate, log collection, and service readiness helpers without starting LocalStack or Podman.",
-      "evidence": [
-        {
-          "resource": "repo://tests/localstack/ci-run.bats#L1-L22",
-          "version": "repo-lines-v1:sha256:7e2267d5e91eead4dedf2b971c1402c5d90fae40f899ec1e4ec4ca2d2ce8aa95:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjMDIzY2JjOTExY2Y3NzQxMWI3OWIzOTQ0NDM4ZjJlMTExNDViMjY2MWI5NDcyNDgxZDliN2FhOGJkZGRkZDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVkODFhZDFmMzZhYWVjMDJlMmQ5ODQ3Yzk2Njg4OWZlYmJkMDEyZWYyMDM1NjU2MzMxYmNmMzU3MjFmN2FkN2YifQ"
-        },
-        {
-          "resource": "repo://tests/localstack/ci-run.bats#L24-L101",
-          "version": "repo-lines-v1:sha256:b5505a2a3e26fa34041188a8a15c19548acc7368aa340e241cc5a69d21a2d73a:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4Njc5MWJiYmQ3MzNjOWM0YjM3ODg0MWFhNjRhMjA5ODdjYmZlOGIzODVkZTU0Y2FmYzNjNzFjZDY2ZTMwYjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZlMjRlNWI0NjBhMzQ4MTQ5MDdmYTA3YjFmNTgzNjNmMmJkYTllYzZmNmEwM2JhMTBkZTMxNjljMmM2YzI0MTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        }
-      ]
-    },
-    {
       "id": "claim_20f7ff5a69cd43e8aa9ad2bbc0f4f2ee",
-      "statement": "Terraform Claude model tests use a mocked AWS provider and cover both an approved default inference profile and rejection of bare or unapproved model mappings.",
+      "statement": "deploy/regional/tests/claude_default_model.tftest.hcl verifies the claude_default_model <-> bedrock_model_agreements consistency guard in variables.tf: claude_default_model must be a known Bedrock inference-profile ID (a key in local.claude_inference_profile_foundation_models) that resolves to a foundation model present in bedrock_model_agreements, and bare foundation-model IDs are rejected even if that foundation model is itself approved. The suite uses mock_provider \"aws\" plus override_data for aws_partition and per-subnet AZ/VPC/route-table data to satisfy the module's Bedrock-endpoint and subnet_outbound_routing preconditions, so each plan run fails or succeeds only on the claude_default_model validation under test.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L12-L66",
-          "version": "repo-lines-v1:sha256:713b21a69947da96aeb9b3bd185915110b18a8c3a9e54d0f652fcf6ef183251c:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2YjZkNmY2OWQ5MTc2M2ZiYzc2MTEzMzg5MDU5ZjRkYzY0YjRjOTdiOGQ4NTBmMGRkMGY4MGQzMzQ3YzgzOTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmODZkNjNiMDU4YmVhZDY2MzBiYWQ2MTU3NWNmZWZiMjBkYzRhOWQwNWI1N2MyOTUxODhjMjg2MTZkZWQ5YTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY3Yzc1NDRlYWMyZDlkM2U1MmI5OWYxMzlmMDg0NWE5NWRlNzY0NzQyY2E3ZDNiYTMwODk5NTY0YTcyNTBiOWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQwMzhiN2I2ZGY4YzVkMjA3OWQ0ZmJiNDk0ZTM4MmVhODlmOGM4NWViYzkyNWExY2U2N2E5NTQyYmQ5NmJkMjIifQ"
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L1-L27",
+          "version": "repo-lines-v1:sha256:2f32815b4330c9079c73732d135b10f2c882b1f4e0f1229611567b0387b9e4a7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYyNzIxNTI3NDVjYTMwZjViMjRhODljMTU0ZTAxMWFiMDQ4NjJhNGYwMTZlNTJlMDhlZjAzMDRlMjNiM2I3YmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY2MTEwY2IzOWEwZDgzMmY1MWMzODRiMmM2ZTQ0NDE4YjM4NTQ2YzNkNjk3OTQwYzdlYjJjNDNiNDNhNjE0ZmIifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L78-L115",
-          "version": "repo-lines-v1:sha256:39def805e5194e07bb2f24f03171dcc2a0bcc154f4f85ebd4e2edaf5a24a7aba:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIxNGJjMGJmOTg3ZTE0NDkxODk1ZjgwZDg4ZWY3MmU2ZTgwYzJmYmExMzFjZTM1ZWNkOTExYjFlNjQ1YmExMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAxNzQ2MWYwODc2NzAxZTYxNjc1Mjc1MDgzNGJiMGU3NmRiOGM5OTljMTJhZDE2OTk2MDQ2NDYxYTM0MmY0ZjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_0a82ed1d81904f37bc5eca9c01fd59fd",
-      "statement": "Staleness regression tests assert that idle missing-CreatedAt investigations are stale, matching running tasks protect both legacy and old investigations, ages inside/outside a 168-hour threshold differ, and unrelated tasks do not protect the target investigation; the Lambda unittest suite separately covers missing timestamps at zero and nonzero grace values.",
-      "evidence": [
-        {
-          "resource": "repo://lambda/reap-investigations/test_handler.py#L828-L845",
-          "version": "repo-lines-v1:sha256:30a35ed91a0283203f666401f84397cbec9edace64878284e7aae3c28994dc44:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjMTJjM2EzOTVhZTQ1OTE2ZTRmOTY1MzQ3OTZhMjMxMWE5NWQ4ZGViOWFlYTVmYTY1ZDk1NjBkMjVjOTI4NGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3ZGUwZjg4ZjFhZDlmYmZiNTVkNDc2NTU2MjU1NDk5YWMxMmRhODFlY2M4Mjg5MjYwMDEyYzg5M2VkNTgyMWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZlOWUzZDExMDFmYzUxN2NmZDA2NDQ1MTg3YmNkNTUxMGViYTBmNWM0MGQ5NzVhY2RjN2U1NDIzZmE0ZmMxZjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA5MjA4NWIyMGEzNGI3MTVhN2UwODJlMmNhMDU3MjNlMWRiOGJmY2E2M2U0MDk0OWIwZTk3N2RkNjk0MjUzMjYifQ"
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L53-L91",
+          "version": "repo-lines-v1:sha256:fe37e80eb80f6ba25a42dfbeda73f94d95f3a0765aec7de77bf64aff19dd0dc2:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmYzIxMTRkNmMzZjc5ZDhlODQ1NGRlYzZjYzBmZWU5NDc2MzcyOTBiZTZiOTdhMGFlZGE2YWYyYzlkNDllM2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ0ZDJjZGE0Yjc0NjJmN2I1NWZlZjhkYzMyZGE4N2E1MWE0YzYzMjMwNzcwMTQ4NTQ5NmY4YWZmNmU1OWYyNjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFmMWNjNzgyNTdhNWUyZGE0NGQxOTkxM2Y5NTg3ZGZhNTQ5MDFmNzBkYWY4ODBmZTc2MTc0MzVlZDk2MjE5MjAifQ"
         },
         {
-          "resource": "repo://lambda/reap-investigations/test_handler.py#L928-L962",
-          "version": "repo-lines-v1:sha256:6274854f550df3854b70d0673715d5135d739dfefbd2a75c9c901eca96f40e31:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1OTRjMDhkZGU0ZWE0ZGVhNjQxM2M2OTI5Nzk1MDg0OWI3YzNmNjAxYzIwMjY1NWIzZmM4NTcyOWQ0ZTM5ZDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3NTlmZDgxMDc4NDM3MGQ1NDU4ZWM1MmMzZDQzY2JiNWExZjkyZWM4MzlmNzlhNGVjOTZlNTE0Y2NiNTc4ZjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFmZDU0Njk5YTMxYmQxNDEyMzc1ZWExNWEwNzRlNTI2NThmMDE0YzE4ODJkNDNkZTJjNWZlMTZhNzJiMzhkNmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNmNmU4ZGM5MjlmY2Q0ZTIzZGEyOTMwNmE1NjU2MjNhNjViZGFjZTE3OTFjOWUzNWE3ZTU1NTBiZjVlM2Y2NWEifQ"
-        },
-        {
-          "resource": "repo://tests/unit/test_reap_investigations_staleness.py#L58-L160",
-          "version": "repo-lines-v1:sha256:4761b6cde0bbb4b20f01899473a45f3aa03206105444be74a6d2ca7f22c11d7d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3MzM0M2FkMzdlMWNhMjZjY2QwNDFjZTdlMjQwNTI0MWY0NmY2YzlhZmI3YTZiYzk4Y2E5NDJjNjlhZmVlNGJmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0MWZkZTA5OGM0MzQzMTM1ZGUzOTBkMTBiYjhhNGUxMTllNDhlNzQ2MjFjODg3Y2JjMGI2YTViMTVkZDExMjg0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiMDI2OTc2YjkyOGZiY2I1NzYyYWQwYmVmMmMzODE1YjQzMjQ0YmQ5ZDA2MGRkZDI4YjNlOTVjY2ZiMjU0MWMxIn0"
-        }
-      ]
-    },
-    {
-      "id": "claim_ad6c837b12524baa836fc5aeed3533d5",
-      "statement": "The standalone tests/unit staleness pytest module is not selected by the Lambda Make targets, which run unittest test_handler from the Lambda directory. It imports the handler directly, whose boto3 clients are constructed at import time, so selecting the pure staleness tests still requires an isolated pytest/boto3 and test-AWS import environment.",
-      "evidence": [
-        {
-          "resource": "repo://Makefile#L175-L190",
-          "version": "repo-lines-v1:sha256:0206e98ea6250d915eab437db566ebe8253c930a3be500c51c283b884e1862e1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIzOTE3NmIyZjAyMWFiMTk2MTA2OWE5MTAyNTNlMmZhY2ZkMWZlYjdlMGU0ZDJhOTg3ZjU5NmMzOTZmNDI4YjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkxYjVhMTFhMzQwNTUyNWQ3NzRjZWEyODBkNzdmNzQ0M2NmZTRkMDgzZjkwZTVhZjU0YTZkYmFkNmNkNzQyNTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM2Mzg5Mzc0MWJjYmFjNTRiNjlhOTE5ZTBmMzNkM2Y1ZGU2Nzk1N2E5ZDhhZjJlMWJjZjVlNGRkNmRiZGUzOGYifQ"
-        },
-        {
-          "resource": "repo://lambda/reap-investigations/handler.py#L26-L49",
-          "version": "repo-lines-v1:sha256:ccf28cb6b42dfadef2184e26d3426048680fbc37ebacbe0b74e44479861c953e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkMWM3MzM3NDdlOTMzNTYwNmJlMjRkYzQ3ZGM5MjRiMWM5MDBhNzdhNGRkMTcwZTU3OTliODNkYjRkZDkwOGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMzNzk2YWQzMGFkMTIwZTY1NDQxMWE5ZWI1YzA2ZWZlMTZmNzk4M2MxNDc3OTYyZjNlYjhmZGJmYzEwNDk5ZmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBkZDZjYzMxNmUyMzc2NDc5MzM2MWI2NjA2NWZhOGZmNzVhNDNiOTE5NTRhZjI0NGY2ZTM5ODVhYTcxNDNlMzgifQ"
-        },
-        {
-          "resource": "repo://tests/unit/test_reap_investigations_staleness.py#L8-L23",
-          "version": "repo-lines-v1:sha256:61e01a5245192fd0745ae78ee9492c14bff0ad08a5b80e2ae9e437ddb78eb64b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM1MTc1Nzc4NTFjNDg5ZTQ1YWJhZTI1OTEyNTZjNDA0MDRhMDVjNmQxOWNkNGQ1YWU3ZmQyMmIwMDg0Y2VjNmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRkYjU4YWMzNTFmNTBkMTcwNWIxMmM2ZDE3NmQyY2RiZTY4NzE4YjA4MjQxYjM5Y2VkMjFkNTI5YWMxY2Q3MTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBkNWM2N2MyMDYxOTNlMDY1YTI2ZmY5ZTliMmMyMmZhNjU2OTc4ZWJlZDI4ZTcyYTY2MDExMmY1NmNjZjZhYzEifQ"
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L93-L131",
+          "version": "repo-lines-v1:sha256:6bdc69bd9751c33569fe2095f028afcea6cb54b192dc07cd23d18770be72bb42:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFjNjYwNmI0OTI2ZjhjYjVkNTg4MWJmZDAwMDI2M2I1ZGNjNGE1ZDhjNTQyNDhjMjAwNzExN2RkNTZmYjBlMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
     {
       "id": "claim_ab537d442b0d4834b387d3aaa8ec29da",
-      "statement": "Mocked regional IAM tests reject regional ownership of shared role/OIDC identities and managed attachments, check grants attach to looked-up account roles, and assert non-colliding additional-region policy names, local resource scopes and dedicated-access-point reaper permissions; these are configuration checks rather than live IAM or state-transfer proof.",
+      "statement": "deploy/regional/tests/iam-ownership.tftest.hcl's mock_provider \"aws\" block mocks aws_kms_alias, aws_lambda_function, aws_cloudwatch_event_rule, aws_s3_bucket, aws_ecs_cluster, aws_efs_file_system, aws_efs_access_point, aws_kms_key, aws_cloudwatch_log_group, aws_partition, aws_caller_identity, aws_region, aws_iam_role, and aws_iam_openid_connect_provider (alongside mock_provider \"archive\"), with an override_resource giving aws_s3_bucket.content a distinct test ARN/ID; this setup still matches the suite's current source. Its runs assert the regional-root/account-workspace IAM ownership invariant: the regional root creates no aws_iam_role, aws_iam_openid_connect_provider, or aws_iam_role_policy_attachment resources and performs no exclusive-policy reconciliation anywhere in its .tf files (checked via source-level fileset/regexall scanning), every aws_iam_role_policy here attaches only to looked-up account-owned data.aws_iam_role identities, a second Region renders the same identities under distinct non-colliding suffixed policy names and Region/account-scoped ARNs instead of reusing the legacy Region's grants, and the investigation reaper's EFS mount/write/root-access grant is conditioned on its own dedicated aws_efs_access_point.reaper in both the Lambda policy and the EFS file-system policy. These are rendered-configuration checks under mocking, not proof of live IAM adoption or cross-workspace state-lookup success against real AWS.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L1-L44",
-          "version": "repo-lines-v1:sha256:72aa88be5c8bc0f7ce9f0c3b6a265beed82b6a725a152e07b1c1c6b0dde4b24b:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYxMjZkOGRlNGFhMzY0MzQ5YjU3M2QzNTFhMjc4OWUzOTVjN2ZiYTNiMzRhMWZjYTA5Y2FjZTg2YTE4NDI2ZWYifQ"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L1-L56",
+          "version": "repo-lines-v1:sha256:36060b5143d149033381603444c1bc0275e69e2ec85922450e59188d7655e861:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3OGQ5ODg4MDEzZTc3YTYzNzljYTFjNTNkMDMzN2FhZTJkZWM4MDI2MDVhN2RkNmUwNmJiNTRjOTFiMDRlNmYifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L173-L233",
-          "version": "repo-lines-v1:sha256:ffaaa2842b2093903ea7c028f63d0157f71d38d928d6cd773f0f8f0e3e09f65d:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVmZWVhNDUwN2RmYTFiYTA0MTg0MTcyZmNhNjVkZGEwYzAxZmRiNjdjZDNjY2FmMDkzZDVlNzBlM2ZkYzJiMzEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0NmIwYjY5ZDYwNjllZDc1NmNhOWI1OTA2ZWEwNjA5YjA1NDBjNzE5ZjQzOGUyMmY3MTBkNTFiYTAwMTk0YzAifQ"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L206-L246",
+          "version": "repo-lines-v1:sha256:1fc568e846c15315ea2cabf4f8ec748e90feb648c5aa6fdc02ce571d863f5d97:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliOWFiYjUwMDhhYjgxYjNjNGI3YmY4OGVhMjE3MGVhNThiNjEwMThjYWE0MmNjMGUxMzY2ZGRlNTY1MWMzMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0NmIwYjY5ZDYwNjllZDc1NmNhOWI1OTA2ZWEwNjA5YjA1NDBjNzE5ZjQzOGUyMmY3MTBkNTFiYTAwMTk0YzAifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L98-L121",
-          "version": "repo-lines-v1:sha256:fc94662be99be887346ba94e984ccdd75f745fb2bfe4ed9ea2d4536ce2ada9cf:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZmMDE0ZmM0MGRlNDY1ZTYyYmI0NDU0NWIxNzRlNTgxMDRmMjk1MjE4NDc1YzNmMTZmYTBmN2IxMjg2ZDNiNTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgyYWZlMzJkYmEwMjVhNDcxNDg5Y2FkMDFiMTdjOTRmNmVkZWEzMGE5MTk3ZDk4ODVhYzM2ZWNlNWJlZDIxMGYifQ"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L93-L204",
+          "version": "repo-lines-v1:sha256:cd23021d0be41f138a7d85f0e18dd5e56311fc8b55c184e95370f3ab277053f0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4ZWNjMjE3MmIzYTNkZjNiZjE1ZjYxZDdjMjdmNTNlMWMxNjIyZjQ3MDg3YjdmNDQ4NDhhMzI2ZTgyMzVmZWQzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxMDUyZWNjNzFlMDZmMDIwM2YyM2MyYWU5ZDMwNTQyYmE2NTYzZDZjZjI4NjIzNWI3Yzg1YWRiN2ViODA3Yzg3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1Nzk0YWIwNzBmMjgyZGI3MzJmZjU2MWQyM2E1NTEzMmI5NDI4YjI3YTc5YzlkYzk0YzYzMjNmY2Q0NjhjZTI3In0"
         }
       ]
     },
@@ -199,7 +47,7 @@
           "version": "repo-lines-v1:sha256:2631d733147945d62a8452ca43bb5a99d8535ea5a41397a46c148c93e32b3c86:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDAwN2I1MTE4ODQ1MWRiMzc5M2FlMjRlYTE3OTQ4NTgzNjcyZWM1NTE0MmFmYWI5NWYzMTQxM2RmMTFkNWI5ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDhlZWNiYTI1ZGIwMjBhMDgzNTA5ODE5N2I5NzQ4MTI4MzcyYWNjNDhmYjFlMWRiZmI3MTY3ZjMzNTE5NGVjZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMGJmOGEyNjY5NmY0NWM5MTAwZWQ1YWVkMzdiOTcyMGFjNjAyNjc1Mjc4M2MxOGM3MDViMjQwNTQ0MGU2NWE2MiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDFiNWYzYjg4OGEzMzFkM2Y0NjEyYTk1NDJlZDE3ZDFiYTc3ZDI1Mzg0ZTA1NDIxM2ZlOGM3ZmRlM2NlOWQyMiJ9"
         },
         {
-          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L158-L168",
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L172-L182",
           "version": "repo-lines-v1:sha256:c7efa88c00d5cfde082a79c66d63f62a1ba3a96128d88ba27f029c652756003f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEwN2FlOGEyODExNjJkZjAyMzkzYjRiMzM1ZDAyMTNlMjU3YWQ3ZGU2OGRkN2RmZTViYmJiOGNhZjc4ZGE5N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
@@ -207,7 +55,7 @@
           "version": "repo-lines-v1:sha256:339a3a22b82ad6dceed168561088a4238793eb2c7687a311e542de3c5e1f3ee6:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzZiNmQ2ZjY5ZDkxNzYzZmJjNzYxMTMzODkwNTlmNGRjNjRiNGM5N2I4ZDg1MGYwZGQwZjgwZDMzNDdjODM5MSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWEwMTllNzM3NmQ4OTcxNTM5ODAwYmMzMWJlOTc5NGQ3MDlhZTg2YjBiYjY4MTcyY2U2YzZkOWFkNmRkOWFmZiJ9"
         },
         {
-          "resource": "repo://deploy/account/tests/shared-iam.tftest.hcl#L106-L117",
+          "resource": "repo://deploy/account/tests/shared-iam.tftest.hcl#L117-L128",
           "version": "repo-lines-v1:sha256:5d2c6d9fb75edac135d325e81eb4c7e592eca0fa3a461495cb1a2416c3029a99:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmM2M5NGIxMzFjN2FmZjBkOWQ3MzE2ODExNDVmZDU0MGRkOTk3YzQ0MjhjMzcxNTdlNDgyMjFmYjc4MDFlYmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlOWM3ODc0YTBlNzEwMTNiN2VhNzNjODFkZjExMzU1NjIzOTdlNjkzM2ZlNmJjZjM0ZmZhMDU2MjZjYjM4NTUifQ"
         }
       ]
@@ -233,32 +81,88 @@
           "version": "repo-lines-v1:sha256:5198836a8e2eb128d3a9505bfad9289a8d9b133dc29099467ec3b849fc9fac0b:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzA0YWZiYjhlNmVhODgwZGU0OWY5Y2EzNDcyN2EwOGRjZWE1OTgyYWI3MTUzMzI3OWYyN2ZlMjJjYjEyMDI4OCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTkxNjBmYzQwNDIxMzljNzk4YzM5ODY3MWRjYjYzODM5ZWRlOGVhMmIyZGQ2ZjFiMWRiZmQ4ZTYwMWZkMzU5ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
         },
         {
-          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L70-L85",
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L77-L92",
           "version": "repo-lines-v1:sha256:2855f542b6b447746610b7417856d21527e5df5d95f7205d56c5fbe80caa5868:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg5MDhiYmU2ZDBmOWVhM2QwMTllMzM4NDQwZGU5NzI0Yjc1OWIyYzVhZjE5NWM1ZWU5YjY3MjMxYTM4ZGM3YzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ3Mjk1MzY1NzcxMDUxYjg0YjBiMzcxYTA1MGU2N2QzODIwN2E3YzRjYzVhNDUyNmRjNWY4MDdkNzdiODEwZGQifQ"
         }
       ]
     },
     {
-      "id": "claim_09415f2b458d4715bc2a03d25f903449",
-      "statement": "components/trusted-actions is an independent Go module (its own go.mod and Makefile) that is not reachable by root `go test ./...` or any root Makefile target (test, test-all, check); its suite must be run with `make -C components/trusted-actions test`.",
+      "id": "claim_1a08bc5a42064e58b777d89c00edaf27",
+      "statement": "deploy/account/tests contains four mock-provider .tftest.hcl suites (baseline.tftest.hcl, shared-iam.tftest.hcl, content-publishing.tftest.hcl, ecr-lambda.tftest.hcl) covering, respectively: the account singleton identity/budget/OIDC contract and a source-level assertion that modules/shared-iam contains exactly five aws_iam_role_policy_attachment resources; the shared-iam submodule's trust policies, tags, common managed-policy attachments, multi-Region Bedrock logging trust, and fail-closed metrics-read caller-allowlist validation; the three content-publisher GitHub Actions OIDC identities' exact-subject trust and content-replication identity independence; and the account-owned source ECR repository's opt-in creation, replication filtering, and migration-input consistency guards.",
       "evidence": [
         {
-          "resource": "repo://Makefile#L138-L156",
-          "version": "repo-lines-v1:sha256:10e166e75373a7d38589fb535e480c40dce063eecb8fd15c47cdfc686cc60d1c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwNTYyNDdjMjM2OWQyOThkNmIxNTg3OTIzYWY3NDMyZWRhMjViZTUzODI4NTkzMjQ2NjNjYmYyMDc3MmRkN2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0MWQ3MjU5NGY1ZmEwNGNjNzk4NDFkY2M0ZDRkYjA4NTE5YTlhMzg3NGJlYjFmN2FiMjk5MmMwNGRhYjg5NmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3Y2ExMzNmODRhNDA5YTcwODhiNThlMDdiZDAwZjZiYzU4MzEyYWI5YjVmYzJjZDkzYmUxZGZkMzI5YWMyODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIxZmZmMGYxZWZiODAwYThiNzUxZTJhYjAyNWQ3NDdmOGRhZjZlMTcxOGYzNzYxYmM0N2ZhMzFhOTgxOGQ2ZjMifQ"
+          "resource": "repo://deploy/account/tests/baseline.tftest.hcl#L79-L90",
+          "version": "repo-lines-v1:sha256:2ea94ffec629c94044a52e6228facdb7831f41e1bba881b39c0bcae2cfa23759:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxN2ZlYTYyMzhjMzUyM2UzZmExY2ZhMDZmYWZjYjkwNzM0MTBhMTdkZDYzM2NkMzI1N2NhOTU5OWY4ZTY2ZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJhYzIzNjY1ZTY3ZjBlZjIyYzIzMjBiNDZhZDg0YzA2Y2QzOTQ5MzJlMzczYWMzYTJkOWExMGMzNDE3ODUwMGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNjZGVkYTk5NmE0NzQwZGEzYTY3MTRmNTBlNjdmOGY3YjMzNzJmY2Q5NDJhODZjNzNkZGI2MzlmNGE2MzIxZTYifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/Makefile#L126-L126",
-          "version": "repo-lines-v1:sha256:acb7c27057e5a6ff36fb22f27ca11b4eab052dc7d85dc1db8d673642935fd5d9:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWNiN2MyNzA1N2U1YTZmZjM2ZmIyMmYyN2NhMTFiNGVhYjA1MmRjN2Q4NWRjMWRiOGQ2NzM2NDI5MzVmZDVkOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYWNiN2MyNzA1N2U1YTZmZjM2ZmIyMmYyN2NhMTFiNGVhYjA1MmRjN2Q4NWRjMWRiOGQ2NzM2NDI5MzVmZDVkOSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNWFmYTE3YzE3MWU4YmY1NmY3NTYwNjQ2NTU2OWIyNzE1MjQyZWJkM2IwMDg3MDVhMzE5N2RhMjMyODIyNjU1OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDZiN2UzNzg3Y2UxZjMyMmQ0NjdlZTMxYWYzMjZmYWEzZDI0MTdkYWNmNGRmMjRhYWI0OTcxNjkzYzFjMzBhYiJ9"
+          "resource": "repo://deploy/account/tests/content-publishing.tftest.hcl#L64-L80",
+          "version": "repo-lines-v1:sha256:491b71b9c141ff0b8ca5123f872ccf5c6a4291b263c9253f02cb7b3a8ba61303:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNiOWY4NTE2NjAzYTYzY2I3ZGZlYjI0YTgzZGEwOWQxZjRiNTY0ZTY5Y2FmODlmMzE0MWFmMTFiYzA2ODBjZTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA5ZjkzMDgzYzE5NzEyMWI5ODI3MDBiYThhZmFiZDE3MjJjZjFkM2U3NDA0NTA5ZTgwZWZhMjcyNDdmNjJmMDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBhMmU4ODYyNGFlYzc1MzBiMGFhOGI4NDcwMmRhZmRjZTNjNDYwMWYwNTE1YjIxNWQ0NzJlODA2YWQ0ZTczODYifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/go.mod#L1-L3",
-          "version": "repo-lines-v1:sha256:64a9cccb71c111d0be4705eae9ee72a1d1e34f07e0cc6fa9614287a87a523727:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjE2MTE0ZTI3MDE5ZTNhZTIyM2ZlMDY1ODMyYWVhYTQ4YTU4ZWI5ZWZmNWIwZDIxNjEwYzlhMjRhNDVhMjg5NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzUxZWYyMjcyMDllYjAyM2RkMjc2ODBhNjAwZWNhNTcwNzU4NWY1ZjM2MTI0NDljNjA4ODVjMWU4Njc2Zjg4NyJ9"
+          "resource": "repo://deploy/account/tests/ecr-lambda.tftest.hcl#L96-L114",
+          "version": "repo-lines-v1:sha256:75f919568b758bb630764c39c69a7ab24ca204f00d120e639a10a944cb9fd690:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNDE5ODZkZjBlNDdlNjdiZjkxODZmMWZlZjdkNGUzY2NlNDFlMmZhODJjNTUzNmI0Njg3MDdhMjM4NjA2ZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZhYjk2YTdhMmZmNTFkZDViYWE1OGEzOGE3NTAyYjkwMjNkYTFhNDY1NmI4NmM5MzdjNTBjNzM3M2RjNmUxY2UiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMzMWViODc5Y2RhYWViYzZjYTdhNDc5YjU3ZTUzN2U4YjYzZjM3MjUwN2YzYjg0YzIxODIwOTRkMWM4YjliNmMifQ"
+        },
+        {
+          "resource": "repo://deploy/account/tests/shared-iam.tftest.hcl#L117-L135",
+          "version": "repo-lines-v1:sha256:934e3ca7df07ef98f6b57280965aadde605409d27353c69931a932671eda9b47:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmM2M5NGIxMzFjN2FmZjBkOWQ3MzE2ODExNDVmZDU0MGRkOTk3YzQ0MjhjMzcxNTdlNDgyMjFmYjc4MDFlYmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwMzU2MmI5N2EyYmMzNzE0NmU2NzY1OGFmZTU1MTdjNWI0NzUzMzQyMmNhNGEzMzc1NGUzNWM1NzgxMzczZDkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_3a846a65ebed418b95ed436a3be3aff4",
+      "statement": "deploy/account/tests/test_replication_topology.py is a distinct test mechanism from the .tftest.hcl suites: a standalone Python unittest module that extracts the locals block from hcp-terraform/rosa-boundary/main.tf into a temporary module and shells out to `terraform console` to evaluate local.replication_topology, rather than running `terraform test`. It asserts the existing ECR-only/inactive-S3 topology and a populated content-replication handoff are both preserved, that every HCP Terraform workspace variable block is generated with a single `replication` key (and the retired lambda_ecr_replication_regions/content_replication_destinations keys are absent), that corresponding `moved` blocks exist so the renamed account variable is not treated as deleted, and that deploy/account/variables.tf and deploy/regional/variables.tf declare the replication variable with an identical type.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/tests/test_replication_topology.py#L1-L69",
+          "version": "repo-lines-v1:sha256:e3c36476926ff30904d587a522cdb6cc8b59b53310dcfda173d616c564c126a6:eyJzZWxlY3RlZExpbmVDb3VudCI6NjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiYjMwNGYzZDcyNWNlZjVlZDNmOGQ0NTIxMDYxNWEzNmZmOWM1ODAyM2UwYjBkMjVkN2RiNmJlZDdhYTA3MTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0ODZmZjVjZjkzNjNiNDQyOTMzNjgwM2IyYzk2MGU3M2RhOGM0N2ZhMGM2ZjY3NjU4ZDE0YjMyM2NkMjJkMzQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRlOTNkODkzOTA2ZWVhZjJjYWRjYzY1NTg1OTdiZDkzMzBlMmViNjlkZmI2MGE5YzgxNzUyMTg1MjdlNzI2ODEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_351286e33bec41909f75c2a71c90ea98",
+      "statement": "deploy/regional/tests/content-storage.tftest.hcl is a 36-run mock-provider suite covering the per-Region content bucket and its unconditional task read grant, opt-in publisher/replication grants gated on role ARNs and destinations, Region-suffixed policy names, multi-destination replication-rule priority uniqueness, an extensive set of content_prefixes input-validation rejections (overlapping, duplicate, reserved-bootstrap, wildcard, whitespace, colon, and IAM-policy-syntax prefixes; path-qualified or cross-account role ARNs; grants placed on the wrong role), and content-replica-side validation of populated/unpopulated topology, bucket metadata, and key Region.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L633-L719",
+          "version": "repo-lines-v1:sha256:0b154e851c9ef882c391aa798a556aa9fb8c21b287aa7844f1d67488a9a9c230:eyJzZWxlY3RlZExpbmVDb3VudCI6ODcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5MDI2MWQ4NjgyMzZlMThmM2VjOGNiZWJjMTJhZWJjNjIyYzRkMWUxZmQ1ZTNjOWJhZGEyMGViYzRjZDMzNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhhMGE4ZWZiYmMyOTUyNGE4YmYyZmQ4OTljY2U5MDQ4YjdjNWRlMmI0YjNiODRlMWQzMWM1ODUxNTUzYWEyYWEifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L98-L120",
+          "version": "repo-lines-v1:sha256:5b26e63db6d1467768286e512202d95d5732207b2a9760e575dc1d1719d5eb3d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlNWIyOTc4NTI5OWNlNzM4ODNmMWQzNDQ4ZmI3Y2NmOWJiNjkxMTQyODBkNDI1Y2Y5YTIxZGQyNDVkYzQzZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFhYjFmZTE3NGE1ZTg2ZTI2N2FjZjlkMTc0YzA4NzQ2ZGUzZjgyY2ZhNWQ2NTNkZjMzMzIzNDBmMzU2YjI5YWQifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L987-L1034",
+          "version": "repo-lines-v1:sha256:e996f91cf34eade099c7c20739dcbd3efd97dfb4c50335b712f7e234e29d58cd:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4ZjY0NjgxMmE0YmFkZjlkZmZkNjg1ZWM4MTBkZWFmODIwMDRhODVkY2Q2YmZjZDdiYmE0NGVmNWRmZTkxNDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEyOGY0NmM2N2EzMmY5ODQxZDc4NTE2ZWE1OWYxZGRkMmYwMGJlNmIzNGJiZWYyYWVkYjQwOTgzMmNiN2I2NGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiMjBkYTg1YmU2YjZkYmQzMDJjZTVhMDU2YjczYmYzODJiNGJkY2E3NjllMmRkOGEwODE3ZDNjNmRhNDJmNGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIxMTJlNjllMmM5ZGMyN2M5ZTYxZDdiYTVjYTQwNGUwMDJjNTg0NjhlZWEzMjE3ODBlZGM4Y2VjMjIyYmQ4NTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_4b56942eacf040919a25c4bff3e2b6bb",
+      "statement": "deploy/regional/tests/ecr-lambda-destination.tftest.hcl verifies the regional root's destination ECR repository for the create-investigation Lambda image is opt-in and absent by default, that when configured it mirrors the account-owned source repository's immutability, force_delete, AES256 encryption, scan-on-push, and 25-image lifecycle retention without cutting the running Lambda over, provisions a `quay` ECR pull-through cache rule feeding the rendered image URI, and that configuring a destination Region equal to the account's own source Region is rejected via expect_failures on the destination repository resource.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/tests/ecr-lambda-destination.tftest.hcl#L70-L108",
+          "version": "repo-lines-v1:sha256:df6de9b92b223f10abf2d2601be898b2047be561c38b96a3bbf897f123d8b9de:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhODUxNTljZWQwYjk1NzVjY2YzNWE4NDE1MDdkNjg0YzViNzM5YThhNTg2OGI5ODMyYWYxOTU1MWI5YTExMzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNTJlY2M3MWUwNmYwMjAzZjIzYzJhZTlkMzA1NDJiYTY1NjNkNmNmMjg2MjM1YjdjODVhZGI3ZWI4MDdjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_3d301e006038453ea308631bbb12631f",
+      "statement": "The regional Terraform root's Makefile defines init, fmt, validate, plan, apply, build-lambda, destroy, and lambda targets but no `test` target, unlike deploy/account/Makefile's `test: terraform test`; running deploy/regional/tests/*.tftest.hcl therefore requires invoking `terraform test` directly from deploy/regional rather than through a Make target.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/Makefile#L23-L24",
+          "version": "repo-lines-v1:sha256:2631d733147945d62a8452ca43bb5a99d8535ea5a41397a46c148c93e32b3c86:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDAwN2I1MTE4ODQ1MWRiMzc5M2FlMjRlYTE3OTQ4NTgzNjcyZWM1NTE0MmFmYWI5NWYzMTQxM2RmMTFkNWI5ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDhlZWNiYTI1ZGIwMjBhMDgzNTA5ODE5N2I5NzQ4MTI4MzcyYWNjNDhmYjFlMWRiZmI3MTY3ZjMzNTE5NGVjZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMGJmOGEyNjY5NmY0NWM5MTAwZWQ1YWVkMzdiOTcyMGFjNjAyNjc1Mjc4M2MxOGM3MDViMjQwNTQ0MGU2NWE2MiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDFiNWYzYjg4OGEzMzFkM2Y0NjEyYTk1NDJlZDE3ZDFiYTc3ZDI1Mzg0ZTA1NDIxM2ZlOGM3ZmRlM2NlOWQyMiJ9"
+        },
+        {
+          "resource": "repo://deploy/regional/Makefile#L31-L103",
+          "version": "repo-lines-v1:sha256:1bc650f0b2d294b1c9d7b3481520edc4c75a26d517e933ff2f90b247480ddeaa:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzZjI4NmI3NjA5YWJiMDkyZjE1ZjE5Yzk1Y2M1ZThkODVmZDYwMmY1NDBmOGRkNGNhMzA3OWFiM2Y2ZWU0YTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiYWUwNWUwNjIwOTNiNjdlZTcwYWNjYjhlN2VjMjU2NTY1MGQxYTIxMGMyOTJkNzg3OGM0MTFhN2RmMzY1NWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg2NmYyMWIwYTIxNTUwNGU2NjJiMThmNjdmMmU2MGMxYmQyYTJiNjg0ZDdlNzMxYzVjYzhiOWU5ZDczMTFiNWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRkMDY0NTg3YTBjNDM1Y2ZmOGY2ZDQxOTMyMjY3MjkzOTM3NDcwNjAyNjM4YTdjNzgyMjNiZmI1ZjJhMzY1ZDQifQ"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

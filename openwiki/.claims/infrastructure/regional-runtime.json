@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:b46279ef36b4063eb38cb349508c7a952c9b5e50a62447f1c9386908042de034",
+  "pageVersion": "sha256:99731d1771559910c563363198d9a203234efe79cf391d6e398dfe76a06f637d",
   "claims": [
     {
       "id": "claim_4191e613a2324557823afcf516dae80a",
@@ -81,7 +81,7 @@
           "version": "repo-lines-v1:sha256:8a1159ad634eb60c5a4f7bcd903f85e3feeb15a276ba3be96b37d3c7e6427d06:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5Zjg2NDg4N2U5OGNhODlmMmQwMmE1MGRkMzgzMGMyMDkyNzM2YzczOGE2NWM5OGY0ZWY5ZTk3YTNlNjUwM2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L78-L115",
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L94-L131",
           "version": "repo-lines-v1:sha256:39def805e5194e07bb2f24f03171dcc2a0bcc154f4f85ebd4e2edaf5a24a7aba:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIxNGJjMGJmOTg3ZTE0NDkxODk1ZjgwZDg4ZWY3MmU2ZTgwYzJmYmExMzFjZTM1ZWNkOTExYjFlNjQ1YmExMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAxNzQ2MWYwODc2NzAxZTYxNjc1Mjc1MDgzNGJiMGU3NmRiOGM5OTljMTJhZDE2OTk2MDQ2NDYxYTM0MmY0ZjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
@@ -205,11 +205,11 @@
           "version": "repo-lines-v1:sha256:dc95879d2a7221f97935cde0bf83521ca7794a7316c6a87d6b2c44086e4be3b3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjMWQ1NTFhNDBlN2NmM2I4MjhhOTBkOWYzMTQyOTc5ZWZlOTQyNDI4YTFkMzM3NjUwZTAyZDc4NjQ5NGIwZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjljZjUxMzQ5Yjg2YjEzMzhlNjc2YTk1NDhmOWI3NGU3N2E0Y2JiYzJhNjg3ZGEyZjYyMjk4OTRhYTBiOTBiZjEifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L193-L233",
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L206-L246",
           "version": "repo-lines-v1:sha256:1fc568e846c15315ea2cabf4f8ec748e90feb648c5aa6fdc02ce571d863f5d97:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliOWFiYjUwMDhhYjgxYjNjNGI3YmY4OGVhMjE3MGVhNThiNjEwMThjYWE0MmNjMGUxMzY2ZGRlNTY1MWMzMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0NmIwYjY5ZDYwNjllZDc1NmNhOWI1OTA2ZWEwNjA5YjA1NDBjNzE5ZjQzOGUyMmY3MTBkNTFiYTAwMTk0YzAifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L98-L121",
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L111-L134",
           "version": "repo-lines-v1:sha256:fc94662be99be887346ba94e984ccdd75f745fb2bfe4ed9ea2d4536ce2ada9cf:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZmMDE0ZmM0MGRlNDY1ZTYyYmI0NDU0NWIxNzRlNTgxMDRmMjk1MjE4NDc1YzNmMTZmYTBmN2IxMjg2ZDNiNTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgyYWZlMzJkYmEwMjVhNDcxNDg5Y2FkMDFiMTdjOTRmNmVkZWEzMGE5MTk3ZDk4ODVhYzM2ZWNlNWJlZDIxMGYifQ"
         }
       ]
@@ -235,14 +235,114 @@
           "version": "repo-lines-v1:sha256:e4bd723238a34a5cc3bef6b25331137fe0baa485937621a19dcaf83559fae0cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcyMjQ0Y2NmNzliNjkyM2U2ZDY0ZGJmYTMxZGQ4NTdhMzg2Y2NlNGY3ZDVhOThkYzJhOWUwMGQzY2Q2MGJjNWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L206-L216",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L229-L239",
           "version": "repo-lines-v1:sha256:5e36e00ebc35295244deaea36e06e6c786500ed31b1e3081b58e53b55027f941:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyOWQ4MTRhOGQwMTM3MzBiOTZkYzQ0Y2FlY2RhYjk1NTI1NmFmYzA4MWRmMWFmMDFiYTVhMzhiMmU5NmE1MTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA2ZDYzZTdmMDAwMWUzZDEyMDM2YjlhNjVhNzE2ZjBkZmRiOGYxM2Y2ZDhjODdjZDUxMmNjYjZkZTBiNmFiYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFkNzMwZjhjZDA2MGNmNjA1YzJmYjA4YWJkY2IyMDJhN2MwZDQ0OWZjNjc2YmM4ZTFhODFhNzkyOGNjNjcwM2YifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_c31d9f842c0648eeb4b0bc343ccaf96d",
+      "statement": "Every regional deployment unconditionally creates a published-content S3 bucket (<account>-<project>-<stage>-<region>-content), kept separate from the write-once audit bucket; it has versioning but no Object Lock, a lifecycle rule that only expires noncurrent versions and aborted multipart uploads (current objects are never expired), full public-access blocking, and a bucket policy denying non-TLS requests, non-aws:kms uploads, uploads naming a foreign KMS key, and any SSE-C upload.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/s3-content.tf#L62-L237",
+          "version": "repo-lines-v1:sha256:781ed11291d20b4a58e414382fae9e67b76e5d33644c7a6b95bb182f7de9bc4c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTc2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIyOGZhYmExOGNjYzI2OGRmMTdhZDQwYTNlZjQ1OGUwNTY0OTY5OGNkMjBiOTlmODI1Nzk0Y2E0YTZjNGE4YjhiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmYjU4MGU5NjRmODNhNDczZjQzZDQ0Mzg0NjI5NDlkNjhiNTYwMGZkYTc4N2YxNjM3NDVkMDBkZTg5Y2JmMzZhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3NjhlZDk1ZjM4N2IyOTMyODM1MWRiODM2NTBmYjk5MTAxOGUyZDQwOWUxNGZmMDc4NjQxYjkyMGMwYzhiODZkIn0"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L147-L254",
+          "version": "repo-lines-v1:sha256:8298fe56081a7d2b0138d8316e695ee7cf6779de770dff2eee6447c4c5bfb22c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzZDY2NWRmYmYyNjQ1NzM2ZTc0YmYzZTJlMzE1YmU4ZGRmYjdjNzEzMjkwN2U4NGMxMzI0ZTU4MTMyMTczODQxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyN2U1Nzg4ZDVkOWQ3M2QyNGE4MWRiYzBhNWE3NGJmYTgyYzljM2IzYWY5OWU1MmFmNzk2ZTkwYjQ2OGE4YTNkIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmYjU4MGU5NjRmODNhNDczZjQzZDQ0Mzg0NjI5NDlkNjhiNTYwMGZkYTc4N2YxNjM3NDVkMDBkZTg5Y2JmMzZhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2ZjRhYzAwMWRjMGZmYWJjZDE0NzNlMjQzNTg4MzZhZDllZWFjMjA3NzRmZmI4MDVjZTFjMTU3YWNmMzM0ZjAwIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_e95eca7e98f44a219cd752742e3c91a9",
+      "statement": "The content bucket encrypts with the Region's AWS-managed alias/aws/s3 key rather than a customer-managed key; deploy/regional creates no KMS key. A reserved _bootstrap/key-init object, written with an explicit aws:kms request, guarantees the key exists, after which data.aws_kms_alias.content_s3 resolves its real ARN for every subsequent grant and policy statement. S3 Bucket Keys are deliberately left disabled because enabling them would move the KMS encryption context to the bucket ARN and require kms:Decrypt in the AWS-managed key's policy, which this design cannot edit.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/s3-content.tf#L1-L16",
+          "version": "repo-lines-v1:sha256:324241d40b700c36cb877c354855134d79e1355ee5a73e2205089cac5b2039cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEyMTc1YzE4Yzk3ODkwNDkzNGUwZDdkYjcyYWVmMWY5YTlhZWY3N2Q0M2IwMTc1ZDEyOTliOTIzMDhmYTE2ZjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY3NWQ1MDA0YjlmNDhjZDE3MGEwMjc0YzYwOTYyM2Y0NzljODEyYjc0YjgxYTA1ZmM0NWU4Mjg5MWNiNDdmYTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBhNWRjOWM1MTI1ZmZiYjJlNDM2MzE5OGY2OWQzYjFhMjVmNzQyZjc1MTVkZTEzMTcyMDVkZDFmYmFjMmViYzkifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/s3-content.tf#L214-L245",
+          "version": "repo-lines-v1:sha256:b7b4be94487abbe6b6e15dd292cae7463ace7f2f3ca050d21b84f78f2936c627:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4ZjJhNTdjNTJiMmNiYTE3NDVlMTBmODIyNDg1NmQyNDMwMzAyZjJiYmQxZWI5OTdlOGY2NjYwNTA3YTFjMjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE5NzJjMTBiZWEzY2ZjMTYxZTA0NjQwNjA2MTQ2NDQ1YmRjY2I5OGMwNzM0YjY5MmY5NGVkMjczYTlhYWMzMTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk1YTVmY2I5NTJkMTlmZmFlZGQ1MjY1YjcxOWZlYzA5NThlZjZjYmYzMTQxMDViMDBlZmE2MGYwODA4N2RlYTcifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L192-L216",
+          "version": "repo-lines-v1:sha256:4480889ffd20934f3bf797ff0aa1c8eaca8964423ea57239128723fa00c76b90:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI2NWE3YWU1MmFkOWRjNDY4Nzk2OTI1NTE0OWZiMTk4YWRlYzE2NzY2NmNjYWY2ODRkM2ZhMmMyZmViYTNkZTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ3ZDgxNjVlMDYyOWNlMDZlNmFlNDNkNmFmNzMwZTViNDE2YTkyYTJmODBkMTE0NDUwNDBmNTZhYjBhMTU4ODMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_793b49843559403284aa0efffa46d760",
+      "statement": "content_prefixes is the single source of truth for publisher grants and the runtime subdirectory layout; Terraform validation requires its values to be distinct, non-overlapping, directory-style (/-terminated) paths, and rejects any prefix that is an ancestor of the reserved _bootstrap/ key.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/variables.tf#L456-L511",
+          "version": "repo-lines-v1:sha256:532bd773940908ca976f55e62ae8f79cbfa8ce751bba45d689808a11aa93ede4:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzYTRjZDA4NTBlYTNkMjU1YzlkZTc5MWNiYmYxYjlhNDg1ZTM3MTliMDQzNTk5ZjlkZjYwMGE5ZjliY2QwMDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY2NGZjMDAxMWI3MjI4NTI1YTYyMGMwZDhmOTViMTU0NzA4NjMwY2Q5MjM5MmU3YmJmMWM4ZTZhMjdiZGYxYzEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc3ZTIxYWU0ZjY3ZGNhODk0YzExM2U4YWI0NDUwZjI1ZjFhNTk5NWJhZTI4NDc4MzE0YWUxNGQ5MTk3NjE1OWQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6f26401a7ede4d38a671679719f66a83",
+      "statement": "deploy/regional/iam-content.tf grants three distinct, independently-gated kinds of content access on account-owned identities resolved by ARN: an unconditional task read grant (s3-content-read) scoped to the local bucket/key only; per-prefix publisher grants (content-publish-<key>) rendered only when a publisher role ARN is supplied, limited to ListBucket/PutObject/DeleteObject/AbortMultipartUpload on one prefix plus GenerateDataKey/Decrypt on the regional key, deliberately omitting GetObject, tagging actions, and Encrypt; and a replication grant (content-replication) rendered only once a populated replication destination exists, using a distinct identity from the audit replication role and omitting GenerateDataKey because the bucket policy already excludes plaintext or foreign-key objects.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/iam-content.tf#L1-L65",
+          "version": "repo-lines-v1:sha256:aada37720fb1f067732d516c2897de716240e842eb6db8e18aff1c795525bfe3:eyJzZWxlY3RlZExpbmVDb3VudCI6NjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwNjBlNjc0MjExMDUxZDMwZWM3M2Y3ZTI3MGEyNTAzNWEzNTRiZTU3OGUxMjg5ZTkzZmIyMDI2M2U3Nzc0ODQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYzYjJiODY0MGJjMDVlNTU5ODBmYTUyYWNjZGM0NDFiYmQ2MTc5MzU0NmU2NTVjOTYyMmRhYWI2YWNhMDAwNTMifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/iam-content.tf#L67-L265",
+          "version": "repo-lines-v1:sha256:f917068f43c19d3db9f638e96dd5aa5504e1edc786fca99dac58f33dc0dbe376:eyJzZWxlY3RlZExpbmVDb3VudCI6MTk5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5NTQyODJhYTNkMDRhNDlmODRjYzcxYTA1YTc3YWMyODgyY2Y0OTEzZWEwNThkM2M0MjlkZmM4M2FjMjBkN2IwIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5MmE5ZTFmY2YwNGM5NzBjZjg5ZDI0ZmM4YTE0MTg0ZWNhZWUxYzAyNTUyZGNmMzdiODg0ZGI5ZGE3YmU1NDJlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L321-L399",
+          "version": "repo-lines-v1:sha256:3f10079053011b0d161a509dce8909b7bb35034bbdf08ab6616de4b8f8ca6fab:eyJzZWxlY3RlZExpbmVDb3VudCI6NzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIzYTgxMTk2MWY3MTA5ZWEwMjdjNmRiMjAwZGYyYWIyMTM1NzUxMTA3MDM0OTY1MWZiMjlkYmM0ZDRiMTAxZTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY2NzU5Y2E0NzU0MWRkNjQ0MzkwYjg2NGE0NmQ0Y2FhZmZhMTUzM2UwMzJkNDU0Njc3MzQwNzhlNDNkMDJlODcifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L98-L145",
+          "version": "repo-lines-v1:sha256:983390350833eb984d05d818e5c476ed002051f2afa366c8773646660a740e31:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlNWIyOTc4NTI5OWNlNzM4ODNmMWQzNDQ4ZmI3Y2NmOWJiNjkxMTQyODBkNDI1Y2Y5YTIxZGQyNDVkYzQzZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVhNDBlYzMyMmU3ZThjNjNmZTI5YTRmNTUyOTMzNzUzOTdlNzQ1YmYxMDdjODZhNjcxMGUzNTkxNTA3Y2NkZGIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_97829fc94ffd4caf89a2755c4d745608",
+      "statement": "Content replication reuses the generic replication topology object shared with deploy/account; only replication.primary_region activates source-side content rules and grants (publisher grants are preconditioned to the same region), aws_s3_bucket_replication_configuration.content renders one rule per (destination, prefix) pair with a prefix-count priority stride, and lifecycle preconditions reject a destination bucket name outside the shared naming convention, a replica KMS key outside the destination region, a content_prefixes mismatch with the source map, or a destination equal to the workspace's own region; destination metadata must arrive as plain input values rather than terraform_remote_state.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/iam-content.tf#L75-L90",
+          "version": "repo-lines-v1:sha256:3d287e5ad7efdd6f84043e472869a1ea9d86c364a3d22b739611a28271c537f4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFjNDYxYjFlZDdkMTU0NTBhMWM1MjZjNjM4YTI4MjBlMjMyNzM2YTZkOTcxODlmMTMxOWNhMDAxMjRhNDhjZTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJkMWVmODJhNzA0YTJlNTYwZWY1OWJjYmI0MjZiODkzNjkzYjZkNzg4OGM2ZWU3ODc1YjQyMTNiNTllZmUzM2QiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNhOWQ4MmQyZTE5NzAxNDcyMzJlYzBmMWIxYzM1NzJkMjczNTI5ZjViZDRhOTA0YzE4Mzk2NmQ5ZjhmYjE2NzcifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/s3-content.tf#L247-L335",
+          "version": "repo-lines-v1:sha256:3bf974fc4affd036c82f253eac1015c6bd3f424a26c6fc2b2541d13f562d9386:eyJzZWxlY3RlZExpbmVDb3VudCI6ODksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4ZTUwZTU2MzM4MDBiYWE2YmQyYWQxMGNlMzQ0Y2U5ZmMwMDFiZTk2Mjg3NjE2NGQ5YzU1MjE5Y2MxZDc3ZjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc5NDk4ODY0YjljMWMzOGU2NjQ2MjUzYjhjODQ4Nzc2YTlmYTFjZWU0ODViNmUxM2M4MDRlZmUxMjlmYTFhNGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L499-L631",
+          "version": "repo-lines-v1:sha256:a98e5217f52462dcaf9992900bef28270caeb11955d2f5426ebdacffcb234886:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjYjUwMzdiNWYwYTUwOWNmOTIyMTJjOTBkODVkODVmZDVkZGVmMWExNzVhZDZiZWQyZDAyOGIzYjdiMzY5YTg4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmYjU4MGU5NjRmODNhNDczZjQzZDQ0Mzg0NjI5NDlkNjhiNTYwMGZkYTc4N2YxNjM3NDVkMDBkZTg5Y2JmMzZhIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjZWRkMzhmYzk1ZmFlMTU2YjlhZTVjYTk0NzU2OTk1OGIzY2NiMzFmMjFhYmMyMzBiZTA1ZWU3MTFkODY1NWEzIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_82138ecf082b4bd0893ecfa242150f2b",
+      "statement": "The account root's shared-iam module owns the content publisher and content-replication IAM role identities (exposed via content_publisher_role_arns and content_replication_role_arn outputs); deploy/regional resolves each role by name from its supplied ARN and owns every inline grant on it, following the same account/regional ownership split and regional_policy_suffix naming used for the other shared roles.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/account/modules/shared-iam/content-publishing.tf#L1-L40",
+          "version": "repo-lines-v1:sha256:6d317fa6816a7ac528a90340f108b91c9f6dd92a7d276e8ea46ef519567967a8:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzZWJjNmJmYzkwMzAzZGRkYjJhOWZjYzY2OTYwNGVmZTBiZWUwYzJjODRlMDY1M2E2NDY4MjdmOTg2YjQwMzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFhNGNlNGU1MmY4MTFmMzUwOGViY2I2NWFhM2I3ZDA4N2ZiODY2NWNhNDVkY2IxOTViMjRiN2JlMzNiZDE2OTgifQ"
+        },
+        {
+          "resource": "repo://deploy/account/outputs.tf#L24-L37",
+          "version": "repo-lines-v1:sha256:3e86db7a6616fbb11ec8e71216604b8788c3eeacc38005304ceab7a7f448caf4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhNmY0MDBkOTUxYjEzZWU3NTdhZmU4OWViMmQ5NWViMjhkNDAzNjZhMTRiZTVhMDhiMzRmNmQ4ODkwOGU1NGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkwODM5NDQzNjI5ZDY4ZGRhNWFmYTY3ZDE1YTNmOTY5YWMzY2MzMWZjZmRlZTYwNzA4MWE1OWM2ZjU4MTI5OGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBkM2M5NDBjYWEwYWEyZTcwZDFiYzAxNmNkNWIxYzFiYWYyYzNjMzRmNjlkMmM5Y2JiOTczZWUyYWY2YWJlYzgifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/iam-content.tf#L28-L65",
+          "version": "repo-lines-v1:sha256:af28829363bd37bb23f11e2a327d645b2709e6da94fd99854d7984a87c86cefd:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1NGI5ZWUyYThlZGRjNDY4ZmQxYjVkMmU1NWRiOWUxZTNkZDg1NzgxZjI3ZDlhM2RkMmI5ODBjMGE5NTIwMDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYzYjJiODY0MGJjMDVlNTU5ODBmYTUyYWNjZGM0NDFiYmQ2MTc5MzU0NmU2NTVjOTYyMmRhYWI2YWNhMDAwNTMifQ"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-10T16:03:08.957Z"
+    "at": "2026-11-12T16:02:44.301Z"
   }
 }

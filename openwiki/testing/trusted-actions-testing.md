@@ -1,11 +1,11 @@
 ---
 type: testing-guide
 title: Trusted Actions testing and CI
-description: Describes the Trusted Actions component's unit, integration, and mock-dependency testing strategy, its Make targets and Codecov patch-coverage gate, and the current (pending-cutover) state of its CI pipelines in this monorepo.
+description: Describes the Trusted Actions component's unit, integration, and mock-dependency testing strategy, its Make targets and Codecov patch-coverage gate, and the Konflux Tekton pipelines that build and push its image on PR and push events in this monorepo.
 tags: [trusted-actions, testing, ci, codecov, coverage, integration-tests, backplane, tekton, go]
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-10T16:03:08.957Z
+    at: 2026-11-12T16:02:44.301Z
 sources:
   - id: openwiki-source-eebdf2baefd63a03b1cb3b5e
     resource: repo://.tekton/rosa-trusted-actions-pull-request.yaml
@@ -19,6 +19,8 @@ sources:
     resource: repo://components/trusted-actions/CONTRIBUTING.md
   - id: openwiki-source-2d8b922c7e5e8b7514a7bbff
     resource: repo://components/trusted-actions/docs/adding-a-trusted-action.md
+  - id: openwiki-source-56c54c10348f1e72daffc214
+    resource: repo://components/trusted-actions/go.mod
   - id: openwiki-source-01f41ebb3a6fce788680a5cc
     resource: repo://components/trusted-actions/integration/itest-down.sh
   - id: openwiki-source-54625ad7b6d11a03282fee57
@@ -27,6 +29,10 @@ sources:
     resource: repo://components/trusted-actions/integration/itest-up.sh
   - id: openwiki-source-642a30c5f33a9f636dc1436a
     resource: repo://components/trusted-actions/integration/README.md
+  - id: openwiki-source-f31219609de20fbaee6c658e
+    resource: repo://components/trusted-actions/internal/config/config_test.go
+  - id: openwiki-source-6fa73d968628eb0b312bf0ee
+    resource: repo://components/trusted-actions/internal/rta/command_test.go
   - id: openwiki-source-4c833b02bf6d5fc7a2476dea
     resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-48302ab227b3652ec0a8dd2d
@@ -39,19 +45,19 @@ sources:
     resource: repo://components/trusted-actions/tests/mock-backplane/README.md
   - id: openwiki-source-9ba09077ca542d7f7f8c02fd
     resource: repo://components/trusted-actions/tests/proxy-backplane/README.md
-  - id: openwiki-source-f37fcbb022d24ddfd8044d01
-    resource: repo://docs/trusted-actions-source-colocation.md
-generated: { by: "openwiki/0.7.1", at: "2026-11-10T16:03:08.957Z" }
+  - id: openwiki-source-202f5239bfb095a7cbbf7f0f
+    resource: repo://docs/trusted-actions-monorepo-migration.md
+generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
 ---
 
 ## Scope and where these tests live
 
 This page covers the Trusted Actions component's own test suite and build
 tooling, all of which live under
-<!-- openwiki: broken internal link [../../components/trusted-actions] file "../../components/trusted-actions" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`components/trusted-actions/`](../../components/trusted-actions). Trusted
-Actions is an independent Go module with its own `go.mod` and `Makefile`;
-root-level commands do not exercise it:
+[`components/trusted-actions/`](../../components/trusted-actions/README.md). Trusted
+Actions is an independent Go module (`module
+github.com/openshift-online/rosa-trusted-actions`) with its own `go.mod` and
+`Makefile`; root-level commands do not exercise it:
 
 > Run Trusted Actions commands from `components/trusted-actions/` (for
 > example, `make -C components/trusted-actions test`). Root `go test ./...`
@@ -59,9 +65,15 @@ root-level commands do not exercise it:
 
 This is a load-bearing operational fact, not a style preference — the nested
 module is invisible to any tooling that only walks the repository root's
-`go.mod`. See
-[source co-location notes](../../docs/trusted-actions-source-colocation.md)
-and [Monorepo components: Boundary and Trusted Actions](../architecture/monorepo-and-trusted-actions.md)
+`go.mod`. [`docs/trusted-actions-monorepo-migration.md`](../../docs/trusted-actions-monorepo-migration.md)
+states this directly: "Run Trusted Actions builds and tests from
+`components/trusted-actions/`; Boundary's root Go and Make commands do not
+cover its separate module." That document is an explicit point-in-time
+migration record (not a living status page), but this specific fact —
+Trusted Actions' separate module boundary — is also independently confirmed
+by `components/trusted-actions/go.mod` and `Makefile` existing only under
+the component directory. See
+[Monorepo components: Boundary and Trusted Actions](../architecture/monorepo-and-trusted-actions.md)
 for the full picture of how this component sits inside the `rosa-boundary`
 monorepo.
 
@@ -140,12 +152,34 @@ Tests live alongside the code they exercise (Go convention), e.g.
 `internal/handlers/api_test.go` next to `internal/handlers/api.go`, and
 `internal/config/config_test.go` next to `internal/config/config.go`.
 
+Two representative packages illustrate these conventions in practice:
+
+- **`internal/config/config_test.go`** table-tests the small environment-
+  variable helpers (`getEnv`, `getBoolEnv`, `getIntEnv`, `getDurationEnv`,
+  `getPositiveIntEnv`, `getPositiveDurationEnv`, `getStringSliceEnv`) across
+  set/unset/empty/unparseable-value cases (e.g. `TestGetBoolEnv` covers
+  `"true"`, `"false"`, `"1"`, `"0"`, unset, and an unparseable `"yes"`), then
+  exercises the full `Load` path — `TestLoad_Defaults`,
+  `TestLoad_AWSAllowedRegionsFromEnv`/`FromFile`, `TestLoad_OCMBackplaneFromFile`,
+  `TestLoad_OCMBackplaneEnvOverridesFile`, `TestLoad_AuthPolicy`, and
+  `TestLoad_EnvOverrides` — to pin down config-file vs. environment-variable
+  precedence for every settable value, plus file-read and parse error paths
+  (`TestReadConfigFile_ReadError`, `TestReadConfigFile_UnmarshalError`).
+- **`internal/rta/command_test.go`** drives the `rta` CLI's Cobra command
+  tree end-to-end through `NewCommand()`, capturing stdout/stderr buffers
+  rather than mocking Cobra, and asserts on rendered text and JSON output
+  (`TestVersion_Text`/`TestVersion_JSON`, `TestActionList_Text`/`_JSON`) as
+  well as user-facing error paths: an unknown subcommand with a "did you
+  mean" suggestion (`TestRoot_UnknownSubcommand_Suggestion`), an unknown
+  flag, missing required arguments, and a missing server
+  (`TestActionRun_MissingServer`). This is the same stdlib-only,
+  table/subtest style applied to a CLI surface instead of an HTTP handler.
+
 ## Integration tests
 
 ### `integration/`: podman-compose end-to-end harness
 
-<!-- openwiki: broken internal link [../../components/trusted-actions/integration] file "../../components/trusted-actions/integration" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`components/trusted-actions/integration/`](../../components/trusted-actions/integration)
+[`components/trusted-actions/integration/`](../../components/trusted-actions/integration/README.md)
 is a disposable, podman-compose-based end-to-end harness that proves a real
 execution request flows through the whole stack — HTTP → auth middleware →
 executor → a real (if disposable) cluster → response — with **mock auth** and
@@ -182,8 +216,7 @@ likewise not verified end-to-end here, since the server still wires in
 
 ### `tests/actions/`: action-level integration tests
 
-<!-- openwiki: broken internal link [../../components/trusted-actions/tests/actions] file "../../components/trusted-actions/tests/actions" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`components/trusted-actions/tests/actions/`](../../components/trusted-actions/tests/actions)
+[`components/trusted-actions/tests/actions/`](../../components/trusted-actions/tests/actions/main_test.go)
 holds Go integration tests (build tag `integration`) that exercise individual
 trusted actions end-to-end against a running Backplane stand-in, rather than
 against the full HTTP server. `main_test.go`'s `TestMain` probes both
@@ -206,8 +239,7 @@ service:
 
 ### `tests/mock-backplane/`: fixture-driven fake Backplane API
 
-<!-- openwiki: broken internal link [../../components/trusted-actions/tests/mock-backplane] file "../../components/trusted-actions/tests/mock-backplane" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`tests/mock-backplane/`](../../components/trusted-actions/tests/mock-backplane)
+[`tests/mock-backplane/`](../../components/trusted-actions/tests/mock-backplane/README.md)
 is a standalone fake Backplane API server built on the Imposter mock engine
 (`backplane.yaml` config, `backplane-config.yaml`, fixture data under
 `data/`). It is started with `make mock-backplane` (pinning the Imposter Go
@@ -233,8 +265,7 @@ constructed with an explicit `GroupVersionResource`.
 
 ### `tests/proxy-backplane/`: recording/replay proxy against a real cluster
 
-<!-- openwiki: broken internal link [../../components/trusted-actions/tests/proxy-backplane] file "../../components/trusted-actions/tests/proxy-backplane" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`tests/proxy-backplane/`](../../components/trusted-actions/tests/proxy-backplane)
+[`tests/proxy-backplane/`](../../components/trusted-actions/tests/proxy-backplane/README.md)
 is a lightweight reverse-proxy stand-in used by integration tests when a real
 Kubernetes API response is needed rather than canned fixture data. Unlike the
 Imposter mock, it accepts a real, base64-encoded kubeconfig at registration
@@ -248,34 +279,54 @@ deleted. It is started with `make proxy-backplane` and listens on
 used to exercise Kubernetes write operations (create/patch/delete/scale)
 that the fixture-based mock cannot represent.
 
-## CI status: present in `.tekton/` but held pending cutover
+## CI pipelines: Konflux Tekton PipelineRuns in `.tekton/`
 
-CI for this component is **not** currently running from this monorepo.
-Trusted Actions' Tekton PipelineRun definitions —
-`.tekton/rosa-trusted-actions-pull-request.yaml` and
-`.tekton/rosa-trusted-actions-push.yaml` — exist in this repository and were
-adapted for their monorepo location (repo annotation, `path-context`, and
-`pathChanged()` filters all point at `components/trusted-actions`), but both
-pipelines' `pipelinesascode.tekton.dev/on-cel-expression` triggers are
-prefixed with `false &&`, which makes them structurally present but
-unconditionally inactive. This is a deliberate pre-cutover hold, not a
-leftover: it prevents Boundary PR/push events from starting TA builds,
-publishing into the TA Quay image repository, or producing TA
-snapshots/releases through this path while the Konflux component's source
-binding still points at the original `openshift-online/rosa-trusted-actions`
-repository. See
-[Monorepo components: Boundary and Trusted Actions](../architecture/monorepo-and-trusted-actions.md#tekton-pipelines-present-but-held)
-for the full account of the guard and the planned cutover.
+Two Konflux Tekton `PipelineRun` definitions build and push the Trusted
+Actions container image on GitHub events against this monorepo:
 
-Until that cutover happens, treat the Make targets and harnesses on this page
-as the authoritative way to exercise Trusted Actions' tests — they are not
-yet wired into an active CI pipeline inside this monorepo, and the original
-`rosa-trusted-actions` repository remains the active development source and
-CI system of record for this component.
+| File | Trigger | Output image |
+| --- | --- | --- |
+| [`.tekton/rosa-trusted-actions-pull-request.yaml`](../../.tekton/rosa-trusted-actions-pull-request.yaml) | `pull_request` events targeting `main` | `quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions:on-pr-{{revision}}` (expires after 5 days) |
+| [`.tekton/rosa-trusted-actions-push.yaml`](../../.tekton/rosa-trusted-actions-push.yaml) | `push` events to `main` | `quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions:{{revision}}` |
+
+Both PipelineRuns are adapted for the component's monorepo location: the
+`build.appstudio.openshift.io/repo` annotation points at
+`openshift-online/rosa-boundary`, `path-context` is
+`components/trusted-actions`, `dockerfile` is `Containerfile`, and each
+pipeline's `pipelinesascode.tekton.dev/on-cel-expression` restricts firing
+to events whose changed paths match `components/trusted-actions/***` or the
+pipeline's own `.tekton/rosa-trusted-actions-{pull-request,push}.yaml` file.
+As currently written, neither expression is gated by a `false &&` prefix or
+any other unconditional disable — the CEL conditions evaluate normally for
+matching `pull_request`/`push` events. Both files do, however, carry the
+retained comment `# Enable only at the coordinated cutover after checking
+the shared image/release destination` directly above the expression. That
+comment is a record of the pipelines' pre-cutover intent, not something the
+YAML itself currently enforces, so **do not infer live/firing CI status from
+this file content alone** — verify the current Konflux application,
+component, and image/release bindings directly (e.g. in the Konflux console
+or via `releng/konflux-release-data`) before relying on these pipelines as
+an active signal. See
+[Monorepo components: Boundary and Trusted Actions](../architecture/monorepo-and-trusted-actions.md)
+("Tekton pipelines" section) for the full account of this history and the
+caveats around it.
+
+Either way, the pipeline build step itself only builds and pushes the
+container image per `Containerfile` and does **not** invoke `go test`,
+`make test`, or any other Go unit-test target from
+`components/trusted-actions/Makefile` — Go unit tests, coverage, and the
+integration/Backplane harnesses described above are a separate, Make-driven
+concern that is not wired into these Tekton pipelines. Treat the Make
+targets and harnesses on this page as the authoritative way to exercise
+Trusted Actions' tests, and verify current CI/build activity (this
+monorepo's Konflux pipelines vs. any still-active system tied to the
+original `openshift-online/rosa-trusted-actions` repository) directly rather
+than assuming either one is authoritative.
 
 ## Related pages
 
 - [Monorepo components: Boundary and Trusted Actions](../architecture/monorepo-and-trusted-actions.md)
+- [Trusted Actions deployment](../infrastructure/trusted-actions-deployment.md)
 - [Trusted Actions API](../integrations/trusted-actions-api.md)
 - [Verification](verification.md)
 - [Trusted Actions execution workflow](../workflows/trusted-actions-execution.md)

@@ -32,7 +32,7 @@
 # =============================================================================
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
-ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal@sha256:f8700bef6b1c99d806c13e43542ce9f2534b137914ade791e4ced7283221147b
+ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi-minimal@sha256:27932e0a0da4346c6dffa965960a71ee766117244531635eec25322ecb3e91a6
 
 # ---------------------------------------------------------------------------
 # Stage 1: dependency builder

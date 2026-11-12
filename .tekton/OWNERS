@@ -1,7 +1,7 @@
 # Pipeline definitions share this directory. Parent OWNERS approvers can
 # approve any pipeline change; the filters add component-specific approvers.
-# Match paths relative to .tekton/; changes to this OWNERS file affect both
-# components, so they receive both labels.
+# Match paths relative to .tekton/. Only Trusted Actions pipelines classify
+# PRs; Boundary pipelines and this shared OWNERS file do not add labels.
 
 filters:
   '^(rosa-boundary-|create-investigation-lambda-).*\.yaml$|^OWNERS$':
@@ -21,8 +21,6 @@ filters:
       - bergmannf
       - RaphaelBut
       - geowa4
-    labels:
-      - component/boundary
   '^rosa-trusted-actions-.*\.yaml$':
     approvers:
       - bergmannf
@@ -44,8 +42,5 @@ filters:
       - zmird-r
       - gvnnn
       - xiaoyu74
-    labels:
-      - component/trusted-actions
-  '^OWNERS$':
     labels:
       - component/trusted-actions

@@ -100,13 +100,13 @@ separately in the meta-workspace.
 
 ### Container Image Updates
 
-The Lambda-only ordinary ECR publication pilot has a source repository in the
-account workspace (`us-east-1`). The `us-west-2` regional workspace is configured
-to create a matching destination repository, and the account workspace is
-configured to own the filtered ECR replication rule after reviewed applies.
-These resources do **not** change the running Lambda images:
-the regional configurations below still reference the Quay pull-through cache.
-Before promoting a Lambda URI/tag through Git, verify the approved image is
+The Lambda image has an ordinary ECR source repository in the account workspace
+(`us-east-1`). The `us-west-2` regional workspace owns a matching destination
+repository, and the account workspace owns the filtered ECR replication rule.
+The regional Terraform image URI now references this ordinary account-local
+repository. Konflux publication and replication do **not** change a deployed
+Lambda; the Git-managed `lambda_image_tag` variable selects the image on apply.
+Before promoting a Lambda image pin through Git, verify the approved image is
 present in every intended Region. Replication is asynchronous and does not copy
 images pushed before the rule was enabled. Review account-wide replication
 rules before merging a registry-wide configuration: a successful staging plan
@@ -120,15 +120,15 @@ workspaces auto-apply after a meta-workspace reconciliation, so enabling both
 at once could let replication create the destination with default settings
 before regional Terraform can create its managed repository.
 
-The staging deployment references container images from Quay.io, built by Konflux:
+The staging deployment references Konflux-built container images:
 
 - **rosa-boundary container**: `quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:<commit-sha>`
-- **Lambda container**: `quay.io/redhat-user-workloads/rosa-tenant/create-investigation-lambda:<commit-sha>`
+- **Lambda container**: `<account>.dkr.ecr.<region>.amazonaws.com/rosa-boundary/create-investigation-lambda:<commit-sha>`
 
 To deploy a new container image version:
 
 1. Merge the container/Lambda code change to `main`. Konflux builds and pushes the image.
-2. Update the image tag in `hcp-terraform/rosa-boundary/main.tf` (the `container_image`, `lambda_image_tag` variables in the `rosa-boundary-stage-regional` workspace definition).
+2. Update the selected image pin in `hcp-terraform/rosa-boundary/main.tf` (`container_image` for ECS, `lambda_image_tag` for Lambda), after confirming that the selected Lambda SHA exists in its account's regional ECR repository.
 3. Open a PR with the tag update. The meta-workspace speculative plan shows the workspace variable changing, not the ECS task definition or Lambda function resource plan. If that downstream plan needs review before apply, gate the regional workspace first as described above.
 4. Merge. The staging regional workspace queues a plan and auto-applies it if successful.
 
@@ -360,8 +360,7 @@ Do **not** create, edit, or delete these variables directly in the HCP Terraform
 | `required_groups` | `["ai-sd-sre"]` | OIDC groups authorized to create investigations |
 | `abac_tag_key` | `uuid` | ECS task tag key for ABAC isolation |
 | `lambda_package_type` | `Image` | Container image packaging (required for HCP Terraform remote execution) |
-| `lambda_image_repository` | `redhat-user-workloads/rosa-tenant/create-investigation-lambda` | Quay repository path |
-| `lambda_image_tag` | `<sha>` | Konflux-built, pinned to commit SHA |
+| `lambda_image_tag` | `<sha>` | Konflux-built Lambda image in ordinary regional ECR, pinned to full commit SHA |
 | `default_tags` | *(account-specific)* | Organization-standard FinOps tags applied via provider `default_tags`; see [Externally Managed Tags and Settings](#externally-managed-tags-and-settings) |
 | `ignored_tag_keys` | *(account-specific)* | Tag keys excluded from Terraform reconciliation; see [Externally Managed Tags and Settings](#externally-managed-tags-and-settings) |
 | `log_retention_days` | *(account-specific)* | Must match the retention enforced by the account's external integrations |

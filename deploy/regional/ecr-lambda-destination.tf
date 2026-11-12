@@ -1,6 +1,6 @@
 # Source-region repository is owned by deploy/account, not by this regional
 # state. This opt-in creates a matching ordinary repository only in destinations.
-# Lambda continues using the Quay pull-through cache until a separate cutover.
+# Image-packaged Lambdas use the ordinary repository in their own account and Region.
 resource "aws_ecr_repository" "create_investigation_lambda_destination" {
   count = var.lambda_ecr_destination_source_region != "" ? 1 : 0
 

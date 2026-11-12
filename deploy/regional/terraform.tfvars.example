@@ -108,10 +108,10 @@ required_groups = ["ai-sd-sre"]
 
 # Lambda packaging (default: ZIP)
 # Set to "Image" for container image deployment (required for HCP Terraform remote execution).
-# The ECR cache must be seeded before apply — see docs/runbooks/lambda-zip-to-image-migration.md.
-# lambda_package_type     = "Image"
-# lambda_image_repository = "redhat-user-workloads/rosa-tenant/rosa-boundary/lambda-create-investigation"
-# lambda_image_tag        = "on-pr-194-abcdef0"  # Use an immutable tag (git SHA, release version), not "latest"
+# The Lambda image must exist in this account and Region's ordinary
+# rosa-boundary/create-investigation-lambda ECR repository before apply.
+# lambda_package_type = "Image"
+# lambda_image_tag    = "0123456789abcdef0123456789abcdef01234567"  # Full immutable commit SHA
 
 # Optional CloudWatch read grant for an external metrics collector.
 # Enable only in the legacy_policy_region workspace, and only after the account

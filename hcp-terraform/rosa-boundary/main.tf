@@ -501,13 +501,8 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
-          key      = "lambda_image_repository"
-          value    = "redhat-user-workloads/rosa-tenant/create-investigation-lambda"
-          category = "terraform"
-        },
-        {
           key      = "lambda_image_tag"
-          value    = "d9c5746ebee2a2e2f93ff618377f13a7aa0d9c30"
+          value    = "b62d9ee8547ff204348cc8b2d1bce5449542abea"
           category = "terraform"
         },
         {
@@ -716,13 +711,8 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
-          key      = "lambda_image_repository"
-          value    = "redhat-user-workloads/rosa-tenant/create-investigation-lambda"
-          category = "terraform"
-        },
-        {
           key      = "lambda_image_tag"
-          value    = "d9c5746ebee2a2e2f93ff618377f13a7aa0d9c30"
+          value    = "b62d9ee8547ff204348cc8b2d1bce5449542abea"
           category = "terraform"
         },
         {
@@ -1149,13 +1139,8 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
-          key      = "lambda_image_repository"
-          value    = "redhat-user-workloads/rosa-tenant/create-investigation-lambda"
-          category = "terraform"
-        },
-        {
           key      = "lambda_image_tag"
-          value    = "d9c5746ebee2a2e2f93ff618377f13a7aa0d9c30"
+          value    = "b62d9ee8547ff204348cc8b2d1bce5449542abea"
           category = "terraform"
         },
         {
@@ -1417,13 +1402,8 @@ module "rosa_boundary" {
           category = "terraform"
         },
         {
-          key      = "lambda_image_repository"
-          value    = "redhat-user-workloads/rosa-tenant/create-investigation-lambda"
-          category = "terraform"
-        },
-        {
           key      = "lambda_image_tag"
-          value    = "d9c5746ebee2a2e2f93ff618377f13a7aa0d9c30"
+          value    = "b62d9ee8547ff204348cc8b2d1bce5449542abea"
           category = "terraform"
         },
         {

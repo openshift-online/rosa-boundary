@@ -541,6 +541,11 @@ module "rosa_boundary" {
                 address    = "aws_iam_role_policy_attachment.reap_investigations_lambda_vpc"
                 expires_at = "2026-11-06T23:59:59Z"
                 reason     = "State migration to account workspace (removed block with destroy=false, resource preserved)"
+              },
+              {
+                address    = "aws_ecr_pull_through_cache_rule.quay[0]"
+                expires_at = "2026-11-17T23:59:59Z"
+                reason     = "Retire Lambda Quay cache after regional ECR cutover (ROSAENG-67186)"
               }
             ]
           EOT

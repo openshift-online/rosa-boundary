@@ -25,13 +25,8 @@ filters:
       - AlexSmithGH    # Alexander Smith
       - eth1030        # Emika Hammond
       - BATMAN-JD      # Justin Downie
-  # Boundary runtime, tests, infrastructure, and component-specific files.
-  '^(build/|cmd/|data/|deploy/|hcp-terraform/(aws-creds/|rosa-boundary/)|internal/|lambda/|scripts/|skel/|tests/|utils/|\.spec/|Containerfile$|\.containerignore$|entrypoint\.sh$|\.env\.example$|go\.(mod|sum)$|\.shellcheckrc$|codecov\.yml$)':
+  # CLI implementation and Lambda trees only. Shared docs, infrastructure,
+  # root tests, and governance do not classify a PR.
+  '^(cmd/rosa-boundary/|internal/|lambda/)':
     labels:
       - component/boundary
-  # Shared root governance and tooling can affect both components. Documentation
-  # alone does not classify a PR; code changes in the same PR still do.
-  '^(\.agents/|\.chai-bot/|\.claude/|\.github/|\.opencode/|\.pre-commit-config\.yaml$|\.coderabbit\.yaml$|\.gitignore$|AGENTS\.md$|CONTRIBUTING\.md$|Makefile$|mise\.toml$|openwiki/|OWNERS$|pyproject\.toml$|README\.md$|renovate\.json$|uv\.lock$)':
-    labels:
-      - component/boundary
-      - component/trusted-actions

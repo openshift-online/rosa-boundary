@@ -5,13 +5,15 @@ Comprehensive LocalStack Pro-based testing infrastructure for rosa-boundary AWS 
 ## Overview
 
 These tests exercise emulated AWS APIs, policy structure, and selected CLI
-workflows. They do not validate managed S3 Files mounts or synchronization,
-nor do they prove real AWS authorization or production behavior:
+workflows. Optional S3 Files tests exercise emulated managed mounts and
+synchronization when supported by the server/license and executor. These tests
+do not prove real AWS authorization, Fargate execution, or production behavior:
 
 - **S3**: Audit bucket with WORM compliance and Object Lock
 - **IAM**: Roles, policies, OIDC providers, tag-based authorization
 - **ECS**: Fargate task lifecycle (submit/stop/tag verification)
 - **EFS**: Filesystems and access points with POSIX user configuration
+- **S3 Files**: Optional per-prefix filesystem APIs and ECS-mounted content propagation
 - **KMS**: ECS Exec session encryption keys
 - **CloudWatch Logs**: Log groups for ECS/Lambda/SSM
 
@@ -157,6 +159,7 @@ All tests marked with `@pytest.mark.integration`:
 - `test_reap_investigations_directory.py` - Investigation directory contracts
 - `test_efs_filesystem_policy.py`, `test_terraform_efs_policy.py` - EFS policy API/source contracts
 - `test_kube_proxy_sidecar.py` - Multi-container task-definition contracts
+- `test_content_files.py` - S3 Files API resources and executor-dependent managed-mount content propagation
 
 ### Test Markers
 
@@ -241,20 +244,49 @@ for the identity and prefix-path contract.
 The former sidecar script, shell tests, container runtime tests, and their
 endpoint-guard unit tests have been removed. Running an AWS CLI sync in a local
 container would not exercise the replacement's managed filesystem behavior.
-There is no content runtime image or executor opt-in in this suite.
 
-Source and mocked Terraform checks can inspect mount wiring and IAM policy
-structure; LocalStack ECS submission tests can exercise lifecycle APIs. Neither
-establishes that Fargate can mount S3 Files or that AWS enforces the explicit
-write deny. The mounts are a task startup dependency, unlike the old optional
+`integration/test_content_files.py` instead exercises S3 Files itself:
+
+- An API test creates versioned storage and one managed filesystem per published
+  prefix, checks bucket/prefix selection, and round-trips filesystem policies.
+- A Docker-executor runtime test mounts those filesystems read-only in a single
+  ECS consumer (no sync sidecar). Consumer-written CloudWatch markers must prove
+  reads of nested files across all three prefixes, rejected filesystem writes,
+  and eventual visibility of bucket updates and deletions. ECS lifecycle status
+  alone cannot pass the test.
+
+Run against an already-running LocalStack:
+
+```bash
+uv run --group localstack pytest tests/localstack/integration/test_content_files.py -v -ra
+```
+
+[Current LocalStack documentation](https://docs.localstack.cloud/aws/services/s3files/)
+reports S3 Files API, ECS mounts and synchronization support on the **Ultimate**
+plan. That is not confirmation that our pinned `4.14.0` server/license supports
+it. Enable `s3files` in the server's `SERVICES` configuration to exercise it;
+this suite does not upgrade/restart the server or change licensing. Explicit
+unsupported-service responses skip the coverage; unexpected errors fail rather
+than silently skip. The runtime case additionally requires the **server** and
+pytest environment to use `ECS_EXECUTOR=docker`, socket access, and the public
+Amazon Linux 2023 image. Host environment selection alone does not reconfigure
+the server. Local `ECS_EXECUTOR=local` skips runtime coverage. Inspect `-ra` skip
+reasons; a skip is not verification.
+
+LocalStack documents that mount IAM authorization is not enforced and filesystem
+`kmsKeyId` is not used for encryption. An emulated read-only filesystem failure
+is not proof of AWS IAM policy enforcement. Source and mocked Terraform checks
+inspect mount wiring and policy structure; LocalStack runtime tests exercise
+emulated mounts and propagation, not real Fargate or AWS authorization. The mounts are a task startup dependency, unlike the old optional
 sidecar; failed mount setup can prevent the workload from starting.
 
 AWS-managed synchronization is asynchronous and **not atomic** across files
 or prefixes. Mount success is not proof of freshness or a complete multi-file
 publication. A separately approved real AWS test is needed for mount startup
 and failure behavior, per-prefix reads, rejected writes, service-role S3/KMS
-access, and eventual propagation of updates and deletions. This local suite
-does not deploy resources or prove those behaviors.
+access, and eventual propagation of updates and deletions on AWS. The S3 Files
+tests create and clean up only test-owned emulator resources; they do not deploy
+AWS infrastructure or establish real AWS behavior.
 
 ## Terraform Testing
 

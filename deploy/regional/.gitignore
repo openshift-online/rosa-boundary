@@ -1,5 +1,6 @@
 # Local Terraform configuration
 *.tfvars
+!terraform.auto.tfvars
 *.tfvars.json
 
 # Terraform state files

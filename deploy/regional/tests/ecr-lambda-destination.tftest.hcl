@@ -75,12 +75,11 @@ run "destination_is_opt_in" {
   }
 }
 
-run "destination_matches_source_without_switching_lambda" {
+run "destination_matches_source_and_lambda_uses_regional_ecr" {
   command = plan
   variables {
     lambda_ecr_destination_source_region = "us-east-1"
     lambda_package_type                  = "Image"
-    lambda_image_repository              = "rosa-tenant/create-investigation-lambda"
     lambda_image_tag                     = "0123456789abcdef0123456789abcdef01234567"
   }
   assert {
@@ -91,10 +90,54 @@ run "destination_matches_source_without_switching_lambda" {
       aws_ecr_repository.create_investigation_lambda_destination[0].encryption_configuration[0].encryption_type == "AES256" &&
       aws_ecr_repository.create_investigation_lambda_destination[0].image_scanning_configuration[0].scan_on_push == true &&
       jsondecode(aws_ecr_lifecycle_policy.create_investigation_lambda_destination[0].policy).rules[0].selection.countNumber == 25 &&
-      length(aws_ecr_pull_through_cache_rule.quay) == 1 &&
-      strcontains(local.lambda_ecr_image_uri, "/rosa-boundary-quay/")
+      local.lambda_ecr_image_uri == "123456789012.dkr.ecr.us-west-2.amazonaws.com/rosa-boundary/create-investigation-lambda:0123456789abcdef0123456789abcdef01234567"
     )
-    error_message = "Destination matches source retention/settings without cutting over the running Lambda or cache."
+    error_message = "Destination matches source retention/settings and Lambda uses the ordinary regional repository."
+  }
+}
+
+run "ordinary_regional_ecr_is_the_only_image_source" {
+  command = plan
+  variables {
+    lambda_package_type = "Image"
+    lambda_image_tag    = "0123456789abcdef0123456789abcdef01234567"
+  }
+  assert {
+    condition = (
+      local.lambda_ecr_image_uri == "123456789012.dkr.ecr.us-west-2.amazonaws.com/rosa-boundary/create-investigation-lambda:0123456789abcdef0123456789abcdef01234567" &&
+      aws_lambda_function.create_investigation_image[0].image_uri == local.lambda_ecr_image_uri &&
+      length(aws_ecr_repository.create_investigation_lambda_destination) == 0
+    )
+    error_message = "The image Lambda must use the account-local regional repository without creating a duplicate source repository."
+  }
+}
+
+run "ordinary_ecr_rejects_non_sha_tag" {
+  command = plan
+  variables {
+    lambda_package_type = "Image"
+    lambda_image_tag    = "on-pr-194-abcdef0"
+  }
+  expect_failures = [aws_lambda_function.create_investigation_image[0]]
+}
+
+run "ordinary_ecr_rejects_mutable_tag" {
+  command = plan
+  variables {
+    lambda_package_type = "Image"
+    lambda_image_tag    = "latest"
+  }
+  expect_failures = [aws_lambda_function.create_investigation_image[0]]
+}
+
+run "zip_does_not_use_ecr_image" {
+  command = plan
+  variables {
+    lambda_package_type = "Zip"
+  }
+  assert {
+    condition     = local.lambda_ecr_image_uri == "" && length(aws_lambda_function.create_investigation_image) == 0
+    error_message = "ZIP packaging must not build an image URI or create an image Lambda."
   }
 }
 

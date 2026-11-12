@@ -131,14 +131,8 @@ variable "lambda_package_type" {
   }
 }
 
-variable "lambda_image_repository" {
-  description = "Quay.io repository path for the create-investigation Lambda container image (e.g., 'redhat-user-workloads/rosa-tenant/rosa-boundary/lambda-create-investigation'). Required when lambda_package_type is 'Image'. The image must be seeded into ECR before apply — see docs/runbooks/lambda-zip-to-image-migration.md."
-  type        = string
-  default     = ""
-}
-
 variable "lambda_image_tag" {
-  description = "Image tag for the create-investigation Lambda container image (e.g., a git SHA or release version). Required when lambda_package_type is 'Image'. Avoid mutable tags like 'latest' — Lambda resolves the tag to a digest at deploy time and does not re-resolve when the tag moves."
+  description = "Immutable commit SHA tag for the create-investigation Lambda image in ordinary same-account regional ECR. Required when lambda_package_type is 'Image'. Lambda resolves the tag to a digest at deploy time."
   type        = string
   default     = ""
 }

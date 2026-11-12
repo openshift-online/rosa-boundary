@@ -1,5 +1,14 @@
 # Lambda ZIP to Container Image Migration
 
+> **Historical only — do not use this runbook for new deployments.** It records
+> the former Quay-backed ECR cache and workstation-seeding migration. Regional
+> Terraform now builds the Lambda URI from the ordinary account-local ECR
+> repository `rosa-boundary/create-investigation-lambda` and a Git-managed
+> immutable `lambda_image_tag`; the cache rule and `lambda_image_repository`
+> variable described below have been removed. Follow the current regional
+> Terraform and staging delivery guide instead. Existing ZIP/Image state moves
+> require a separately reviewed plan for the target workspace.
+
 ## Overview
 
 This runbook describes how to migrate the `create-investigation` Lambda from ZIP packaging

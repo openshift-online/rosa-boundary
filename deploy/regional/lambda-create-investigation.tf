@@ -15,11 +15,10 @@ resource "aws_cloudwatch_log_group" "create_investigation_lambda" {
 locals {
   lambda_use_image = var.lambda_package_type == "Image"
 
-  # ECR pull-through cache URI, constructed from the quay.io repository path.
-  # Format: <account>.dkr.ecr.<region>.amazonaws.com/<project>-quay/<quay-path>:<tag>
+  # Lambda images are published to ordinary ECR in this account and Region.
   lambda_ecr_image_uri = (
     local.lambda_use_image
-    ? "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.region}.amazonaws.com/${var.project}-quay/${var.lambda_image_repository}:${var.lambda_image_tag}"
+    ? "${data.aws_caller_identity.current.account_id}.dkr.ecr.${data.aws_region.current.region}.amazonaws.com/${var.project}/create-investigation-lambda:${var.lambda_image_tag}"
     : ""
   )
 }
@@ -125,12 +124,12 @@ resource "aws_lambda_function" "create_investigation_image" {
 
   lifecycle {
     precondition {
-      condition     = var.lambda_image_repository != ""
-      error_message = "lambda_image_repository is required when lambda_package_type is 'Image'."
-    }
-    precondition {
       condition     = var.lambda_image_tag != ""
       error_message = "lambda_image_tag is required when lambda_package_type is 'Image'. Use an immutable tag (e.g., git SHA or release version), not 'latest'."
+    }
+    precondition {
+      condition     = can(regex("^[0-9a-f]{40}$", var.lambda_image_tag))
+      error_message = "Lambda images require an immutable 40-character lowercase commit SHA tag."
     }
   }
 
@@ -138,7 +137,6 @@ resource "aws_lambda_function" "create_investigation_image" {
     aws_cloudwatch_log_group.create_investigation_lambda,
     aws_iam_role_policy.create_investigation_lambda_ecs,
     aws_iam_role_policy.create_investigation_lambda_efs,
-    aws_ecr_pull_through_cache_rule.quay
   ]
 
   tags = local.common_tags

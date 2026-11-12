@@ -50,6 +50,18 @@ def content_files_client(localstack_available, s3_client, boto_config):
     assert parsed.scheme == 'http' and parsed.hostname in {
         'localhost', '127.0.0.1', '::1'
     }, 'S3 Files tests require an explicit loopback LocalStack HTTP endpoint'
+    # Older servers route the unsigned-looking REST path /file-systems to S3
+    # and return NoSuchBucket, not an unsupported-service error. Consult the
+    # server's service registry before sending any S3 Files API request. Reuse
+    # the readiness reader so redirects, proxies and malformed health fail shut.
+    from check_ready import require_ready
+
+    health = require_ready(endpoint)
+    state = health['services'].get('s3files')
+    if state in (None, 'disabled'):
+        pytest.skip('LocalStack does not advertise an enabled S3 Files service; '
+                    'requires a supporting version/license and SERVICES=s3files')
+    assert state in ('available', 'running'), f'LocalStack S3 Files is not ready: {state}'
     try:
         client = boto3.client(
             's3files', endpoint_url=endpoint, config=boto_config,
@@ -213,9 +225,13 @@ def content_executor():
 @pytest.mark.usefixtures('content_executor')
 def test_ecs_content_files_runtime(
     published_files, content_files_client, ecs_client, iam_client,
-    logs_client, s3_client, test_vpc, ecs_cleanup,
+    logs_client, s3_client, ecs_cleanup, request,
 ):
     """Read, update, delete and reject writes through real managed ECS mounts."""
+    # Resolve the session-scoped VPC fixture only after the function-scoped
+    # capability gate has passed. Pytest otherwise initializes it before the
+    # gate and can issue unrelated API requests even when S3 Files is absent.
+    test_vpc = request.getfixturevalue('test_vpc')
     name = published_files['name']
     with ExitStack() as cleanup:
         for fs in published_files['filesystems'].values():

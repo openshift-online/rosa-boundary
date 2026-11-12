@@ -39,6 +39,7 @@ def require_ready(endpoint=None):
             raise NotReady("LocalStack services not ready: " + ", ".join(missing))
     except (OSError, ValueError) as error:
         raise NotReady(f"LocalStack health check failed ({type(error).__name__})") from error
+    return health
 
 
 def main():

@@ -265,9 +265,13 @@ uv run --group localstack pytest tests/localstack/integration/test_content_files
 reports S3 Files API, ECS mounts and synchronization support on the **Ultimate**
 plan. That is not confirmation that our pinned `4.14.0` server/license supports
 it. Enable `s3files` in the server's `SERVICES` configuration to exercise it;
-this suite does not upgrade/restart the server or change licensing. Explicit
-unsupported-service responses skip the coverage; unexpected errors fail rather
-than silently skip. The runtime case additionally requires the **server** and
+this suite does not upgrade/restart the server or change licensing. The test
+first checks the server's health service registry and skips if `s3files` is
+absent or disabled. This avoids older servers routing `/file-systems` to S3 and
+returning a misleading `NoSuchBucket` response. An advertised but unhealthy
+service fails. Explicit unsupported-service API responses also skip coverage;
+unexpected errors (including 404 from an advertised service) fail rather than
+silently skip. The runtime case additionally requires the **server** and
 pytest environment to use `ECS_EXECUTOR=docker`, socket access, and the public
 Amazon Linux 2023 image. Host environment selection alone does not reconfigure
 the server. Local `ECS_EXECUTOR=local` skips runtime coverage. Inspect `-ra` skip

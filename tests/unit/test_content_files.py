@@ -128,3 +128,116 @@ def test_cleanup_accepts_both_terminal_states(content_files, kind, terminal):
     cleanup = content_files.delete_filesystem if kind == 'filesystem' else content_files.delete_mount_target
     cleanup(client, 'test-owned-id')
     method.assert_called_once()
+
+
+@pytest.mark.parametrize('state', [None, 'disabled'])
+def test_unadvertised_service_skips_before_s3_fallback(content_files, monkeypatch, state):
+    """Reproduce CI: an unrecognized /file-systems route would hit S3."""
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    import sys
+
+    services = {} if state is None else {'s3files': state}
+    monkeypatch.setitem(sys.modules, 'check_ready', SimpleNamespace(
+        require_ready=lambda endpoint: {'services': services}))
+    sdk_client = Mock()
+    sdk_client.list_file_systems.side_effect = ClientError(
+        {'Error': {'Code': '404', 'Message': '<Error><Code>NoSuchBucket</Code>'
+                   '<BucketName>file-systems</BucketName></Error>'},
+         'ResponseMetadata': {'HTTPStatusCode': 404}}, 'ListFileSystems')
+    factory = Mock(return_value=sdk_client)
+    monkeypatch.setattr(content_files.boto3, 'client', factory)
+    s3 = SimpleNamespace(meta=SimpleNamespace(endpoint_url='http://localhost:4566'))
+    with pytest.raises(pytest.skip.Exception, match='does not advertise'):
+        content_files.content_files_client.__wrapped__(True, s3, None)
+    factory.assert_not_called()
+    sdk_client.list_file_systems.assert_not_called()
+
+
+@pytest.mark.parametrize('state', ['available', 'running'])
+def test_advertised_service_does_not_hide_404(content_files, monkeypatch, state):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    import sys
+
+    monkeypatch.setitem(sys.modules, 'check_ready', SimpleNamespace(
+        require_ready=lambda endpoint: {'services': {'s3files': state}}))
+    sdk_client = Mock()
+    error = ClientError({'Error': {'Code': '404', 'Message': 'NoSuchBucket'},
+                         'ResponseMetadata': {'HTTPStatusCode': 404}}, 'ListFileSystems')
+    sdk_client.list_file_systems.side_effect = error
+    monkeypatch.setattr(content_files.boto3, 'client', Mock(return_value=sdk_client))
+    s3 = SimpleNamespace(meta=SimpleNamespace(endpoint_url='http://localhost:4566'))
+    with pytest.raises(ClientError) as caught:
+        content_files.content_files_client.__wrapped__(True, s3, None)
+    assert caught.value is error
+
+
+def test_actual_integration_selection_skips_without_touching_s3_fallback(tmp_path):
+    """Run both real pytest fixture graphs against a controlled old-server shape.
+
+    This is a routing regression, not a LocalStack or managed-mount test.
+    """
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import json
+    import os
+    import sys
+    import xml.etree.ElementTree as ET
+
+    requests = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            requests.append(self.path)
+            if self.path == '/_localstack/health':
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({'services': {
+                    name: 'available' for name in ['s3', 'iam', 'ecs', 'efs', 'kms', 'ssm', 'ec2']
+                }}).encode())
+            else:
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b'<Error><Code>NoSuchBucket</Code><BucketName>file-systems</BucketName></Error>')
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    report = tmp_path / 'junit.xml'
+    try:
+        result = subprocess.run(
+            [sys.executable, '-m', 'pytest', str(SOURCE), '-q', '-ra', f'--junitxml={report}'],
+            env={**os.environ, 'LOCALSTACK_ENDPOINT': f'http://127.0.0.1:{server.server_port}',
+                 'ECS_EXECUTOR': 'docker'},
+            capture_output=True, text=True, timeout=30,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        suite = ET.parse(report).getroot().find('testsuite')
+        assert suite.attrib['tests'] == '2'
+        assert suite.attrib['skipped'] == '2'
+        assert suite.attrib['errors'] == '0'
+        assert all(path == '/_localstack/health' for path in requests), requests
+        assert requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize('state', ['error', 'starting', 'stopped'])
+def test_unhealthy_advertised_service_fails(content_files, monkeypatch, state):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    import sys
+
+    monkeypatch.setitem(sys.modules, 'check_ready', SimpleNamespace(
+        require_ready=lambda endpoint: {'services': {'s3files': state}}))
+    factory = Mock()
+    monkeypatch.setattr(content_files.boto3, 'client', factory)
+    s3 = SimpleNamespace(meta=SimpleNamespace(endpoint_url='http://localhost:4566'))
+    with pytest.raises(AssertionError, match='not ready'):
+        content_files.content_files_client.__wrapped__(True, s3, None)
+    factory.assert_not_called()

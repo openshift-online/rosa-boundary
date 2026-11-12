@@ -23,7 +23,7 @@ def test_healthy_services_are_required():
     services = {service: "available" for service in check_ready.REQUIRED}
     with patch.object(check_ready.urllib.request, "build_opener") as factory:
         factory.return_value.open.return_value = io.StringIO(json.dumps({"services": services}))
-        check_ready.require_ready("http://localhost:4566")
+        assert check_ready.require_ready("http://localhost:4566") == {"services": services}
         factory.return_value.open.assert_called_once_with("http://localhost:4566/_localstack/health", timeout=5)
 
 

@@ -337,6 +337,15 @@ The regional root attaches the grants; creating the roles in the account
 workspace alone does not authorize publishing. The replica workspace does not
 receive publisher ARNs.
 
+Production uses the same source-only handoff in
+`rosa-boundary-prod-regional-us-east-1`, with the three
+`rosa-boundary-prod-publisher-*` roles from account `514903006123`.
+Production workflows must target their matching prefix in
+`514903006123-rosa-boundary-prod-us-east-1-content`; do not publish directly
+to the `us-west-2` replica. The production source regional workspace is also
+configured to auto-apply, so review its plan before rollout and verify the
+publisher policies are attached before running production publishing.
+
 Publish to the role's matching destination prefix, for example:
 
 ```bash

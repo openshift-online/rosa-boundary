@@ -49,9 +49,9 @@ class ReplicationTopologyTest(unittest.TestCase):
         self.assertNotIn('key      = "lambda_ecr_replication_regions"', source)
         self.assertNotIn('key      = "content_replication_destinations"', source)
 
-    def test_staging_publisher_handoff_is_source_only_and_complete(self):
+    def assert_publisher_handoff(self, stage, primary, account_id):
         source = SOURCE.read_text()
-        workspace = source.split("    rosa-boundary-stage-regional = {", 1)[1].split("\n    }\n", 1)[0]
+        workspace = source.split(f"    rosa-boundary-{stage}-{primary} = {{", 1)[1].split("\n    }\n", 1)[0]
         variable = workspace.split('key = "content_publisher_role_arns"', 1)[1].split("\n        },", 1)[0]
         self.assertIn('category = "terraform"', variable)
         self.assertIn("hcl      = true", variable)
@@ -64,11 +64,18 @@ class ReplicationTopologyTest(unittest.TestCase):
                 text=True, capture_output=True, check=True,
             )
         self.assertEqual(json.loads(json.loads(result.stdout.strip())), {
-            key: f"arn:aws:iam::150100906299:role/rosa-boundary-stage-publisher-{key}"
+            key: f"arn:aws:iam::{account_id}:role/rosa-boundary-{stage}-publisher-{key}"
             for key in ("ops-sop", "managed-notifications", "rosa-claude-plugins")
         })
-        # No account-owned grant, replica publishing access or production rollout.
-        self.assertEqual(source.count('"content_publisher_role_arns"'), 1)
+        for suffix in ("account", "regional-us-west-2"):
+            other = source.split(f"    rosa-boundary-{stage}-{suffix} = {{", 1)[1].split("\n    }\n", 1)[0]
+            self.assertNotIn('"content_publisher_role_arns"', other)
+
+    def test_staging_publisher_handoff_is_source_only_and_complete(self):
+        self.assert_publisher_handoff("stage", "regional", "150100906299")
+
+    def test_production_publisher_handoff_is_source_only_and_complete(self):
+        self.assert_publisher_handoff("prod", "regional-us-east-1", "514903006123")
 
     def test_existing_account_variable_resources_are_moved_not_deleted(self):
         moves = (SOURCE.parent / "moved.tf").read_text()

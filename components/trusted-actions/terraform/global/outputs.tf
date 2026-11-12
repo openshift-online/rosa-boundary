@@ -37,3 +37,8 @@ output "public_zone_name_servers" {
   description = "Name servers for the public hosted zone created from var.public_zone. Delegate the parent domain to these. Empty when an existing zone is passed via public_zone_id instead."
   value       = var.public_zone != "" ? aws_route53_zone.main[0].name_servers : []
 }
+
+output "public_zone_id" {
+  description = "Route 53 public hosted zone ID backing the validation-anchor CNAME — created from var.public_zone or passed in as var.public_zone_id. Regional workspaces read this via terraform_remote_state instead of declaring their own public_zone_id variable."
+  value       = local.public_zone_id
+}

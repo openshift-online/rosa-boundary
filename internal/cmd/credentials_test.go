@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -123,7 +125,7 @@ func TestValidateStartCredentials(t *testing.T) {
 	}
 
 	startNoWait = true
-	if _, _, _, err := validateStartCredentials(); err == nil || !strings.Contains(err.Error(), "--no-wait") {
+	if _, _, _, err := validateStartCredentials(false, true); err == nil || !strings.Contains(err.Error(), "--no-wait") {
 		t.Fatalf("--no-wait combination error = %v", err)
 	}
 	startNoWait = false
@@ -131,9 +133,35 @@ func TestValidateStartCredentials(t *testing.T) {
 	if _, _, _, err := validateStartCredentials(); err == nil {
 		t.Fatal("unsupported provider succeeded")
 	}
-	startCredentials = ""
+	startCredentials = "none"
 	if enabled, _, _, err := validateStartCredentials(); err != nil || enabled {
-		t.Fatalf("omitted provider = %t, %v", enabled, err)
+		t.Fatalf("opted-out provider = %t, %v", enabled, err)
+	}
+}
+
+func TestStartCredentialsDefaultNoWaitAndExplicitOptOut(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	previousCredentials, previousNoWait, previousURL, previousFlow := startCredentials, startNoWait, startOCMURL, startOCMFlow
+	t.Cleanup(func() {
+		startCredentials, startNoWait, startOCMURL, startOCMFlow = previousCredentials, previousNoWait, previousURL, previousFlow
+	})
+	cmd := commandAtPath(t, buildRootCommand(), "session", "create")
+	startCredentials = cmd.Flags().Lookup("with-credentials").DefValue
+	startOCMURL, startOCMFlow = "", ""
+	startNoWait = false
+	if enabled, environment, _, err := validateStartCredentials(false, false); err != nil || !enabled || environment.Name != "" {
+		t.Fatalf("default OCM injection = %t, %#v, %v", enabled, environment, err)
+	}
+	startNoWait = true
+	if enabled, _, _, err := validateStartCredentials(false, false); err != nil || enabled {
+		t.Fatalf("implicit --no-wait must skip OCM injection: %t, %v", enabled, err)
+	}
+	if _, _, _, err := validateStartCredentials(false, true); err == nil || !strings.Contains(err.Error(), "--no-wait") {
+		t.Fatalf("explicit --with-credentials ocm must be rejected: %v", err)
+	}
+	startCredentials = "none"
+	if enabled, _, _, err := validateStartCredentials(false, true); err != nil || enabled {
+		t.Fatalf("explicit opt out = %t, %v", enabled, err)
 	}
 }
 
@@ -150,6 +178,54 @@ func TestSessionCredentialFailureRetainsSessionAndCleanupCommand(t *testing.T) {
 	for _, expected := range []string{"INV-1", "task-123", "still running", "session credentials configure ocm \"task-123\" --ocm-url \"staging\" --auth-flow \"device\"", "session close \"task-123\" --yes"} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error %q does not contain %q", err, expected)
+		}
+	}
+}
+
+func TestSessionCredentialFailureWithoutLocalOCMURL(t *testing.T) {
+	previous := selectedProfile
+	selectedProfile = "stage-east"
+	t.Cleanup(func() { selectedProfile = previous })
+	warning := sessionCredentialFailure("INV-1", "task-123", "boundary", "us-east-1", credentials.Environment{}, credentials.FlowDevice, errors.New("local URL unavailable")).Error()
+	for _, want := range []string{"without confirmed OCM credentials", `session credentials configure ocm "task-123" --auth-flow "device"`, "specify --ocm-url", "session close"} {
+		if !strings.Contains(warning, want) {
+			t.Errorf("missing %q in %q", want, warning)
+		}
+	}
+	if strings.Contains(warning, `--ocm-url ""`) {
+		t.Errorf("retry contains empty URL: %s", warning)
+	}
+}
+
+func TestFailedStartOCMLoginEmitsRetryWarning(t *testing.T) {
+	previous := selectedProfile
+	selectedProfile = "stage-east"
+	t.Cleanup(func() { selectedProfile = previous })
+	old := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stderr = w
+	defer func() {
+		os.Stderr = old
+		_ = r.Close()
+	}()
+	warning := warnStartCredentialFailure("INV-1", "task-123", "boundary", "us-east-1",
+		credentials.Environment{Name: "staging", URL: credentials.StagingURL}, credentials.FlowDevice, errors.New("OCM login denied"))
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var stderr bytes.Buffer
+	if _, err := stderr.ReadFrom(r); err != nil {
+		t.Fatal(err)
+	}
+	if stderr.String() != "Warning: "+warning+"\n" {
+		t.Errorf("warning not displayed on stderr: %q", stderr.String())
+	}
+	for _, want := range []string{"OCM login denied", `--profile "stage-east" session credentials configure ocm "task-123" --ocm-url "staging"`, "session close"} {
+		if !strings.Contains(warning, want) {
+			t.Errorf("warning missing %q: %s", want, warning)
 		}
 	}
 }

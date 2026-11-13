@@ -14,9 +14,10 @@ flowchart TD
     EFS -->|"start: launch"| TASK["Register task definition and launch ECS task"]
     TASK --> SRE["Assume temporary SRE role"]
     SRE --> WAIT["Wait for RUNNING, unless --no-wait"]
-    WAIT --> CRED{"--with-credentials ocm?"}
-    CRED -->|Yes| OCM["Fresh OCM approval and task-scoped credential injection"]
-    CRED -->|No| READY["Report session ID"]
+    WAIT --> CRED{"Waited and OCM enabled?"}
+    CRED -->|Yes, by default| OCM["Fresh OCM approval and task-scoped credential injection"]
+    CRED -->|No: --no-wait or --with-credentials none| READY["Report session ID; --no-wait warns credentials skipped"]
+    OCM -->|Failure: warn with retry command| READY
     OCM --> READY
     READY -->|"--connect or session join &lt;session-id&gt;"| EXEC["ECS Exec ABAC check; session-manager-plugin shell"]
     EXEC --> EXIT["exit disconnects shell; ECS task keeps running"]

@@ -48,8 +48,8 @@ sources:
     resource: repo://tests/localstack/integration/test_full_workflow.py
 generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - by: openwiki/0.7.0
+    at: 2026-11-13T18:18:24.408Z
 ---
 
 # ROSA Boundary System Overview

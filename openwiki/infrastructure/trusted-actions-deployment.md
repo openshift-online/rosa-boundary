@@ -42,12 +42,14 @@ sources:
     resource: repo://components/trusted-actions/terraform/regional/security_groups.tf
   - id: openwiki-source-c48777a67449605c22edaff5
     resource: repo://components/trusted-actions/terraform/regional/variables.tf
+  - id: openwiki-source-202f5239bfb095a7cbbf7f0f
+    resource: repo://docs/trusted-actions-monorepo-migration.md
   - id: openwiki-source-37ce5ca787d481a0d0fc0453
     resource: repo://hcp-terraform/rosa-trusted-actions/main.tf
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+  - by: openwiki/0.7.0
+    at: 2026-11-13T18:18:24.408Z
 ---
 
 ## Overview
@@ -76,7 +78,8 @@ See [deployment.md](../../components/trusted-actions/docs/deployment.md) for
 the full operator runbook (local testing, verification commands, and the
 step-by-step procedure for adding a region).
 
-```mermaid
+<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
+```text
 flowchart LR
     subgraph GLOBAL["terraform/global — once per account"]
         IAM["IAM roles and policies\n(ecs_instance, task, task_execution,\ncwl_to_firehose, firehose_audit_logs)"]
@@ -268,7 +271,7 @@ flowchart TB
 ## Private networking and DNS
 
 TA exposes one stable FQDN (for example
-`rosa-trusted-actions.internal.company.com`) that resolves to a **different
+`rosa-trusted-actions.dev0.rosav1.devshift.net`) that resolves to a **different
 ALB depending on which VPC the caller is in**, with no public DNS entry and
 no publicly reachable endpoint — the same model Kubernetes uses for
 `my-service.my-namespace.svc.cluster.local`, implemented with AWS Route 53
@@ -313,7 +316,8 @@ diagrams of per-VPC resolution and cross-region isolation.
   ordering constraints between regions, and only the global→regional apply
   order (global first) still matters.
 
-```mermaid
+<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
+```text
 flowchart TD
     G["global workspace\nterraform/global/dns.tf"] -->|"writes once"| CNAME["Public zone:\n_acme-challenge CNAME\n(validation_anchor cert, never attached to an ALB)"]
     CNAME -->|"ACM resolves CNAME\n(validates every region)"| C1["regional cert — region 1\naws_acm_certificate_validation polls -> ISSUED"]

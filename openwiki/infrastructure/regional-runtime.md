@@ -58,10 +58,10 @@ sources:
     resource: repo://hcp-terraform/rosa-boundary/main.tf
   - id: openwiki-source-d796a031add13f67891a2f24
     resource: repo://lambda/reap-investigations/handler.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - by: openwiki/0.7.0
+    at: 2026-11-13T18:18:24.408Z
 ---
 
 # Boundary Regional Runtime Infrastructure
@@ -116,7 +116,7 @@ ECS Exec sessions use a rotating KMS key. The ECS cluster sends session output t
 
 The regional stack ships three Lambda functions: create-investigation, reap-tasks, and reap-investigations.
 
-The create-investigation Lambda can be packaged as ZIP (the default) or as a container image; both modes receive the same runtime configuration. Image mode requires a repository and an immutable tag; staging sets image mode for remote execution. Its AWS-IAM-authorized Function URL is configured separately from the CLI's direct SDK invocation path. The reap-tasks Lambda is packaged from its single handler file and gets scoped ECS list/describe/stop permissions; EventBridge invokes it at a configurable schedule (Terraform variable `reaper_schedule_minutes`, default 15 minutes) to stop expired tasks **without an active Exec session**.
+The create-investigation Lambda can be packaged as ZIP (the default) or as a container image; both modes receive the same runtime configuration. Image mode derives its ordinary regional ECR repository URI from the account, Region and project, and requires a 40-character lowercase commit-SHA tag; staging sets image mode for remote execution. Its AWS-IAM-authorized Function URL is configured separately from the CLI's direct SDK invocation path. The reap-tasks Lambda is packaged from its single handler file and gets scoped ECS list/describe/stop permissions; EventBridge invokes it at a configurable schedule (Terraform variable `reaper_schedule_minutes`, default 15 minutes) to stop expired tasks **without an active Exec session**.
 
 The reap-investigations Lambda runs on its own schedule (Terraform variable `investigation_reaper_schedule_hours`, default every 8 hours) to reclaim investigation directories, access points, and matching task definitions. Eligibility requires no matching RUNNING task and an access-point creation age strictly greater than the configured grace period (Terraform default 168 hours), or a missing `CreatedAt` tag treated as legacy state. It is not a timer starting when the last task stops. The handler rechecks running tasks before cleanup and requires a successful final S3 backup before deleting an existing directory; see [investigation lifecycle](../workflows/investigation-lifecycle.md#investigation-level-garbage-collection-reap-investigations).
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:26319593a8dc8f6167b807dd6fbe845f22a59b60291b609574296e8e23de9d0a",
+  "pageVersion": "sha256:11716c47595a655a5bd1932f533141ac6f1e35cc8106179900bd147a03ab92a0",
   "claims": [
     {
       "id": "claim_20f7ff5a69cd43e8aa9ad2bbc0f4f2ee",
@@ -22,19 +22,23 @@
     },
     {
       "id": "claim_ab537d442b0d4834b387d3aaa8ec29da",
-      "statement": "deploy/regional/tests/iam-ownership.tftest.hcl's mock_provider \"aws\" block mocks aws_kms_alias, aws_lambda_function, aws_cloudwatch_event_rule, aws_s3_bucket, aws_ecs_cluster, aws_efs_file_system, aws_efs_access_point, aws_kms_key, aws_cloudwatch_log_group, aws_partition, aws_caller_identity, aws_region, aws_iam_role, and aws_iam_openid_connect_provider (alongside mock_provider \"archive\"), with an override_resource giving aws_s3_bucket.content a distinct test ARN/ID; this setup still matches the suite's current source. Its runs assert the regional-root/account-workspace IAM ownership invariant: the regional root creates no aws_iam_role, aws_iam_openid_connect_provider, or aws_iam_role_policy_attachment resources and performs no exclusive-policy reconciliation anywhere in its .tf files (checked via source-level fileset/regexall scanning), every aws_iam_role_policy here attaches only to looked-up account-owned data.aws_iam_role identities, a second Region renders the same identities under distinct non-colliding suffixed policy names and Region/account-scoped ARNs instead of reusing the legacy Region's grants, and the investigation reaper's EFS mount/write/root-access grant is conditioned on its own dedicated aws_efs_access_point.reaper in both the Lambda policy and the EFS file-system policy. These are rendered-configuration checks under mocking, not proof of live IAM adoption or cross-workspace state-lookup success against real AWS.",
+      "statement": "The mocked regional IAM ownership suite requires shared IAM identities and managed attachments to remain account-owned, permits the dedicated locally owned content-files service role as an exception, verifies shared-role inline grants attach to account-role lookups, and checks policy suffixes and dedicated reaper access-point restrictions without contacting live AWS.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L1-L56",
-          "version": "repo-lines-v1:sha256:36060b5143d149033381603444c1bc0275e69e2ec85922450e59188d7655e861:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3OGQ5ODg4MDEzZTc3YTYzNzljYTFjNTNkMDMzN2FhZTJkZWM4MDI2MDVhN2RkNmUwNmJiNTRjOTFiMDRlNmYifQ"
+          "resource": "repo://deploy/regional/iam-content-files.tf#L1-L43",
+          "version": "repo-lines-v1:sha256:708169b0f7d0fee4376d116e436a7ec2645836ed9163ef4e12e51b1a33ad41bd:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkYzM2OGUzYWQ2Mzk4NThiZTU3ZWIxYzBmMTU0ZTc0OTNmOWMzMzk1NGYzNTk5ZTdmMGM5ZDUzOTgxYjhhMmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU1MDMzNWU1MjIyNDBjMjU3Y2JlOGIwZGU0NDQzOGMzYjk1MDI0YTE2YjI0ZTRjMDhkNTZiMTUwNTExOTMwM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5YzNjYTQ3MDlmNzc5NjQ2M2Q1MTM3ZGQ0YzU2NzNlZTJmZGFkN2ZhZjMyNjkyYjEzOTVlYTQ1N2RkZDdmYTAifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L206-L246",
-          "version": "repo-lines-v1:sha256:1fc568e846c15315ea2cabf4f8ec748e90feb648c5aa6fdc02ce571d863f5d97:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliOWFiYjUwMDhhYjgxYjNjNGI3YmY4OGVhMjE3MGVhNThiNjEwMThjYWE0MmNjMGUxMzY2ZGRlNTY1MWMzMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0NmIwYjY5ZDYwNjllZDc1NmNhOWI1OTA2ZWEwNjA5YjA1NDBjNzE5ZjQzOGUyMmY3MTBkNTFiYTAwMTk0YzAifQ"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L1-L73",
+          "version": "repo-lines-v1:sha256:e580ed6b2b2584b04f8a49b40961f59cbc7bfc0fe044b1684124efdde5df9d3c:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwNmVkNjVhYjZhMjA5ZmVmNmViMGI2NmQ2YWVjZGU4ODNkNzI4MjZhMDhmZmE1ZmMyNzAxYzkwOTlkZjdhNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY0ZTYwNWY2ZDEzZmI5ZWQ5ZmE3YjgxODYzOTIyMjc3NDFhZTQ4OTQwNTA2OGRmZGZjZTliZDY0MDM2NWNkMWEifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L93-L204",
-          "version": "repo-lines-v1:sha256:cd23021d0be41f138a7d85f0e18dd5e56311fc8b55c184e95370f3ab277053f0:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4ZWNjMjE3MmIzYTNkZjNiZjE1ZjYxZDdjMjdmNTNlMWMxNjIyZjQ3MDg3YjdmNDQ4NDhhMzI2ZTgyMzVmZWQzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxMDUyZWNjNzFlMDZmMDIwM2YyM2MyYWU5ZDMwNTQyYmE2NTYzZDZjZjI4NjIzNWI3Yzg1YWRiN2ViODA3Yzg3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1Nzk0YWIwNzBmMjgyZGI3MzJmZjU2MWQyM2E1NTEzMmI5NDI4YjI3YTc5YzlkYzk0YzYzMjNmY2Q0NjhjZTI3In0"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L105-L149",
+          "version": "repo-lines-v1:sha256:029dbd0b5112b99188412c8d73415957db0936266922a71a388c4fd7c83ec95d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmMWYyYmI4NWEwMWNlYjUxOWIxNTJhMWM1ZWQxOTdkZWUwMjRkZGU3MTRhMzZhMmMzOWJjNTIwMDlmNjQ1NTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjYTRkZDJhMTIyMDMxMTFkMmJjODk2MTViN2VjY2YzYWExMGQ0YmEyMzExNTQwYjA3YWMzNjVjYjQ4Mzc5OTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM3ODFiYTJjMjkwYTNiNjY5Y2I2MjM1MTk4YjVlMGNlN2RiOGY1ZGNmYjQ2MzBkYzRjMmZmMzY5NDVhZGM4MTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkZjQ2MDE3NzVmNTIxYjg5ZTI0Y2Y5YTA5MzZkNjU2N2E5MGQ2Y2QyNjEzZTg3MmMzYzZmYjcwZjRkYzA4ODEifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L180-L245",
+          "version": "repo-lines-v1:sha256:ab9ea8e5d6c431c767ab255a5548ccb76d3cafb9dd87ab72ade30574adbffa88:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI5YWY3Y2MxYTNlN2M5ZTg4ZWQwZTM2ZjY2OTczZTAyYjg2OGUzMWUxNTk5MTIzNzFmZWJiMmQwZDhjZGQ5ZmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBiYTJkNzA1NTc5ZDllMDQ4NzM2YmQ0Y2ZmMzQ5NjczNmUwNmRkYmY4YThlZTJiMzg0M2RlNDYzZWMxNjJkMWQifQ"
         }
       ]
     },
@@ -110,11 +114,11 @@
     },
     {
       "id": "claim_3a846a65ebed418b95ed436a3be3aff4",
-      "statement": "deploy/account/tests/test_replication_topology.py is a distinct test mechanism from the .tftest.hcl suites: a standalone Python unittest module that extracts the locals block from hcp-terraform/rosa-boundary/main.tf into a temporary module and shells out to `terraform console` to evaluate local.replication_topology, rather than running `terraform test`. It asserts the existing ECR-only/inactive-S3 topology and a populated content-replication handoff are both preserved, that every HCP Terraform workspace variable block is generated with a single `replication` key (and the retired lambda_ecr_replication_regions/content_replication_destinations keys are absent), that corresponding `moved` blocks exist so the renamed account variable is not treated as deleted, and that deploy/account/variables.tf and deploy/regional/variables.tf declare the replication variable with an identical type.",
+      "statement": "deploy/account/tests/test_replication_topology.py is a separate Python unittest using terraform console on HCP locals, rather than a .tftest.hcl suite. It tests ECR-only and content-replication topology, stage/prod replication handoff, source-only stage and prod publisher roles, moved variable resource names and matching replication variable types.",
       "evidence": [
         {
-          "resource": "repo://deploy/account/tests/test_replication_topology.py#L1-L69",
-          "version": "repo-lines-v1:sha256:e3c36476926ff30904d587a522cdb6cc8b59b53310dcfda173d616c564c126a6:eyJzZWxlY3RlZExpbmVDb3VudCI6NjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiYjMwNGYzZDcyNWNlZjVlZDNmOGQ0NTIxMDYxNWEzNmZmOWM1ODAyM2UwYjBkMjVkN2RiNmJlZDdhYTA3MTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0ODZmZjVjZjkzNjNiNDQyOTMzNjgwM2IyYzk2MGU3M2RhOGM0N2ZhMGM2ZjY3NjU4ZDE0YjMyM2NkMjJkMzQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRlOTNkODkzOTA2ZWVhZjJjYWRjYzY1NTg1OTdiZDkzMzBlMmViNjlkZmI2MGE5YzgxNzUyMTg1MjdlNzI2ODEifQ"
+          "resource": "repo://deploy/account/tests/test_replication_topology.py#L1-L98",
+          "version": "repo-lines-v1:sha256:684a2e53ad87fc57ae64f63a37d903178bd32c3dc75bc6905fcc8e37f10ec138:eyJzZWxlY3RlZExpbmVDb3VudCI6OTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiYjMwNGYzZDcyNWNlZjVlZDNmOGQ0NTIxMDYxNWEzNmZmOWM1ODAyM2UwYjBkMjVkN2RiNmJlZDdhYTA3MTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRlOTNkODkzOTA2ZWVhZjJjYWRjYzY1NTg1OTdiZDkzMzBlMmViNjlkZmI2MGE5YzgxNzUyMTg1MjdlNzI2ODEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
@@ -123,26 +127,30 @@
       "statement": "deploy/regional/tests/content-storage.tftest.hcl is a 36-run mock-provider suite covering the per-Region content bucket and its unconditional task read grant, opt-in publisher/replication grants gated on role ARNs and destinations, Region-suffixed policy names, multi-destination replication-rule priority uniqueness, an extensive set of content_prefixes input-validation rejections (overlapping, duplicate, reserved-bootstrap, wildcard, whitespace, colon, and IAM-policy-syntax prefixes; path-qualified or cross-account role ARNs; grants placed on the wrong role), and content-replica-side validation of populated/unpopulated topology, bucket metadata, and key Region.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L633-L719",
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L662-L748",
           "version": "repo-lines-v1:sha256:0b154e851c9ef882c391aa798a556aa9fb8c21b287aa7844f1d67488a9a9c230:eyJzZWxlY3RlZExpbmVDb3VudCI6ODcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY5MDI2MWQ4NjgyMzZlMThmM2VjOGNiZWJjMTJhZWJjNjIyYzRkMWUxZmQ1ZTNjOWJhZGEyMGViYzRjZDMzNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhhMGE4ZWZiYmMyOTUyNGE4YmYyZmQ4OTljY2U5MDQ4YjdjNWRlMmI0YjNiODRlMWQzMWM1ODUxNTUzYWEyYWEifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L98-L120",
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L104-L126",
           "version": "repo-lines-v1:sha256:5b26e63db6d1467768286e512202d95d5732207b2a9760e575dc1d1719d5eb3d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJlNWIyOTc4NTI5OWNlNzM4ODNmMWQzNDQ4ZmI3Y2NmOWJiNjkxMTQyODBkNDI1Y2Y5YTIxZGQyNDVkYzQzZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFhYjFmZTE3NGE1ZTg2ZTI2N2FjZjlkMTc0YzA4NzQ2ZGUzZjgyY2ZhNWQ2NTNkZjMzMzIzNDBmMzU2YjI5YWQifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L987-L1034",
+          "resource": "repo://deploy/regional/tests/content-storage.tftest.hcl#L1016-L1063",
           "version": "repo-lines-v1:sha256:e996f91cf34eade099c7c20739dcbd3efd97dfb4c50335b712f7e234e29d58cd:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4ZjY0NjgxMmE0YmFkZjlkZmZkNjg1ZWM4MTBkZWFmODIwMDRhODVkY2Q2YmZjZDdiYmE0NGVmNWRmZTkxNDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEyOGY0NmM2N2EzMmY5ODQxZDc4NTE2ZWE1OWYxZGRkMmYwMGJlNmIzNGJiZWYyYWVkYjQwOTgzMmNiN2I2NGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiMjBkYTg1YmU2YjZkYmQzMDJjZTVhMDU2YjczYmYzODJiNGJkY2E3NjllMmRkOGEwODE3ZDNjNmRhNDJmNGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIxMTJlNjllMmM5ZGMyN2M5ZTYxZDdiYTVjYTQwNGUwMDJjNTg0NjhlZWEzMjE3ODBlZGM4Y2VjMjIyYmQ4NTEifQ"
         }
       ]
     },
     {
       "id": "claim_4b56942eacf040919a25c4bff3e2b6bb",
-      "statement": "deploy/regional/tests/ecr-lambda-destination.tftest.hcl verifies the regional root's destination ECR repository for the create-investigation Lambda image is opt-in and absent by default, that when configured it mirrors the account-owned source repository's immutability, force_delete, AES256 encryption, scan-on-push, and 25-image lifecycle retention without cutting the running Lambda over, provisions a `quay` ECR pull-through cache rule feeding the rendered image URI, and that configuring a destination Region equal to the account's own source Region is rejected via expect_failures on the destination repository resource.",
+      "statement": "The regional mocked ECR destination suite checks opt-in ordinary ECR repository settings and lifecycle retention, image-mode Lambda URI with SHA-tag validation even without a local destination repository, ZIP mode without image URI, and rejection of a destination in the account source Region; it does not assert a Quay pull-through rule.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/tests/ecr-lambda-destination.tftest.hcl#L70-L108",
-          "version": "repo-lines-v1:sha256:df6de9b92b223f10abf2d2601be898b2047be561c38b96a3bbf897f123d8b9de:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhODUxNTljZWQwYjk1NzVjY2YzNWE4NDE1MDdkNjg0YzViNzM5YThhNTg2OGI5ODMyYWYxOTU1MWI5YTExMzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNTJlY2M3MWUwNmYwMjAzZjIzYzJhZTlkMzA1NDJiYTY1NjNkNmNmMjg2MjM1YjdjODVhZGI3ZWI4MDdjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L11-L23",
+          "version": "repo-lines-v1:sha256:d02668db4143c57e87f0ccc95cab5df2fb82e0aee45fd447ce58d646de9f4908:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2YWQwZDE4MzZhYzA1MjUxN2ZmZDk0ZGRiMWE1NDI3NDhmOWQ0MTJhNDM1NTdiMjQ1MjAxNmM1ZmIxZWU5MDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM4MmYwMmE0YTlkMmE4NGYwZjEwOGZkNTQwMTkxMGNlMzEyNzgwYjhkMTI3YjFmZTZlMzcwYTY5NjIwMGI5NmMifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/tests/ecr-lambda-destination.tftest.hcl#L70-L151",
+          "version": "repo-lines-v1:sha256:edee2bb08204f129c27b78eb4f3ad6673cec7e54d7a26e1b16edc084541d08ba:eyJzZWxlY3RlZExpbmVDb3VudCI6ODIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhODUxNTljZWQwYjk1NzVjY2YzNWE4NDE1MDdkNjg0YzViNzM5YThhNTg2OGI5ODMyYWYxOTU1MWI5YTExMzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNTJlY2M3MWUwNmYwMjAzZjIzYzJhZTlkMzA1NDJiYTY1NjNkNmNmMjg2MjM1YjdjODVhZGI3ZWI4MDdjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
@@ -159,10 +167,20 @@
           "version": "repo-lines-v1:sha256:1bc650f0b2d294b1c9d7b3481520edc4c75a26d517e933ff2f90b247480ddeaa:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzZjI4NmI3NjA5YWJiMDkyZjE1ZjE5Yzk1Y2M1ZThkODVmZDYwMmY1NDBmOGRkNGNhMzA3OWFiM2Y2ZWU0YTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBiYWUwNWUwNjIwOTNiNjdlZTcwYWNjYjhlN2VjMjU2NTY1MGQxYTIxMGMyOTJkNzg3OGM0MTFhN2RmMzY1NWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg2NmYyMWIwYTIxNTUwNGU2NjJiMThmNjdmMmU2MGMxYmQyYTJiNjg0ZDdlNzMxYzVjYzhiOWU5ZDczMTFiNWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRkMDY0NTg3YTBjNDM1Y2ZmOGY2ZDQxOTMyMjY3MjkzOTM3NDcwNjAyNjM4YTdjNzgyMjNiZmI1ZjJhMzY1ZDQifQ"
         }
       ]
+    },
+    {
+      "id": "claim_85225173e5b540c2a9cd656337429511",
+      "statement": "A separate mocked regional content-files Terraform test checks S3 Files filesystem and mount defaults, service-role and read-only access grants, TLS/network boundaries and invalid storage-size inputs without proving AWS behavior.",
+      "evidence": [
+        {
+          "resource": "repo://deploy/regional/tests/content-files.tftest.hcl#L123-L336",
+          "version": "repo-lines-v1:sha256:921325d1e9066e1ceb3c8902010c7931ca8a686688b8ef6bc8dc75803338af29:eyJzZWxlY3RlZExpbmVDb3VudCI6MjE0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5ZjFhNDdjOTI0YTlhOGJjNjcwZTk4ZDEyYWU4N2EwNGY3MTdhZDE4MDgxZmExZmY5MGE2NzZhZTdlY2UxNzFjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwOWY5MzA4M2MxOTcxMjFiOTgyNzAwYmE4YWZhYmQxNzIyY2YxZDNlNzQwNDUwOWU4MGVmYTI3MjQ3ZjYyZjA3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "by": "openwiki/0.7.0",
+    "at": "2026-11-13T18:18:24.408Z"
   }
 }

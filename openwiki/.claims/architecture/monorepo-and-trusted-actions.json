@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:b9827f937741c5e2d27f574c0ad13037a96b1f60cb05630bbf014f57b150371b",
+  "pageVersion": "sha256:415449fb12b6935f12d8b4c90e5b5ee595dc3954c31120d257edbe6727f41ede",
   "claims": [
     {
       "id": "claim_bb99a71168ed4f4ba678e9a32dbd25fd",
@@ -26,7 +26,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/go.mod",
-          "version": "repo-file-v1:sha256:3e3883e7d13f5c6eca5fa0d0b805dd9bee46a4cbf324dfcd4e8204824d074d34"
+          "version": "repo-file-v1:sha256:de02e2f398c9c3f0659ad00903e6ce411452550dad27aecf5117619d49847be1"
         },
         {
           "resource": "repo://docs/trusted-actions-monorepo-migration.md#L50-L63",
@@ -34,7 +34,7 @@
         },
         {
           "resource": "repo://go.mod",
-          "version": "repo-file-v1:sha256:8c391726016688ac589df3c0ceb137d628999e600588bce3ad34aaa2f659f8c6"
+          "version": "repo-file-v1:sha256:97387d72dd084455f3902c7ec39144998a61070ba03e5ed118993d315ea6da06"
         }
       ]
     },
@@ -48,7 +48,7 @@
         },
         {
           "resource": "repo://OWNERS",
-          "version": "repo-file-v1:sha256:7527d6f7666111c33e5aa4d4b72d89c0b587aabf93ab764a4df97c8bafc2bd30"
+          "version": "repo-file-v1:sha256:63f7e2e8d318eaac3d5ca32a01d826ecd1c2a9721a9d0243c1c2ab3c6c2792c4"
         },
         {
           "resource": "repo://components/trusted-actions/OWNERS",
@@ -118,7 +118,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "by": "openwiki/0.7.0",
+    "at": "2026-11-13T18:18:24.408Z"
   }
 }

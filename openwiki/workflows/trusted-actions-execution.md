@@ -50,7 +50,7 @@ sources:
     resource: repo://components/trusted-actions/internal/worker/executor_runner.go
   - id: openwiki-source-fea1c4c690d64395b484bcdb
     resource: repo://components/trusted-actions/internal/worker/pool.go
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
   - by: openwiki/0.7.1
     at: 2026-11-12T16:02:44.301Z
@@ -82,7 +82,8 @@ For how results are surfaced in the audit log, see
 
 ## End-to-end flow
 
-```mermaid
+<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
+```text
 flowchart TD
     Z["rta action run <action><br/>(internal/rta.Client)"] -->|"POST /{action}/run<br/>(authenticated + role-checked)"| A
     A["Any ocm_jwt-authenticated client"] --> B["APIHandler.CreateExecution<br/>internal/handlers/api.go"]

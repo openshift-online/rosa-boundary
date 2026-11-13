@@ -34,7 +34,7 @@ sources:
     resource: repo://components/trusted-actions/internal/ocm/authorization.go
   - id: openwiki-source-f710c4d6aa9327fd7bfc55c4
     resource: repo://components/trusted-actions/internal/openapi/api.go
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
   - by: openwiki/0.7.1
     at: 2026-11-12T16:02:44.301Z
@@ -120,7 +120,8 @@ Each role ID is mapped to an AMS resource type through server configuration (`co
 
 Resolving a role and clearing the action-level allowlist only establishes that the caller is allowed to invoke an action *kind*; it says nothing about the specific namespace, secret, AWS region, or AWS operation a given invocation targets. That check happens later and separately, inside `Executor.Execute` (`internal/executor/executor.go`), after a worker has dequeued the execution: once the target `Scope` (`KubeScope` or `AWSScope`) derives or receives the request's `Target`, it calls `Scope.Authorize(req)`, and a denial here aborts the run (recorded as `DecisionDenied`/`OutcomeSkipped` in the audit record) without ever calling `Scope.Run`.
 
-```mermaid
+<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: a semicolon inside a label breaks rendering; rephrase the label. -->
+```text
 flowchart TD
     A[HTTP layer: authn + role authz + ActionAuthz pass] --> B[Execution queued]
     B --> C[Worker dequeues execution]

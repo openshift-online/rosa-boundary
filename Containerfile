@@ -256,6 +256,8 @@ COPY skel/sre/ /etc/skel-sre/
 # The credential helper accepts only fixed OCM configure/clear operations and
 # writes exclusively to task-scoped mounts overlaid below the EFS-backed home.
 COPY --chmod=755 utils/rosa-boundary-credential-helper /usr/local/bin/
+# Python 3 (installed above) runs the unprivileged skill reconciliation loop.
+COPY --chmod=644 utils/rosa-boundary-skill-reconciler.py /usr/local/libexec/rosa-boundary-skill-reconciler.py
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV HOME=/home/sre

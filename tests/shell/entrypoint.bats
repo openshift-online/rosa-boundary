@@ -5,6 +5,53 @@ setup() {
     ENTRYPOINT="${REPO_ROOT}/entrypoint.sh"
 }
 
+@test "skill reconciler runs as sre with explicit home and can be disabled" {
+    run bash -c '
+        source "$1"
+        runuser() { printf "runuser:%s\n" "$*"; }
+        start_skill_reconciler "$1"
+        wait "$SKILL_RECONCILER_PID"
+        SKILL_RECONCILER_PID=""
+        BOUNDARY_SKILLS_ENABLED=0 start_skill_reconciler "$1"
+        test -z "$SKILL_RECONCILER_PID"
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "runuser:--user sre -- env HOME=/home/sre python3 ${ENTRYPOINT}" ]
+}
+
+@test "skill helper is stopped and reaped before signal audit sync" {
+    run bash -c '
+        source "$1"
+        SKILL_RECONCILER_PID=12345
+        CHILD_PID=""
+        exec 3>&1
+        kill() { printf "kill:%s\n" "$*" >&3; }
+        wait() { printf "wait:%s\n" "$*" >&3; }
+        sync_to_s3() { printf "audit-sync\n"; }
+        cleanup
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+    [ "${output}" = $'kill:-TERM 12345\nwait:12345\naudit-sync' ]
+}
+
+@test "normal workload failure still stops skill helper through EXIT trap" {
+    run env OC_VERSION="" KUBE_PROXY_PORT="" CLAUDE_CODE_USE_BEDROCK=0 TASK_TIMEOUT=0 \
+        S3_AUDIT_ESCROW="s3://audit/" bash -c '
+        source "$1"
+        verify_credential_mounts() { :; }
+        initialize_credential_mounts() { :; }
+        start_skill_reconciler() { :; }
+        stop_skill_reconciler() { printf "stop-helper\n"; }
+        runuser() { return 7; }
+        main false
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 7 ]
+    [ "${output}" = "stop-helper" ]
+}
+
 @test "entrypoint is safely sourceable" {
     run bash -c 'source "$1"; printf "%s\n" sourced' bash "${ENTRYPOINT}"
 

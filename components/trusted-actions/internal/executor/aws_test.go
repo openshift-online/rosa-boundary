@@ -135,11 +135,15 @@ func newTestAWSExecutor(regions []string, provider awsapi.ClientProvider) (*Exec
 }
 
 // newTestAWSPolicyExecutor spells the whole policy out, for the write tests.
+//
+// The deployment region is fixed to match the "us-east-1" every fixture in
+// this file resolves to, so the deployment-boundary check passes
+// and the tests keep exercising the AWS region/write allowlists.
 func newTestAWSPolicyExecutor(policy authorization.AWSPolicy, provider awsapi.ClientProvider) (*Executor, *audit.MockLogger) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	auditor := audit.NewMockLogger(logger)
-	return New(logger, auditor, NewAWSScope(authorization.NewAWS(logger, policy), provider)), auditor
+	return New(logger, auditor, "us-east-1", provider, NewAWSScope(authorization.NewAWS(logger, policy), provider)), auditor
 }
 
 func newTestInstance(id string) ec2types.Instance {

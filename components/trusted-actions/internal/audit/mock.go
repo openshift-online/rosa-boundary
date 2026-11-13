@@ -16,13 +16,14 @@ func NewMockLogger(logger *logrus.Logger) *MockLogger {
 func (m *MockLogger) Log(record Record) {
 	m.Records = append(m.Records, record)
 	m.logger.WithFields(logrus.Fields{
-		"caller":      record.CallerID,
-		"action":      record.Action,
-		"target":      record.Target,
-		"cluster_id":  record.ClusterID,
-		"decision":    string(record.Decision),
-		"deny_reason": record.DenyReason,
-		"outcome":     string(record.Outcome),
-		"error":       record.Error,
+		"caller":         record.CallerID,
+		"action":         record.Action,
+		"target":         record.Target,
+		"cluster_id":     record.ClusterID,
+		"cluster_region": record.ClusterRegion,
+		"decision":       string(record.Decision),
+		"deny_reason":    record.DenyReason,
+		"outcome":        string(record.Outcome),
+		"error":          record.Error,
 	}).Info("audit record")
 }

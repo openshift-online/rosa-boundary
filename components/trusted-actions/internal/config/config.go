@@ -38,6 +38,14 @@ type Config struct {
 	AWSAccessKeyID     string
 	AWSSecretAccessKey string
 	AWSSessionToken    string
+	// DeploymentRegion is the region this deployment is responsible for: an
+	// action targeting a cluster whose own OCM region differs is outside the
+	// deployment's boundary and is denied, for both Kubernetes and AWS
+	// actions. Unlike AWSAllowedRegions it has a default — it falls back to
+	// AWSRegion (AWS_REGION), which the regional deployment already sets — so
+	// empty here means neither was configured. cmd/server treats that as a
+	// startup failure rather than a server that denies every action.
+	DeploymentRegion string
 	// AWSEndpointURL overrides the AWS service endpoint. Set it to point at a
 	// local AWS emulator (LocalStack) instead of real AWS. Setting it also
 	// selects the static AWS client provider over the backplane one, because a
@@ -221,6 +229,8 @@ func Load(configFilePath string) (*Config, error) {
 		}
 	}
 
+	awsRegion := getEnv("AWS_REGION", "")
+
 	return &Config{
 		// Server config (set via CLI flags, defaults here for reference)
 		ListenAddr: getEnv("ROSA_TA_LISTEN_ADDR", ":8080"),
@@ -228,7 +238,11 @@ func Load(configFilePath string) (*Config, error) {
 		LogJSON:    getBoolEnv("ROSA_TA_LOG_JSON", false),
 
 		// AWS Configuration
-		AWSRegion:          getEnv("AWS_REGION", ""),
+		AWSRegion: awsRegion,
+		// No fallback other than AWSRegion: which region a deployment is
+		// responsible for is either stated explicitly or inherited from the
+		// region it already runs in.
+		DeploymentRegion:   getEnv("ROSA_TA_DEPLOYMENT_REGION", awsRegion),
 		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
 		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),
 		AWSSessionToken:    getEnv("AWS_SESSION_TOKEN", ""),

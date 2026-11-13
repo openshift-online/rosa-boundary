@@ -196,6 +196,19 @@ def test_only_selected_binary_extracted(tmp_path):
     assert not (tmp_path / 'LICENSE').exists()
 
 
+def test_runtime_validation_directory_mount_contract():
+    source = (Path(__file__).resolve().parents[1] / 'Containerfile').read_text()
+    runs = source.replace('\\\n', ' ').split('RUN ')[1:]
+    validations = [run for run in runs if 'verify_sre_tools.py runtime' in run]
+    assert len(validations) == 1
+    run = validations[0]
+    assert run.startswith('--network=none ')
+    assert run.count('--mount=') == 1
+    assert '--mount=type=bind,source=.,target=/verify-src,ro ' in run
+    assert 'runuser --user sre -- python3 /verify-src/build/verify_sre_tools.py runtime' in run
+    assert '--containerfile /verify-src/Containerfile' in run
+
+
 def test_secret_free_validation_contract():
     source = (Path(__file__).resolve().parents[1] / 'Containerfile').read_text()
     runs = source.replace('\\\n', ' ').split('RUN ')[1:]

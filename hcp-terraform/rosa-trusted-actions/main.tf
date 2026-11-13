@@ -66,8 +66,14 @@ module "rosa_trusted_actions" {
           category = "terraform"
         },
         {
+          key         = "public_zone",
+          value       = "dev0.rosav1.devshift.net",
+          category    = "terraform",
+          description = "The public hosted zone to create for certificate creation"
+        },
+        {
           key         = "internal_fqdn"
-          value       = "rosa-trusted-actions.internal.company.com"
+          value       = "rosa-trusted-actions.dev0.rosav1.devshift.net"
           category    = "terraform"
           description = "Used only to obtain the ACM validation CNAME token. Must match all regional workspaces."
         },
@@ -192,7 +198,7 @@ module "rosa_trusted_actions" {
         },
         {
           key         = "internal_fqdn"
-          value       = "rosa-trusted-actions.internal.company.com"
+          value       = "rosa-trusted-actions.dev0.rosav1.devshift.net"
           category    = "terraform"
           description = "Private FQDN — must match the value in the global workspace."
         },

@@ -22,10 +22,17 @@ locals {
   # Unifies the "pass an existing zone" and "create one here" paths into a
   # single ID so every downstream resource stays agnostic of which happened.
   public_zone_id = var.public_zone != "" ? aws_route53_zone.main[0].zone_id : var.public_zone_id
+
+  # Plan-time-known equivalent of `local.public_zone_id != ""`. When the zone is
+  # being created, public_zone_id is unknown during plan, and a count/for_each
+  # condition derived from it fails with "cannot be determined until apply".
+  # The two variables are validated mutually exclusive, so the OR has the same
+  # value without reading any computed attribute.
+  has_public_zone = var.public_zone != "" || var.public_zone_id != ""
 }
 
 resource "aws_route53_record" "cert_validation" {
-  for_each = var.internal_fqdn != "" && local.public_zone_id != "" ? {
+  for_each = var.internal_fqdn != "" && local.has_public_zone ? {
     for dvo in aws_acm_certificate.validation_anchor[0].domain_validation_options : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
@@ -44,7 +51,7 @@ resource "aws_route53_record" "cert_validation" {
 # ACM. It is never attached to an ALB. Each regional deployment issues its own
 # certificate (see terraform/regional/acm.tf) and validates against this CNAME.
 resource "aws_acm_certificate" "validation_anchor" {
-  count             = var.internal_fqdn != "" && local.public_zone_id != "" ? 1 : 0
+  count             = var.internal_fqdn != "" && local.has_public_zone ? 1 : 0
   domain_name       = var.internal_fqdn
   validation_method = "DNS"
   # Internal hostname only — disable Certificate Transparency logging so

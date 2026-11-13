@@ -111,7 +111,7 @@ RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py oc \
         --version "${OC_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
 
 # renovate: datasource=github-tags depName=aws/aws-cli
-ARG AWSCLI_VERSION="2.39.7"
+ARG AWSCLI_VERSION="2.40.0"
 RUN python3 /usr/local/share/sre-tools/sre_tools.py aws \
         --version "${AWSCLI_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)"
 RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py aws \

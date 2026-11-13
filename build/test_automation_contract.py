@@ -1,4 +1,4 @@
-"""Offline six-tool pin extraction and review-policy contracts."""
+"""Offline SRE-tool and Claude pin extraction and review-policy contracts."""
 import json
 import os
 import re
@@ -9,6 +9,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = json.loads((ROOT / "renovate.json").read_text())
+SRE_MANAGERS = [m for m in CONFIG["customManagers"]
+                if m["depNameTemplate"] != "anthropics/claude-code"]
 TOOLS = {
     "OCM_VERSION": "openshift-online/ocm-cli",
     "BACKPLANE_CLI_VERSION": "openshift/backplane-cli",
@@ -23,7 +25,7 @@ def extract(content):
     for arg in TOOLS:
         assert len(re.findall(rf'^ARG {arg}=', content, re.MULTILINE)) == 1
     found = []
-    for manager in CONFIG["customManagers"]:
+    for manager in SRE_MANAGERS:
         assert manager["managerFilePatterns"] == ["/^Containerfile$/"]
         for pattern in manager["matchStrings"]:
             # Python spelling of RE2 named capture; actual Renovate tested separately.
@@ -37,7 +39,7 @@ def extract(content):
 
 def fixture():
     lines = []
-    for manager in CONFIG["customManagers"]:
+    for manager in SRE_MANAGERS:
         dep = manager["depNameTemplate"]
         arg = next(arg for arg, name in TOOLS.items() if name == dep)
         version = "4.8.7" if arg == "OC_VERSION" else "2.8.7" if arg == "AWSCLI_VERSION" else "v4.8.7"
@@ -86,8 +88,9 @@ const { applyPackageRules } = await import(base + '/dist/util/package-rules/inde
 const { checkMinimumReleaseAge } = await import(base + '/dist/util/minimum-release-age.js');
 for (const text of [content, content.replaceAll('\n', '\r\n')]) {
   const deps = config.customManagers.flatMap(m => extractPackageFile(text, 'Containerfile', m)?.deps ?? []);
-  assert.equal(deps.length, 6);
-  assert.equal(new Set(deps.map(d => d.depName)).size, 6);
+  assert.equal(deps.length, 7);
+  assert.equal(new Set(deps.map(d => d.depName)).size, 7);
+  assert.equal(deps.find(d => d.depName === 'anthropics/claude-code').currentValue, '2.1.323');
 }
 const transform = getExpression(config.customDatasources['openshift-stable'].transformTemplates[0]);
 for (const [lines, expected] of [
@@ -140,7 +143,9 @@ for (const mismatch of [
 }
 ''')
     subprocess.run(["node", str(script)], input=json.dumps({
-        "base": module, "config": CONFIG, "content": fixture(),
+        "base": module, "config": CONFIG, "content": fixture() +
+        '# renovate: datasource=github-releases depName=anthropics/claude-code\n'
+        'ENV CLAUDE_CODE_VERSION="2.1.323"\n',
     }), text=True, check=True, capture_output=True)
 
 

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:368dc19accde3420d1df58de58992bed8464eed843dfa7682e895a64b2e388c0",
+  "pageVersion": "sha256:f8a5ae0c602bdd1a72b7cc23b8e9e95281713edbf0da61ef52c9d9b2ae1256aa",
   "claims": [
     {
       "id": "claim_c181865b5dad40e786ee778b4d6833b8",
@@ -80,7 +80,7 @@
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/terraform/global/dns.tf",
-          "version": "repo-file-v1:sha256:29b5b7e9f19bb90f12951f5240fee1587eb2b4a45337693a86d4c93907629459"
+          "version": "repo-file-v1:sha256:07bcb646207cb055fe942ba45807a2ab075499b2ebaaec4e923954bbd091344d"
         },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/acm.tf",
@@ -90,29 +90,37 @@
     },
     {
       "id": "claim_63faebf5e22d470cb3264ab70e30b18f",
-      "statement": "Both of Trusted Actions' HCP Terraform workspaces (rosa-trusted-actions-global and rosa-trusted-actions-stage), declared in hcp-terraform/rosa-trusted-actions/main.tf, currently set auto_apply and auto_apply_run_trigger to true, so the regional workspace's source_workspaces = [\"rosa-trusted-actions-global\"] entry resolves to a run trigger that auto-applies after a successful global apply, and the global workspace's remote_state_consumer_workspaces = [\"rosa-trusted-actions-stage\"] grants the regional workspace read access to global's state. Per components/trusted-actions/docs/deployment.md, these auto_apply settings were briefly disabled during the 2026-11 VCS rebind into this monorepo and then restored, and the first post-rebind meta-workspace run auto-applied unexpectedly, so the live HCP settings should be confirmed directly rather than trusting only the committed main.tf.",
+      "statement": "Both Trusted Actions HCP Terraform workspaces declare auto_apply and auto_apply_run_trigger true. The global workspace grants the regional workspace remote-state access while the regional workspace declares the global workspace as a run-trigger source; check effective live settings and runs separately before inferring any deployed change.",
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/docs/deployment.md#L84-L94",
           "version": "repo-lines-v1:sha256:678d29f7ad88a75c96b14cb9aeceb10ed43a29d96bc0223295135b9a8247c6e4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxM2FhMGY1ZjMxMzhiYWQ0MGMyNjQ3MjY0MDViODVmMWY0OThjNzcyYzYxZjQwMjJiODQ1YzBjMWYxODg0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0MTc1NjU0ZmU3ZTU5MzdiMDNhOGM4YWE1Y2U4ODY4OWQzN2Y5ZGY2YWEyYWMzNjUxOTZkNzQ3ODU5MzVjZWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAwMWYyZWMxNzU5M2MxMDU0ZWI0NjM2N2Q4NDUzZWYyNGExNzNjZTk2YjcxMTdkOTFmOWE2OGQ0NGZlZjhiMDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMGZjZjhmZmZmNzA0ODA1M2EyYjVjNWE1MzY2MWU0MWMxOTRjYTllOWJmZjYxYWZlNDBjZjE4YmQ2MmZjNzEifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L39-L124",
-          "version": "repo-lines-v1:sha256:2c73011af42c53d2d495f1378ff288713797bb93bb62e3ea37d89476384f836e:eyJzZWxlY3RlZExpbmVDb3VudCI6ODYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmN2E1YTMzZWY1MTE4NzAwNTEzMjQzZWZjMmMwMjE2YzcxY2Q2Yjg3NzQxNzYzZjIwYmY4ZDVlZjY1Yzk3YTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2NGZiMGNmN2ViNjE1ZGZjOGU2MDgxOTc5OGM1ZmNmNzFiZDJkMzMwOTM2ZGQ5YjQ1NDU4NjIyODUxNDcyM2EiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE3YmI4OWU3M2VmMjI3NGU0MWQ4OGVmMjAzNDYyZGM1OTVkNzY4NjQzMGRkNmUwOTYxNTViMjBhNjE0MDMxZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZjY2NkOGYxNzgyNzA1YmNhY2MzMTgwMjliNjU5NmMyNDZkYjkwYzMwZGRiZmEwZjM0YjZhMjEzM2M3ZDllZmIifQ"
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L115-L132",
+          "version": "repo-lines-v1:sha256:a7295449a3a1b882bd3c8f968b5e781f8a8b34cce5be73914b64c2c355804327:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjNzg3Zjc1ZTViNWU4ZmJmMzVmMmY0ODNiMTkwODk3NTM5ZTNhNTJmMTg3YjBiMDZkZGU3MGE3ZTJjMDA1OGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2NTM3NTdkMjZmNjI0OGEyNGFkYjcwNTM2ODZmNWU3ODczNzcyMDQxZWZjNmQ4NGQzOGJjZWZkZGM4ZTgzNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyYmNhOWMzZGUyZGNlNTlmN2NkNmMyYjVlOGVjZmU4MzE2NjNjMWFkMzdiZGJhMDBiOTUzMjZlODMyNzg1ZDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNjZDUzYzQxMjM1NDBjYzM4NmVjNGJiOWYwMDVmYTAyYzIzOTUzMWYxNjFkNWIwZDM1NmMxMzE3ZTFkMGQ0ZjkifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L34-L52",
+          "version": "repo-lines-v1:sha256:9e1c7007ae6571ff2983432fac725faa75ae32da16976dc02f63127e14e63aca:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwMWRiYjllNzY4MGNiMjdiYTc1YTY1NTA4N2Y0MjYyYWI2ZjlmYmIzODQ0M2QyZWRmZWI3OWRhOGQ3MjNiZTQifQ"
         }
       ]
     },
     {
       "id": "claim_b825fa370dc34042b1a3873154cf7994",
-      "statement": "hcp-terraform/rosa-trusted-actions/main.tf now sets github_repo_org = \"openshift-online\" and github_repo_name = \"rosa-boundary\" for both the rosa-trusted-actions-global and rosa-trusted-actions-stage workspace blocks, with working_directory values of components/trusted-actions/terraform/global and components/trusted-actions/terraform/regional respectively. The workspaces were rebound in place from the archived standalone openshift-online/rosa-trusted-actions repository into this rosa-boundary monorepo as part of the Trusted Actions monorepo migration, without moving their AWS state or re-creating them, so a push that changes components/trusted-actions/terraform/ in this repository is now the live trigger path for these workspaces' plans and applies, superseding any earlier description of them as still bound to the standalone repository.",
+      "statement": "The Trusted Actions global and stage HCP workspaces declare VCS connections to openshift-online/rosa-boundary with working directories components/trusted-actions/terraform/global and components/trusted-actions/terraform/regional respectively; these are independent from Boundary workspaces and the previous standalone TA repository.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/docs/deployment.md#L84-L94",
-          "version": "repo-lines-v1:sha256:678d29f7ad88a75c96b14cb9aeceb10ed43a29d96bc0223295135b9a8247c6e4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxM2FhMGY1ZjMxMzhiYWQ0MGMyNjQ3MjY0MDViODVmMWY0OThjNzcyYzYxZjQwMjJiODQ1YzBjMWYxODg0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0MTc1NjU0ZmU3ZTU5MzdiMDNhOGM4YWE1Y2U4ODY4OWQzN2Y5ZGY2YWEyYWMzNjUxOTZkNzQ3ODU5MzVjZWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAwMWYyZWMxNzU5M2MxMDU0ZWI0NjM2N2Q4NDUzZWYyNGExNzNjZTk2YjcxMTdkOTFmOWE2OGQ0NGZlZjhiMDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMGZjZjhmZmZmNzA0ODA1M2EyYjVjNWE1MzY2MWU0MWMxOTRjYTllOWJmZjYxYWZlNDBjZjE4YmQ2MmZjNzEifQ"
+          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L50-L63",
+          "version": "repo-lines-v1:sha256:637eb8f5f74db25f8d14327d243de355fd28b52548def21f55eafacd7be37c08:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MmIwYWY3NzBiZTE1OTY5MTkwNDFiYzMxNGJiNzIzN2IwZjRmYTkwZjdmMjMyOTYyODJjZmQ5NzlkOThkYjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwMzk3M2Q4ZTMwZWEzMDg1N2QyMjYzYjJjNTQ2MzczYzQ5ZTBhYmQ0NDlmNGZlNTNlOTRkYjNjYTgwOTBhOGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmODAwMzNkNGVjNDUzMDAxMTM2MmFiOTA3YzRkNzJmODE1YzA1YzIyOGZiNTA1YjFjZTUwOTk2Y2IzMWZiNzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzNThkOTYzYTQyOGE4ZDdlNTU2MjNlNmE2ZmI2YTkyODA0NDk4ZjUzMDVmY2ZlNmMyMzA2NjVhOGY2Y2JlMDMifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L39-L124",
-          "version": "repo-lines-v1:sha256:2c73011af42c53d2d495f1378ff288713797bb93bb62e3ea37d89476384f836e:eyJzZWxlY3RlZExpbmVDb3VudCI6ODYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmN2E1YTMzZWY1MTE4NzAwNTEzMjQzZWZjMmMwMjE2YzcxY2Q2Yjg3NzQxNzYzZjIwYmY4ZDVlZjY1Yzk3YTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2NGZiMGNmN2ViNjE1ZGZjOGU2MDgxOTc5OGM1ZmNmNzFiZDJkMzMwOTM2ZGQ5YjQ1NDU4NjIyODUxNDcyM2EiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE3YmI4OWU3M2VmMjI3NGU0MWQ4OGVmMjAzNDYyZGM1OTVkNzY4NjQzMGRkNmUwOTYxNTViMjBhNjE0MDMxZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZjY2NkOGYxNzgyNzA1YmNhY2MzMTgwMjliNjU5NmMyNDZkYjkwYzMwZGRiZmEwZjM0YjZhMjEzM2M3ZDllZmIifQ"
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L115-L132",
+          "version": "repo-lines-v1:sha256:a7295449a3a1b882bd3c8f968b5e781f8a8b34cce5be73914b64c2c355804327:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjNzg3Zjc1ZTViNWU4ZmJmMzVmMmY0ODNiMTkwODk3NTM5ZTNhNTJmMTg3YjBiMDZkZGU3MGE3ZTJjMDA1OGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2NTM3NTdkMjZmNjI0OGEyNGFkYjcwNTM2ODZmNWU3ODczNzcyMDQxZWZjNmQ4NGQzOGJjZWZkZGM4ZTgzNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyYmNhOWMzZGUyZGNlNTlmN2NkNmMyYjVlOGVjZmU4MzE2NjNjMWFkMzdiZGJhMDBiOTUzMjZlODMyNzg1ZDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNjZDUzYzQxMjM1NDBjYzM4NmVjNGJiOWYwMDVmYTAyYzIzOTUzMWYxNjFkNWIwZDM1NmMxMzE3ZTFkMGQ0ZjkifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L34-L52",
+          "version": "repo-lines-v1:sha256:9e1c7007ae6571ff2983432fac725faa75ae32da16976dc02f63127e14e63aca:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwMWRiYjllNzY4MGNiMjdiYTc1YTY1NTA4N2Y0MjYyYWI2ZjlmYmIzODQ0M2QyZWRmZWI3OWRhOGQ3MjNiZTQifQ"
         }
       ]
     },
@@ -184,7 +192,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "by": "openwiki/0.7.0",
+    "at": "2026-11-13T18:18:24.408Z"
   }
 }

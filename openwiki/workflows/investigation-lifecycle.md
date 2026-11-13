@@ -4,8 +4,10 @@ title: Investigation lifecycle
 description: Traces investigation workspace creation, session launch/handover, operator connection, timeout enforcement, garbage collection, and closing across the CLI, Lambda, ECS, and EFS, including how the create-investigation Lambda's own ZIP/container-image packaging fits into the trigger path.
 tags: [investigations, lifecycle, ecs, efs, workflow, garbage-collection, lambda, container-build]
 sources:
-  - id: openwiki-source-9b833cdb720fbc838fdd392a
-    resource: repo://deploy/regional/ecr.tf
+  - id: openwiki-source-d26615a0354c146aa6f23c2c
+    resource: repo://deploy/account/ecr-lambda.tf
+  - id: openwiki-source-b84818c3b6429e491a77175c
+    resource: repo://deploy/regional/ecr-lambda-destination.tf
   - id: openwiki-source-d176128a85129af793772942
     resource: repo://deploy/regional/lambda-create-investigation.tf
   - id: openwiki-source-81b84da9542934c33f2e42d7
@@ -14,6 +16,8 @@ sources:
     resource: repo://deploy/regional/lambda-reap-tasks.tf
   - id: openwiki-source-a055ff9a3fcbd2c0a0fc4ee2
     resource: repo://deploy/regional/variables.tf
+  - id: openwiki-source-527b127f4d59725c0085dfbf
+    resource: repo://docs/staging-deployment.md
   - id: openwiki-source-9c181bb7100aaf770ed7b6d2
     resource: repo://internal/aws/efs.go
   - id: openwiki-source-3eb89a64c83d3140ea6ba8c4
@@ -46,10 +50,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-80fcaf58926aeda8dd2be405
     resource: repo://tests/unit/test_reap_investigations_staleness.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - by: openwiki/0.7.0
+    at: 2026-11-13T18:18:24.408Z
 ---
 
 # Investigation lifecycle
@@ -156,7 +160,7 @@ The handler checks the remaining-time budget before each access point and during
 `create-investigation` is the trigger for everything above — a Lambda Function URL invocation (SigV4-authenticated, OIDC token validated inside the handler) that the CLI and `--connect` wiring call for both `investigation create` and `session create`. How that Lambda's own code is packaged is independent of the ECS Fargate investigation container it launches (see [Container image and task runtime](../runtime/container-image.md) for that separate build), but `deploy/regional/lambda-create-investigation.tf` supports two different packaging modes for the Lambda's own deployable artifact, selected by the `lambda_package_type` Terraform variable (`"Zip"` default, or `"Image"`):
 
 - **ZIP packaging (default).** `data.archive_file.create_investigation_lambda` zips `lambda/create-investigation/` excluding `Containerfile`, `pyproject.toml`, `uv.lock`, tests, and other non-runtime files, and `aws_lambda_function.create_investigation_zip` deploys it with the standard `python3.11` managed runtime.
-- **Container image packaging.** `aws_lambda_function.create_investigation_image` instead deploys from `image_uri`, built from the resolved ECR pull-through-cache path (`<account>.dkr.ecr.<region>.amazonaws.com/<project>-quay/<lambda_image_repository>:<lambda_image_tag>`). This mode exists for HCP Terraform remote-execution compatibility and requires `lambda_image_repository` and a non-empty, immutable `lambda_image_tag` (a git SHA or release version, not `latest` — Lambda resolves the tag to a digest at deploy time and will not notice if the tag later moves). The `aws_ecr_pull_through_cache_rule.quay` resource only maps the project-scoped ECR prefix to `quay.io`; it does not pull images on demand, so the image must already be copied into ECR (e.g. via `skopeo`) before `terraform apply` creates the Lambda function — see `docs/runbooks/lambda-zip-to-image-migration.md`.
+- **Container image packaging.** `aws_lambda_function.create_investigation_image` deploys from an ordinary same-account regional ECR URI (`<account>.dkr.ecr.<region>.amazonaws.com/<project>/create-investigation-lambda:<lambda_image_tag>`). This mode supports HCP Terraform remote execution and requires a non-empty **40-character lowercase commit-SHA** tag. The account Terraform root owns the source ECR repository; the regional root may create a matching destination in another Region. Building in Konflux, releasing to ECR and replicating cross-Region are separate delivery steps: verify that the image exists in the Lambda's own Region before applying a pin. See `docs/runbooks/lambda-zip-to-image-migration.md`.
 
 `lambda/create-investigation/Containerfile` builds that optional container image using AWS's "alternative base image" approach: Red Hat UBI9 Minimal instead of the AWS-provided Lambda base, because Konflux Enterprise Contract policy rejects non-Red Hat base images. It has two stages, both from the same digest-pinned `BASE_IMAGE` to keep glibc ABI compatible with compiled wheels:
 
@@ -167,8 +171,7 @@ The handler checks the remaining-time budget before each access point and during
 
 ## Failure boundaries and tests
 
-<!-- openwiki: broken internal link [../testing/verification.md#focused-investigation-staleness-regression-tests] heading anchor "focused-investigation-staleness-regression-tests" does not exist in "../testing/verification.md". Fix the href or restore the target, then delete this comment. -->
-Lambda unit tests cover skip-task behavior, access-point reuse, handover guards, task definition shaping, and rollback differences for newly created versus reused access points. For the handover guard, they cover empty task details and active-session/SSM-error failures, but not a task whose container lacks `runtimeId`. `close_investigation_test.go` covers owner-tag rejection and acceptance, malformed/missing ID-token subject claims, family-prefix scoping that excludes neighboring investigations, and `sameClosePlan` detecting both a newly appeared session and a session transitioning into the shutting-down state — the checks that gate the pre-mutation re-resolve. The `reap-investigations` unit tests cover the happy-path reap, running-task and grace-period skips, strict age boundaries, legacy missing timestamps at zero/nonzero grace values, tag/path validation failures, partial-failure cleanup rules, required S3 backup configuration and failure/exclusion behavior, and pagination. A separate pytest module under `tests/unit/` checks legacy eligibility and matching-task protection, 168-hour ages, and unrelated-task filtering; the Lambda Make targets do not discover that module. See [testing and verification](../testing/verification.md#focused-investigation-staleness-regression-tests). LocalStack integration tests check EFS/ECS relationships, `investigation close` ownership/ambiguity/ IAM-policy scoping, task-definition family scoping, and the end-to-end deadline-tag/reaper path. Slow cases that require a task to reach `RUNNING` are skipped with LocalStack's local ECS executor.
+Lambda unit tests cover skip-task behavior, access-point reuse, handover guards, task definition shaping, and rollback differences for newly created versus reused access points. For the handover guard, they cover empty task details and active-session/SSM-error failures, but not a task whose container lacks `runtimeId`. `close_investigation_test.go` covers owner-tag rejection and acceptance, malformed/missing ID-token subject claims, family-prefix scoping that excludes neighboring investigations, and `sameClosePlan` detecting both a newly appeared session and a session transitioning into the shutting-down state — the checks that gate the pre-mutation re-resolve. The `reap-investigations` unit tests cover the happy-path reap, running-task and grace-period skips, strict age boundaries, legacy missing timestamps at zero/nonzero grace values, tag/path validation failures, partial-failure cleanup rules, required S3 backup configuration and failure/exclusion behavior, and pagination. A separate pytest module under `tests/unit/` checks legacy eligibility and matching-task protection, 168-hour ages, and unrelated-task filtering; the Lambda Make targets do not discover that module. See [testing and verification](../testing/verification.md). LocalStack integration tests check EFS/ECS relationships, `investigation close` ownership/ambiguity/ IAM-policy scoping, task-definition family scoping, and the end-to-end deadline-tag/reaper path. Slow cases that require a task to reach `RUNNING` are skipped with LocalStack's local ECS executor.
 
 ## Related pages
 

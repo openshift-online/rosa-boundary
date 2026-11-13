@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:72986e7818ef588e48b201934ae7936a0a2cd3d6f2089c3d7871f3c34c79633d",
+  "pageVersion": "sha256:492564c47260845bda5c39dc35922273247c1e814654af069a1d48fb67fa8974",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
@@ -39,8 +39,12 @@
       "statement": "The regional task definition combines an EFS-backed home with empty task-scoped OCM and kubeconfig overlays, and the entrypoint refuses missing or EFS-backed overlays before launching the workload as sre.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/ecs.tf#L62-L159",
-          "version": "repo-lines-v1:sha256:1b6b57be2bb9a7f2ea1833b3480ffd01c83acd24f7b18c5149bedbd3ed979b31:eyJzZWxlY3RlZExpbmVDb3VudCI6OTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkZGQ2NmZkNzJmOGRkZTAwMzY2OGE1MTk5NjFkMmNhNWU1MTA3NWE2YjhlMmMxMWYxMWU5NmNkNjdlOTRmMzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY1YTFlNzhiNTZhZTc5M2JlNGEwYzBiNWEyMmRiM2Q4MWJjYjY4ZTUxYzEzODExNWJhNzYwZjVhYTg5MmJiNTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
+          "resource": "repo://deploy/regional/ecs.tf#L160-L187",
+          "version": "repo-lines-v1:sha256:34dd2eafaeb937beb55d2a928dcf4227bb1510fe6ba54360a162cd943183c07b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0YWIyMWZlNGQ2YTFiZjE4ZWRkYmVjODMwZTJkOGFjNjliYTEyYmE5NTMyZmQ1ZThjYjMxYjQ0MDA1N2IxZTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI5YWU5YjRkYTljNDAyNmRjZmFjZWE2ZGEwOGFhMjUxNTM1MWZlYzFhODBlOTI2MWY4OGFlZTE0YWNhNDAyYWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjczMjU5M2I2MDY2ZDkzNjQ4ZjVlMzBiOTIxMzY5OGM1MDY0YzZiMWY0ZmUyMDc5OTZiMzljZWUzZDA3N2JkNjgifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/ecs.tf#L85-L111",
+          "version": "repo-lines-v1:sha256:89b569812a8a640b61950a18b27da69315454303f78ecd5ac294ed8a3d4a9bba:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ZTc3MDY3MzhkMjJiNjk2ODY0ZWYxOTJiMzZjYzk5ODRhMzg5OWQ3ZTkxZGU2M2MzODc4NDA0YzU2N2IxOTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3YmM1YzU5NTk0YzVlYmQ2NzljOTQ2NmQyNTk3ZGVlODg1OWJkMDVkOTYxZDMxMzgyZmE2Y2U2ZjU5OWU3OTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM4OThlYjU2ZTA3Y2RjODU1MTk4MTVhNWY1MjlmM2I3MTBiMTlhYWViNGRhOWU0OGU4YWZmZmExNjc5OWIwYjMifQ"
         },
         {
           "resource": "repo://entrypoint.sh#L46-L80",
@@ -177,7 +181,7 @@
       "statement": "The reap-investigations Lambda's GRACE_PERIOD_HOURS defaults to 72 hours in the handler when the environment variable is unset, while the Terraform variable investigation_grace_period_hours that normally supplies it defaults to 168 hours (7 days); operators relying on the Lambda's built-in fallback outside Terraform-managed deployment get a materially shorter grace period than the documented default.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/variables.tf#L439-L447",
+          "resource": "repo://deploy/regional/variables.tf#L433-L441",
           "version": "repo-lines-v1:sha256:1f08ff33ef1e3492c2a244f6a4566b6d4a2cabe4a33c19d7233fa68350ee61d1:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTU3ZjZkYTA2Y2YzOWM4MGE5YTlkM2I0MjRlMDZmNzY0MzNiYjYyZjM2NDgyM2NlMDdmNzJhMzc4YjQ5NWFhYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjdlNTc4OGQ1ZDlkNzNkMjRhODFkYmMwYTVhNzRiZmE4MmM5YzNiM2FmOTllNTJhZjc5NmU5MGI0NjhhOGEzZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZmI1ODBlOTY0ZjgzYTQ3M2Y0M2Q0NDM4NDYyOTQ5ZDY4YjU2MDBmZGE3ODdmMTYzNzQ1ZDAwZGU4OWNiZjM2YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjEsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSJ9"
         },
         {
@@ -224,27 +228,31 @@
     },
     {
       "id": "claim_122462732b204913a3b8320e863778d4",
-      "statement": "The repository also contains components/trusted-actions, a Trusted Actions service built as a fully separate Go module (github.com/openshift-online/rosa-trusted-actions), its own container image build, and its own Terraform roots (components/trusted-actions/terraform/global and .../regional); no code path in the create-investigation Lambda, the regional ECS task definition, or entrypoint.sh references Trusted Actions, so the Boundary investigation container's architectural reachability to TA's execution API is unbuilt and unwired, not an existing integration.",
+      "statement": "The repository also contains components/trusted-actions, a separate Go module, container image build and Terraform roots; no code path in the create-investigation Lambda, regional ECS task definition or entrypoint references Trusted Actions, so these source files do not establish a Boundary-to-TA integration.",
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/Containerfile#L1-L10",
-          "version": "repo-lines-v1:sha256:970e81d9ce42a4f95873b3f4d9def0792cf061dfda03c0b18f950377959637d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5OTc0NzYwYTY5ZGZlMjMzYzkyYjFkYmRhYmYwMGM4Mjc4NWU1ODMyOWNhZTc3ZDBhOTc3ZDJhNWI0MmMzYjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiZmNlNWIzMzhhODkzZGY2ZDhiOWE3ZWE3NmNjOTFlYmViY2JmZjE0N2JiNTAwZWE0NDRmMmZmZTNkYWI2YzQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNjZTk5MTc2ODM5Zjg3MTZjYmUzMjRlNTA4NWY1NGQyZTdkY2UzMDk5MTAyNzQ5YjkzMzZmNDYzZjg4Zjc5NTkifQ"
+          "version": "repo-lines-v1:sha256:970e81d9ce42a4f95873b3f4d9def0792cf061dfda03c0b18f950377959637d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5OTc0NzYwYTY5ZGZlMjMzYzkyYjFkYmRhYmYwMGM4Mjc4NWU1ODMyOWNhZTc3ZDBhOTc3ZDJhNWI0MmMzYjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiZmNlNWIzMzhhODkzZGY2ZDhiOWE3ZWE3NmNjOTFlYmViY2JmZjE0N2JiNTAwZWE0NDRmMmZmZTNkYWI2YzQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwYWI2YzZlNDQwNDQ3YTQwMGE3MzdiODM0OTI2MTY0Y2I1MmFkN2NmNmJkZmQ5OTVmOTg0YjI5MjFhOTYxZTQifQ"
         },
         {
           "resource": "repo://components/trusted-actions/go.mod#L1-L3",
-          "version": "repo-lines-v1:sha256:64a9cccb71c111d0be4705eae9ee72a1d1e34f07e0cc6fa9614287a87a523727:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjE2MTE0ZTI3MDE5ZTNhZTIyM2ZlMDY1ODMyYWVhYTQ4YTU4ZWI5ZWZmNWIwZDIxNjEwYzlhMjRhNDVhMjg5NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzUxZWYyMjcyMDllYjAyM2RkMjc2ODBhNjAwZWNhNTcwNzU4NWY1ZjM2MTI0NDljNjA4ODVjMWU4Njc2Zjg4NyJ9"
+          "version": "repo-lines-v1:sha256:64a9cccb71c111d0be4705eae9ee72a1d1e34f07e0cc6fa9614287a87a523727:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjE2MTE0ZTI3MDE5ZTNhZTIyM2ZlMDY1ODMyYWVhYTQ4YTU4ZWI5ZWZmNWIwZDIxNjEwYzlhMjRhNDVhMjg5NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWQwYzdjNDM1OTVhYmQ2YjRkODczZDIwNWJhYzIzYWMzODQ2OTI0ODcwNWNjODUzZDZmMWE3YTNkOWY1ZWYzNSJ9"
         },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L1-L8",
-          "version": "repo-lines-v1:sha256:0bc530cfcf6c746e76b3174bdeec95c3d2d072dd856dea5dd31c1cca590c11bd:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGZiZGNlYmZlOTJiNmQ5MDE5YzkzMDAwNGRhYTA3MmQzOWYzZDAyNTMxZGY0NTQwM2M5ZTJjYWY2YzU0MGZiYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmMwYjBlMDU0N2Y5YmI5MjljOWU2ZTgxZDI5Zjg3NDdiYTk4MzZjZjE0MTc5MjJjOTcyMjRmMTcxMWE0YjkwZSJ9"
+          "version": "repo-lines-v1:sha256:0bc530cfcf6c746e76b3174bdeec95c3d2d072dd856dea5dd31c1cca590c11bd:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGZiZGNlYmZlOTJiNmQ5MDE5YzkzMDAwNGRhYTA3MmQzOWYzZDAyNTMxZGY0NTQwM2M5ZTJjYWY2YzU0MGZiYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzMxMmM5ZGYwNzhiYzNkY2QzYzI2NGYxYTRhNjQzODA0ODY2YTA4NWNmNTM4M2E0NWM0NjVmNjQ1MWEwNjE4MCJ9"
         },
         {
-          "resource": "repo://deploy/regional/ecs.tf#L61-L159",
-          "version": "repo-lines-v1:sha256:025fb0ceacd765b39c8a693c5303b93379799fa4f25d83d0b2b79ee9342a30cb:eyJzZWxlY3RlZExpbmVDb3VudCI6OTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhZjcxZThhYjMzMDZkMzdkZWQ1NTAyMjRhMmIyNDRlOTA1M2EzNmQzZGIxMGFjNWQyZTEwNmQ4ZjAzYjVjOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYWU4YTBjYTc2Zjk4ZjdiN2RjNzk4NDk1MWQ2M2U1N2RiM2M2NDU1NzljYTUxYmFkNmE1MzlkNjE0ZWRiYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2MTdhZGFmZGQyNDk2MjQ0YjY0OGNkYzgxMTk5ZWE1ODA3MjQ0ODg2YTk0NjFjMDNkNzJlZDVjZTJmNGNlM2YifQ"
+          "resource": "repo://deploy/regional/ecs.tf",
+          "version": "repo-file-v1:sha256:c2313274fa64120fd312e67da7752e9f6459333681edafd5ca3be4575933367c"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L1-L8",
-          "version": "repo-lines-v1:sha256:70291be41e7572d57b0413bb789134762b3124b9b6021a24922b2b64af901ee0:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTMwM2VjZGQ0YTRkMTBmMTljNzNmZDQyZmQxMjQzN2ZkMzM1NGE4MjY4MTYwNWRhNTI1NWE5N2EzOTA2OGRiYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYTMwM2VjZGQ0YTRkMTBmMTljNzNmZDQyZmQxMjQzN2ZkMzM1NGE4MjY4MTYwNWRhNTI1NWE5N2EzOTA2OGRiYiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTEyYzYwNTIyYzUyMjU4M2UwZTcxOTAzMDMxZTFhMTM3YzI2NWQxZTQ0NjVlZDQzYWZiOTNlZTdkZjk4MTYwZSJ9"
+          "resource": "repo://entrypoint.sh",
+          "version": "repo-file-v1:sha256:70e588e2da0100ba37293fbc4eb51fc956804af82166b760bda1d646d50cb21b"
+        },
+        {
+          "resource": "repo://lambda/create-investigation/handler.py",
+          "version": "repo-file-v1:sha256:772b40b92a98b0f0ce71fea32d48362f5c4ebd8f7555bb48c8ee3fa8c3b2c5af"
         }
       ]
     },
@@ -272,7 +280,7 @@
         },
         {
           "resource": "repo://Containerfile#L191-L274",
-          "version": "repo-lines-v1:sha256:70edcfac0aeaff0444ec0099a887424ae74e6881803587388764c98deec8d5a7:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzZWJmNWIzNGJkNmE4MmY1NDc1OGM0OGVjMDg4NzA3NmMxNTViZmNiYzc5NjIxZmU3YmVjMzI1YWQyNGUzMDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwMmY1OTM1NGExN2ZiNjgwZTljMjE2YmZkMGQ2NjUxNGNjOTM0ZWFlZmU4MTU3MGNkN2U2ZjQwNWQ4NzQ0YzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "version": "repo-lines-v1:sha256:4d2c60ff7c01805dc66e704a63d4469c943fbd0a71ffff93437362919180ce83:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzZWJmNWIzNGJkNmE4MmY1NDc1OGM0OGVjMDg4NzA3NmMxNTViZmNiYzc5NjIxZmU3YmVjMzI1YWQyNGUzMDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwMmY1OTM1NGExN2ZiNjgwZTljMjE2YmZkMGQ2NjUxNGNjOTM0ZWFlZmU4MTU3MGNkN2U2ZjQwNWQ4NzQ0YzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
@@ -288,7 +296,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "by": "openwiki/0.7.0",
+    "at": "2026-11-13T18:18:24.408Z"
   }
 }

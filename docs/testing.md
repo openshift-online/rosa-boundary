@@ -350,22 +350,7 @@ make pre-commit
 
 ## CI
 
-| System | Trigger | What it runs |
-|--------|---------|--------------|
-| Tekton/Konflux | PR and push to `main` | Container build + security scans (Clair, ClamAV, Snyk SAST, shellcheck, RPM signatures) |
-| Prow | Every PR to `main` | Non-blocking Go [coverage](configuration/code-coverage.md) (`make codecov`), container image build, Lambda unit tests |
-| Prow (postsubmit) | Merge to `main` | Publish [coverage](configuration/code-coverage.md) to Codecov |
-
-### Prow Jobs
-
-Presubmit jobs run on every PR (`always_run: true`). The coverage presubmit is explicitly optional, so it reports coverage without blocking merges. Config lives in [`openshift/release`](https://github.com/openshift/release) under `ci-operator/config/openshift-online/rosa-boundary/`.
-
-| Job | Target | Description | Retrigger |
-|-----|--------|-------------|-----------|
-| `pull-ci-...-coverage` | `coverage` | Runs `make codecov` (non-blocking Go test coverage) | `/test coverage` |
-| `pull-ci-...-images` | `[images]` | Builds container images via ci-operator | `/test images` |
-| `pull-ci-...-lambda-unit-tests` | `lambda-unit-tests` | Runs `pytest test_handler.py` for `create-investigation` Lambda in a UBI Python container | `/test lambda-unit-tests` |
-| `branch-ci-...-publish-coverage` | `publish-coverage` | Publishes coverage to Codecov on merge (postsubmit) | — |
+For the dated, source-linked Prow, Konflux, GitHub and HCP Terraform delivery map—including path-filtered jobs, release configuration and what each gate **does not** test—see [CI/CD and verification](ci-cd.md). The authoritative Prow job definitions live in `openshift/release`, not this repository; do not assume every PR runs every job. Check actual PR contexts and run artifacts before claiming CI coverage. This guide's Makefile commands describe local gates, not automatic CI execution.
 
 ## Quick Reference
 

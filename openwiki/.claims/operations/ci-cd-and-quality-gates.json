@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:b84d62ef5dde93b6c2fc13b35f339bb17f42f3a8f04f413ea1903e2130754ec2",
+  "claims": [
+    {
+      "id": "claim_e1c46fdd6d9345088a725c8edbc61d9c",
+      "statement": "Root Boundary and nested Trusted Actions are independent Go modules; root make test does not execute TA make test.",
+      "evidence": [
+        {
+          "resource": "repo://Makefile#L132-L160",
+          "version": "repo-lines-v1:sha256:704c8371ca07a1187fe058e35e5101a6d9f80d3043fba4ea368cb49d10d4c9a1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiZDQ5OWQyNjU3MzY0NTFhYTJmN2RiYjg2ZWU0YjljMGVmZDBiNGMxNGY5OTdlY2ZiNDU4MTQ5OTdkYTdhYzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4YzFmNzAzMDFhNjFmYjc0MjAwYzYxNTEyYmU1NTI4NjhjYmUyNGE3MDNiNThhZmY2MjE0ZmZkYWNkOGM0MzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA3YTQyYzY4MTZkMGYxN2ZlZTZkZTJjNWUzODIxMDZmOWU1NjgzM2Q5M2I0MTczZmYwZDQ2YWQzOTg2NzFlNzYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L128-L136",
+          "version": "repo-lines-v1:sha256:dbf3851a5153a0ea9dee312aea349193f4a4c56656af6e7cdf5a13703ada6f21:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjE3OGI5ZmU3ZjE1YzI1NTI2MjJjMWQ3Mjk1MzNiYjdiZTE3YWI5ZTMyMGE5N2RjMmMwYjA4YmJkOGRkMGRlMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzg0NWMzMjAzMTg1Nzg5NjAwZGVmMjdiZDZiZDcxMjYxMmU5YWIzNzVhMjlhMzU5YmIwNDhhYjlkMDQ1MTcxMSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2VmZjAyM2IxZDBmMTgyYzRhMWU5ZWY1NjU4ZjNhZWUzNTE1N2QyNWYwN2MwOWE2YjFkYjRlOWMwMDM3OTk3OCJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/go.mod#L1-L4",
+          "version": "repo-lines-v1:sha256:0e029d97de06e4b8d251f948d0dfa3567827e8443276ba6a335e988e88c22d97:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiN2YwNGJlOGFjZmM3YTE3NWVjNTBjMWQ3ZjZlODAzYTc3N2Y1YjQ1MDU4YmY3ZWY5MTNkODgxMDYyMzk3N2FmMiJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_77ee14cedbc84882b28879f5798f179e",
+      "statement": "Root make check sequentially runs tests, lint, Staticcheck and pre-commit, while scripts/test_all.py adds isolated Terraform checks, LocalStack, image builds and format checks; neither target alone proves it is called by a presubmit.",
+      "evidence": [
+        {
+          "resource": "repo://Makefile#L132-L160",
+          "version": "repo-lines-v1:sha256:704c8371ca07a1187fe058e35e5101a6d9f80d3043fba4ea368cb49d10d4c9a1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiZDQ5OWQyNjU3MzY0NTFhYTJmN2RiYjg2ZWU0YjljMGVmZDBiNGMxNGY5OTdlY2ZiNDU4MTQ5OTdkYTdhYzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4YzFmNzAzMDFhNjFmYjc0MjAwYzYxNTEyYmU1NTI4NjhjYmUyNGE3MDNiNThhZmY2MjE0ZmZkYWNkOGM0MzMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA3YTQyYzY4MTZkMGYxN2ZlZTZkZTJjNWUzODIxMDZmOWU1NjgzM2Q5M2I0MTczZmYwZDQ2YWQzOTg2NzFlNzYifQ"
+        },
+        {
+          "resource": "repo://scripts/test_all.py#L170-L222",
+          "version": "repo-lines-v1:sha256:22bcba8f48935911beb7f466516eb9b48ef01e3fd82b1dd82fb2dea2c3b2c4c4:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE3ZWExMmNkNTgwZDNiZTEyNDllZWFkOTM4YjRjZWE4YmZiYzAyZGE5NzU0ZGQ2ZGUxNDVmZGU4NDIxODYzZDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZiNjRlOTIwMDBhMTljYTM4NTkzYTRlNmEwYmFjNzcwOTZkMWU5ODY5NDlhM2I2MjgyNmI3Y2VhNGY3M2Q5ZTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4YTkwMjM1NmFmOWNhYmM3OWIzMjVjM2Y0YTlhMTg2M2Y2MjQ5ODgzMTAwZTEwNmE5OWNlZTkxN2I3MTllNTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_9bc22dd847ee4b4b93be25d9b9b25965",
+      "statement": "Root pre-commit runs skillsaw and file-hygiene hooks, root golangci-lint excluding TA, TA-only gitleaks and a conditional TA Go build, not a universal test or root-wide secret scan.",
+      "evidence": [
+        {
+          "resource": "repo://.pre-commit-config.yaml#L1-L39",
+          "version": "repo-lines-v1:sha256:9d8dbb76230c5ae9721ad3d006bf729b6aeb689b2dd7090f33d486c24cee86d8:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhMTEwZGI1YTkzNTdjZGExZDc4MjE2Y2RjMGJmOGIyNTVlMzM4Y2JjMWYzMjdlMGRmMDhjZmM3NzM5MWRkZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxNzg2YmQzZDQ5YmE5M2IyNmM0NDY4MzUyZDVlYjA3OWI1ZmNlNGZkZmQ2MzY4Mzg2NDIxZGVmYzI2NzA0ZTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6446e97560124f1ab0d4e059d1cfaab4",
+      "statement": "Boundary image PR/push triggers use a files.all.exists allowlist for container-related paths and target linux/x86_64; a mixed change outside that allowlist does not match, and ARM64 is not configured.",
+      "evidence": [
+        {
+          "resource": "repo://.tekton/rosa-boundary-pull-request.yaml#L9-L52",
+          "version": "repo-lines-v1:sha256:d565ab7966160fed0b77ba605dddb66b4850df2a8d5aafc57237236191140426:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ1MGIwMTI1ZTJlMmM3ZjI1YTE1ZGY5MDc3NzNlYTUzMzQ1NTk3YmEzOTRiNmU5Y2FjMzJmNTE1ZTgyNjZlMzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5MzcwOWM2NDE5OTE0ZGY4ZWJkNDFjNjAzM2M3ODk0NTY0N2VlMmFhOGE1NmI0ZTRjYTk5ZWU5YWIzOTE4MzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAzOGVlZjAzZGI4MWFiZDUyMTRiZWFlOGFiOTAyODIwYjIyYTlhNmExZDA4NTg4NzYwMWNmYmVmYzliNDI5MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY0NjExZDNhYTllOGMxOWZhM2MyNGIyMmY0MzEwOTcyMWZlMTM4Y2QwMGZjOGRjYmVmYWI4MDdkZWRhNGM0MDIifQ"
+        },
+        {
+          "resource": "repo://.tekton/rosa-boundary-push.yaml#L9-L49",
+          "version": "repo-lines-v1:sha256:1d9536d05d0428e75aee3478065a677650b6088f805efa19e687dac0b4d7a5ac:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhkYmIxMmMwYzRiMDM5ODVlYjBkODhjYmQxNDA0MjZjYTU5NjQyZTFjODRlNzY5M2U1ODA3MTQ5OWQ2Njc1MWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5MzcwOWM2NDE5OTE0ZGY4ZWJkNDFjNjAzM2M3ODk0NTY0N2VlMmFhOGE1NmI0ZTRjYTk5ZWU5YWIzOTE4MzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdlNjFkNDA5NTAzYTk5ZDYxYmJmNTQxYmNlZWM0OGUxNjlmNjFmYTAwYWI3ODY2NzU0ZGJkMDk3ODY3ZjU1ODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY0NjExZDNhYTllOGMxOWZhM2MyNGIyMmY0MzEwOTcyMWZlMTM4Y2QwMGZjOGRjYmVmYWI4MDdkZWRhNGM0MDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_957b9aae63a047209a2b5f355549445b",
+      "statement": "Lambda and TA image PipelineRuns have separate path filters, component build contexts, PR-tagged and push-SHA-tagged output images; TA targets linux/x86_64.",
+      "evidence": [
+        {
+          "resource": "repo://.tekton/create-investigation-lambda-pull-request.yaml#L9-L34",
+          "version": "repo-lines-v1:sha256:2700eff7d2e10cd5fa67ce9c3acbe64d83fa6d41aa2172ce5e726715862685b8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ1MGIwMTI1ZTJlMmM3ZjI1YTE1ZGY5MDc3NzNlYTUzMzQ1NTk3YmEzOTRiNmU5Y2FjMzJmNTE1ZTgyNjZlMzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAyMTk1MDk3YmEzMDc2MDE4MWMyZjEyMGY0NjExZWJjODIxZDM1MmVmYzQ0Nzc5N2RmNWFlMWJkYTExNDllYmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAzOGVlZjAzZGI4MWFiZDUyMTRiZWFlOGFiOTAyODIwYjIyYTlhNmExZDA4NTg4NzYwMWNmYmVmYzliNDI5MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNhNDg4YmQyZDQ0ODI3MzcwNTI3YWY0MGExOGRhMDU0Mzk1ODJiZGYxMTRiMTZmODk0Zjg1YTljMTc5NzVjMTEifQ"
+        },
+        {
+          "resource": "repo://.tekton/create-investigation-lambda-push.yaml#L8-L32",
+          "version": "repo-lines-v1:sha256:7dee5e5bd8e1b2f456a8433eaeb1a14d2de6b6893ca5ebd5faa6795a4d94c3bd:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE3NDA1ZWY2YzhmYjZhM2JmYmUzNTgwYTZhYzI5MzRiYzNmZjVkNDFlOGI1N2Q5YWQ4OTM2NTE5Y2Q3ZTU4NmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMxMTY2NTIwNzcyNTA5NzI2NDlhMDkwNTkzNGY2OTQ5ZDJmZDFkMjZiZWEzMDdmZTg1N2MyN2ZhNGYwY2QwYWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU4ZjQ2NWJlMTExOWI5MzU3ODM4YmM0MmU4NmRkODUxZGE0NmI1ODJmNzUwZTMzYjJmODBkY2NhN2EwOWViOWIifQ"
+        },
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml#L9-L39",
+          "version": "repo-lines-v1:sha256:b2b86d4f3b7048705cc4f337909da8e40bd09c2a7bd96a30d6a1ab30c83385bc:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ1MGIwMTI1ZTJlMmM3ZjI1YTE1ZGY5MDc3NzNlYTUzMzQ1NTk3YmEzOTRiNmU5Y2FjMzJmNTE1ZTgyNjZlMzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZlODIxYmQzOGU3OTllOWE4ZmUyZjk4NWQ4YWM3MGM3OWYyOGNmYTkwZmY5ZWE1OThmYjNkYzQzM2U5OThjNjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAzOGVlZjAzZGI4MWFiZDUyMTRiZWFlOGFiOTAyODIwYjIyYTlhNmExZDA4NTg4NzYwMWNmYmVmYzliNDI5MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJlMzMzN2IzZDY1M2FiOTdiYjMwMDMzNDg2NWYxYjM5ZjRiZWU3ZGY2N2VjNjAyYTRkNDA0ZjFjYzUxZDdmZmEifQ"
+        },
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml#L8-L36",
+          "version": "repo-lines-v1:sha256:daea414c61f1f1c950b0494b381d8236fd0433aaf9ec5a971c97a0ce73e158bd:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE3NDA1ZWY2YzhmYjZhM2JmYmUzNTgwYTZhYzI5MzRiYzNmZjVkNDFlOGI1N2Q5YWQ4OTM2NTE5Y2Q3ZTU4NmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZlODIxYmQzOGU3OTllOWE4ZmUyZjk4NWQ4YWM3MGM3OWYyOGNmYTkwZmY5ZWE1OThmYjNkYzQzM2U5OThjNjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMxMTY2NTIwNzcyNTA5NzI2NDlhMDkwNTkzNGY2OTQ5ZDJmZDFkMjZiZWEzMDdmZTg1N2MyN2ZhNGYwY2QwYWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJlMzMzN2IzZDY1M2FiOTdiYjMwMDMzNDg2NWYxYjM5ZjRiZWU3ZGY2N2VjNjAyYTRkNDA0ZjFjYzUxZDdmZmEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_39351bdf062f45988474d941e5373d00",
+      "statement": "All six checked-in Konflux image PipelineRuns configure roxctl and additional scan tasks but do not invoke root or TA Makefile tests.",
+      "evidence": [
+        {
+          "resource": "repo://.tekton/create-investigation-lambda-pull-request.yaml",
+          "version": "repo-file-v1:sha256:085d908c97f7999267a97fcbb8b224957ba5f0a14add7baf23788bc35fb33bed"
+        },
+        {
+          "resource": "repo://.tekton/rosa-boundary-pull-request.yaml",
+          "version": "repo-file-v1:sha256:3f75b879cf9bfb18dacb373f9c6b7f10daee9a0b68c07248921b06a03ba4665d"
+        },
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml",
+          "version": "repo-file-v1:sha256:2152029ef7968486357c0e47bce71b38dc9f5c513c24ee684e2e0dec455369ce"
+        }
+      ]
+    },
+    {
+      "id": "claim_20f93d854bd84af0ab1fef8b1ab9d0ff",
+      "statement": "TA make test generates OpenAPI code, compiles an integration-tagged package without running it, then runs module Go tests; Postgres, race, API and kind integration are separate targets.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L128-L205",
+          "version": "repo-lines-v1:sha256:f1fd976f8eec0d126308b9e8f8c42d56f4779c29f12b3ae05a9806eada8ad345:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwMzU3NGQ0OGY4M2MyNzA5OTJmYWZmZjE2NmVmMzk3MzY5NGJkMGZiYzA0ZWJjMmI2MDQyNjI1YzlmMDM3OTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4NDVjMzIwMzE4NTc4OTYwMGRlZjI3YmQ2YmQ3MTI2MTJlOWFiMzc1YTI5YTM1OWJiMDQ4YWI5ZDA0NTE3MTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA4MGI0NGE0N2EzZTQ0MmVlOWE0NzhkYTNjMWVhNzRjMDc5Y2Y0NTRkMmNkNGZhY2ZiODQ3MjZmMDRlYjJkMzAifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L40-L67",
+          "version": "repo-lines-v1:sha256:cd3cc62a45007d124beef6e3540d833fe97678e5495bf1d742f89dff1be46596:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRhYjUwYTE3NzBlMmViMzNkZDM0NWQ2Y2U3OTJkMTM3MTVhZTdlN2ZjNWY1NDNlMzU1M2JhNTRkNjY5MGVjYzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxNjc0ZjIxNzFiODZhZmI0N2RjNWRiNjhhOTlmNDVlNTMzOGZlZGQ4MjA4YzljODk2Y2NlZTY4MjM2MGU0NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1ZDM3N2NiMDYxZTJiOTllMWU3YTZhNDQ2ZWE4YjkzMDRiOWE2ODM1MDkyMTcwZTViZTM4YTBjODdlMTg5YWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwOWVmMjZhMjU2N2Q4NTM1NWUxNjgxMTg1YWQzOWJlYTliZGRjZDFjOGNhZjFkNjM2ZDcyY2QyMWY4MTUwNTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6d0328b3d0484dacb51647e583a461b9",
+      "statement": "Boundary and TA Git-managed HCP workspace maps declare separate working directories and apply settings; image publication and merge do not alone prove a successful deployed change.",
+      "evidence": [
+        {
+          "resource": "repo://docs/staging-deployment.md#L79-L149",
+          "version": "repo-lines-v1:sha256:3ae198e2f2a4820688bdeaea8bc26062d8b6df6318131cae0f43d04c67de2c47:eyJzZWxlY3RlZExpbmVDb3VudCI6NzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU0MTg3ZjU2NTdlZTJmYjFiYzRkNTg2NzRjNzBhY2FhOGQ4NjkxZGYyNTA0MzJhMTYzNjQ1ZWVmYjk1NTUwMTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YmJkOTYwMGIxNjY2OTk1NjdiNjJhMzNhNmI3ZGEyZjM4ZGQwN2ZiZWI5ZDE0ODZjNWJhMGNlOGIzMjIwMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM5ZTllNTlhM2QyZTQ4YTNlN2M3MzQyM2YyMmM2ZGIxYmY1MzlkY2JiMmYxOTA1NmQ5Y2VkYWU2YTMzODVkNzEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQxZGIxM2VhYTg1MThjMDI0MTU5Y2QwOWFiYzhmMjI5YWNhMTJkMzhjZTYxNTMxMWE1MTU0MzVkNWViNDhlMjYifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L54-L105",
+          "version": "repo-lines-v1:sha256:aaf69bb3f22d7c085bf232fac714e88e70a2e2002fb9864624df6f868534ab1b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZWI0NjFhMDAzMmQ5YWRiZTZiMTUxNmZiOTdkMjFhZmEzOWM5NTM5MDYwN2FjODYzMmVkMGNiNDM3N2YxZDcifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L748-L779",
+          "version": "repo-lines-v1:sha256:a19584b4f8b0d784d70d7e9a812aa0ac3d214dbd1e6f05532f19c3a5732bfc54:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0MjIzOWIxYmQ4MmI4NWVkNTBjMThhYmU2YjhlOTk3ODc1NWRhYzZmZDgwNDA5MjRjOGE4ODBjNTJmMDY1ZDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRmZjg1ZTkwMzFkYjY5MmY3MWVjYTA5MzYxODExMGJhMzQzYTc4NDlkOTkzMWMzMGVkMzAzZThlMGZmNzBjMzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg5Y2U2ZTljZTViZWMyNTk1MDE2MTE4ZGUyMDg4MzU0YTJiOTMxNjRhODYyYWM1MWJjM2I4N2VmNDI4ZGNhYzEifQ"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L34-L50",
+          "version": "repo-lines-v1:sha256:a00189238518b330b69e72175101ebece060d387c78f644fd98cf497d06da8c2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxNzhiM2U5MzUyZGRkYWFjYTRhMTc5MDNlOGQ4ODhhZmI5ZTU0YzgwYmQ2Zjc4MTlmZjI3Mzg2YTIwZWI4NDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ3NzUzMGMxNzQyMDliNTdmZWVmN2I4ZWZmNDA0YWU5YjVlYjc2ZGE1MmZkOWIyNWI2OGE5OWRiOWJkNWZiOTEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_15107690dcc14c698c9d523c33b2720d",
+      "statement": "The LocalStack CI entrypoint requires Prow artifact and auth-token variables, starts Podman-backed task execution and writes JUnit output; it is emulated AWS rather than live AWS.",
+      "evidence": [
+        {
+          "resource": "repo://tests/localstack/ci-run.sh#L1-L116",
+          "version": "repo-lines-v1:sha256:16a5af0b3cad628a3ec7d86108f350f1a9123d1112d27c38af7a5d710da2e07c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxZDk1ZmMwNGE4MGM5NTJmNDljZTQxODg2MjdjNTNiMGZiZThjNDQwNDFiOTUyZDU5MmFjZDFkZTk5ODYxNDY2IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJmNzYwMmQ2MGI4ZGM2ZTAwZThjMWE2MmRiZGRhYmE3OTYyMTAzOTIyNjQ1MGFjNTI1OWM1NDc4NThiMmZmOTJhIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MCwicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjNTY0MWE3MDNjYzI3MjFmYjg5ZmFiMGFjMDk0ODZmZjQ4ZjkzYjU0NzQ3MzEyMTI2NDAwNTIzZDJhZTUxMTQyIn0"
+        },
+        {
+          "resource": "repo://tests/localstack/ci-run.sh#L238-L274",
+          "version": "repo-lines-v1:sha256:a3a8ada6e12ad4fe7aed1458bef1548cde0c735971c1707a20ea77b5a5d2306f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3MjcxZWI1MDdkZTMzYTJhNmJhNDA0M2ZhNmI0YzRiMWFjMmJlZTk0NDZmYTNlYjZjYjY4NTA1M2Y5ZmRlY2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhMjFjNWIzYmZmMDI5OWMwMTYxNDcwNDY4ZjM1NWU1YjRhZmNmMTdhNWY1OTNhYjY4Mzk0ZWY3YWYzMTljZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3ZWEwZGJmZTc1ZTZmMmRkYzU3MDRlNTc1OWQ1NDRmNWEzNjRlNGRkMzVjZWNkMjJkOWU2ZjMzYzY0MGY0NGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.7.0",
+    "at": "2026-11-13T18:18:24.408Z"
+  }
+}

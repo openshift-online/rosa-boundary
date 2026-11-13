@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:e2efd7495df3c0ad1edd8b1753958d2898a69a121772e8760fe4b9cb0bffb28c",
+  "pageVersion": "sha256:66d1a5fc395a97769e06ef1941188d3d0bbee01da2bd90addc3f3b97ec966be9",
   "claims": [
     {
       "id": "claim_4088cba25812498fa6bea3623690d8b6",
@@ -71,7 +71,7 @@
           "version": "repo-lines-v1:sha256:f16eb9306e9231b8adf2202438a2016d6011948dddad98b28b29a70f316d050e:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYWQ1OWQyMmI5Mzg0ZTY5M2ViNWY2ZGFiOGI1NjE1NDE1ZTcwZWEyZjc1M2Q2MWExMGY1NjU5YmEwM2E1ODQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyOWM1MjQ0MzRjMDA5YWFmMGQ3ZmU5ZTJmZmU3MjJiMTcwY2Y4ZWIxYzhjMTU3NWU0ZTNiZDUxZTkyNmM3MWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQyM2M5MmRhNDMwMGQzZDRkZGQwZjhiYjY3OGQ5OTliNDlhMTViZjQ3MjFmZDBjMjMwNjRiMzAxZjg1MWRhYzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImViZGU0ZTIzMjllMzExNzdhYmY3YWE5NzUzOGI2NTZkMzU3ZGYzY2E1ZmQ1MWEwYjIwODU4OWVmNDdjOGVjM2IifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/test_handler.py#L2267-L2333",
+          "resource": "repo://lambda/create-investigation/test_handler.py#L2277-L2343",
           "version": "repo-lines-v1:sha256:ac701bb66b324b037badff7f0c0e7771c4372129437f05876b797bfe96c99d7b:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVlNTZlMGRmM2M1MzQ3YTg5YzBkZDZhZTY4YWE1ODAzNmIyNTczMWFlMjE2MzBhNjdkZWYwYmVmYjI3MzlkNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkZjdlMjcyNzIzNjFkOGVmZTgxYTc1MjEzYThmNzE2OTczZDQzNzk4Y2Y2NTg5YTYxZmFiYjMyYmY1MzMxMDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk2YTAzOGFhMTg1N2QzOGNkZTg4MTcwMGU1ODM4ZjI1YjUwYzkyNzNjZTVjM2E2YjJlNmEwYmEzOGU4YjExZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkNjg1M2M2NzAyZDcwN2Y1ZTRhNDM1YjdhOWYyYWIwMWNlMDYwNTQ5YTc2NWZhY2Q3OGRkNDFjYzIzYzA5N2IifQ"
         }
       ]
@@ -292,43 +292,55 @@
     },
     {
       "id": "claim_59c028f5c6ce467e8b6d40de63e03871",
-      "statement": "create-investigation Lambda deployment supports two packaging modes selected by the lambda_package_type Terraform variable: the default 'Zip' mode archives lambda/create-investigation/ (excluding Containerfile, pyproject.toml, uv.lock, and test files) into aws_lambda_function.create_investigation_zip on the python3.11 managed runtime, while 'Image' mode deploys aws_lambda_function.create_investigation_image from an ECR pull-through-cache image URI and requires non-empty lambda_image_repository and an immutable lambda_image_tag.",
+      "statement": "The create-investigation Lambda Terraform variable selects default ZIP (Python 3.11 managed runtime) or Image packaging. Image mode derives an ordinary ECR URI in the Lambda account and Region and requires an immutable lowercase 40-character commit-SHA tag.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L11-L52",
-          "version": "repo-lines-v1:sha256:cde3dc74c754a1fae6461293749b281d8ad4d3b55bd817615fa3b23cfab350a6:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2YWQwZDE4MzZhYzA1MjUxN2ZmZDk0ZGRiMWE1NDI3NDhmOWQ0MTJhNDM1NTdiMjQ1MjAxNmM1ZmIxZWU5MDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY2MjBkYWNiMWM2NWM5Y2ZmOTZkOGZkNjBlNGNiZWZhYzA2M2MxMTViN2M3OTMxMzVmNjlmNmU2ZTE0OTMxYmEifQ"
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L11-L41",
+          "version": "repo-lines-v1:sha256:7fcd40e03b7ca2f9febbaac85698b7af17343cd3faecb63ebd6afe30807b3f75:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2YWQwZDE4MzZhYzA1MjUxN2ZmZDk0ZGRiMWE1NDI3NDhmOWQ0MTJhNDM1NTdiMjQ1MjAxNmM1ZmIxZWU5MDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgyMTE4OWM5MzM2OGNmZmY5ZDQ2MTEwYjg2NmZmZGI0OGU2Y2EzNTBmNWJlNWYyNzJiMzE5M2QyMmExNWZmZGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQxMDBlNzRmYzgxYTgyMGViNzcxMmRkZjRiNjJkYTA4MWMxNTZhNGQ3ODMwNTg5ZTFlMTgzMWRmN2Y4NTVjMDUifQ"
         },
         {
-          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L111-L145",
-          "version": "repo-lines-v1:sha256:001781bee9b913d72b512f6a45ceef2691114dc0bcea9c92b6c4a82768d73316:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTEwYzE4NjI4ZTVjNmRkNTYxYTEwYTAxYTM2ZTczZDgxMDg1ZWMyNjRkMjI0Y2ZhMjI1MDBlY2UyNThjMzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhmNjllOWNjZDU5Y2RlZDlkOTM1YWVhY2U3YWM0MWQ2Y2YzMzBiMWEwMzA3OWE2M2E0MDc4OGMzNDkyMDE4OTAifQ"
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L83-L136",
+          "version": "repo-lines-v1:sha256:b8a00ea9603d651453635e434f23e5653cd6654bd21b7e369eec2574bca1b83f:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzMmY0OTU5MzI1MzVmMTkwZTNkOGRhMjMyN2FhYjRkNTg5ZWZlZDVlY2E1MzBhNzUyNmVjN2JiOWEwMzAzNmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFiNzM4ZWRlN2NkNTA4YzViYjUyYWQxM2ViMWE5MWQzOWM5YjY5ZDM5Y2U3MWJiMDI1MWU0YjdiM2VjOTRmOTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUyNWFmYjExMDliZjQwNDEyYWU4ZjkwZDhhYTZhYTQzYWQ3OWFiM2QzNDVmMTVmNDJjNmNkYjEzMjQ3Y2JmNzIifQ"
         },
         {
-          "resource": "repo://deploy/regional/variables.tf#L123-L144",
-          "version": "repo-lines-v1:sha256:6a502fabff79de7e35a331795484f5ba975ec6376793f9b9e02303adec194742:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyYmQxODQ2NmRhMTdhMmQ0MGY2ZjE1MGJkYzc5NzZjZTFjMTJhMzlmNDQ4MzJmNDFkNGEwZWYwMmYzOGVmMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0NDUxOTBmMzdkOTcxZmZkY2E1ZTdlYTU4YWU2MDRmYzZmMjhhZjg0MmZiOTgwM2UyYTA2NjE5OWU5NTNmOGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjNTE3ZDcwNDFkZWRjOGZmMmZlZGEwODExM2RmMDU1OTAyNTk0YWMwNjY2ZWRkN2U0YzQ2ZDE2ZTNmOWJhYWMifQ"
+          "resource": "repo://deploy/regional/variables.tf#L121-L141",
+          "version": "repo-lines-v1:sha256:16e43a0a5ec4c64ff0737135893054e172120d22047b29eb557562f7b75622cd:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxYjI3OWY1MmM3MDAwZDkxYmNjNThlYzYyYjYzZDBhMDBjNzY4MjdmNmRhOTUzMGIzNGVmOWY3YTA1YmU3NmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU0ZGEzMmZlNThjOWFjZGM3MTY1Mjk4NjA0NDkzZGQxNjk0OWFmMDVhNjYxZjJlZGNkM2RiY2Q2ZTkzNzUzMzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUxMzE0OTJjMjU1YjMxZTVhM2NiNTA4MmFlZDgzMDBlOGZjNjMxYzZjOGU2YmY5NjYxMzllOGYxMzM3MmY5NTIifQ"
         }
       ]
     },
     {
       "id": "claim_d4a54b0a97234c379ae28eead59c96b4",
-      "statement": "The ECR pull-through cache rule that maps the project-scoped ECR prefix to quay.io only establishes that mapping and does not pull images on demand; the create-investigation Lambda's container image must be copied into ECR (e.g. via skopeo) before terraform apply creates the image-packaged Lambda function.",
+      "statement": "The account Terraform root owns the source Lambda image ECR repository; the regional root optionally creates a matching destination repository in another Region, while image-mode Lambda uses the same-account regional ECR URI. Image build, release, cross-Region replication and Terraform pinning are separate steps.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/ecr.tf#L1-L23",
-          "version": "repo-lines-v1:sha256:b5bb3abd1b67af6c77c2b9e1caa8eca172061278861a80bd3af5278c7250d6ae:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzNGViYmRjMjJjNzhjNDFiODM5NjE5MGZjMTk4Zjg4NDJkY2I3MDU2YTI0ZmNlNWM1Yzk1ZTFhYjdkMzM2MmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/account/ecr-lambda.tf",
+          "version": "repo-file-v1:sha256:8247e7a4cec46d2041db2d8f18b688938a60c97f905554cd82b9bb51cd643e69"
+        },
+        {
+          "resource": "repo://deploy/regional/ecr-lambda-destination.tf#L1-L41",
+          "version": "repo-lines-v1:sha256:1e64902426d626b06784d1a95021a4d390b21d166587c3a80aa2bd64829df346:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMxOWQ1MDk0NTRjZjEyNjA5ZGE3YWJiMjkwMWIxMzE4ZGQxODQ4NTUzMjNiZGYyNzhhZGI4YjU0Yzk4NzZhMzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMwMTU0ODJjYzJkZjI1NmI1M2MxYTViOTIyZDkxMTdmMTA3YmZjZGI2NWVhZDk5MzExM2VkZjIwNTU2MDVjYzUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNmNzQwOTViYzAyOWNjNTU3NTA5ZDE3ZTJmZjg1ZDZjYTU2YWI0OGVjMzE2MzE0Y2IzOGQxMzI4YzMyNjE3OTgifQ"
+        },
+        {
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L11-L23",
+          "version": "repo-lines-v1:sha256:d02668db4143c57e87f0ccc95cab5df2fb82e0aee45fd447ce58d646de9f4908:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2YWQwZDE4MzZhYzA1MjUxN2ZmZDk0ZGRiMWE1NDI3NDhmOWQ0MTJhNDM1NTdiMjQ1MjAxNmM1ZmIxZWU5MDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQxNWNkMTAyNGZkN2ZhOWM1MDBkZmRmZmRmZGFkMTVkNWNmNjBlZDM1MmE3OTgwZTc3YjJmNGExNTVlMGE0ODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM4MmYwMmE0YTlkMmE4NGYwZjEwOGZkNTQwMTkxMGNlMzEyNzgwYjhkMTI3YjFmZTZlMzcwYTY5NjIwMGI5NmMifQ"
+        },
+        {
+          "resource": "repo://docs/staging-deployment.md#L121-L148",
+          "version": "repo-lines-v1:sha256:9056e957cf50ca8411b9117dd5c8b6acd5e01232b9a28bab466e7fb8aef16a96:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4MGYzMTI2OWRlZWIzNjAzODU4MTFlODU3MjliZjZjY2E0OWJhZjdjNGJiMjI0ZWJkNWRhN2M3OWM5N2Q5N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIzZDk2ZWRmM2UzOGQ4Zjk4MTE2OTdjM2YxNDVlNjZjNGMyMDc0NzZlNWQ5Y2M1MTU5MWNiNzcyMTgzMWE5ODUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzOWJhZDNlMTJkNzdjZWI2NWYwZjM5NjJkNjQwYjY3OThjMDI1ZjkwMmQ1NGNiYzBlMmExOWM3N2JjNzU5ZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVkMzRjNThhMmFkYjI2NjlmZDA3ZTFmZTBkYWU5MzkxMjhhZWU3NDc2YTAxYTk1MDU3M2YzNjljNmE5NDM5OTUifQ"
         }
       ]
     },
     {
       "id": "claim_5eb5dfb06e7e486b9498fb30bd1b850b",
-      "statement": "lambda/create-investigation/Containerfile builds the optional container-image packaging using a Red Hat UBI9 Minimal base (required by Konflux Enterprise Contract policy, which rejects non-Red Hat base images) with two stages sharing the same digest-pinned base for glibc ABI compatibility: a builder stage that exports pinned dependencies from uv.lock via 'uv export --frozen --no-dev --no-emit-project' and pip-installs them into /deps, and a final stage that ships only the Python 3.11 interpreter, the copied /deps and handler.py, and runs the handler through awslambdaric as the Lambda Runtime Interface Client bootstrap.",
+      "statement": "The optional Lambda image Containerfile uses a digest-pinned UBI9 Minimal base in both builder and final stages; builder exports frozen runtime dependencies from uv.lock and installs wheels into /deps, while final ships a Python 3.11 interpreter with copied handler and dependencies and uses awslambdaric as the Lambda Runtime Interface Client.",
       "evidence": [
         {
-          "resource": "repo://lambda/create-investigation/Containerfile#L1-L33",
-          "version": "repo-lines-v1:sha256:de38e88abf11e48a3fdcabcf7935c3b94c16bd54ec73cd356162a6a1f68ff380:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY2OTNiZjc3MGM0MDFhNWMzYmU3MzRlMWUxOTg4Mjg4MmIzMjRhNjlhNGQxMzdmMTljYTljMjliNTZiODRkN2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg3NDAwODc2MzhkMjRiZTAzYTBkMDJiZGZmNjZhOTdjZTcwM2VlMjY5NjkzYTBkMDEzMzcyMjA5YWI1Zjk4YjIifQ"
+          "resource": "repo://lambda/create-investigation/Containerfile#L1-L35",
+          "version": "repo-lines-v1:sha256:cb05906981bd8b408d08c3fce8ecc5400b738be27cdd5f7d7581f37712605b8e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY2OTNiZjc3MGM0MDFhNWMzYmU3MzRlMWUxOTg4Mjg4MmIzMjRhNjlhNGQxMzdmMTljYTljMjliNTZiODRkN2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBmYjY2ZDBhMWVkYmZjZjdlZjM3YjdhYWVjYmI5ZGQ2YTBiMDM3YmU0MmVlYWVlODE2NWRiNjhlMGI5YTEyNjkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxNDNlNzMxNDY1YzM2ZWNkNWY3MWEwYjM0NDFlMWMzODBiMTUwMjM4NTNiMTBkZGI1YmUyY2M4NTkzMjc4MDkifQ"
         },
         {
           "resource": "repo://lambda/create-investigation/Containerfile#L50-L87",
-          "version": "repo-lines-v1:sha256:5b9eff7e7759420ac983542305dd333e9a4995e067733fe23d7e68eb1be500e3:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkY2IwMTVkMmIwY2YxOTQ5OGM3NDNlZDA2MjIwOTQ5MDgzY2Q4MTVlZTMyYWUwNjI0NjExNGJmODMzYzBkMzMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJkZjBlNDIzNmFjN2YxYWQwODQ4MjI0MTk1MjEyYmFkNTdhODFlYjlhYTY1MWRhZjMwMTYxY2VhNGY1MThmODIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUwYjU2MmQ2MDU5MjkyN2I5NmRhMWRiYzNkOTVhMjQ5YzZkNmE5MjU5YjMxODQ0N2JlMzRmMDBlMDZkMzAwZjIifQ"
+          "version": "repo-lines-v1:sha256:a467655fc7be9bce4090d928471cfa7314a95636761eb591346d7081e51d2eda:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkY2IwMTVkMmIwY2YxOTQ5OGM3NDNlZDA2MjIwOTQ5MDgzY2Q4MTVlZTMyYWUwNjI0NjExNGJmODMzYzBkMzMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJkZjBlNDIzNmFjN2YxYWQwODQ4MjI0MTk1MjEyYmFkNTdhODFlYjlhYTY1MWRhZjMwMTYxY2VhNGY1MThmODIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUwYjU2MmQ2MDU5MjkyN2I5NmRhMWRiYzNkOTVhMjQ5YzZkNmE5MjU5YjMxODQ0N2JlMzRmMDBlMDZkMzAwZjIifQ"
         },
         {
           "resource": "repo://lambda/create-investigation/Containerfile#L99-L139",
@@ -351,7 +363,7 @@
       "statement": "lambda/create-investigation/pyproject.toml pins runtime dependencies (PyJWT, cryptography, requests, boto3, awslambdaric==4.2.3) separately from a dev dependency group (moto[ecs,efs,iam,kms,s3,sts], pytest, pytest-cov, pytest-mock); both the ZIP export and the container-image builder stage use '--no-dev --no-emit-project' so only runtime dependencies and handler.py ship in either packaging mode.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L27-L52",
+          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L26-L51",
           "version": "repo-lines-v1:sha256:2f8abedec0feda0cf0662f390b76e2053c016ddbe3fee742760d68e618f105a5:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjczYjA5MWY1Mzc2M2M1NTJlYzYzZTExOTQ5M2U5ZDFkYjdhMTQzMDJjN2IxMWY2NjI4MjM1YjMzYmUwNDIzYjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0MGM1ZDNkYzNhNzczMDc5M2M4OTI3OTQ4YjU1OTY2NDIwN2Y3OWJhODc3NzNjMjE1MDA0NDMxOTYyZmQ0ODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY2MjBkYWNiMWM2NWM5Y2ZmOTZkOGZkNjBlNGNiZWZhYzA2M2MxMTViN2M3OTMxMzVmNjlmNmU2ZTE0OTMxYmEifQ"
         },
         {
@@ -380,7 +392,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "by": "openwiki/0.7.0",
+    "at": "2026-11-13T18:18:24.408Z"
   }
 }

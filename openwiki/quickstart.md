@@ -4,10 +4,14 @@ title: OpenWiki quickstart
 description: Routes readers to the right page for both monorepo components — ROSA Boundary (CLI, investigation Lambda, ECS/EFS runtime, HCP Terraform, Keycloak/OIDC identity, audit, credentials) and Trusted Actions (API, authorization, execution, audit, deployment, testing) — and states what the files-only Trusted Actions import did and did not change.
 tags: [navigation, quickstart, rosa-boundary, trusted-actions]
 sources:
+  - id: openwiki-source-b3cacc865e62dc31f0a55b4a
+    resource: repo://.tekton/rosa-boundary-pull-request.yaml
   - id: openwiki-source-eebdf2baefd63a03b1cb3b5e
     resource: repo://.tekton/rosa-trusted-actions-pull-request.yaml
   - id: openwiki-source-12238a6f88dc834f61553058
     resource: repo://.tekton/rosa-trusted-actions-push.yaml
+  - id: openwiki-source-4c833b02bf6d5fc7a2476dea
+    resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-f1bd1e0a9201f149b775a09c
     resource: repo://deploy/regional/ecs.tf
   - id: openwiki-source-45ce132817cdbbe35348bf04
@@ -22,10 +26,12 @@ sources:
     resource: repo://internal/cmd/start_session.go
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+  - id: openwiki-source-012f2c78e3b1446dfc35803f
+    resource: repo://Makefile
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - by: openwiki/0.7.0
+    at: 2026-11-13T18:18:24.408Z
 ---
 
 # OpenWiki quickstart
@@ -37,6 +43,10 @@ for exactly what moved). Use this page to find the part of either component
 that matches your question. Verify behavior against current implementation,
 configuration, and tests; linked human-maintained runbooks supply operational
 procedures, not proof of live deployment or access.
+
+## Repository-wide CI/CD and verification
+
+- **What CI/CD configuration and local gates are defined in this repository?** [Repository CI/CD configuration and quality gates](operations/ci-cd-and-quality-gates.md) covers the six `.tekton/` PipelineRuns, Git-managed HCP workspace declarations, pre-commit hooks, and local test/lint targets for Boundary and Trusted Actions. External Prow job definitions, GitHub-managed checks, Konflux release plans, and live results require independent verification; for a dated review with external evidence, see the human-maintained [`docs/ci-cd.md`](../docs/ci-cd.md).
 
 ## Find a topic — ROSA Boundary
 

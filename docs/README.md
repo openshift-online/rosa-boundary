@@ -36,6 +36,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 ## Testing
 
 - [**Testing**](testing.md) - Test suites, how to run them, and CI integration
+- [**CI/CD Configuration Snapshot**](ci-cd.md) - Dated, evidence-linked view of Prow, Konflux, GitHub, HCP Terraform, pre-commit, and verification gaps
 
 ## Runbooks
 

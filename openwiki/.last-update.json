@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-11-12T17:36:59.735Z",
+  "updatedAt": "2026-11-13T18:21:57.219Z",
   "command": "update",
-  "gitHead": "3d4ee4c3cdf227c6b0d978552866e9669901c6d0",
-  "model": "claude-sonnet-5",
+  "gitHead": "18df81e8682ce78f4789d7442989ebc8f739543c",
+  "model": "host-agent/opencode",
   "status": "complete",
   "language": "en"
 }

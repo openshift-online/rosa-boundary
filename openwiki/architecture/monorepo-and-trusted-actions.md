@@ -28,10 +28,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-b22643f9c083ba8127bcda92
     resource: repo://OWNERS
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - by: openwiki/0.7.0
+    at: 2026-11-13T18:18:24.408Z
 ---
 
 ## Why this page exists
@@ -84,8 +84,10 @@ Because this is a snapshot rather than a live status feed, confirm the
 repository's current archival state and any later development location
 directly rather than relying solely on this page.
 
+<!-- openwiki: broken internal link [../../docs/trusted-actions-monorepo-migration.md#L1-L25] heading anchor "L1-L25" does not exist in "../../docs/trusted-actions-monorepo-migration.md". Fix the href or restore the target, then delete this comment. -->
 See [migration record: where things live](../../docs/trusted-actions-monorepo-migration.md#L1-L25)
 for the full file-location table and
+<!-- openwiki: broken internal link [../../docs/trusted-actions-monorepo-migration.md#L26-L48] heading anchor "L26-L48" does not exist in "../../docs/trusted-actions-monorepo-migration.md". Fix the href or restore the target, then delete this comment. -->
 [migration outcome](../../docs/trusted-actions-monorepo-migration.md#L26-L48)
 for the reconciliation detail; this page summarizes their architectural
 consequences rather than repeating the inventory.

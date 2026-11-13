@@ -43,7 +43,7 @@ sources:
     resource: repo://internal/cmd/start_session.go
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 ---
 
 # Identity and Access Architecture (Boundary)
@@ -120,7 +120,8 @@ The resolved provider ARN and audience are passed from the account root into the
 - A dedicated **content replication role** (`aws_iam_role.content_replication`) exists independently of the publisher roles and of the pre-existing audit replication role: it trusts the S3 service principal with no condition, matching the audit role's trust shape but kept as a separate identity with its own name, description, and tags.
 - Like the rest of this module, these resources grant **identity and trust only** — no bucket, KMS key, or region is referenced here. The regional Terraform root is responsible for attaching the actual S3/KMS content-publishing and replication permissions; until that lands, a publisher role is assumable but holds no content access from this configuration alone.
 
-```mermaid
+<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
+```text
 sequenceDiagram
     participant GH as GitHub Actions workflow
     participant OIDC as GitHub OIDC provider (AWS IAM)

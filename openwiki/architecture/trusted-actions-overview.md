@@ -38,7 +38,7 @@ sources:
     resource: repo://Containerfile
   - id: openwiki-source-7a5e071b6b6192c80a6918aa
     resource: repo://internal/cmd/root.go
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
 verified:
   - by: openwiki/0.7.1
     at: 2026-11-12T16:02:44.301Z
@@ -67,7 +67,8 @@ request is validated against OCM/AMS (JWT signature verification plus an
 short-lived, RBAC-scoped Backplane session created per execution — it never
 holds a standing credential to any cluster.
 
-```mermaid
+<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
+```text
 flowchart LR
     subgraph vpc["rosa-boundary AWS account"]
         CLI["rosa-boundary CLI<br/>investigation container"] --> TA["Trusted Actions<br/>ECS + ALB"]

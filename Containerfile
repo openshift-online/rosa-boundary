@@ -262,10 +262,10 @@ ENV HOME=/home/sre
 
 # Test the final filesystem offline as sre; helper and pins are read-only mounts,
 # not runtime contents. External acceptance must also reconcile both inventories.
-RUN --network=none --mount=type=bind,source=build,target=/verify \
-    --mount=type=bind,source=Containerfile,target=/verify-Containerfile \
-    runuser --user sre -- python3 /verify/verify_sre_tools.py runtime \
-        --containerfile /verify-Containerfile
+# Mount the context directory to avoid Buildah's single-file bind-mount issue.
+RUN --network=none --mount=type=bind,source=.,target=/verify-src,ro \
+    runuser --user sre -- python3 /verify-src/build/verify_sre_tools.py runtime \
+        --containerfile /verify-src/Containerfile
 
 # The entrypoint runs as root for privileged setup (alternatives --set, chown,
 # runuser). ECS Exec sessions drop to the sre user via the CLI's default

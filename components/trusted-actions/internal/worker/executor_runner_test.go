@@ -41,6 +41,14 @@ func (f *fakeClientProvider) GetPodExecutor(_ context.Context, _, _ string, _ []
 	return nil, fmt.Errorf("not implemented in test fake")
 }
 
+const testDeploymentRegion = "us-east-1"
+
+type fakeRegionResolver struct{ region string }
+
+func (f *fakeRegionResolver) DefaultRegion(context.Context, string) (string, error) {
+	return f.region, nil
+}
+
 func newConfigMap(namespace, name string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
@@ -59,7 +67,7 @@ func newTestRunner(namespaces []string, bp backplane.ClientProvider) *ExecutorRu
 	logger.SetOutput(io.Discard)
 	authz := authorization.New(logger, namespaces, nil)
 	auditor := audit.NewMockLogger(logger)
-	exec := executor.New(logger, auditor, executor.NewKubeScope(authz, bp))
+	exec := executor.New(logger, auditor, testDeploymentRegion, &fakeRegionResolver{region: testDeploymentRegion}, executor.NewKubeScope(authz, bp))
 	return NewExecutorRunner(logger, exec, 5*time.Second)
 }
 
@@ -106,7 +114,7 @@ func (s *failingTargetScope) Run(context.Context, executor.Request) (*actions.Ac
 func TestExecutorRunner_Run_TargetDerivationFailureIsNotReportedAsDenial(t *testing.T) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
-	exec := executor.New(logger, audit.NewMockLogger(logger),
+	exec := executor.New(logger, audit.NewMockLogger(logger), testDeploymentRegion, &fakeRegionResolver{region: testDeploymentRegion},
 		&failingTargetScope{err: fmt.Errorf("failed to resolve the default AWS region")})
 	runner := NewExecutorRunner(logger, exec, 5*time.Second)
 
@@ -251,7 +259,7 @@ func TestExecutorRunner_Run_RespectsExecutionTimeout(t *testing.T) {
 	logger.SetOutput(io.Discard)
 	authz := authorization.New(logger, []string{"openshift-monitoring"}, nil)
 	auditor := audit.NewMockLogger(logger)
-	exec := executor.New(logger, auditor, executor.NewKubeScope(authz, &slowClientProvider{}))
+	exec := executor.New(logger, auditor, testDeploymentRegion, &fakeRegionResolver{region: testDeploymentRegion}, executor.NewKubeScope(authz, &slowClientProvider{}))
 	runner := NewExecutorRunner(logger, exec, 20*time.Millisecond)
 
 	e := testExecution("get", map[string]string{

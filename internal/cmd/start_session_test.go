@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"strings"
@@ -149,7 +150,7 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 				selectedProfile = "stage-east" // Normally resolved by commandPreRun.
 				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
-					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false)
+					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "")
 				stdout, readErr := os.ReadFile(stdoutFile.Name())
 				if readErr != nil {
 					t.Fatal(readErr)
@@ -176,6 +177,74 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 					assertOneJSON(t, string(stdout), map[string]any{"session_id": "task-123", "status": "disconnected", "task_closed": false, "investigation_closed": false})
 				}
 			})
+		}
+	}
+}
+
+func TestFinishStartSessionJSONWarnsWithoutReportingCredentials(t *testing.T) {
+	savedStartProfile(t)
+	previousConnect, previousNoWait, previousFormat := startConnect, startNoWait, startOutputFormat
+	t.Cleanup(func() { startConnect, startNoWait, startOutputFormat = previousConnect, previousNoWait, previousFormat })
+	startConnect, startNoWait, startOutputFormat = false, false, "json"
+	for _, tc := range []struct {
+		name    string
+		noWait  bool
+		warning string
+	}{
+		{"OCM injection failed", false, "OCM authentication failed; retry session credentials configure ocm task-123"},
+		{"no-wait skips OCM", true, noWaitCredentialWarning("task-123", "boundary", "us-east-1")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			startNoWait = tc.noWait
+			old := os.Stdout
+			r, w, err := os.Pipe()
+			if err != nil {
+				t.Fatal(err)
+			}
+			os.Stdout = w
+			defer func() {
+				os.Stdout = old
+				_ = r.Close()
+			}()
+			cmd := commandAtPath(t, buildRootCommand(), "session", "create")
+			err = finishStartSession(cmd, nil, nil, "boundary", "rosa", "INV-1", "task-123", "us-east-1",
+				&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, tc.warning)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := w.Close(); err != nil {
+				t.Fatal(err)
+			}
+			var stdout bytes.Buffer
+			if _, err := stdout.ReadFrom(r); err != nil {
+				t.Fatal(err)
+			}
+			wantStatus := "RUNNING"
+			if tc.noWait {
+				wantStatus = "launched"
+			}
+			assertOneJSON(t, stdout.String(), map[string]any{"session_id": "task-123", "status": wantStatus})
+			var result struct {
+				Warnings []string `json:"warnings"`
+			}
+			if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || len(result.Warnings) != 1 || result.Warnings[0] != tc.warning {
+				t.Errorf("credential warning = %q, decode error = %v", result.Warnings, err)
+			}
+			if strings.Contains(stdout.String(), `"credentials"`) {
+				t.Errorf("unconfigured credentials reported as configured: %s", stdout.String())
+			}
+		})
+	}
+}
+
+func TestNoWaitCredentialWarningGivesProfileQualifiedRetry(t *testing.T) {
+	previous := selectedProfile
+	selectedProfile = "stage-east"
+	t.Cleanup(func() { selectedProfile = previous })
+	warning := noWaitCredentialWarning("task-123", "boundary", "us-east-1")
+	for _, want := range []string{"--no-wait", "without OCM credentials", "once RUNNING", `rosa-boundary --profile "stage-east" session credentials configure ocm "task-123" --ecs-cluster "boundary" --region "us-east-1"`} {
+		if !strings.Contains(warning, want) {
+			t.Errorf("warning missing %q: %s", want, warning)
 		}
 	}
 }

@@ -279,7 +279,7 @@ func buildInvestigationCommand() *cobra.Command {
 
 func buildSessionCommand() *cobra.Command {
 	group := commandGroup("session", "Manage investigation sessions and their credentials")
-	group.Long = "Manage investigation sessions and their credentials.\n\nBoundary sign-in and OCM authorization may require separate human approvals. Credential injection cannot be combined with --no-wait."
+	group.Long = "Manage investigation sessions and their credentials.\n\nSession creation configures fresh OCM credentials by default. Boundary sign-in and OCM authorization may require separate human approvals. --no-wait skips credential injection; explicitly requesting OCM credentials with --no-wait is not supported."
 	group.Example = `  # Create a session with a new, auto-generated investigation ID
   rosa-boundary session create <cluster-id>
 
@@ -289,8 +289,8 @@ func buildSessionCommand() *cobra.Command {
   # Configure fresh OCM credentials in an existing session
   rosa-boundary session credentials configure ocm <session-id>
 
-  # Create a session with a new investigation and OCM credentials
-  rosa-boundary session create <cluster-id> --with-credentials ocm`
+  # Create a session without OCM credentials
+  rosa-boundary session create <cluster-id> --with-credentials none`
 	group.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			switch args[0] {
@@ -314,8 +314,8 @@ func buildSessionCommand() *cobra.Command {
 	start.Flags().String("oc-version", "4.20", "OpenShift CLI version in the session")
 	start.Flags().Duration("session-timeout", time.Hour, "Session lifetime (default 1h; policy controls minimum and maximum)")
 	start.Flags().Bool("connect", false, "Join the session after it starts")
-	start.Flags().Bool("no-wait", false, "Return without waiting for RUNNING")
-	start.Flags().String("with-credentials", "", "Configure credentials after startup: ocm")
+	start.Flags().Bool("no-wait", false, "Return without waiting for RUNNING; skip OCM credential injection")
+	start.Flags().String("with-credentials", "ocm", "Configure credentials after startup: ocm (default), none (opt out)")
 	start.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	start.Flags().String("ocm-auth-flow", "", "OCM-only sign-in override: auth-code or device")
 	deploymentFlags(start, true, false)
@@ -326,18 +326,21 @@ func buildSessionCommand() *cobra.Command {
 		if d := flagDuration(cmd, "session-timeout"); d < 0 || d > 24*time.Hour || d%time.Second != 0 {
 			return fmt.Errorf("--session-timeout must be whole seconds between 0 and 24h")
 		}
-		if flagBool(cmd, "no-wait") && (flagBool(cmd, "connect") || flagString(cmd, "with-credentials") != "") {
-			return fmt.Errorf("--no-wait cannot be combined with --connect or --with-credentials")
+		if flagBool(cmd, "no-wait") && flagBool(cmd, "connect") {
+			return fmt.Errorf("--no-wait cannot be combined with --connect")
+		}
+		if flagBool(cmd, "no-wait") && cmd.Flags().Changed("with-credentials") && flagString(cmd, "with-credentials") == "ocm" {
+			return fmt.Errorf("--no-wait cannot be combined with explicit --with-credentials ocm; omit the flag to skip injection")
 		}
 		if flagBool(cmd, "connect") {
 			if err := requireTerminal(); err != nil {
 				return err
 			}
 		}
-		if p := flagString(cmd, "with-credentials"); p != "" && p != "ocm" {
-			return fmt.Errorf("unsupported credential provider %q; use --with-credentials ocm or omit the flag", p)
+		if p := flagString(cmd, "with-credentials"); p != "none" && p != "ocm" {
+			return fmt.Errorf("unsupported credential provider %q; use --with-credentials ocm or --with-credentials none", p)
 		}
-		if flagString(cmd, "with-credentials") == "" && (cmd.Flags().Changed("ocm-url") || cmd.Flags().Changed("ocm-auth-flow")) {
+		if (flagString(cmd, "with-credentials") == "none" || flagBool(cmd, "no-wait")) && (cmd.Flags().Changed("ocm-url") || cmd.Flags().Changed("ocm-auth-flow")) {
 			return fmt.Errorf("--ocm-url and --ocm-auth-flow require --with-credentials ocm")
 		}
 		if f := flagString(cmd, "ocm-auth-flow"); f != "" && f != "device" && f != "auth-code" {

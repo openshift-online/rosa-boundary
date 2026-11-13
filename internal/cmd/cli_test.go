@@ -230,6 +230,28 @@ func TestSessionLifecycleHelpKeepsFlagsAndSeparation(t *testing.T) {
 	}
 }
 
+func TestSessionCreateCredentialFlagCombinationsBeforeAuthentication(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"default no-wait accepted", []string{"session", "create", "cluster", "--no-wait"}, "no active profile"},
+		{"explicit opt out accepted", []string{"session", "create", "cluster", "--with-credentials", "none"}, "no active profile"},
+		{"explicit OCM with no-wait rejected", []string{"session", "create", "cluster", "--no-wait", "--with-credentials", "ocm"}, "explicit --with-credentials ocm"},
+		{"OCM URL with opt out rejected", []string{"session", "create", "cluster", "--with-credentials", "none", "--ocm-url", "staging"}, "--ocm-url and --ocm-auth-flow require"},
+		{"OCM URL with no-wait rejected", []string{"session", "create", "cluster", "--no-wait", "--ocm-url", "staging"}, "--ocm-url and --ocm-auth-flow require"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := runTestCLI(t, tc.args...)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("%v: expected %q, got %v", tc.args, tc.want, err)
+			}
+		})
+	}
+}
+
 func TestSessionParentHelpExamplesAndBooleanFlags(t *testing.T) {
 	stdout, err := runTestCLI(t, "session", "--help")
 	if err != nil {
@@ -239,9 +261,9 @@ func TestSessionParentHelpExamplesAndBooleanFlags(t *testing.T) {
 		"new, auto-generated investigation ID",
 		"existing investigation",
 		"fresh OCM credentials in an existing session",
-		"new investigation and OCM credentials",
+		"session without OCM credentials",
 		"separate human approvals",
-		"cannot be combined with --no-wait",
+		"--no-wait skips credential injection",
 		"--use-device-code",
 	} {
 		if !strings.Contains(stdout, want) {
@@ -252,7 +274,7 @@ func TestSessionParentHelpExamplesAndBooleanFlags(t *testing.T) {
 		"rosa-boundary session create <cluster-id>",
 		"rosa-boundary session create <cluster-id> --investigation-id <investigation-id>",
 		"rosa-boundary session credentials configure ocm <session-id>",
-		"rosa-boundary session create <cluster-id> --with-credentials ocm",
+		"rosa-boundary session create <cluster-id> --with-credentials none",
 	}
 	for _, example := range examples {
 		if !strings.Contains(stdout, "  "+example+"\n") {

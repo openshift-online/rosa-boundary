@@ -120,17 +120,21 @@ Optional flags:
 ```
   --session-timeout 1h    # task lifetime; must meet the deployment's policy
   --oc-version 4.20       # OpenShift CLI version to lock; check CLI help for default
-  --with-credentials ocm  # configure a fresh OCM token before returning
+  --with-credentials none # opt out of default fresh OCM token injection
   --ocm-url production    # production, staging, integration, or canonical URL
   --ocm-auth-flow device  # explicit OCM-only override; otherwise follows global device preference
 ```
 
-`--with-credentials` cannot be combined with `--no-wait`. If configuration
-fails after task creation, the CLI reports the created session ID and a
-profile-qualified `session close <session-id> --yes` cleanup command. A RUNNING
-wait failure also returns nonzero; the session may already be STOPPED. Inspect
-`session list --status all` before retrying. `--no-wait` reports launch only.
-With `--with-credentials ocm`, the CLI separately requests a fresh OCM access
+`session create` injects OCM credentials by default. `--with-credentials none`
+opts out. `--no-wait` skips injection and warns with a follow-up
+`session credentials configure ocm <session-id>` command to run once the task
+is RUNNING; explicitly combining `--no-wait` and `--with-credentials ocm` is
+rejected. If OCM authorization or injection fails after task creation, the
+session remains usable, and the CLI warns with the session ID, a retry command,
+and a profile-qualified cleanup command; OCM credentials are **not confirmed**.
+A RUNNING wait failure still returns nonzero; the session may already be
+STOPPED. Inspect `session list --status all` before retrying. `--no-wait`
+reports launch only. By default, the CLI separately requests a fresh OCM access
 token from the OCM issuer/client, not the cached Boundary ID token. The saved
 device preference (or explicit global flag/env override) applies to both
 providers by default, so a fresh Boundary token **and** OCM credentials may
@@ -146,9 +150,11 @@ single session-result JSON document; stderr carries human-readable
 authentication challenges and other diagnostics (not auth-event protocol lines).
 Read stderr **as the CLI runs** and show each URL/code privately to the SRE,
 not in shared CI logs. Check the **process exit status** before trusting the
-result. If OCM approval or transfer fails after task creation, note the session ID and explicitly retry
-credential configuration or stop the task and verify cleanup; a nonzero exit
-does not prove that the task was not created.
+result. If OCM approval or transfer fails after task creation, the command succeeds
+with a warning on stderr (and `warnings` in JSON); JSON does not include
+`credentials` unless configuration succeeded. Note the session ID and explicitly
+retry credential configuration or stop the task and verify cleanup. A nonzero
+exit from another failure still does not prove that the task was not created.
 
 What it does:
 1. **CLI assumes the invoker role** via STS using the OIDC ID token (no existing AWS credentials)

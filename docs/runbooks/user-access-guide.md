@@ -196,7 +196,7 @@ or print tokens. Do not retry denied or expired requests indefinitely. The
 CLI JSON result fields and interactive semantics are described in the
 [authentication model](../architecture/cli-authentication.md#human-approved-authentication-and-json-output).
 
-For OCM credentials, `session create --with-credentials ocm` and
+For OCM credentials, `session create` (equivalent to `--with-credentials ocm`) and
 `session credentials configure ocm <session-id>` use the same saved/global device
 preference by default but request a **different issuer/client's OCM access
 token**, never the Boundary ID token. Explicit `--ocm-auth-flow auth-code|device`
@@ -222,9 +222,13 @@ This will:
 5. Lambda launches the ECS task with identity and investigation tags (including the deployment's ABAC tag)
 6. CLI prints the Boundary session ID (the ECS task ID) — save it for the next steps.
    A Boundary session is **not** the short-lived SSM ECS Exec connection ID.
-   `session create --no-wait` reports launch, not readiness. A failed wait or
-   post-launch credential step returns nonzero and a profile-qualified cleanup
-   command; the session may still exist. Use `session list --status all` to inspect it.
+   `session create --no-wait` reports launch, not readiness, and warns that OCM
+   credentials were not injected, with a configure command to run once RUNNING.
+   `--with-credentials none` opts out of OCM injection. A post-launch OCM
+   authorization or injection failure leaves the session available and warns
+   with the session ID, retry and cleanup commands (also in JSON `warnings`);
+   it does not report credentials as configured. A failed wait still returns
+   nonzero, and the session may exist. Use `session list --status all` to inspect it.
 
 ### Step 3: Connect to Investigation Container
 

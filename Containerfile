@@ -124,7 +124,8 @@ RUN python3 /usr/local/share/sre-tools/verify_sre_tools.py combine /opt/inventor
 # Claude Code downloaded via github_dl with SHASUMS256.txt verification.
 FROM tools-base AS claude-builder
 
-ENV CLAUDE_CODE_VERSION="2.1.199"
+# renovate: datasource=github-releases depName=anthropics/claude-code
+ENV CLAUDE_CODE_VERSION="2.1.323"
 ENV CLAUDE_CODE_URL_SLUG="anthropics/claude-code"
 ENV CLAUDE_CODE_URL="https://api.github.com/repos/${CLAUDE_CODE_URL_SLUG}/releases/tags/v${CLAUDE_CODE_VERSION}"
 ENV CLAUDE_CODE_CHECKSUM_FILE="SHASUMS256.txt"

@@ -25,6 +25,20 @@ repository-wide Renovate automerge setting.
 
 Mintmaker's Python coverage was verified in [PR #411](https://github.com/openshift-online/rosa-boundary/pull/411): it updated both the manifest and lockfile, and the Lambda build, unit tests, and integration tests passed. Dependabot's Python version-update configuration has therefore been retired. This does not affect GitHub Dependabot alerts, which remain controlled by repository security settings.
 
+### Claude Code native binary
+
+Claude Code is pinned separately by the annotated `CLAUDE_CODE_VERSION` ENV in
+`Containerfile`. A dedicated `custom.regex` manager tracks stable
+`anthropics/claude-code` GitHub releases. Updates require human review
+(`automerge: false`), remain ungrouped, and retain the inherited release-age
+policy with publication timestamps required. This is separate from the six-tool
+SRE contract below.
+
+The builder downloads the exact release's architecture-specific native archive
+and verifies it against `SHASUMS256.txt`. Updating the pin requires an image
+rebuild and deployment; existing tasks do not gain the new binary automatically.
+Verify actual hosted Mintmaker PRs and the deployed `claude --version` separately.
+
 ### Six-tool exact-pin contract (ROSAENG-67158)
 
 The reduced migration scope is direct installation of **ocm, ocm-backplane,

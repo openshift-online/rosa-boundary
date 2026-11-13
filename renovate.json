@@ -20,6 +20,19 @@
   "customManagers": [
     {
       "customType": "regex",
+      "description": "Update Claude Code's native binary pin",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=anthropics/claude-code\\r?\\nENV CLAUDE_CODE_VERSION=\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "anthropics/claude-code",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced"
+    },
+    {
+      "customType": "regex",
       "description": "Update only OCM_VERSION",
       "managerFilePatterns": [
         "/^Containerfile$/"
@@ -98,6 +111,19 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Review stable Claude Code updates; retain inherited release age",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchPackageNames": [
+        "anthropics/claude-code"
+      ],
+      "automerge": false,
+      "groupName": null,
+      "ignoreUnstable": true,
+      "minimumReleaseAgeBehaviour": "timestamp-required"
+    },
     {
       "description": "Review Python dependency updates; do not automerge",
       "matchManagers": [

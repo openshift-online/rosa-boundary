@@ -286,6 +286,14 @@ func createMockSessionExpectError(t *testing.T, clusterID string, rbacRules []ba
 	return errResp.Message
 }
 
+const testDeploymentRegion = "us-east-1"
+
+type fakeRegionResolver struct{ region string }
+
+func (f *fakeRegionResolver) DefaultRegion(context.Context, string) (string, error) {
+	return f.region, nil
+}
+
 // newTestExecutor builds an executor wired to the mock backplane.
 func newTestExecutor(t *testing.T, allowedNS []string, allowedSecrets []string) (*executor.Executor, *audit.MockLogger) {
 	t.Helper()
@@ -295,7 +303,7 @@ func newTestExecutor(t *testing.T, allowedNS []string, allowedSecrets []string) 
 	authorizer := authorization.New(logger, allowedNS, allowedSecrets)
 	auditor := audit.NewMockLogger(logger)
 	provider := newMockBackplaneProvider(t)
-	return executor.New(logger, auditor, executor.NewKubeScope(authorizer, provider)), auditor
+	return executor.New(logger, auditor, testDeploymentRegion, &fakeRegionResolver{region: testDeploymentRegion}, executor.NewKubeScope(authorizer, provider)), auditor
 }
 
 // mockBackplaneProvider implements backplane.ClientProvider by talking to the
@@ -536,5 +544,5 @@ func newTestExecutorWithProxy(t *testing.T, allowedNS []string, allowedSecrets [
 	authorizer := authorization.New(logger, allowedNS, allowedSecrets)
 	auditor := audit.NewMockLogger(logger)
 	provider := newProxyBackplaneProvider(t)
-	return executor.New(logger, auditor, executor.NewKubeScope(authorizer, provider)), auditor
+	return executor.New(logger, auditor, testDeploymentRegion, &fakeRegionResolver{region: testDeploymentRegion}, executor.NewKubeScope(authorizer, provider)), auditor
 }

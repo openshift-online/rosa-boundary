@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -34,11 +35,30 @@ func (f *fakeClientProvider) GetPodExecutor(_ context.Context, _, _ string, _ []
 	return nil, fmt.Errorf("not implemented in test fake")
 }
 
+// testDeploymentRegion is the fixed boundary used by tests that are not about
+// the boundary gate itself, so it passes transparently and they keep
+// exercising Kubernetes authorization instead.
+const testDeploymentRegion = "us-east-1"
+
+// fakeRegionResolver stands in for the OCM-backed cluster region lookup the
+// boundary gate uses.
+type fakeRegionResolver struct {
+	region string
+	err    error
+}
+
+func (f *fakeRegionResolver) DefaultRegion(context.Context, string) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	return f.region, nil
+}
+
 func newTestExecutor(namespaces, secrets []string, bp backplane.ClientProvider) (*Executor, *audit.MockLogger) {
 	logger := logrus.New()
 	auditor := audit.NewMockLogger(logger)
 	authz := authorization.New(logger, namespaces, secrets)
-	return New(logger, auditor, NewKubeScope(authz, bp)), auditor
+	return New(logger, auditor, testDeploymentRegion, &fakeRegionResolver{region: testDeploymentRegion}, NewKubeScope(authz, bp)), auditor
 }
 
 func newFakeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
@@ -326,5 +346,153 @@ func TestFailure_WithCause(t *testing.T) {
 	// problem rather than the layer that wrapped it.
 	if got := auditedCause(failure); got != cause {
 		t.Errorf("auditedCause() = %v, want the wrapped cause", got)
+	}
+}
+
+// panicOnCallClientProvider fails a test outright if the Kubernetes scope
+// ever reaches it, proving a denied request never got as far as Run.
+type panicOnCallClientProvider struct{ t *testing.T }
+
+func (p *panicOnCallClientProvider) GetClient(context.Context, string, string, []backplane.RBACRule) (dynamic.Interface, error) {
+	p.t.Fatal("scope.Run must not be reached when the boundary gate denies the request")
+	return nil, errUnreachable
+}
+
+func (p *panicOnCallClientProvider) GetPodExecutor(context.Context, string, string, []backplane.RBACRule) (backplane.PodExecutor, error) {
+	p.t.Fatal("scope.Run must not be reached when the boundary gate denies the request")
+	return nil, errUnreachable
+}
+
+var errUnreachable = errors.New("unreachable")
+
+func TestExecutor_BoundaryGate_RegionMatches(t *testing.T) {
+	cm := newConfigMap("openshift-monitoring", "cluster-config")
+	bp := &fakeClientProvider{client: newFakeClient(cm)}
+	exec, auditor := newTestExecutor([]string{"openshift-monitoring"}, nil, bp)
+
+	result := exec.Execute(context.Background(), Request{
+		ClusterID: "cluster-123",
+		Action:    actions.NewGetAction(),
+		Target:    testTarget,
+	})
+
+	if !result.Allowed {
+		t.Fatalf("expected allowed, got denied: %s", result.Reason)
+	}
+	if len(auditor.Records) != 1 {
+		t.Fatalf("expected 1 audit record, got %d", len(auditor.Records))
+	}
+	if auditor.Records[0].ClusterRegion != testDeploymentRegion {
+		t.Errorf("expected audited cluster region %q, got %q", testDeploymentRegion, auditor.Records[0].ClusterRegion)
+	}
+}
+
+func TestExecutor_BoundaryGate_RegionMismatch_Kube(t *testing.T) {
+	logger := logrus.New()
+	auditor := audit.NewMockLogger(logger)
+	authz := authorization.New(logger, []string{"openshift-monitoring"}, nil)
+	exec := New(logger, auditor, testDeploymentRegion, &fakeRegionResolver{region: "eu-west-1"},
+		NewKubeScope(authz, &panicOnCallClientProvider{t: t}))
+
+	result := exec.Execute(context.Background(), Request{
+		ClusterID: "cluster-123",
+		Action:    actions.NewGetAction(),
+		Target:    testTarget,
+	})
+
+	if result.Allowed {
+		t.Fatal("expected denied for a cluster outside the deployment boundary, got allowed")
+	}
+	if !strings.Contains(result.Reason, "eu-west-1") || !strings.Contains(result.Reason, testDeploymentRegion) {
+		t.Errorf("expected the reason to name both regions, got %q", result.Reason)
+	}
+	if len(auditor.Records) != 1 {
+		t.Fatalf("expected 1 audit record, got %d", len(auditor.Records))
+	}
+	rec := auditor.Records[0]
+	if rec.Decision != audit.DecisionDenied {
+		t.Errorf("expected audit decision %q, got %q", audit.DecisionDenied, rec.Decision)
+	}
+	if rec.Outcome != audit.OutcomeSkipped {
+		t.Errorf("expected audit outcome %q, got %q", audit.OutcomeSkipped, rec.Outcome)
+	}
+}
+
+func TestExecutor_BoundaryGate_RegionMismatch_AWS(t *testing.T) {
+	provider := &fakeAWSProvider{defaultRegion: "eu-west-1"}
+	logger := logrus.New()
+	auditor := audit.NewMockLogger(logger)
+	exec := New(logger, auditor, testDeploymentRegion, provider,
+		NewAWSScope(authorization.NewAWS(logger, authorization.AWSPolicy{AllowedRegions: []string{"eu-west-1", testDeploymentRegion}}), provider))
+
+	result := exec.Execute(context.Background(), Request{
+		ClusterID: "cluster-123",
+		Action:    actions.NewAWSGetAction(),
+		Params:    map[string]string{"resource": "ec2-instances"},
+	})
+
+	if result.Allowed {
+		t.Fatal("expected denied for a cluster outside the deployment boundary, got allowed")
+	}
+	if provider.requestedServices != nil {
+		t.Error("expected no AWS clients to be built for a boundary-denied request")
+	}
+	if len(auditor.Records) != 1 || auditor.Records[0].Decision != audit.DecisionDenied {
+		t.Errorf("expected a denied audit record, got %+v", auditor.Records)
+	}
+}
+
+// TestExecutor_BoundaryGate_ResolverError proves a lookup failure is reported
+// as a failure, not a denial.
+func TestExecutor_BoundaryGate_ResolverError(t *testing.T) {
+	logger := logrus.New()
+	auditor := audit.NewMockLogger(logger)
+	authz := authorization.New(logger, []string{"openshift-monitoring"}, nil)
+	cause := errors.New("OCM unavailable")
+	exec := New(logger, auditor, testDeploymentRegion, &fakeRegionResolver{err: cause},
+		NewKubeScope(authz, &panicOnCallClientProvider{t: t}))
+
+	result := exec.Execute(context.Background(), Request{
+		ClusterID: "cluster-123",
+		Action:    actions.NewGetAction(),
+		Target:    testTarget,
+	})
+
+	if result.Error == nil {
+		t.Fatal("expected the resolution failure to be reported, got nil")
+	}
+	if !errors.Is(result.Error, cause) {
+		t.Errorf("expected the underlying cause to be wrapped, got %q", result.Error)
+	}
+	if len(auditor.Records) != 1 {
+		t.Fatalf("expected 1 audit record, got %d", len(auditor.Records))
+	}
+	rec := auditor.Records[0]
+	if rec.Outcome != audit.OutcomeFailure {
+		t.Errorf("expected outcome %q, got %q", audit.OutcomeFailure, rec.Outcome)
+	}
+	if rec.Decision == audit.DecisionDenied {
+		t.Error("expected no denial to be recorded: the boundary check never concluded")
+	}
+}
+
+func TestExecutor_BoundaryGate_EmptyDeploymentRegion(t *testing.T) {
+	logger := logrus.New()
+	auditor := audit.NewMockLogger(logger)
+	authz := authorization.New(logger, []string{"openshift-monitoring"}, nil)
+	exec := New(logger, auditor, "", &fakeRegionResolver{region: testDeploymentRegion},
+		NewKubeScope(authz, &panicOnCallClientProvider{t: t}))
+
+	result := exec.Execute(context.Background(), Request{
+		ClusterID: "cluster-123",
+		Action:    actions.NewGetAction(),
+		Target:    testTarget,
+	})
+
+	if result.Allowed {
+		t.Fatal("expected denied with no deployment region configured, got allowed")
+	}
+	if len(auditor.Records) != 1 || auditor.Records[0].Decision != audit.DecisionDenied {
+		t.Errorf("expected a denied audit record, got %+v", auditor.Records)
 	}
 }

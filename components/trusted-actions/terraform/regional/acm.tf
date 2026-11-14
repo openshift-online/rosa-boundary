@@ -7,7 +7,7 @@
 # ACM's API; it does not need to own the Route 53 record itself.
 
 resource "aws_acm_certificate" "app" {
-  count             = var.internal_fqdn != "" && var.public_zone_id != "" ? 1 : 0
+  count             = var.internal_fqdn != "" && local.global.public_zone_id != "" ? 1 : 0
   domain_name       = var.internal_fqdn
   validation_method = "DNS"
   # Internal hostname only — disable Certificate Transparency logging so
@@ -27,7 +27,7 @@ resource "aws_acm_certificate" "app" {
 }
 
 resource "aws_acm_certificate_validation" "app" {
-  count           = var.internal_fqdn != "" && var.public_zone_id != "" ? 1 : 0
+  count           = var.internal_fqdn != "" && local.global.public_zone_id != "" ? 1 : 0
   certificate_arn = aws_acm_certificate.app[0].arn
 
   # Derives the expected validation FQDN from the certificate itself. The actual
@@ -39,10 +39,13 @@ resource "aws_acm_certificate_validation" "app" {
 }
 
 locals {
-  https_enabled = (var.internal_fqdn != "" && var.public_zone_id != "") || var.alb_certificate_arn != ""
+  # Read from the global workspace's remote state rather than a local variable:
+  # the validation CNAME the certificates validate against lives in whatever
+  # zone global resolved, so any other value here could only ever be a mismatch.
+  https_enabled = (var.internal_fqdn != "" && local.global.public_zone_id != "") || var.alb_certificate_arn != ""
 
   certificate_arn = (
-    var.internal_fqdn != "" && var.public_zone_id != ""
+    var.internal_fqdn != "" && local.global.public_zone_id != ""
     ? aws_acm_certificate_validation.app[0].certificate_arn
     : var.alb_certificate_arn
   )

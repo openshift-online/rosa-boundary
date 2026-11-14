@@ -56,6 +56,16 @@ type Scope interface {
 	Run(ctx context.Context, req Request) (*actions.ActionResult, error)
 }
 
+// ClusterRegionResolver reports a cluster's own AWS region, as recorded in
+// OCM. It exists so the executor can enforce the deployment-region boundary
+// without importing awsapi — awsapi.ClientProvider already has a method with
+// this exact signature, so the provider wired up for AWS actions satisfies it
+// directly, and the boundary check reuses its cached OCM lookup rather than
+// making a second one.
+type ClusterRegionResolver interface {
+	DefaultRegion(ctx context.Context, clusterID string) (string, error)
+}
+
 // Failure is returned by a Scope when a stage of the execution fails. Message
 // frames the failure for the caller, while Cause is the underlying error and
 // is what the audit trail records.
@@ -77,16 +87,24 @@ func (f *Failure) Error() string {
 func (f *Failure) Unwrap() error { return f.Cause }
 
 type Executor struct {
-	logger  *logrus.Logger
+	logger *logrus.Logger
+	// auditor receives one Record per Execute call, win or lose.
 	auditor audit.Logger
+	// deploymentRegion is the region this deployment is responsible for. A
+	// target cluster whose own region differs is outside the boundary.
+	deploymentRegion string
+	// regions resolves a cluster's own region for the boundary check above.
+	regions ClusterRegionResolver
 	scopes  []Scope
 }
 
-func New(logger *logrus.Logger, auditor audit.Logger, scopes ...Scope) *Executor {
+func New(logger *logrus.Logger, auditor audit.Logger, deploymentRegion string, regions ClusterRegionResolver, scopes ...Scope) *Executor {
 	return &Executor{
-		logger:  logger,
-		auditor: auditor,
-		scopes:  scopes,
+		logger:           logger,
+		auditor:          auditor,
+		deploymentRegion: deploymentRegion,
+		regions:          regions,
+		scopes:           scopes,
 	}
 }
 
@@ -109,6 +127,30 @@ func (e *Executor) Execute(ctx context.Context, req Request) (result *Result) {
 			Allowed: false,
 			Reason:  reason,
 		}
+	}
+
+	// Deployment-boundary gate: a cluster outside the region this deployment
+	// is responsible for is refused before authorization runs.
+	if e.deploymentRegion == "" {
+		reason := "no deployment region configured"
+		rec.Decision = audit.DecisionDenied
+		rec.DenyReason = reason
+		rec.Outcome = audit.OutcomeSkipped
+		return &Result{Allowed: false, Reason: reason}
+	}
+	region, err := e.regions.DefaultRegion(ctx, req.ClusterID)
+	if err != nil {
+		rec.Outcome = audit.OutcomeFailure
+		rec.Error = auditedCause(err).Error()
+		return &Result{Error: err}
+	}
+	rec.ClusterRegion = region
+	if region != e.deploymentRegion {
+		reason := fmt.Sprintf("cluster region %q is outside deployment boundary %q", region, e.deploymentRegion)
+		rec.Decision = audit.DecisionDenied
+		rec.DenyReason = reason
+		rec.Outcome = audit.OutcomeSkipped
+		return &Result{Allowed: false, Reason: reason}
 	}
 
 	if req.Target == nil {

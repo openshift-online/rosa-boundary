@@ -23,6 +23,8 @@ func TestScopes_CoverEveryRegisteredAction(t *testing.T) {
 	exec := New(
 		logger,
 		audit.NewMockLogger(logger),
+		testDeploymentRegion,
+		&fakeRegionResolver{region: testDeploymentRegion},
 		NewKubeScope(authorization.New(logger, nil, nil), &fakeClientProvider{}),
 		NewAWSScope(authorization.NewAWS(logger, authorization.AWSPolicy{}), &fakeAWSProvider{}),
 	)

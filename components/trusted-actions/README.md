@@ -223,6 +223,9 @@ export AWS_REGION="us-east-1"
 export AWS_ACCESS_KEY_ID="your-key"
 export AWS_SECRET_ACCESS_KEY="your-secret"
 
+# Deployment boundary (defaults to AWS_REGION)
+export ROSA_TA_DEPLOYMENT_REGION="us-east-1"
+
 # Application Configuration
 export ROSA_TA_ALLOWED_ACCOUNTS="123456789012,987654321098"
 

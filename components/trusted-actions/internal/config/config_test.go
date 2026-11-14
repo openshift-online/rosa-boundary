@@ -316,6 +316,7 @@ func clearLoadEnv(t *testing.T) {
 		"ROSA_TA_ALLOWED_SECRETS",
 		"ROSA_TA_AWS_ALLOWED_REGIONS",
 		"ROSA_TA_AWS_ALLOWED_OPERATIONS",
+		"ROSA_TA_DEPLOYMENT_REGION",
 		"ROSA_TA_AWS_ENDPOINT_URL",
 		"ROSA_TA_AWS_PROXY_URL",
 		"ROSA_TA_BACKPLANE_ASSUME_INITIAL_ARN",
@@ -378,6 +379,53 @@ func TestLoad_Defaults(t *testing.T) {
 	// not change it.
 	if len(cfg.AWSAllowedOperations) != 0 {
 		t.Errorf("AWSAllowedOperations = %v, want none", cfg.AWSAllowedOperations)
+	}
+}
+
+// With neither ROSA_TA_DEPLOYMENT_REGION nor AWS_REGION set, there is no
+// region to fall back to, so the boundary is left unconfigured — cmd/server
+// turns that into a startup failure.
+func TestLoad_DeploymentRegionDefaultsEmpty(t *testing.T) {
+	clearLoadEnv(t)
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.DeploymentRegion != "" {
+		t.Errorf("DeploymentRegion = %q, want empty", cfg.DeploymentRegion)
+	}
+}
+
+// Unset, DeploymentRegion inherits AWS_REGION: a deployment that only ever
+// set AWS_REGION still gets a boundary, matching the region it already runs
+// in.
+func TestLoad_DeploymentRegionFallsBackToAWSRegion(t *testing.T) {
+	clearLoadEnv(t)
+	t.Setenv("AWS_REGION", "us-east-1")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.DeploymentRegion != "us-east-1" {
+		t.Errorf("DeploymentRegion = %q, want %q", cfg.DeploymentRegion, "us-east-1")
+	}
+}
+
+// ROSA_TA_DEPLOYMENT_REGION overrides AWS_REGION, so a deployment can state a
+// boundary distinct from the region its AWS client defaults to.
+func TestLoad_DeploymentRegionFromEnvOverridesAWSRegion(t *testing.T) {
+	clearLoadEnv(t)
+	t.Setenv("AWS_REGION", "us-east-1")
+	t.Setenv("ROSA_TA_DEPLOYMENT_REGION", "eu-west-1")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.DeploymentRegion != "eu-west-1" {
+		t.Errorf("DeploymentRegion = %q, want %q", cfg.DeploymentRegion, "eu-west-1")
 	}
 }
 

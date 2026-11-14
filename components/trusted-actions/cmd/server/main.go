@@ -320,10 +320,23 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}, ocmClient.Clusters, ocmClient.Connection)
 	}
 
+	// Empty deployment region refused at startup for the same
+	// reason as the AWS region allowlist above.
+	if cfg.DeploymentRegion == "" {
+		logger.Fatal("No deployment region configured; set ROSA_TA_DEPLOYMENT_REGION or AWS_REGION. " +
+			"There is no other default: which region this deployment is responsible for has to be stated explicitly")
+	}
+
 	// One scope per execution domain; the executor dispatches each action to
 	// the scope that claims it. Every registered action must be claimed by one
 	// of these — see TestScopes_CoverEveryRegisteredAction.
-	actionExecutor := executor.New(logger, actionAuditor,
+	//
+	// awsProvider doubles as the deployment-boundary's cluster-region
+	// resolver (executor.ClusterRegionResolver): it already has a
+	// DefaultRegion method, the same cache-backed OCM lookup AWS actions use
+	// for their own region resolution, so the boundary check costs no extra
+	// OCM call.
+	actionExecutor := executor.New(logger, actionAuditor, cfg.DeploymentRegion, awsProvider,
 		executor.NewKubeScope(actionAuthorizer, bp),
 		executor.NewAWSScope(awsAuthorizer, awsProvider),
 	)

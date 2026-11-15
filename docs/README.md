@@ -29,6 +29,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 - [**Keycloak Realm Setup**](configuration/keycloak-realm-setup.md) - Configure Keycloak realm and OIDC client using KeycloakRealmImport CR
 - [**AWS IAM Policies**](configuration/aws-iam-policies.md) - IAM roles and policies for ECS Exec access
 - [**Bedrock Model Agreements**](configuration/bedrock-model-agreements.md) - Account-level subscription manifest and lifecycle
+- [**Restricted-scope Claude**](configuration/restricted-claude.md) - Optional OpenAPPA tool-boundary guardrail inside investigations
 - [**Code Coverage**](configuration/code-coverage.md) - Codecov integration, Prow CI jobs, and coverage reporting
 - [**UUID Allowlist**](configuration/uuid-allowlist.md) - Interim access control restricting role assumption by user UUID
 - [**Operations Metrics**](configuration/operations-metrics.md) - Task-creation metric contract, exporter semantics, and validation gaps

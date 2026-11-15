@@ -415,6 +415,28 @@ Configuration files in `/home/sre/.claude/` are preserved across container resta
 - **Subsequent runs**: Existing configuration preserved (no overwrite)
 - **Customize**: Edit `/home/sre/.claude/CLAUDE.md` to add cluster-specific context
 
+### Optional restricted-scope assistant
+
+Use `boundary-claude` inside the existing investigation container to run Claude
+with the image-managed OpenAPPA policy:
+
+```bash
+boundary-claude "Investigate the degraded ingress operator"
+boundary-claude --print "Summarize the evidence in my local notes"
+```
+
+Guarded sessions start restricted (`internal`). `WebFetch` and `WebSearch`
+require public-shareable context and are denied, with no approval or automatic
+redaction exception. Local investigation tools retain their native permission
+checks. The initial profile disables MCP servers, skills and delegation; it
+does not accept custom settings, a public scope or resume flags. Ordinary
+`claude` and the human shell are unchanged.
+
+**This is a configured-tool guardrail, not a network sandbox:** Bash/CLI
+subprocess traffic, model requests and final assistant prose are outside its
+public-destination checks. See [restricted-scope Claude](docs/configuration/restricted-claude.md)
+for storage, limitations and verification.
+
 ## Usage
 
 ### Running locally
@@ -434,7 +456,7 @@ podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client
 - **Base**: Red Hat UBI9
 - **AWS CLI**: Official AWS CLI v2
 - **OpenShift CLI**: 4.14.x, 4.15.x, 4.16.x, 4.17.x, 4.18.x, 4.19.x, 4.20.x
-- **Claude Code**: 2.0.69 (native installer), auto-updates disabled
+- **Claude Code**: 2.1.199 (native release), auto-updates disabled
 - **Additional tools**: util-linux (includes su for user switching)
 
 ## Architecture Support

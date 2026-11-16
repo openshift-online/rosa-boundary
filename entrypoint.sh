@@ -35,12 +35,32 @@ sync_to_s3() {
 
 # Cleanup function - sync and terminate child process
 cleanup() {
+    stop_skill_reconciler
     sync_to_s3
     # Kill the background process if it exists
     if [ -n "${CHILD_PID}" ]; then
         kill -TERM "${CHILD_PID}" 2>/dev/null || true
     fi
     exit 0
+}
+
+# Launch one unprivileged, non-blocking skill reconciler per task (default on).
+start_skill_reconciler() {
+    local helper="${1:-/usr/local/libexec/rosa-boundary-skill-sync.sh}"
+    if [ "${BOUNDARY_SKILLS_ENABLED:-1}" = "1" ] && [ -r "${helper}" ]; then
+        runuser --user sre -- env HOME=/home/sre bash "${helper}" &
+        SKILL_RECONCILER_PID=$!
+    fi
+}
+
+# Stop the runuser supervisor, which forwards SIGTERM to its Bash child.
+# Reap before audit sync so the helper cannot keep changing the home during sync.
+stop_skill_reconciler() {
+    if [ -n "${SKILL_RECONCILER_PID:-}" ]; then
+        kill -TERM "${SKILL_RECONCILER_PID}" 2>/dev/null || true
+        wait "${SKILL_RECONCILER_PID}" 2>/dev/null || true
+        SKILL_RECONCILER_PID=""
+    fi
 }
 
 # Fail closed unless credential paths are task-scoped mounts, not EFS paths.
@@ -90,6 +110,7 @@ main() {
 
     # Trap signals for cleanup
     trap cleanup SIGTERM SIGINT SIGHUP
+    trap stop_skill_reconciler EXIT
 
     # Switch OpenShift CLI version if OC_VERSION is set
     if [ -n "${OC_VERSION}" ]; then
@@ -130,6 +151,8 @@ KUBECONFIG
     if [ -d /etc/skel-sre ]; then
         runuser -u sre -- cp -rn /etc/skel-sre/. /home/sre/
     fi
+
+    start_skill_reconciler
 
     # Set Bedrock defaults if CLAUDE_CODE_USE_BEDROCK is enabled
     if [ "${CLAUDE_CODE_USE_BEDROCK:-1}" = "1" ]; then
@@ -173,7 +196,8 @@ KUBECONFIG
     wait ${CHILD_PID}
     EXIT_CODE=$?
 
-    # Sync on normal exit too
+    # Sync on normal exit too, after quiescing managed home updates.
+    stop_skill_reconciler
     sync_to_s3
     exit ${EXIT_CODE}
 }

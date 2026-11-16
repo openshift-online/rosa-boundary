@@ -188,6 +188,44 @@ runs offline as `sre`, with a read-only filesystem, dropped capabilities, and no
 credentials. It mounts the helpers and Containerfile read-only, overrides the
 entrypoint, and does not test investigation or audit behavior.
 
+## Coding Agent Installation Acceptance
+
+Claude Code, OpenCode, the OpenAI Codex CLI and pi are pinned and updated under
+the [coding agent contract](dependency-management-automation.md#coding-agent-native-binaries).
+They are **not** inventory tools: they have no signer, no `tool-versions.json`
+entry and no installer adapter, so the six-tool assertions must keep failing if
+an agent pin ever reaches them.
+
+`make test-github-dl` covers, offline:
+
+- One annotated ENV pin and one dedicated manager per agent, with extraction
+  rejecting a foreign depName, a renamed variable, an `ARG` form, a prerelease
+  value and an unannotated pin.
+- Release-tag transforms: the configured `extractVersionTemplate` maps the real
+  upstream tag onto the pin and rejects that repository's other tags
+  (`rust-v*-alpha.N`, `process-daemon-v*`).
+- Both supported architectures resolving to asset names the upstream release
+  actually publishes, through `platform_convert`.
+- Checksum manifest and algorithm wiring, payload `COPY`, PATH symlink, and the
+  absence of floating releases or package-manager installs in each stage.
+
+Set `RENOVATE_RUNTIME_DIR` to an installed `renovate` package directory to also
+run the two opt-in contracts against real Renovate: regex extraction of every
+manager, repository-configuration validation, the effective review/release-age
+policy, and the tag transforms.
+
+The final image is accepted by the same offline run as the SRE tools: for each
+agent, `verify_sre_tools.py runtime` checks the shipped executable's
+architecture, rejects any setuid or setgid file in the installed payload, and
+requires `--version` on **stdout** to equal the Containerfile pin, unprivileged
+and with no network. Warnings an agent writes to stderr, for example about an
+unwritable config home, can never satisfy that comparison.
+
+These agents are large. Record the measured image growth with the build
+evidence rather than trimming files upstream expects: Codex resolves `rg`, its
+sandbox helper and its code-mode/exec servers relative to the installed package,
+and pi loads theme and schema assets relative to its executable.
+
 Check all six executable versions against the ARG defaults in the final image.
 If retaining generated `/usr/local/share/rosa-boundary/tool-versions.json`, require
 six entries matching those defaults and actual binaries; it is build output, not

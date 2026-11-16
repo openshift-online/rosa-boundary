@@ -12,29 +12,84 @@ from pathlib import Path
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 
-from sre_tools import TOOLS, SIGNERS, actual_version, pin_version, require_version
+from sre_tools import TOOLS, SIGNERS, actual_version, pin_version, require_version, single_version
 
 ARGS = dict(zip(TOOLS, ('OCM_VERSION', 'BACKPLANE_CLI_VERSION', 'OSDCTL_VERSION',
                        'YQ_VERSION', 'OC_VERSION', 'AWSCLI_VERSION')))
 INVENTORY = Path('/usr/local/share/rosa-boundary/tool-versions.json')
 
+# Coding agents are pinned native upstream archives, not members of the six-tool
+# exact-pin contract: they carry no signer, no inventory entry and no installer
+# adapter. Each declares one annotated ENV pin in the Containerfile, and the
+# final image is accepted by an offline '--version' probe against that pin.
+AGENTS = {'claude': 'CLAUDE_CODE_VERSION', 'opencode': 'OPENCODE_VERSION',
+          'codex': 'CODEX_VERSION', 'pi': 'PI_VERSION'}
+# Upstream provenance of each pin, shared with the update-contract tests.
+AGENT_DEPS = {'claude': 'anthropics/claude-code', 'opencode': 'anomalyco/opencode',
+              'codex': 'openai/codex', 'pi': 'earendil-works/pi'}
+# Installed payload directory per agent; the PATH entry is /usr/local/bin/<agent>.
+AGENT_PAYLOADS = {'claude': Path('/usr/local/lib/claude-code'),
+                  'opencode': Path('/usr/local/lib/opencode'),
+                  'codex': Path('/usr/local/lib/codex'),
+                  'pi': Path('/usr/local/lib/pi')}
+AGENT_PATHS = {agent: Path('/usr/local/bin') / agent for agent in AGENTS}
+
+
+def declared_pins(source, directive, names, value):
+    """One exact, annotated pin per name, or fail closed."""
+    result = {}
+    for key, name in names.items():
+        declarations = re.findall(rf'^{directive}\s+{name}\b[^\r\n]*', source, re.MULTILINE)
+        if len(declarations) != 1:
+            raise ValueError('missing or duplicate pin: ' + name)
+        match = re.fullmatch(rf'{directive} {name}="({value})"', declarations[0])
+        if not match:
+            raise ValueError('malformed pin: ' + name)
+        result[key] = match[1]
+    return result
+
 
 def pins(path):
-    source = path.read_text()
-    result = {}
-    for tool, arg in ARGS.items():
-        declarations = re.findall(r'^ARG\s+' + arg + r'\b[^\r\n]*', source, re.MULTILINE)
-        if len(declarations) != 1:
-            raise ValueError('missing or duplicate pin: ' + arg)
-        match = re.fullmatch(r'ARG ' + arg + r'="([^"]+)"', declarations[0])
-        if not match:
-            raise ValueError('malformed pin: ' + arg)
-        pin_version(tool, match[1])
-        result[tool] = match[1]
+    result = declared_pins(path.read_text(), 'ARG', ARGS, '[^"]+')
+    for tool, pin in result.items():
+        pin_version(tool, pin)
     return result
+
+
+def agent_pins(path):
+    """Coding agent pins are always a bare, exact three-part version."""
+    return declared_pins(path.read_text(), 'ENV', AGENTS, r'\d+\.\d+\.\d+')
+
+
+def agent_version(agent, executable):
+    """Offline '--version' probe reading stdout only.
+
+    Agents may warn on stderr about an unwritable config home; such notices must
+    never be able to supply the version that acceptance compares against the pin.
+    """
+    with tempfile.TemporaryDirectory() as home:
+        result = subprocess.run([str(executable), '--version'], check=True, capture_output=True,
+                                text=True, timeout=120, stdin=subprocess.DEVNULL,
+                                env={'HOME': home, 'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C',
+                                     'HTTP_PROXY': 'http://127.0.0.1:9', 'HTTPS_PROXY': 'http://127.0.0.1:9'})
+    return single_version(agent, result.stdout)
+
+
+def accept_agents(agents, arch):
+    """Each shipped agent is this architecture, carries no elevated mode bit,
+    and reports exactly its pinned version offline."""
+    for agent, executable in AGENT_PATHS.items():
+        elf_arch(executable, arch)
+        for path in AGENT_PAYLOADS[agent].rglob('*'):
+            if path.is_file() and not path.is_symlink() and path.stat().st_mode & (stat.S_ISUID | stat.S_ISGID):
+                raise ValueError('setuid or setgid agent file: ' + str(path))
+        actual = agent_version(agent, executable)
+        if actual != agents[agent]:
+            raise ValueError(f'{agent}: expected {agents[agent]}, got {actual}')
 
 
 def validate(entries, expected, arch):
@@ -66,7 +121,7 @@ def elf_arch(path, arch):
         raise ValueError('wrong executable architecture: ' + str(path))
 
 
-def runtime(entries, expected):
+def runtime(entries, expected, agents):
     if os.getuid() == 0:
         raise ValueError('runtime validation must run unprivileged')
     arch = {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}.get(platform.machine())
@@ -92,6 +147,7 @@ def runtime(entries, expected):
         for command in commands:
             subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=30,
                            env={'HOME': home, 'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C'})
+    accept_agents(agents, arch)
 
 
 def compare(left, right, expected):
@@ -120,7 +176,8 @@ def main():
     if args.command == 'combine':
         combine(args.directory, args.destination)
     elif args.command == 'runtime':
-        runtime(json.loads(args.inventory.read_text()), pins(args.containerfile))
+        runtime(json.loads(args.inventory.read_text()), pins(args.containerfile),
+                agent_pins(args.containerfile))
     else:
         compare(json.loads(args.amd64.read_text()), json.loads(args.arm64.read_text()), pins(args.containerfile))
 

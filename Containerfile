@@ -7,12 +7,15 @@
 #   tools-base       — shared build environment (curl, python3, helpers)
 #   sre-tools        — directly pinned SRE tools (SHA256/signature verified)
 #   claude-builder   — Claude Code via github_dl (SHA256 verified)
+#   opencode-builder — OpenCode via github_dl (SHA256 verified)
+#   codex-builder    — OpenAI Codex CLI via github_dl (SHA256 verified)
+#   pi-builder       — pi coding agent via github_dl (SHA256 verified)
 #   tmux-builder     — tmux built from source (not in UBI9 repos)
 #   final            — production image (only this stage ships)
 #
-# sre-tools and claude-builder depend on tools-base.
+# sre-tools and the coding-agent builders depend on tools-base.
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
-# stages 2-5 run in parallel once their dependencies complete.
+# stages 2-7 run in parallel once their dependencies complete.
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:1e9f0ed9fceafb40878bc1705ff124aa150e3fed873f18c42cdc2dded319e0a8
@@ -149,7 +152,124 @@ RUN mkdir --parents /opt/claude \
     && chmod +x /opt/claude/claude
 
 
-# Stage 4: tmux-builder
+# Stage 4: opencode-builder
+# OpenCode downloaded via github_dl with SHA256SUMS verification.
+# The project moved to the anomalyco organization; sst/opencode redirects there.
+FROM tools-base AS opencode-builder
+
+# renovate: datasource=github-releases depName=anomalyco/opencode
+ENV OPENCODE_VERSION="2.3.0"
+ENV OPENCODE_URL_SLUG="anomalyco/opencode"
+ENV OPENCODE_URL="https://api.github.com/repos/${OPENCODE_URL_SLUG}/releases/tags/v${OPENCODE_VERSION}"
+ENV OPENCODE_CHECKSUM_FILE="SHA256SUMS"
+ENV OPENCODE_CHECKSUM_ALGORITHM="sha256"
+
+RUN mkdir --parents /opencode-dl
+WORKDIR /opencode-dl
+
+# The glibc archive matches the UBI9 runtime; the -musl and -baseline variants
+# target other hosts. Select the exact asset, never a platform substring: the
+# release also publishes -musl, -baseline and desktop assets per architecture.
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
+    github_dl download \
+        --url "${OPENCODE_URL}" \
+        --checksum_file "${OPENCODE_CHECKSUM_FILE}" \
+        --checksum_algorithm "${OPENCODE_CHECKSUM_ALGORITHM}" \
+        --exact_asset "opencode-linux-$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64").tar.gz"
+
+# The archive holds exactly one flat executable named 'opencode'. Extract with
+# build-controlled ownership and modes rather than the uploader's.
+RUN mkdir --parents /opt/opencode \
+    && tar --extract --gzip --no-same-owner --no-same-permissions \
+        --file ./opencode-linux-*.tar.gz --directory=/opt/opencode \
+    && chmod 0755 /opt/opencode/opencode
+
+
+# Stage 5: codex-builder
+# OpenAI Codex CLI downloaded via github_dl with codex-package_SHA256SUMS
+# verification. Upstream tags Codex releases 'rust-v<version>'.
+#
+# The canonical package archive is the only Linux Codex artifact covered by a
+# published SHA256 manifest: the bare binary ships a Sigstore bundle and the
+# DotSlash descriptor uses blake3 over .tar.zst, neither of which this image's
+# verified-download helper supports. It is also what upstream's own install.sh
+# downloads and verifies, and it carries the helpers Codex resolves relative to
+# itself at runtime (codex-path/rg, the code-mode and exec servers, and the
+# codex-resources/ sandbox helper). Keep the layout intact.
+FROM tools-base AS codex-builder
+
+# renovate: datasource=github-releases depName=openai/codex
+ENV CODEX_VERSION="0.169.0"
+ENV CODEX_URL_SLUG="openai/codex"
+ENV CODEX_URL="https://api.github.com/repos/${CODEX_URL_SLUG}/releases/tags/rust-v${CODEX_VERSION}"
+ENV CODEX_CHECKSUM_FILE="codex-package_SHA256SUMS"
+ENV CODEX_CHECKSUM_ALGORITHM="sha256"
+
+RUN mkdir --parents /codex-dl
+WORKDIR /codex-dl
+
+# Codex publishes only statically linked musl builds for Linux; they run on UBI9.
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
+    github_dl download \
+        --url "${CODEX_URL}" \
+        --checksum_file "${CODEX_CHECKSUM_FILE}" \
+        --checksum_algorithm "${CODEX_CHECKSUM_ALGORITHM}" \
+        --exact_asset "codex-package-$(platform_convert "@@PLATFORM@@" --x86_64 --aarch64)-unknown-linux-musl.tar.gz"
+
+# Reproduce upstream's documented package install: keep the whole payload, set
+# the executables upstream's installer sets, and add the relative
+# 'codex -> bin/codex' link it creates. Ownership and modes come from this
+# build, not from the uploader, and no setuid, setgid or capability is added:
+# the bundled bwrap stays an ordinary unprivileged executable. The chmod names
+# every executable the package ships, so a changed upstream layout fails the
+# build for review instead of silently shipping a different package.
+RUN mkdir --parents /opt/codex \
+    && tar --extract --gzip --no-same-owner --no-same-permissions \
+        --file ./codex-package-*.tar.gz --directory=/opt/codex \
+    && chmod 0755 /opt/codex/bin/* /opt/codex/codex-path/rg /opt/codex/codex-resources/bwrap \
+    && ln --symbolic --no-target-directory bin/codex /opt/codex/codex
+
+
+# Stage 6: pi-builder
+# pi coding agent downloaded via github_dl with SHA256SUMS verification.
+FROM tools-base AS pi-builder
+
+# renovate: datasource=github-releases depName=earendil-works/pi
+ENV PI_VERSION="1.5.2"
+ENV PI_URL_SLUG="earendil-works/pi"
+ENV PI_URL="https://api.github.com/repos/${PI_URL_SLUG}/releases/tags/v${PI_VERSION}"
+ENV PI_CHECKSUM_FILE="SHA256SUMS"
+ENV PI_CHECKSUM_ALGORITHM="sha256"
+
+RUN mkdir --parents /pi-dl
+WORKDIR /pi-dl
+
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
+    github_dl download \
+        --url "${PI_URL}" \
+        --checksum_file "${PI_CHECKSUM_FILE}" \
+        --checksum_algorithm "${PI_CHECKSUM_ALGORITHM}" \
+        --exact_asset "pi-linux-$(platform_convert "@@PLATFORM@@" --custom-amd64 "x64" --custom-arm64 "arm64").tar.gz"
+
+# The archive wraps everything in a single 'pi/' directory: the self-contained
+# executable plus the theme, schema and asset files it loads relative to itself.
+# Strip that wrapper so the payload lands directly in /opt/pi.
+RUN mkdir --parents /opt/pi \
+    && tar --extract --gzip --no-same-owner --no-same-permissions \
+        --file ./pi-linux-*.tar.gz --directory=/opt/pi --strip-components=1 \
+    && chmod 0755 /opt/pi/pi
+
+
+# Stage 7: tmux-builder
 # tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
 # subscription). Build from source against UBI9's libevent and ncurses.
 # Runtime shared libs are already in the UBI9 base image.
@@ -189,7 +309,7 @@ RUN curl --silent --location --fail \
     && strip --strip-all /build/out/usr/bin/tmux
 
 
-# Stage 6: final
+# Stage 8: final
 # Production image. Only this stage ships.
 FROM ${BASE_IMAGE} AS final
 
@@ -233,12 +353,22 @@ COPY --from=sre-tools /opt/tool-versions.json /usr/local/share/rosa-boundary/too
 # Claude Code binary
 COPY --from=claude-builder /opt/claude /usr/local/lib/claude-code
 
+# Additional coding agents, installed under the same pinned, checksum-verified
+# contract as Claude Code. Each keeps its upstream payload layout because the
+# executables resolve bundled resources relative to themselves.
+COPY --from=opencode-builder /opt/opencode /usr/local/lib/opencode
+COPY --from=codex-builder    /opt/codex    /usr/local/lib/codex
+COPY --from=pi-builder       /opt/pi       /usr/local/lib/pi
+
 # tmux built from source (not in UBI9 repos)
 COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
 
 # Register the verified AWS distribution with alternatives.
 RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/aws 20 \
-    && ln --symbolic /usr/local/lib/claude-code/claude /usr/local/bin/claude
+    && ln --symbolic /usr/local/lib/claude-code/claude /usr/local/bin/claude \
+    && ln --symbolic /usr/local/lib/opencode/opencode /usr/local/bin/opencode \
+    && ln --symbolic /usr/local/lib/codex/bin/codex /usr/local/bin/codex \
+    && ln --symbolic /usr/local/lib/pi/pi /usr/local/bin/pi
 
 # Generate bash completions at build time
 RUN ocm completion bash > /etc/bash_completion.d/ocm \

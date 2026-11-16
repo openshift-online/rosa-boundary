@@ -152,6 +152,17 @@ def verify_signature(tool, data, signature, key_dir, output=None):
             raise ValueError('unacceptable signature status')
 
 
+VERSION_PATTERN = r'(?<![\d.])v?(\d+\.\d+\.\d+)(?![\d.\w+-])'
+
+
+def single_version(label, output, pattern=VERSION_PATTERN):
+    """Exactly one version in the reported output, or fail closed."""
+    versions = re.findall(pattern, output)
+    if len(versions) != 1:
+        raise ValueError(f'{label}: ambiguous or unrecognized version output')
+    return versions[0]
+
+
 def actual_version(tool, executable):
     commands = {'ocm': ['version'], 'ocm-backplane': ['version'],
                 'osdctl': ['version', '--skip-version-check'],
@@ -177,11 +188,7 @@ def actual_version(tool, executable):
     patterns = {'aws': r'aws-cli/(\d+\.\d+\.\d+)(?![\d.\w+-])',
                 'yq': r'version v?(\d+\.\d+\.\d+)(?![\d.\w+-])',
                 'oc': r'Client Version: v?(\d+\.\d+\.\d+)(?![\d.\w+-])'}
-    pattern = patterns.get(tool, r'(?<![\d.])v?(\d+\.\d+\.\d+)(?![\d.\w+-])')
-    versions = re.findall(pattern, output)
-    if len(versions) != 1:
-        raise ValueError(f'{tool}: ambiguous or unrecognized version output')
-    return versions[0]
+    return single_version(tool, output, patterns.get(tool, VERSION_PATTERN))
 
 
 def require_version(tool, pin, actual):

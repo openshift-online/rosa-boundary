@@ -33,6 +33,48 @@
     },
     {
       "customType": "regex",
+      "description": "Update OpenCode's native binary pin",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=anomalyco/opencode\\r?\\nENV OPENCODE_VERSION=\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "anomalyco/opencode",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "^v(?<version>\\d+\\.\\d+\\.\\d+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update the OpenAI Codex CLI's native binary pin",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=openai/codex\\r?\\nENV CODEX_VERSION=\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "openai/codex",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "^rust-v(?<version>\\d+\\.\\d+\\.\\d+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Update the pi coding agent's native binary pin",
+      "managerFilePatterns": [
+        "/^Containerfile$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\r?\\n)# renovate: datasource=github-releases depName=earendil-works/pi\\r?\\nENV PI_VERSION=\"(?<currentValue>\\d+\\.\\d+\\.\\d+)\"(?:\\r?\\n|$)"
+      ],
+      "depNameTemplate": "earendil-works/pi",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver-coerced",
+      "extractVersionTemplate": "^v(?<version>\\d+\\.\\d+\\.\\d+)$"
+    },
+    {
+      "customType": "regex",
       "description": "Update only OCM_VERSION",
       "managerFilePatterns": [
         "/^Containerfile$/"
@@ -112,12 +154,15 @@
   ],
   "packageRules": [
     {
-      "description": "Review stable Claude Code updates; retain inherited release age",
+      "description": "Review stable coding agent updates; retain inherited release age",
       "matchManagers": [
         "custom.regex"
       ],
       "matchPackageNames": [
-        "anthropics/claude-code"
+        "anthropics/claude-code",
+        "anomalyco/opencode",
+        "openai/codex",
+        "earendil-works/pi"
       ],
       "automerge": false,
       "groupName": null,

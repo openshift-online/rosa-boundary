@@ -152,6 +152,8 @@ def verify_signature(tool, data, signature, key_dir, output=None):
             raise ValueError('unacceptable signature status')
 
 
+# Accept stable X.Y.Z versions with an optional v, without partial matches
+# against prerelease or longer version strings.
 VERSION_PATTERN = r'(?<![\d.])v?(\d+\.\d+\.\d+)(?![\d.\w+-])'
 
 

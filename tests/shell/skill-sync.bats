@@ -5,17 +5,16 @@ setup() {
     HELPER="${REPO_ROOT}/utils/rosa-boundary-skill-sync.sh"
     SOURCE="${BATS_TEST_TMPDIR}/source"
     DEST="${BATS_TEST_TMPDIR}/skills"
-    STAGING="${BATS_TEST_TMPDIR}/staging"
     mkdir -p "${SOURCE}/collection/skills/example" "${DEST}"
     printf 'instructions\n' > "${SOURCE}/collection/skills/example/SKILL.md"
     printf 'asset\n' > "${SOURCE}/collection/skills/example/asset.txt"
 }
 
 sync_once() {
-    bash -c 'source "$1"; sync_skills "$2" "$3" "$4"' bash "${HELPER}" "${SOURCE}" "${DEST}" "${STAGING}"
+    bash -c 'source "$1"; sync_skills "$2" "$3"' bash "${HELPER}" "${SOURCE}" "${DEST}"
 }
 
-@test "sync mirrors links, exposes asset updates immediately, and deletes stale collections" {
+@test "sync creates links, exposes asset updates immediately, and deletes stale collections" {
     sync_once
     [ -f "${DEST}/boundary--collection--example/SKILL.md" ]
     [ -L "${DEST}/boundary--collection--example" ]
@@ -23,11 +22,10 @@ sync_once() {
     printf 'updated asset\n' > "${SOURCE}/collection/skills/example/asset.txt"
     [ "$(< "${DEST}/boundary--collection--example/asset.txt")" = 'updated asset' ]
     printf 'stale\n' > "${DEST}/obsolete"
-    rm -rf "${STAGING}"
     sync_once
     [ "$(< "${DEST}/boundary--collection--example/asset.txt")" = 'updated asset' ]
     [ -f "${DEST}/obsolete" ]
-    rm -rf "${SOURCE}/collection" "${STAGING}"
+    rm -rf "${SOURCE}/collection"
     sync_once
     [ ! -L "${DEST}/boundary--collection--example" ]
     [ -f "${DEST}/obsolete" ]
@@ -40,21 +38,19 @@ sync_once() {
     [ -f "${DEST}/boundary--new--new-skill/SKILL.md" ]
 }
 
-@test "missing source and failed discovery preserve existing skills" {
-    printf 'keep\n' > "${DEST}/existing"
-    run bash -c 'source "$1"; sync_skills "$2/missing" "$3" "$4"' bash "${HELPER}" "${SOURCE}" "${DEST}" "${STAGING}"
+@test "missing source preserves existing managed links" {
+    sync_once
+    mv "${SOURCE}" "${SOURCE}-offline"
+    run sync_once
     [ "${status}" -ne 0 ]
-    [ -f "${DEST}/existing" ]
-    run bash -c 'source "$1"; find() { return 1; }; sync_skills "$2" "$3" "$4"' bash "${HELPER}" "${SOURCE}" "${DEST}" "${STAGING}"
-    [ "${status}" -ne 0 ]
-    [ -f "${DEST}/existing" ]
+    [ -L "${DEST}/boundary--collection--example" ]
 }
 
-@test "failed staging cannot authorize deletion" {
-    printf 'keep\n' > "${DEST}/existing"
-    run bash -c 'source "$1"; ln() { return 1; }; sync_skills "$2" "$3" "$4"' bash "${HELPER}" "${SOURCE}" "${DEST}" "${STAGING}"
+@test "failed link update skips stale-link cleanup" {
+    ln -s "${SOURCE}/old/missing" "${DEST}/boundary--old"
+    run bash -c 'source "$1"; ln() { return 1; }; sync_skills "$2" "$3"' bash "${HELPER}" "${SOURCE}" "${DEST}"
     [ "${status}" -ne 0 ]
-    [ -f "${DEST}/existing" ]
+    [ -L "${DEST}/boundary--old" ]
 }
 
 @test "linked skill preserves executable scripts and relative assets without copying content" {
@@ -65,18 +61,22 @@ sync_once() {
     [ -x "${DEST}/boundary--collection--example/script.sh" ]
     [ "$(< "${DEST}/boundary--collection--example/local-link")" = asset ]
     [ -L "${DEST}/boundary--collection--example" ]
-    [ -L "${STAGING}/tree/boundary--collection--example" ]
 }
 
-@test "plugin payloads and symlinked skill definitions fail closed" {
-    mkdir "${SOURCE}/collection/skills/example/.claude-plugin"
-    run sync_once
-    [ "${status}" -ne 0 ]
-    rmdir "${SOURCE}/collection/skills/example/.claude-plugin"
+@test "directory symlinks and symlinked definitions are not imported" {
+    ln -s collection "${SOURCE}/alias"
+    ln -s example "${SOURCE}/collection/skills/alias"
+    mkdir "${SOURCE}/other"
+    ln -s "${SOURCE}/collection/skills" "${SOURCE}/other/skills"
+    sync_once
+    [ -L "${DEST}/boundary--collection--example" ]
+    [ ! -L "${DEST}/boundary--alias--example" ]
+    [ ! -L "${DEST}/boundary--collection--alias" ]
+    [ ! -L "${DEST}/boundary--other--example" ]
     rm "${SOURCE}/collection/skills/example/SKILL.md"
     ln -s /etc/passwd "${SOURCE}/collection/skills/example/SKILL.md"
-    run sync_once
-    [ "${status}" -ne 0 ]
+    sync_once
+    [ -z "$(ls -A "${DEST}")" ]
 }
 
 @test "conflicting directories are preserved without altering source" {
@@ -95,12 +95,10 @@ sync_once() {
     [ "$(< "${DEST}/boundary--collection--example")" = 'user file' ]
     rm "${DEST}/boundary--collection--example"
     ln -s /unrelated/missing "${DEST}/boundary--collection--example"
-    rm -rf "${STAGING}"
     sync_once
     [ "$(readlink "${DEST}/boundary--collection--example")" = /unrelated/missing ]
     rm "${DEST}/boundary--collection--example"
     ln -s ../personal "${DEST}/boundary--collection--example"
-    rm -rf "${STAGING}"
     sync_once
     [ "$(readlink "${DEST}/boundary--collection--example")" = ../personal ]
 }
@@ -112,7 +110,7 @@ sync_once() {
     ln -s "${root}/../outside" "${DEST}/boundary--escape"
     ln -s "${root}-other/missing" "${DEST}/boundary--prefix"
     sync_once
-    rm -rf "${SOURCE}/collection" "${STAGING}"
+    rm -rf "${SOURCE}/collection"
     sync_once
     [ ! -L "${DEST}/boundary--collection--example" ]
     for name in personal-name boundary--external boundary--escape boundary--prefix; do
@@ -127,32 +125,6 @@ sync_once() {
     sync_once
     [ "$(readlink "${DEST}/boundary--collection--example")" = "${root}/collection/skills/example" ]
     [ -d "${SOURCE}/previous" ]
-}
-
-@test "failed rsync skips stale-link cleanup" {
-    root=$(realpath -e "${SOURCE}")
-    ln -s "${root}/old/missing" "${DEST}/boundary--old"
-    run bash -c '
-        source "$1"
-        mirror_skill_links() { return 23; }
-        sync_skills "$2" "$3" "$4"
-    ' bash "${HELPER}" "${SOURCE}" "${DEST}" "${STAGING}"
-    [ "${status}" -ne 0 ]
-    [ -L "${DEST}/boundary--old" ]
-}
-
-@test "escaping discovered directories are rejected before mirroring" {
-    printf 'keep\n' > "${DEST}/existing"
-    mkdir -p "${BATS_TEST_TMPDIR}/external/skills/evil"
-    printf 'external\n' > "${BATS_TEST_TMPDIR}/external/skills/evil/SKILL.md"
-    run bash -c '
-        source "$1"
-        ESCAPE="$5"
-        find() { printf "%s\\0" "${ESCAPE}"; }
-        sync_skills "$2" "$3" "$4"
-    ' bash "${HELPER}" "${SOURCE}" "${DEST}" "${STAGING}" "${BATS_TEST_TMPDIR}/external/skills/evil"
-    [ "${status}" -ne 0 ]
-    [ -f "${DEST}/existing" ]
 }
 
 @test "settings outside the skills directory are untouched" {
@@ -171,18 +143,15 @@ sync_once() {
     [ ! -e "${BATS_TEST_TMPDIR}/home/.claude" ]
 }
 
-@test "shutdown terminates active copy group and sleep then removes staging" {
-    run bash -c '
+@test "shutdown terminates the active sleep" {
+    run timeout 5 bash -c '
         source "$1"
-        RSYNC_PID=12345 SLEEP_PID=12346 STAGING=fixture
-        kill() { printf "kill:%s\n" "$*" >&3; }
-        wait() { printf "wait:%s\n" "$*" >&3; }
-        rm() { printf "rm:%s\n" "$*"; }
-        cleanup_skill_sync 3>&1
-    ' bash "${HELPER}"
+        flock() { return 1; }
+        HOME="$2" main &
+        pid=$!
+        sleep 0.2
+        kill -TERM "${pid}"
+        wait "${pid}"
+    ' bash "${HELPER}" "${BATS_TEST_TMPDIR}/home"
     [ "${status}" -eq 0 ]
-    [[ "${output}" == *'kill:-TERM -- -12345'* ]]
-    [[ "${output}" == *'wait:12345'* ]]
-    [[ "${output}" == *'kill:-TERM 12346'* ]]
-    [[ "${output}" == *'rm:--recursive --force -- fixture'* ]]
 }

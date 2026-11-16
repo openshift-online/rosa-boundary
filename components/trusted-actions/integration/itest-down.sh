@@ -20,14 +20,17 @@ NC='\033[0m' # No Color
 
 log() { echo -e "${YELLOW}==>${NC} $*"; }
 ok() { echo -e "${GREEN}✓${NC} $*"; }
-fail() { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
+fail() {
+    echo -e "${RED}✗ $*${NC}" >&2
+    exit 1
+}
 
 for bin in kind podman podman-compose; do
-    command -v "$bin" > /dev/null 2>&1 || fail "'$bin' is required but not found on PATH"
+    command -v "$bin" >/dev/null 2>&1 || fail "'$bin' is required but not found on PATH"
 done
 
 # --- localstack ---
-if podman container exists "$LOCALSTACK_CONTAINER" 2> /dev/null; then
+if podman container exists "$LOCALSTACK_CONTAINER" 2>/dev/null; then
     log "Stopping localstack"
     podman-compose -f "$COMPOSE_FILE" down
     ok "localstack stopped"
@@ -36,7 +39,7 @@ else
 fi
 
 # --- kind cluster ---
-if kind get clusters 2> /dev/null | grep -Fqx "$CLUSTER_NAME"; then
+if kind get clusters 2>/dev/null | grep -Fqx "$CLUSTER_NAME"; then
     log "Deleting kind cluster '$CLUSTER_NAME'"
     kind delete cluster --name "$CLUSTER_NAME"
     ok "kind cluster '$CLUSTER_NAME' deleted"

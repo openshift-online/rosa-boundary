@@ -57,7 +57,7 @@ main() {
     [ ! -L "${claude}" ] && [ ! -L "${claude}/skills" ] || return 1
     mkdir --parents "${claude}/skills" || return 1
     [ ! -L "${claude}/.boundary-skills.lock" ] || return 1
-    exec 9> "${claude}/.boundary-skills.lock" || return 1
+    exec 9>"${claude}/.boundary-skills.lock" || return 1
     trap 'kill "${SLEEP_PID:-}" 2>/dev/null || true; exit 0' TERM INT HUP
     while true; do
         if flock --nonblock 9; then

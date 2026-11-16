@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Prepare a new personal-dev configuration; does not apply infrastructure.
 main() {
-	set -euo pipefail
-	if [[ ! -f deploy/account/terraform.tfvars.example || ! -f mise.toml ]]; then
-		printf '%s\n' 'Run from the repository root' >&2
-		return 1
-	fi
-	REGION="${REGION:-$(aws configure get region || true)}"
-	: "${REGION:?Set REGION to your approved personal-dev AWS region}"
-	ACCOUNT="$(aws sts get-caller-identity --region "$REGION" --query Account --output text)"
-	export REGION ACCOUNT
+    set -euo pipefail
+    if [[ ! -f deploy/account/terraform.tfvars.example || ! -f mise.toml ]]; then
+        printf '%s\n' 'Run from the repository root' >&2
+        return 1
+    fi
+    REGION="${REGION:-$(aws configure get region || true)}"
+    : "${REGION:?Set REGION to your approved personal-dev AWS region}"
+    ACCOUNT="$(aws sts get-caller-identity --region "$REGION" --query Account --output text)"
+    export REGION ACCOUNT
 
-	python3 - <<'PY'
+    python3 - <<'PY'
 import json
 import os
 from pathlib import Path
@@ -64,5 +64,5 @@ PY
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-	main "$@"
+    main "$@"
 fi

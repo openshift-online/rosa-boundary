@@ -1,5 +1,5 @@
 #!/bin/bash
-# Keep ~/.claude/skills up to date with /opt/rosa-content/rosa-claude-plugins.
+# Keep ~/.claude/skills and ~/.agents/skills up to date with published skills.
 # Link each published <collection>/skills/<skill> directory, add new skills,
 # and remove retired links without copying content or touching personal skills.
 
@@ -46,6 +46,20 @@ sync_skills() {
     done
 }
 
+# Reconcile both discovery roots independently, preserving unsafe/conflicting roots.
+sync_home_skills() {
+    local source="$1" home="$2" root failed=0
+    for root in "${home}/.claude" "${home}/.agents"; do
+        if [ -L "${root}" ] || [ -L "${root}/skills" ] ||
+            ! mkdir --parents "${root}/skills" ||
+            ! sync_skills "${source}" "${root}/skills"; then
+            echo "boundary-skills: sync failed for ${root}/skills; retrying next pass" >&2
+            failed=1
+        fi
+    done
+    return "${failed}"
+}
+
 # Run independently of the workload; retry every 60 seconds by default.
 main() {
     local source="/opt/rosa-content/rosa-claude-plugins"
@@ -61,7 +75,7 @@ main() {
     trap 'kill "${SLEEP_PID:-}" 2>/dev/null || true; exit 0' TERM INT HUP
     while true; do
         if flock --nonblock 9; then
-            sync_skills "${source}" "${claude}/skills" || echo "boundary-skills: sync failed; retrying in ${interval}s" >&2
+            sync_home_skills "${source}" "${HOME}" || echo "boundary-skills: sync failed; retrying in ${interval}s" >&2
             flock --unlock 9
         fi
         sleep "$((10#${interval}))" &

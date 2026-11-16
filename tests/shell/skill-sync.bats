@@ -143,6 +143,79 @@ sync_once() {
     [ ! -e "${BATS_TEST_TMPDIR}/home/.claude" ]
 }
 
+sync_home_once() {
+    bash -c 'source "$1"; sync_home_skills "$2" "$3"' bash "${HELPER}" "${SOURCE}" "${BATS_TEST_TMPDIR}/home"
+}
+
+@test "both discovery roots receive skills and assets, additions and stale-link cleanup" {
+    sync_home_once
+    for root in .claude .agents; do
+        dest="${BATS_TEST_TMPDIR}/home/${root}/skills"
+        [ -L "${dest}/boundary--collection--example" ]
+        [ "$(< "${dest}/boundary--collection--example/asset.txt")" = asset ]
+        printf 'personal\n' > "${dest}/personal"
+    done
+    printf 'updated\n' > "${SOURCE}/collection/skills/example/asset.txt"
+    mkdir -p "${SOURCE}/collection/skills/added"
+    printf 'new\n' > "${SOURCE}/collection/skills/added/SKILL.md"
+    sync_home_once
+    for root in .claude .agents; do
+        dest="${BATS_TEST_TMPDIR}/home/${root}/skills"
+        [ "$(< "${dest}/boundary--collection--example/asset.txt")" = updated ]
+        [ -L "${dest}/boundary--collection--added" ]
+    done
+    rm -rf "${SOURCE}/collection"
+    sync_home_once
+    for root in .claude .agents; do
+        dest="${BATS_TEST_TMPDIR}/home/${root}/skills"
+        [ ! -L "${dest}/boundary--collection--example" ]
+        [ ! -L "${dest}/boundary--collection--added" ]
+        [ "$(< "${dest}/personal")" = personal ]
+    done
+}
+
+@test "agents collisions and settings are preserved without blocking Claude links" {
+    dest="${BATS_TEST_TMPDIR}/home/.agents"
+    mkdir -p "${dest}/skills/boundary--collection--example"
+    printf 'personal\n' > "${dest}/skills/boundary--collection--example/mine"
+    printf 'settings\n' > "${dest}/settings.json"
+    sync_home_once
+    [ "$(< "${dest}/skills/boundary--collection--example/mine")" = personal ]
+    [ "$(< "${dest}/settings.json")" = settings ]
+    [ -L "${BATS_TEST_TMPDIR}/home/.claude/skills/boundary--collection--example" ]
+}
+
+@test "symlinked discovery roots are rejected independently" {
+    for root in .claude .agents; do
+        for component in root skills; do
+            home="${BATS_TEST_TMPDIR}/home"
+            rm -rf "${home}"
+            mkdir -p "${home}/${root}" "${BATS_TEST_TMPDIR}/external"
+            if [ "${component}" = root ]; then
+                rmdir "${home}/${root}"
+                ln -s "${BATS_TEST_TMPDIR}/external" "${home}/${root}"
+            else
+                ln -s "${BATS_TEST_TMPDIR}/external" "${home}/${root}/skills"
+            fi
+            run sync_home_once
+            [ "${status}" -ne 0 ]
+            [ -z "$(ls -A "${BATS_TEST_TMPDIR}/external")" ]
+            if [ "${root}" = .claude ]; then other=.agents; else other=.claude; fi
+            [ -L "${home}/${other}/skills/boundary--collection--example" ]
+        done
+    done
+}
+
+@test "missing source preserves managed links in both discovery roots" {
+    sync_home_once
+    mv "${SOURCE}" "${SOURCE}-offline"
+    run sync_home_once
+    [ "${status}" -ne 0 ]
+    for root in .claude .agents; do
+        [ -L "${BATS_TEST_TMPDIR}/home/${root}/skills/boundary--collection--example" ]
+    done
+}
+
 @test "shutdown terminates the active sleep" {
     run timeout 5 bash -c '
         source "$1"

@@ -201,9 +201,10 @@ func TestCredentialGuidancePreservesEffectiveDeployment(t *testing.T) {
 					region, cluster = tc.environmentRegion, tc.environmentCluster
 				}
 				for i, flag := range tc.flags {
-					if flag == "--region" {
+					switch flag {
+					case "--region":
 						region = tc.flags[i+1]
-					} else if flag == "--ecs-cluster" {
+					case "--ecs-cluster":
 						cluster = tc.flags[i+1]
 					}
 				}

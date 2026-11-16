@@ -12,19 +12,39 @@ _rta_setup_staging() {
     export VAULT_ADDR="https://vault.devshift.net"
 
     local token
-    token=$(vault login -method=oidc -token-only) || { unset VAULT_ADDR; echo "ERROR: vault login failed"; return 1; }
+    token=$(vault login -method=oidc -token-only) || {
+        unset VAULT_ADDR
+        echo "ERROR: vault login failed"
+        return 1
+    }
     export VAULT_TOKEN="$token"
 
     # OCM service account credentials (AMS role checks)
     local vault_raw
-    vault_raw=$(vault kv get -format=json "$ocm_vault_path") || { unset VAULT_ADDR VAULT_TOKEN; echo "ERROR: vault kv get failed"; return 1; }
+    vault_raw=$(vault kv get -format=json "$ocm_vault_path") || {
+        unset VAULT_ADDR VAULT_TOKEN
+        echo "ERROR: vault kv get failed"
+        return 1
+    }
 
     local ocm_secrets
-    ocm_secrets=$(echo "$vault_raw" | jq -r '.data.data') || { unset VAULT_ADDR VAULT_TOKEN; echo "ERROR: failed to parse vault response"; return 1; }
+    ocm_secrets=$(echo "$vault_raw" | jq -r '.data.data') || {
+        unset VAULT_ADDR VAULT_TOKEN
+        echo "ERROR: failed to parse vault response"
+        return 1
+    }
 
     local client_id client_secret
-    client_id=$(echo "$ocm_secrets" | jq -e -r '.CLIENT_ID // empty') || { unset VAULT_ADDR VAULT_TOKEN; echo "ERROR: CLIENT_ID missing from vault"; return 1; }
-    client_secret=$(echo "$ocm_secrets" | jq -e -r '.CLIENT_SECRET // empty') || { unset VAULT_ADDR VAULT_TOKEN; echo "ERROR: CLIENT_SECRET missing from vault"; return 1; }
+    client_id=$(echo "$ocm_secrets" | jq -e -r '.CLIENT_ID // empty') || {
+        unset VAULT_ADDR VAULT_TOKEN
+        echo "ERROR: CLIENT_ID missing from vault"
+        return 1
+    }
+    client_secret=$(echo "$ocm_secrets" | jq -e -r '.CLIENT_SECRET // empty') || {
+        unset VAULT_ADDR VAULT_TOKEN
+        echo "ERROR: CLIENT_SECRET missing from vault"
+        return 1
+    }
     export ROSA_TA_OCM_CLIENT_ID="$client_id"
     export ROSA_TA_OCM_CLIENT_SECRET="$client_secret"
     export ROSA_TA_OCM_BASE_URL="https://api.stage.openshift.com"

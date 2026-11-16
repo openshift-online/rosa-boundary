@@ -21,18 +21,21 @@ NC='\033[0m' # No Color
 
 log() { echo -e "${YELLOW}==>${NC} $*"; }
 ok() { echo -e "${GREEN}✓${NC} $*"; }
-fail() { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
+fail() {
+    echo -e "${RED}✗ $*${NC}" >&2
+    exit 1
+}
 
 for bin in kind kubectl podman podman-compose jq; do
-    command -v "$bin" > /dev/null 2>&1 || fail "'$bin' is required but not found on PATH"
+    command -v "$bin" >/dev/null 2>&1 || fail "'$bin' is required but not found on PATH"
 done
 
 # --- kind cluster ---
 old_umask=$(umask)
 umask 077
-if kind get clusters 2> /dev/null | grep -qx "$CLUSTER_NAME"; then
+if kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME"; then
     log "kind cluster '$CLUSTER_NAME' already exists, reusing it"
-    kind get kubeconfig --name "$CLUSTER_NAME" > "$KUBECONFIG_PATH"
+    kind get kubeconfig --name "$CLUSTER_NAME" >"$KUBECONFIG_PATH"
 else
     log "Creating kind cluster '$CLUSTER_NAME'"
     kind create cluster --name "$CLUSTER_NAME" --kubeconfig "$KUBECONFIG_PATH" --wait "${WAIT_TIMEOUT}s" --image "$KIND_IMAGE"
@@ -51,7 +54,7 @@ podman-compose -f "$COMPOSE_FILE" up -d
 log "Waiting for localstack to report healthy"
 elapsed=0
 while true; do
-    status=$(podman inspect --format '{{.State.Health.Status}}' "$LOCALSTACK_CONTAINER" 2> /dev/null || echo "unknown")
+    status=$(podman inspect --format '{{.State.Health.Status}}' "$LOCALSTACK_CONTAINER" 2>/dev/null || echo "unknown")
     [ "$status" = "healthy" ] && break
     if [ "$elapsed" -ge "$WAIT_TIMEOUT" ]; then
         fail "localstack did not become healthy within ${WAIT_TIMEOUT}s (status: $status; check: podman logs $LOCALSTACK_CONTAINER)"
@@ -78,7 +81,7 @@ sleep 12
 elapsed=0
 while true; do
     alert_count=$(kubectl --kubeconfig "$KUBECONFIG_PATH" exec -n openshift-monitoring prometheus-k8s-0 -c prometheus -- \
-        wget -qO- 'http://localhost:9090/api/v1/query?query=ALERTS' 2>/dev/null | \
+        wget -qO- 'http://localhost:9090/api/v1/query?query=ALERTS' 2>/dev/null |
         jq '.data.result | length' 2>/dev/null || echo "0")
     [ "$alert_count" -ge 2 ] && break
     if [ "$elapsed" -ge "$WAIT_TIMEOUT" ]; then

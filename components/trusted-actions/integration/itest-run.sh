@@ -31,10 +31,13 @@ NC='\033[0m' # No Color
 
 log() { echo -e "${YELLOW}==>${NC} $*"; }
 ok() { echo -e "${GREEN}✓${NC} $*"; }
-fail() { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
+fail() {
+    echo -e "${RED}✗ $*${NC}" >&2
+    exit 1
+}
 
 for bin in kind go curl jq podman; do
-    command -v "$bin" > /dev/null 2>&1 || fail "'$bin' is required but not found on PATH"
+    command -v "$bin" >/dev/null 2>&1 || fail "'$bin' is required but not found on PATH"
 done
 
 # --- Helper: run an action and wait for completion ---
@@ -47,8 +50,8 @@ run_action() {
     local response
     response=$(curl -sf -X POST "$API_BASE/$action/run" \
         -H 'Content-Type: application/json' \
-        -d "$body") \
-        || fail "POST $API_BASE/$action/run failed — check $SERVER_LOG"
+        -d "$body") ||
+        fail "POST $API_BASE/$action/run failed — check $SERVER_LOG"
 
     EXEC_ID=$(echo "$response" | jq -r '.id')
     [ -n "$EXEC_ID" ] && [ "$EXEC_ID" != "null" ] || fail "no execution id in response: $response"
@@ -61,8 +64,8 @@ run_action() {
         fi
         sleep 1
         elapsed=$((elapsed + 1))
-        EXEC_RESPONSE=$(curl -sf "$API_BASE/runs/$EXEC_ID") \
-            || fail "GET $API_BASE/runs/$EXEC_ID failed — check $SERVER_LOG"
+        EXEC_RESPONSE=$(curl -sf "$API_BASE/runs/$EXEC_ID") ||
+            fail "GET $API_BASE/runs/$EXEC_ID failed — check $SERVER_LOG"
         status=$(echo "$EXEC_RESPONSE" | jq -r '.status')
     done
 
@@ -80,12 +83,12 @@ run_action_status() {
     local action=$1 body=$2 response execution_id status elapsed=0
 
     response=$(curl -sf -X POST "$API_BASE/$action/run" \
-        -H 'Content-Type: application/json' -d "$body") \
-        || fail "POST $API_BASE/$action/run failed — check $SERVER_LOG"
+        -H 'Content-Type: application/json' -d "$body") ||
+        fail "POST $API_BASE/$action/run failed — check $SERVER_LOG"
 
     execution_id=$(echo "$response" | jq -r '.id')
-    [ -n "$execution_id" ] && [ "$execution_id" != "null" ] \
-        || fail "no execution id in response: $response"
+    [ -n "$execution_id" ] && [ "$execution_id" != "null" ] ||
+        fail "no execution id in response: $response"
 
     status="pending"
     while [ "$status" = "pending" ] || [ "$status" = "running" ]; do
@@ -94,8 +97,8 @@ run_action_status() {
         fi
         sleep 1
         elapsed=$((elapsed + 1))
-        response=$(curl -sf "$API_BASE/runs/$execution_id") \
-            || fail "GET $API_BASE/runs/$execution_id failed — check $SERVER_LOG"
+        response=$(curl -sf "$API_BASE/runs/$execution_id") ||
+            fail "GET $API_BASE/runs/$execution_id failed — check $SERVER_LOG"
         status=$(echo "$response" | jq -r '.status')
     done
 
@@ -106,16 +109,16 @@ run_action_status() {
 # Usage: get_output <exec-id>
 # Sets: EXEC_OUTPUT
 get_output() {
-    EXEC_OUTPUT=$(curl -sf "$API_BASE/runs/$1/output") \
-        || fail "GET $API_BASE/runs/$1/output failed — check $SERVER_LOG"
+    EXEC_OUTPUT=$(curl -sf "$API_BASE/runs/$1/output") ||
+        fail "GET $API_BASE/runs/$1/output failed — check $SERVER_LOG"
 }
 
 # --- 1. Retrieve a kubeconfig from kind ---
-kind get clusters 2> /dev/null | grep -qx "$CLUSTER_NAME" \
-    || fail "kind cluster '$CLUSTER_NAME' not found — run 'make itest-up' first"
+kind get clusters 2>/dev/null | grep -qx "$CLUSTER_NAME" ||
+    fail "kind cluster '$CLUSTER_NAME' not found — run 'make itest-up' first"
 old_umask=$(umask)
 umask 077
-kind get kubeconfig --name "$CLUSTER_NAME" > "$KUBECONFIG_PATH"
+kind get kubeconfig --name "$CLUSTER_NAME" >"$KUBECONFIG_PATH"
 umask "$old_umask"
 chmod 0600 "$KUBECONFIG_PATH"
 ok "kubeconfig retrieved: $KUBECONFIG_PATH"
@@ -143,8 +146,8 @@ log "Starting server"
 SERVER_PID=""
 cleanup() {
     if [ -n "$SERVER_PID" ]; then
-        kill "$SERVER_PID" 2> /dev/null || true
-        wait "$SERVER_PID" 2> /dev/null || true
+        kill "$SERVER_PID" 2>/dev/null || true
+        wait "$SERVER_PID" 2>/dev/null || true
     fi
     rm -f "$SERVER_BIN"
 }
@@ -152,12 +155,12 @@ trap cleanup EXIT
 
 go build -C "$REPO_ROOT" -o "$SERVER_BIN" ./cmd/server || fail "failed to build server binary"
 
-"$SERVER_BIN" --log-level debug --listen-addr ":8080" > "$SERVER_LOG" 2>&1 &
+"$SERVER_BIN" --log-level debug --listen-addr ":8080" >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
 elapsed=0
-until curl -sf "$SERVER_URL/health" > /dev/null 2>&1; do
-    kill -0 "$SERVER_PID" 2> /dev/null || fail "server exited early — check $SERVER_LOG"
+until curl -sf "$SERVER_URL/health" >/dev/null 2>&1; do
+    kill -0 "$SERVER_PID" 2>/dev/null || fail "server exited early — check $SERVER_LOG"
     if [ "$elapsed" -ge "$WAIT_TIMEOUT" ]; then
         fail "server did not become healthy within ${WAIT_TIMEOUT}s — check $SERVER_LOG"
     fi
@@ -180,8 +183,8 @@ node_count=$(echo "$EXEC_OUTPUT" | jq '.resources | length')
 [ "$node_count" -ge 1 ] || fail "describe-nodes returned $node_count nodes, expected at least 1"
 
 first_node_name=$(echo "$EXEC_OUTPUT" | jq -r '.resources[0].name')
-[ -n "$first_node_name" ] && [ "$first_node_name" != "null" ] \
-    || fail "describe-nodes: first node has no name"
+[ -n "$first_node_name" ] && [ "$first_node_name" != "null" ] ||
+    fail "describe-nodes: first node has no name"
 
 has_conditions=$(echo "$EXEC_OUTPUT" | jq '.resources[0] | has("conditions")')
 [ "$has_conditions" = "true" ] || fail "describe-nodes: first node has no conditions"
@@ -203,8 +206,8 @@ single_node_count=$(echo "$EXEC_OUTPUT" | jq '.resources | length')
 [ "$single_node_count" -eq 1 ] || fail "describe-nodes (single): expected 1 node, got $single_node_count"
 
 returned_name=$(echo "$EXEC_OUTPUT" | jq -r '.resources[0].name')
-[ "$returned_name" = "$first_node_name" ] \
-    || fail "describe-nodes (single): expected node '$first_node_name', got '$returned_name'"
+[ "$returned_name" = "$first_node_name" ] ||
+    fail "describe-nodes (single): expected node '$first_node_name', got '$returned_name'"
 
 ok "describe-nodes (single node) succeeded (execution $EXEC_ID)"
 
@@ -214,8 +217,8 @@ run_action "get-pull-secret-email" '{"target_cluster": "local", "jira": "ITEST-3
 get_output "$EXEC_ID"
 
 email=$(echo "$EXEC_OUTPUT" | jq -r '.resources[0].email')
-[ "$email" = "itest@example.com" ] \
-    || fail "get-pull-secret-email: expected 'itest@example.com', got '$email'"
+[ "$email" = "itest@example.com" ] ||
+    fail "get-pull-secret-email: expected 'itest@example.com', got '$email'"
 
 ok "get-pull-secret-email action succeeded: email=$email (execution $EXEC_ID)"
 
@@ -250,21 +253,21 @@ ok "list-alerts (severity=critical) succeeded: $critical_only critical, $warning
 # that depends on it. Re-running the script simply adds another instance, which the
 # tag filter ignores.
 log "Seeding an EC2 instance in localstack"
-podman inspect "$LOCALSTACK_CONTAINER" > /dev/null 2>&1 \
-    || fail "localstack container '$LOCALSTACK_CONTAINER' not found — run 'make itest-up' first"
+podman inspect "$LOCALSTACK_CONTAINER" >/dev/null 2>&1 ||
+    fail "localstack container '$LOCALSTACK_CONTAINER' not found — run 'make itest-up' first"
 
 # localstack ships its own AMIs; ask for one rather than hardcoding an id that may
 # change between image versions.
 ami_id=$(podman exec "$LOCALSTACK_CONTAINER" awslocal ec2 describe-images \
-    --query 'Images[0].ImageId' --output text 2> /dev/null) \
-    || fail "failed to list AMIs in localstack"
+    --query 'Images[0].ImageId' --output text 2>/dev/null) ||
+    fail "failed to list AMIs in localstack"
 [ -n "$ami_id" ] && [ "$ami_id" != "None" ] || fail "no AMI available in localstack"
 
 instance_id=$(podman exec "$LOCALSTACK_CONTAINER" awslocal ec2 run-instances \
     --image-id "$ami_id" --count 1 --instance-type m5.large \
     --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$AWS_TEST_TAG}]" \
-    --query 'Instances[0].InstanceId' --output text 2> /dev/null) \
-    || fail "failed to seed an EC2 instance in localstack"
+    --query 'Instances[0].InstanceId' --output text 2>/dev/null) ||
+    fail "failed to seed an EC2 instance in localstack"
 ok "seeded EC2 instance $instance_id"
 
 log "Running 'aws-get' action (list ec2-instances)"
@@ -275,8 +278,8 @@ get_output "$EXEC_ID"
 # Assert on the output, not just the status: a read action that succeeds while
 # returning nothing would otherwise pass.
 echo "$EXEC_OUTPUT" | jq -e --arg id "$instance_id" \
-    'any(.resources[]; .InstanceId == $id)' > /dev/null \
-    || fail "instance $instance_id not found in aws-get output: $EXEC_OUTPUT"
+    'any(.resources[]; .InstanceId == $id)' >/dev/null ||
+    fail "instance $instance_id not found in aws-get output: $EXEC_OUTPUT"
 ok "aws-get action succeeded and returned $instance_id (execution $EXEC_ID)"
 
 # --- 9. Cover the rest of the aws-get resources localstack can serve ---
@@ -295,8 +298,8 @@ assert_aws_get() {
         "{\"target_cluster\": \"local\", \"params\": {\"resource\": \"$resource\"$extra}}"
     get_output "$EXEC_ID"
 
-    echo "$EXEC_OUTPUT" | jq -e "$filter" > /dev/null \
-        || fail "aws-get $resource returned unexpected output: $EXEC_OUTPUT"
+    echo "$EXEC_OUTPUT" | jq -e "$filter" >/dev/null ||
+        fail "aws-get $resource returned unexpected output: $EXEC_OUTPUT"
     ok "aws-get $resource succeeded (execution $EXEC_ID)"
 }
 
@@ -314,16 +317,16 @@ log "Seeding a DHCP options set in localstack"
 dhcp_id=$(podman exec "$LOCALSTACK_CONTAINER" awslocal ec2 create-dhcp-options \
     --dhcp-configurations 'Key=domain-name-servers,Values=[10.0.0.2]' \
     --tag-specifications "ResourceType=dhcp-options,Tags=[{Key=Name,Value=$AWS_TEST_TAG}]" \
-    --query 'DhcpOptions.DhcpOptionsId' --output text 2> /dev/null) \
-    || fail "failed to seed a DHCP options set in localstack"
+    --query 'DhcpOptions.DhcpOptionsId' --output text 2>/dev/null) ||
+    fail "failed to seed a DHCP options set in localstack"
 assert_aws_get ec2-dhcp-options "" \
     "any(.resources[]; .DhcpOptionsId == \"$dhcp_id\")"
 
 log "Seeding a Route 53 hosted zone in localstack"
 zone_id=$(podman exec "$LOCALSTACK_CONTAINER" awslocal route53 create-hosted-zone \
     --name "$AWS_TEST_TAG.example.com" --caller-reference "$AWS_TEST_TAG-$$" \
-    --query 'HostedZone.Id' --output text 2> /dev/null) \
-    || fail "failed to seed a hosted zone in localstack"
+    --query 'HostedZone.Id' --output text 2>/dev/null) ||
+    fail "failed to seed a hosted zone in localstack"
 assert_aws_get route53-hosted-zones "" \
     "any(.resources[]; .Id == \"$zone_id\")"
 
@@ -338,11 +341,11 @@ assert_aws_get route53-record-sets ", \"id\": \"$zone_id\"" \
 # worth having if it survives the whole HTTP path, so it is checked here too.
 # run_action_status rather than run_action, because this one must not succeed.
 log "Running 'aws-get' with a param the resource does not accept"
-read -r status execution_id <<< "$(run_action_status aws-get \
+read -r status execution_id <<<"$(run_action_status aws-get \
     '{"target_cluster": "local", "params": {"resource": "route53-hosted-zones", "filters": "tag:Name=x"}}')"
 
-[ "$status" = "failed" ] \
-    || fail "aws-get with an unaccepted param finished as '$status', expected 'failed'"
+[ "$status" = "failed" ] ||
+    fail "aws-get with an unaccepted param finished as '$status', expected 'failed'"
 ok "aws-get rejected an unaccepted param (execution $execution_id)"
 
 echo

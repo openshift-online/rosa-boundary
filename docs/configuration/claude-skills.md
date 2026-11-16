@@ -48,14 +48,20 @@ directories remain conflicts; relocate them explicitly to allow managed links.
 | `BOUNDARY_SKILLS_ENABLED` | `1` | Start only when exactly `1`; set `0` to disable on the next task start. Existing links remain. |
 | `BOUNDARY_SKILL_RECONCILE_INTERVAL` | `60` | Seconds between completed passes; integer from 5 through 86400. Invalid values exit the helper, not the workload. |
 
-A nonblocking `flock` at `~/.claude/.boundary-skills.lock` serializes passes from
+A nonblocking `flock` at `~/.boundary-skills.lock` serializes passes from
 overlapping tasks sharing a home. Those tasks must expose the same source;
 locking cannot reconcile different regional snapshots or arbitrary concurrent
 user edits. Both destinations are reconciled under that same lock. Each pass
 rejects symlinked `.claude`, `.agents`, or their `skills` directories; a failed
-destination does not stop reconciliation of the other. The existing startup
-checks for the `.claude` lock directory still apply. Settings and other files
-outside the two skills directories remain untouched.
+destination does not stop reconciliation of the other or later retries. The lock
+lives outside both discovery roots, so an unsafe or uncreatable `.claude` cannot
+redirect lock acquisition or block a healthy `.agents/skills`. Symlinked lock
+files are rejected; failed lock opens are retried on subsequent passes. Settings
+and other files outside the two skills directories remain untouched.
+
+The lock location changed from `~/.claude/.boundary-skills.lock`; replace older
+helper processes before running the new version against the same shared home,
+since different lock paths do not serialize each other.
 
 Content availability never gates startup. Failed passes emit `boundary-skills:`
 warnings and retry after the interval. Unexpected process exits are not

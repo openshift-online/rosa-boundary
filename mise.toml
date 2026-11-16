@@ -7,6 +7,8 @@ python = "3.13.18"
 shellcheck = "0.11.0"
 shfmt = "3.14.1"
 jq = "latest"
+golangci-lint = "2.15.0"
+"go:honnef.co/go/tools/cmd/staticcheck" = "0.8.2"
 
 [settings]
 experimental = true

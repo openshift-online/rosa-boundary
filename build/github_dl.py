@@ -460,12 +460,21 @@ def main():
 
     download_parser = subparsers.add_parser("download", help="Download a GitHub asset")
     download_parser.add_argument("--url", required=True, help="GitHub Releases API URL")
-    download_parser.add_argument("--checksum_file", required=True, help="Name of the checksum file in the release")
+    integrity = download_parser.add_mutually_exclusive_group(required=True)
+    integrity.add_argument("--checksum_file", help="Name of the checksum file in the release")
+    integrity.add_argument("--sha256", help="Pinned published asset SHA256 (requires --exact_asset)")
     download_parser.add_argument("--checksum_algorithm", default="sha256", help="Checksum algorithm (default: sha256)")
     selection = download_parser.add_mutually_exclusive_group(required=True)
     selection.add_argument("--platform", help="Legacy platform substring to match in checksum filenames")
     selection.add_argument("--asset_name", "--asset-name", "--exact_asset", help="Exact release asset filename")
     args = parser.parse_args()
+    if args.command == "download" and args.sha256 is not None:
+        if not args.asset_name or not re.fullmatch(r"[0-9a-f]{64}", args.sha256):
+            parser.error("--sha256 requires a lowercase SHA256 and --exact_asset")
+        try:
+            parse_sha256_line(f"{args.sha256}  {args.asset_name}")
+        except ValueError:
+            parser.error("--exact_asset must be a safe flat filename")
 
     token = resolve_token()
 
@@ -512,7 +521,8 @@ def main():
     if not assets:
         sys.exit(1)
 
-    checksum = get_checksum(assets, args.checksum_file, args.platform, token, asset_name=args.asset_name)
+    checksum = (f"{args.sha256}  {args.asset_name}" if args.sha256 is not None else
+                get_checksum(assets, args.checksum_file, args.platform, token, asset_name=args.asset_name))
     if not checksum:
         sys.exit(1)
 

@@ -135,12 +135,22 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
 
         environment = [
           {
+            # ECS Exec does not inherit exports from the entrypoint process.
+            # All agents need this in their SDK credential/region environment.
+            name  = "AWS_REGION"
+            value = var.aws_region
+          },
+          {
             name  = "CLAUDE_CODE_USE_BEDROCK"
             value = "1"
           },
           {
             name  = "ANTHROPIC_MODEL"
             value = var.claude_default_model
+          },
+          {
+            name  = "BOUNDARY_CODEX_BEDROCK_MODEL"
+            value = var.codex_default_model
           },
           {
             # Suppress the user-local installation self-check; Claude is

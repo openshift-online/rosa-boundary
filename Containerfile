@@ -10,12 +10,13 @@
 #   opencode-builder — OpenCode via github_dl (SHA256 verified)
 #   codex-builder    — OpenAI Codex CLI via github_dl (SHA256 verified)
 #   pi-builder       — pi coding agent via github_dl (SHA256 verified)
+#   search-builder   — fd and ripgrep (published SHA256 verified)
 #   tmux-builder     — tmux built from source (not in UBI9 repos)
 #   final            — production image (only this stage ships)
 #
 # sre-tools and the coding-agent builders depend on tools-base.
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
-# stages 2-7 run in parallel once their dependencies complete.
+# stages 2-8 run in parallel once their dependencies complete.
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:1e9f0ed9fceafb40878bc1705ff124aa150e3fed873f18c42cdc2dded319e0a8
@@ -269,7 +270,47 @@ RUN mkdir --parents /opt/pi \
     && chmod 0755 /opt/pi/pi
 
 
-# Stage 7: tmux-builder
+# Stage 7: search-builder
+# Pi uses fd and rg from PATH. Neither is available in the UBI9 repositories.
+FROM tools-base AS search-builder
+
+# Stable releases and GitHub-published asset SHA256 digests checked 2026-11-17.
+# Update fd's version and both hashes together: upstream has no checksum asset.
+ENV FD_VERSION="10.5.2"
+ARG FD_SHA256_AMD64="7e2d07fa2b8807642aaec67b7e2972a9fbe4db26fcb340a7372392db42b26694"
+ARG FD_SHA256_ARM64="63ea52cb31586e6d98efa2f06d73d542f16c7d0c4af0f07b579aaf9714cf907a"
+ENV RIPGREP_VERSION="15.2.0"
+
+WORKDIR /search-dl
+RUN --mount=type=secret,id=GITHUB_TOKEN \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \
+    --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_INSTALL_ID \
+    arch="$(platform_convert "@@PLATFORM@@" --x86_64 --aarch64)" \
+    && case "${arch}" in x86_64) fd_sha="${FD_SHA256_AMD64}" ;; aarch64) fd_sha="${FD_SHA256_ARM64}" ;; *) exit 1 ;; esac \
+    && github_dl download \
+        --url "https://api.github.com/repos/sharkdp/fd/releases/tags/v${FD_VERSION}" \
+        --sha256 "${fd_sha}" \
+        --exact_asset "fd-v${FD_VERSION}-${arch}-unknown-linux-musl.tar.gz" \
+    && github_dl download \
+        --url "https://api.github.com/repos/BurntSushi/ripgrep/releases/tags/${RIPGREP_VERSION}" \
+        --checksum_file "ripgrep-${RIPGREP_VERSION}-${arch}-unknown-linux-musl.tar.gz.sha256" \
+        --exact_asset "ripgrep-${RIPGREP_VERSION}-${arch}-unknown-linux-musl.tar.gz"
+
+# Extract only the named executables; archive paths and ownership never reach
+# the filesystem. No downloaded tool runs while GitHub secrets are mounted.
+RUN arch="$(platform_convert "@@PLATFORM@@" --x86_64 --aarch64)" \
+    && mkdir --parents /opt/search \
+    && tar --extract --gzip --to-stdout \
+        --file "fd-v${FD_VERSION}-${arch}-unknown-linux-musl.tar.gz" \
+        "fd-v${FD_VERSION}-${arch}-unknown-linux-musl/fd" > /opt/search/fd \
+    && tar --extract --gzip --to-stdout \
+        --file "ripgrep-${RIPGREP_VERSION}-${arch}-unknown-linux-musl.tar.gz" \
+        "ripgrep-${RIPGREP_VERSION}-${arch}-unknown-linux-musl/rg" > /opt/search/rg \
+    && chmod 0755 /opt/search/fd /opt/search/rg
+
+
+# Stage 8: tmux-builder
 # tmux is not in UBI9 repos (it's in RHEL 9 BaseOS, which requires a
 # subscription). Build from source against UBI9's libevent and ncurses.
 # Runtime shared libs are already in the UBI9 base image.
@@ -309,7 +350,7 @@ RUN curl --silent --location --fail \
     && strip --strip-all /build/out/usr/bin/tmux
 
 
-# Stage 8: final
+# Stage 9: final
 # Production image. Only this stage ships.
 FROM ${BASE_IMAGE} AS final
 
@@ -327,6 +368,7 @@ RUN dnf install --assumeyes --nodocs \
         gzip \
         jq \
         openssl \
+        procps-ng \
         python3 \
         python3-pip \
         rsync \
@@ -360,6 +402,9 @@ COPY --from=opencode-builder /opt/opencode /usr/local/lib/opencode
 COPY --from=codex-builder    /opt/codex    /usr/local/lib/codex
 COPY --from=pi-builder       /opt/pi       /usr/local/lib/pi
 
+# Explicit PATH dependencies for pi's find/grep tools.
+COPY --from=search-builder /opt/search/fd /opt/search/rg /usr/local/bin/
+
 # tmux built from source (not in UBI9 repos)
 COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
 
@@ -391,6 +436,8 @@ COPY skel/sre/ /etc/skel-sre/
 COPY --chmod=755 utils/rosa-boundary-credential-helper /usr/local/bin/
 # Run the unprivileged rsync loop independently of interactive shells.
 COPY --chmod=755 utils/rosa-boundary-skill-sync.sh /usr/local/libexec/rosa-boundary-skill-sync.sh
+# Seed provider defaults without persisting AWS credential material.
+COPY --chmod=755 utils/rosa-boundary-agent-defaults.py /usr/local/libexec/rosa-boundary-agent-defaults.py
 COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV HOME=/home/sre

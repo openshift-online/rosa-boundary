@@ -165,6 +165,21 @@ run "legacy_policy_names_ownership_and_original_scopes" {
     condition = (
       jsondecode(aws_iam_role_policy.task_bedrock.policy).Statement[0].Resource == ["arn:aws:bedrock:*:*:inference-profile/*", "arn:aws:bedrock:*:*:foundation-model/*"] &&
       jsondecode(aws_iam_role_policy.task_bedrock.policy).Statement[1].Resource == ["arn:aws:bedrock:us-east-1:123456789012:inference-profile/*", "arn:aws:bedrock:us-east-1:123456789012:application-inference-profile/*"] &&
+      length(jsondecode(aws_iam_role_policy.task_bedrock.policy).Statement) == 3 &&
+      jsondecode(aws_iam_role_policy.task_bedrock.policy).Statement[2] == {
+        Sid      = "InvokeDefaultProjectResponses"
+        Effect   = "Allow"
+        Action   = ["bedrock:InvokeModel"]
+        Resource = "arn:aws:bedrock:us-east-1:123456789012:project/default"
+      } &&
+      length(jsondecode(aws_vpc_endpoint.bedrock_runtime.policy).Statement) == 2 &&
+      jsondecode(aws_vpc_endpoint.bedrock_runtime.policy).Statement[1] == {
+        Sid       = "InvokeDefaultProjectResponses"
+        Effect    = "Allow"
+        Principal = { AWS = data.aws_iam_role.task.arn }
+        Action    = ["bedrock:InvokeModel"]
+        Resource  = "arn:aws:bedrock:us-east-1:123456789012:project/default"
+      } &&
       jsondecode(aws_iam_role_policy.task_ecs_exec.policy).Statement[0].Action == ["ssmmessages:CreateControlChannel", "ssmmessages:CreateDataChannel", "ssmmessages:OpenControlChannel", "ssmmessages:OpenDataChannel"]
     )
     error_message = "Preserve Bedrock profile and ECS Exec permissions, including baseline wildcard scopes."
@@ -238,7 +253,10 @@ run "additional_region_names_cannot_collide_with_legacy_grants" {
       jsondecode(aws_iam_role_policy.execution_secrets.policy).Statement[0].Resource == "arn:aws:secretsmanager:us-west-2:123456789012:secret:rosa-boundary/*" &&
       jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[2].Resource == "arn:aws:ecs:us-west-2:123456789012:task/${aws_ecs_cluster.main.name}/*" &&
       jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[5].Resource == "arn:aws:elasticfilesystem:us-west-2:123456789012:access-point/*" &&
-      jsondecode(aws_iam_role_policy.task_bedrock.policy).Statement[1].Resource == ["arn:aws:bedrock:us-west-2:123456789012:inference-profile/*", "arn:aws:bedrock:us-west-2:123456789012:application-inference-profile/*"]
+      jsondecode(aws_iam_role_policy.task_bedrock.policy).Statement[1].Resource == ["arn:aws:bedrock:us-west-2:123456789012:inference-profile/*", "arn:aws:bedrock:us-west-2:123456789012:application-inference-profile/*"] &&
+      jsondecode(aws_iam_role_policy.task_bedrock.policy).Statement[2].Resource == "arn:aws:bedrock:us-west-2:123456789012:project/default" &&
+      jsondecode(aws_vpc_endpoint.bedrock_runtime.policy).Statement[1].Resource == "arn:aws:bedrock:us-west-2:123456789012:project/default" &&
+      jsondecode(aws_vpc_endpoint.bedrock_runtime.policy).Statement[1].Principal.AWS == data.aws_iam_role.task.arn
     )
     error_message = "A second region must render its own scopes, never copy the legacy region's grants."
   }

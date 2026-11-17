@@ -52,6 +52,20 @@ setup() {
     [ "${output}" = "stop-helper" ]
 }
 
+@test "agent defaults run as sre with explicit HOME and support opt out" {
+    run bash -c '
+        source "$1"
+        runuser() { printf "runuser:%s\n" "$*"; }
+        unset BOUNDARY_AI_USE_BEDROCK CLAUDE_CODE_USE_BEDROCK
+        configure_agent_defaults
+        CLAUDE_CODE_USE_BEDROCK=0 configure_agent_defaults
+        BOUNDARY_AI_USE_BEDROCK=0 configure_agent_defaults
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "runuser:--user sre -- env HOME=/home/sre python3 /usr/local/libexec/rosa-boundary-agent-defaults.py" ]
+}
+
 @test "entrypoint is safely sourceable" {
     run bash -c 'source "$1"; printf "%s\n" sourced' bash "${ENTRYPOINT}"
 

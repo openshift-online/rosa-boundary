@@ -37,6 +37,7 @@ AGENT_PAYLOADS = {'claude': Path('/usr/local/lib/claude-code'),
                   'codex': Path('/usr/local/lib/codex'),
                   'pi': Path('/usr/local/lib/pi')}
 AGENT_PATHS = {agent: Path('/usr/local/bin') / agent for agent in AGENTS}
+SEARCH_TOOLS = {'fd': 'FD_VERSION', 'rg': 'RIPGREP_VERSION'}
 
 
 def declared_pins(source, directive, names, value):
@@ -92,6 +93,34 @@ def accept_agents(agents, arch):
             raise ValueError(f'{agent}: expected {agents[agent]}, got {actual}')
 
 
+def accept_search_tools(expected, arch):
+    """Pi's PATH search dependencies must be runnable, pinned native binaries."""
+    for tool, version in expected.items():
+        executable = Path('/usr/local/bin') / tool
+        elf_arch(executable, arch)
+        if executable.stat().st_mode & (stat.S_ISUID | stat.S_ISGID):
+            raise ValueError('elevated search tool: ' + tool)
+        result = subprocess.run([str(executable), '--version'], check=True,
+                                capture_output=True, text=True, timeout=30,
+                                env={'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C'})
+        # rg also prints optional PCRE2 library versions on later lines.
+        first = result.stdout.splitlines()[0] if result.stdout else ''
+        label = 'ripgrep' if tool == 'rg' else tool
+        if not re.fullmatch(re.escape(f'{label} {version}') + r'(?: \(rev [0-9a-f]+\))?', first):
+            raise ValueError(f'{tool}: expected {version}, got {first}')
+
+
+def accept_process_tools():
+    """Agent app-server lifecycle tracking needs ps, not just version probes."""
+    pid = str(os.getpid())
+    result = subprocess.run(['ps', '-p', pid, '-o', 'pid=,args='], check=True,
+                            capture_output=True, text=True, timeout=30,
+                            env={'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C'})
+    fields = result.stdout.split()
+    if not fields or fields[0] != pid:
+        raise ValueError('ps could not inspect the current unprivileged process')
+
+
 def validate(entries, expected, arch):
     if len(entries) != 6 or {entry['tool'] for entry in entries} != set(TOOLS):
         raise ValueError('inventory must contain exactly six unique tools')
@@ -121,7 +150,7 @@ def elf_arch(path, arch):
         raise ValueError('wrong executable architecture: ' + str(path))
 
 
-def runtime(entries, expected, agents):
+def runtime(entries, expected, agents, search):
     if os.getuid() == 0:
         raise ValueError('runtime validation must run unprivileged')
     arch = {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}.get(platform.machine())
@@ -148,6 +177,8 @@ def runtime(entries, expected, agents):
             subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=30,
                            env={'HOME': home, 'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C'})
     accept_agents(agents, arch)
+    accept_search_tools(search, arch)
+    accept_process_tools()
 
 
 def compare(left, right, expected):
@@ -177,7 +208,8 @@ def main():
         combine(args.directory, args.destination)
     elif args.command == 'runtime':
         runtime(json.loads(args.inventory.read_text()), pins(args.containerfile),
-                agent_pins(args.containerfile))
+                agent_pins(args.containerfile),
+                declared_pins(args.containerfile.read_text(), 'ENV', SEARCH_TOOLS, r'\d+\.\d+\.\d+'))
     else:
         compare(json.loads(args.amd64.read_text()), json.loads(args.arm64.read_text()), pins(args.containerfile))
 

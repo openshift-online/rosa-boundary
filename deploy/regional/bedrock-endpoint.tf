@@ -36,7 +36,8 @@ resource "aws_vpc_endpoint" "bedrock_runtime" {
   private_dns_enabled = true
 
   # Model-specific restrictions follow the approved model manifest; until then,
-  # limit this endpoint to task-role inference on model/profile resources.
+  # limit this endpoint to task-role inference on model/profile resources and
+  # the regional default project required by OpenAI-compatible Responses.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -50,6 +51,14 @@ resource "aws_vpc_endpoint" "bedrock_runtime" {
         "arn:${data.aws_partition.current.partition}:bedrock:*:${data.aws_caller_identity.current.account_id}:inference-profile/*",
         "arn:${data.aws_partition.current.partition}:bedrock:*::foundation-model/*"
       ]
+      }, {
+      # Match the extra project authorization used by /openai/v1/responses;
+      # never open other projects, accounts, regions or principals here.
+      Sid       = "InvokeDefaultProjectResponses"
+      Effect    = "Allow"
+      Principal = { AWS = data.aws_iam_role.task.arn }
+      Action    = ["bedrock:InvokeModel"]
+      Resource  = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:project/default"
     }]
   })
 

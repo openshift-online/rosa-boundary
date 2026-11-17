@@ -123,6 +123,14 @@ resource "aws_iam_role_policy" "task_bedrock" {
           "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
           "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:application-inference-profile/*"
         ]
+      },
+      {
+        # Bedrock's OpenAI-compatible Responses API additionally authorizes
+        # InvokeModel on the local default project. Model grants above remain.
+        Sid      = "InvokeDefaultProjectResponses"
+        Effect   = "Allow"
+        Action   = ["bedrock:InvokeModel"]
+        Resource = "arn:${data.aws_partition.current.partition}:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:project/default"
       }
     ]
   })

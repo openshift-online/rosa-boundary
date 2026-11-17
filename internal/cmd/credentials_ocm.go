@@ -18,7 +18,6 @@ import (
 const credentialContainer = "rosa-boundary"
 
 var (
-	credentialsOCMURL  string
 	credentialsOCMFlow string
 )
 
@@ -149,11 +148,11 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return guideCredentialSession(cmd, "configure")
 	}
-	environment, err := resolveConfigureOCMEnvironment()
+	authResult := getAuthResult(cmd)
+	environment, err := ocmcredentials.ResolveEnvironment(authResult.Config.OCMURL)
 	if err != nil {
 		return err
 	}
-	authResult := getAuthResult(cmd)
 	flow := defaultOCMFlow(authResult.Config.OIDCUseDeviceCode)
 	if credentialsOCMFlow != "" || cmd.Flags().Changed("auth-flow") {
 		flow, err = parseOCMFlow(credentialsOCMFlow)
@@ -285,10 +284,6 @@ func prepareCredentialSession(ctx context.Context, ecsClient *awsclient.ECSClien
 
 func credentialDebugf(format string, args ...any) error {
 	return output.Debug(format, args...)
-}
-
-func resolveConfigureOCMEnvironment() (ocmcredentials.Environment, error) {
-	return ocmcredentials.ResolveEnvironment(credentialsOCMURL)
 }
 
 func parseOCMFlow(value string) (ocmcredentials.Flow, error) {

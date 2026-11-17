@@ -11,6 +11,7 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
+	ocmcredentials "github.com/openshift-online/rosa-boundary/internal/credentials/ocm"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 	"github.com/spf13/cobra"
@@ -39,6 +40,7 @@ func buildConfigCommand() *cobra.Command {
 		{"project", "Deployment project (default rosa-boundary)"}, {"environment", "Deployment environment (default prod)"},
 		{"keycloak-url", "OIDC provider base URL"}, {"realm", "OIDC realm (default EmployeeIDP)"}, {"client-id", "OIDC client ID (default rosa-boundary-sre)"},
 		{"lambda-function-name", "Create-investigation Lambda"}, {"invoker-role-arn", "Lambda invoker role ARN"}, {"sre-role-arn", "SRE role ARN"},
+		{"ocm-url", "OCM environment or approved canonical URL (optional)"},
 		{"ecs-cluster", "Boundary ECS cluster"}, {"efs-filesystem-id", "Investigation EFS filesystem"},
 	} {
 		init.Flags().String(flag.name, "", flag.help)
@@ -108,6 +110,7 @@ func runConfigInit(cmd *cobra.Command, _ []string) error {
 	fields := []struct{ flag, label, fallback string }{
 		{"account-id", "AWS account ID", ""}, {"region", "Boundary region", ""}, {"project", "Project", "rosa-boundary"}, {"environment", "Environment", "prod"},
 		{"keycloak-url", "Keycloak URL", "https://auth.redhat.com/auth"}, {"realm", "Keycloak realm", "EmployeeIDP"}, {"client-id", "OIDC client ID", "rosa-boundary-sre"},
+		{"ocm-url", "OCM environment (production, staging, integration; optional)", ""},
 	}
 	auto := flagBool(cmd, "auto-discover")
 	if !auto {
@@ -147,8 +150,16 @@ func runConfigInit(cmd *cobra.Command, _ []string) error {
 	if !regexp.MustCompile(`^[0-9]{12}$`).MatchString(values["account-id"]) {
 		return inputError(cmd, fmt.Errorf("--account-id must be a 12-digit AWS account ID"))
 	}
+	// Persist only an explicitly selected, approved destination, never local tokens.
+	if values["ocm-url"] != "" {
+		environment, err := ocmcredentials.ResolveEnvironment(values["ocm-url"])
+		if err != nil {
+			return inputError(cmd, err)
+		}
+		values["ocm-url"] = environment.URL
+	}
 	devicePreference := configureDeviceCode(cmd)
-	profile := config.Profile{AccountID: values["account-id"], AWSRegion: values["region"], Project: values["project"], Environment: values["environment"], KeycloakURL: values["keycloak-url"], KeycloakRealm: values["realm"], OIDCClientID: values["client-id"], OIDCUseDeviceCode: &devicePreference, LambdaFunctionName: values["lambda-function-name"], InvokerRoleARN: values["invoker-role-arn"], SRERoleARN: values["sre-role-arn"], ClusterName: values["ecs-cluster"], EFSFilesystemID: values["efs-filesystem-id"]}
+	profile := config.Profile{OCMURL: values["ocm-url"], AccountID: values["account-id"], AWSRegion: values["region"], Project: values["project"], Environment: values["environment"], KeycloakURL: values["keycloak-url"], KeycloakRealm: values["realm"], OIDCClientID: values["client-id"], OIDCUseDeviceCode: &devicePreference, LambdaFunctionName: values["lambda-function-name"], InvokerRoleARN: values["invoker-role-arn"], SRERoleARN: values["sre-role-arn"], ClusterName: values["ecs-cluster"], EFSFilesystemID: values["efs-filesystem-id"]}
 	if auto {
 		pkce := auth.PKCEConfig{KeycloakURL: profile.KeycloakURL, Realm: profile.KeycloakRealm, ClientID: profile.OIDCClientID}
 		if _, err := commandOutput(cmd); err != nil {

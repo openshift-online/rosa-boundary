@@ -41,7 +41,7 @@ func saveTestProfile(name string, cfg config.Config, use, overwrite bool) error 
 	device := cfg.OIDCUseDeviceCode
 	p := config.Profile{AccountID: cfg.AccountID, Environment: cfg.Environment, Project: cfg.Project,
 		AWSRegion: cfg.AWSRegion, KeycloakURL: cfg.KeycloakURL, KeycloakRealm: cfg.KeycloakRealm,
-		OIDCClientID: cfg.OIDCClientID, OIDCUseDeviceCode: &device,
+		OCMURL: cfg.OCMURL, OIDCClientID: cfg.OIDCClientID, OIDCUseDeviceCode: &device,
 		LambdaFunctionName: cfg.LambdaFunctionName, InvokerRoleARN: cfg.InvokerRoleARN,
 		SRERoleARN: cfg.SRERoleARN, ClusterName: cfg.ClusterName, EFSFilesystemID: cfg.EFSFilesystemID}
 	if err := f.AddProfile(name, p, overwrite, use); err != nil {

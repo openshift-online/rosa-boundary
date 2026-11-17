@@ -14,6 +14,7 @@ type Config struct {
 	LambdaFunctionName string
 	KeycloakURL        string
 	KeycloakRealm      string
+	OCMURL             string
 	OIDCClientID       string
 	OIDCUseDeviceCode  bool
 	AWSRegion          string

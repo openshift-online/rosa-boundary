@@ -37,6 +37,9 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		return fmt.Errorf("invalid --output %q: must be text or json", startOutputFormat)
 	}
 
+	// The resolved value includes explicit flags, environment overrides and the
+	// selected profile. Empty preserves the legacy local OCM URL fallback.
+	startOCMURL = cachedAuthResult.Config.OCMURL
 	configureOCM, ocmEnvironment, ocmFlow, err := validateStartCredentials(cmd.Flags().Changed("ocm-auth-flow"), cmd.Flags().Changed("with-credentials"))
 	if err != nil {
 		return err

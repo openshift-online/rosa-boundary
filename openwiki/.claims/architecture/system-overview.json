@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:492564c47260845bda5c39dc35922273247c1e814654af069a1d48fb67fa8974",
+  "pageVersion": "sha256:647199f5f010591ec5f387028adec40dc3d876b8dbbbc64babe8b37a5451af4e",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
@@ -36,7 +36,7 @@
     },
     {
       "id": "claim_a6623a4421ac4cea915be946f9763125",
-      "statement": "The regional task definition combines an EFS-backed home with empty task-scoped OCM and kubeconfig overlays, and the entrypoint refuses missing or EFS-backed overlays before launching the workload as sre.",
+      "statement": "The regional task definition combines an EFS-backed home with empty task-scoped OCM and kubeconfig overlays, and the entrypoint's verify_credential_mounts/initialize_credential_mounts functions refuse missing or EFS-backed overlays (failing startup if either path is not a task-scoped, non-NFS mount) before launching the workload as sre.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/ecs.tf#L160-L187",
@@ -47,18 +47,18 @@
           "version": "repo-lines-v1:sha256:89b569812a8a640b61950a18b27da69315454303f78ecd5ac294ed8a3d4a9bba:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ZTc3MDY3MzhkMjJiNjk2ODY0ZWYxOTJiMzZjYzk5ODRhMzg5OWQ3ZTkxZGU2M2MzODc4NDA0YzU2N2IxOTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3YmM1YzU5NTk0YzVlYmQ2NzljOTQ2NmQyNTk3ZGVlODg1OWJkMDVkOTYxZDMxMzgyZmE2Y2U2ZjU5OWU3OTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM4OThlYjU2ZTA3Y2RjODU1MTk4MTVhNWY1MjlmM2I3MTBiMTlhYWViNGRhOWU0OGU4YWZmZmExNjc5OWIwYjMifQ"
         },
         {
-          "resource": "repo://entrypoint.sh#L46-L80",
-          "version": "repo-lines-v1:sha256:6ad93c21e0e3c201f13701ca177a756231b0733d65bfe6af274ecf600aabae6c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg0ZDNjNTAyMTI1MGUxODhiMzUyZThkMGU3NWZkNmQ0M2EyNjYzZGQ4ZDgyMjc3Yzk1ODVjYTI5YjY1YjNjMTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNjNjdiZTA4ZjQ1N2FiNzAzYTg4YzViNDBjYzg0NTllM2RiOTJhYWMzNGNiZjEyZDllZjk3MjE3Zjg3Njk1ZTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5NDM5ZDVhOTg5ZTYyY2NiMWM0N2JhMjIyNjg5NTY1MDNiZTkyZWZiY2Y5MjQ3NWExZDAxMDU1NjNhZGRlOTAifQ"
+          "resource": "repo://entrypoint.sh#L66-L100",
+          "version": "repo-lines-v1:sha256:6ad93c21e0e3c201f13701ca177a756231b0733d65bfe6af274ecf600aabae6c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg0ZDNjNTAyMTI1MGUxODhiMzUyZThkMGU3NWZkNmQ0M2EyNjYzZGQ4ZDgyMjc3Yzk1ODVjYTI5YjY1YjNjMTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyNDUwNzhhYWU3ODY3NzZlMDI0ZWNmMzZmZTFhYWQ5ZjZhZjM3NTkwZWVmMWM3MWExNWFmN2FlNDQyMWE5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5NDM5ZDVhOTg5ZTYyY2NiMWM0N2JhMjIyNjg5NTY1MDNiZTkyZWZiY2Y5MjQ3NWExZDAxMDU1NjNhZGRlOTAifQ"
         }
       ]
     },
     {
       "id": "claim_cef635918fde49daae5cf0282a34e52b",
-      "statement": "On shutdown the container attempts a bounded S3 sync of /home/sre excluding credential overlays without following symlinks; the scheduled reaper checks task deadlines and defers stopping tasks with active Exec sessions.",
+      "statement": "On shutdown the container's sync_to_s3 function attempts a bounded, timeout-guarded S3 sync of /home/sre excluding the OCM and kubeconfig credential overlays and never following symlinks; the independently scheduled reap-tasks Lambda checks per-task deadline tags and defers stopping a task that has an active ECS Exec/SSM session.",
       "evidence": [
         {
-          "resource": "repo://entrypoint.sh#L3-L80",
-          "version": "repo-lines-v1:sha256:31c9c955d30e239aa3828a58e324930cdce2af47d0e85e9d3e0e936bd92bf5d7:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1ZDg1MjE4M2ViNjViNDE2MTNiNTdjY2M2MWFhZDcyYTgwMGEwOWU0ODZkYTk2ZGM1ZTk2OTkwMzVhNzJmMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5NjIyZmFlMmFiMDJmZTM1OWVkMTUwOTY0YTkyNjUzNjk3YmZiMjM1ZTIwOTQ3YWEzYzNmMzg1NDg0ZTk3YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5NDM5ZDVhOTg5ZTYyY2NiMWM0N2JhMjIyNjg5NTY1MDNiZTkyZWZiY2Y5MjQ3NWExZDAxMDU1NjNhZGRlOTAifQ"
+          "resource": "repo://entrypoint.sh#L3-L34",
+          "version": "repo-lines-v1:sha256:09c825b363dfce5babcf51c497811ae6538f1a6462ab373cba7ca3e617a5e06c:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1ZDg1MjE4M2ViNjViNDE2MTNiNTdjY2M2MWFhZDcyYTgwMGEwOWU0ODZkYTk2ZGM1ZTk2OTkwMzVhNzJmMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjoyLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ5NjIyZmFlMmFiMDJmZTM1OWVkMTUwOTY0YTkyNjUzNjk3YmZiMjM1ZTIwOTQ3YWEzYzNmMzg1NDg0ZTk3YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMzZWFjMjNkNzM1YzRiYWE2ODQ1YmUwOTM4NzE1NDg0OTAzOTM4NWQzMGU1NjAzYmFmZDFmYWZiMTE0MDliMzQifQ"
         },
         {
           "resource": "repo://lambda/reap-tasks/handler.py#L110-L175",
@@ -210,25 +210,25 @@
     },
     {
       "id": "claim_b159a891353348cfafddedc4eeff0dac",
-      "statement": "The CLI's internal/cmd/root.go now holds only command-tree execution, exit-code translation, and OIDC-to-STS retry helpers; the root command definition and the PersistentPreRunE role-selection/authentication hook live in internal/cmd/cli.go (buildRootCommand/commandPreRun), and the task/session-launch orchestration previously in start_task.go now lives in internal/cmd/start_session.go as runStartSession, invoked by the `session create` command.",
+      "statement": "The CLI's internal/cmd/root.go now holds only command-tree execution and exit-code translation (Execute/executeRoot) plus the OIDC-to-STS retry helpers (assumeRoleWithRetryOptions/isAuthError) shared by commandPreRun and runStartSession; the root command definition and the PersistentPreRunE role-selection/authentication hook live in internal/cmd/cli.go (buildRootCommand/commandPreRun), and the task/session-launch orchestration lives in internal/cmd/start_session.go as runStartSession (lines 33-177, with finishStartSession as its continuation), invoked by the `session create` command.",
       "evidence": [
         {
           "resource": "repo://internal/cmd/cli.go#L24-L52",
           "version": "repo-lines-v1:sha256:81401a75cdb0fe68462add2f2d7316debd23fc8b2e8db9deecb1a119f9852743:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiZjI5NjBiMjg2OTc5NDk1YmE2NThiYTdjNzBhYzlmOGM5ZDczNzNhNzNjZmE0NjNmNDIxYWI2NTFjYjUyNjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc5NDhjMjUxMjJkOWE4ZDI1ZjlhODY2ODU3MWYxZGNkNWNjMzdiNDExODQ4ODc4YjI1NTA1N2MxZjQxMjgzZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdhZjY4NWU5MTQ4ZDUzMjk4MGVlM2JmNGM1OGYyOTVhZjVkMWMyMTY4ODJkZGFiYmNhMjJiNDUzMWZhYzdkNzkifQ"
         },
         {
-          "resource": "repo://internal/cmd/root.go#L1-L52",
-          "version": "repo-lines-v1:sha256:763408570184c35bf7623d5775cdf51b65e0765825e9a3f293b66261d39fd7cf:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljNzgzNTVjNGRhMzdkZjhmNzA4ZjE0M2ZlMTkxNzNkYzE0NmFkY2Q5OWQxNjM2NTk0ZDI2NWM1NDA3NzU1YmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzOWIwMjVlYjhhN2M1OGU5NWNkNGE5Y2I4ZjI1OGFlNmI5YmI2YzFkOTU1YWMxMjhkOTEzMWZhZmY5OTU4NDciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhkNGQ3YTA5OWY3MWY4YTViMDdiOWQyNzFmZDNjYWUwYTY4YTI4YjNiNzliZjA0ZGE4ZDQ5MTY3ZDdmNGZjMmYifQ"
+          "resource": "repo://internal/cmd/root.go#L1-L166",
+          "version": "repo-lines-v1:sha256:82126fd8419a4246a6b31ab6b814e99206a389f24715664dbd0bd7605f57370b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTY2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5Yzc4MzU1YzRkYTM3ZGY4ZjcwOGYxNDNmZTE5MTczZGMxNDZhZGNkOTlkMTYzNjU5NGQyNjVjNTQwNzc1NWJmIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MCwicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
         },
         {
-          "resource": "repo://internal/cmd/start_session.go#L33-L162",
-          "version": "repo-lines-v1:sha256:2594907b7532745b71ccd3341fad641dc12edf6ce504ea6e66c64870ce5d3ad5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNTExYWZjM2MyOTE4NjEyZDg3MDBkOGUzZTljNDlmNzExMDJjMzM5NTlmZTkzNzAzNzFhYTIwOTA2MDQ5NmQ0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNDdmMWYyMjUzNjI0NmJhYjA1Zjg4ZjJkNDRjMmM4NWExNThlZjM3MmVjZDBmYTA2ZWJjZmY2ZTBkNGVlNDYyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0YmYxZGI5YjgyMGMwZmM0ZTRlZTUyMmRhZTI3ZmE3ZjJjMjg0ZWQ2OTM0NzVmNTMxNmM0YWIzZDUzMTIwZTU0In0"
+          "resource": "repo://internal/cmd/start_session.go#L33-L177",
+          "version": "repo-lines-v1:sha256:7918ada5c2b7985410f6d77927de420766daf308287c69a7734ddf765ddc7110:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQ1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNTExYWZjM2MyOTE4NjEyZDg3MDBkOGUzZTljNDlmNzExMDJjMzM5NTlmZTkzNzAzNzFhYTIwOTA2MDQ5NmQ0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNDdmMWYyMjUzNjI0NmJhYjA1Zjg4ZjJkNDRjMmM4NWExNThlZjM3MmVjZDBmYTA2ZWJjZmY2ZTBkNGVlNDYyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0YmYxZGI5YjgyMGMwZmM0ZTRlZTUyMmRhZTI3ZmE3ZjJjMjg0ZWQ2OTM0NzVmNTMxNmM0YWIzZDUzMTIwZTU0In0"
         }
       ]
     },
     {
       "id": "claim_122462732b204913a3b8320e863778d4",
-      "statement": "The repository also contains components/trusted-actions, a separate Go module, container image build and Terraform roots; no code path in the create-investigation Lambda, regional ECS task definition or entrypoint references Trusted Actions, so these source files do not establish a Boundary-to-TA integration.",
+      "statement": "The repository also contains components/trusted-actions, a separate Go module, container image build and Terraform roots; no code path in the create-investigation Lambda, regional ECS task definition, or entrypoint.sh references Trusted Actions, so these source files do not establish a Boundary-to-TA integration.",
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/Containerfile#L1-L10",
@@ -248,7 +248,7 @@
         },
         {
           "resource": "repo://entrypoint.sh",
-          "version": "repo-file-v1:sha256:70e588e2da0100ba37293fbc4eb51fc956804af82166b760bda1d646d50cb21b"
+          "version": "repo-file-v1:sha256:566acce214951d273c74c9385e61f73c1f9c624816ee40c22721141474d32337"
         },
         {
           "resource": "repo://lambda/create-investigation/handler.py",
@@ -279,8 +279,8 @@
           "version": "repo-lines-v1:sha256:2eea9f13c2888b3a7f993238980057c13e4498623e0c3fae2dd4088930dad5f4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
         },
         {
-          "resource": "repo://Containerfile#L191-L274",
-          "version": "repo-lines-v1:sha256:4d2c60ff7c01805dc66e704a63d4469c943fbd0a71ffff93437362919180ce83:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzZWJmNWIzNGJkNmE4MmY1NDc1OGM0OGVjMDg4NzA3NmMxNTViZmNiYzc5NjIxZmU3YmVjMzI1YWQyNGUzMDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwMmY1OTM1NGExN2ZiNjgwZTljMjE2YmZkMGQ2NjUxNGNjOTM0ZWFlZmU4MTU3MGNkN2U2ZjQwNWQ4NzQ0YzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://Containerfile#L191-L279",
+          "version": "repo-lines-v1:sha256:3a01b398c1d1efb7f79e4173abe1cb371a3b22e7d4903276971a2e17f048ecdc:eyJzZWxlY3RlZExpbmVDb3VudCI6ODksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwMmY1OTM1NGExN2ZiNjgwZTljMjE2YmZkMGQ2NjUxNGNjOTM0ZWFlZmU4MTU3MGNkN2U2ZjQwNWQ4NzQ0YzMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVlZDQyMjgzMjdmYTM5NTM0MTQyYmMxODc1ZWQyMmM3NDhhNmI1ZTlkZDQ3NWE4ZjM5ZjI4MDQzZGFkYzgwMGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
@@ -296,7 +296,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-11-13T18:18:24.408Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-17T16:03:58.857Z"
   }
 }

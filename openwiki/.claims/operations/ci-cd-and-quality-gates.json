@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:b84d62ef5dde93b6c2fc13b35f339bb17f42f3a8f04f413ea1903e2130754ec2",
+  "pageVersion": "sha256:fcd4768fda9fd348b7ab38ff0e9bc321f13db348a5172bc26cbb30d5b11f4498",
   "claims": [
     {
       "id": "claim_e1c46fdd6d9345088a725c8edbc61d9c",
@@ -86,15 +86,15 @@
       "evidence": [
         {
           "resource": "repo://.tekton/create-investigation-lambda-pull-request.yaml",
-          "version": "repo-file-v1:sha256:085d908c97f7999267a97fcbb8b224957ba5f0a14add7baf23788bc35fb33bed"
+          "version": "repo-file-v1:sha256:e06c7f8fca1d4b631122e19c1c40cfd57a80188c7cf700ec466e609978f238ff"
         },
         {
           "resource": "repo://.tekton/rosa-boundary-pull-request.yaml",
-          "version": "repo-file-v1:sha256:3f75b879cf9bfb18dacb373f9c6b7f10daee9a0b68c07248921b06a03ba4665d"
+          "version": "repo-file-v1:sha256:dad2b15bdce1ef857f413e0971434110f137da00b86af36814929732f74217ee"
         },
         {
           "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml",
-          "version": "repo-file-v1:sha256:2152029ef7968486357c0e47bce71b38dc9f5c513c24ee684e2e0dec455369ce"
+          "version": "repo-file-v1:sha256:a4ced63056d3807c14c0f1cd14fd9bb9229546bf7a936877099d9347265bc95f"
         }
       ]
     },
@@ -147,10 +147,24 @@
           "version": "repo-lines-v1:sha256:a3a8ada6e12ad4fe7aed1458bef1548cde0c735971c1707a20ea77b5a5d2306f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3MjcxZWI1MDdkZTMzYTJhNmJhNDA0M2ZhNmI0YzRiMWFjMmJlZTk0NDZmYTNlYjZjYjY4NTA1M2Y5ZmRlY2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhMjFjNWIzYmZmMDI5OWMwMTYxNDcwNDY4ZjM1NWU1YjRhZmNmMTdhNWY1OTNhYjY4Mzk0ZWY3YWYzMTljZGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3ZWEwZGJmZTc1ZTZmMmRkYzU3MDRlNTc1OWQ1NDRmNWEzNjRlNGRkMzVjZWNkMjJkOWU2ZjMzYzY0MGY0NGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
+    },
+    {
+      "id": "claim_bb8138a29cd84c229831b682f37cb128",
+      "statement": "The rosa-trusted-actions-pull-request.yaml and rosa-trusted-actions-push.yaml on-cel-expression triggers carry a comment reading \"Enable only at the coordinated cutover after checking the shared image/release destination,\" but neither expression is actually prefixed with a false && (or similar) guard; both evaluate normally for pull_request/push events on main touching components/trusted-actions/*** or the pipeline's own file, the same as the Boundary and Lambda image pipelines.",
+      "evidence": [
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-pull-request.yaml#L1-L20",
+          "version": "repo-lines-v1:sha256:00760783605595735a09995a471b4e019ec3cae5b06e90f308d61547248e0a15:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQxMmFmOTZjNzM2YzUyZDRiNGU0NTlkZTJiNGQxZWRmNTI0OTY0YzE4OWFiMDM5MzFjYWFmOTIwNmExZTcwMGIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM1ZDE5MGU3NTBlZTRiOWFjMWNmNTAwYmMxYzMyZDE2ZTk3OTBmNWFhZDJjZDRiODA4NDQ3YjU3MmY5NWQ5NGUifQ"
+        },
+        {
+          "resource": "repo://.tekton/rosa-trusted-actions-push.yaml#L1-L20",
+          "version": "repo-lines-v1:sha256:bc8f258ad408759b4ed84c410fce19f7f52443646f6a941892976ef01e149663:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlOTFlNTFjZTUzOGVmMTIwZWUyMGNiZGY5NDE1OGJhY2UxY2MxMTc5MDZmODY0ZmVkMmQ5NGUzNzExMGNiMjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQzY2Q3MDEzZWEwNjUyMWE4NWIzNTEyM2Y0ZTcxMWZiNjU3MGYyYmI0ODg3NjJkZGQxNjU2ZmE4MmRlYzIwZTYifQ"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-11-13T18:18:24.408Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-17T16:03:58.857Z"
   }
 }

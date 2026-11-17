@@ -30,6 +30,12 @@ verify Anthropic first-use form registration, approved model activation and
 propagation before claiming access. Terms acceptance and bounded inference need
 explicit approval; do not grant Marketplace subscription permissions to tasks.
 
+For step 7, also complete the
+[manual published-content smoke setup](references/07-live.md#manual-published-content-smoke-setup).
+Fresh content buckets contain no sample skills/SOPs/notifications; obtain separate
+approval for synthetic S3 uploads and cleanup, then verify mounts, both skill-link
+roots and client discovery independently.
+
 ## Pause and resume contract
 
 Before asking the user to install, authenticate, obtain access, edit private

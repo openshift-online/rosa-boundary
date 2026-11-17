@@ -46,6 +46,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 - [**Investigation Workflow**](runbooks/investigation-workflow.md) - Creating and managing investigations
 - [**Audit Log Access**](runbooks/audit-log-access.md) - Retrieve investigation audit logs from S3 without admin access
 - [**Personal Dev Bootstrap**](runbooks/personal-dev-bootstrap.md) - Deploy and validate a contributor-owned dev environment
+- [**Seed Personal Dev Content**](runbooks/seed-dev-content.md) - Manually publish approved synthetic S3 fixtures and verify mounted content and agent skill discovery
 - [**Troubleshooting**](runbooks/troubleshooting.md) - Common issues and solutions
 
 ## Development

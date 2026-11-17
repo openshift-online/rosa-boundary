@@ -6,6 +6,16 @@ Boundary keeps both `~/.claude/skills/` and the shared agent discovery directory
 and unrelated links are preserved. ECS tasks are ephemeral, but the EFS home and
 skill links can persist across tasks.
 
+## Fresh personal-dev content sources
+
+Terraform creates storage and mounts, not sample skills. Empty
+`/opt/rosa-content/rosa-claude-plugins/` can legitimately yield empty
+`~/.agents/skills/` and `~/.claude/skills/`. Before concluding that discovery is
+broken, follow the [manual content-seeding runbook](../runbooks/seed-dev-content.md):
+publish approved synthetic fixtures to the content bucket's configured source
+prefixes, verify mounted files, then verify links and actual agent discovery.
+This is a separately approved manual write, not automatic startup behavior.
+
 ## Symlink reconciliation
 
 The entrypoint starts `utils/rosa-boundary-skill-sync.sh` as `sre`, independently

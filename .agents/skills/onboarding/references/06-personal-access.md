@@ -52,6 +52,7 @@ configuration into this skill or a PR.
 | Task image | User-approved existing image or approved build/publication scope; resolve platform and registry digest, and record source provenance. Do not silently select `latest` or assume the infrastructure and image revisions match. |
 | Lambda and sidecar | ZIP versus Image packaging, required build prerequisites/artifacts, and intended kube-proxy setting. Without an approved working cluster kubeconfig secret, propose disabling kube-proxy explicitly. |
 | Budget and model access | Confirm this account's budget amount/recipient, selected models/geography and approved model-agreement manifest. Complete the Bedrock model-access approval gate below. Alerts are not a spending cap; do not accept model offers implicitly. |
+| Published-content fixtures | Confirm the owning regional content bucket/region, configured source prefixes, primary publishing region if replicated, authorized writer per source, reviewed synthetic fixture keys and upload/cleanup approval. Empty sources do not test skill discovery. |
 | Audit effects and cost | Intended retention, audit Object Lock mode, account/Region-wide Bedrock logging scope/readers, and ongoing endpoint/storage/KMS/logging costs; actual plan approval remains separate. |
 | Live test, if requested | Approved cluster/endpoint, identity, bounded duration/cost, evidence reader and cleanup contract. Infrastructure deployment is not authorization to launch a test. |
 
@@ -64,6 +65,7 @@ Never infer a realm's ABAC mapping from those fallbacks.
 
 A user's confirmation supplies configuration, not runtime proof. Authentication,
 group authorization and identity isolation remain live-verification boundaries.
+
 ## Bedrock model-access approval gate
 
 Follow [approve and verify Bedrock model access](../../../../docs/runbooks/bedrock-model-access.md)

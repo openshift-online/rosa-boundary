@@ -37,6 +37,14 @@ Use a current ROSA Boundary checkout and **your own** AWS account with administr
 
 5. **Regional.** Copy `deploy/regional/terraform.tfvars.example` to `deploy/regional/terraform.tfvars`. Supply your account/region, `stage = "dev"`, the account root's `legacy_policy_region`/role prefix, VPC/private subnet IDs, pushed image URI, OIDC issuer/thumbprint/client, `required_groups`, and `abac_tag_key` matching the token's principal tag. In `us-east-1` with a 12-digit account ID and `stage = "dev"`, the `project` value must be at most **16 characters**: the Bedrock payload bucket appends `-bedrock-invocations` to the account/project/stage/region name, and S3 limits bucket names to 63 characters. `rosa-boundary-dev` fits as a *project-stage prefix* (`project = "rosa-boundary"`), but is too long as the `project` value itself. Use `enable_kube_proxy = false` if no working sidecar secret is configured. Leave Lambda packaging at the default `Zip` unless intentionally testing another mode. A gitignored root `.env` must include `KEYCLOAK_ISSUER_URL` for the regional Makefile; also set `TF_VAR_abac_tag_key` and `TF_VAR_enable_kube_proxy` to the intended values because that Makefile's fallbacks override tfvars. Inspect the Makefile and effective variable precedence **without printing secrets**. Run `make -C deploy/regional init`, `make -C deploy/regional validate`, and `make -C deploy/regional plan`; review the account guard, changes, cost, IAM/ABAC and audit effects before `make -C deploy/regional apply` (which builds Lambda dependencies). Do not run Terraform directly or use the targeted, auto-approved `lambda` target.
 
+   **Seed published-content fixtures manually before content tests.** A new
+   content bucket has no sample skills, SOPs or notifications. Follow
+   [manual personal-dev content seeding](seed-dev-content.md) to obtain upload
+   approval, publish harmless test objects to the verified source prefixes, and
+   verify S3 Files visibility plus both skill-link directories. Use the content
+   bucket, not the audit bucket; do not give tasks publisher permissions. Testing
+   in an investigation and deleting fixtures need their own approvals.
+
 6. **Configure CLI.** Run `make build-cli` (and optionally `make install-cli`); install `session-manager-plugin`. For a development provider other than CLI defaults, explicitly supply the contributor's base URL, realm and client ID. Use isolated `XDG_CONFIG_HOME` and `XDG_CACHE_HOME` for dev so an existing staging config/token cannot be reused:
 
    ```bash

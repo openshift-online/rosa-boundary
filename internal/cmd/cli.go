@@ -84,7 +84,7 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 	flags := map[string]string{}
-	for flag, key := range map[string]string{"region": "aws_region", "ecs-cluster": "ecs_cluster_name", "efs-filesystem-id": "efs_filesystem_id"} {
+	for flag, key := range map[string]string{"region": "aws_region", "ecs-cluster": "ecs_cluster_name", "efs-filesystem-id": "efs_filesystem_id", "ocm-url": "ocm_url"} {
 		if cmd.Flags().Changed(flag) {
 			flags[key] = flagString(cmd, flag)
 		}
@@ -414,7 +414,7 @@ func buildSessionCommand() *cobra.Command {
 	configure := commandGroup("configure", "Obtain and configure credentials")
 	clear := commandGroup("clear", "Remove session credentials")
 	configureOCM := commandLeaf("ocm [session-id]", "Obtain fresh OCM access for a session", optionalCredentialSessionID, func(cmd *cobra.Command, args []string) error {
-		credentialsOCMURL, credentialsOCMFlow = flagString(cmd, "ocm-url"), flagString(cmd, "auth-flow")
+		credentialsOCMFlow = flagString(cmd, "auth-flow")
 		return runCredentialsConfigureOCM(cmd, args)
 	})
 	configureOCM.Long = "Obtain fresh OCM access for a session. Without a session ID, discover your RUNNING sessions and suggest a command without changing credentials."

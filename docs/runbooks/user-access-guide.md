@@ -207,6 +207,28 @@ headless. If both providers require fresh authentication, expect **two separate
 human approvals**. OCM tokens are transferred to task-scoped, audit-excluded
 storage; they are not printed or stored in the Boundary token cache.
 
+Save the OCM destination per deployment with `config init --name <name>
+--ocm-url staging` (alongside the other setup flags). Interactive initialization
+also prompts for this optional setting. For an existing named profile, add the
+non-secret `ocm_url` field to its entry in
+`${XDG_CONFIG_HOME:-$HOME/.config}/rosa-boundary/config.yaml`, for example:
+
+```yaml
+profiles:
+  dev:
+    # Keep the profile's existing deployment settings.
+    ocm_url: https://api.stage.openshift.com
+```
+
+Both `session create` and `session credentials configure ocm` select the URL
+in this order: explicit `--ocm-url`, `ROSA_BOUNDARY_OCM_URL`, the selected
+profile's `ocm_url`, then the URL from local OCM configuration. Use the OCM
+environment matching the target cluster; a Boundary profile named `dev` does
+not imply a particular OCM environment. Approved aliases are `production`,
+`staging`, and `integration`; approved canonical URLs also work.
+Inspect the saved setting with `rosa-boundary --profile dev config get ocm_url`.
+Never put an OCM token in the profile.
+
 ### Step 2: Start an Investigation Session
 
 ```bash

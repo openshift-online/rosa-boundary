@@ -22,6 +22,7 @@ type Profile struct {
 	AWSRegion          string `yaml:"aws_region,omitempty"`
 	KeycloakURL        string `yaml:"keycloak_url,omitempty"`
 	KeycloakRealm      string `yaml:"keycloak_realm,omitempty"`
+	OCMURL             string `yaml:"ocm_url,omitempty"`
 	OIDCClientID       string `yaml:"oidc_client_id,omitempty"`
 	OIDCUseDeviceCode  *bool  `yaml:"oidc_use_device_code,omitempty"`
 	LambdaFunctionName string `yaml:"lambda_function_name,omitempty"`
@@ -204,7 +205,7 @@ func (f *ProfilesFile) SavedValue(name, key string) (any, error) {
 	values := map[string]string{
 		"account_id": p.AccountID, "environment": p.Environment, "project": p.Project,
 		"aws_region": p.AWSRegion, "keycloak_url": p.KeycloakURL, "keycloak_realm": p.KeycloakRealm,
-		"oidc_client_id": p.OIDCClientID, "lambda_function_name": p.LambdaFunctionName,
+		"ocm_url": p.OCMURL, "oidc_client_id": p.OIDCClientID, "lambda_function_name": p.LambdaFunctionName,
 		"invoker_role_arn": p.InvokerRoleARN, "sre_role_arn": p.SRERoleARN,
 		"ecs_cluster_name": p.ClusterName, "efs_filesystem_id": p.EFSFilesystemID,
 	}
@@ -327,6 +328,7 @@ func (f *ProfilesFile) ResolveProfile(name string, flags map[string]string, look
 		AWSRegion:          resolve("aws_region", p.AWSRegion, ""),
 		KeycloakURL:        resolve("keycloak_url", p.KeycloakURL, ""),
 		KeycloakRealm:      resolve("keycloak_realm", p.KeycloakRealm, "EmployeeIDP"),
+		OCMURL:             resolve("ocm_url", p.OCMURL, ""),
 		OIDCClientID:       resolve("oidc_client_id", p.OIDCClientID, "rosa-boundary-sre"),
 		OIDCUseDeviceCode:  device,
 		LambdaFunctionName: resolve("lambda_function_name", p.LambdaFunctionName, ""),
@@ -340,7 +342,7 @@ func (f *ProfilesFile) ResolveProfile(name string, flags map[string]string, look
 
 func supportedKey(key string) bool {
 	switch key {
-	case "account_id", "environment", "project", "aws_region", "keycloak_url", "keycloak_realm", "oidc_client_id", "lambda_function_name", "invoker_role_arn", "sre_role_arn", "ecs_cluster_name", "efs_filesystem_id":
+	case "ocm_url", "account_id", "environment", "project", "aws_region", "keycloak_url", "keycloak_realm", "oidc_client_id", "lambda_function_name", "invoker_role_arn", "sre_role_arn", "ecs_cluster_name", "efs_filesystem_id":
 		return true
 	}
 	return false
@@ -376,7 +378,7 @@ func RequireSettings(cfg *Config, keys ...string) error {
 		"account_id": cfg.AccountID, "environment": cfg.Environment,
 		"project": cfg.Project, "aws_region": cfg.AWSRegion,
 		"keycloak_url": cfg.KeycloakURL, "keycloak_realm": cfg.KeycloakRealm,
-		"oidc_client_id": cfg.OIDCClientID, "lambda_function_name": cfg.LambdaFunctionName,
+		"ocm_url": cfg.OCMURL, "oidc_client_id": cfg.OIDCClientID, "lambda_function_name": cfg.LambdaFunctionName,
 		"invoker_role_arn": cfg.InvokerRoleARN, "sre_role_arn": cfg.SRERoleARN,
 		"ecs_cluster_name": cfg.ClusterName, "efs_filesystem_id": cfg.EFSFilesystemID,
 	}

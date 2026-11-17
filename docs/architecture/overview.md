@@ -83,9 +83,9 @@ The create-investigation Lambda computes a deadline at task creation time:
 deadline = created_at + task_timeout  (ISO 8601 UTC)
 ```
 
-This deadline is stored as an ECS task tag (`deadline=2026-02-16T12:34:56`). ECS task tags are only modifiable via the ECS API, which requires IAM permissions not granted to the task role. An SRE inside the container cannot extend their own session.
+This deadline is stored as an ECS task tag (`deadline=2026-02-16T12:34:56`). ECS task tags are only modifiable via the ECS API, which requires IAM permissions not granted to the task role. The task role cannot change that tag. This is not a hard session-duration guarantee: active Exec sessions currently defer reaping.
 
-The reap-tasks Lambda runs on an EventBridge schedule (default: every 15 minutes). It lists all RUNNING tasks, calls `DescribeTasks` with `include=['TAGS']` to read the deadline tag, and calls `ecs:StopTask` for any task where `now > deadline`. Tasks without a deadline tag are skipped (fail-safe, not fail-open: tasks are not terminated speculatively).
+The reap-tasks Lambda runs on an EventBridge schedule (default: every 15 minutes). It lists RUNNING tasks and reads their deadline tags. When `now > deadline`, it stops the task only after confirming no active SSM session; active or uncertain session state defers reaping. Tasks without a deadline tag are skipped. See the [timeout matrix](session-lifecycle.md#timeout-matrix) and [unresolved strict-deadline and active-session policy](session-lifecycle.md#unresolved-policy-decisions).
 
 The reaper's `ecs:StopTask` permission is conditioned on the task having a `deadline` tag (`ForAnyValue:StringLike`), preventing it from stopping tasks it does not manage.
 
@@ -100,7 +100,7 @@ The reaper's `ecs:StopTask` permission is conditioned on the task having a `dead
 | CloudTrail | All AWS API calls: ECS, IAM, Lambda, EFS, STS |
 | S3 audit bucket | Full `/home/sre` sync on container exit: shell history, notes, downloaded files |
 
-The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YYYYMMDD}/{task_id}/`. The entrypoint's `sync_to_s3()` function runs on SIGTERM (ECS stop signal), SIGINT, SIGHUP, and normal exit. A `SYNC_TIMEOUT` (default 300s) prevents a hung S3 sync from blocking container shutdown past ECS's stop timeout.
+The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YYYYMMDD}/{task_id}/`. The entrypoint's `sync_to_s3()` function runs on SIGTERM (ECS stop signal), SIGINT, SIGHUP, and normal exit. A `SYNC_TIMEOUT` (default 300s) bounds the sync command, but the base ECS container's `stopTimeout` is only 120s and can interrupt it first. Verify S3 evidence independently of task STOPPED.
 
 ---
 
@@ -128,7 +128,7 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 | Component | Role | Terraform |
 |-----------|------|-----------|
 | `create-investigation` | Validates OIDC token (JWKS), checks group membership, creates EFS access point, registers per-investigation task definition, runs ECS task with ABAC tags and deadline | `lambda-create-investigation.tf` |
-| `reap-tasks` | Runs on EventBridge schedule; stops ECS tasks whose `deadline` tag has passed | `lambda-reap-tasks.tf` |
+| `reap-tasks` | Runs on EventBridge schedule; stops expired tasks only when no active SSM session is confirmed | `lambda-reap-tasks.tf` |
 | EventBridge Rule | Triggers reap-tasks Lambda on a configurable schedule (default: 15 min) | `lambda-reap-tasks.tf` |
 
 ### ECS / VPC
@@ -136,14 +136,14 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 | Component | Role | Terraform |
 |-----------|------|-----------|
 | ECS Fargate Cluster | Runs ephemeral investigation tasks; containerInsights enabled; execute command configured with KMS encryption | `ecs.tf` |
-| ECS Task (per-investigation) | Ephemeral Fargate task; family name includes cluster ID, investigation ID, and timestamp; tagged with `username`, `oidc_sub`, `deadline` | Created at runtime by Lambda |
+| ECS Task (per-investigation) | Ephemeral Fargate task; family name includes cluster ID, investigation ID, and timestamp; tagged with the configured ABAC key, `oidc_sub`, and optional `deadline` (see [full tag inventory](session-lifecycle.md#actual-resource-tags-creator-versus-actor)) | Created at runtime by Lambda |
 | Container: `rosa-boundary` | Multi-arch (amd64/arm64) container; runs as `sre` (uid=1000); includes `oc` 4.14–4.20, `aws` CLI, `claude` (Bedrock), `kubectl` | Built from `Containerfile` |
 | Container: `kube-proxy` (optional) | Sidecar that runs `oc proxy` on localhost; exposes cluster API to the main container; must pass health check before main container starts | `ecs.tf` (`enable_kube_proxy`) |
 | EFS Filesystem | Persistent storage; one access point per investigation; at-rest and in-transit encrypted | `efs.tf` |
 | EFS Access Point | Per-investigation directory `/{cluster_id}/{investigation_id}/`; POSIX uid/gid=1000; mounts to `/home/sre` | Created by Lambda |
 | KMS Key | Encrypts ECS Exec session data | `kms.tf` |
 | Security Group | Applied to Fargate tasks; egress-all, no ingress | `ecs.tf` |
-| VPC Interface Endpoints | `ssmmessages`, `kms`, `logs`, `ecr.api`, `ecr.dkr`, `ecs`; tasks have no internet egress requirement | `main.tf` or VPC config |
+| VPC endpoints and egress | Network root supplies S3 gateway endpoint and NAT routing; regional root supplies Bedrock Runtime interface endpoint. No blanket SSM/KMS/Logs/ECR/ECS interface endpoint set is provisioned; supplied VPCs must be checked separately | `deploy/network/vpc.tf`, `deploy/regional/bedrock-endpoint.tf`; [network details](session-lifecycle.md#network-endpoints-are-deployment-specific) |
 
 ### AWS Managed Services
 
@@ -197,13 +197,13 @@ What happens:
 4. Lambda checks that the user is a member of at least one group in `REQUIRED_GROUPS` (e.g., `sre-team`)
 5. Lambda creates (or reuses) an EFS access point at `/{cluster_id}/{investigation_id}/`
 6. Lambda registers a per-investigation task definition with the EFS access point baked in and investigation environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET`, `TASK_TIMEOUT`)
-7. Lambda calls `RunTask` with `enableExecuteCommand=true`, `launchType=FARGATE`, `startedBy=sha256({cluster_id}:{investigation_id})[:36]`, and task tags including `username`, `oidc_sub`, `deadline`, `investigation_id`, `cluster_id`
+7. Lambda calls `RunTask` with `enableExecuteCommand=true`, `launchType=FARGATE`, `startedBy=sha256({cluster_id}:{investigation_id})[:36]`, and task tags including the configured ABAC key, `oidc_sub`, optional `deadline`, `investigation_id`, `cluster_id`
 8. Lambda calls `TagResource` explicitly to guarantee tags are visible to IAM before the SRE connects
 9. CLI calls STS `AssumeRoleWithWebIdentity` with the ID token → `sre-shared` credentials carrying the deployment's configured ABAC principal tag (not necessarily `username`)
 
 The CLI joins the task by default after readiness and credential configuration. Pass `--no-connect` to create without joining; `--no-wait` also skips joining.
 
-**Duplicate detection:** If a task with the same `startedBy` value is already RUNNING, the Lambda returns HTTP 409. The CLI reports the existing task ARN.
+**Handover:** On task creation, Lambda preflights existing RUNNING tasks for active SSM sessions (409 if detected), stops the old tasks, and waits for STOPPED before replacement. The AP's creator tags stay unchanged; new task tags identify the caller. This is not an atomic concurrency lock. See [handover behavior and failure limits](session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
 
 ### Step 3: Connect to a Running Task
 
@@ -217,7 +217,7 @@ What happens:
 3. CLI calls `ecs:ExecuteCommand` — IAM evaluates the two-statement ABAC policy (cluster permission + task ABAC tag match)
 4. AWS returns an SSM session token
 5. CLI launches `session-manager-plugin` with a controlling terminal and waits for it; an explicit CLI deadline can cancel the local connection without stopping the ECS task
-6. `session-manager-plugin` opens a WebSocket to the SSM regional endpoint, which relays to the container via the `ssmmessages` VPC interface endpoint
+6. `session-manager-plugin` opens a WebSocket to the SSM regional endpoint, which relays to the container through reachable `ssmmessages` service connectivity; a private VPC endpoint is not provisioned by this repository
 7. The container runs a login `bash` as the `sre` user (the default Exec command uses `runuser -u sre`)
 
 The user is now in an interactive shell with:
@@ -244,8 +244,8 @@ is the authoritative cleanup because it destroys both credential volumes.
 
 ### Step 4: Task Expiry (Automatic)
 
-The reap-tasks Lambda runs every 15 minutes. When `now > deadline` tag:
-1. Lambda calls `ecs:StopTask` with reason `Task deadline exceeded (deadline: {deadline_str})`
+The reap-tasks Lambda runs every 15 minutes by default. When `now > deadline` tag:
+1. Lambda checks SSM session state and defers reaping if active or uncertain. Only when no active session is confirmed does it call `ecs:StopTask` with reason `Task deadline exceeded (deadline: {deadline_str})`
 2. ECS sends SIGTERM to the container
 3. `entrypoint.sh` catches SIGTERM and calls `sync_to_s3()` before exiting
 
@@ -254,7 +254,7 @@ The deadline is computed by the create-investigation Lambda as:
 deadline = datetime.utcnow() + timedelta(seconds=task_timeout)
 ```
 
-It is immutable after task launch (task tags require `ecs:TagResource`, which the task role does not have).
+The task role cannot edit this tag (`ecs:TagResource` is not granted). It is not a strict stop deadline; see the [unresolved policy work](session-lifecycle.md#unresolved-policy-decisions).
 
 ### Step 5: Stop a Task Manually
 
@@ -303,7 +303,7 @@ All Terraform variables are set in `deploy/regional/variables.tf`. Values withou
 |----------|---------|-------------|
 | `oidc_client_id` | `rosa-boundary-sre` | Keycloak client ID; must equal `aud` claim in the JWT |
 | `abac_tag_key` | `uuid` | ECS tag key for ABAC isolation. Must match `principal_tags` key in OIDC JWT. Red Hat EmployeeIDP uses `uuid` (= `rhatUUID`) |
-| `task_timeout_default` | `3600` | Default task lifetime in seconds (passed as `TASK_TIMEOUT` env var; enforced by reaper) |
+| `task_timeout_default` | `28800` (8h) | Lambda fallback when request omits timeout; CLI explicitly sends its own 1h default. See [timeout matrix](session-lifecycle.md#timeout-matrix). |
 | `task_timeout_minimum` | `30` | Minimum timeout a caller may request; lower values are rejected by the Lambda |
 | `oidc_session_duration` | `3600` | Max session duration for the sre-shared role |
 | `reaper_schedule_minutes` | `15` | How often the reap-tasks Lambda runs (1–1440) |

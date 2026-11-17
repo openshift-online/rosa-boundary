@@ -6,6 +6,13 @@ Use a current ROSA Boundary checkout and **your own** AWS account with administr
 
 2. **Account IAM first.** Set `ACCOUNT` and `REGION` to your approved values and confirm `aws sts get-caller-identity` returns **your** account. Copy `deploy/account/terraform.tfvars.example` to `deploy/account/terraform.tfvars`. Supply your account/region, issuer/thumbprint/client, budget email/limit, `legacy_policy_region` and `legacy_role_tag_region` matching your original region, `adopt_existing_resources = false`, and your approved OIDC group enforcement settings (`enable_oidc_group_enforcement = true` and the actual `required_oidc_role`, if applicable). Choose a budget notification email explicitly for **this account**; do not copy a stage/prod recipient into a personal dev deployment. The 50%, 80%, and 100% budget notifications can each send a subscriber verification email. For minimal dev without approved Bedrock agreements use `bedrock_model_agreements = {}`; that alone does not prove Bedrock access is restricted. Inspect `deploy/account/Makefile`, then `make -C deploy/account init plan`; review the plan before `make -C deploy/account apply`. If the account already has regional/IAM state, follow the [ownership handoff](../../deploy/account/README.md#existing-deployment-handoff) instead of creating duplicate roles or importing automatically.
 
+   **Bedrock model approval before agent testing:** follow the
+   [model-access approval gate](bedrock-model-access.md). Anthropic requires a
+   first-use form; review any model terms/activation separately using an approved
+   account operator. Allow propagation and verify a bounded, approved inference
+   request. Do not give investigation tasks Marketplace subscription permissions
+   or equate catalog metadata with working access.
+
 3. **Network.** For a new network, create `deploy/network/terraform.tfvars` with your account/region and `stage = "dev"`; select non-overlapping CIDRs. Inspect the network Makefile, run `make -C deploy/network init plan`, review, then `make -C deploy/network apply`. Use `make -C deploy/network output` to obtain the VPC and **private** subnet IDs; the network provides internet/NAT routing for Fargate. Reuse an existing VPC only after verifying its subnet/routing and ownership instead of provisioning another one.
 
 4. **Build and publish the task image before regional apply.** Supply `GITHUB_TOKEN` securely. If unset and `gh` is authenticated, `export GITHUB_TOKEN="$(gh token)"` may be used without printing the token. Build through the root Makefile and verify the image architecture before publishing. For an AMD64 task:

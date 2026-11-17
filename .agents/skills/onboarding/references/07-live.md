@@ -16,6 +16,12 @@ Onboarding itself is not approval. Never target staging or production.
 
 Before planning, complete or revalidate step 6's
 [deployment input checklist](06-personal-access.md#deployment-input-checklist).
+For coding-agent tests, also revalidate the
+[Bedrock model-access approval gate](06-personal-access.md#bedrock-model-access-approval-gate).
+Require an approved exact model and distinguish form registration, model
+activation, playground inference and task-role inference as separate evidence.
+Preserved pi/OpenCode settings may still select an old model after deployment.
+
 Inventory matching AWS resources as well as state: missing local state alone does
 not prove Terraform never ran. Conversely, an existing network does not prove
 account identities or regional workloads exist. Reuse an owned network rather

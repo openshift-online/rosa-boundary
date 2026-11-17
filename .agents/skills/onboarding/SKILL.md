@@ -24,6 +24,12 @@ The [deployment command map](references/07-live.md#deployment-command-map)
 locates each Boundary Terraform plan/apply boundary. Neither is a substitute for
 current source verification or approval of each actual plan.
 
+For Bedrock agents, step 6 also includes the
+[model-access approval gate](references/06-personal-access.md#bedrock-model-access-approval-gate):
+verify Anthropic first-use form registration, approved model activation and
+propagation before claiming access. Terms acceptance and bounded inference need
+explicit approval; do not grant Marketplace subscription permissions to tasks.
+
 ## Pause and resume contract
 
 Before asking the user to install, authenticate, obtain access, edit private

@@ -60,6 +60,15 @@ enables initialization even when Claude's switch is disabled. These are startup
 defaults, not an enforcement boundary: project configuration and CLI options can
 override provider selection. Use IAM and network controls for enforcement.
 
+## Model-access onboarding
+
+Complete the [Bedrock model-access approval gate](../runbooks/bedrock-model-access.md)
+before testing agents. Anthropic first-use form submission, model activation,
+propagation and actual inference are separate checks. Account operators approve
+terms; investigation tasks must not self-subscribe. An IAM-looking Marketplace
+error can persist during activation propagation even when the operator's policy
+allows the actions. Do not broaden task permissions as a workaround.
+
 ## Regional model selection
 
 The shared US default for Claude Code, pi and OpenCode is

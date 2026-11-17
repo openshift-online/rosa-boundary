@@ -52,7 +52,7 @@ func disconnectedSessionResult(cmd *cobra.Command, sessionID string) error {
 	return nil
 }
 
-// connectToSession is shared by session join and session create --connect.
+// connectToSession is shared by session join and session create.
 func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, sessionID, container, command string, noWait bool) error {
 	// Check task status
 	output.Status("Checking session status...")

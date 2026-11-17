@@ -305,7 +305,8 @@ func buildSessionCommand() *cobra.Command {
 	start := commandLeaf("create <cluster-id>", "Create an investigation session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		startClusterID, startInvestigationID, startOCVersion = args[0], flagString(cmd, "investigation-id"), flagString(cmd, "oc-version")
 		sessionTimeoutSeconds = int(flagDuration(cmd, "session-timeout") / time.Second)
-		startConnect, startNoWait = flagBool(cmd, "connect"), flagBool(cmd, "no-wait")
+		startNoWait = flagBool(cmd, "no-wait")
+		startConnect = !flagBool(cmd, "no-connect") && !startNoWait
 		startCredentials = flagString(cmd, "with-credentials")
 		startOCMURL, startOCMFlow, startOutputFormat = flagString(cmd, "ocm-url"), flagString(cmd, "ocm-auth-flow"), flagString(cmd, "output")
 		return runStartSession(cmd, nil)
@@ -313,8 +314,8 @@ func buildSessionCommand() *cobra.Command {
 	start.Flags().String("investigation-id", "", "Investigation to use (generated if omitted)")
 	start.Flags().String("oc-version", "4.20", "OpenShift CLI version in the session")
 	start.Flags().Duration("session-timeout", time.Hour, "Session lifetime (default 1h; policy controls minimum and maximum)")
-	start.Flags().Bool("connect", false, "Join the session after it starts")
-	start.Flags().Bool("no-wait", false, "Return without waiting for RUNNING; skip OCM credential injection")
+	start.Flags().Bool("no-connect", false, "Do not join the session after it starts (connecting is the default)")
+	start.Flags().Bool("no-wait", false, "Return without waiting for RUNNING; skip connecting and OCM credential injection")
 	start.Flags().String("with-credentials", "ocm", "Configure credentials after startup: ocm (default), none (opt out)")
 	start.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	start.Flags().String("ocm-auth-flow", "", "OCM-only sign-in override: auth-code or device")
@@ -326,16 +327,8 @@ func buildSessionCommand() *cobra.Command {
 		if d := flagDuration(cmd, "session-timeout"); d < 0 || d > 24*time.Hour || d%time.Second != 0 {
 			return fmt.Errorf("--session-timeout must be whole seconds between 0 and 24h")
 		}
-		if flagBool(cmd, "no-wait") && flagBool(cmd, "connect") {
-			return fmt.Errorf("--no-wait cannot be combined with --connect")
-		}
 		if flagBool(cmd, "no-wait") && cmd.Flags().Changed("with-credentials") && flagString(cmd, "with-credentials") == "ocm" {
 			return fmt.Errorf("--no-wait cannot be combined with explicit --with-credentials ocm; omit the flag to skip injection")
-		}
-		if flagBool(cmd, "connect") {
-			if err := requireTerminal(); err != nil {
-				return err
-			}
 		}
 		if p := flagString(cmd, "with-credentials"); p != "none" && p != "ocm" {
 			return fmt.Errorf("unsupported credential provider %q; use --with-credentials ocm or --with-credentials none", p)
@@ -349,6 +342,11 @@ func buildSessionCommand() *cobra.Command {
 		if cmd.Flags().Changed("ocm-url") {
 			if _, err := ocmcredentials.ResolveEnvironment(flagString(cmd, "ocm-url")); err != nil {
 				return err
+			}
+		}
+		if !flagBool(cmd, "no-connect") && !flagBool(cmd, "no-wait") {
+			if err := requireTerminal(); err != nil {
+				return fmt.Errorf("%w; use --no-connect to create without joining", err)
 			}
 		}
 		_, err := commandOutput(cmd)
@@ -390,12 +388,20 @@ func buildSessionCommand() *cobra.Command {
 	join.Flags().String("command", defaultExecCommand, "Command to run")
 	join.Flags().Bool("no-wait", false, "Do not wait for RUNNING")
 	deploymentFlags(join, true, false)
-	stop := commandLeaf("close <session-id>", "Close a session without closing its investigation", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
+	stop := commandLeaf("close [session-id]", "Close a session without closing its investigation", cobra.ArbitraryArgs, func(cmd *cobra.Command, args []string) error {
 		stopReason, stopWait, stopYes = flagString(cmd, "reason"), flagBool(cmd, "wait"), flagBool(cmd, "yes")
+		if flagBool(cmd, "all") {
+			return runStopAllSessions(cmd)
+		}
 		return runStopSession(cmd, args)
 	})
+	stop.Long = "Close a session without closing its investigation, or use --all to close all your active sessions in the selected deployment. Investigations remain open."
 	stop.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
-		if err := nonEmptyArgs(1)(cmd, args); err != nil {
+		if flagBool(cmd, "all") {
+			if len(args) != 0 {
+				return fmt.Errorf("--all cannot be combined with a session ID")
+			}
+		} else if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
 		}
 		if !flagBool(cmd, "yes") {
@@ -409,6 +415,7 @@ func buildSessionCommand() *cobra.Command {
 	stop.Flags().String("reason", "Investigation complete", "Audit reason")
 	stop.Flags().Bool("wait", false, "Wait for STOPPED state")
 	stop.Flags().Bool("yes", false, "Skip confirmation")
+	stop.Flags().Bool("all", false, "Close all your active sessions in the selected deployment")
 	deploymentFlags(stop, true, false)
 	credentials := commandGroup("credentials", "Manage credentials in a running session")
 	configure := commandGroup("configure", "Obtain and configure credentials")

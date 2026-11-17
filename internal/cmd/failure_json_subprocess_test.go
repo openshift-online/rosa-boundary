@@ -79,7 +79,7 @@ func TestFailureJSONSubprocessContract(t *testing.T) {
 		{"invalid shorthand output", "invalid --output", []string{"session", "list", "-o=xml"}, false},
 		{"text error unchanged", "missing required argument", []string{"session", "create"}, false},
 		{"late join failure", "mock ECS Exec connection failed", []string{"mock-late", "session", "join", "task-id", "-o", "json"}, true},
-		{"late connect failure", "session task-1 created", []string{"mock-late", "session", "create", "cluster", "--connect", "-o", "json"}, true},
+		{"late connect failure", "session task-1 created", []string{"mock-late", "session", "create", "cluster", "-o", "json"}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			args := append([]string{"-test.run=^TestFailureJSONProcess$", "--"}, tc.args...)

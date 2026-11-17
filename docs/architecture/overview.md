@@ -187,7 +187,7 @@ Uses browser PKCE by default, or human-approved device authorization via `--use-
 ```bash
 rosa-boundary --profile PROFILE session create ROSA_CLUSTER_ID \
   --investigation-id INCIDENT_ID --oc-version 4.20 \
-  --session-timeout 1h --connect
+  --session-timeout 1h
 ```
 
 What happens:
@@ -201,7 +201,7 @@ What happens:
 8. Lambda calls `TagResource` explicitly to guarantee tags are visible to IAM before the SRE connects
 9. CLI calls STS `AssumeRoleWithWebIdentity` with the ID token → `sre-shared` credentials carrying the deployment's configured ABAC principal tag (not necessarily `username`)
 
-If `--connect` is passed, the CLI immediately proceeds to join the task.
+The CLI joins the task by default after readiness and credential configuration. Pass `--no-connect` to create without joining; `--no-wait` also skips joining.
 
 **Duplicate detection:** If a task with the same `startedBy` value is already RUNNING, the Lambda returns HTTP 409. The CLI reports the existing task ARN.
 
@@ -371,11 +371,11 @@ rosa-boundary login
 
 # 2. Start a task and connect immediately
 rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
-  --investigation-id "$INVESTIGATION_ID" --connect
+  --investigation-id "$INVESTIGATION_ID"
 
 # 2b. Or start without connecting (prints the session ID; JSON output also includes task_arn)
 rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
-  --investigation-id "$INVESTIGATION_ID"
+  --investigation-id "$INVESTIGATION_ID" --no-connect
 
 # 3. List running tasks
 rosa-boundary --profile personal-dev session list
@@ -399,8 +399,7 @@ rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$
 rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
   --investigation-id "$INVESTIGATION_ID" \
   --oc-version 4.18 \
-  --session-timeout 2h \
-  --connect
+  --session-timeout 2h
 
 # Create the EFS access point only (no task — useful for pre-staging)
 rosa-boundary --profile personal-dev investigation create "$TARGET_CLUSTER_ID" \

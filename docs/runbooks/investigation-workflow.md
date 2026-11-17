@@ -145,7 +145,8 @@ requires a browser callback even if Boundary uses device mode. Any device
 flow remains browser-free. OCM credential transfer uses task-scoped,
 audit-excluded storage, not the Boundary token cache or EFS home.
 
-For scripted operation, use `session create ... -o json`: stdout contains the
+Creation opens a shell by default; use `--no-connect` to join separately.
+For scripted operation, use `session create ... --no-connect -o json`: stdout contains the
 single session-result JSON document; stderr carries human-readable
 authentication challenges and other diagnostics (not auth-event protocol lines).
 Read stderr **as the CLI runs** and show each URL/code privately to the SRE,
@@ -191,7 +192,7 @@ What it does:
 3. Waits for the container exec agent to open its data channel
 4. Hands the interactive session to `session-manager-plugin` for a seamless terminal
 
-`session join -o json` and `session create --connect -o json` show human authentication
+`session join -o json` and `session create -o json` show human authentication
 guidance on stderr and keep shell I/O on `/dev/tty`. On successful shell exit,
 stdout contains one JSON result with `status: disconnected`, `task_closed: false`,
 and `investigation_closed: false`; the created session ID remains in the create
@@ -378,7 +379,7 @@ INV_ID="<unique-investigation-id>"
 
 # 2. Start an investigation session (save SESSION_ID from output)
 ./bin/rosa-boundary --profile "$PROFILE" session create "$CLUSTER_ID" \
-  --investigation-id "$INV_ID"
+  --investigation-id "$INV_ID" --no-connect
 
 SESSION_ID="<session ID from output>"
 

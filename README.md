@@ -214,7 +214,7 @@ investigation and its reusable workspace open until `investigation close`.
 - `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
 - `--oc-version` — OpenShift CLI version (default: `4.20`)
 - `--session-timeout` — session lifetime (default: `1h`); the deployment's Lambda enforces its own minimum and maximum
-- `--connect` — automatically join the task after it reaches RUNNING
+- `--no-connect` — skip automatically joining the task (joining is the default; `--no-wait` also skips joining)
 - `--no-wait` — return immediately without waiting for RUNNING
 - `--with-credentials ocm` — configure OCM before returning or connecting; incompatible with `--no-wait`
 - `--ocm-url` — `production`, `staging`, `integration`, or an approved canonical URL
@@ -227,7 +227,7 @@ investigation and its reusable workspace open until `investigation close`.
 
 **`session list`**: `--status RUNNING|STOPPED|all` (default: `RUNNING`), `--output text|json`
 
-**`session close`**: `--reason`, `--wait`, `--yes` (required without a terminal)
+**`session close`**: `--reason`, `--wait`, `--yes` (required without a terminal). Use `session close --all` to close all your active sessions in the selected deployment, including sessions still starting; other users\' sessions and investigations are left alone. `--all` cannot be combined with a session ID. All targets are shown before one confirmation; `--wait` requests all stops before waiting. Partial failures return a nonzero exit status and identify affected sessions; verify status and audit evidence before retrying.
 
 **`investigation close`**: `--dry-run`, `--force` (stop active sessions), `--yes` (required without a terminal unless dry-running). Only the investigation creator can close it through the CLI; verify the plan before confirmation. Stopping is not proof of audit sync.
 

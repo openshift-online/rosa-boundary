@@ -9,6 +9,11 @@ from pathlib import Path
 
 import pytest
 
+# Default to 'local' for direct pytest invocations (e.g., local development)
+# where ECS_EXECUTOR is not set. In Prow CI, ci-run.sh exports ECS_EXECUTOR=docker
+# before invoking pytest, which disables these skips.
+ECS_EXECUTOR = os.getenv('ECS_EXECUTOR', 'local')
+
 
 @pytest.fixture
 def close_cli_env(localstack_cli_env, test_efs):
@@ -412,6 +417,10 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(
+    ECS_EXECUTOR == 'local',
+    reason=f'ECS_EXECUTOR=local: tasks never reach RUNNING state so reaper finds 0 tasks (current: {ECS_EXECUTOR})'
+)
 def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test_efs, test_vpc, efs_client, ecs_cleanup, close_cli_env, localstack_cli_binary):
     """
     Verify that investigation close with --force only stops tasks matching both

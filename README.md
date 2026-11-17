@@ -213,7 +213,6 @@ investigation and its reusable workspace open until `investigation close`.
 
 **`session create <cluster-id>`**:
 - `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
-- `--oc-version` — OpenShift CLI version (default: `4.20`)
 - `--session-timeout` — session lifetime (default: `1h`); the deployment's Lambda enforces its own minimum and maximum
 - `--no-connect` — skip automatically joining the task (joining is the default; `--no-wait` also skips joining)
 - `--no-wait` — return immediately without waiting for RUNNING
@@ -301,11 +300,10 @@ make test-cli
 
 ## Environment Variables
 
-The easiest way to select tool versions is via environment variables at container startup:
+Runtime environment variables configure services, not the image-shipped tool versions:
 
 | Variable | Values | Default | Description |
 |----------|--------|---------|-------------|
-| `OC_VERSION` | `4.14`, `4.15`, `4.16`, `4.17`, `4.18`, `4.19`, `4.20` | `4.20` | OpenShift CLI version |
 | `S3_AUDIT_ESCROW` | S3 URI (e.g., `s3://bucket/path/`) | _(none)_ | S3 destination for /home/sre sync on exit |
 | `CLAUDE_CODE_USE_BEDROCK` | `0`, `1` | `1` | Enable Claude Code via Amazon Bedrock |
 | `AWS_REGION` | AWS region code | _(auto-detect)_ | AWS region for Bedrock. Auto-detected from ECS metadata; fallback to us-east-1 |
@@ -314,11 +312,8 @@ The easiest way to select tool versions is via environment variables at containe
 
 **Examples:**
 ```bash
-# Use OpenShift CLI 4.18
-podman run -e OC_VERSION=4.18 rosa-boundary:latest
-
-# With a custom command
-podman run -e OC_VERSION=4.19 rosa-boundary:latest /bin/bash
+# Use the image-shipped OpenShift CLI
+podman run --rm rosa-boundary:latest oc version --client
 ```
 
 ## SRE User and Audit Escrow
@@ -343,23 +338,15 @@ podman run -e S3_AUDIT_ESCROW=s3://my-bucket/investigation-123/ rosa-boundary:la
 
 ## Tool Management
 
-The container supports two methods for switching tool versions:
+The image ships one pinned OpenShift CLI. Sessions use that binary; they do not
+download or select an oc version. Check `oc version --client` in the task and
+record the deployed image digest for provenance.
 
-1. **Environment Variables** (recommended): Set `OC_VERSION` at container startup (see above)
-2. **Alternatives Commands** (advanced): Manually switch versions inside a running container
-
-### OpenShift CLI Versions
-
-Seven OpenShift CLI versions are available (4.14-4.20), with 4.20 as the default:
-
-```bash
-# View available oc versions
-alternatives --display oc
-
-# Switch to a specific version
-alternatives --set oc /opt/openshift/4.17/oc
-alternatives --set oc /opt/openshift/4.19/oc
-```
+The OpenShift CLI version is pinned at image build time in the
+[Containerfile](Containerfile), following the
+[six-tool release/update contract](docs/dependency-management-automation.md#six-tool-exact-pin-contract-rosaeng-67158).
+Changing the installed version requires building, verifying, and deploying a new
+image, then creating a fresh task. It cannot be selected when starting a session.
 
 ## Claude Code
 
@@ -420,11 +407,8 @@ Configuration files in `/home/sre/.claude/` are preserved across container resta
 
 ### Running locally
 ```bash
-# Run with default versions (OC 4.20, official AWS CLI)
+# Run with image-shipped tool versions
 podman run -it rosa-boundary:latest /bin/bash
-
-# Run with specific versions
-podman run -it -e OC_VERSION=4.18 rosa-boundary:latest /bin/bash
 
 # Check tool versions
 podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client"

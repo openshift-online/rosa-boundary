@@ -119,7 +119,6 @@ auth-bearing command, not just a preceding `login`. See the
 Optional flags:
 ```
   --session-timeout 1h    # task lifetime; must meet the deployment's policy
-  --oc-version 4.20       # OpenShift CLI version to lock; check CLI help for default
   --with-credentials none # opt out of default fresh OCM token injection
   --ocm-url production    # production, staging, integration, or canonical URL
   --ocm-auth-flow device  # explicit OCM-only override; otherwise follows global device preference
@@ -162,7 +161,7 @@ What it does:
 2. **Invokes the create-investigation Lambda** with the cached OIDC token
 3. **Lambda validates** the token against Keycloak JWKS and checks the deployment's required group and ABAC claim
 4. **Lambda creates an EFS access point**: `/<cluster-id>/<investigation-id>/`
-5. **Lambda registers a per-investigation task definition** with locked OC version and pre-set env vars
+5. **Lambda registers a per-investigation task definition** with the image-shipped oc and pre-set env vars
 6. **Lambda launches the ECS task** with the deployment's ABAC tag and investigation/deadline tags
 7. **Lambda returns the shared SRE role ARN** and task ARN
 8. CLI prints connection command
@@ -240,7 +239,7 @@ whoami              # sre
 echo $CLUSTER_ID    # <cluster-id>
 echo $INVESTIGATION_ID  # <investigation-id>
 claude --version    # Confirms installation, not Bedrock access
-oc version --client # OpenShift CLI (locked to investigation version)
+oc version --client # OpenShift CLI shipped in this task's image
 ```
 
 Exec does not inherit arbitrary entrypoint exports. Region and Bedrock defaults

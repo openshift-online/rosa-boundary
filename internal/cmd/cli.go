@@ -303,7 +303,7 @@ func buildSessionCommand() *cobra.Command {
 		return cobra.NoArgs(cmd, args)
 	})
 	start := commandLeaf("create <cluster-id>", "Create an investigation session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
-		startClusterID, startInvestigationID, startOCVersion = args[0], flagString(cmd, "investigation-id"), flagString(cmd, "oc-version")
+		startClusterID, startInvestigationID = args[0], flagString(cmd, "investigation-id")
 		sessionTimeoutSeconds = int(flagDuration(cmd, "session-timeout") / time.Second)
 		startNoWait = flagBool(cmd, "no-wait")
 		startConnect = !flagBool(cmd, "no-connect") && !startNoWait
@@ -312,7 +312,6 @@ func buildSessionCommand() *cobra.Command {
 		return runStartSession(cmd, nil)
 	})
 	start.Flags().String("investigation-id", "", "Investigation to use (generated if omitted)")
-	start.Flags().String("oc-version", "4.20", "OpenShift CLI version in the session")
 	start.Flags().Duration("session-timeout", time.Hour, "Session lifetime (default 1h; policy controls minimum and maximum)")
 	start.Flags().Bool("no-connect", false, "Do not join the session after it starts (connecting is the default)")
 	start.Flags().Bool("no-wait", false, "Return without waiting for RUNNING; skip connecting and OCM credential injection")

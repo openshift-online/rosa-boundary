@@ -27,7 +27,7 @@ A task is an **ECS Fargate container** that provides an interactive SRE terminal
 
 Each task launch:
 
-1. Registers a new **ECS task definition** cloned from the base definition, with the investigation's EFS access point injected as a volume mount and environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, etc.) baked in.
+1. Registers a new **ECS task definition** cloned from the base definition, with the investigation's EFS access point injected as a volume mount and environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `TASK_TIMEOUT`, etc.) baked in.
 2. Starts an **ECS Fargate task** with tags for ABAC enforcement, audit tracking, and timeout management.
 3. On exit, the container **attempts to sync non-credential `/home/sre` content to S3** at a deterministic path: `s3://{bucket}/{cluster_id}/{investigation_id}/{date}/{task_id}/`.
 
@@ -84,7 +84,6 @@ Every task is tagged with:
 - `cluster_id` and `investigation_id` — links task to investigation
 - Configured ABAC key (for example `uuid`, not an unconditional `username`) — current task caller's identity
 - `oidc_sub` — current task caller's subject
-- `oc_version` — selected OpenShift CLI version
 - `deadline` — ISO 8601 timestamp, only when timeout is positive
 - `access_point_id` — the EFS access point ID
 - `created_at` and `task_timeout` — audit metadata

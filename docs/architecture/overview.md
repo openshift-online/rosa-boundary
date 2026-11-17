@@ -137,7 +137,7 @@ The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YY
 |-----------|------|-----------|
 | ECS Fargate Cluster | Runs ephemeral investigation tasks; containerInsights enabled; execute command configured with KMS encryption | `ecs.tf` |
 | ECS Task (per-investigation) | Ephemeral Fargate task; family name includes cluster ID, investigation ID, and timestamp; tagged with the configured ABAC key, `oidc_sub`, and optional `deadline` (see [full tag inventory](session-lifecycle.md#actual-resource-tags-creator-versus-actor)) | Created at runtime by Lambda |
-| Container: `rosa-boundary` | Multi-arch (amd64/arm64) container; runs as `sre` (uid=1000); includes `oc` 4.14–4.20, `aws` CLI, `claude` (Bedrock), `kubectl` | Built from `Containerfile` |
+| Container: `rosa-boundary` | Multi-arch (amd64/arm64) container; runs as `sre` (uid=1000); includes the image-pinned `oc`, `aws` CLI, `claude` (Bedrock), `kubectl` | Built from `Containerfile` |
 | Container: `kube-proxy` (optional) | Sidecar that runs `oc proxy` on localhost; exposes cluster API to the main container; must pass health check before main container starts | `ecs.tf` (`enable_kube_proxy`) |
 | EFS Filesystem | Persistent storage; one access point per investigation; at-rest and in-transit encrypted | `efs.tf` |
 | EFS Access Point | Per-investigation directory `/{cluster_id}/{investigation_id}/`; POSIX uid/gid=1000; mounts to `/home/sre` | Created by Lambda |
@@ -186,7 +186,7 @@ Uses browser PKCE by default, or human-approved device authorization via `--use-
 
 ```bash
 rosa-boundary --profile PROFILE session create ROSA_CLUSTER_ID \
-  --investigation-id INCIDENT_ID --oc-version 4.20 \
+  --investigation-id INCIDENT_ID \
   --session-timeout 1h
 ```
 
@@ -196,7 +196,7 @@ What happens:
 3. Lambda validates the ID token against the Keycloak JWKS endpoint (RS256 signature, audience, expiry)
 4. Lambda checks that the user is a member of at least one group in `REQUIRED_GROUPS` (e.g., `sre-team`)
 5. Lambda creates (or reuses) an EFS access point at `/{cluster_id}/{investigation_id}/`
-6. Lambda registers a per-investigation task definition with the EFS access point baked in and investigation environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET`, `TASK_TIMEOUT`)
+6. Lambda registers a per-investigation task definition with the EFS access point baked in and investigation environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `S3_AUDIT_BUCKET`, `TASK_TIMEOUT`)
 7. Lambda calls `RunTask` with `enableExecuteCommand=true`, `launchType=FARGATE`, `startedBy=sha256({cluster_id}:{investigation_id})[:36]`, and task tags including the configured ABAC key, `oidc_sub`, optional `deadline`, `investigation_id`, `cluster_id`
 8. Lambda calls `TagResource` explicitly to guarantee tags are visible to IAM before the SRE connects
 9. CLI calls STS `AssumeRoleWithWebIdentity` with the ID token → `sre-shared` credentials carrying the deployment's configured ABAC principal tag (not necessarily `username`)
@@ -395,10 +395,9 @@ rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$
 ### Custom Options
 
 ```bash
-# Specific OC version and extended timeout
+# Extended task timeout (oc is supplied by the image)
 rosa-boundary --profile personal-dev session create "$TARGET_CLUSTER_ID" \
   --investigation-id "$INVESTIGATION_ID" \
-  --oc-version 4.18 \
   --session-timeout 2h
 
 # Create the EFS access point only (no task — useful for pre-staging)

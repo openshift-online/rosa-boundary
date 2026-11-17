@@ -333,7 +333,7 @@ func TestStartSessionJSONResultContract(t *testing.T) {
 	t.Cleanup(func() { selectedProfile = previous })
 	selectedProfile = "stage-east"
 	for _, withOCM := range []bool{false, true} {
-		result := startSessionResult("cluster", "investigation", "abc123", "boundary-ecs", "arn:aws:ecs:us-east-1:123456789012:task/boundary-ecs/abc123", "4.20", 3600, "fsap-123", "arn:aws:iam::123456789012:role/sre", withOCM)
+		result := startSessionResult("cluster", "investigation", "abc123", "boundary-ecs", "arn:aws:ecs:us-east-1:123456789012:task/boundary-ecs/abc123", 3600, "fsap-123", "arn:aws:iam::123456789012:role/sre", withOCM)
 		data, err := json.Marshal(result)
 		if err != nil {
 			t.Fatal(err)
@@ -342,7 +342,7 @@ func TestStartSessionJSONResultContract(t *testing.T) {
 		if err := json.Unmarshal(data, &decoded); err != nil {
 			t.Fatal(err)
 		}
-		wantFields := map[string]any{"profile": "stage-east", "session_id": "abc123", "ecs_cluster": "boundary-ecs", "cluster_id": "cluster", "investigation_id": "investigation", "task_id": "abc123", "task_arn": "arn:aws:ecs:us-east-1:123456789012:task/boundary-ecs/abc123", "oc_version": "4.20", "session_timeout": float64(3600), "task_timeout": float64(3600), "access_point_id": "fsap-123", "role_arn": "arn:aws:iam::123456789012:role/sre"}
+		wantFields := map[string]any{"profile": "stage-east", "session_id": "abc123", "ecs_cluster": "boundary-ecs", "cluster_id": "cluster", "investigation_id": "investigation", "task_id": "abc123", "task_arn": "arn:aws:ecs:us-east-1:123456789012:task/boundary-ecs/abc123", "session_timeout": float64(3600), "task_timeout": float64(3600), "access_point_id": "fsap-123", "role_arn": "arn:aws:iam::123456789012:role/sre"}
 		if withOCM {
 			wantFields["credentials"] = []any{"ocm"}
 		}

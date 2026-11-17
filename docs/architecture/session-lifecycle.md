@@ -53,7 +53,7 @@ adds no service-managed tags (`enableECSManagedTags` is enabled for tasks).
 
 | Resource | Tags written by create Lambda |
 |---|---|
-| ECS task | `oidc_sub`, the configured ABAC key (for example `uuid`), `investigation_id`, `cluster_id`, `oc_version`, `access_point_id`, `task_timeout`, `created_at`; additionally `deadline` only when timeout > 0 |
+| ECS task | `oidc_sub`, the configured ABAC key (for example `uuid`), `investigation_id`, `cluster_id`, `access_point_id`, `task_timeout`, `created_at`; additionally `deadline` only when timeout > 0 |
 | EFS access point | `Name` = `<cluster-id>-<investigation-id>`, `ClusterID`, `InvestigationID`, `oidc_sub`, `username`, `ManagedBy` = `rosa-boundary-lambda`, `CreatedAt` |
 
 The task's `oidc_sub` and ABAC value identify the caller creating **that task**.
@@ -107,7 +107,7 @@ ECS Exec starts a separate process, not a child of `entrypoint.sh`. Arbitrary
 entrypoint `export`s do **not** propagate into it. The base task definition sets
 `AWS_REGION`, `CLAUDE_CODE_USE_BEDROCK` and model defaults; Lambda copies the base
 environment and overrides investigation values such as `CLUSTER_ID`,
-`INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET` and `TASK_TIMEOUT` when it
+`INVESTIGATION_ID`, `S3_AUDIT_BUCKET` and `TASK_TIMEOUT` when it
 registers the per-investigation definition. Image/task environment, shell startup
 files and persisted configuration—not entrypoint exports—determine the Exec
 shell's settings. The default CLI Exec command uses `runuser` to enter a login

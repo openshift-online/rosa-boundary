@@ -20,7 +20,6 @@ import (
 var (
 	startClusterID        string
 	startInvestigationID  string
-	startOCVersion        string
 	sessionTimeoutSeconds int
 	startConnect          bool
 	startNoWait           bool
@@ -63,7 +62,6 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	output.Status("=== Step 1: Starting investigation session via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)
 	output.Status("Investigation:  %s", investigationID)
-	output.Status("OC Version:     %s", startOCVersion)
 	output.Status("Session lifetime: %d seconds", sessionTimeoutSeconds)
 
 	invokerCredProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
@@ -71,7 +69,6 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	lambdaResp, err := lambdaClient.CreateInvestigation(cmd.Context(), authRes.IDToken, lambda.InvestigationRequest{
 		ClusterID:       clusterID,
 		InvestigationID: investigationID,
-		OCVersion:       startOCVersion,
 		TaskTimeout:     sessionTimeoutSeconds,
 		TaskTimeoutSet:  true,
 	})
@@ -198,7 +195,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 	}
 
 	if startOutputFormat == "json" {
-		result := startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, startOCVersion, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM, startNoWait, startConnect)
+		result := startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM, startNoWait, startConnect)
 		if credentialWarning != "" {
 			result["warnings"] = []string{credentialWarning}
 		}
@@ -215,8 +212,8 @@ func sessionCreationError(cause error, sessionID, clusterID, investigationID, re
 	return fmt.Errorf("session %s created for %s/%s (profile %s; region %s; ECS cluster %s), then operation failed: %w; inspect session list --status all; cleanup: %s", sessionID, clusterID, investigationID, selectedProfile, region, ecsCluster, cause, cleanup)
 }
 
-func startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, taskARN, ocVersion string, timeout int, accessPointID, roleARN string, configureOCM, noWait, connected bool) map[string]any {
-	summary := startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskARN, ocVersion, timeout, accessPointID, roleARN, configureOCM)
+func startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, taskARN string, timeout int, accessPointID, roleARN string, configureOCM, noWait, connected bool) map[string]any {
+	summary := startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskARN, timeout, accessPointID, roleARN, configureOCM)
 	switch {
 	case noWait:
 		summary["status"] = "launched"
@@ -232,7 +229,7 @@ func startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, t
 
 // startSessionResult exposes the user-facing lifetime and preserves the legacy
 // task_timeout key for existing JSON consumers.
-func startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskARN, ocVersion string, timeout int, accessPointID, roleARN string, configureOCM bool) map[string]any {
+func startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskARN string, timeout int, accessPointID, roleARN string, configureOCM bool) map[string]any {
 	summary := map[string]any{
 		"profile":          selectedProfile,
 		"session_id":       sessionID,
@@ -242,7 +239,6 @@ func startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskA
 		// Preserve ECS-specific fields for callers that need the underlying task resource.
 		"task_id":         sessionID,
 		"task_arn":        taskARN,
-		"oc_version":      ocVersion,
 		"session_timeout": timeout,
 		"task_timeout":    timeout,
 		"access_point_id": accessPointID,

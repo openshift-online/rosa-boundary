@@ -399,7 +399,7 @@ aws logs tail /aws/lambda/rosa-boundary-dev-create-investigation --follow
 curl -X POST "<lambda-url>" \
   -H "Authorization: Bearer $(tools/sre-auth/get-oidc-token.sh)" \
   -H "Content-Type: application/json" \
-  -d '{"cluster_id":"test","investigation_id":"test","oc_version":"4.20"}'
+  -d '{"cluster_id":"test","investigation_id":"test"}'
 ```
 
 ### IAM Diagnostics

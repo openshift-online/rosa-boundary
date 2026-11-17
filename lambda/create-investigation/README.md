@@ -55,15 +55,16 @@ Content-Type: application/json
 ```json
 {
   "investigation_id": "incident-20260128-001",
-  "cluster_id": "rosa-prod-001",
-  "oc_version": "4.19"
+  "cluster_id": "rosa-prod-001"
 }
 ```
 
 **Fields:**
 - `investigation_id` (required): Unique identifier for the investigation
 - `cluster_id` (required): ROSA cluster identifier
-- `oc_version` (optional): OpenShift CLI version (default: `4.20`)
+
+The task uses the oc pinned into its image; inspect `oc version --client`
+and the deployed image digest for provenance.
 
 ## API Response Format
 
@@ -78,8 +79,7 @@ Content-Type: application/json
   "access_point_id": "fsap-abc123...",
   "investigation_id": "incident-20260128-001",
   "cluster_id": "rosa-prod-001",
-  "owner": "jdoe@example.com",
-  "oc_version": "4.19"
+  "owner": "jdoe@example.com"
 }
 ```
 
@@ -229,7 +229,6 @@ All tasks are tagged with:
 - `username`: Human-readable username (ABAC key)
 - `investigation_id`: Investigation identifier
 - `cluster_id`: ROSA cluster identifier
-- `oc_version`: OpenShift CLI version
 - `access_point_id`: Associated EFS access point
 - `created_at`: ISO 8601 timestamp
 
@@ -237,7 +236,6 @@ All tasks are tagged with:
 
 Tasks receive:
 
-- `OC_VERSION`: Requested OpenShift CLI version
 - `CLUSTER_ID`: ROSA cluster identifier
 - `INVESTIGATION_ID`: Investigation identifier
 - `S3_AUDIT_BUCKET`: S3 bucket for audit logs (if configured)

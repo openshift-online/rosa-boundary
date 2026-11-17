@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:415449fb12b6935f12d8b4c90e5b5ee595dc3954c31120d257edbe6727f41ede",
+  "pageVersion": "sha256:c16b1289605cde17b27c8e78ad3d3b413258066ae72c82c32e0eea7df44cea17",
   "claims": [
     {
       "id": "claim_bb99a71168ed4f4ba678e9a32dbd25fd",
@@ -14,7 +14,7 @@
     },
     {
       "id": "claim_7a6b9007f2514ffc9fb60c2eccf4c86d",
-      "statement": "Boundary and Trusted Actions are built independently: Boundary uses the repository root go.mod/Makefile/Containerfile/lambda/ and deploy/{account,network,regional} Terraform roots, while Trusted Actions uses its own go.mod (module github.com/openshift-online/rosa-trusted-actions)/Makefile/Containerfile and terraform/{global,regional} roots under components/trusted-actions/, and root Go/Make commands do not exercise the nested TA module.",
+      "statement": "Boundary and Trusted Actions are built independently: Boundary's root go.mod (module github.com/openshift-online/rosa-boundary, go 1.26.0 with toolchain go1.27.4 pinned)/Makefile/Containerfile/lambda/ and deploy/{account,network,regional} Terraform roots are fully separate from Trusted Actions' components/trusted-actions/go.mod (module github.com/openshift-online/rosa-trusted-actions, go 1.26.0, no toolchain directive)/Makefile/Containerfile and terraform/{global,regional} roots; neither go.mod has a replace directive or shared go.work, overlapping third-party dependencies (e.g. golang.org/x/oauth2, golang.org/x/sys, golang.org/x/term, spf13/pflag) are pinned to independently resolved and sometimes differing versions, Trusted Actions additionally depends on packages the root module does not (k8s.io/client-go, github.com/jackc/pgx/v5, github.com/jmoiron/sqlx, github.com/go-chi/chi/v5, github.com/openshift-online/ocm-sdk-go, github.com/openshift/backplane-cli), and root Go/Make commands do not exercise the nested TA module.",
       "evidence": [
         {
           "resource": "repo://Makefile",
@@ -26,7 +26,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/go.mod",
-          "version": "repo-file-v1:sha256:de02e2f398c9c3f0659ad00903e6ce411452550dad27aecf5117619d49847be1"
+          "version": "repo-file-v1:sha256:b022ef80cff618f8055e47a1e2e8fe376d4a8223a5b67ee70fbfa92df58305e5"
         },
         {
           "resource": "repo://docs/trusted-actions-monorepo-migration.md#L50-L63",
@@ -34,7 +34,7 @@
         },
         {
           "resource": "repo://go.mod",
-          "version": "repo-file-v1:sha256:97387d72dd084455f3902c7ec39144998a61070ba03e5ed118993d315ea6da06"
+          "version": "repo-file-v1:sha256:6cb6547eacb408ea336733338a4dfefd0861fcef90debf415f36ba0eed9b2919"
         }
       ]
     },
@@ -118,7 +118,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-11-13T18:18:24.408Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-17T16:03:58.857Z"
   }
 }

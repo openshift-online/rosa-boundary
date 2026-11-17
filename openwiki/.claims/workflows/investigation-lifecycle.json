@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:66d1a5fc395a97769e06ef1941188d3d0bbee01da2bd90addc3f3b97ec966be9",
+  "pageVersion": "sha256:a8aa2281f634c968edc829f96cf79bad579bc882eed05146b062d17ba4f218e8",
   "claims": [
     {
       "id": "claim_4088cba25812498fa6bea3623690d8b6",
@@ -110,7 +110,7 @@
     },
     {
       "id": "claim_87bf9c76d9ba4c9bac5927f9db77fb29",
-      "statement": "Joining a session waits for RUNNING status and an available ECS Exec agent before starting the Session Manager session; `session join` and `session create --connect` share this logic via the connectToSession function (invoked by runJoinSession's wait/connect step and by finishStartSession's --connect handoff); `session close` requests task termination independently of investigation closure.",
+      "statement": "Joining a session waits for RUNNING status and an available ECS Exec agent before starting the Session Manager session; `session join` and `session create --connect` share this logic via the connectToSession function, invoked by runJoinSession's wait/connect step and by finishStartSession's --connect handoff, which runs after the optional OCM credential-configuration step and proceeds regardless of whether that step succeeded (success only moves the printed step number from 4 to 5); `session close` requests task termination independently of investigation closure.",
       "evidence": [
         {
           "resource": "repo://internal/cmd/join_session.go#L22-L44",
@@ -121,8 +121,8 @@
           "version": "repo-lines-v1:sha256:17c723dd6144c790711e1ee9b61084817f0e11930c6610ff73e18345571ebbdd:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlNGNkNjQ1NjJlMzEwYWJhNWE5NWZiYmNjZTlhZGNmNjZmZGFhY2EzODFkNGYyNGZlYzM0YzZmMmFlMGMzODQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZkODJmZTFhYzAyZWNhZjZjZDkwYTJkYjFlNTMxN2ZhY2RlNWQ1NjJiMDI3N2Q2ZGVmYzNhNjc3YzVhYzVlODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://internal/cmd/start_session.go#L164-L188",
-          "version": "repo-lines-v1:sha256:a0c41580821bd1d4dfc28effbcc8ce331abf5faaf764ee2d74e570116a1f1a9c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc4MDIyZDMyNTVhMDJlZWI3YWI1ZDBlYTRiYWNiN2MwOWM5NjgyMWQ2ZWQ1NDJlMjBkMmQ5ZjZiMjcyMjljN2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI1OGExYzUzYWE5ZWM1NWQ5NTM3YTlmNTUxMGVhMTc3NGQ1MzI5YWJjZDNmMzRiNTZkNGVjMTVjZGE4ZTFmM2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNmYTg4MGVlOWYzNDMyZjc3YTM5YTFiZjE2ZmVkMzZiZWRhYjFhZDJkODgwNTJkZDI2ZmVjYjVlOTk5YjQ0ZGUifQ"
+          "resource": "repo://internal/cmd/start_session.go#L181-L208",
+          "version": "repo-lines-v1:sha256:d7bdf894e46f465d284e0431688b8c17d83cfc6d99c35c274cc320e633ccfaed:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg1NjIwMmNlMDlhYTAxYWFlMWE4ZGUzN2U5MzQyZmM4YjVlYjhjZjdhZTgxNGUzMjJiMmRhNjM4NThjMzUwZmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRiZjFkYjliODIwYzBmYzRlNGVlNTIyZGFlMjdmYTdmMmMyODRlZDY5MzQ3NWY1MzE2YzRhYjNkNTMxMjBlNTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNmYTg4MGVlOWYzNDMyZjc3YTM5YTFiZjE2ZmVkMzZiZWRhYjFhZDJkODgwNTJkZDI2ZmVjYjVlOTk5YjQ0ZGUifQ"
         },
         {
           "resource": "repo://internal/cmd/stop_session.go#L23-L88",
@@ -389,10 +389,38 @@
           "version": "repo-lines-v1:sha256:20a9fc4a2aa571f271e494ce73f212e63780a91411d31cc5eca675edb0b36402:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4Mjg4NDE1MzVmYTQxNjA0MmEwZDdmZDk4NDg5NTA3NDE0NGYwZWExMzQ5ZWQ0ZmE5MTEzYjEzYjhlMDgzNmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjViNzgwNTI5MTYyYjczYTgxMmQ1ZGIxNWQyMTliZWNlODE2MGIxMWI3Y2Y3MDhjMjg5NmI0OTBmODJlYzIyN2QiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFhYTA0ZDQwNDEwNTU0ZDViYTIwODcwZjI4ZDU5ZWM2NGI2OTg5NDZiZTM5M2MyY2JjYjIyZWQ0MTQ5MzI2NWMifQ"
         }
       ]
+    },
+    {
+      "id": "claim_69a03463cd7947268f5a0f09faf120e5",
+      "statement": "`session create`'s Boundary session ID is derived by taking path.Base of the Lambda's returned task ARN rather than from a dedicated identifier field in the response; from that point in runStartSession onward, any failure is wrapped by sessionCreationError, which embeds the derived session ID, cluster/investigation IDs, and a ready-made `session close --yes` cleanup command.",
+      "evidence": [
+        {
+          "resource": "repo://internal/cmd/start_session.go#L210-L213",
+          "version": "repo-lines-v1:sha256:deb6c0568be8910a2ce13263ab7f8b7dc03ad8ec92a718cd823327016e1b71c8:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWQ2NjRiNDY2NTViOGY1ZjY3ZDRhZjZmZDYzODQxYzJkMzUyM2NiNDE3YzU4Yjk4OTRhYjZkM2EyZjg5ZGQxNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTYzMWI2ZTJjYTA3ZDhiYWYwZWI0NGU3NDlkYmY0OTBiMzkyZTNhNTM0ZWY2MTAyMjc3MTE0NmNkZjlhZjFhMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODc3ZDhmMGRlMzIzMTIzOTk5NDY1MTI5NjQzNTc4MzM5NjcwNGUxOGU1MmQxZmI1ODhhZjhiM2QzMzljMzVjZCJ9"
+        },
+        {
+          "resource": "repo://internal/cmd/start_session.go#L79-L86",
+          "version": "repo-lines-v1:sha256:0f19157ca31431efb44874926449ec4f5a29fc815c2c505ae193fedbe8c15447:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMmI0YTVkZGZlZjM1ZGRjMTc1N2UwYmJlOGNhYzM2MjNlNjU5ZDZhMTllNjE1YTk3ODY5YTgxMmExMWIzZGY1MyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzgzMGQ1NGEwYmZiMTlmMWRlNGNhOGE5MGJmMWNiYzlhMGEzMzM0NmUzZTRmMWExZTkyNjA5Y2ZmNzhkYmJmNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzhhYjFkMzUwMmIwOWJhNzliNzk0NzA1ZjA4ZDMxN2Y0YjRmNmRmYmVlNWQ0ZTU1OTU4ZWI0ZTk1YzViZTI0YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTdlMTZlMjkxNTdiZGVjYWU3ZjcyMTQxNTBmZmZlMGFlZmYwZWViZjUwNDVjZWZiMmIwNTY1NjM2OTI3MjNhNCJ9"
+        }
+      ]
+    },
+    {
+      "id": "claim_c5bc9bd50d994ffdb68707a9ddcd7135",
+      "statement": "runStartSession tracks a single credentialWarning string that is pre-populated when --no-wait launches without credential configuration and overwritten (with configureOCM forced false) when optional OCM credential configuration fails after the task reaches RUNNING; finishStartSession folds a non-empty credentialWarning into the JSON result's \"warnings\" array, while the text-mode path has already printed it via output.Warning at the point of failure.",
+      "evidence": [
+        {
+          "resource": "repo://internal/cmd/start_session.go#L151-L176",
+          "version": "repo-lines-v1:sha256:f937083d1547205ecd364d5761b2656606f833ca3b908c170c0f1274612701d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0NGI2N2MzZGZmYTYzYjA4ZGE0ZDEyNGRiZmFmYzVkZGQxYTQzMWFjNGUwY2M5YTAwMjI1YTRlNWVkYzE2MGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdkYWIyMjllMzdkMjAxYjkyZGQxZTE5ZGZhYjljYjBjZDYwMWRhODk4ZTQ3MzZhYzVlOWQ4MjNkYmVlNTgzYjEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg4MWQ5OTI0ZGI1ZjYzZTA0ODFjYmVmODM0YWMyNGZlMzZkNjI3M2M3ODAzZmI2NWE5YjgzMmY5MGYzODJmYjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ2MjhjZDc2ZGJkMTc5ODY5YzY4ZTgzNzIxMTRlYmM0ZjQwZDc2ZTM2ZmRiZGJlYmJiMjk2NDZjNWQ0ZDM3ZDcifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/start_session.go#L197-L203",
+          "version": "repo-lines-v1:sha256:f96a72d58eaffe36cf773bda69af50b632e8662e91c50c2d28d86ea2f1bbd560:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZWVkMmNhZWU5ZjU2ZTEzYmJlMWU4OTk4Njc4Y2M5NmM1MTkyYWEzM2ZlNTVlMDAzYjVlNDUxYmMxYzM3NjJkMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjdjZGE4MmRhNjA2MjM4ZTA1ZTYyMzk5NTY5YzVlZTAzOTkzNDE5NjQ4YWU1ZDQzYTJiZjhjZDYzNDdmODI2MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjJmMmZmNWZlZWM2MGY1ODdjOGZhZTRlODdmODA5YTY2MWNmZmVkNmI0N2FhZTVmNmQ2YTI2NTNhYTg5NTJlZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDljZGRkODJhYWNlNTViMjYyMTdiOTIzODZlNjZlZDBkZjEwMmNmYjJiYTRlMzk5YjI4NjZjNjE5ODljY2Y2OCJ9"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-11-13T18:18:24.408Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-17T16:03:58.857Z"
   }
 }

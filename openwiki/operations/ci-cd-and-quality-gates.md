@@ -3,9 +3,6 @@ type: delivery-and-verification
 title: Repository CI/CD configuration and quality gates
 description: Documents only ROSA Boundary repository-owned image pipelines, local test and lint entrypoints, pre-commit hooks and HCP workspace declarations; explains which external CI and release behavior cannot be verified from this checkout.
 tags: [ci, cd, prow, konflux, github, pre-commit, testing]
-verified:
-  - by: openwiki/0.7.0
-    at: 2026-11-13T18:18:24.408Z
 sources:
   - id: openwiki-source-4d1645cb6317345817452838
     resource: repo://.pre-commit-config.yaml
@@ -37,7 +34,10 @@ sources:
     resource: repo://scripts/test_all.py
   - id: openwiki-source-38fbf433aefe6645b985c0ac
     resource: repo://tests/localstack/ci-run.sh
-generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-17T16:03:58.857Z" }
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-17T16:03:58.857Z
 ---
 
 # Repository CI/CD configuration and quality gates
@@ -62,6 +62,8 @@ This page covers **only what is defined or directly observable in this repositor
 | Trusted Actions image | [PR](../../.tekton/rosa-trusted-actions-pull-request.yaml) / [push](../../.tekton/rosa-trusted-actions-push.yaml) | `components/trusted-actions/Containerfile` and component context, **linux/x86_64**; changes under `components/trusted-actions/***` or the corresponding pipeline file satisfy its trigger. |
 
 The YAML specifies `on-pr-{{revision}}` images with `5d` expiration for PRs and `{{revision}}` images for `main` pushes in `quay.io/redhat-user-workloads/rosa-tenant/`. These are **configured output locations**, not confirmation of a successful push. All six PipelineRuns include roxctl-scan; the files also name deprecated-base-image, ecosystem-cert preflight, Snyk SAST, ClamAV, shell/unicode SAST and RPM-signature tasks. They do **not** invoke the root or TA Makefile test suites, verify ECS access, or exercise ARM64 in the two x86_64 build definitions. Named scan tasks and built image indexes alone do not prove scan effectiveness, a blocking policy decision or release approval.
+
+Both Trusted Actions `on-cel-expression` fields carry a comment reading "Enable only at the coordinated cutover after checking the shared image/release destination," but as checked into both `rosa-trusted-actions-pull-request.yaml` and `rosa-trusted-actions-push.yaml` today, that comment is **not** backed by an active `false &&` guard in the expression itself: each evaluates the same way as the Boundary and Lambda pipelines — normally, for `pull_request`/`push` events on `main` touching `components/trusted-actions/***` or the pipeline's own file. Do not describe the Trusted Actions image pipeline as currently disabled or gated pending a future cutover; the comment is a record of earlier intent, not a live condition in the YAML. See [Monorepo components: Boundary and Trusted Actions](../architecture/monorepo-and-trusted-actions.md) for the fuller migration context, and verify actual Konflux source binding and build activity directly rather than inferring current CI status from this comment alone.
 
 The deployment variables pin images separately from these PipelineRuns: see `container_image` and `lambda_image_tag` in the [Boundary workspace map](../../hcp-terraform/rosa-boundary/main.tf) and the image variable in [TA's workspace map](../../hcp-terraform/rosa-trusted-actions/main.tf). A build does not update these pins. Actual release and registry-import configuration is **not** defined by the six PipelineRuns; do not infer Quay/ECR publication, replication, or a running image version from them.
 

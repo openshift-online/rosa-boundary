@@ -28,10 +28,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-b22643f9c083ba8127bcda92
     resource: repo://OWNERS
-generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-17T16:03:58.857Z" }
 verified:
-  - by: openwiki/0.7.0
-    at: 2026-11-13T18:18:24.408Z
+  - by: openwiki/0.7.1
+    at: 2026-11-17T16:03:58.857Z
 ---
 
 ## Why this page exists
@@ -84,13 +84,11 @@ Because this is a snapshot rather than a live status feed, confirm the
 repository's current archival state and any later development location
 directly rather than relying solely on this page.
 
-<!-- openwiki: broken internal link [../../docs/trusted-actions-monorepo-migration.md#L1-L25] heading anchor "L1-L25" does not exist in "../../docs/trusted-actions-monorepo-migration.md". Fix the href or restore the target, then delete this comment. -->
-See [migration record: where things live](../../docs/trusted-actions-monorepo-migration.md#L1-L25)
-for the full file-location table and
-<!-- openwiki: broken internal link [../../docs/trusted-actions-monorepo-migration.md#L26-L48] heading anchor "L26-L48" does not exist in "../../docs/trusted-actions-monorepo-migration.md". Fix the href or restore the target, then delete this comment. -->
-[migration outcome](../../docs/trusted-actions-monorepo-migration.md#L26-L48)
-for the reconciliation detail; this page summarizes their architectural
-consequences rather than repeating the inventory.
+See [migration record: where things live](../../docs/trusted-actions-monorepo-migration.md)
+for the full file-location table and its
+[migration outcome](../../docs/trusted-actions-monorepo-migration.md#migration-outcome)
+section for the reconciliation detail; this page summarizes their
+architectural consequences rather than repeating the inventory.
 
 ```mermaid
 flowchart LR
@@ -126,6 +124,30 @@ Consequences of this split:
   and root Makefile targets, which build the `github.com/openshift-online/rosa-boundary`
   module, do **not** exercise the nested `github.com/openshift-online/rosa-trusted-actions`
   module.
+- The two `go.mod` files declare separate module paths
+  (`github.com/openshift-online/rosa-boundary` at the root versus
+  `github.com/openshift-online/rosa-trusted-actions` under the component),
+  there is no repository-wide `go.work`, and neither file contains a
+  `replace` directive pointing at the other — Go tooling resolves each
+  module's dependency graph independently. Both currently declare `go
+  1.26.0`, but only the root `go.mod` pins a `toolchain go1.27.4` directive;
+  the component `go.mod` has no `toolchain` line, so building it relies on
+  whatever toolchain satisfies `go 1.26.0` in the local/CI environment
+  rather than the root's pinned 1.27.4 toolchain.
+- The handful of third-party dependencies the two modules share (for
+  example `golang.org/x/oauth2`, `golang.org/x/sys`, `golang.org/x/term`,
+  and `github.com/spf13/pflag`) are pinned to independently resolved
+  versions that are not always identical between the two `go.mod` files —
+  expected for two modules with no shared `go.work` or `replace`
+  directives, but a reason not to assume a dependency bump in one module
+  implies the same version in the other. Trusted Actions also pulls in a
+  materially larger and different dependency surface reflecting its own
+  API-server/Kubernetes/OCM architecture — `k8s.io/client-go`,
+  `github.com/jackc/pgx/v5`, `github.com/jmoiron/sqlx`,
+  `github.com/go-chi/chi/v5`, `github.com/openshift-online/ocm-sdk-go`,
+  and `github.com/openshift/backplane-cli`, none of which the root module
+  depends on. See [Trusted Actions overview](trusted-actions-overview.md)
+  for what that architecture does.
 - Boundary's `lambda/` applications have **not** moved into
   `components/trusted-actions/` or any other component directory; Boundary's
   root-level source and build layout is unchanged by the import.
@@ -213,8 +235,7 @@ controlled by files in `rosa-boundary`.
 
 ## HCP Terraform: rebound workspace definitions
 
-<!-- openwiki: broken internal link [../../hcp-terraform/rosa-trusted-actions] file "../../hcp-terraform/rosa-trusted-actions" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`hcp-terraform/rosa-trusted-actions/`](../../hcp-terraform/rosa-trusted-actions)
+[`hcp-terraform/rosa-trusted-actions/`](../../hcp-terraform/rosa-trusted-actions/main.tf)
 holds TA's HCP meta-workspace definition (`main.tf`, `variables.tf`,
 `terraform.auto.tfvars`). Per the migration record and the current
 `main.tf`, the **existing** `rosa-trusted-actions-global` and

@@ -27,6 +27,13 @@ bedrock_model_agreements = {
   "anthropic.claude-haiku-4-5-20251001-v1:0" = "offer-REPLACE_WITH_APPROVED_ID"
 }
 
+# Explicitly match the example's approved Sonnet 5 agreement, not the module's
+# newer default. Select a profile supported in your region and approved geography.
+claude_default_model = "us.anthropic.claude-sonnet-5"
+# Codex is not initialized until an approved Responses-compatible profile is set.
+# An AWS region alone does not select the model's processing geography.
+# codex_default_model = "us.openai.gpt-6.1-sol"
+
 # Fargate task sizing
 # CPU/Memory combinations: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
 container_cpu    = 512   # Options: 256, 512, 1024, 2048, 4096

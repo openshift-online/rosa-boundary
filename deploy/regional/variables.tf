@@ -74,7 +74,7 @@ variable "claude_default_model" {
 }
 
 variable "codex_default_model" {
-  description = "Separately approved Responses-compatible Bedrock Runtime model for Codex. Empty retains Codex provider-specific model selection; never use an Anthropic model ID here."
+  description = "Separately approved Responses-compatible Bedrock Runtime model for Codex. Empty skips Codex initialization to avoid implicit global routing. Set an explicitly approved profile; never use an Anthropic model ID here."
   type        = string
   default     = ""
 

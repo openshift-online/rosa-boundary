@@ -29,10 +29,19 @@ def seed(path, defaults):
         os.unlink(temporary)
 
 
+def seed_safely(path, defaults):
+    """A user-owned/unwritable agent directory must not block other agents."""
+    try:
+        seed(path, defaults)
+    except OSError as error:
+        print(f'Warning: agent defaults not initialized for {path}: {error}',
+              file=sys.stderr)
+
+
 def main():
     """Use the deployment's approved model and ambient ECS task-role credentials."""
-    if os.environ.get('BOUNDARY_AI_USE_BEDROCK',
-                      os.environ.get('CLAUDE_CODE_USE_BEDROCK', '1')) != '1':
+    if (os.environ.get('BOUNDARY_AI_USE_BEDROCK')
+            or os.environ.get('CLAUDE_CODE_USE_BEDROCK') or '1') != '1':
         return
     home = Path.home()
     region = (os.environ.get('AWS_REGION')
@@ -40,13 +49,18 @@ def main():
     codex = Path(os.environ.get('CODEX_HOME', str(home / '.codex')))
     # Codex's native Runtime provider signs Responses requests using the AWS
     # SDK chain. Claude model IDs are not compatible with that API.
-    codex_config = 'model_provider = "amazon-bedrock-runtime"\n'
     codex_model = os.environ.get('BOUNDARY_CODEX_BEDROCK_MODEL', '').strip()
     if codex_model:
-        codex_config += 'model = ' + json.dumps(codex_model) + '\n'
-    codex_config += ('\n[model_providers.amazon-bedrock-runtime.aws]\nregion = '
-                     + json.dumps(region) + '\n')
-    seed(codex / 'config.toml', codex_config)
+        codex_config = ('model_provider = "amazon-bedrock-runtime"\n'
+                        + 'model = ' + json.dumps(codex_model) + '\n'
+                        + '\n[model_providers.amazon-bedrock-runtime.aws]\nregion = '
+                        + json.dumps(region) + '\n')
+        seed_safely(codex / 'config.toml', codex_config)
+    else:
+        # The upstream Runtime default can route globally, even in a US region.
+        print('Warning: BOUNDARY_CODEX_BEDROCK_MODEL is unset; '
+              'Codex defaults not initialized; select an approved profile explicitly',
+              file=sys.stderr)
     model = os.environ.get('ANTHROPIC_MODEL', '').strip()
     if not model:
         print('Warning: ANTHROPIC_MODEL is unset; pi/OpenCode defaults not initialized',
@@ -54,11 +68,11 @@ def main():
         return
     agent = Path(os.environ.get('PI_CODING_AGENT_DIR', str(home / '.pi/agent')))
     config = Path(os.environ.get('XDG_CONFIG_HOME', str(home / '.config')))
-    seed(agent / 'settings.json', {
+    seed_safely(agent / 'settings.json', {
         'defaultProvider': 'amazon-bedrock',
         'defaultModel': model,
     })
-    seed(config / 'opencode/opencode.json', {
+    seed_safely(config / 'opencode/opencode.json', {
         '$schema': 'https://opencode.ai/config.json',
         'model': 'amazon-bedrock/' + model,
         'providers': {'amazon-bedrock': {'settings': {

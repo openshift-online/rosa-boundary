@@ -35,7 +35,8 @@ unset. Pi uses its standard AWS SDK region configuration.
 
 **Codex uses Bedrock's Responses-compatible API, not Converse or Anthropic
 Messages.** Do not reuse `ANTHROPIC_MODEL` for Codex. With no explicit model,
-Codex uses its provider-specific model selection. Set regional Terraform
+the initializer warns and does not create Codex configuration: the upstream
+Runtime default can select global routing regardless of `AWS_REGION`. Set regional Terraform
 `codex_default_model` (default empty), passed as `BOUNDARY_CODEX_BEDROCK_MODEL`
 in the task environment before initialization, to select a separately approved,
 Responses-compatible Bedrock Runtime model. The current personal dev deployment
@@ -54,8 +55,11 @@ overwrite a previously initialized home. A missing `ANTHROPIC_MODEL` emits a
 warning and skips pi/OpenCode initialization rather than inventing a model.
 The helper honors `PI_CODING_AGENT_DIR`, `XDG_CONFIG_HOME` and `CODEX_HOME`.
 
+Seeding errors warn independently for each agent and do not block other agents
+or container startup; existing personal settings remain unchanged.
+
 `BOUNDARY_AI_USE_BEDROCK=0` disables initialization without deleting settings.
-When unset, it follows `CLAUDE_CODE_USE_BEDROCK` (default `1`). Explicit `1`
+When unset or empty, it follows `CLAUDE_CODE_USE_BEDROCK` (default `1`). Explicit `1`
 enables initialization even when Claude's switch is disabled. These are startup
 defaults, not an enforcement boundary: project configuration and CLI options can
 override provider selection. Use IAM and network controls for enforcement.
@@ -101,8 +105,8 @@ permissions, SCPs and endpoint policies before choosing a global profile.
 Terraform rejects US profiles in non-US regions, and EU Claude profiles outside
 EU regions; this guard is not a complete AWS support matrix. Non-US deployments
 must explicitly select supported, approved model profiles. An empty Codex model
-still delegates selection to Codex, so set it explicitly for residency-sensitive
-deployments.
+skips Codex initialization. Set an approved profile explicitly before using
+Codex; manually launching it without one can still use upstream global defaults.
 
 To select the shared test model in an already-running US session:
 

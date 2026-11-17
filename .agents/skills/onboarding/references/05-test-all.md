@@ -29,6 +29,6 @@ after dependent tests finish; ask before teardown and halt for approval.
 Do not use make localstack-down unless volume deletion was requested.
 Next: step 6, or report local onboarding complete with live verification pending.
 On Linux, container-build failures are commonly SELinux labels (`Permission denied`
-on `/verify`) or stale RHEL entitlement certs (`403` from cdn.redhat.com). No Red Hat
+on `/verify-src`) or stale RHEL entitlement certs (`403` from cdn.redhat.com). No Red Hat
 registration is needed; see the runbook's "Local container build problems (Linux)".
 Show the exact host-changing command and get approval before applying a fix.

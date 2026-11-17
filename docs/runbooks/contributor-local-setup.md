@@ -276,17 +276,18 @@ These affect the `container-build-both-architectures` and `lambda-container-buil
 gates of `make test-all`. **No Red Hat subscription or RHEL registration is
 needed**; the images use free UBI repositories.
 
-**`Permission denied` on `/verify/...` during the image build (SELinux).** On a
+**`Permission denied` on `/verify-src/...` during the image build (SELinux).** On a
 SELinux-enforcing host, containers cannot read project files labeled
-`user_home_t`, and the Containerfile's bind mounts do not relabel them. Confirm with
-`podman run --rm -v "$PWD/build:/v:ro" registry.access.redhat.com/ubi9/ubi-minimal ls /v`.
-Relabel only the two mounted paths (reversible with `restorecon -R build Containerfile`):
+`user_home_t`, and the Containerfile's verify step bind-mounts the whole repository
+(`source=.`) without relabeling it. Confirm with
+`podman run --rm -v "$PWD:/v:ro" registry.access.redhat.com/ubi9/ubi-minimal ls /v`.
+Relabel the checkout (reversible with `restorecon -R .`):
 
 ```bash
-chcon -R -t container_file_t build Containerfile
+chcon -R -t container_file_t .
 ```
 
-A `git checkout` that rewrites these files can drop the label; reapply it.
+A `git checkout` that rewrites files can drop the label on them; reapply it.
 Avoid disabling SELinux system-wide.
 
 **`403` from `cdn.redhat.com` in `microdnf install` (stale entitlement).** Podman

@@ -90,8 +90,88 @@ override_data {
   }
 }
 
-# Approved: the Sonnet 5 inference profile maps to foundation model
-# anthropic.claude-sonnet-5, which is approved -> validation succeeds.
+# The shared Claude/pi/OpenCode default must map to its approved model.
+run "default_sonnet55_profile_succeeds" {
+  command = plan
+  variables {
+    bedrock_model_agreements = { "anthropic.claude-sonnet-5-5" = "offer-test" }
+  }
+  assert {
+    condition     = var.claude_default_model == "us.anthropic.claude-sonnet-5-5"
+    error_message = "Keep the shared default pinned to the reviewed Sonnet 5.5 US profile."
+  }
+  assert {
+    condition = one([
+      for item in jsondecode(aws_ecs_task_definition.rosa_boundary.container_definitions)[0].environment :
+      item.value if item.name == "ANTHROPIC_MODEL"
+    ]) == var.claude_default_model
+    error_message = "The shared model must reach the task environment."
+  }
+}
+
+run "haiku55_requires_matching_agreement" {
+  command = plan
+  variables {
+    bedrock_model_agreements = { "anthropic.claude-sonnet-5" = "offer-test" }
+    claude_default_model     = "us.anthropic.claude-haiku-5-5"
+  }
+  expect_failures = [var.claude_default_model]
+}
+
+run "approved_sonnet55_us_profile_succeeds" {
+  command = plan
+  variables {
+    bedrock_model_agreements = { "anthropic.claude-sonnet-5-5" = "offer-test" }
+    claude_default_model     = "us.anthropic.claude-sonnet-5-5"
+  }
+}
+
+run "approved_sonnet55_eu_profile_succeeds" {
+  command = plan
+  variables {
+    aws_region               = "eu-west-1"
+    bedrock_model_agreements = { "anthropic.claude-sonnet-5-5" = "offer-test" }
+    claude_default_model     = "eu.anthropic.claude-sonnet-5-5"
+  }
+}
+
+run "sonnet55_requires_matching_agreement" {
+  command = plan
+  variables {
+    bedrock_model_agreements = { "anthropic.claude-sonnet-5" = "offer-test" }
+    claude_default_model     = "us.anthropic.claude-sonnet-5-5"
+  }
+  expect_failures = [var.claude_default_model]
+}
+
+run "us_claude_profile_rejected_in_europe" {
+  command = plan
+  variables {
+    aws_region           = "eu-west-1"
+    claude_default_model = "us.anthropic.claude-sonnet-5-5"
+  }
+  expect_failures = [var.claude_default_model]
+}
+
+run "us_codex_profile_rejected_in_asia" {
+  command = plan
+  variables {
+    aws_region           = "ap-southeast-1"
+    claude_default_model = "global.anthropic.claude-sonnet-5-5"
+    codex_default_model  = "us.openai.gpt-6.1-sol"
+  }
+  expect_failures = [var.codex_default_model]
+}
+
+run "explicit_global_profiles_accepted_in_asia" {
+  command = plan
+  variables {
+    aws_region           = "ap-southeast-1"
+    claude_default_model = "global.anthropic.claude-sonnet-5-5"
+    codex_default_model  = "global.openai.gpt-6.1-sol"
+  }
+}
+
 run "approved_sonnet5_profile_succeeds" {
   command = plan
 

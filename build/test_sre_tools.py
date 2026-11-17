@@ -3,6 +3,8 @@ import io
 import json
 from pathlib import Path
 import stat
+import subprocess
+import sys
 import tarfile
 from unittest.mock import patch
 import zipfile
@@ -142,6 +144,91 @@ def test_pin_parser(tmp_path):
         v.pins(path)
 
 
+def test_agent_pin_parser(tmp_path):
+    source = '\r\n'.join(f'ENV {name}="1.2.3"' for name in v.AGENTS.values())
+    path = tmp_path / 'Containerfile'
+    path.write_text(source)
+    assert v.agent_pins(path) == {agent: '1.2.3' for agent in v.AGENTS}
+    path.write_text(source + '\nENV CLAUDE_CODE_VERSION="1.2.3"')
+    with pytest.raises(ValueError):
+        v.agent_pins(path)
+    path.write_text(source.replace('ENV CLAUDE_CODE_VERSION', 'ARG CLAUDE_CODE_VERSION'))
+    with pytest.raises(ValueError):
+        v.agent_pins(path)
+
+
+@pytest.mark.parametrize('pin', ['v1.2.3', '1.2.3-rc.1', '1.2', 'latest'])
+def test_agent_pin_must_be_exact(tmp_path, pin):
+    path = tmp_path / 'Containerfile'
+    path.write_text('\n'.join(f'ENV {name}="{pin if name == "PI_VERSION" else "1.2.3"}"'
+                              for name in v.AGENTS.values()))
+    with pytest.raises(ValueError):
+        v.agent_pins(path)
+
+
+# Observed offline '--version' output of the pinned releases.
+@pytest.mark.parametrize('stdout,expected', [
+    ('2.1.323 (Claude Code)\n', '2.1.323'), ('opencode v2.3.0\n', '2.3.0'),
+    ('codex-cli 0.169.0\n', '0.169.0'), ('1.5.2\n', '1.5.2')])
+def test_agent_version_output(stdout, expected):
+    class Result:
+        pass
+    Result.stdout = stdout
+    Result.stderr = 'WARNING: proceeding without a writable config home\n'
+    with patch('verify_sre_tools.subprocess.run', return_value=Result()):
+        assert v.agent_version('agent', Path('/binary')) == expected
+
+
+@pytest.mark.parametrize('stdout', ['', 'no version here', '1.2.3 and 4.5.6', '1.2.3.4'])
+def test_agent_version_rejects_ambiguous(stdout):
+    class Result:
+        pass
+    Result.stdout = stdout
+    Result.stderr = ''
+    with patch('verify_sre_tools.subprocess.run', return_value=Result()):
+        with pytest.raises(ValueError):
+            v.agent_version('agent', Path('/binary'))
+
+
+def test_agent_version_never_reads_stderr(tmp_path):
+    """A real child's stderr notice must not satisfy the pin comparison."""
+    script = tmp_path / 'agent'
+    script.write_text('import sys\nsys.stderr.write("installed 9.9.9\\n")\n')
+    run = subprocess.run
+    with patch('verify_sre_tools.subprocess.run',
+               lambda command, **kwargs: run([sys.executable, str(script)], **kwargs)):
+        with pytest.raises(ValueError):
+            v.agent_version('agent', script)
+
+
+def agent_acceptance(tmp_path, reported, pinned):
+    payload = tmp_path / 'payload'
+    payload.mkdir(exist_ok=True)
+    with patch.dict(v.AGENT_PATHS, {'agent': payload / 'agent'}, clear=True), \
+         patch.dict(v.AGENT_PAYLOADS, {'agent': payload}, clear=True), \
+         patch.object(v, 'elf_arch', lambda path, arch: None), \
+         patch.object(v, 'agent_version', lambda agent, executable: reported):
+        v.accept_agents({'agent': pinned}, 'amd64')
+    return payload
+
+
+def test_accept_agents_requires_the_pinned_version(tmp_path):
+    agent_acceptance(tmp_path, '1.2.3', '1.2.3')
+    for reported in ('1.2.4', '1.2.2', '1.2.3.4'):
+        with pytest.raises(ValueError, match='expected 1.2.3'):
+            agent_acceptance(tmp_path, reported, '1.2.3')
+
+
+@pytest.mark.parametrize('bit', [stat.S_ISUID, stat.S_ISGID])
+def test_accept_agents_rejects_elevated_payload_modes(tmp_path, bit):
+    payload = agent_acceptance(tmp_path, '1.2.3', '1.2.3')
+    elevated = payload / 'helper'
+    elevated.write_bytes(b'x')
+    elevated.chmod(0o755 | bit)
+    with pytest.raises(ValueError, match='setuid or setgid'):
+        agent_acceptance(tmp_path, '1.2.3', '1.2.3')
+
+
 def test_signature_wrong_identity(tmp_path):
     class Result:
         stdout = '[GNUPG:] VALIDSIG ' + '0' * 40 + ' 2026 1 0 4 0 1 8 00\n'
@@ -239,7 +326,6 @@ def test_missing_executable():
 
 
 def test_gpg_failure_propagates(tmp_path):
-    import subprocess
     with patch('sre_tools.subprocess.run', side_effect=subprocess.CalledProcessError(1, 'gpg')):
         with pytest.raises(subprocess.CalledProcessError):
             s.verify_signature('aws', tmp_path / 'data', tmp_path / 'missing', tmp_path)

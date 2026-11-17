@@ -52,6 +52,44 @@ setup() {
     [ "${output}" = "stop-helper" ]
 }
 
+@test "agent defaults run as sre with explicit HOME and support opt out" {
+    run bash -c '
+        source "$1"
+        runuser() { printf "runuser:%s\n" "$*"; }
+        unset BOUNDARY_AI_USE_BEDROCK CLAUDE_CODE_USE_BEDROCK
+        configure_agent_defaults
+        CLAUDE_CODE_USE_BEDROCK=0 configure_agent_defaults
+        BOUNDARY_AI_USE_BEDROCK=0 configure_agent_defaults
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "runuser:--user sre -- env HOME=/home/sre python3 /usr/local/libexec/rosa-boundary-agent-defaults.py" ]
+}
+
+@test "optional agent defaults failure does not terminate set-e startup" {
+    run bash -e -c '
+        source "$1"
+        runuser() { return 9; }
+        BOUNDARY_AI_USE_BEDROCK=1 configure_agent_defaults
+        printf "workload-continues\\n"
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"optional agent defaults helper failed"* ]]
+    [[ "${output}" == *"workload-continues"* ]]
+}
+
+@test "empty agent switches use the shell default-on fallback" {
+    run bash -e -c '
+        source "$1"
+        runuser() { printf "seed\\n"; }
+        BOUNDARY_AI_USE_BEDROCK="" CLAUDE_CODE_USE_BEDROCK="" configure_agent_defaults
+    ' bash "${ENTRYPOINT}"
+
+    [ "${status}" -eq 0 ]
+    [ "${output}" = "seed" ]
+}
+
 @test "entrypoint is safely sourceable" {
     run bash -c 'source "$1"; printf "%s\n" sourced' bash "${ENTRYPOINT}"
 

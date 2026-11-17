@@ -1,4 +1,4 @@
-"""Offline SRE-tool and Claude pin extraction and review-policy contracts."""
+"""Offline SRE-tool and coding-agent pin extraction and review-policy contracts."""
 import json
 import os
 import re
@@ -6,11 +6,14 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from verify_sre_tools import AGENTS, AGENT_DEPS
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = json.loads((ROOT / "renovate.json").read_text())
+# Coding agents keep their own managers and contract tests; the six-tool
+# assertions below must never silently absorb one of them.
 SRE_MANAGERS = [m for m in CONFIG["customManagers"]
-                if m["depNameTemplate"] != "anthropics/claude-code"]
+                if m["depNameTemplate"] not in set(AGENT_DEPS.values())]
 TOOLS = {
     "OCM_VERSION": "openshift-online/ocm-cli",
     "BACKPLANE_CLI_VERSION": "openshift/backplane-cli",
@@ -47,9 +50,43 @@ def fixture():
     return "".join(lines)
 
 
+AGENT_VERSION = "9.8.7"
+
+
+def agent_fixture():
+    """Annotated agent ENV pins, which use a different directive than the tools."""
+    return "".join(f'# renovate: datasource=github-releases depName={AGENT_DEPS[agent]}\n'
+                   f'ENV {name}="{AGENT_VERSION}"\n' for agent, name in AGENTS.items())
+
+
 @pytest.mark.parametrize("newline", ["\n", "\r\n"])
 def test_extraction(newline):
     assert len(extract(fixture().replace("\n", newline))) == 6
+
+
+AGENT_MANAGERS = [m for m in CONFIG["customManagers"]
+                  if m["depNameTemplate"] in set(AGENT_DEPS.values())]
+
+
+def matches(managers, content):
+    found = []
+    for manager in managers:
+        for pattern in manager["matchStrings"]:
+            pattern = pattern.replace("(?<currentValue>", "(?P<currentValue>")
+            found.extend(re.findall(pattern, content))
+    return found
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_agent_pins_never_match_tool_managers(newline):
+    """Agent ENV pins stay invisible to the six-tool managers, and vice versa."""
+    tools = fixture().replace("\n", newline)
+    agents = agent_fixture().replace("\n", newline)
+    assert len(extract(tools + agents)) == 6
+    assert len(AGENT_MANAGERS) == len(AGENTS)
+    assert matches(SRE_MANAGERS, agents) == []
+    assert matches(AGENT_MANAGERS, tools) == []
+    assert len(matches(AGENT_MANAGERS, agents)) == len(AGENTS)
 
 
 def test_checked_in_pins():
@@ -81,17 +118,26 @@ def test_renovate_runtime(tmp_path):
     script.write_text(r'''
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-const { config, content, base } = JSON.parse(fs.readFileSync(0, 'utf8'));
+const { config, content, base, agents, agentVersion, expected } = JSON.parse(fs.readFileSync(0, 'utf8'));
 const { extractPackageFile } = await import(base + '/dist/modules/manager/custom/regex/index.js');
 const { getExpression } = await import(base + '/dist/util/jsonata.js');
 const { applyPackageRules } = await import(base + '/dist/util/package-rules/index.js');
 const { checkMinimumReleaseAge } = await import(base + '/dist/util/minimum-release-age.js');
+const { validateConfig } = await import(base + '/dist/config/validation.js');
+const { massageConfig } = await import(base + '/dist/config/massage.js');
+assert.equal(config.customManagers.length, expected);
 for (const text of [content, content.replaceAll('\n', '\r\n')]) {
   const deps = config.customManagers.flatMap(m => extractPackageFile(text, 'Containerfile', m)?.deps ?? []);
-  assert.equal(deps.length, 7);
-  assert.equal(new Set(deps.map(d => d.depName)).size, 7);
-  assert.equal(deps.find(d => d.depName === 'anthropics/claude-code').currentValue, '2.1.323');
+  assert.equal(deps.length, expected);
+  assert.equal(new Set(deps.map(d => d.depName)).size, expected);
+  for (const agent of agents) {
+    assert.equal(deps.find(d => d.depName === agent).currentValue, agentVersion);
+  }
 }
+// The checked-in configuration must be schema-valid for the deployed service.
+const validation = await validateConfig('repo', massageConfig(config));
+assert.deepEqual(validation.errors, []);
+assert.deepEqual(validation.warnings, []);
 const transform = getExpression(config.customDatasources['openshift-stable'].transformTemplates[0]);
 for (const [lines, expected] of [
   [['Version:  4.8.7'], ['4.8.7']],
@@ -143,9 +189,9 @@ for (const mismatch of [
 }
 ''')
     subprocess.run(["node", str(script)], input=json.dumps({
-        "base": module, "config": CONFIG, "content": fixture() +
-        '# renovate: datasource=github-releases depName=anthropics/claude-code\n'
-        'ENV CLAUDE_CODE_VERSION="2.1.323"\n',
+        "base": module, "config": CONFIG, "content": fixture() + agent_fixture(),
+        "agents": sorted(AGENT_DEPS.values()), "agentVersion": AGENT_VERSION,
+        "expected": len(TOOLS) + len(AGENTS),
     }), text=True, check=True, capture_output=True)
 
 

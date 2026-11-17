@@ -29,6 +29,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 - [**Keycloak Realm Setup**](configuration/keycloak-realm-setup.md) - Configure Keycloak realm and OIDC client using KeycloakRealmImport CR
 - [**AWS IAM Policies**](configuration/aws-iam-policies.md) - IAM roles and policies for ECS Exec access
 - [**Bedrock Model Agreements**](configuration/bedrock-model-agreements.md) - Account-level subscription manifest and lifecycle
+- [**Coding Agents on Bedrock**](configuration/coding-agent-bedrock.md) - Task-role defaults for Claude Code, pi, OpenCode and Codex
 - [**Claude Code Skills**](configuration/claude-skills.md) - User-global skill reconciliation, configuration, and live verification
 - [**Code Coverage**](configuration/code-coverage.md) - Codecov integration, Prow CI jobs, and coverage reporting
 - [**UUID Allowlist**](configuration/uuid-allowlist.md) - Interim access control restricting role assumption by user UUID
@@ -45,6 +46,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 - [**Investigation Workflow**](runbooks/investigation-workflow.md) - Creating and managing investigations
 - [**Audit Log Access**](runbooks/audit-log-access.md) - Retrieve investigation audit logs from S3 without admin access
 - [**Personal Dev Bootstrap**](runbooks/personal-dev-bootstrap.md) - Deploy and validate a contributor-owned dev environment
+- [**Seed Personal Dev Content**](runbooks/seed-dev-content.md) - Manually publish approved synthetic S3 fixtures and verify mounted content and agent skill discovery
 - [**Troubleshooting**](runbooks/troubleshooting.md) - Common issues and solutions
 
 ## Development

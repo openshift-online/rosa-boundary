@@ -16,6 +16,12 @@ Onboarding itself is not approval. Never target staging or production.
 
 Before planning, complete or revalidate step 6's
 [deployment input checklist](06-personal-access.md#deployment-input-checklist).
+For coding-agent tests, also revalidate the
+[Bedrock model-access approval gate](06-personal-access.md#bedrock-model-access-approval-gate).
+Require an approved exact model and distinguish form registration, model
+activation, playground inference and task-role inference as separate evidence.
+Preserved pi/OpenCode settings may still select an old model after deployment.
+
 Inventory matching AWS resources as well as state: missing local state alone does
 not prove Terraform never ran. Conversely, an existing network does not prove
 account identities or regional workloads exist. Reuse an owned network rather
@@ -65,6 +71,32 @@ identifiers, revision/digests, state/backend locations, validation results,
 unverified behavior and remaining work in a private handoff. Keep state, saved
 plans, credentials and sensitive configuration out of Git. An apply or clean plan
 does not prove login, task image pulling, ABAC or audit delivery.
+
+## Manual published-content smoke setup
+
+After regional deployment and before claiming content/skill discovery works,
+follow [manually seed personal-dev content](../../../../docs/runbooks/seed-dev-content.md).
+The infrastructure does not populate sample published content.
+
+- Resolve the content bucket, region and source-prefix map from the owning
+  regional outputs; never use the audit bucket. For replication, publish only
+  in the approved primary region. Confirm the authorized writer for each source.
+- Present the four exact synthetic object keys, cost/visibility scope and cleanup
+  plan. Ask for upload approval and **halt until the user responds**. Do not
+  upload from an investigation role or widen its read-only permissions.
+- Manually add a reviewed skill plus a relative text asset using
+  `<skills-prefix>/<collection>/skills/<skill>/SKILL.md`, and harmless marker
+  text under the configured SOP and managed-notifications prefixes. These are
+  visibility fixtures, not executable payloads or real notifications.
+- Verify S3 objects, S3 Files-mounted content, and both `~/.agents/skills/` and
+  `~/.claude/skills/` namespaced links separately. Allow mount visibility and a
+  reconciliation pass (60 seconds by default); empty source directories alone
+  neither prove a fault nor prove health.
+- Verify actual client discovery/reload separately from symlink existence.
+  Model invocation and investigation creation still need separate approval.
+- With cleanup approval, delete only the recorded fixture keys; verify mounted
+  removal and stale-link cleanup without touching personal skills. Record
+  versioned-bucket delete markers and any incomplete cleanup/replication gaps.
 
 ## Optional account configuration helper
 

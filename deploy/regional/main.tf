@@ -90,6 +90,10 @@ locals {
 # introducing a new default inference profile.
 locals {
   claude_inference_profile_foundation_models = {
-    "us.anthropic.claude-sonnet-5" = "anthropic.claude-sonnet-5"
+    "us.anthropic.claude-haiku-5-5"      = "anthropic.claude-haiku-5-5"
+    "us.anthropic.claude-sonnet-5"       = "anthropic.claude-sonnet-5"
+    "us.anthropic.claude-sonnet-5-5"     = "anthropic.claude-sonnet-5-5"
+    "eu.anthropic.claude-sonnet-5-5"     = "anthropic.claude-sonnet-5-5"
+    "global.anthropic.claude-sonnet-5-5" = "anthropic.claude-sonnet-5-5"
   }
 }

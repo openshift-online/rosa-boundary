@@ -14,6 +14,7 @@ likely belong under `components/boundary/` in a separately validated layout refa
 - **AWS CLI**: Official AWS CLI v2
 - **OpenShift CLI**: Versions 4.14 through 4.20 from stable channels
 - **Claude Code**: AI-powered CLI assistant with Amazon Bedrock integration
+- **Additional coding agents**: OpenCode, OpenAI Codex CLI, and pi, installed from pinned, checksum-verified upstream releases
 - **Dynamic Version Selection**: Switch tool versions via environment variables at runtime
 - **ECS Exec Ready**: Designed for AWS Fargate with ECS Exec support
 - **Multi-architecture**: Supports both x86_64 (amd64) and ARM64 (aarch64)
@@ -434,7 +435,8 @@ podman run --rm rosa-boundary:latest sh -c "aws --version && oc version --client
 - **Base**: Red Hat UBI9
 - **AWS CLI**: Official AWS CLI v2
 - **OpenShift CLI**: 4.14.x, 4.15.x, 4.16.x, 4.17.x, 4.18.x, 4.19.x, 4.20.x
-- **Claude Code**: 2.0.69 (native installer), auto-updates disabled
+- **Claude Code**: native installer, auto-updates disabled
+- **Coding agents**: `claude`, `opencode`, `codex` and `pi` on `PATH`; pins live in `Containerfile`
 - **Additional tools**: util-linux (includes su for user switching)
 
 ## Architecture Support

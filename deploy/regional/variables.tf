@@ -37,11 +37,19 @@ variable "bedrock_model_agreements" {
 variable "claude_default_model" {
   description = "Bedrock inference profile Claude Code selects by default (ANTHROPIC_MODEL). Must be an approved/subscribed profile in bedrock_model_agreements; the task role has no aws-marketplace:Subscribe permission, so an unapproved model returns 403."
   type        = string
-  default     = "us.anthropic.claude-sonnet-5"
+  default     = "us.anthropic.claude-sonnet-5-5"
 
   validation {
     condition     = length(trimspace(var.claude_default_model)) > 0
     error_message = "claude_default_model must not be blank."
+  }
+
+  validation {
+    condition = (
+      (!startswith(var.claude_default_model, "us.") || startswith(var.aws_region, "us-")) &&
+      (!startswith(var.claude_default_model, "eu.") || startswith(var.aws_region, "eu-"))
+    )
+    error_message = "Select a Claude inference profile for the deployment geography. US/EU profiles cannot be reused across geographies; global routing requires explicit selection and residency approval."
   }
 
   # Consistency guard: claude_default_model must be a known Bedrock inference
@@ -62,6 +70,17 @@ variable "claude_default_model" {
       )
     )
     error_message = "claude_default_model (${var.claude_default_model}) must be a known Bedrock inference profile in local.claude_inference_profile_foundation_models that resolves to a foundation model present in bedrock_model_agreements. Add the inference profile to the mapping and/or its foundation model to bedrock_model_agreements. The task role cannot self-subscribe."
+  }
+}
+
+variable "codex_default_model" {
+  description = "Separately approved Responses-compatible Bedrock Runtime model for Codex. Empty skips Codex initialization to avoid implicit global routing. Set an explicitly approved profile; never use an Anthropic model ID here."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = !startswith(var.codex_default_model, "us.") || startswith(var.aws_region, "us-")
+    error_message = "A US Codex inference profile cannot be used from a non-US deployment. Select a supported profile explicitly; global routing requires residency approval."
   }
 }
 

@@ -99,6 +99,16 @@ initialize_credential_mounts() {
     done
 }
 
+# Seed credential-free agent settings as sre (default on, following Claude's
+# Bedrock switch); BOUNDARY_AI_USE_BEDROCK=0 opts out without changing files.
+configure_agent_defaults() {
+    if [ "${BOUNDARY_AI_USE_BEDROCK:-${CLAUDE_CODE_USE_BEDROCK:-1}}" = "1" ]; then
+        runuser --user sre -- env HOME=/home/sre \
+            python3 /usr/local/libexec/rosa-boundary-agent-defaults.py || \
+            echo "Warning: optional agent defaults helper failed; continuing startup" >&2
+    fi
+}
+
 # Perform privileged container setup, then run the requested workload as sre.
 main() {
     set -e
@@ -175,6 +185,8 @@ KUBECONFIG
         # Fallback to us-east-1 if still not set
         export AWS_REGION="${AWS_REGION:-us-east-1}"
     fi
+
+    configure_agent_defaults
 
     # Warn if S3 audit is not configured
     if [ -z "${S3_AUDIT_ESCROW}" ] && { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INVESTIGATION_ID}" ]; }; then

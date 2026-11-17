@@ -1,5 +1,5 @@
 #!/bin/bash
-# Keep ~/.claude/skills up to date with /opt/rosa-content/rosa-claude-plugins.
+# Keep ~/.claude/skills and ~/.agents/skills up to date with published skills.
 # Link each published <collection>/skills/<skill> directory, add new skills,
 # and remove retired links without copying content or touching personal skills.
 
@@ -46,23 +46,40 @@ sync_skills() {
     done
 }
 
+# Reconcile both discovery roots independently, preserving unsafe/conflicting roots.
+sync_home_skills() {
+    local source="$1" home="$2" root failed=0
+    for root in "${home}/.claude" "${home}/.agents"; do
+        if [ -L "${root}" ] || [ -L "${root}/skills" ] ||
+            ! mkdir --parents "${root}/skills" ||
+            ! sync_skills "${source}" "${root}/skills"; then
+            echo "boundary-skills: sync failed for ${root}/skills; retrying next pass" >&2
+            failed=1
+        fi
+    done
+    return "${failed}"
+}
+
 # Run independently of the workload; retry every 60 seconds by default.
 main() {
     local source="/opt/rosa-content/rosa-claude-plugins"
-    local claude="${HOME}/.claude" interval="${BOUNDARY_SKILL_RECONCILE_INTERVAL:-60}"
+    local lock="${HOME}/.boundary-skills.lock" interval="${BOUNDARY_SKILL_RECONCILE_INTERVAL:-60}"
     if [[ ! "${interval}" =~ ^[0-9]{1,5}$ ]] || ((10#${interval} < 5 || 10#${interval} > 86400)); then
         echo "boundary-skills: interval must be 5..86400 seconds" >&2
         return 1
     fi
-    [ ! -L "${claude}" ] && [ ! -L "${claude}/skills" ] || return 1
-    mkdir --parents "${claude}/skills" || return 1
-    [ ! -L "${claude}/.boundary-skills.lock" ] || return 1
-    exec 9> "${claude}/.boundary-skills.lock" || return 1
     trap 'kill "${SLEEP_PID:-}" 2>/dev/null || true; exit 0' TERM INT HUP
     while true; do
-        if flock --nonblock 9; then
-            sync_skills "${source}" "${claude}/skills" || echo "boundary-skills: sync failed; retrying in ${interval}s" >&2
-            flock --unlock 9
+        # Keep the lock independent of either discovery root. Open it only after
+        # rejecting symlinks; a subshell closes the descriptor after each pass.
+        if ! (
+            [ ! -L "${lock}" ] || exit 1
+            exec 9> "${lock}" || exit 1
+            if flock --nonblock 9; then
+                sync_home_skills "${source}" "${HOME}"
+            fi
+        ); then
+            echo "boundary-skills: sync failed; retrying in ${interval}s" >&2
         fi
         sleep "$((10#${interval}))" &
         SLEEP_PID=$!

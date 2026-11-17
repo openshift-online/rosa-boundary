@@ -1,9 +1,20 @@
 # Boundary-managed Claude Code skills
 
-Boundary keeps `~/.claude/skills/` up to date with the published skills under
+Boundary keeps both `~/.claude/skills/` and the shared agent discovery directory
+`~/.agents/skills/` up to date with the published skills under
 `/opt/rosa-content/rosa-claude-plugins`. Personal skills, regular files/directories,
 and unrelated links are preserved. ECS tasks are ephemeral, but the EFS home and
 skill links can persist across tasks.
+
+## Fresh personal-dev content sources
+
+Terraform creates storage and mounts, not sample skills. Empty
+`/opt/rosa-content/rosa-claude-plugins/` can legitimately yield empty
+`~/.agents/skills/` and `~/.claude/skills/`. Before concluding that discovery is
+broken, follow the [manual content-seeding runbook](../runbooks/seed-dev-content.md):
+publish approved synthetic fixtures to the content bucket's configured source
+prefixes, verify mounted files, then verify links and actual agent discovery.
+This is a separately approved manual write, not automatic startup behavior.
 
 ## Symlink reconciliation
 
@@ -14,7 +25,7 @@ of interactive shells. Each pass:
    Bash globs, without following collection, skills-directory, skill-directory,
    or `SKILL.md` symlinks.
 2. Creates or refreshes absolute links named `boundary--<collection>--<skill>`
-   in `~/.claude/skills/`. Conflicting files, directories, and unrelated links
+   in both `~/.claude/skills/` and `~/.agents/skills/`. Conflicting files, directories, and unrelated links
    are preserved with a warning.
 3. Removes Boundary-managed links that no longer correspond to a published skill.
 4. Sleeps, then repeats.
@@ -47,11 +58,20 @@ directories remain conflicts; relocate them explicitly to allow managed links.
 | `BOUNDARY_SKILLS_ENABLED` | `1` | Start only when exactly `1`; set `0` to disable on the next task start. Existing links remain. |
 | `BOUNDARY_SKILL_RECONCILE_INTERVAL` | `60` | Seconds between completed passes; integer from 5 through 86400. Invalid values exit the helper, not the workload. |
 
-A nonblocking `flock` at `~/.claude/.boundary-skills.lock` serializes passes from
+A nonblocking `flock` at `~/.boundary-skills.lock` serializes passes from
 overlapping tasks sharing a home. Those tasks must expose the same source;
 locking cannot reconcile different regional snapshots or arbitrary concurrent
-user edits. The helper rejects symlinked `.claude`/`skills` roots. Settings and
-other `.claude` files remain untouched.
+user edits. Both destinations are reconciled under that same lock. Each pass
+rejects symlinked `.claude`, `.agents`, or their `skills` directories; a failed
+destination does not stop reconciliation of the other or later retries. The lock
+lives outside both discovery roots, so an unsafe or uncreatable `.claude` cannot
+redirect lock acquisition or block a healthy `.agents/skills`. Symlinked lock
+files are rejected; failed lock opens are retried on subsequent passes. Settings
+and other files outside the two skills directories remain untouched.
+
+The lock location changed from `~/.claude/.boundary-skills.lock`; replace older
+helper processes before running the new version against the same shared home,
+since different lock paths do not serialize each other.
 
 Content availability never gates startup. Failed passes emit `boundary-skills:`
 warnings and retry after the interval. Unexpected process exits are not
@@ -66,7 +86,8 @@ and no new AWS permissions are introduced.
 
 ## Verification
 
-Check `ps -eo user,pid,ppid,stat,args` and `ls -l ~/.claude/skills/`. In Claude,
+Check `ps -eo user,pid,ppid,stat,args` and
+`ls -l ~/.claude/skills/ ~/.agents/skills/`. In Claude,
 use `/skills` and invoke representative skills with assets. Test additions,
 edits, deletions, shared-home locking, and settings preservation. Directory
 aliases are namespaced; frontmatter names can still collide, so verify actual
@@ -77,6 +98,10 @@ symlink targets and link additions/removals may have different notification
 behavior. Use `/reload-skills` when supported or restart Claude if stale. The
 asynchronous first pass can create the skills directory after Claude starts and
 require a reload. Working links alone do not prove hot discovery.
+
+Other agents can consume `~/.agents/skills/` when they support that discovery
+location. Linking does not configure a client's search paths or prove discovery
+or hot reload: verify those behaviors separately for each pinned client.
 
 Local checks: `bats tests/shell/` (requires GNU utilities),
 `shellcheck entrypoint.sh utils/rosa-boundary-skill-sync.sh`, and

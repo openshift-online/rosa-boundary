@@ -124,8 +124,9 @@ aws s3 ls "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/" --recursive --regi
 TASK_ID="14e118838eaa4780968abbb4e4bef749"
 DATE="20261021"  # YYYYMMDD format
 
-# View bash history inline
-aws s3 cp "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/${DATE}/${TASK_ID}/.bash_history" - \
+ATTEMPT="<attempt UUID from this task's audit_sync event>"
+# View bash history inline only on an approved review terminal
+aws s3 cp "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/${DATE}/${TASK_ID}/attempts/${ATTEMPT}/workspace/.bash_history" - \
   --region "${REGION}"
 ```
 
@@ -150,13 +151,17 @@ s3://{account-id}-rosa-boundary-{env}-{region}/{cluster-id}/{investigation-id}/{
 Example:
 ```
 s3://150100906299-rosa-boundary-stage-us-east-1/rosa-stage-01/INC-12345/20261021/14e118838eaa4780968abbb4e4bef749/
-├── .bash_history
-├── .profile
-├── workspace/
-│   ├── notes.txt
-│   └── investigation-data/
-└── logs/
+└── attempts/<attempt UUID>/
+    ├── report.json
+    └── workspace/
+        ├── .bash_history
+        ├── .profile
+        └── workspace/notes.txt
 ```
+
+Older images uploaded files directly under the task prefix. Neither a nonempty prefix
+nor a task report alone establishes complete escrow. See the [verification and
+recovery procedure](investigation-workflow.md#verify-audit-evidence).
 
 **Note**: Credential mounts (`.config/ocm` and `.kube`) are **excluded** from S3 sync and will
 not appear in audit artifacts.
@@ -194,8 +199,9 @@ aws s3 ls "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/" --recursive --regi
 export TASK_ID="14e118838eaa4780968abbb4e4bef749"
 export DATE="20261021"
 
-# 5. Preview bash history
-aws s3 cp "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/${DATE}/${TASK_ID}/.bash_history" -
+# 5. Preview bash history for the selected attempt
+export ATTEMPT="<attempt UUID from this task's audit_sync event>"
+aws s3 cp "s3://${BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/${DATE}/${TASK_ID}/attempts/${ATTEMPT}/workspace/.bash_history" -
 
 # 6. Download all artifacts locally
 mkdir -p ~/audit-review/${INVESTIGATION_ID}

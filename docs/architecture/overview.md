@@ -100,7 +100,7 @@ The reaper's `ecs:StopTask` permission is conditioned on the task having a `dead
 | CloudTrail | All AWS API calls: ECS, IAM, Lambda, EFS, STS |
 | S3 audit bucket | Full `/home/sre` sync on container exit: shell history, notes, downloaded files |
 
-The S3 path is deterministic: `s3://{bucket}/{cluster_id}/{investigation_id}/{YYYYMMDD}/{task_id}/`. The entrypoint's `sync_to_s3()` function runs on SIGTERM (ECS stop signal), SIGINT, SIGHUP, and normal exit. A `SYNC_TIMEOUT` (default 300s) bounds the sync command, but the base ECS container's `stopTimeout` is only 120s and can interrupt it first. Verify S3 evidence independently of task STOPPED.
+On TERM, INT, HUP, or workload exit the entrypoint attempts a bounded transfer to a fresh attempt prefix under the task's audit destination. Its adjacent report records the transfer result, not a consistent snapshot of the shared EFS workspace. See [reader verification and close authorization](../runbooks/investigation-workflow.md#verify-audit-evidence).
 
 ---
 

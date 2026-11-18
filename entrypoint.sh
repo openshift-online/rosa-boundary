@@ -1,47 +1,85 @@
 #!/bin/bash
 
-# Function to sync home directory to S3 on exit
-sync_to_s3() {
-    # Build S3 path automatically if structured variables are provided
-    if [ -z "${S3_AUDIT_ESCROW}" ] && [ -n "${S3_AUDIT_BUCKET}" ] && [ -n "${CLUSTER_ID}" ] && [ -n "${INVESTIGATION_ID}" ]; then
-        # Auto-detect task ID from ECS metadata
-        if [ -n "${ECS_CONTAINER_METADATA_URI_V4}" ]; then
-            TASK_ARN=$(curl -s "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null | grep -o '"TaskARN":"[^"]*"' | cut -d'"' -f4)
-            TASK_ID=$(echo "$TASK_ARN" | awk -F'/' '{print $NF}')
-        fi
+# Outer watchdog covers metadata lookup, upload and reporting together.
+# 105s + 2s forced kill + at most 3s waiting for startup metadata leaves
+# 10s inside the regional 120s stopTimeout. The writer grace (3s), metadata
+# (3s), transfer (85+2s) and report (6+2s) all run under this watchdog.
+SHUTDOWN_SECONDS=105
+KILL_GRACE_SECONDS=2
+MAX_SYNC_SECONDS=85
+METADATA_SECONDS=3
 
-        # Build S3 path: s3://bucket/$cluster/$investigation/$date/$taskid/
-        DATE=$(date +%Y%m%d)
-        S3_AUDIT_ESCROW="s3://${S3_AUDIT_BUCKET}/${CLUSTER_ID}/${INVESTIGATION_ID}/${DATE}/${TASK_ID}/"
-        echo "Auto-generated S3 audit path: ${S3_AUDIT_ESCROW}"
-    fi
-
-    if [ -n "${S3_AUDIT_ESCROW}" ]; then
-        echo "Syncing /home/sre to ${S3_AUDIT_ESCROW}..."
-        # timeout: prevents a hung sync from blocking container shutdown past the ECS stop timeout.
-        # --no-follow-symlinks: uploads symlink metadata only; never uploads symlink targets,
-        #   which could point outside /home/sre and exfiltrate host-level files.
-        timeout "${SYNC_TIMEOUT:-300}" \
-            aws s3 sync /home/sre "${S3_AUDIT_ESCROW}" \
-            --exclude ".config/ocm/*" \
-            --exclude ".kube/*" \
-            --no-follow-symlinks \
-            --quiet ||
-            echo "Warning: S3 sync failed or timed out" >&2
+sync_seconds() {
+    local n=${SYNC_TIMEOUT:-}
+    if [[ $n =~ ^[1-9][0-9]?$ ]] && ((n <= MAX_SYNC_SECONDS)); then
+        printf '%s\n' "$n"
     else
-        echo "Warning: S3 audit not configured, /home/sre will not be backed up" >&2
+        printf '%s\n' "$MAX_SYNC_SECONDS"
     fi
 }
 
-# Cleanup function - sync and terminate child process
-cleanup() {
-    stop_skill_reconciler
-    sync_to_s3
-    # Kill the background process if it exists
-    if [ -n "${CHILD_PID}" ]; then
-        kill -TERM "${CHILD_PID}" 2>/dev/null || true
+sync_to_s3() {
+    set -o pipefail
+    local attempt task='' investigation=${INVESTIGATION_ID:-} base=${S3_AUDIT_ESCROW:-} dest rc=0
+    attempt=$(python3 -I -c 'import uuid; print(uuid.uuid4())') || return 1
+    if [[ -n ${ECS_CONTAINER_METADATA_URI_V4:-} ]]; then
+        task=$(curl --fail --silent --max-time "$METADATA_SECONDS" "${ECS_CONTAINER_METADATA_URI_V4}/task" |
+            jq -er '.TaskARN | split("/") | last') || task=''
     fi
-    exit 0
+    if ! [[ $task =~ ^[a-f0-9]{32}$ && $investigation =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        printf 'audit_sync result=unverified reason=missing_correlation investigation=%q task=%q attempt=%s\n' "$investigation" "$task" "$attempt" >&2
+        return 1
+    fi
+    if [[ -z $base && -n ${S3_AUDIT_BUCKET:-} && -n ${CLUSTER_ID:-} ]]; then
+        base="s3://${S3_AUDIT_BUCKET}/${CLUSTER_ID}/${investigation}/$(date -u +%Y%m%d)/${task}"
+    fi
+    if [[ $base != s3://?* ]]; then
+        printf 'audit_sync result=unverified reason=missing_destination investigation=%s task=%s attempt=%s\n' "$investigation" "$task" "$attempt" >&2
+        return 1
+    fi
+    dest="${base%/}/attempts/${attempt}/workspace/"
+    printf 'audit_sync event=start investigation=%s task=%s attempt=%s destination=%q\n' "$investigation" "$task" "$attempt" "$dest"
+    timeout --foreground --kill-after=2 "$(sync_seconds)" aws s3 sync /home/sre "$dest" \
+        --exclude ".config/ocm/*" --exclude ".kube/*" --no-follow-symlinks --quiet || rc=$?
+    # Other tasks and ECS Exec sessions can write throughout the transfer.
+    # No task-writable S3 object is authoritative evidence for close.
+    printf 'audit_sync result=unverified transfer_rc=%d investigation=%s task=%s attempt=%s destination=%q\n' "$rc" "$investigation" "$task" "$attempt" "$dest"
+    local report="${dest%workspace/}report.json"
+    if ! jq -cn --arg inv "$investigation" --arg task "$task" --arg attempt "$attempt" \
+        --arg uri "$dest" --argjson rc "$rc" \
+        '{schema_version:1, investigation_id:$inv, task_id:$task, attempt_id:$attempt, workspace_uri:$uri, transfer_rc:$rc, status:"unverified"}' |
+        timeout --foreground --kill-after=2 6 aws s3 cp - "$report" --content-type application/json --quiet; then
+        printf 'audit_sync result=unverified reason=report_failed destination=%q\n' "$report" >&2
+        return 1
+    fi
+    return "$rc"
+}
+
+cleanup() {
+    local workload_rc=${1:-0} transfer_rc=0
+    trap ':' TERM INT HUP
+    trap - EXIT
+    # Signal managed writers before transfer; never wait indefinitely for them.
+    if [[ -n ${CHILD_PID:-} ]]; then kill -TERM "$CHILD_PID" 2>/dev/null || :; fi
+    local helper=${SKILL_RECONCILER_PID:-}
+    stop_skill_reconciler
+    timeout --kill-after="$KILL_GRACE_SECONDS" "$SHUTDOWN_SECONDS" bash -c \
+        'source "$1"; await_writers "$2" "$3"; sync_to_s3' bash "${BASH_SOURCE[0]}" "${CHILD_PID:-}" "$helper" || transfer_rc=$?
+    if ((transfer_rc)); then
+        printf 'audit_sync result=unverified shutdown_rc=%d\n' "$transfer_rc" >&2
+    fi
+    ((workload_rc)) && exit "$workload_rc"
+    exit "$transfer_rc"
+}
+
+# Give managed writers up to three seconds to flush. This is not a fence
+# against surviving descendants, ECS Exec sessions or other tasks on EFS.
+await_writers() {
+    local i
+    for ((i = 0; i < 30; i++)); do
+        if ! kill -0 "$1" 2>/dev/null && ! kill -0 "$2" 2>/dev/null; then return; fi
+        sleep 0.1
+    done
 }
 
 # Launch one unprivileged, non-blocking skill reconciler per task (default on).
@@ -54,11 +92,10 @@ start_skill_reconciler() {
 }
 
 # Stop the runuser supervisor, which forwards SIGTERM to its Bash child.
-# Reap before audit sync so the helper cannot keep changing the home during sync.
+# PID 1 must not block on a stuck writer; transfer remains unverified.
 stop_skill_reconciler() {
     if [ -n "${SKILL_RECONCILER_PID:-}" ]; then
         kill -TERM "${SKILL_RECONCILER_PID}" 2>/dev/null || true
-        wait "${SKILL_RECONCILER_PID}" 2>/dev/null || true
         SKILL_RECONCILER_PID=""
     fi
 }
@@ -109,24 +146,15 @@ configure_agent_defaults() {
     fi
 }
 
-# Perform privileged container setup, then run the requested workload as sre.
-main() {
-    set -e
+# Keep PID 1 in an interruptible wait, even if a startup operation blocks on EFS.
+startup_step() {
+    "$@" &
+    CHILD_PID=$!
+    wait "$CHILD_PID"
+    CHILD_PID=""
+}
 
-    # Override HOME so root operations (aws s3 sync) don't create root-owned
-    # files under /home/sre (EFS). ECS Exec sessions inherit the image-level
-    # HOME=/home/sre in their own process.
-    export HOME=/root
-
-    # Trap signals for cleanup
-    trap cleanup SIGTERM SIGINT SIGHUP
-    trap stop_skill_reconciler EXIT
-
-    # Empty Fargate volumes are normally root-owned. Prepare both nested mounts
-    # before writing proxy configuration or starting any process as sre.
-    verify_credential_mounts
-    initialize_credential_mounts
-
+prepare_home() {
     # Configure kubectl/oc to use the kube-proxy sidecar
     if [ -n "${KUBE_PROXY_PORT}" ]; then
         cat >/home/sre/.kube/config <<KUBECONFIG
@@ -152,7 +180,28 @@ KUBECONFIG
     if [ -d /etc/skel-sre ]; then
         runuser -u sre -- cp -rn /etc/skel-sre/. /home/sre/
     fi
+}
 
+# Perform privileged container setup, then run the requested workload as sre.
+main() {
+    set -e
+
+    # Override HOME so root operations (aws s3 sync) don't create root-owned
+    # files under /home/sre (EFS). ECS Exec sessions inherit the image-level
+    # HOME=/home/sre in their own process.
+    export HOME=/root
+
+    # Never upload before credential mount verification/initialization.
+    trap 'echo "audit_sync result=unverified reason=interrupted_mount_setup" >&2; exit 1' TERM INT HUP
+
+    # Empty Fargate volumes are normally root-owned. Prepare both nested mounts
+    # before writing proxy configuration or starting any process as sre.
+    startup_step verify_credential_mounts
+    startup_step initialize_credential_mounts
+    trap cleanup TERM INT HUP
+    trap 'cleanup $?' EXIT
+
+    startup_step prepare_home
     start_skill_reconciler
 
     # Set Bedrock defaults if CLAUDE_CODE_USE_BEDROCK is enabled
@@ -162,7 +211,7 @@ KUBECONFIG
         # Auto-detect region from ECS task metadata if AWS_REGION not set
         if [ -z "${AWS_REGION}" ] && [ -n "${ECS_CONTAINER_METADATA_URI_V4}" ]; then
             # Extract region from task ARN in metadata
-            TASK_METADATA=$(curl -s "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null || true)
+            TASK_METADATA=$(curl --max-time "$METADATA_SECONDS" -s "${ECS_CONTAINER_METADATA_URI_V4}/task" 2>/dev/null || true)
             if [ -n "${TASK_METADATA}" ]; then
                 # Task ARN format: arn:aws:ecs:REGION:ACCOUNT:task/CLUSTER/TASKID
                 DETECTED_REGION=$(echo "${TASK_METADATA}" | grep -o '"TaskARN":"arn:aws:ecs:[^:]*' | cut -d: -f4)
@@ -177,7 +226,7 @@ KUBECONFIG
         export AWS_REGION="${AWS_REGION:-us-east-1}"
     fi
 
-    configure_agent_defaults
+    startup_step configure_agent_defaults
 
     # Warn if S3 audit is not configured
     if [ -z "${S3_AUDIT_ESCROW}" ] && { [ -z "${S3_AUDIT_BUCKET}" ] || [ -z "${CLUSTER_ID}" ] || [ -z "${INVESTIGATION_ID}" ]; }; then
@@ -196,13 +245,10 @@ KUBECONFIG
     # runuser); the actual workload drops to sre here.
     runuser -u sre -- "${@:-sleep infinity}" &
     CHILD_PID=$!
-    wait ${CHILD_PID}
-    EXIT_CODE=$?
-
-    # Sync on normal exit too, after quiescing managed home updates.
-    stop_skill_reconciler
-    sync_to_s3
-    exit ${EXIT_CODE}
+    local rc=0
+    wait "$CHILD_PID" || rc=$?
+    CHILD_PID=""
+    cleanup "$rc"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

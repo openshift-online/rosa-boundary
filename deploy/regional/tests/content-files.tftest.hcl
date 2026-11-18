@@ -174,6 +174,18 @@ run "default_files_and_mounts" {
     )
     error_message = "Content volumes must use S3 Files ARNs and read-only mounts at prefix-derived paths, not ephemeral sync storage."
   }
+  # Compare the actual entrypoint watchdog (including SIGKILL grace)
+  # against the rendered main container, reserving at least ten seconds.
+  assert {
+    condition = (
+      tonumber(regex("(?m)^METADATA_SECONDS=([0-9]+)$", file("${path.module}/../../entrypoint.sh"))[0]) +
+      tonumber(regex("(?m)^SHUTDOWN_SECONDS=([0-9]+)$", file("${path.module}/../../entrypoint.sh"))[0]) +
+      tonumber(regex("(?m)^KILL_GRACE_SECONDS=([0-9]+)$", file("${path.module}/../../entrypoint.sh"))[0]) + 10
+      <= one(jsondecode(aws_ecs_task_definition.rosa_boundary.container_definitions)).stopTimeout
+    )
+    error_message = "The whole shutdown watchdog plus kill grace must leave ten seconds before ECS SIGKILL."
+  }
+
   assert {
     condition = (
       length(jsondecode(aws_ecs_task_definition.rosa_boundary.container_definitions)) == 1 &&

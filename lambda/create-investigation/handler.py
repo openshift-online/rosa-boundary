@@ -483,13 +483,18 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
         Access point dict or None if not found
     """
     expected_path = f"/{cluster_id}/{investigation_id}"
+    match = None
     try:
         paginator = efs.get_paginator('describe_access_points')
         for page in paginator.paginate(FileSystemId=efs_filesystem_id):
             for ap in page.get('AccessPoints', []):
+                tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
+                # A seal applies to the workspace, not just this mount handle. Scan
+                # all pages so an older, duplicate AP cannot hide a sealed one.
+                if ap.get('RootDirectory', {}).get('Path') == expected_path and 'AuditCloseSeal' in tags:
+                    raise HandoverFailedError('Workspace sealed for audit verification; contact the operator', status_code=409)
                 if ap.get('LifeCycleState') != 'available':
                     continue
-                tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
                 if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
                     continue
                 # Verify the root path matches what the tags claim — guards against tag
@@ -501,10 +506,13 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                         f"expected {expected_path!r}, got {actual_path!r}; skipping"
                     )
                     continue
-                return ap
-    except ClientError as e:
-        logger.warning(f"Failed to search for existing access points: {str(e)}")
-    return None
+                if match is not None:
+                    raise HandoverFailedError('Multiple access points match the workspace; contact the operator', status_code=409)
+                match = ap
+    except ClientError:
+        logger.error('Cannot determine whether the investigation workspace is sealed')
+        raise
+    return match
 
 
 def register_investigation_task_definition(

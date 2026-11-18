@@ -49,7 +49,8 @@ stateDiagram-v2
     end note
 
     note right of InvestigationClosed
-        - Owner-only CLI operation; refuses active sessions unless --force
+        - Owner-only CLI operation; requires independent verified receipt
+        - --force permits stopping tasks, not bypassing audit verification
         - Task definitions deregistered
         - EFS access point deleted
     end note
@@ -349,8 +350,9 @@ What it does:
 Closing the session does not close its investigation or delete the reusable workspace.
 Without a terminal, `session close` requires `--yes`; `-o json` returns a
 single status document on stdout and human-readable authentication guidance on stderr.
-The entrypoint warns and continues on sync failure or timeout. Check the container
-log for warnings and verify the object in S3 before treating audit escrow as complete.
+A failed upload or report write produces a nonzero shutdown result. A killed
+process might produce no report at all. Neither status zero nor a nonempty
+prefix is proof that all eligible bytes reached S3.
 
 ## Verify Audit Evidence
 
@@ -383,11 +385,97 @@ aws s3 ls 's3://<audit-bucket>/<cluster-id>/<investigation-id>/<YYYYMMDD>/<task-
   --recursive --region '<region>'
 ```
 
-Confirm that the harmless test file is present in S3 and that the session log
-has the expected activity. Empty or missing evidence must be investigated;
-STOPPED is insufficient. Credential mounts (`.config/ocm` and `.kube`) are excluded
-from the sync and should not appear in audit escrow. Protect downloaded audit
-artifacts under the deployment's retention and access policies.
+Use the container stream for the **specified task**, not just the latest stream.
+Find its `audit_sync` start and terminal events and record the investigation,
+task, attempt UUID and exact destination (an explicit escrow base can differ
+from the generated base above). Under `attempts/<uuid>/`, `workspace/` holds
+data and `report.json` records the transfer. A matching `transfer_rc: 0` means
+the CLI reported success, **not** that a concurrent writer was quiescent. A
+failed or missing report leaves that task attempt unverified, even if every
+expected object appears to exist. Never substitute a previous task's report.
+
+Compare the exact set of relative keys, lengths and SHA-256 digests with an
+independent manifest from the agreed write cut-off. Exclude credential mounts
+(`.config/ocm/`, `.kube/`) and do not traverse symlinks. Verify the downloaded
+bytes, not multipart ETags. Keep version IDs with the verified manifest in
+restricted audit storage; do not attach paths, file contents or raw transcripts
+to tickets. A mutable workspace without an independent cut-off cannot establish
+what a historical session contained.
+
+For a task attempt, `scripts/verify_workspace.py` performs this comparison with
+read-only S3 calls. Prepare a private UTF-8 JSON array from the independent
+cut-off manifest; each entry has `key` (eligible relative path), `length`
+(bytes), and `sha256` (lowercase hex). Use the audit-reader identity and a
+private directory outside the sync tree. Supply the exact `workspace/` URI
+from the task's attempt (including its trailing slash):
+
+```bash
+uv run --group localstack python scripts/verify_workspace.py \
+  --workspace-uri "$WORKSPACE_URI" --manifest "$PRIVATE_DIR/cutoff.json" \
+  --evidence "$PRIVATE_DIR/$ATTEMPT-comparison.json"
+```
+
+The dependency group supplies boto3, not a LocalStack endpoint. A successful
+comparison pins object versions in manifest order. Keep both evidence and
+manifest; this command does not authorize deletion or verify a shared reaper
+backup prefix.
+
+**If verification fails:** keep the AP and EFS data. Before the configured reaper
+grace expires, coordinate a hold with the operator. Use an authorized recovery
+session on the retained investigation, or have the operator make a separate
+read-only recovery copy under a new destination while writers are quiescent.
+Verify the *whole* recovery copy, not just the missing keys. A successful
+recovery does not change the original attempt's result. The scheduled reaper's
+`reaper-final-backup/` is a separate recovery destination, not task evidence.
+If necessary bytes are gone or recovery cannot be verified, do not authorize
+close: assign an incident owner and an escalation deadline.
+
+### Authorize close after verification (deployment operator)
+
+This procedure needs a separate privileged operator; do not give the task or
+shared SRE role permission to issue receipts or tag access points. Deploy the
+updated create/reaper Lambdas, IAM and CLI together before using it. On old
+images there may be no task reports; recover and verify independently instead.
+
+1. Identify the exact regional audit bucket, filesystem and AP. Inventory all
+   APs that can reach **any part** of the investigation tree, including a
+   root (`/`) reaper AP. Check the effective filesystem and IAM policies and
+   identify the clients using those mounts; an AP named for the reaper is not
+   proof that only the reaper can use it. Coordinate a maintenance window
+   with those clients' owners: stop new launches, drain in-flight create/reaper
+   invocations and stop all tasks, including pending and stopping ones. A
+   disconnected shell, an empty recent ECS listing, or an AP tag by itself
+   is **not a write barrier**. Do not proceed with alternate writers or unknown
+   unresolved sessions. Keep the workspace quiescent until close completes.
+2. Tag the AP with `AuditCloseSeal=<fresh lowercase UUIDv4>` and
+   `AuditCloseBucket=<regional audit bucket>`. A sealed workspace is not
+   available for regular session creation; sealing does not revoke an existing
+   mount. Never reuse a seal. Before resuming work, remove `AuditCloseVerified`
+   first, then the seal; verification must start over with a new UUID.
+3. Recheck quiescence. Reconcile all required task transfers or verified recovery
+   with the independent manifest. Preserve the immutable manifest/version
+   references in access-controlled audit storage. **Only after verification**,
+   issue a small JSON receipt to the regional audit bucket at
+   `_boundary-close/<access-point-id>/<seal>.json` (create only, e.g. S3
+   PutObject with `If-None-Match: *`). Example shape, not evidence:
+
+   ```json
+   {"schema_version":1,"cluster_id":"<cluster>","investigation_id":"<investigation>","access_point_id":"<fsap-id>","seal":"<uuid>","status":"verified","manifest_ref":"<immutable verification evidence reference>"}
+   ```
+
+4. Read back the receipt and confirm the manifest reference and exact AP/seal.
+   Last, set `AuditCloseVerified=<same seal>` on this AP. This authorizes
+   deletion; never set it on a failed, stale or unreadable receipt. The CLI
+   reads the operator receipt, not the task's self-report, and performs no
+   backup of its own. An unreadable receipt or mismatched tags block close.
+
+If verification was granted prematurely, remove **only `AuditCloseVerified`**
+from the affected AP immediately. Leave the seal in place as a retention hold.
+Read the tags back and confirm `investigation close --dry-run` reports that
+finalization is blocked. Preserve the original receipt and its version for
+incident review; do not reauthorize its seal. Assign the hold to an operator
+and record a review deadline. A hold prevents routine cleanup, not writes
+through an existing mount.
 
 ## Phase 6: Close Investigation
 
@@ -403,7 +491,7 @@ What it does:
 1. Verifies that the authenticated creator's OIDC subject matches the access point's `oidc_sub` tag and that the access point is Lambda-managed; missing owner tags fail closed. Another SRE can join an authorized shared investigation but cannot close it through the CLI.
 2. Resolves and previews the complete plan (account, region, cluster, filesystem, access point, active session IDs, and matching task definitions) **before** any mutation. `--dry-run` is read-only. A noninteractive close needs `--yes` unless dry-running.
 3. Refuses active, pending, or still-shutting-down sessions without `--force`. With `--force`, plans stops for active sessions and waits for those already stopping to reach STOPPED before deregistering definitions or deleting the access point. The CLI rechecks the plan before mutation; changes require a new preview. Treat partial failures as incomplete and check the reported remaining actions.
-4. Leaves stored EFS data intact after access-point deletion. Verify S3 audit escrow independently; task STOPPED alone does not prove the sync worked.
+4. Requires a verified operator seal and matching S3 receipt before deregistration or AP deletion. A forced stop is not authorization: rerun after verification. Deleting the access point does not erase the EFS directory.
 
 Both positional IDs are required. Ensure the selected profile has the correct
 `efs_filesystem_id` and ECS cluster. CLI owner validation does **not** constrain

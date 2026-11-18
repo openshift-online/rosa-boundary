@@ -96,7 +96,10 @@ resource "aws_iam_role_policy" "task_s3" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["s3:PutObject"], Resource = "${aws_s3_bucket.audit.arn}/*" },
-      { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.audit.arn }
+      { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.audit.arn },
+      # A workload's transfer report is not independent verification. Reserve
+      # close receipts for the operator and final backups for the reaper.
+      { Effect = "Deny", Action = ["s3:PutObject"], Resource = ["${aws_s3_bucket.audit.arn}/_boundary-close/*", "${aws_s3_bucket.audit.arn}/*/*/reaper-final-backup/*"] }
     ]
   })
 }
@@ -233,11 +236,17 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
       {
         # Dynamic access-point IDs require this original region/account scope;
         # deletion remains restricted to Lambda-managed access points by tag.
-        Sid       = "EFSDeleteManagedAccessPoints"
-        Effect    = "Allow"
-        Action    = ["elasticfilesystem:DeleteAccessPoint"]
-        Resource  = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
-        Condition = { StringEquals = { "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda" } }
+        Sid      = "EFSDeleteManagedAccessPoints"
+        Effect   = "Allow"
+        Action   = ["elasticfilesystem:DeleteAccessPoint"]
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/ManagedBy"          = "rosa-boundary-lambda"
+            "aws:ResourceTag/AuditCloseVerified" = "$${aws:ResourceTag/AuditCloseSeal}"
+          }
+          Null = { "aws:ResourceTag/AuditCloseSeal" = "false" }
+        }
       },
       {
         # The SSM API cannot inspect ECS tags; ECS ExecuteCommand enforces ABAC.
@@ -262,6 +271,12 @@ resource "aws_iam_role_policy" "sre_shared_ecs_exec" {
         Effect   = "Allow"
         Action   = ["kms:Decrypt", "kms:GenerateDataKey"]
         Resource = "*"
+      },
+      {
+        Sid      = "ReadCloseReceipt"
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.audit.arn}/_boundary-close/fsap-*/*.json"
       }
     ]
   })

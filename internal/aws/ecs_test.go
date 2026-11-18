@@ -239,22 +239,37 @@ func testInvestigationECSClient(endpoint string) *ECSClient {
 	})}
 }
 
-func TestTaskDefinitionAccessPointRejectsNameOnlyMatch(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if got := r.Header.Get("X-Amz-Target"); got != "AmazonEC2ContainerServiceV20141113.DescribeTaskDefinition" {
-			t.Errorf("unexpected operation %q", got)
-		}
-		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
-		_, _ = w.Write([]byte(`{"taskDefinition":{"volumes":[{"name":"sre-home","efsVolumeConfiguration":{"fileSystemId":"fs-example","authorizationConfig":{"accessPointId":"fsap-other"}}}]}}`))
-	}))
-	defer server.Close()
-	client := &ECSClient{cluster: "ecs-cluster", client: ecs.New(ecs.Options{
-		BaseEndpoint: aws.String(server.URL), Region: "us-east-1",
-		Credentials: StaticCredentialsProvider(&TemporaryCredentials{AccessKeyID: "test", SecretAccessKey: "test", SessionToken: "test"}),
-	})}
-	got, err := client.TaskDefinitionAccessPoint(context.Background(), "arn:aws:ecs:us-east-1:123456789012:task-definition/ecs-cluster-a-b-c-20261105T210000:1")
-	if err != nil || got != "fsap-other" {
-		t.Fatalf("access point = %q, error %v", got, err)
+func TestActiveTaskDefinitionAccessPoint(t *testing.T) {
+	const arn = "arn:aws:ecs:us-east-1:123456789012:task-definition/ecs-cluster-a-b-c-20261105T210000:1"
+	for _, tc := range []struct {
+		name, describedARN, status, wantAP string
+		wantErr                            bool
+	}{
+		{"active uses actual mount", arn, "ACTIVE", "fsap-other", false},
+		{"inactive despite listed mount", arn, "INACTIVE", "", false},
+		{"missing status", arn, "", "", true},
+		{"unexpected status", arn, "DELETE_IN_PROGRESS", "", true},
+		{"inactive wrong revision", arn + "0", "INACTIVE", "", true},
+		{"inactive missing ARN", "", "INACTIVE", "", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if got := r.Header.Get("X-Amz-Target"); got != "AmazonEC2ContainerServiceV20141113.DescribeTaskDefinition" {
+					t.Errorf("unexpected operation %q", got)
+				}
+				w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+				status := ""
+				if tc.status != "" {
+					status = `"status":"` + tc.status + `",`
+				}
+				_, _ = w.Write([]byte(`{"taskDefinition":{` + status + `"taskDefinitionArn":"` + tc.describedARN + `","volumes":[{"name":"sre-home","efsVolumeConfiguration":{"fileSystemId":"fs-example","authorizationConfig":{"accessPointId":"fsap-other"}}}]}}`))
+			}))
+			defer server.Close()
+			got, err := testInvestigationECSClient(server.URL).ActiveTaskDefinitionAccessPoint(context.Background(), arn)
+			if (err != nil) != tc.wantErr || got != tc.wantAP {
+				t.Fatalf("access point = %q, err = %v; want %q, wantErr %t", got, err, tc.wantAP, tc.wantErr)
+			}
+		})
 	}
 }
 

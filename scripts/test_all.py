@@ -17,12 +17,21 @@ sys.path.insert(0, str(ROOT / "tests/localstack"))
 from check_ready import NotReady, require_ready
 
 
+# Trusted Actions is a separate Go module with its own Makefile, lint/format
+# tooling, and tests. Root Make/test-all gates must not cover it (see AGENTS.md).
+SEPARATE_COMPONENTS = ("components/trusted-actions/",)
+
+
 def source_files(root=ROOT):
-    """Include working-tree edits/new files, but never ignored secrets or state."""
+    """Boundary working-tree files only: no ignored secrets/state, no separate components."""
     names = subprocess.check_output(
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=root
     ).decode().split("\0")
-    return sorted({name for name in names if name and (root / name).is_file() and not (root / name).is_symlink()})
+    return sorted({
+        name for name in names
+        if name and (root / name).is_file() and not (root / name).is_symlink()
+        and not name.startswith(SEPARATE_COMPONENTS)
+    })
 
 
 def junit_status(path):

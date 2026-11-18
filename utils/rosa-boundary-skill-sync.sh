@@ -74,7 +74,7 @@ main() {
         # rejecting symlinks; a subshell closes the descriptor after each pass.
         if ! (
             [ ! -L "${lock}" ] || exit 1
-            exec 9> "${lock}" || exit 1
+            exec 9>"${lock}" || exit 1
             if flock --nonblock 9; then
                 sync_home_skills "${source}" "${HOME}"
             fi

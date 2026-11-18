@@ -1072,6 +1072,22 @@ class TestSkipTask:
         assert result is not None
         assert result['AccessPointId'] == 'fsap-match'
 
+    @patch.dict('os.environ', ENV_VARS)
+    def test_sealed_workspace_refused_before_handover(self):
+        ap = {'AccessPointId': 'fsap-old', 'LifeCycleState': 'available',
+              'RootDirectory': {'Path': '/test-cluster/test-inv'},
+              'Tags': [{'Key': 'ClusterID', 'Value': 'test-cluster'},
+                       {'Key': 'InvestigationID', 'Value': 'test-inv'}]}
+        sealed = dict(ap, AccessPointId='fsap-sealed', Tags=[{'Key': 'AuditCloseSeal', 'Value': ''}])
+        with patch('handler.efs') as efs, patch('handler.ecs') as ecs:
+            efs.get_paginator.return_value.paginate.return_value = [
+                {'AccessPoints': [ap]}, {'AccessPoints': [sealed]}]
+            with pytest.raises(handler.HandoverFailedError, match='sealed'):
+                handler.create_investigation_task('ecs', 'def', 'sub', 'user', 'uuid', 'uuid',
+                                                  'test-inv', 'test-cluster', [], 'sg', 'fs')
+            assert not ecs.mock_calls
+            efs.create_access_point.assert_not_called()
+
     def test_find_existing_access_point_skips_non_available(self):
         """Test that access points not in 'available' state are skipped."""
         with patch('handler.efs') as mock_efs:

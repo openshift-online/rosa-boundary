@@ -1,11 +1,13 @@
 """Regression coverage for close-investigation task-definition cleanup."""
 
+import hashlib
 import json
 import os
 import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 
@@ -48,6 +50,46 @@ def close_cli_env(localstack_cli_env, test_efs):
         return env
 
     return configure
+
+
+@pytest.fixture
+def stage_operator_receipt(s3_client, efs_client):
+    """Model independent operator evidence outside the task/CLI identity."""
+    bucket = f'close-audit-{uuid4().hex}'
+    region = s3_client.meta.region_name
+    location = {} if region == 'us-east-1' else {
+        'CreateBucketConfiguration': {'LocationConstraint': region},
+    }
+    s3_client.create_bucket(Bucket=bucket, **location)
+    keys = []
+
+    def stage(cluster, investigation, ap):
+        seal = str(uuid4())
+        key = f'_boundary-close/{ap}/{seal}.json'
+        body = json.dumps({
+            'schema_version': 1, 'cluster_id': cluster, 'investigation_id': investigation,
+            'access_point_id': ap, 'seal': seal, 'status': 'verified',
+            'manifest_ref': f'operator-manifests/{seal}',
+        }).encode()
+        assert len(body) <= 16 * 1024
+        # Split these steps to test that tags alone cannot authorize deletion.
+        efs_client.tag_resource(ResourceId=ap, Tags=[
+            {'Key': 'AuditCloseBucket', 'Value': bucket},
+            {'Key': 'AuditCloseSeal', 'Value': seal},
+            {'Key': 'AuditCloseVerified', 'Value': seal},
+        ])
+
+        def publish():
+            keys.append(key)
+            s3_client.put_object(Bucket=bucket, Key=key, Body=body, ContentType='application/json')
+            return hashlib.sha256(body).hexdigest()
+
+        return publish
+
+    yield stage
+    for key in keys:
+        s3_client.delete_object(Bucket=bucket, Key=key)
+    s3_client.delete_bucket(Bucket=bucket)
 
 
 def _load_sre_policy_source():
@@ -124,7 +166,8 @@ def test_sre_policy_allows_scoped_access_point_deletion():
     # ...and it must be restricted to Boundary-managed access points via the
     # authoritative ManagedBy tag (see lambda/create-investigation/handler.py),
     # so unrelated / non-Boundary access points are not deletable.
-    assert '"aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"' in statement
+    assert re.search(r'"aws:ResourceTag/ManagedBy"\s*=\s*"rosa-boundary-lambda"', statement)
+    assert re.search(r'"aws:ResourceTag/AuditCloseVerified"\s*=\s*"\$\$\{aws:ResourceTag/AuditCloseSeal\}"', statement)
 
 
 @pytest.mark.integration
@@ -205,7 +248,7 @@ def test_close_cleanup_family_prefix_excludes_other_investigations(ecs_client, e
     assert other_family not in listed_families
 
 @pytest.mark.integration
-def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client, efs_client, test_efs, ecs_cleanup, close_cli_env, localstack_cli_binary):
+def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client, efs_client, test_efs, ecs_cleanup, close_cli_env, localstack_cli_binary, stage_operator_receipt):
     """
     The CLI must require a cluster even when only one investigation matches,
     then close exactly the explicitly selected target.
@@ -298,23 +341,26 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
     assert ap_id in [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
     efs_client.tag_resource(ResourceId=ap_id, Tags=[{'Key': 'oidc_sub', 'Value': 'localstack-test-sre'}])
 
+    publish = stage_operator_receipt(cluster_id, investigation_id, ap_id)
+    cmd = [str(bin_path), '--profile', 'localstack-close', 'investigation', 'close',
+           cluster_id, investigation_id, '--yes']
+    refused = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
+    assert refused.returncode != 0
+    assert 'cannot read operator receipt' in refused.stderr
+    assert efs_client.describe_access_points(AccessPointId=ap_id)['AccessPoints'][0]['AccessPointId'] == ap_id
+    assert ecs_client.describe_task_definition(taskDefinition=target_definition)['taskDefinition']['status'] == 'ACTIVE'
+
+    digest = publish()
     preview = subprocess.run([
         str(bin_path), '--profile', 'localstack-close', 'investigation', 'close',
         cluster_id, investigation_id, '--dry-run', '-o', 'json',
     ], env=env, capture_output=True, text=True, timeout=10)
     assert preview.returncode == 0, preview.stderr
     plan = json.loads(preview.stdout)
+    assert plan['receipt_sha256'] == digest
     assert plan['access_point_id'] == ap_id
     assert plan['task_definitions_to_deregister'] == [target_definition], plan
     assert ap_id in [ap['AccessPointId'] for ap in efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']]
-
-    # Run the close command with the required cluster/investigation pair.
-    cmd = [
-        str(bin_path),
-        '--profile', 'localstack-close',
-        'investigation', 'close', cluster_id, investigation_id,
-        "--yes"
-    ]
 
     result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=10)
 
@@ -333,7 +379,7 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
 
 
 @pytest.mark.integration
-def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_client, test_efs, ecs_cleanup, close_cli_env, localstack_cli_binary):
+def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_client, test_efs, ecs_cleanup, close_cli_env, localstack_cli_binary, stage_operator_receipt):
     """
     A shared investigation ID requires an explicit, exact cluster; omitting
     or mistyping it must not delete either access point.
@@ -398,6 +444,8 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
     assert set(ap_ids).issubset(remaining_ids), 'Wrong cluster must not delete either investigation'
 
     # Now explicitly select one cluster; the other must remain untouched.
+    publish = stage_operator_receipt(cluster_id_1, investigation_id, ap_ids[0])
+    publish()
     cmd_with_cluster = [
         str(bin_path),
         '--profile', 'localstack-close',
@@ -421,7 +469,7 @@ def test_close_investigation_detects_ambiguous_investigation_id(ecs_client, efs_
     ECS_EXECUTOR == 'local',
     reason=f'ECS_EXECUTOR=local: tasks never reach RUNNING state so reaper finds 0 tasks (current: {ECS_EXECUTOR})'
 )
-def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test_efs, test_vpc, efs_client, ecs_cleanup, close_cli_env, localstack_cli_binary):
+def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test_efs, test_vpc, efs_client, ecs_cleanup, close_cli_env, localstack_cli_binary, stage_operator_receipt):
     """
     Verify that investigation close with --force only stops tasks matching both
     the investigation ID and cluster ID, not tasks from other clusters with the
@@ -555,7 +603,20 @@ def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test
     # normal container shutdown plus waiter polling. Keep a bounded E2E budget.
     result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=120)
 
-    assert result.returncode == 0, f"Command should succeed: {result.stderr}\nStdout: {result.stdout}"
+    assert result.returncode != 0
+    assert 'cannot finalize investigation' in result.stderr
+    assert task_arns[0].split('/')[-1] in result.stderr
+    retained = efs_client.describe_access_points(FileSystemId=test_efs)['AccessPoints']
+    assert set(ap_ids).issubset(ap['AccessPointId'] for ap in retained)
+    stopped = ecs_client.describe_tasks(cluster=cluster_name, tasks=[task_arns[0]])['tasks']
+    assert stopped[0]['lastStatus'] == 'STOPPED'
+
+    # Shutdown does not authorize deletion. Verify independently, then retry idle.
+    publish = stage_operator_receipt(cluster_id_1, investigation_id, ap_ids[0])
+    publish()
+    cmd.remove('--force')
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stderr
 
     # Verify only the first cluster's access point was deleted
     access_points = efs_client.describe_access_points(FileSystemId=test_efs)
@@ -563,25 +624,10 @@ def test_close_investigation_only_stops_tasks_from_same_cluster(ecs_client, test
     assert ap_ids[0] not in remaining_ids, "First cluster's access point should be deleted"
     assert ap_ids[1] in remaining_ids, "Second cluster's access point should still exist"
 
-    # Verify the output mentions the correct cluster and task stop
     assert cluster_id_1 in result.stderr, "Output should show the correct cluster ID"
     assert cluster_id_2 not in result.stderr, "Output should not mention the other cluster"
 
-    # Check task states: cluster_id_1's task should be stopped/stopping, cluster_id_2's should still be running
-    desc_after = ecs_client.describe_tasks(cluster=cluster_name, tasks=task_arns)
-
-    # Map tasks by ARN for reliable lookup
-    tasks_after_by_arn = {task['taskArn']: task for task in desc_after['tasks']}
-    assert len(tasks_after_by_arn) == 2, f"Expected 2 tasks in response, got {len(tasks_after_by_arn)}"
-    assert task_arns[0] in tasks_after_by_arn, f"Task {task_arns[0]} not found in post-close response"
-    assert task_arns[1] in tasks_after_by_arn, f"Task {task_arns[1]} not found in post-close response"
-
-    # Task 1 (cluster_id_1) should be stopped or stopping
-    task1_status = tasks_after_by_arn[task_arns[0]]['lastStatus']
-    assert task1_status in ['STOPPED', 'STOPPING', 'DEACTIVATING'], \
-        f"Task for cluster_id_1 ({task_arns[0]}) should be stopped/stopping, got {task1_status}"
-
-    # Task 2 (cluster_id_2) should still be running (not stopped by close-investigation)
-    task2_status = tasks_after_by_arn[task_arns[1]]['lastStatus']
-    assert task2_status in ['RUNNING', 'PENDING', 'PROVISIONING'], \
-        f"Task for cluster_id_2 ({task_arns[1]}) should still be running, got {task2_status} - it should NOT have been stopped"
+    tasks = ecs_client.describe_tasks(cluster=cluster_name, tasks=task_arns)['tasks']
+    assert {task['taskArn']: task['lastStatus'] for task in tasks} == {
+        task_arns[0]: 'STOPPED', task_arns[1]: 'RUNNING',
+    }

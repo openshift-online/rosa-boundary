@@ -73,9 +73,18 @@ func (c *ECSClient) DescribeTask(ctx context.Context, taskID string) (*TaskSumma
 	return taskToSummary(out.Tasks[0], c.cluster), nil
 }
 
+// runningPollInterval is the fixed delay between DescribeTasks calls while a
+// task starts. The SDK default backs off exponentially from 6 s toward 600 s,
+// which routinely notices a RUNNING task tens of seconds late.
+var runningPollInterval = 2 * time.Second
+
 // WaitForRunning polls until the task reaches RUNNING state or the context is cancelled.
 func (c *ECSClient) WaitForRunning(ctx context.Context, taskID string) error {
-	waiter := ecs.NewTasksRunningWaiter(c.client)
+	// Equal minimum and maximum delays disable the waiter's backoff and jitter.
+	waiter := ecs.NewTasksRunningWaiter(c.client, func(o *ecs.TasksRunningWaiterOptions) {
+		o.MinDelay = runningPollInterval
+		o.MaxDelay = runningPollInterval
+	})
 	return waiter.Wait(ctx, &ecs.DescribeTasksInput{
 		Cluster: aws.String(c.cluster),
 		Tasks:   []string{taskID},

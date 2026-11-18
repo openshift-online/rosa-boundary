@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ecs"
@@ -400,5 +402,34 @@ func TestListTasksByInvestigation_FiltersByBothTags(t *testing.T) {
 	// Should exclude tasks with different investigation_id
 	if found["task-3"] {
 		t.Error("should not include task-3 (different investigation: inv-2)")
+	}
+}
+
+func TestWaitForRunningPollsAtFixedIntervalWithoutBackoff(t *testing.T) {
+	const pendingPolls = 6
+	var polls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		status := "PENDING"
+		if polls.Add(1) > pendingPolls {
+			status = "RUNNING"
+		}
+		_, _ = w.Write([]byte(`{"tasks":[{"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/task-1","lastStatus":"` + status + `"}]}`))
+	}))
+	defer server.Close()
+
+	previous := runningPollInterval
+	runningPollInterval = 10 * time.Millisecond
+	defer func() { runningPollInterval = previous }()
+
+	// The SDK's default waiter sleeps at least 6 s per attempt and grows from
+	// there, so finishing several polls inside this deadline proves the override.
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := testInvestigationECSClient(server.URL).WaitForRunning(ctx, "task-1"); err != nil {
+		t.Fatalf("WaitForRunning: %v", err)
+	}
+	if got := polls.Load(); got != pendingPolls+1 {
+		t.Fatalf("expected %d polls, got %d", pendingPolls+1, got)
 	}
 }

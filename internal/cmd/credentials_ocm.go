@@ -214,17 +214,99 @@ func configureOCMForSession(ctx context.Context, ecsClient *awsclient.ECSClient,
 	if err := prepareCredentialSession(ctx, ecsClient, sessionID); err != nil {
 		return err
 	}
+	token, err := acquireOCMToken(ctx, environment, flow)
+	if err != nil {
+		return err
+	}
+	return uploadOCMToken(ctx, ecsClient, region, credentials, sessionID, environment, token)
+}
+
+// configureOCMWithPendingToken uploads a token whose authorization was started
+// while the task was still launching. A token that expired, or is about to,
+// during a slow launch is replaced by a fresh authorization.
+func configureOCMWithPendingToken(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, pending *pendingOCMToken) error {
+	defer pending.Discard()
+	if err := prepareCredentialSession(ctx, ecsClient, sessionID); err != nil {
+		return err
+	}
+	token, err := pending.Wait(ctx)
+	if err != nil {
+		return err
+	}
+	if ocmTokenNearExpiry(token, time.Now()) {
+		token.AccessToken = ""
+		output.Status("OCM access token is too close to expiry after session startup; requesting another")
+		if token, err = acquireOCMToken(ctx, environment, flow); err != nil {
+			return err
+		}
+	}
+	return uploadOCMToken(ctx, ecsClient, region, credentials, sessionID, environment, token)
+}
+
+// ocmTokenMinimumRemaining is the least useful lifetime worth uploading.
+const ocmTokenMinimumRemaining = 2 * time.Minute
+
+func ocmTokenNearExpiry(token ocmcredentials.Token, now time.Time) bool {
+	return !token.Expiry.IsZero() && token.Expiry.Sub(now) < ocmTokenMinimumRemaining
+}
+
+// pendingOCMToken is an OCM authorization running alongside task startup.
+type pendingOCMToken struct {
+	cancel context.CancelFunc
+	done   chan struct{}
+	token  ocmcredentials.Token
+	err    error
+}
+
+// startOCMTokenAcquisition begins the interactive OCM authorization without
+// blocking, so the human approval overlaps the wait for the task to start.
+// Callers must call Discard on every path.
+func startOCMTokenAcquisition(ctx context.Context, environment ocmcredentials.Environment, flow ocmcredentials.Flow) *pendingOCMToken {
+	ctx, cancel := context.WithCancel(ctx)
+	pending := &pendingOCMToken{cancel: cancel, done: make(chan struct{})}
+	go func() {
+		defer close(pending.done)
+		pending.token, pending.err = acquireOCMToken(ctx, environment, flow)
+	}()
+	return pending
+}
+
+// Wait blocks until the authorization finishes and hands over the token.
+func (p *pendingOCMToken) Wait(ctx context.Context) (ocmcredentials.Token, error) {
+	select {
+	case <-p.done:
+	case <-ctx.Done():
+		return ocmcredentials.Token{}, ctx.Err()
+	}
+	token, err := p.token, p.err
+	p.token.AccessToken = ""
+	return token, err
+}
+
+// Discard stops an unfinished authorization and drops any unused token.
+func (p *pendingOCMToken) Discard() {
+	p.cancel()
+	<-p.done
+	p.token.AccessToken = ""
+}
+
+func acquireOCMToken(ctx context.Context, environment ocmcredentials.Environment, flow ocmcredentials.Flow) (ocmcredentials.Token, error) {
 	output.Status("Requesting a fresh OCM access token for %s...", environment.Name)
 	acquirer := newOCMTokenAcquirer()
 	token, err := acquirer.Acquire(ctx, flow)
 	if err != nil {
-		return fmt.Errorf("OCM authentication failed; verify the selected OCM environment and complete the requested approval before retrying: %w", err)
+		return ocmcredentials.Token{}, fmt.Errorf("OCM authentication failed; verify the selected OCM environment and complete the requested approval before retrying: %w", err)
 	}
 	if token.Expiry.IsZero() {
 		output.Status("Fresh OCM access token acquired; server supplied no expiry")
 	} else {
 		output.Status("Fresh OCM access token acquired; expires at %s", token.Expiry.Format(time.RFC3339))
 	}
+	return token, nil
+}
+
+// uploadOCMToken requires prepareCredentialSession to have succeeded first.
+func uploadOCMToken(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, token ocmcredentials.Token) error {
 	request, err := ocmcredentials.MarshalRequest(token.AccessToken, environment)
 	token.AccessToken = ""
 	if err != nil {

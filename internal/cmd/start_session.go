@@ -138,6 +138,25 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	ecsCluster := cfg.ClusterName
 	ecsClient := awsclient.NewECSClient(cfg.AWSRegion, ecsCluster, credProvider)
 
+	// Start the OCM authorization before waiting so the human approval overlaps
+	// task startup instead of following it. This spends roughly the startup time
+	// of the token's lifetime. It begins only after the Boundary role assumption
+	// above, so two interactive sign-ins never compete. An absent local OCM URL
+	// is recoverable: the task remains usable and the user can retry with
+	// --ocm-url on the configure command.
+	var pendingOCM *pendingOCMToken
+	var ocmErr error
+	if configureOCM {
+		if ocmEnvironment.Name == "" {
+			ocmEnvironment, ocmErr = ocmcredentials.ResolveEnvironment(startOCMURL)
+		}
+		if ocmErr == nil {
+			output.Status("\n=== Authorizing OCM while the session starts ===")
+			pendingOCM = startOCMTokenAcquisition(cmd.Context(), ocmEnvironment, ocmFlow)
+			defer pendingOCM.Discard()
+		}
+	}
+
 	// Step 3: Wait for RUNNING (unless --no-wait)
 	if !startNoWait {
 		output.Status("\n=== Step 3: Waiting for session to be RUNNING ===")
@@ -154,20 +173,14 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		output.Warning("%s", credentialWarning)
 	}
 
-	// Configure credentials only after the task and exec agent are ready, keeping
-	// the freshly issued OCM token's useful lifetime as long as possible.
+	// Upload only after the task and exec agent are ready.
 	if configureOCM {
 		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
-		// An absent local OCM URL is recoverable: the task remains usable and
-		// the user can retry with --ocm-url on the configure command.
-		if ocmEnvironment.Name == "" {
-			ocmEnvironment, err = ocmcredentials.ResolveEnvironment(startOCMURL)
+		if ocmErr == nil {
+			ocmErr = configureOCMWithPendingToken(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, ocmEnvironment, ocmFlow, pendingOCM)
 		}
-		if err == nil {
-			err = configureOCMForSession(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, ocmEnvironment, ocmFlow)
-		}
-		if err != nil {
-			credentialWarning = warnStartCredentialFailure(investigationID, sessionID, ecsCluster, cfg.AWSRegion, ocmEnvironment, ocmFlow, err)
+		if ocmErr != nil {
+			credentialWarning = warnStartCredentialFailure(investigationID, sessionID, ecsCluster, cfg.AWSRegion, ocmEnvironment, ocmFlow, ocmErr)
 			configureOCM = false
 		}
 	}

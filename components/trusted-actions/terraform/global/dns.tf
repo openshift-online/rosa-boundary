@@ -62,4 +62,3 @@ resource "aws_acm_certificate" "validation_anchor" {
   lifecycle { create_before_destroy = true }
   tags = { Purpose = "validation-anchor", Environment = var.environment }
 }
-

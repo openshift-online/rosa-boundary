@@ -430,7 +430,7 @@ aws ecs describe-tasks \
 - **Keycloak login issues**: Contact identity team
 - **Lambda invocation issues**: Contact AWS administrators
 - **AWS permission issues**: Check IAM role policies for tag-based access
-- **Container/tool issues**: Check container documentation in `/CLAUDE.md`
+- **Container/tool issues**: Check container guidance in `/home/sre/AGENTS.md`
 
 ## Next Steps
 

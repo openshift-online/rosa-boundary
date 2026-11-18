@@ -9,11 +9,12 @@ Infrastructure is split into two Terraform roots that must be applied in order:
 | **global**   | `terraform/global/`   | Account-wide: IAM, Secrets Manager, ACM validation CNAME                                                   | Once per account |
 | **regional** | `terraform/regional/` | One deployment per AWS region: VPC, ALB, ECS, EC2, EBS, S3 bucket, CloudWatch, Route 53 PHZ, regional ACM certificate | Once per region  |
 
-The regional root reads IAM ARNs and the Secrets Manager ARN directly from
-the global workspace's Terraform state via `terraform_remote_state`. No
-values need to be copied by hand. The S3 bucket is created directly in each
-regional workspace — `s3_bucket_name_suffix` must match the value set in the
-global workspace so its IAM wildcard ARN covers the bucket.
+The regional root reads IAM ARNs, the Secrets Manager ARN, and the public
+hosted zone ID directly from the global workspace's Terraform state via
+`terraform_remote_state`. No values need to be copied by hand. The S3 bucket
+is created directly in each regional workspace — `s3_bucket_name_suffix` must
+match the value set in the global workspace so its IAM wildcard ARN covers
+the bucket.
 
 ### Resource ownership and multi-region fan-out
 

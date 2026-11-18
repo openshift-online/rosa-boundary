@@ -98,19 +98,13 @@ variable "instance_type" {
 # ── DNS & TLS ─────────────────────────────────────────────────────────────────
 
 variable "internal_fqdn" {
-  description = "Private FQDN for the API (e.g. rosa-trusted-actions.internal.company.com). Creates the Route 53 Private Hosted Zone, alias A record, and (with public_zone_id) the regional ACM certificate. Leave empty to skip DNS and HTTPS."
-  type        = string
-  default     = ""
-}
-
-variable "public_zone_id" {
-  description = "Route 53 public hosted zone ID for the apex of internal_fqdn. Required for ACM certificate issuance — the validation CNAME is managed by the global workspace. Leave empty to skip the ACM certificate (HTTP only)."
+  description = "Private FQDN for the API (e.g. rosa-trusted-actions.internal.company.com). Creates the Route 53 Private Hosted Zone, alias A record, and the regional ACM certificate (when the global workspace resolved a public zone). Leave empty to skip DNS and HTTPS."
   type        = string
   default     = ""
 }
 
 variable "alb_certificate_arn" {
-  description = "ACM certificate ARN for the HTTPS listener. Set instead of public_zone_id when managing the certificate outside Terraform."
+  description = "ACM certificate ARN for the HTTPS listener. Set when the global workspace has no public zone (local ACM issuance impossible) or when managing the certificate outside Terraform."
   type        = string
   default     = ""
 }

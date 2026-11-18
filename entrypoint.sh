@@ -104,7 +104,7 @@ initialize_credential_mounts() {
 configure_agent_defaults() {
     if [ "${BOUNDARY_AI_USE_BEDROCK:-${CLAUDE_CODE_USE_BEDROCK:-1}}" = "1" ]; then
         runuser --user sre -- env HOME=/home/sre \
-            python3 /usr/local/libexec/rosa-boundary-agent-defaults.py || \
+            python3 /usr/local/libexec/rosa-boundary-agent-defaults.py ||
             echo "Warning: optional agent defaults helper failed; continuing startup" >&2
     fi
 }

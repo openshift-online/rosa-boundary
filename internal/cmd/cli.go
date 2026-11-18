@@ -219,7 +219,7 @@ func inputError(cmd *cobra.Command, err error) error {
 	if err == nil {
 		return nil
 	}
-	return fmt.Errorf("%w\nUsage: %s\nRun '%s --help' for details.", err, cmd.UseLine(), cmd.CommandPath())
+	return fmt.Errorf("%w\nUsage: %s\nRun '%s --help' for details", err, cmd.UseLine(), cmd.CommandPath())
 }
 
 func commandArgs(validate cobra.PositionalArgs) cobra.PositionalArgs {

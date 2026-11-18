@@ -16,12 +16,12 @@ func captureStopSessionOutput(t *testing.T, format string, waited bool) (string,
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stdout.Close()
+	defer func() { _ = stdout.Close() }()
 	stderr, err := os.CreateTemp(t.TempDir(), "stderr-")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stderr.Close()
+	defer func() { _ = stderr.Close() }()
 	oldOut, oldErr := os.Stdout, os.Stderr
 	os.Stdout, os.Stderr = stdout, stderr
 	defer func() { os.Stdout, os.Stderr = oldOut, oldErr }()

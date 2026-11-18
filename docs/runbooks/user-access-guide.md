@@ -155,7 +155,7 @@ stdout; failures have no success object. `login` returns `profile` and
 `authenticated`, `config init` returns `profile`, `active`, and `discovered`, and
 OCM credential operations return their action and session ID. Omitting a
 credential session ID returns a suggestion-only `selection_required` result;
-it never changes credentials. `session join` and `session create --connect`
+it never changes credentials. `session join` and `session create`
 require a controlling terminal: shell bytes go to `/dev/tty`, not JSON stdout,
 and the result appears only after successful shell exit. Disconnect is not
 task closure. Do not capture a device challenge into a shared CI log or file.
@@ -165,8 +165,8 @@ stdout (so existing result JSON is unchanged), drains stderr **while it runs**,
 and shows all diagnostics, including both providers' challenges, only on the
 operator's private terminal. It does not parse stderr or infer success from an
 approval. Invoke it with an approved channel to the SRE and a command such as
-`python3 approve_boundary.py ./bin/rosa-boundary session create CLUSTER --with-credentials ocm -o json`.
-Do not use this example for interactive `session join`, `session create --connect`, or
+`python3 approve_boundary.py ./bin/rosa-boundary session create CLUSTER --no-connect --with-credentials ocm -o json`.
+Do not use this example for interactive `session join`, `session create`, or
 manual `config init` (those need terminal input/session I/O).
 
 ```python
@@ -231,9 +231,11 @@ Never put an OCM token in the profile.
 
 ### Step 2: Start an Investigation Session
 
+Creation opens a shell by default. The example below uses `--no-connect` so you can save the session ID and join separately.
+
 ```bash
 ./bin/rosa-boundary --profile stage-east session create <cluster-id> \
-  --investigation-id <investigation-id>
+  --investigation-id <investigation-id> --no-connect
 ```
 
 This will:

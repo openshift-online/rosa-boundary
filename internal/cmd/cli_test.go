@@ -215,8 +215,8 @@ func TestSessionLifecycleHelpKeepsFlagsAndSeparation(t *testing.T) {
 		verb string
 		want []string
 	}{
-		{"create", []string{"create <cluster-id>", "--investigation-id", "--session-timeout", "--connect", "--no-wait", "--with-credentials", "--ocm-url", "--ocm-auth-flow"}},
-		{"close", []string{"close <session-id>", "without closing its investigation", "--reason", "--wait", "--yes"}},
+		{"create", []string{"create <cluster-id>", "--investigation-id", "--session-timeout", "--no-connect", "--no-wait", "--with-credentials", "--ocm-url", "--ocm-auth-flow"}},
+		{"close", []string{"close [session-id]", "without closing its investigation", "--reason", "--wait", "--yes", "--all"}},
 	} {
 		stdout, err := runTestCLI(t, "session", tc.verb, "--help")
 		if err != nil {
@@ -238,7 +238,7 @@ func TestSessionCreateCredentialFlagCombinationsBeforeAuthentication(t *testing.
 		want string
 	}{
 		{"default no-wait accepted", []string{"session", "create", "cluster", "--no-wait"}, "no active profile"},
-		{"explicit opt out accepted", []string{"session", "create", "cluster", "--with-credentials", "none"}, "no active profile"},
+		{"explicit opt out accepted", []string{"session", "create", "cluster", "--no-connect", "--with-credentials", "none"}, "no active profile"},
 		{"explicit OCM with no-wait rejected", []string{"session", "create", "cluster", "--no-wait", "--with-credentials", "ocm"}, "explicit --with-credentials ocm"},
 		{"OCM URL with opt out rejected", []string{"session", "create", "cluster", "--with-credentials", "none", "--ocm-url", "staging"}, "--ocm-url and --ocm-auth-flow require"},
 		{"OCM URL with no-wait rejected", []string{"session", "create", "cluster", "--no-wait", "--ocm-url", "staging"}, "--ocm-url and --ocm-auth-flow require"},

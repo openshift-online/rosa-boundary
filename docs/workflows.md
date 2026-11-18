@@ -19,7 +19,7 @@ flowchart TD
     CRED -->|No: --no-wait or --with-credentials none| READY["Report session ID; --no-wait warns credentials skipped"]
     OCM -->|Failure: warn with retry command| READY
     OCM --> READY
-    READY -->|"--connect or session join &lt;session-id&gt;"| EXEC["ECS Exec ABAC check; session-manager-plugin shell"]
+    READY -->|"default connection or session join &lt;session-id&gt;"| EXEC["ECS Exec ABAC check; session-manager-plugin shell"]
     EXEC --> EXIT["exit disconnects shell; ECS task keeps running"]
     EXIT --> STOP["session close &lt;session-id&gt; --wait"]
     STOP --> AUDIT["Verify CloudWatch logs, container sync and S3 evidence separately"]

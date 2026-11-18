@@ -29,8 +29,8 @@ SOP and skill rather than relying on a generic troubleshooting recipe.
   `~/.agents/skills/`.
 - Follow the relevant Backplane access skill/SOP to establish cluster access.
   Do not default to direct token-based `oc login`.
-- For OCM API interactions outside `ocm backplane`, use the `ocm-api` skill at
-  `/opt/rosa-content/rosa-claude-plugins/ocm-api/skills/ocm-api/SKILL.md`.
+- For OCM API interactions outside `ocm backplane`, use the available `ocm-api`
+  skill.
 - If required content, permissions, or credentials are unavailable, explain the
   blocker and ask the operator; do not substitute another access path or target.
 

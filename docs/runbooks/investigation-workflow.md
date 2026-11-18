@@ -134,7 +134,9 @@ and a profile-qualified cleanup command; OCM credentials are **not confirmed**.
 A RUNNING wait failure still returns nonzero; the session may already be
 STOPPED. Inspect `session list --status all` before retrying. `--no-wait`
 reports launch only. By default, the CLI separately requests a fresh OCM access
-token from the OCM issuer/client, not the cached Boundary ID token. The saved
+token from the OCM issuer/client, not the cached Boundary ID token. The OCM
+approval prompt appears while the task is still starting, so approve it without
+waiting for RUNNING; the token is uploaded once the task is ready. The saved
 device preference (or explicit global flag/env override) applies to both
 providers by default, so a fresh Boundary token **and** OCM credentials may
 require **two distinct human approvals** in one `session create`. A cached Boundary

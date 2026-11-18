@@ -2845,6 +2845,7 @@ class TestGetConfig:
         'AWS_LAMBDA_FUNCTION_NAME': 'rosa-boundary-dev-create-investigation',
         'AWS_REGION': 'us-east-2',
         'AWS_DEFAULT_REGION': 'us-east-2',
+        'AWS_SESSION_TOKEN': 'synthetic-not-for-disclosure',
         # Required by handler but not returned by get_config
         'TASK_DEFINITION': 'test-task',
         'SUBNETS': 'subnet-1,subnet-2',
@@ -2868,8 +2869,14 @@ class TestGetConfig:
 
         assert result['statusCode'] == 200
         body = json.loads(result['body'])
+        assert set(body) == {'action', 'config'}
         assert body['action'] == 'get_config'
+        assert 'synthetic-not-for-disclosure' not in json.dumps(result)
         config = body['config']
+        assert set(config) == {
+            'lambda_function_name', 'invoker_role_arn', 'sre_role_arn', 'efs_filesystem_id',
+            'ecs_cluster_name', 'aws_region', 'keycloak_url', 'keycloak_realm', 'oidc_client_id',
+        }
         assert config['lambda_function_name'] == 'rosa-boundary-dev-create-investigation'
         assert config['invoker_role_arn'] == 'arn:aws:iam::123456789012:role/test-lambda-invoker'
         assert config['sre_role_arn'] == 'arn:aws:iam::123456789012:role/test-sre-shared'
@@ -2892,7 +2899,9 @@ class TestGetConfig:
         }
         context = Mock()
 
-        result = handler.lambda_handler(event, context)
+        with patch.object(handler, 'validate_oidc_token') as validate:
+            result = handler.lambda_handler(event, context)
+        validate.assert_not_called()
 
         # Must return 200, not 401 — get_config does not require OIDC
         assert result['statusCode'] == 200
@@ -2952,22 +2961,14 @@ class TestGetConfig:
 
         assert result['statusCode'] == 200
 
-    @patch.dict('os.environ', CONFIG_ENV_VARS)
-    def test_get_config_invalid_json_body(self):
-        """Send malformed JSON body, verify it falls through to existing error handling."""
-        import importlib
-        importlib.reload(handler)
+    @pytest.mark.parametrize('body', [None, 'null', '[]', '"string"', '42', '{invalid'])
+    def test_invalid_discovery_body(self, body):
+        result = handler.lambda_handler({'body': body}, Mock())
+        assert result['statusCode'] == 400
 
-        event = {
-            'headers': {},
-            'body': 'not valid json{'
-        }
-        context = Mock()
-
-        result = handler.lambda_handler(event, context)
-
-        # Malformed JSON can't match get_config action, so it falls through.
-        # Without an OIDC token, the handler returns 401.
+    @pytest.mark.parametrize('body', ['{}', '{"action":"unknown"}'])
+    def test_only_discovery_can_omit_token(self, body):
+        result = handler.lambda_handler({'body': body}, Mock())
         assert result['statusCode'] == 401
 
 

@@ -96,16 +96,15 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                            for k, v in event.get('headers', {}).items()}
         logger.info(f"Headers: {headers_redacted}")
 
-        # Check for get_config action before any OIDC validation.
-        # This must be dispatched early because get_config callers have not yet
-        # obtained an OIDC token — they are bootstrapping their CLI configuration.
-        body_raw = event.get('body', '{}')
+        # CLI discovery uses its OIDC token at STS, not in the invocation payload.
         try:
-            body_peek = json.loads(body_raw)
-        except json.JSONDecodeError:
-            body_peek = {}
+            body = json.loads(event.get('body', '{}'))
+        except (json.JSONDecodeError, TypeError):
+            return response(400, {'error': 'Invalid JSON in request body'})
+        if not isinstance(body, dict):
+            return response(400, {'error': 'Request body must be a JSON object'})
 
-        if body_peek.get('action') == 'get_config':
+        if body.get('action') == 'get_config':
             return get_config_response()
 
         # Extract OIDC token: prefer X-OIDC-Token header (SigV4 flow); fall back to
@@ -137,13 +136,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not REQUIRED_GROUPS:
             logger.error("REQUIRED_GROUPS is empty after parsing — check required_groups Terraform variable")
             return response(500, {'error': 'Lambda configuration error'})
-
-        # Parse request body
-        try:
-            body = json.loads(event.get('body', '{}'))
-        except json.JSONDecodeError:
-            logger.warning("Invalid JSON in request body")
-            return response(400, {'error': 'Invalid JSON in request body'})
 
         investigation_id = body.get('investigation_id')
         cluster_id = body.get('cluster_id')
@@ -1091,12 +1083,8 @@ def create_investigation_task(
 def get_config_response() -> Dict[str, Any]:
     """Return CLI configuration values from Lambda environment variables.
 
-    No OIDC validation is performed on this action. The response contains only
-    resource identifiers (ARNs, IDs) — not secrets. The Lambda is already behind
-    IAM auth (SigV4): only principals who have assumed the invoker role can reach
-    it. Adding OIDC validation here would re-introduce the chicken-and-egg problem
-    that this endpoint is designed to solve (the CLI needs these values *before* it
-    can complete OIDC setup).
+    AWS authorizes invocation. Any principal with effective invoke permission
+    can read this allowlist of deployment metadata without an application token.
     """
     logger.info("Returning CLI configuration (get_config action)")
     return response(200, {

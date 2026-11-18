@@ -1,203 +1,137 @@
 # AWS IAM Policies for Boundary Integration
 
-## Overview
+## Identity and Terraform ownership
 
-Configure AWS IAM policies to enable users to connect to ECS Fargate containers via Boundary and SSM. This requires permissions for ECS Exec, SSM sessions, and KMS decryption.
+Boundary uses **EmployeeIDP OIDC federation and per-person temporary STS
+sessions**, not IAM users, IAM groups, per-user roles, or shared access keys.
+The shared SRE and Lambda-invoker roles are shared identities that issue
+separate temporary credentials; they are not shared credential material.
+Ordinary CLI operations do not require workstation AWS credentials and do not
+export the assumed credentials into your shell.
 
-## IAM Architecture
+The [account root](../../deploy/account/main.tf) owns OIDC providers and role
+trusts through its shared IAM module. The [regional grants](../../deploy/regional/iam.tf)
+attach permissions to those identities. Do not create parallel IAM groups,
+attach ad hoc policies, or copy these resources into a second Terraform state.
+For Git-managed deployments, review the owning
+[HCP workspace definitions](../../hcp-terraform/rosa-boundary/main.tf) through a PR;
+verify effective live settings separately.
 
-```mermaid
-flowchart TB
-    subgraph Users["IAM Users/Roles"]
-        User1["SRE User 1<br/>(IAM User)"]
-        User2["SRE User 2<br/>(Federated via SSO)"]
-    end
+## OIDC trust and UUID authorization
 
-    subgraph Policies["IAM Policies"]
-        ECSExec["ECSExecAccess<br/>Policy"]
-        SSM["SSMSessionAccess<br/>Policy"]
-        KMS["KMSDecryptExecSessions<br/>Policy"]
-    end
+Both the [SRE trust](../../deploy/account/modules/shared-iam/oidc.tf) and
+[Lambda-invoker trust](../../deploy/account/modules/shared-iam/lambda-invoker.tf)
+allow `sts:AssumeRoleWithWebIdentity` and `sts:TagSession` for the configured
+provider ARN and audience. Optional stage/production issuer statements use
+their own provider and audience. The current implementation applies these
+optional conditions to **every** emitted trust statement:
 
-    subgraph Groups["IAM Groups"]
-        SREGroup["SREOperators<br/>(IAM Group)"]
-    end
+- `enable_oidc_group_enforcement`: requires `aws:RequestTag/roles` to equal
+  `required_oidc_role`.
+- `enable_uuid_allowlist`: requires `aws:RequestTag/uuid` to match an entry in
+  `allowed_uuids`.
 
-    subgraph Resources["AWS Resources"]
-        ECS["ECS Tasks<br/>(rosa-boundary-*)"]
-        SSMDOC["SSM Document<br/>(AmazonECS-ExecuteInteractiveCommand)"]
-        KMSKEY["KMS Key<br/>(exec-session)"]
-    end
+These conditions consume the ID token's `https://aws.amazon.com/tags`
+`principal_tags`. The EmployeeIDP `uuid` value is the person's rhatUUID;
+it is not a username and must not be assumed equal to the OIDC `sub`.
+Disabling an optional trust gate removes that gate, not the other checks.
+Inspect the account inputs and rendered trust rather than inferring enforcement
+from a variable description or a regional input with a similar name.
 
-    User1 -->|member of| SREGroup
-    User2 -->|member of| SREGroup
-    SREGroup -->|attached| ECSExec
-    SREGroup -->|attached| SSM
-    SREGroup -->|attached| KMS
-    ECSExec -->|grants| ECS
-    SSM -->|grants| SSMDOC
-    KMS -->|grants| KMSKEY
-```
+Creation uses the invoker role's regional `lambda:InvokeFunction` grant.
+The [create-investigation handler](../../lambda/create-investigation/handler.py)
+separately validates the ID token and requires membership in at least one
+configured `REQUIRED_GROUPS` entry. It reads a nonempty `groups` list, otherwise
+`realm_access.roles`. It also extracts the configured ABAC claim.
+The [regional default](../../deploy/regional/variables.tf) is
+`abac_tag_key = "uuid"`; a missing UUID claim fails rather than falling back to
+a display name. The handler's legacy `username` mode has a username fallback;
+it is not the EmployeeIDP UUID model. Keep the Lambda ABAC key and IAM
+principal/task tag comparison aligned.
 
-## IAM Policy: ECS Exec Access
+## Investigation management versus task ownership
 
-**Policy Name**: `BoundaryECSExecAccess`
+Required-group membership is the investigation-management trust boundary.
+Within that trusted population, investigation resources are not generally
+isolated by creator UUID in the SRE permission policy. Task exec and stop are
+person-scoped. These are different boundaries:
 
-**`iam-policy-ecs-exec.json`:**
+| Operation | Current authorization in regional IAM / application |
+| --- | --- |
+| Create investigation or session | Invoker-role trust and Lambda invocation permission, then Lambda token, group and ABAC validation |
+| Execute command | Cluster grant plus task grant requiring `ecs:ResourceTag/<abac_tag_key>` equal to `aws:PrincipalTag/<abac_tag_key>` |
+| Stop task | Same ABAC equality, scoped to this deployment's cluster task ARN pattern |
+| List/describe ECS resources and deregister task definitions | SRE policy grants these actions on `*`; no creator condition |
+| Describe access points | SRE grant scoped to the deployment filesystem |
+| Delete access point | SRE grant on regional/account access-point ARNs with `ManagedBy = rosa-boundary-lambda`; no creator condition |
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ECSExecCommand",
-      "Effect": "Allow",
-      "Action": [
-        "ecs:ExecuteCommand"
-      ],
-      "Resource": "arn:aws:ecs:us-east-2:641875867446:task/rosa-boundary-*/*",
-      "Condition": {
-        "StringEquals": {
-          "ecs:cluster": "arn:aws:ecs:us-east-2:641875867446:cluster/rosa-boundary-dev"
-        }
-      }
-    },
-    {
-      "Sid": "ECSDescribeTasks",
-      "Effect": "Allow",
-      "Action": [
-        "ecs:DescribeTasks",
-        "ecs:DescribeTaskDefinition"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Sid": "ECSListTasks",
-      "Effect": "Allow",
-      "Action": [
-        "ecs:ListTasks"
-      ],
-      "Resource": "*",
-      "Condition": {
-        "StringEquals": {
-          "ecs:cluster": "arn:aws:ecs:us-east-2:641875867446:cluster/rosa-boundary-dev"
-        }
-      }
-    }
-  ]
-}
-```
+The current exec task statement uses `Resource = "*"` with ABAC; do not describe
+it as an explicit cluster-task ARN restriction like the stop statement.
+The SRE role also grants `ssm:StartSession` on ECS task and
+`AWS-StartInteractiveCommand` document patterns, `ssmmessages:OpenDataChannel`,
+and `kms:Decrypt` / `kms:GenerateDataKey` on `*`. SSM cannot inspect ECS task
+tags; the ECS ExecuteCommand policy enforces the ECS ABAC comparison. This
+inventory describes existing grants, not a recommendation to broaden them.
+There is no IAM-user `${aws:username}` session model to configure.
 
-## IAM Policy: SSM Session Access
+**Close ownership remains unresolved:**
+[ROSAENG-75946](https://redhat.atlassian.net/browse/ROSAENG-75946) tracks the
+conflict between shared-SRE management and the
+[CLI close check](../../internal/cmd/close_investigation.go).
+Today the CLI requires the access point's creator `oidc_sub` to match the
+authenticated ID token's `sub`, including during dry-run. This is an
+application check, **not** an IAM owner restriction on other AWS clients.
+Do not remove it, promise group-wide CLI close, or prescribe bypassing it based
+on this guide. `--force` does not bypass it and stopping tasks still requires
+the task ABAC match.
 
-**Policy Name**: `BoundarySSMSessionAccess`
+Access-point creator tags remain creation provenance when another SRE reuses
+the workspace; task tags identify the creator of each new task. They do not
+track every subsequent actor. Correlate the AWS assumed-role session and audit
+records for the current actor, rather than rewriting creator tags. See the
+[investigation workflow](../runbooks/investigation-workflow.md) for tag and
+handover details.
 
-**`iam-policy-ssm-session.json`:**
+## External policy and audit-reader prerequisites
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "StartSSMSession",
-      "Effect": "Allow",
-      "Action": [
-        "ssm:StartSession"
-      ],
-      "Resource": [
-        "arn:aws:ecs:us-east-2:641875867446:task/rosa-boundary-*/*",
-        "arn:aws:ssm:us-east-2:641875867446:document/AmazonECS-ExecuteInteractiveCommand"
-      ]
-    },
-    {
-      "Sid": "TerminateSSMSession",
-      "Effect": "Allow",
-      "Action": [
-        "ssm:TerminateSession"
-      ],
-      "Resource": "arn:aws:ssm:us-east-2:641875867446:session/${aws:username}-*",
-      "Condition": {
-        "StringLike": {
-          "ssm:resourceTag/aws:ssmmessages:target-id": "ecs:rosa-boundary-*"
-        }
-      }
-    }
-  ]
-}
-```
+The CLI uses direct SDK `lambda:InvokeFunction`, not a Function URL.
+Organization SCPs and other external controls can deny an otherwise allowed
+operation; this repository does not establish their effective live policy.
+Confirm the target account's SCP permits the SDK path and the required
+STS/ECS/SSM operations. Do not assume a Terraform plan proves that an OIDC
+session can use them.
 
-## IAM Policy: KMS Decryption
+The SRE exec grant is not an audit-reader grant: it does not grant CloudWatch
+log reads or audit-bucket object reads. Independent `aws logs` / `aws s3`
+commands require an AWS CLI and a separately authorized operator/audit-reader
+identity in the correct account and Region. That identity needs scoped log,
+S3 and applicable KMS access approved by the deployment operator. Do not add
+long-lived credentials to the container or investigation workspace to obtain it.
 
-**Policy Name**: `BoundaryKMSDecryptExecSessions`
+The [audit bucket policy](../../deploy/regional/s3.tf) denies non-TLS access;
+it is not a blanket deny of every non-task principal. Object Lock/versioning
+protect retained versions but do not supply reader permissions. Cross-account
+audit replication additionally requires the destination bucket, retention and
+bucket policy to be configured separately. Task logging and encryption grants
+are in [regional IAM](../../deploy/regional/iam.tf) and
+[the exec key policy](../../deploy/regional/kms.tf), not hand-created user
+policies from this guide.
 
-**`iam-policy-kms-decrypt.json`:**
+## Verification and limits
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "DecryptECSExecSessions",
-      "Effect": "Allow",
-      "Action": [
-        "kms:Decrypt",
-        "kms:DescribeKey"
-      ],
-      "Resource": "arn:aws:kms:us-east-2:641875867446:key/*",
-      "Condition": {
-        "StringEquals": {
-          "kms:ViaService": "ssm.us-east-2.amazonaws.com"
-        },
-        "StringLike": {
-          "kms:EncryptionContext:aws:ssm:SessionId": "*"
-        }
-      }
-    },
-    {
-      "Sid": "GenerateDataKeyForSessions",
-      "Effect": "Allow",
-      "Action": [
-        "kms:GenerateDataKey"
-      ],
-      "Resource": "arn:aws:kms:us-east-2:641875867446:alias/rosa-boundary-dev-exec-session"
-    }
-  ]
-}
-```
+For ordinary setup, follow [CLI authentication](../architecture/cli-authentication.md)
+and the [user access guide](../runbooks/user-access-guide.md).
+Review account trust, regional grants, Lambda claim checks and the close
+owner check together. Source and policy tests describe the intended controls;
+they do not prove deployed IAM, SCPs, or audit-reader access.
 
-## IAM Policy: CloudWatch Logs (Optional)
-
-For viewing session logs:
-
-**Policy Name**: `BoundaryCloudWatchLogsRead`
-
-**`iam-policy-cloudwatch-logs.json`:**
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "DescribeLogGroups",
-      "Effect": "Allow",
-      "Action": [
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams"
-      ],
-      "Resource": "arn:aws:logs:us-east-2:641875867446:log-group:/ecs/rosa-boundary-*"
-    },
-    {
-      "Sid": "ReadSessionLogs",
-      "Effect": "Allow",
-      "Action": [
-        "logs:GetLogEvents",
-        "logs:FilterLogEvents"
-      ],
-      "Resource": "arn:aws:logs:us-east-2:641875867446:log-group:/ecs/rosa-boundary-*/ssm-sessions:*"
-    }
-  ]
-}
-```
+A real enforcement test requires separate personal-dev authorization and
+known deployed artifacts. Include positive and negative group/UUID cases,
+another user's exec/stop denial, and separate audit retrieval. Do not use
+`aws ecs execute-command --dry-run` (there is no such option), or treat a
+successful shell connection as proof of audit sync. Use the
+[workflow's audit verification](../runbooks/investigation-workflow.md#verify-audit-evidence)
+and retain evidence without tokens or credentials.
 
 ## Optional: cross-account CloudWatch metric read (ROSAENG-68823)
 
@@ -349,257 +283,6 @@ Consume the identities through the account outputs — `content_publisher_roles`
 `github_actions_oidc_provider_arn` — rather than reconstructing names. See the
 [account README](../../deploy/account/README.md) for the provider create /
 reference / adopt modes and the enablement order.
-
-## Creating Policies
-
-```bash
-# Set variables
-AWS_PROFILE=scuppett-dev
-AWS_ACCOUNT=641875867446
-AWS_REGION=us-east-2
-
-# Create ECS Exec policy
-aws iam create-policy \
-  --profile $AWS_PROFILE \
-  --policy-name BoundaryECSExecAccess \
-  --policy-document file://iam-policy-ecs-exec.json
-
-# Create SSM Session policy
-aws iam create-policy \
-  --profile $AWS_PROFILE \
-  --policy-name BoundarySSMSessionAccess \
-  --policy-document file://iam-policy-ssm-session.json
-
-# Create KMS Decrypt policy
-aws iam create-policy \
-  --profile $AWS_PROFILE \
-  --policy-name BoundaryKMSDecryptExecSessions \
-  --policy-document file://iam-policy-kms-decrypt.json
-
-# Create CloudWatch Logs policy (optional)
-aws iam create-policy \
-  --profile $AWS_PROFILE \
-  --policy-name BoundaryCloudWatchLogsRead \
-  --policy-document file://iam-policy-cloudwatch-logs.json
-```
-
-## IAM Group for SRE Users
-
-**Create IAM group and attach policies:**
-
-```bash
-# Create group
-aws iam create-group \
-  --profile $AWS_PROFILE \
-  --group-name BoundaryECSAccess
-
-# Attach policies
-aws iam attach-group-policy \
-  --profile $AWS_PROFILE \
-  --group-name BoundaryECSAccess \
-  --policy-arn "arn:aws:iam::${AWS_ACCOUNT}:policy/BoundaryECSExecAccess"
-
-aws iam attach-group-policy \
-  --profile $AWS_PROFILE \
-  --group-name BoundaryECSAccess \
-  --policy-arn "arn:aws:iam::${AWS_ACCOUNT}:policy/BoundarySSMSessionAccess"
-
-aws iam attach-group-policy \
-  --profile $AWS_PROFILE \
-  --group-name BoundaryECSAccess \
-  --policy-arn "arn:aws:iam::${AWS_ACCOUNT}:policy/BoundaryKMSDecryptExecSessions"
-
-# Optional: CloudWatch Logs read access
-aws iam attach-group-policy \
-  --profile $AWS_PROFILE \
-  --group-name BoundaryECSAccess \
-  --policy-arn "arn:aws:iam::${AWS_ACCOUNT}:policy/BoundaryCloudWatchLogsRead"
-```
-
-## Adding Users to Group
-
-### For IAM Users
-
-```bash
-aws iam add-user-to-group \
-  --profile $AWS_PROFILE \
-  --group-name BoundaryECSAccess \
-  --user-name jane.doe
-```
-
-### For Federated Users (SSO)
-
-If using AWS SSO/Identity Center:
-
-1. Create Permission Set in AWS SSO
-2. Attach the four policies to permission set
-3. Assign permission set to users/groups
-
-## Terraform Integration
-
-Add to `deploy/regional/iam.tf`:
-
-```hcl
-# IAM policies for Boundary users
-resource "aws_iam_policy" "boundary_ecs_exec" {
-  name        = "BoundaryECSExecAccess"
-  description = "Allows Boundary users to execute commands in rosa-boundary ECS tasks"
-  policy      = file("${path.module}/policies/iam-policy-ecs-exec.json")
-}
-
-resource "aws_iam_policy" "boundary_ssm_session" {
-  name        = "BoundarySSMSessionAccess"
-  description = "Allows Boundary users to start SSM sessions to ECS tasks"
-  policy      = file("${path.module}/policies/iam-policy-ssm-session.json")
-}
-
-resource "aws_iam_policy" "boundary_kms_decrypt" {
-  name        = "BoundaryKMSDecryptExecSessions"
-  description = "Allows decryption of ECS Exec session data"
-  policy      = file("${path.module}/policies/iam-policy-kms-decrypt.json")
-}
-
-# IAM group for SRE users
-resource "aws_iam_group" "boundary_ecs_access" {
-  name = "BoundaryECSAccess"
-}
-
-resource "aws_iam_group_policy_attachment" "boundary_ecs_exec" {
-  group      = aws_iam_group.boundary_ecs_access.name
-  policy_arn = aws_iam_policy.boundary_ecs_exec.arn
-}
-
-resource "aws_iam_group_policy_attachment" "boundary_ssm_session" {
-  group      = aws_iam_group.boundary_ecs_access.name
-  policy_arn = aws_iam_policy.boundary_ssm_session.arn
-}
-
-resource "aws_iam_group_policy_attachment" "boundary_kms_decrypt" {
-  group      = aws_iam_group.boundary_ecs_access.name
-  policy_arn = aws_iam_policy.boundary_kms_decrypt.arn
-}
-```
-
-## Verification
-
-Test IAM permissions:
-
-```bash
-# Test ECS Exec permission
-aws ecs execute-command \
-  --cluster rosa-boundary-dev \
-  --task <task-arn> \
-  --container rosa-boundary \
-  --command "/bin/echo test" \
-  --interactive \
-  --dry-run
-
-# Test SSM session permission
-aws ssm start-session \
-  --target ecs:rosa-boundary-dev_<task-id>_rosa-boundary
-
-# Test KMS decrypt (via ECS Exec)
-# If ECS Exec works, KMS permissions are valid
-```
-
-## Least Privilege Recommendations
-
-### Per-Incident IAM Policies (Advanced)
-
-For stricter isolation, create per-incident IAM policies:
-
-```json
-{
-  "Sid": "IncidentSpecificAccess",
-  "Effect": "Allow",
-  "Action": ["ecs:ExecuteCommand"],
-  "Resource": "arn:aws:ecs:us-east-2:ACCOUNT:task/rosa-boundary-dev/*",
-  "Condition": {
-    "StringEquals": {
-      "ecs:cluster": "arn:aws:ecs:us-east-2:ACCOUNT:cluster/rosa-boundary-dev",
-      "aws:ResourceTag/cluster-id": "rosa-prod-01",
-      "aws:ResourceTag/incident-number": "123"
-    }
-  }
-}
-```
-
-Attach dynamically during incident creation, detach on closure.
-
-### MFA Requirement
-
-Add MFA condition to sensitive operations:
-
-```json
-{
-  "Condition": {
-    "BoolIfExists": {
-      "aws:MultiFactorAuthPresent": "true"
-    },
-    "NumericLessThan": {
-      "aws:MultiFactorAuthAge": "3600"
-    }
-  }
-}
-```
-
-## Session Recording Access
-
-ECS Exec sessions are logged to CloudWatch. To view logs:
-
-```bash
-# List log streams for a task
-aws logs describe-log-streams \
-  --log-group-name "/ecs/rosa-boundary-dev/ssm-sessions" \
-  --order-by LastEventTime \
-  --descending \
-  --max-items 10
-
-# View session logs
-aws logs get-log-events \
-  --log-group-name "/ecs/rosa-boundary-dev/ssm-sessions" \
-  --log-stream-name "rosa-boundary/<task-id>/<timestamp>"
-```
-
-## Audit Bucket Access
-
-Users should NOT have direct S3 access (write-only for containers):
-
-```json
-{
-  "Sid": "DenyDirectS3Access",
-  "Effect": "Deny",
-  "Action": ["s3:*"],
-  "Resource": "arn:aws:s3:::*-rosa-boundary-*/*",
-  "Condition": {
-    "StringNotEquals": {
-      "aws:PrincipalArn": [
-        "arn:aws:iam::ACCOUNT:role/rosa-boundary-dev-task-role"
-      ]
-    }
-  }
-}
-```
-
-Audit retrieval should go through separate read-only role (compliance team).
-
-## Terraform Variables
-
-Add to `deploy/regional/variables.tf`:
-
-```hcl
-variable "boundary_user_group_name" {
-  description = "IAM group name for Boundary ECS access"
-  type        = string
-  default     = "BoundaryECSAccess"
-}
-
-variable "create_boundary_iam_resources" {
-  description = "Create IAM policies and group for Boundary integration"
-  type        = bool
-  default     = false
-}
-```
 
 ## Published content grants (regional)
 

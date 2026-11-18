@@ -37,7 +37,7 @@ setup() {
 }
 
 @test "normal workload failure still stops skill helper through EXIT trap" {
-    run env OC_VERSION="" KUBE_PROXY_PORT="" CLAUDE_CODE_USE_BEDROCK=0 TASK_TIMEOUT=0 \
+    run env KUBE_PROXY_PORT="" CLAUDE_CODE_USE_BEDROCK=0 TASK_TIMEOUT=0 \
         S3_AUDIT_ESCROW="s3://audit/" bash -c '
         source "$1"
         verify_credential_mounts() { :; }
@@ -133,7 +133,6 @@ setup() {
 
 @test "main verifies credential mounts before initialization" {
     run env \
-        OC_VERSION="" \
         KUBE_PROXY_PORT="" \
         CLAUDE_CODE_USE_BEDROCK="0" \
         S3_AUDIT_ESCROW="s3://audit-bucket/investigation/" \
@@ -270,7 +269,6 @@ setup() {
     [ "${output}" = "protected-sync" ]
 
     run env \
-        OC_VERSION="" \
         KUBE_PROXY_PORT="" \
         CLAUDE_CODE_USE_BEDROCK="0" \
         S3_AUDIT_ESCROW="s3://audit-bucket/investigation/" \

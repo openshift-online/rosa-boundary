@@ -113,23 +113,14 @@ configure_agent_defaults() {
 main() {
     set -e
 
-    # Override HOME for root entrypoint so root operations (alternatives, aws
-    # s3 sync) don't create root-owned files under /home/sre (EFS). ECS Exec
-    # sessions inherit the image-level HOME=/home/sre in their own process.
+    # Override HOME so root operations (aws s3 sync) don't create root-owned
+    # files under /home/sre (EFS). ECS Exec sessions inherit the image-level
+    # HOME=/home/sre in their own process.
     export HOME=/root
 
     # Trap signals for cleanup
     trap cleanup SIGTERM SIGINT SIGHUP
     trap stop_skill_reconciler EXIT
-
-    # Switch OpenShift CLI version if OC_VERSION is set
-    if [ -n "${OC_VERSION}" ]; then
-        if [ -x "/opt/openshift/${OC_VERSION}/oc" ]; then
-            alternatives --set oc "/opt/openshift/${OC_VERSION}/oc"
-        else
-            echo "Warning: OC version ${OC_VERSION} not found, using default" >&2
-        fi
-    fi
 
     # Empty Fargate volumes are normally root-owned. Prepare both nested mounts
     # before writing proxy configuration or starting any process as sre.
@@ -201,7 +192,7 @@ KUBECONFIG
 
     # Run the command as the sre user in the background and wait for it.
     # This allows the root shell to remain and handle signals (cleanup/S3 sync).
-    # The entrypoint runs as root for privileged setup (alternatives --set, chown,
+    # The entrypoint runs as root for privileged setup (chown,
     # runuser); the actual workload drops to sre here.
     runuser -u sre -- "${@:-sleep infinity}" &
     CHILD_PID=$!

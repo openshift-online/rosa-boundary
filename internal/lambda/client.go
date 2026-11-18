@@ -39,7 +39,6 @@ type getConfigBody struct {
 type InvestigationRequest struct {
 	ClusterID       string `json:"cluster_id"`
 	InvestigationID string `json:"investigation_id"`
-	OCVersion       string `json:"oc_version,omitempty"`
 	TaskTimeout     int    `json:"task_timeout,omitempty"`
 	// TaskTimeoutSet distinguishes an explicit zero (no expiry where permitted)
 	// from an omitted timeout (use the deployment's default).
@@ -67,7 +66,6 @@ type InvestigationResponse struct {
 	InvestigationID   string `json:"investigation_id"`
 	ClusterID         string `json:"cluster_id"`
 	Owner             string `json:"owner"`
-	OCVersion         string `json:"oc_version"`
 	TaskTimeout       int    `json:"task_timeout"`
 	TaskDefinitionArn string `json:"task_definition_arn,omitempty"`
 }

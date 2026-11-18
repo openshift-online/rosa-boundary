@@ -11,7 +11,7 @@ Rosa-boundary uses two core abstractions to manage SRE access to clusters. The C
 - **Investigation**: A persistent workspace tied to a specific cluster incident.
 - **Task**: An ephemeral container session launched within an investigation.
 
-An investigation is the parent; tasks are its children. One investigation can have many tasks over its lifetime, but **only one task may be running per investigation at any given time**. The Lambda enforces this constraint — attempting to start a second task for the same investigation returns HTTP 409. Every task within the same investigation shares the same persistent filesystem.
+An investigation is the parent; tasks are its children. One investigation can have many tasks over its lifetime. Lambda attempts serial handover by stopping existing RUNNING tasks before replacement, unless an active SSM connection blocks it (409). This is not an atomic one-task lock. Every task within the same investigation shares the same persistent filesystem. See the [implemented lifecycle reference](session-lifecycle.md) for the timeout matrix, exact tags, handover limitations and unresolved policy decisions.
 
 ## What Is an Investigation?
 
@@ -23,13 +23,13 @@ An investigation is created implicitly by `session create <cluster-id>` or expli
 
 ## What Is a Task?
 
-A task is an **ECS Fargate container** that provides an interactive SRE terminal session. Tasks are intentionally ephemeral — they are forcibly reaped after a configurable timeout (default: 1 hour) by the reaper Lambda. Only one task may run per investigation at a time; the Lambda rejects concurrent launches with HTTP 409. To start a new task, the previous one must be stopped first (manually or by the reaper).
+A task is an **ECS Fargate container** that provides an interactive SRE terminal session. CLI-created tasks request 1 hour by default; Terraform configures an 8-hour fallback for requests omitting the timeout. Reaping is periodic and defers for active or uncertain SSM session state, not a strict lifetime limit. A new `session create` can stop and replace a previous task through handover; it is not unconditionally rejected just because a task is running.
 
 Each task launch:
 
-1. Registers a new **ECS task definition** cloned from the base definition, with the investigation's EFS access point injected as a volume mount and environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, etc.) baked in.
+1. Registers a new **ECS task definition** cloned from the base definition, with the investigation's EFS access point injected as a volume mount and environment variables (`CLUSTER_ID`, `INVESTIGATION_ID`, `TASK_TIMEOUT`, etc.) baked in.
 2. Starts an **ECS Fargate task** with tags for ABAC enforcement, audit tracking, and timeout management.
-3. On exit, the container **syncs `/home/sre` to S3** at a deterministic path: `s3://{bucket}/{cluster_id}/{investigation_id}/{date}/{task_id}/`.
+3. On exit, the container **attempts to sync non-credential `/home/sre` content to S3** at a deterministic path: `s3://{bucket}/{cluster_id}/{investigation_id}/{date}/{task_id}/`.
 
 SREs connect to running tasks via `session join <session-id>`, which uses ECS Exec (SSM) for interactive shell access. A Boundary session ID is an ECS task ID or ARN, not an SSM Exec connection ID.
 
@@ -44,8 +44,8 @@ Investigation (EFS Access Point)
 
 The investigation outlives its tasks. When a task is stopped or reaped:
 
-- The container syncs `/home/sre` to S3 (audit escrow).
-- The EFS directory retains all files.
+- The container attempts to sync non-credential `/home/sre` content to S3 (verify audit escrow separately).
+- The EFS directory retains ordinary workspace files.
 - A new task can be launched with `session create`; ordinary workspace files persist, but OCM credentials and derived kubeconfigs live on task-scoped, audit-excluded mounts and must be configured afresh.
 
 This separation exists because tasks are kept short-lived for security (enforced timeouts, ABAC-scoped access), while investigations need to persist across sessions for usability.
@@ -69,6 +69,11 @@ Every investigation's access point is tagged with:
 - `username` — the SRE who created it
 - `oidc_sub` — the OIDC subject UUID (audit)
 - `ManagedBy: rosa-boundary-lambda`
+- `Name` — `<cluster-id>-<investigation-id>`
+- `CreatedAt` — original creation timestamp
+
+These are creator tags: handover does not update them or transfer CLI close
+ownership to the new task's actor. See [creator-versus-actor semantics](session-lifecycle.md#actual-resource-tags-creator-versus-actor).
 
 The `investigation list` command discovers investigations by scanning access points on the configured filesystem and filtering for both `ClusterID` and `InvestigationID` tags.
 
@@ -77,14 +82,15 @@ The `investigation list` command discovers investigations by scanning access poi
 Every task is tagged with:
 
 - `cluster_id` and `investigation_id` — links task to investigation
-- `username` — the SRE's identity (used for ABAC enforcement)
-- `deadline` — ISO 8601 timestamp for reaper enforcement
+- Configured ABAC key (for example `uuid`, not an unconditional `username`) — current task caller's identity
+- `oidc_sub` — current task caller's subject
+- `deadline` — ISO 8601 timestamp, only when timeout is positive
 - `access_point_id` — the EFS access point ID
 - `created_at` and `task_timeout` — audit metadata
 
-### Duplicate Detection (One Task Per Investigation)
+### Handover (Best-Effort Serial Replacement)
 
-The Lambda enforces a **one running task per investigation** constraint. Before launching a task, it checks for existing running tasks using the ECS `startedBy` field — a deterministic SHA-256 hash of `{cluster_id}:{investigation_id}`. This check is user-agnostic: it blocks a second task for the same investigation regardless of which SRE is requesting it. If a task is already running, the Lambda returns HTTP 409 with the existing task ARN(s); an authorized user can `session join` instead.
+Before launching a task, Lambda checks existing RUNNING tasks using the ECS `startedBy` field — the first 36 hex characters of SHA-256 of `{cluster_id}:{investigation_id}`. This lookup is user-agnostic. It preflights active SSM sessions before stopping any tasks; an active connection blocks handover with 409. Otherwise it stops old tasks and waits for STOPPED before replacement. Stop/wait failures abort replacement without rolling back stops already issued. `session join` is subject to the existing task's ABAC identity; it is not a cross-user handover mechanism. See [handover limits](session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
 
 Using `startedBy` for this check (rather than a tag scan) avoids a cluster-wide `describe_tasks` call and sidesteps tag propagation race conditions, since `startedBy` is set atomically at task launch time.
 
@@ -96,7 +102,7 @@ This is the standard way to begin working on a cluster. It creates the investiga
 
 1. Authenticate via OIDC (Keycloak PKCE browser flow)
 2. Assume the Lambda invoker role
-3. Invoke the Lambda — which checks for an existing running task (returning HTTP 409 if one exists), idempotently creates the EFS access point, registers a per-investigation task definition, and launches an ECS task
+3. Invoke Lambda — which performs handover checks/stops for existing RUNNING tasks, creates or reuses the EFS access point, registers a per-investigation task definition, and launches a task
 4. Optionally wait for the task to reach RUNNING state and auto-connect
 
 ### `investigation create` (Pre-staging)
@@ -130,7 +136,7 @@ investigation create (optional)
    investigation close
 ```
 
-An SRE can cycle through as many start/stop iterations as needed, but the previous task must be stopped (or reaped) before a new one can be started — only one task may run per investigation at a time. Each task mounts the same EFS directory, so work carries over. Each task exit syncs a snapshot to S3.
+An SRE can cycle through start/stop iterations or request handover. Lambda waits for predecessor tasks it found to stop before launching a replacement, but concurrent requests are not atomically excluded. Each task mounts the same EFS directory, so ordinary work carries over. Each task exit attempts an S3 snapshot; verify completion independently.
 
 ### Closing an Investigation
 
@@ -146,13 +152,13 @@ If an investigation is left open, the separate [investigation reaper](../../lamb
 
 ### Timeout Enforcement
 
-The reaper Lambda runs on an EventBridge schedule (default: every 15 minutes). It lists all running tasks in the cluster, checks each task's `deadline` tag, and stops any task where the current time exceeds the deadline. Tasks without a `deadline` tag are skipped.
+The task reaper runs every 15 minutes by default. It checks RUNNING tasks' deadline tags and stops expired tasks only after confirming no active SSM session. Active or uncertain session state defers reaping; missing deadlines are skipped. Zero is rejected by the default 30-second minimum, but if the minimum is disabled an accepted zero omits the deadline. See the [timeout matrix](session-lifecycle.md#timeout-matrix). [ROSAENG-75947 and ROSAENG-75948 remain unresolved policy work](session-lifecycle.md#unresolved-policy-decisions).
 
 The reaper only stops **tasks** — it does not close investigations or clean up EFS access points.
 
 ### Stale Investigation Cleanup
 
-The investigation reaper runs on a separate EventBridge schedule (default: every 8 hours). It checks managed EFS access points for running tasks and a `CreatedAt` tag; an investigation without running tasks becomes eligible once its configured grace period (default: 168 hours) has elapsed. Missing creation time does not bypass the grace period. Before cleanup it checks task activity again, then attempts to delete the EFS directory, access point, and associated task definitions. Failures are logged; remaining tagged access points can be retried on a later run. See the [Lambda implementation](../../lambda/reap-investigations/handler.py) and [regional Terraform](../../deploy/regional/lambda-reap-investigations.tf) for current behavior and configuration.
+The investigation reaper runs on a separate EventBridge schedule (default: every 8 hours). It checks managed EFS access points for running tasks and a `CreatedAt` tag; an investigation without running tasks becomes eligible once its configured grace period (default: 168 hours) has elapsed. Age is measured from original creation, not idle duration or handover. The current legacy-backfill path treats missing `CreatedAt` as stale when no tasks are running; it does not enforce the age grace period for those access points. Before cleanup it checks task activity again, then attempts to delete the EFS directory, access point, and associated task definitions. Failures are logged; remaining tagged access points can be retried on a later run. See the [Lambda implementation](../../lambda/reap-investigations/handler.py) and [regional Terraform](../../deploy/regional/lambda-reap-investigations.tf) for current behavior and configuration.
 
 ## Known Gaps
 
@@ -187,7 +193,7 @@ Two things:
 
 ### Are investigations automatically cleaned up?
 
-Tasks are reaped after their deadlines; a separate investigation reaper can also clean up eligible idle investigations after its grace period. Do not assume an open investigation persists indefinitely.
+Expired tasks are eligible for periodic reaping subject to active-session protection; a separate investigation reaper can also clean up eligible investigations with no running tasks after its creation-age grace period. Do not assume an open investigation persists indefinitely.
 
 ### What does `investigation close` actually delete?
 
@@ -199,14 +205,12 @@ AWS allows 10,000 EFS access points per filesystem. Since each investigation cor
 
 ### Are investigation filesystems shared across SREs?
 
-Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session create` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. The CLI permits only Alice (the access point's `oidc_sub` owner) to close the investigation; this is not yet enforced by IAM against use of other AWS clients.
+Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session create` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. The CLI permits only Alice (the access point's `oidc_sub` owner) to close the investigation; this is not yet enforced by IAM against use of other AWS clients. See the separate [ROSAENG-75946 close-ownership work](https://redhat.atlassian.net/browse/ROSAENG-75946).
 
 This is by design. The investigation ID represents a **shared workspace** for a cluster incident, not a per-user workspace. The isolation boundary is at the `(cluster_id, investigation_id)` level. Per-user isolation is enforced at the **ECS Exec layer** via the deployment's configured ABAC task/principal tag (which may be `uuid` or `username`); this restricts who can `exec` into a running container, but not who can mount the shared workspace through a new authorized task.
 
 ### If multiple SREs create a task against the same investigation at the same time, are they sharing a filesystem at `/home/sre`?
 
-They would be, but the Lambda prevents it. The duplicate detection mechanism uses a `startedBy` hash computed from `{cluster_id}:{investigation_id}` (user-agnostic). Before launching a task, the Lambda calls `ecs.list_tasks(startedBy=..., desiredStatus='RUNNING')`. If a task is already running for that investigation — regardless of which SRE started it — the Lambda returns HTTP 409 and the second request is rejected.
-
-So under normal operation, only one task runs per investigation at a time. The SREs would need to take turns: one stops their task, the other starts a new one, and the new task mounts the same EFS directory with all prior work intact.
+Yes, if concurrent requests escape the best-effort handover check, they mount the same workspace. Lambda normally looks up RUNNING tasks by the user-agnostic `startedBy` hash, checks Active SSM sessions, then stops and waits for old tasks before replacement. An active connection returns 409 rather than authorizing cross-user Exec. SREs should coordinate handover; the new task mounts the same workspace but not predecessor credentials.
 
 There is a narrow TOCTOU race: if two SREs invoke the Lambda at the exact same moment before either task reaches `RUNNING` state (visible in `list_tasks`), both could pass the duplicate check. In that unlikely case, yes — both containers would mount the same EFS directory as `/home/sre` with the same POSIX UID (1000), and concurrent writes could conflict. There is no distributed lock to prevent this.

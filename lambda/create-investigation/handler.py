@@ -147,7 +147,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         investigation_id = body.get('investigation_id')
         cluster_id = body.get('cluster_id')
-        oc_version = body.get('oc_version', '4.20')
         task_timeout = body.get('task_timeout', int(os.environ.get('TASK_TIMEOUT_DEFAULT', '3600')))
         skip_task = body.get('skip_task', False)
 
@@ -271,7 +270,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             subnets=SUBNETS,
             security_group=SECURITY_GROUP,
             efs_filesystem_id=EFS_FILESYSTEM_ID,
-            oc_version=oc_version,
             task_timeout=task_timeout,
             skip_task=skip_task
         )
@@ -295,7 +293,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'investigation_id': investigation_id,
             'cluster_id': cluster_id,
             'owner': username,
-            'oc_version': oc_version,
             'task_timeout': task_timeout
         })
 
@@ -524,7 +521,6 @@ def register_investigation_task_definition(
     investigation_id: str,
     access_point_id: str,
     efs_filesystem_id: str,
-    oc_version: str,
     task_timeout: int,
     s3_audit_bucket: str,
     aws_region: str,
@@ -545,7 +541,6 @@ def register_investigation_task_definition(
         investigation_id: Investigation identifier
         access_point_id: Per-investigation EFS access point ID
         efs_filesystem_id: EFS filesystem ID
-        oc_version: OpenShift CLI version
         task_timeout: Task timeout in seconds
         s3_audit_bucket: S3 bucket name for audit logs
         aws_region: AWS region for Secrets Manager ARN construction
@@ -612,7 +607,6 @@ def register_investigation_task_definition(
     env_overrides = {
         'CLUSTER_ID': cluster_id,
         'INVESTIGATION_ID': investigation_id,
-        'OC_VERSION': oc_version,
         'S3_AUDIT_BUCKET': s3_audit_bucket,
         'TASK_TIMEOUT': str(task_timeout),
     }
@@ -702,7 +696,6 @@ def create_investigation_task(
     subnets: list,
     security_group: str,
     efs_filesystem_id: str,
-    oc_version: str,
     task_timeout: int = 3600,
     skip_task: bool = False
 ) -> Dict[str, Any]:
@@ -719,7 +712,6 @@ def create_investigation_task(
         subnets: List of subnet IDs
         security_group: Security group ID
         efs_filesystem_id: EFS filesystem ID
-        oc_version: OpenShift CLI version
         task_timeout: Task timeout in seconds (0 = no timeout, default: 3600)
 
     Returns:
@@ -886,7 +878,6 @@ def create_investigation_task(
             investigation_id=investigation_id,
             access_point_id=access_point_id,
             efs_filesystem_id=efs_filesystem_id,
-            oc_version=oc_version,
             task_timeout=task_timeout,
             s3_audit_bucket=os.environ.get('S3_AUDIT_BUCKET', ''),
             aws_region=aws_region,
@@ -924,7 +915,6 @@ def create_investigation_task(
         {'key': abac_tag_key, 'value': abac_tag_value},
         {'key': 'investigation_id', 'value': investigation_id},
         {'key': 'cluster_id', 'value': cluster_id},
-        {'key': 'oc_version', 'value': oc_version},
         {'key': 'access_point_id', 'value': access_point_id},
         {'key': 'task_timeout', 'value': str(task_timeout)},
         {'key': 'created_at', 'value': created_at.isoformat()}

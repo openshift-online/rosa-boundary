@@ -558,7 +558,7 @@ class TestLambdaHandler:
         """Test that missing cluster_id or investigation_id returns 400."""
         event = {
             'headers': {'authorization': 'Bearer test-token'},
-            'body': json.dumps({'oc_version': '4.20'})
+            'body': json.dumps({})
         }
         context = Mock()
 
@@ -945,11 +945,11 @@ class TestSkipTask:
 
     @patch.dict('os.environ', ENV_VARS)
     def test_skip_task_default_false(self):
-        """Test that skip_task defaults to False (backward compat)."""
+        """Create a task when skip_task is omitted."""
         import importlib
         importlib.reload(handler)
 
-        event = self._make_event()
+        event = self._make_event({})
         context = Mock()
 
         mock_ap = {'AccessPointId': 'fsap-new'}
@@ -1173,7 +1173,6 @@ class TestDuplicateInvestigationDetection:
                         subnets=['subnet-1'],
                         security_group='sg-123',
                         efs_filesystem_id='fs-123',
-                        oc_version='4.20',
                         task_timeout=3600
                     )
 
@@ -1249,7 +1248,6 @@ class TestDuplicateInvestigationDetection:
                         subnets=['subnet-1'],
                         security_group='sg-123',
                         efs_filesystem_id='fs-123',
-                        oc_version='4.20',
                         task_timeout=3600
                     )
 
@@ -1275,7 +1273,6 @@ class TestDuplicateInvestigationDetection:
                     subnets=['subnet-1'],
                     security_group='sg-123',
                     efs_filesystem_id='fs-123',
-                    oc_version='4.20',
                     task_timeout=3600,
                     skip_task=True
                 )
@@ -1314,7 +1311,6 @@ class TestDuplicateInvestigationDetection:
                         subnets=['subnet-1'],
                         security_group='sg-123',
                         efs_filesystem_id='fs-123',
-                        oc_version='4.20',
                         task_timeout=3600
                     )
 
@@ -1450,7 +1446,6 @@ class TestDuplicateInvestigationDetection:
                             subnets=['subnet-1'],
                             security_group='sg-1',
                             efs_filesystem_id='fs-1',
-                            oc_version='4.12'
                         )
 
                     # Verify fail-closed behavior
@@ -1496,7 +1491,6 @@ class TestDuplicateInvestigationDetection:
                             subnets=['subnet-1'],
                             security_group='sg-1',
                             efs_filesystem_id='fs-1',
-                            oc_version='4.12'
                         )
 
                     assert existing_task_arn in exc_info.value.failed_tasks
@@ -1540,7 +1534,6 @@ class TestDuplicateInvestigationDetection:
                             subnets=['subnet-1'],
                             security_group='sg-1',
                             efs_filesystem_id='fs-1',
-                            oc_version='4.12'
                         )
 
                     assert existing_task_arn in exc_info.value.failed_tasks
@@ -1583,7 +1576,6 @@ class TestDuplicateInvestigationDetection:
                             subnets=['subnet-1'],
                             security_group='sg-1',
                             efs_filesystem_id='fs-1',
-                            oc_version='4.12'
                         )
 
                     assert existing_task_arn in exc_info.value.failed_tasks
@@ -1636,7 +1628,6 @@ class TestDuplicateInvestigationDetection:
                             subnets=['subnet-1'],
                             security_group='sg-1',
                             efs_filesystem_id='fs-1',
-                            oc_version='4.12'
                         )
 
                     assert task_2_arn in exc_info.value.failed_tasks
@@ -1682,7 +1673,6 @@ class TestDuplicateInvestigationDetection:
                             subnets=['subnet-1'],
                             security_group='sg-1',
                             efs_filesystem_id='fs-1',
-                            oc_version='4.12'
                         )
 
                     # Verify fail-closed behavior: task is not stopped when session check fails
@@ -1773,7 +1763,6 @@ class TestInvestigationStartedBy:
                         subnets=['subnet-1'],
                         security_group='sg-123',
                         efs_filesystem_id='fs-123',
-                        oc_version='4.20',
                         task_timeout=3600
                     )
 
@@ -1898,7 +1887,6 @@ class TestPerInvestigationTaskDef:
                         subnets=['subnet-1'],
                         security_group='sg-123',
                         efs_filesystem_id='fs-123',
-                        oc_version='4.20',
                         task_timeout=3600
                     )
 
@@ -1923,7 +1911,6 @@ class TestPerInvestigationTaskDef:
                 investigation_id='inv1',
                 access_point_id=access_point_id,
                 efs_filesystem_id='fs-123',
-                oc_version='4.20',
                 task_timeout=3600,
                 s3_audit_bucket='my-bucket',
                 aws_region='us-east-1',
@@ -1959,7 +1946,6 @@ class TestPerInvestigationTaskDef:
                 investigation_id='inv1',
                 access_point_id='fsap-123',
                 efs_filesystem_id='fs-123',
-                oc_version='4.20',
                 task_timeout=3600,
                 s3_audit_bucket='bucket',
                 aws_region='us-east-1',
@@ -2020,7 +2006,6 @@ class TestPerInvestigationTaskDef:
                 investigation_id='inv1',
                 access_point_id='fsap-123',
                 efs_filesystem_id='fs-123',
-                oc_version='4.20',
                 task_timeout=3600,
                 s3_audit_bucket='bucket',
                 aws_region='us-east-1',
@@ -2093,7 +2078,6 @@ class TestPerInvestigationTaskDef:
                 investigation_id='inv1',
                 access_point_id='fsap-123',
                 efs_filesystem_id='fs-123',
-                oc_version='4.20',
                 task_timeout=3600,
                 s3_audit_bucket='bucket',
                 aws_region='us-east-1',
@@ -2135,7 +2119,6 @@ class TestPerInvestigationTaskDef:
                     investigation_id='inv1',
                     access_point_id='fsap-123',
                     efs_filesystem_id='fs-123',
-                    oc_version='4.20',
                     task_timeout=3600,
                     s3_audit_bucket='bucket',
                     aws_region='us-east-1',
@@ -2166,7 +2149,6 @@ class TestPerInvestigationTaskDef:
                 investigation_id='inv1',
                 access_point_id='fsap-123',
                 efs_filesystem_id='fs-123',
-                oc_version='4.20',
                 task_timeout=3600,
                 s3_audit_bucket='bucket',
                 aws_region='us-east-1',
@@ -2195,7 +2177,6 @@ class TestPerInvestigationTaskDef:
                 investigation_id='my-inv',
                 access_point_id='fsap-123',
                 efs_filesystem_id='fs-123',
-                oc_version='4.20',
                 task_timeout=3600,
                 s3_audit_bucket='bucket',
                 aws_region='us-east-1',
@@ -2209,7 +2190,7 @@ class TestPerInvestigationTaskDef:
         assert re.match(pattern, family), f"Family name '{family}' does not match expected pattern"
 
     def test_env_vars_baked_into_task_definition(self):
-        """Test that investigation-specific env vars are baked into the SRE container only."""
+        """Investigation environment overrides preserve unrelated base values."""
         with patch('handler.ecs') as mock_ecs:
             mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
             mock_ecs.register_task_definition.return_value = {
@@ -2222,7 +2203,6 @@ class TestPerInvestigationTaskDef:
                 investigation_id='inv1',
                 access_point_id='fsap-123',
                 efs_filesystem_id='fs-123',
-                oc_version='4.18',
                 task_timeout=7200,
                 s3_audit_bucket='my-bucket',
                 aws_region='us-east-1',
@@ -2236,7 +2216,6 @@ class TestPerInvestigationTaskDef:
         env = {e['name']: e['value'] for e in sre_cd['environment']}
         assert env['CLUSTER_ID'] == 'cluster1'
         assert env['INVESTIGATION_ID'] == 'inv1'
-        assert env['OC_VERSION'] == '4.18'
         assert env['S3_AUDIT_BUCKET'] == 'my-bucket'
         assert env['TASK_TIMEOUT'] == '7200'
         # Base env vars preserved
@@ -2265,7 +2244,6 @@ class TestPerInvestigationTaskDef:
                     subnets=['subnet-1'],
                     security_group='sg-123',
                     efs_filesystem_id='fs-123',
-                    oc_version='4.20',
                     task_timeout=3600,
                     skip_task=True
                 )
@@ -2310,7 +2288,6 @@ class TestPerInvestigationTaskDef:
                             subnets=['subnet-1'],
                             security_group='sg-123',
                             efs_filesystem_id='fs-123',
-                            oc_version='4.20',
                             task_timeout=3600
                         )
 
@@ -2365,7 +2342,6 @@ class TestPerInvestigationTaskDef:
                             subnets=['subnet-1'],
                             security_group='sg-123',
                             efs_filesystem_id='fs-123',
-                            oc_version='4.20',
                             task_timeout=3600
                         )
 
@@ -2439,7 +2415,6 @@ class TestKubeProxySidecar:
             investigation_id='inv1',
             access_point_id='fsap-123',
             efs_filesystem_id='fs-123',
-            oc_version='4.20',
             task_timeout=3600,
             s3_audit_bucket='my-bucket',
             aws_region='us-east-1',
@@ -2546,7 +2521,6 @@ class TestKubeProxySidecar:
         proxy_env = {e['name']: e['value'] for e in proxy_cd.get('environment', [])}
         assert 'CLUSTER_ID' not in proxy_env
         assert 'INVESTIGATION_ID' not in proxy_env
-        assert 'OC_VERSION' not in proxy_env
 
 
 class TestTaskTagging:
@@ -2604,7 +2578,6 @@ class TestTaskTagging:
             subnets=['subnet-1'],
             security_group='sg-123',
             efs_filesystem_id='fs-123',
-            oc_version='4.20',
             task_timeout=3600,
         )
         kwargs.update(overrides)
@@ -2632,7 +2605,7 @@ class TestTaskTagging:
         )
 
     def test_run_task_includes_all_metadata_tags(self):
-        """run_task must include investigation_id, cluster_id, oc_version, access_point_id,
+        """run_task must include investigation_id, cluster_id, access_point_id,
         task_timeout, created_at, and deadline (when timeout > 0)."""
         with patch('handler.ecs') as mock_ecs:
             with patch('handler.efs') as mock_efs:
@@ -2645,7 +2618,6 @@ class TestTaskTagging:
 
         assert tags.get('investigation_id') == 'inv-001'
         assert tags.get('cluster_id') == 'rosa-dev'
-        assert tags.get('oc_version') == '4.20'
         assert tags.get('access_point_id') == 'fsap-test'
         assert tags.get('task_timeout') == '3600'
         assert 'created_at' in tags, "created_at tag must be present"

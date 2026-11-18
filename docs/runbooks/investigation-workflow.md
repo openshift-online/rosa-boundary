@@ -119,7 +119,6 @@ auth-bearing command, not just a preceding `login`. See the
 Optional flags:
 ```
   --session-timeout 1h    # task lifetime; must meet the deployment's policy
-  --oc-version 4.20       # OpenShift CLI version to lock; check CLI help for default
   --with-credentials none # opt out of default fresh OCM token injection
   --ocm-url production    # production, staging, integration, or canonical URL
   --ocm-auth-flow device  # explicit OCM-only override; otherwise follows global device preference
@@ -162,7 +161,7 @@ What it does:
 2. **Invokes the create-investigation Lambda** with the cached OIDC token
 3. **Lambda validates** the token against Keycloak JWKS and checks the deployment's required group and ABAC claim
 4. **Lambda creates an EFS access point**: `/<cluster-id>/<investigation-id>/`
-5. **Lambda registers a per-investigation task definition** with locked OC version and pre-set env vars
+5. **Lambda registers a per-investigation task definition** with the image-shipped oc and pre-set env vars
 6. **Lambda launches the ECS task** with the deployment's ABAC tag and investigation/deadline tags
 7. **Lambda returns the shared SRE role ARN** and task ARN
 8. CLI prints connection command
@@ -171,6 +170,37 @@ Output includes the Boundary session ID (underlying ECS task ID or ARN), **not**
 the short-lived SSM session ID created by ECS Exec. Save it for join and stop.
 An investigation workspace can outlive multiple sessions.
 
+### Timeouts and handover
+
+The CLI defaults `--session-timeout` to **1h** and sends it explicitly; Terraform's
+**8h** default applies only when the Lambda request omits the value. CLI accepts
+`0s`, but the deployed default minimum of 30 seconds rejects it. Global
+`--timeout` is a separate local command deadline, and explicit `--timeout 0s`
+is invalid. Read the [timeout matrix](../architecture/session-lifecycle.md#timeout-matrix)
+before selecting a value. A deadline is not a guaranteed stop time:
+[strict-deadline and active-session policies remain unresolved](../architecture/session-lifecycle.md#unresolved-policy-decisions).
+
+To hand over a workspace, coordinate with its current SRE and have them disconnect
+Exec. The successor uses their own profile/identity to request a replacement:
+
+```bash
+./bin/rosa-boundary --profile <successor-profile> session create <cluster-id> \
+  --investigation-id <existing-investigation-id>
+```
+
+Lambda checks existing RUNNING tasks for active SSM connections before stopping
+any; a detected active connection returns 409. It waits for old tasks to STOP
+before launching the replacement; stop/wait failures abort replacement, not
+already initiated stops. Verify predecessor audit evidence independently.
+This is not an atomic concurrency lock. See [handover details and limitations](../architecture/session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
+The new task belongs to the caller, but the access point keeps its original
+creator tags and creation time. CLI investigation-close ownership does not
+transfer; see the separate [ROSAENG-75946 close-ownership work](https://redhat.atlassian.net/browse/ROSAENG-75946).
+Same-user recreation is also currently possible, subject to the same active-session
+checks; [ROSAENG-75947](https://redhat.atlassian.net/browse/ROSAENG-75947) tracks its
+prevention and takeover policy. Credential mounts do not persist: configure fresh OCM credentials on
+the new task. See [actual task/AP tags](../architecture/session-lifecycle.md#actual-resource-tags-creator-versus-actor).
+
 ## Phase 3: List Tasks
 
 ```bash
@@ -178,7 +208,9 @@ An investigation workspace can outlive multiple sessions.
   --status RUNNING
 ```
 
-Shows: session ID (ECS task ID), status, cluster, investigation ID, username, start time.
+Shows: session ID (ECS task ID), status, cluster, investigation ID, OWNER, start time.
+OWNER is the task's `uuid` tag, falling back to `username`, not necessarily the
+workspace creator. Use `--status all` to include stopped tasks.
 
 ## Phase 4: Connect to Container
 
@@ -207,8 +239,18 @@ whoami              # sre
 echo $CLUSTER_ID    # <cluster-id>
 echo $INVESTIGATION_ID  # <investigation-id>
 claude --version    # Confirms installation, not Bedrock access
-oc version --client # OpenShift CLI (locked to investigation version)
+oc version --client # OpenShift CLI shipped in this task's image
 ```
+
+Exec does not inherit arbitrary entrypoint exports. Region and Bedrock defaults
+come from the image/task definition and shell configuration; inspect the actual
+shell environment after creating a fresh task. The image exposes AWS CLI via
+`/usr/local/bin/aws` (alternatives) targeting `/usr/local/aws-cli/v2/current/aws`.
+Check `command -v aws`, `readlink -f /usr/local/bin/aws`, and `aws --version` rather
+than assuming `/usr/bin/aws`. See [Exec environment](../architecture/session-lifecycle.md#exec-environment-and-aws-cli)
+and the [actual VPC endpoint inventory](../architecture/session-lifecycle.md#network-endpoints-are-deployment-specific);
+this repository does not provision an SSM interface endpoint or guarantee no
+internet egress requirement.
 
 ### Verify Bedrock access from a fresh task
 

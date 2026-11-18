@@ -92,7 +92,6 @@ def test_complete_investigation_creation(
         ecs_client, efs_client, iam_client, test_vpc, test_efs, ecs_cleanup,
         oidc_sub='test-user-e2e-123',
         username='sre-e2e-user',
-        extra_env_vars=[{'name': 'OC_VERSION', 'value': '4.20'}],
     )
 
     # Step 6: Verify complete workflow

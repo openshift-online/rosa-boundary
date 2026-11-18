@@ -419,7 +419,7 @@ The `examples/` directory contains scripts for the complete investigation lifecy
 cd examples/
 
 # Create investigation workspace (EFS access point + task definition)
-./create_investigation.sh rosa-prod-abc INV-12345 4.18
+./create_investigation.sh rosa-prod-abc INV-12345 7200
 
 # Launch a Fargate task for the investigation
 ./launch_task.sh rosa-boundary-dev-rosa-prod-abc-INC-12345-TIMESTAMP
@@ -504,7 +504,7 @@ The infrastructure uses a per-investigation isolation model with EFS access poin
 ### Workflow Overview
 
 ```
-1. create_investigation.sh  → Creates EFS access point + task definition with locked OC version
+1. create_investigation.sh  → Creates EFS access point + task definition using the image-shipped oc
 2. launch_task.sh           → Launches Fargate task for the investigation
 3. join_task.sh        → Connects to running task via ECS Exec
 4. stop_task.sh        → Stops task (triggers S3 sync to unique path)
@@ -525,14 +525,14 @@ The infrastructure uses a per-investigation isolation model with EFS access poin
 ```bash
 cd examples/
 
-# Syntax: ./create_investigation.sh <cluster-id> <investigation-id> [oc-version]
-./create_investigation.sh rosa-prod-abc INV-12345 4.18
+# Syntax: ./create_investigation.sh <cluster-id> <investigation-id> [task-timeout]
+./create_investigation.sh rosa-prod-abc INV-12345 7200
 ```
 
 **Output:**
 - EFS Access Point: `fsap-xxx` with path `/$cluster_id/$investigation_id/`
 - Task Definition: `rosa-boundary-dev-$cluster_id-$investigation_id-TIMESTAMP`
-- OC Version: Locked to specified version in task definition
+- OpenShift CLI: supplied by the task image; no per-investigation version selection
 
 **Save the output values** (task family name and access point ID) for later steps.
 
@@ -545,7 +545,7 @@ cd examples/
 
 **Automatic configuration:**
 - Mounts investigation-specific EFS path to `/home/sre`
-- Sets environment variables: `CLUSTER_ID`, `INVESTIGATION_ID`, `OC_VERSION`, `S3_AUDIT_BUCKET`
+- Sets environment variables: `CLUSTER_ID`, `INVESTIGATION_ID`, `S3_AUDIT_BUCKET`
 - Enables ECS Exec for interactive access
 
 ### Step 3: Connect to Task
@@ -560,7 +560,7 @@ cd examples/
 whoami                    # sre
 pwd                       # /home/sre
 claude --version          # 2.0.69
-oc version --client       # 4.18.x (locked to investigation)
+oc version --client       # Version pinned into the deployed image
 echo $CLUSTER_ID          # rosa-prod-abc
 echo $INVESTIGATION_ID    # INV-12345
 
@@ -665,7 +665,6 @@ Session logs contain complete terminal output including any credentials or sensi
 
 - `CLUSTER_ID` - ROSA cluster identifier
 - `INVESTIGATION_ID` - Investigation tracking ID
-- `OC_VERSION` - OpenShift CLI version (locked per investigation)
 - `S3_AUDIT_BUCKET` - S3 bucket name for audit logs
 - `CLAUDE_CODE_USE_BEDROCK=1` - Enable Claude Code via Bedrock
 

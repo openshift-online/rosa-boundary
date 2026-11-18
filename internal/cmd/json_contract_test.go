@@ -90,7 +90,7 @@ func TestStartJSONStatusDistinguishesLaunchAndDisconnect(t *testing.T) {
 		{"ready", "RUNNING", false, false}, {"no wait", "launched", true, false}, {"connected", "disconnected", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			result := startSessionJSONResult("cluster", "inv", "task-1", "ecs", "arn", "4.20", 3600, "fsap", "role", false, tc.noWait, tc.connected)
+			result := startSessionJSONResult("cluster", "inv", "task-1", "ecs", "arn", 3600, "fsap", "role", false, tc.noWait, tc.connected)
 			if result["status"] != tc.status || result["session_id"] != "task-1" {
 				t.Fatal(result)
 			}

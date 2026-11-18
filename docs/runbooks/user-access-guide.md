@@ -272,7 +272,7 @@ Once connected, you're in an interactive shell as the `sre` user:
 # Check environment
 echo $CLUSTER_ID
 echo $INVESTIGATION_ID
-echo $OC_VERSION
+oc version --client
 
 # Your home directory is persistent (EFS)
 pwd

@@ -1,215 +1,65 @@
 # SRE Investigation Environment
 
-This is an ephemeral container for ROSA cluster investigation and AWS infrastructure troubleshooting.
+This is an ephemeral ROSA Boundary container for authorized cluster investigation
+and AWS infrastructure troubleshooting. These instructions apply to all coding
+agents in the workspace.
 
-## Container Information
+## Environment
 
-**Purpose**: Secure SRE workspace with pre-configured AWS and OpenShift tooling
-**Runtime**: AWS Fargate (ECS)
-**Storage**: /home/sre is EFS-mounted and persists across container restarts
+- Tasks run on AWS Fargate. Perform investigation work as the non-root `sre` user.
+- `/home/sre` is an EFS-backed investigation workspace reused by successive tasks
+  in the same investigation. Store non-secret notes and evidence here.
+- Use the installed `aws`, `oc`, `ocm`, `ocm backplane`, and `osdctl` commands.
+- Claude Code, OpenCode, Codex, and pi are available. Use Amazon Bedrock only,
+  with the deployment-provided provider configuration. Do not use other model
+  providers. If Bedrock is not configured for an agent, ask the operator rather
+  than falling back to another provider.
 
-## Available Tools
+## Start with SOPs and Skills
 
-### AWS CLI
+Before choosing investigation commands, find and read the applicable operational
+SOP and skill rather than relying on a generic troubleshooting recipe.
 
-Official AWS CLI v2 installed at `/opt/aws-cli-official/v2/current/bin/aws`, accessible as `aws`.
+- SOPs are normally mounted at `/opt/rosa-content/ops-sop/`.
+- For alert investigations, start with the `srep-alert-skills` collection at
+  `/opt/rosa-content/rosa-claude-plugins/srep-alert-skills/skills/`. Read the
+  `SKILL.md` matching the alert or symptoms and follow its SOP references.
+  These skills map alert names to investigation workflows and relevant SOPs.
+  Boundary also maintains skill discovery links in `~/.claude/skills/` and
+  `~/.agents/skills/`.
+- Follow the relevant Backplane access skill/SOP to establish cluster access.
+  Do not default to direct token-based `oc login`.
+- For OCM API interactions outside `ocm backplane`, use the `ocm-api` skill at
+  `/opt/rosa-content/rosa-claude-plugins/ocm-api/skills/ocm-api/SKILL.md`.
+- If required content, permissions, or credentials are unavailable, explain the
+  blocker and ask the operator; do not substitute another access path or target.
 
-### OpenShift CLI (oc)
+## Investigation Scope
 
-Multiple versions installed (4.14-4.20). Default: 4.20
+- Confirm the authorized cluster, AWS account, and target region before accessing
+  resources. Do not infer the target from the container's deployment region.
+- **Validate the target cluster and OCM API environment before every operation.**
+  Confirm the active Backplane/Kubernetes context, cluster ID, identity, and OCM
+  API endpoint match the authorized investigation. Production, staging, and
+  integration are not interchangeable. Do not rely only on defaults or a prior
+  login; stop and resolve any mismatch before proceeding.
+- Follow the applicable SOP's approval requirements. Do not create debug workloads,
+  collect broad diagnostics, or perform remediation without appropriate approval.
 
-**Switch versions at runtime**:
-```bash
-# Via environment variable at container start
-export OC_VERSION=4.18
+## Evidence and Credentials
 
-# Or manually switch
-alternatives --set oc /opt/openshift/4.18/oc
-
-# Verify version
-oc version --client
-```
-
-**Available versions**: 4.14, 4.15, 4.16, 4.17, 4.18, 4.19, 4.20
-
-### Claude Code
-
-Installed via native installer. Configured to use Amazon Bedrock via IAM for authentication.
-
-**Region detection**: Automatically detects the AWS region from ECS task metadata.
-**Override region**: Set `AWS_REGION` environment variable if cross-region Bedrock access is needed.
-
-## ROSA Cluster Context
-
-Before investigating, confirm the cluster name, AWS account, region, OpenShift version, and API endpoint from the authorized investigation request and cluster metadata. Record non-secret identifiers in investigation notes; do not assume this template identifies a target.
-
-**Authentication**:
-```bash
-# Login to cluster (adjust for your setup)
-oc login --token=<token> --server=<api-endpoint>
-```
-
-## SRE Investigation Workflows
-
-### Initial Assessment
-
-1. **Verify cluster access**:
-   ```bash
-   oc whoami
-   oc get nodes
-   oc get clusterversion
-   ```
-
-2. **Check cluster health**:
-   ```bash
-   oc get co  # cluster operators
-   oc get nodes -o wide
-   oc adm top nodes
-   ```
-
-3. **Review recent events**:
-   ```bash
-   oc get events --all-namespaces --sort-by='.lastTimestamp' | tail -n 50
-   ```
-
-### Common ROSA Troubleshooting Commands
-
-**Cluster Operators**:
-```bash
-# List all cluster operators and their status
-oc get co
-
-# Detailed status of degraded operator
-oc describe co <operator-name>
-
-# Check operator logs
-oc logs -n openshift-<namespace> <pod-name>
-```
-
-**Node Investigation**:
-```bash
-# Node details
-oc describe node <node-name>
-
-# SSH to node (if debug pods enabled)
-oc debug node/<node-name>
-
-# Check node logs
-oc adm node-logs <node-name>
-oc adm node-logs <node-name> -u kubelet
-oc adm node-logs <node-name> -u crio
-```
-
-**Pod Investigation**:
-```bash
-# Get pod details
-oc describe pod <pod-name> -n <namespace>
-
-# Check pod logs
-oc logs <pod-name> -n <namespace>
-oc logs <pod-name> -n <namespace> --previous  # previous container
-
-# Get pod events
-oc get events -n <namespace> --field-selector involvedObject.name=<pod-name>
-```
-
-**Network Debugging**:
-```bash
-# Test pod connectivity
-oc run test-pod --image=registry.redhat.io/rhel8/support-tools --rm -it -- /bin/bash
-
-# DNS testing
-oc run -it --rm debug --image=registry.redhat.io/rhel8/support-tools --restart=Never -- nslookup kubernetes.default
-
-# Service endpoints
-oc get endpoints -n <namespace>
-```
-
-### Log Collection
-
-**Application logs**:
-```bash
-# Collect logs to file in /home/sre (persists to EFS)
-oc logs <pod-name> -n <namespace> > /home/sre/logs/<pod-name>.log
-
-# Stream logs
-oc logs -f <pod-name> -n <namespace>
-
-# All pods in deployment
-for pod in $(oc get pods -n <namespace> -l app=<label> -o name); do
-  oc logs $pod -n <namespace> > /home/sre/logs/${pod}.log
-done
-```
-
-### Must-Gather
-
-Collect comprehensive cluster diagnostics:
-
-```bash
-# Standard must-gather
-oc adm must-gather --dest-dir=/home/sre/must-gather/$(date +%Y%m%d-%H%M%S)
-
-# Network-specific must-gather
-oc adm must-gather --image=quay.io/openshift/origin-network-must-gather --dest-dir=/home/sre/must-gather/network-$(date +%Y%m%d-%H%M%S)
-
-# Storage must-gather
-oc adm must-gather --image=registry.redhat.io/ocs4/ocs-must-gather-rhel8 --dest-dir=/home/sre/must-gather/storage-$(date +%Y%m%d-%H%M%S)
-```
-
-**Important**: Must-gather outputs are large.
-
-### AWS Resource Inspection
-
-**ROSA cluster resources**:
-```bash
-# List EC2 instances for cluster
-aws ec2 describe-instances \
-  --filters "Name=tag:api.openshift.com/name,Values=<cluster-name>" \
-  --region <region>
-
-# Check ELBs
-aws elb describe-load-balancers --region <region> | grep <cluster-name>
-aws elbv2 describe-load-balancers --region <region> | grep <cluster-name>
-
-# VPC and subnets
-aws ec2 describe-vpcs \
-  --filters "Name=tag:Name,Values=<cluster-name>*" \
-  --region <region>
-
-# Security groups
-aws ec2 describe-security-groups \
-  --filters "Name=tag:Name,Values=*<cluster-name>*" \
-  --region <region>
-```
-
-## Best Practices
-
-### Preserving Evidence
-
-1. **Store all investigation artifacts in /home/sre**:
-   - Logs: `/home/sre/logs/`
-   - Must-gathers: `/home/sre/must-gather/`
-   - Scripts: `/home/sre/scripts/`
-   - Notes: `/home/sre/notes/`
-
-2. **Document steps in /home/sre/investigation.md**:
-   ```bash
-   echo "## $(date)" >> /home/sre/investigation.md
-   echo "Checked cluster operators, found kube-apiserver degraded" >> /home/sre/investigation.md
-   ```
-
-### Security
-
-- Never store credentials in /home/sre (use IAM roles)
-- Use `oc whoami -t` tokens carefully (short-lived)
-
-### Performance
-
-- Use `--limit` and `--tail` flags for large log queries
-
-## Additional Resources
-
-- [ROSA Documentation](https://docs.openshift.com/rosa/)
-- [OpenShift CLI Reference](https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html)
-- [AWS CLI Reference](https://docs.aws.amazon.com/cli/)
-- [Must-Gather Guide](https://docs.openshift.com/container-platform/latest/support/gathering-cluster-data.html)
+- Keep non-secret notes, logs, and artifacts wherever appropriate under
+  `/home/sre`. Record relevant actions, findings, and evidence locations.
+  Limit collection to the authorized investigation.
+- Use the supported task-scoped credential flow. OCM state belongs under
+  `/home/sre/.config/ocm` and kubeconfig state under `/home/sre/.kube`; these are
+  task-scoped, audit-excluded mounts, not persistent workspace storage.
+- **Never write credential material outside the designated ephemeral,
+  audit-excluded mounts**, including temporary credential files, copies, or
+  backups. Files elsewhere under `/home/sre` persist on EFS and are included in
+  audit collection; never put credentials in those files, notes, or artifacts.
+  Do not assume an arbitrary temporary directory or another mount is excluded.
+- Use task-role credentials for Boundary AWS operations; obtain any target-account
+  access through its approved workflow.
+- Container shutdown attempts an S3 audit sync. Leaving an ECS Exec shell does
+  not stop the task or prove that audit sync succeeded.

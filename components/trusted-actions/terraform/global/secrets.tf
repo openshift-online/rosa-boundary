@@ -11,8 +11,4 @@ resource "aws_secretsmanager_secret_version" "app" {
     ocm_token               = var.ocm_token
     backplane_client_secret = var.backplane_client_secret
   })
-
-  lifecycle {
-    ignore_changes = [secret_string] # allow out-of-band rotation without Terraform drift
-  }
 }

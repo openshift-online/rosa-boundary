@@ -177,6 +177,7 @@ module "rosa_trusted_actions" {
               allowed_namespaces: []
               allowed_secrets: []
             ocm:
+              base_url: https://api.stage.openshift.com
               client_id: ${var.ocm_client_id}
             backplane:
               base_url: https://api.stage.backplane.openshift.com

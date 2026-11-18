@@ -115,6 +115,9 @@ def terraform_checks(runner, files):
     """Initialize/validate in a disposable source-only copy; never use live state."""
     with tempfile.TemporaryDirectory(prefix="rosa-terraform-check-") as temp:
         snapshot = Path(temp)
+        # The rendered ECS stopTimeout contract also reads the image entrypoint.
+        if "entrypoint.sh" in files:
+            shutil.copy2(ROOT / "entrypoint.sh", snapshot / "entrypoint.sh")
         for name in files:
             path = Path(name)
             if path.parts[0] in ("deploy", "hcp-terraform", "lambda") and path.suffix in (".tf", ".hcl", ".py", ".json", ".sh") and not name.endswith(".tfvars.json"):

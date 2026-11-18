@@ -236,11 +236,13 @@ def test_terraform_snapshot_includes_embedded_shell(tmp_path):
     module.mkdir(parents=True)
     (module / "main.tf").write_text('terraform {}')
     (module / "embedded-script.sh").write_text("embedded shell fixture")
+    (tmp_path / "entrypoint.sh").write_text("shutdown budget fixture")
     runner = runner_module.Runner(tmp_path)
 
     def inspect_snapshot(name, command, cwd, env):
         assert (cwd / "embedded-script.sh").read_text() == "embedded shell fixture"
+        assert (cwd.parent.parent / "entrypoint.sh").read_text() == "shutdown budget fixture"
         return True
 
     with patch.object(runner_module, "ROOT", tmp_path), patch.object(runner, "run", side_effect=inspect_snapshot):
-        runner_module.terraform_checks(runner, ["deploy/regional/main.tf", "deploy/regional/embedded-script.sh"])
+        runner_module.terraform_checks(runner, ["deploy/regional/main.tf", "deploy/regional/embedded-script.sh", "entrypoint.sh"])

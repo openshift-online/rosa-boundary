@@ -35,8 +35,10 @@ Source: [`cli.go`](../../internal/cmd/cli.go),
 The SSM value is a service constraint, not a locally tested Terraform setting.
 
 The entrypoint only displays `TASK_TIMEOUT`. Its separate S3 `SYNC_TIMEOUT`
-default is 300s, while the base container's ECS `stopTimeout` is 120s: shutdown
-can cut sync short. Neither task STOPPED nor a successful CLI wait proves audit
+defaults to 85s (valid override: 1–85 whole seconds). Allowing 3s for an
+in-flight startup metadata request, a 105s shutdown watchdog and 2s kill grace
+leaves 10s before the base container's 120s ECS `stopTimeout`. Neither task
+STOPPED nor a successful CLI wait proves audit
 escrow. See [audit verification](../runbooks/investigation-workflow.md#verify-audit-evidence).
 
 ### Unresolved policy decisions

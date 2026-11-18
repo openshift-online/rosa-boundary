@@ -211,8 +211,8 @@ func (c *Client) CreateInvestigationOnly(ctx context.Context, idToken string, re
 
 // GetConfig invokes the Lambda with the get_config action to retrieve CLI
 // configuration values. Unlike other methods, this does not send an OIDC
-// token — the request is authenticated by IAM (the caller already assumed
-// the invoker role).
+// token in the payload. AWS authorizes the SDK invocation; config init uses
+// credentials obtained by exchanging its OIDC token for an invoker role session.
 func (c *Client) GetConfig(ctx context.Context) (*ConfigResponse, error) {
 	configReq := ConfigRequest{Action: "get_config"}
 	bodyBytes, err := json.Marshal(configReq)

@@ -52,6 +52,12 @@ mock_provider "aws" {
 }
 mock_provider "archive" {}
 
+# Distinguish the intended URL grantee from other mock roles.
+override_data {
+  target = data.aws_iam_role.lambda_invoker
+  values = { arn = "arn:aws:iam::123456789012:role/test-invoker" }
+}
+
 # Keep content and audit identities distinct under mocking.
 override_resource {
   target = aws_s3_bucket.content
@@ -197,6 +203,14 @@ run "legacy_policy_names_ownership_and_original_scopes" {
   }
   assert {
     condition = (
+      aws_lambda_function_url.create_investigation.authorization_type == "AWS_IAM" &&
+      aws_lambda_function_url.create_investigation.function_name == local.create_investigation_function_name &&
+      aws_lambda_permission.create_investigation_url.function_name == local.create_investigation_function_name &&
+      aws_lambda_permission.create_investigation_url.function_url_auth_type == "AWS_IAM" &&
+      aws_lambda_permission.create_investigation_url.action == "lambda:InvokeFunctionUrl" &&
+      aws_lambda_permission.create_investigation_url.principal == data.aws_iam_role.lambda_invoker.arn &&
+      length(jsondecode(aws_iam_role_policy.lambda_invoker.policy).Statement) == 1 &&
+      jsondecode(aws_iam_role_policy.lambda_invoker.policy).Statement[0].Effect == "Allow" &&
       jsondecode(aws_iam_role_policy.lambda_invoker.policy).Statement[0].Action == "lambda:InvokeFunction" &&
       jsondecode(aws_iam_role_policy.lambda_invoker.policy).Statement[0].Resource == local.create_investigation_function_arn &&
       jsondecode(aws_iam_role_policy.create_investigation_lambda_ecs.policy).Statement[1].Resource == [data.aws_iam_role.task.arn, data.aws_iam_role.execution.arn] &&

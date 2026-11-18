@@ -13,6 +13,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 
 - [**System Overview**](architecture/overview.md) - High-level architecture with diagrams
 - [**CLI Authentication**](architecture/cli-authentication.md) - How the CLI exchanges an OIDC token for temporary AWS credentials
+- [**Configuration discovery decision**](architecture/config-discovery.md) - What `get_config` discloses and who can invoke it
 - [**Investigations and Tasks**](architecture/investigations-and-tasks.md) - Conceptual model, lifecycle, state recording, and FAQ
 - [**Session Lifecycle Reference**](architecture/session-lifecycle.md) - Timeout matrix, task/AP tags, creator versus actor, handover, Exec environment, and network endpoints
 

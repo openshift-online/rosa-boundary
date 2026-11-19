@@ -427,11 +427,11 @@ func TestWaitForRunningPollsAtFixedIntervalWithoutBackoff(t *testing.T) {
 	var polls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
-		status := "PENDING"
-		if polls.Add(1) > pendingPolls {
-			status = "RUNNING"
+		if polls.Add(1) <= pendingPolls {
+			_, _ = w.Write([]byte(`{"tasks":[{"lastStatus":"PENDING"}]}`))
+			return
 		}
-		_, _ = w.Write([]byte(`{"tasks":[{"taskArn":"arn:aws:ecs:us-east-1:123456789012:task/ecs-cluster/task-1","lastStatus":"` + status + `"}]}`))
+		_, _ = w.Write([]byte(`{"tasks":[{"lastStatus":"RUNNING","createdAt":1700000000,"pullStartedAt":1700000001,"pullStoppedAt":1700000002,"startedAt":1700000003}]}`))
 	}))
 	defer server.Close()
 
@@ -443,8 +443,14 @@ func TestWaitForRunningPollsAtFixedIntervalWithoutBackoff(t *testing.T) {
 	// there, so finishing several polls inside this deadline proves the override.
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	if err := testInvestigationECSClient(server.URL).WaitForRunning(ctx, "task-1"); err != nil {
-		t.Fatalf("WaitForRunning: %v", err)
+	startup, err := testInvestigationECSClient(server.URL).WaitForRunningWithTimings(ctx, "task-1")
+	if err != nil || startup == nil {
+		t.Fatalf("WaitForRunningWithTimings: %v, %v", startup, err)
+	}
+	for i, ts := range []*time.Time{startup.CreatedAt, startup.PullStartedAt, startup.PullStoppedAt, startup.StartedAt} {
+		if ts == nil || ts.Unix() != 1700000000+int64(i) {
+			t.Errorf("startup timestamp %d: %v", i, ts)
+		}
 	}
 	if got := polls.Load(); got != pendingPolls+1 {
 		t.Fatalf("expected %d polls, got %d", pendingPolls+1, got)

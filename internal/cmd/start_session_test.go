@@ -12,6 +12,7 @@ import (
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
+	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
 func captureStartSummary(t *testing.T, ecsCluster, clusterID, investigationID, sessionID, region string, noWait bool) string {
@@ -150,7 +151,7 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 				selectedProfile = "stage-east" // Normally resolved by commandPreRun.
 				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
-					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "")
+					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "", sessionStartupTimings{})
 				stdout, readErr := os.ReadFile(stdoutFile.Name())
 				if readErr != nil {
 					t.Fatal(readErr)
@@ -183,19 +184,24 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 
 func TestFinishStartSessionJSONWarnsWithoutReportingCredentials(t *testing.T) {
 	savedStartProfile(t)
-	previousConnect, previousNoWait, previousFormat := startConnect, startNoWait, startOutputFormat
-	t.Cleanup(func() { startConnect, startNoWait, startOutputFormat = previousConnect, previousNoWait, previousFormat })
+	previousConnect, previousNoWait, previousFormat, previousVerbose := startConnect, startNoWait, startOutputFormat, output.Verbose
+	t.Cleanup(func() {
+		startConnect, startNoWait, startOutputFormat, output.Verbose = previousConnect, previousNoWait, previousFormat, previousVerbose
+	})
 	startConnect, startNoWait, startOutputFormat = false, false, "json"
+	const injectionWarning = "OCM authentication failed; retry session credentials configure ocm task-123"
 	for _, tc := range []struct {
 		name    string
 		noWait  bool
+		verbose bool
 		warning string
 	}{
-		{"OCM injection failed", false, "OCM authentication failed; retry session credentials configure ocm task-123"},
-		{"no-wait skips OCM", true, noWaitCredentialWarning("task-123", "boundary", "us-east-1")},
+		{"OCM injection failed", false, false, injectionWarning},
+		{"verbose OCM injection failed", false, true, injectionWarning},
+		{"verbose no-wait skips OCM", true, true, noWaitCredentialWarning("task-123", "boundary", "us-east-1")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			startNoWait = tc.noWait
+			startNoWait, output.Verbose = tc.noWait, tc.verbose
 			old := os.Stdout
 			r, w, err := os.Pipe()
 			if err != nil {
@@ -206,9 +212,13 @@ func TestFinishStartSessionJSONWarnsWithoutReportingCredentials(t *testing.T) {
 				os.Stdout = old
 				_ = r.Close()
 			}()
+			timings := sessionStartupTimings{LambdaRoundTripMS: 42}
+			if !tc.noWait {
+				timings.recordRunning(1000, &awsclient.TaskStartup{})
+			}
 			cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 			err = finishStartSession(cmd, nil, nil, "boundary", "rosa", "INV-1", "task-123", "us-east-1",
-				&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, tc.warning)
+				&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, tc.warning, timings)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -225,13 +235,30 @@ func TestFinishStartSessionJSONWarnsWithoutReportingCredentials(t *testing.T) {
 			}
 			assertOneJSON(t, stdout.String(), map[string]any{"session_id": "task-123", "status": wantStatus})
 			var result struct {
-				Warnings []string `json:"warnings"`
+				Warnings []string               `json:"warnings"`
+				Timings  *sessionStartupTimings `json:"startup_timings"`
 			}
 			if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || len(result.Warnings) != 1 || result.Warnings[0] != tc.warning {
 				t.Errorf("credential warning = %q, decode error = %v", result.Warnings, err)
 			}
 			if strings.Contains(stdout.String(), `"credentials"`) {
 				t.Errorf("unconfigured credentials reported as configured: %s", stdout.String())
+			}
+			if !tc.verbose {
+				if strings.Contains(stdout.String(), `"startup_timings"`) {
+					t.Errorf("default output includes startup timings: %s", stdout.String())
+				}
+				return
+			}
+			if result.Timings == nil || result.Timings.LambdaRoundTripMS != 42 {
+				t.Fatalf("unexpected startup timings: %+v", result.Timings)
+			}
+			if tc.noWait {
+				if result.Timings.InvokeToRunningMS != nil || result.Timings.ECS != nil {
+					t.Errorf("no-wait reported ECS startup timings: %+v", result.Timings)
+				}
+			} else if result.Timings.InvokeToRunningMS == nil || *result.Timings.InvokeToRunningMS != 1000 || result.Timings.ECS == nil {
+				t.Errorf("missing waited startup timings: %+v", result.Timings)
 			}
 		})
 	}

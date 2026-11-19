@@ -2207,8 +2207,17 @@ class TestPerInvestigationTaskDef:
 
     def test_env_vars_baked_into_task_definition(self):
         """Investigation environment overrides preserve unrelated base values."""
+        import copy
+
+        base_task_def = copy.deepcopy(self.BASE_TASK_DEF)
+        base_sre = next(
+            cd for cd in base_task_def['taskDefinition']['containerDefinitions']
+            if cd['name'] == 'rosa-boundary'
+        )
+        rta_server = 'https://rta.example.com'
+        base_sre['environment'].append({'name': 'RTA_SERVER', 'value': rta_server})
         with patch('handler.ecs') as mock_ecs:
-            mock_ecs.describe_task_definition.return_value = self.BASE_TASK_DEF
+            mock_ecs.describe_task_definition.return_value = base_task_def
             mock_ecs.register_task_definition.return_value = {
                 'taskDefinition': {'taskDefinitionArn': 'arn:aws:ecs:us-east-1:123:task-definition/test:1'}
             }
@@ -2236,6 +2245,10 @@ class TestPerInvestigationTaskDef:
         assert env['TASK_TIMEOUT'] == '7200'
         # Base env vars preserved
         assert env['CLAUDE_CODE_USE_BEDROCK'] == '1'
+        assert env['RTA_SERVER'] == rta_server
+        assert sum(e['name'] == 'RTA_SERVER' for e in sre_cd['environment']) == 1
+        proxy_cd = next(cd for cd in container_defs if cd['name'] == 'kube-proxy')
+        assert all(e['name'] != 'RTA_SERVER' for e in proxy_cd.get('environment', []))
 
     @patch.dict('os.environ', ENV_VARS)
     def test_skip_task_does_not_register_task_definition(self):

@@ -1,8 +1,9 @@
 # Proposal: ready-to-use Trusted Actions CLI in Boundary
 
-**Status: proposed, not implemented.** Building `rta` into the Boundary image
-does not configure or authorize API access. This follow-up would make an
-approved deployment usable without manually passing server URLs or tokens.
+**Status: endpoint configuration implemented in source; rollout and CLI
+hardening remain separate.** Building `rta` into the Boundary image does not
+authorize API access. The selected endpoint still needs working private DNS,
+TLS and network access from the deployed task.
 
 ## Runtime configuration
 
@@ -10,24 +11,20 @@ Use the **main Boundary container's ECS task-definition environment**, not an
 entrypoint export or an EFS-backed configuration file. ECS Exec does not inherit
 environment variables exported by the entrypoint.
 
-| Setting | Proposed source | Purpose |
+| Setting | Source | Purpose |
 | --- | --- | --- |
 | `RTA_SERVER` | Optional regional Terraform input `rta_server_url`, default empty | Deployment-selected HTTPS origin; omit the env entry when unconfigured. |
-| `OCM_CONFIG` | Fixed task-definition value `/home/sre/.config/ocm/ocm.json` | Read the existing task-scoped, injected user credentials instead of a legacy EFS-backed `~/.ocm.json`. |
-| `OCM_KEYRING` | Fixed empty task-definition value | Avoid selecting a desktop keyring instead of the injected configuration. |
-| `RTA_TIMEOUT` | Initially omit | Retain the CLI's five-minute default. |
+
+No `OCM_CONFIG`, `OCM_KEYRING` or `RTA_TIMEOUT` overrides are added. Keep the
+existing default OCM discovery and the CLI's five-minute timeout.
 
 The CLI already supports `RTA_SERVER` and flag-over-environment precedence,
 but does not load an RTA config file. Its client appends
 `/api/v0/trusted-actions`: configure `https://<approved-host>`, **not** a URL
-containing that API suffix. Validate the Terraform input as an HTTPS origin:
-nonempty authority, no credentials, whitespace, query, fragment or path other
-than an optional trailing slash. Normalize the trailing slash.
-
-If operations need a timeout override, add a positive whole-number
-`rta_timeout_seconds` input and render it as e.g. `300s`. Avoid accepting
-arbitrary Go-duration strings in Terraform. The current CLI does not strictly
-validate timeout settings; a client timeout does not cancel a server execution.
+containing that API suffix. Terraform validates an HTTPS DNS origin with no
+credentials, whitespace, query, fragment or path other than an optional
+trailing slash. It removes the trailing slash and validates an optional port
+in the range 1–65535.
 
 Implementation points:
 
@@ -36,9 +33,8 @@ Implementation points:
 - Deployment-specific origins in the Git-managed `variables` lists in
   [Boundary's HCP definition](../../hcp-terraform/rosa-boundary/main.tf).
   Leave other deployments unset; do not edit workload variables directly in HCP.
-- The create-investigation Lambda already preserves unrelated environment
-  entries from the base task definition. Test this explicitly for the new
-  settings; new Lambda configuration should not be necessary.
+- The create-investigation Lambda preserves `RTA_SERVER` from the base task
+  definition. A regression test covers this; no Lambda runtime change is needed.
 - For personal dev, explicitly supply the Terraform input through the supported
   local configuration path. A shell `RTA_SERVER` variable is not automatically
   a Terraform input.
@@ -76,11 +72,12 @@ Use TA's approved regional origin as the configuration handoff. Its existing
 already returns a URL, not merely a hostname; require its HTTPS form. Do not
 grant Boundary broad access to TA Terraform state solely to discover this value.
 
-Current Git configuration places primary staging Boundary and staging TA in
-the same VPC/subnets. TA has an internal ALB, private DNS, HTTPS support and
-VPC-CIDR ingress; Boundary already permits outbound traffic. Start with that
-pairing **after verifying the deployed configuration**, DNS, trusted TLS and
-backend health.
+Git configuration selects
+`https://rosa-trusted-actions.dev0.rosav1.devshift.net` for primary staging
+Boundary in `us-east-1`, matching TA stage's configured hostname and shared
+VPC/subnets. TA has an internal ALB, private DNS, HTTPS support and VPC-CIDR
+ingress; Boundary already permits outbound traffic. Verify the deployed
+configuration, DNS, trusted TLS and backend health separately.
 
 Do not copy that origin into all regions or production. Other VPCs need an
 explicit connectivity/DNS/ingress design or an independently approved local TA
@@ -92,19 +89,16 @@ effective HCP auto-apply settings and downstream plans before merging.
 
 ## Validation and small CLI follow-up
 
-1. Mock-provider Terraform tests: unset URL omits `RTA_SERVER`; a valid origin
-   reaches only the main container; malformed origins fail; credential discovery
-   points at the existing ephemeral mount.
-2. Lambda regression: deployment defaults survive investigation-specific
+1. Mock-provider Terraform tests cover unset URL, main-container-only
+   propagation, trailing slash normalization and invalid origins/ports. No
+   credential discovery or timeout overrides are introduced.
+2. A Lambda regression verifies the endpoint survives investigation-specific
    environment overrides.
-3. CLI tests/hardening: strict origin and positive-timeout validation;
+3. Proposed CLI tests/hardening: strict origin and positive-timeout validation;
    environment/flag precedence; access-token freshness rather than the OCM
    config's broader `Armed` predicate; actionable missing/expired-token errors.
    Do not silently refresh or retry action submission.
-4. Shell/local integration tests: a synthetic legacy `~/.ocm.json` cannot
-   shadow the injected file under the proposed defaults; credential material
-   remains absent from persistent workspace/audit output.
-5. Separately approved new-task verification: actual ECS Exec environment,
+4. Separately approved new-task verification: actual ECS Exec environment,
    private DNS, verified HTTPS, authenticated read-only catalog access and
    expiry/reconfiguration behavior. No action execution is needed for the
    initial configuration smoke test.

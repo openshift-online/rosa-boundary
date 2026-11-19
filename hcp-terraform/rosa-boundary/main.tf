@@ -448,6 +448,12 @@ module "rosa_boundary" {
           hcl      = true
         },
         {
+          # TA stage shares this VPC/private DNS. Do not reuse in other VPCs.
+          key      = "rta_server_url"
+          value    = "https://rosa-trusted-actions.dev0.rosav1.devshift.net"
+          category = "terraform"
+        },
+        {
           key      = "container_image"
           value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:7f041588fd65e2fb1b9a8871ea8d90f2d1b07dde"
           category = "terraform"

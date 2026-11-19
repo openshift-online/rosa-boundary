@@ -10,6 +10,11 @@ ARM64_IMAGE := $(IMAGE_NAME):$(TAG)-arm64
 # Build args
 CACHE ?=
 REQUIRE_GITHUB_TOKEN ?= false
+# Snapshot once per make invocation. Do not label modified checkout builds as
+# pristine HEAD; include untracked inputs as well as staged/unstaged changes.
+RTA_COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo unknown)$(shell test -z "$$(git status --porcelain --untracked-files=normal 2>/dev/null)" || printf '%s' '-dirty')
+# Use the source commit timestamp rather than a wall-clock build timestamp.
+RTA_BUILD_DATE := $(shell git show -s --format=%cI HEAD 2>/dev/null || echo unknown)
 
 # Go CLI
 CLI_BIN := bin/rosa-boundary
@@ -19,7 +24,7 @@ CLI_LDFLAGS := -ldflags "-X github.com/openshift-online/rosa-boundary/internal/c
 .PHONY: all build build-amd64 build-arm64 manifest clean help \
         build-cli install-cli test-cli test-coverage codecov fmt lint \
         validate-findings convert-sarif upload-sarif \
-        test-github-dl verify-image-tools test test-shell test-all check lint-shell pre-commit
+        test-github-dl verify-image-tools verify-image-context test test-shell test-all check lint-shell pre-commit
 
 # Default target: build both architectures and create manifest
 all: build manifest
@@ -32,6 +37,7 @@ build-amd64:
 	@echo "Building AMD64 variant..."
 
 	podman build --platform linux/amd64 --build-arg REQUIRE_GITHUB_TOKEN=$(REQUIRE_GITHUB_TOKEN) \
+		--build-arg RTA_COMMIT="$(RTA_COMMIT)" --build-arg RTA_BUILD_DATE="$(RTA_BUILD_DATE)" \
 		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
 		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_ID,env=GITHUB_APP_ID") \
 		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
@@ -43,6 +49,7 @@ build-arm64:
 	@echo "Building ARM64 variant..."
 
 	podman build --platform linux/arm64 --build-arg REQUIRE_GITHUB_TOKEN=$(REQUIRE_GITHUB_TOKEN) \
+		--build-arg RTA_COMMIT="$(RTA_COMMIT)" --build-arg RTA_BUILD_DATE="$(RTA_BUILD_DATE)" \
 		$$([ -n "$$GITHUB_TOKEN" ] && echo "--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN") \
 		$$([ -n "$$GITHUB_APP_ID" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_ID,env=GITHUB_APP_ID") \
 		$$([ -n "$$GITHUB_APP_PEM" ] && echo "--secret id=rosa-boundary-github-app/GITHUB_APP_PEM,env=GITHUB_APP_PEM") \
@@ -55,14 +62,27 @@ verify-image-tools: ## Offline unprivileged tool acceptance (TOOL_IMAGE=<built i
 	@test -n "$(TOOL_IMAGE)" || { echo "ERROR: TOOL_IMAGE is required"; exit 1; }
 	@set -eu; \
 		image_id=$$(podman image inspect --format '{{.Id}}' "$(TOOL_IMAGE)"); \
+		commit="$(TOOL_COMMIT)"; \
+		if [ -z "$$commit" ]; then \
+			commit=$$(podman image inspect --format '{{index .Labels "org.opencontainers.image.revision"}}' "$$image_id"); \
+		fi; \
+		test -n "$$commit" || { echo "ERROR: image revision label or TOOL_COMMIT is required"; exit 1; }; \
 		echo "Validating tool filesystem: $$image_id"; \
 		podman run --rm --network none --read-only --user sre \
 			--cap-drop all --security-opt no-new-privileges \
 			--tmpfs /tmp:rw,nosuid,nodev --env HOME=/tmp \
-			--volume "$(CURDIR)/build:/verify:ro" \
-			--volume "$(CURDIR)/Containerfile:/pins/Containerfile:ro" \
+			--volume "$(CURDIR)/build:/verify:ro,z" \
+			--volume "$(CURDIR)/Containerfile:/pins/Containerfile:ro,z" \
+			--volume "$(CURDIR)/components/trusted-actions/VERSION:/pins/RTA_VERSION:ro,z" \
 			--entrypoint /usr/bin/python3 "$$image_id" \
-			/verify/verify_sre_tools.py runtime --containerfile /pins/Containerfile
+			/verify/verify_sre_tools.py runtime --containerfile /pins/Containerfile \
+			--rta-version-file /pins/RTA_VERSION --rta-commit "$$commit"
+
+# Use a synthetic context: ignored secrets/deployment files are harmless fixtures,
+# never files copied out of a contributor's real checkout.
+verify-image-context: ## Test Podman's actual context filtering (TOOL_IMAGE=<built image>)
+	@test -n "$(TOOL_IMAGE)" || { echo "ERROR: TOOL_IMAGE is required"; exit 1; }
+	RTA_CONTEXT_IMAGE="$(TOOL_IMAGE)" uv run --group localstack pytest build/test_rta_context.py -q
 
 # Create manifest list combining both architectures
 manifest: build
@@ -317,6 +337,7 @@ help:
 	@echo "Build Helper Targets:"
 	@echo "  make test-github-dl  - Run build-helper unit and contract tests"
 	@echo "  make verify-image-tools TOOL_IMAGE=... - Offline tool acceptance on a built image"
+	@echo "  make verify-image-context TOOL_IMAGE=... - Synthetic build-context filtering check"
 	@echo ""
 	@echo "Code Quality Targets:"
 	@echo "  make check        - Tests, strict lint, Staticcheck, and pre-commit (may modify files)"

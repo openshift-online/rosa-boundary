@@ -15,7 +15,7 @@
     "managerFilePatterns": ["/^\\.tekton\\/rosa-trusted-actions-.*\\.yaml$/"]
   },
   "dockerfile": {
-    "managerFilePatterns": ["/^components\\/trusted-actions\\/Containerfile$/"]
+    "managerFilePatterns": ["/^components\\/trusted-actions\\/Containerfile$/", "/^Containerfile$/"]
   },
   "customManagers": [
     {
@@ -153,6 +153,21 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Keep the existing Boundary runtime-base update policy unchanged",
+      "matchManagers": ["dockerfile"],
+      "matchFileNames": ["Containerfile"],
+      "matchPackageNames": ["registry.access.redhat.com/ubi9/ubi"],
+      "enabled": false
+    },
+    {
+      "description": "Review Boundary's pinned Trusted Actions CLI Go builder updates",
+      "matchManagers": ["dockerfile"],
+      "matchFileNames": ["Containerfile"],
+      "matchPackageNames": ["registry.access.redhat.com/hi/go"],
+      "automerge": false,
+      "platformAutomerge": false
+    },
     {
       "description": "Review stable coding agent updates; retain inherited release age",
       "matchManagers": [

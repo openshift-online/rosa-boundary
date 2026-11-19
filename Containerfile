@@ -12,11 +12,12 @@
 #   pi-builder       — pi coding agent via github_dl (SHA256 verified)
 #   search-builder   — fd and ripgrep (published SHA256 verified)
 #   tmux-builder     — tmux built from source (not in UBI9 repos)
+#   rta-builder      — Trusted Actions CLI built from this checkout
 #   final            — production image (only this stage ships)
 #
 # sre-tools and the coding-agent builders depend on tools-base.
 # tmux-builder depends only on BASE_IMAGE. With BuildKit or podman --layers,
-# stages 2-8 run in parallel once their dependencies complete.
+# independent stages can run in parallel once their dependencies complete.
 
 # Base image pinned by digest for reproducibility. Renovate updates this.
 ARG BASE_IMAGE=registry.access.redhat.com/ubi9/ubi@sha256:1e9f0ed9fceafb40878bc1705ff124aa150e3fed873f18c42cdc2dded319e0a8
@@ -350,14 +351,47 @@ RUN curl --silent --location --fail \
     && strip --strip-all /build/out/usr/bin/tmux
 
 
-# Stage 9: final
+# Stage 9: rta-builder
+# Build only the CLI from the nested module in this exact source context.
+# The compiler, source and module cache never enter the final image.
+# Go version and multi-arch manifest digest checked 2026-11-19.
+FROM registry.access.redhat.com/hi/go:1.27.4@sha256:806a8a1151d96f1c482963ed1e6cb825291b9c8b502337eabd58ad617199765d AS rta-builder
+
+ENV GOTOOLCHAIN=local CGO_ENABLED=0
+WORKDIR /src/trusted-actions
+
+ARG TARGETARCH
+RUN test "$(go env GOARCH)" = "${TARGETARCH}"
+
+# Cache dependencies separately from application changes. Go verifies modules
+# against go.sum; readonly mode below rejects missing/out-of-date dependencies.
+COPY components/trusted-actions/go.mod components/trusted-actions/go.sum ./
+RUN go mod download
+COPY components/trusted-actions/cmd/rta/ ./cmd/rta/
+COPY components/trusted-actions/internal/ ./internal/
+COPY components/trusted-actions/VERSION ./
+
+# .git is deliberately excluded. Konflux supplies the resolved clone commit;
+# Make supplies HEAD (with a -dirty suffix for local modifications).
+ARG RTA_COMMIT=unknown
+ARG RTA_BUILD_DATE=unknown
+RUN version="$(cat VERSION)" \
+    && mkdir --parents /out \
+    && GOOS=linux GOARCH="${TARGETARCH}" go build -mod=readonly -trimpath \
+        -ldflags="-s -w -X github.com/openshift-online/rosa-trusted-actions/internal/rta.Version=${version} -X github.com/openshift-online/rosa-trusted-actions/internal/rta.Commit=${RTA_COMMIT} -X github.com/openshift-online/rosa-trusted-actions/internal/rta.BuildDate=${RTA_BUILD_DATE}" \
+        -o /out/rta ./cmd/rta
+
+
+# Stage 10: final
 # Production image. Only this stage ships.
 FROM ${BASE_IMAGE} AS final
 
+ARG RTA_COMMIT=unknown
 LABEL org.opencontainers.image.title="rosa-boundary" \
       org.opencontainers.image.description="Ephemeral SRE investigation container for ROSA clusters on AWS ECS Fargate" \
       org.opencontainers.image.source="https://github.com/openshift-online/rosa-boundary" \
-      org.opencontainers.image.vendor="Red Hat"
+      org.opencontainers.image.vendor="Red Hat" \
+      org.opencontainers.image.revision="${RTA_COMMIT}"
 
 RUN dnf install --assumeyes --nodocs \
         alternatives \
@@ -408,6 +442,9 @@ COPY --from=search-builder /opt/search/fd /opt/search/rg /usr/local/bin/
 # tmux built from source (not in UBI9 repos)
 COPY --from=tmux-builder /build/out/usr/bin/tmux /usr/bin/tmux
 
+# Same-checkout Trusted Actions CLI: a stripped, static executable only.
+COPY --chmod=0755 --from=rta-builder /out/rta /usr/local/bin/rta
+
 # Register the verified AWS distribution with alternatives.
 RUN alternatives --install /usr/local/bin/aws aws /usr/local/aws-cli/v2/current/aws 20 \
     && ln --symbolic /usr/local/lib/claude-code/claude /usr/local/bin/claude \
@@ -447,7 +484,9 @@ ENV HOME=/home/sre
 # Mount the context directory to avoid Buildah's single-file bind-mount issue.
 RUN --network=none --mount=type=bind,source=.,target=/verify-src,ro \
     runuser --user sre -- python3 /verify-src/build/verify_sre_tools.py runtime \
-        --containerfile /verify-src/Containerfile
+        --containerfile /verify-src/Containerfile \
+        --rta-version-file /verify-src/components/trusted-actions/VERSION \
+        --rta-commit "${RTA_COMMIT}"
 
 # The entrypoint runs as root for privileged setup (alternatives --set, chown,
 # runuser). ECS Exec sessions drop to the sre user via the CLI's default

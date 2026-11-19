@@ -21,12 +21,29 @@ docs/
 *.md
 !skel/**/*.md
 
-# Go CLI source (built separately, not part of container image)
+# Boundary Go CLI source (built separately, not part of container image)
 cmd/
 internal/
 go.mod
 go.sum
 bin/
+
+# Only the nested Trusted Actions CLI build inputs are needed. Re-admit these
+# explicitly after the Go exclusions above; never copy its deployment/config
+# files, local credentials, release artifacts or the separate server entrypoint.
+components/**
+!components/trusted-actions/
+components/trusted-actions/**
+!components/trusted-actions/go.mod
+!components/trusted-actions/go.sum
+!components/trusted-actions/VERSION
+!components/trusted-actions/cmd/
+components/trusted-actions/cmd/**
+!components/trusted-actions/cmd/rta/
+components/trusted-actions/cmd/rta/**
+!components/trusted-actions/cmd/rta/*.go
+!components/trusted-actions/internal/
+!components/trusted-actions/internal/**
 
 # Python virtual environments
 .venv/

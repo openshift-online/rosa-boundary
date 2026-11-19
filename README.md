@@ -287,6 +287,27 @@ make clean
 
 ### CLI
 
+The container build also compiles the Trusted Actions **`rta` CLI** from
+`components/trusted-actions/` in the same checkout. A pinned Go builder produces
+a stripped, static binary; only `/usr/local/bin/rta` is copied into the final
+image. The separate TA server image and Boundary CLI build remain independent.
+
+`rta version -o json` reports its component version, source commit and platform.
+Local image builds stamp HEAD with `-dirty` if the checkout has modifications
+(including untracked files), and use the source commit timestamp for the build
+date. Konflux stamps the resolved clone commit; the build date is `unknown`
+unless `RTA_BUILD_DATE` is supplied. Neither path fetches an RTA release binary.
+
+After building, run `make verify-image-tools TOOL_IMAGE=<image>`. This checks
+RTA offline as `sre`, including its version, architecture, static linking and
+commit against the image revision label. Supply `TOOL_COMMIT=<expected-sha>`
+to check against an independently known revision instead. Installation alone
+does not configure the server or authenticate: `rta` needs `RTA_SERVER` (an
+HTTPS origin, without `/api/v0/trusted-actions`) and a valid user OCM access
+token in the task-scoped credential configuration.
+`make verify-image-context TOOL_IMAGE=<image>` additionally tests Podman's
+real ignore matching with a synthetic context (including fake secret files).
+
 ```bash
 # Build the rosa-boundary binary to ./bin/
 make build-cli

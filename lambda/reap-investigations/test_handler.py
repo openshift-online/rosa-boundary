@@ -1328,6 +1328,16 @@ class TestRecovery(unittest.TestCase):
         self.assertFalse(self.reap())
         self.assert_retained()
 
+    def test_seal_after_directory_removal_retains_access_point(self):
+        point, = self.efs.describe_access_points.return_value['AccessPoints']
+        self.efs.describe_access_points.side_effect = [
+            {'AccessPoints': [point]},
+            {'AccessPoints': [dict(point, Tags=[{'Key': 'AuditCloseSeal', 'Value': 'hold'}])]},
+        ]
+        self.assertFalse(self.reap())
+        self.assertFalse(self.workspace.exists())
+        self.efs.delete_access_point.assert_not_called()
+
     def test_exhausted_before_backup(self):
         self.context.get_remaining_time_in_millis.return_value = 500
         self.assertFalse(self.reap())

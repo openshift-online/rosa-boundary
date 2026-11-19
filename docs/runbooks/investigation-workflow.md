@@ -420,8 +420,8 @@ comparison pins object versions in manifest order. Keep both evidence and
 manifest; this command does not authorize deletion or verify a shared reaper
 backup prefix.
 
-**If verification fails:** keep the AP and EFS data. Before the configured reaper
-grace expires, coordinate a hold with the operator. Use an authorized recovery
+**If verification fails: retention only.** Keep the AP and EFS data. Before the
+configured reaper grace expires, have the operator [place a retention hold](#retention-hold). Use an authorized recovery
 session on the retained investigation, or have the operator make a separate
 read-only recovery copy under a new destination while writers are quiescent.
 Verify the *whole* recovery copy, not just the missing keys. A successful
@@ -469,12 +469,18 @@ images there may be no task reports; recover and verify independently instead.
    reads the operator receipt, not the task's self-report, and performs no
    backup of its own. An unreadable receipt or mismatched tags block close.
 
+### Retention hold
+
+For a new hold, the deployment operator sets a fresh `AuditCloseSeal` on the
+exact AP without setting `AuditCloseVerified` or issuing a receipt.
+
 If verification was granted prematurely, remove **only `AuditCloseVerified`**
 from the affected AP immediately. Leave the seal in place as a retention hold.
 Read the tags back and confirm `investigation close --dry-run` reports that
 finalization is blocked. Preserve the original receipt and its version for
-incident review; do not reauthorize its seal. Assign the hold to an operator
-and record a review deadline. A hold prevents routine cleanup, not writes
+incident review; do not reauthorize its seal.
+
+For every hold, assign an operator and record a review deadline. A hold prevents routine cleanup, not writes
 through an existing mount.
 
 ## Phase 6: Close Investigation

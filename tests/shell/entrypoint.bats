@@ -19,6 +19,10 @@ echo "$*" >>"$TRACE"
 case "$2" in
     sync)
         if [[ -e $FIXTURE ]]; then cp "$FIXTURE" "$FIXTURE.uploaded"; fi
+        if [[ -n ${SIGNAL_PARENT:-} && ! -e $READY ]]; then
+            touch "$READY"
+            kill -TERM "$SIGNAL_PARENT" || exit 98
+        fi
         if [[ -n ${STALL:-} ]]; then exec sleep 30; fi
         exit "${TRANSFER_RC:-0}" ;;
     cp) cat >"$REPORT"; exit "${REPORT_RC:-0}" ;;
@@ -240,6 +244,33 @@ STUB
             REPORT*) [[ "$output" == *reason=report_failed* ]] ;;
         esac
     done
+}
+
+@test "TERM during mount initialization exits without calling AWS" {
+    run timeout 8 bash -c '
+        source "$1"
+        verify_credential_mounts() { :; }
+        initialize_credential_mounts() { kill -TERM "$$"; }
+        main true
+    ' bash "$ENTRYPOINT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *reason=interrupted_mount_setup* ]]
+    [ ! -e "$TRACE" ]
+    [ ! -e "$REPORT" ]
+}
+
+@test "TERM during stalled sync does not restart cleanup or mask the timeout" {
+    run env STALL=1 SYNC_TIMEOUT=1 timeout 8 bash -c '
+        source "$1"
+        export SIGNAL_PARENT=$$
+        cleanup
+    ' bash "$ENTRYPOINT"
+    [ "$status" -eq 124 ]
+    [ -e "$READY" ]
+    [ "$(grep -c "^s3 sync " "$TRACE")" -eq 1 ]
+    [ "$(grep -c "^s3 cp " "$TRACE")" -eq 1 ]
+    jq -e '.status == "unverified" and .transfer_rc == 124' "$REPORT"
+    [[ "$output" == *shutdown_rc=124* ]]
 }
 
 @test "whole-shutdown watchdog interrupts a blocked upload without a terminal report" {

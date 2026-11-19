@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -43,7 +44,7 @@ func TestCloseReceiptValidation(t *testing.T) {
 				}
 				return []byte(tc.body), nil
 			})
-			if (p.ReceiptDigest != "") != tc.valid || (p.FinalizationBlocked == "") != tc.valid {
+			if (p.ReceiptDigest != "") != tc.valid || (p.blockingReason() == "") != tc.valid {
 				t.Fatalf("incorrect receipt decision: %+v", p)
 			}
 		})
@@ -58,9 +59,24 @@ func TestCloseReceiptValidation(t *testing.T) {
 		p := sealedPlan()
 		change(&p)
 		p.checkReceipt(context.Background(), nil)
-		if p.FinalizationBlocked == "" || p.ReceiptDigest != "" {
+		if p.blockingReason() == "" || p.ReceiptDigest != "" {
 			t.Fatal("allowed invalid operator state")
 		}
+	}
+}
+
+func TestIncompleteClosePlanPreview(t *testing.T) {
+	p := sealedPlan() // No receipt read and no validation error.
+	b, err := json.Marshal(p.preview())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var preview map[string]any
+	if err := json.Unmarshal(b, &preview); err != nil {
+		t.Fatal(err)
+	}
+	if preview["finalization_blocked_reason"] != "no verified operator receipt" || preview["access_point_id"] != p.AccessPointID {
+		t.Fatalf("unexpected preview: %s", b)
 	}
 }
 
@@ -85,12 +101,13 @@ func TestCloseGatedMutations(t *testing.T) {
 	closeYes = true
 	closeOutputFormat = "text"
 	for _, tc := range []struct {
-		name                                                string
-		dry, active, valid, revoke, changedReceipt, unknown bool
-		want                                                []string
-		errText                                             string
+		name                                                            string
+		dry, active, valid, revoke, changedReceipt, unknown, incomplete bool
+		want                                                            []string
+		errText                                                         string
 	}{
 		{name: "dry run", dry: true, active: true},
+		{name: "receipt not checked", incomplete: true, errText: "no verified operator receipt"},
 		{name: "unverified stopped", errText: "task-old"},
 		{name: "empty ECS is not proof", unknown: true, errText: "older IDs may be unknown"},
 		{name: "forced stop cannot finalize", active: true, want: []string{"stop:writer", "wait:writer"}, errText: "writer"},
@@ -103,6 +120,9 @@ func TestCloseGatedMutations(t *testing.T) {
 			var calls closeCalls
 			resolve := func() (closePlan, error) {
 				p := sealedPlan()
+				if tc.incomplete {
+					return p, nil
+				}
 				if tc.unknown {
 					p.VisibleStopped = nil
 				}

@@ -6,6 +6,7 @@ reader comparison of observed versions, not an atomic snapshot or close receipt.
 
 import argparse
 from contextlib import closing
+from enum import Enum
 import hashlib
 import json
 import os
@@ -17,7 +18,25 @@ import tempfile
 
 UUID = r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}'
 DEST = re.compile(r's3://([a-z0-9][a-z0-9.-]{1,61}[a-z0-9])/'
-                  rf'((?:[A-Za-z0-9_-][A-Za-z0-9._-]*/)+attempts/{UUID}/workspace/)')
+                  rf'((?:[A-Za-z0-9_-][A-Za-z0-9._-]*/)*attempts/{UUID}/workspace/)')
+
+
+class Reason(Enum):
+    INVALID_URI = 'invalid_uri'
+    INVALID_MANIFEST = 'invalid_manifest'
+    UNEXPECTED_KEY = 'unexpected_key'
+    DUPLICATE_KEY = 'duplicate_key'
+    MISSING_KEY = 'missing_key'
+    MISSING_VERSION = 'missing_version'
+    SHORT_OBJECT = 'short_object'
+    LONG_OBJECT = 'long_object'
+    DIGEST_MISMATCH = 'digest_mismatch'
+
+
+class ComparisonError(ValueError):
+    def __init__(self, reason: Reason):
+        super().__init__(reason.value)
+        self.reason = reason
 
 
 def unique_fields(pairs):
@@ -51,20 +70,25 @@ def parse_manifest(raw):
 def compare(s3, destination, raw):
     match = DEST.fullmatch(destination)
     if not match:
-        raise ValueError('expected single attempt workspace URI')
+        raise ComparisonError(Reason.INVALID_URI)
     bucket, prefix = match.groups()
-    expected = parse_manifest(raw)
+    try:
+        expected = parse_manifest(raw)
+    except ValueError:
+        raise ComparisonError(Reason.INVALID_MANIFEST) from None
     seen = set()
     pages = s3.get_paginator('list_objects_v2').paginate(Bucket=bucket, Prefix=prefix)
     for page in pages:
         for obj in page.get('Contents', []):
             key = obj['Key']
             relative = key[len(prefix):]
-            if not key.startswith(prefix) or relative not in expected or relative in seen:
-                raise ValueError('unexpected listed key')
+            if not key.startswith(prefix) or relative not in expected:
+                raise ComparisonError(Reason.UNEXPECTED_KEY)
+            if relative in seen:
+                raise ComparisonError(Reason.DUPLICATE_KEY)
             seen.add(relative)
     if seen != expected.keys():
-        raise ValueError('missing listed key')
+        raise ComparisonError(Reason.MISSING_KEY)
 
     versions = []
     for key, item in expected.items():
@@ -72,16 +96,18 @@ def compare(s3, destination, raw):
         with closing(response['Body']) as body:
             version = response.get('VersionId')
             if not isinstance(version, str) or not version.strip() or version.strip().lower() == 'null':
-                raise ValueError('missing object version')
+                raise ComparisonError(Reason.MISSING_VERSION)
             digest = hashlib.sha256()
             length = 0
             while chunk := body.read(1024 * 1024):
                 length += len(chunk)
                 if length > item['length']:
-                    raise ValueError('object too long')
+                    raise ComparisonError(Reason.LONG_OBJECT)
                 digest.update(chunk)
-        if length != item['length'] or digest.hexdigest() != item['sha256']:
-            raise ValueError('object mismatch')
+        if length < item['length']:
+            raise ComparisonError(Reason.SHORT_OBJECT)
+        if digest.hexdigest() != item['sha256']:
+            raise ComparisonError(Reason.DIGEST_MISMATCH)
         versions.append(version)
     return {'manifest_sha256': hashlib.sha256(raw).hexdigest(),
             'workspace_uri_sha256': hashlib.sha256(destination.encode()).hexdigest(),
@@ -108,11 +134,15 @@ def main():
 
         evidence = compare(boto3.client('s3'), args.workspace_uri, args.manifest.read_bytes())
         save(evidence, args.evidence)
-    except Exception as exc:
-        # SDK errors and parser diagnostics may contain private names or bytes.
-        print(f'Workspace comparison unsuccessful ({type(exc).__name__}).', file=sys.stderr)
-        return 1
-    return 0
+    except ComparisonError as exc:
+        code = exc.reason.value
+    except Exception:
+        # Neither third-party exception names nor their messages are public.
+        code = 'verification_error'
+    else:
+        return 0
+    print(f'Workspace comparison unsuccessful ({code}).', file=sys.stderr)
+    return 1
 
 
 if __name__ == '__main__':

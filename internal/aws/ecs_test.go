@@ -262,7 +262,9 @@ func TestActiveTaskDefinitionAccessPoint(t *testing.T) {
 				if tc.status != "" {
 					status = `"status":"` + tc.status + `",`
 				}
-				_, _ = w.Write([]byte(`{"taskDefinition":{` + status + `"taskDefinitionArn":"` + tc.describedARN + `","volumes":[{"name":"sre-home","efsVolumeConfiguration":{"fileSystemId":"fs-example","authorizationConfig":{"accessPointId":"fsap-other"}}}]}}`))
+				if _, err := w.Write([]byte(`{"taskDefinition":{` + status + `"taskDefinitionArn":"` + tc.describedARN + `","volumes":[{"name":"sre-home","efsVolumeConfiguration":{"fileSystemId":"fs-example","authorizationConfig":{"accessPointId":"fsap-other"}}}]}}`)); err != nil {
+					t.Errorf("write DescribeTaskDefinition response: %v", err)
+				}
 			}))
 			defer server.Close()
 			got, err := testInvestigationECSClient(server.URL).ActiveTaskDefinitionAccessPoint(context.Background(), arn)

@@ -35,7 +35,8 @@ class Body(io.BytesIO):
 
 
 class S3:
-    def __init__(self):
+    def __init__(self, prefix=PREFIX):
+        self.prefix = prefix
         self.files = dict(FILES)
         self.listed = list(reversed(FILES))
         self.metadata = {'VersionId': 'v1'}
@@ -46,13 +47,13 @@ class S3:
         return self
 
     def paginate(self, *, Bucket, Prefix):
-        assert (Bucket, Prefix) == ('audit-fixture', PREFIX)
+        assert (Bucket, Prefix) == ('audit-fixture', self.prefix)
         for key in self.listed:
-            yield {'Contents': [{'Key': PREFIX + key}]}
+            yield {'Contents': [{'Key': self.prefix + key}]}
 
     def get_object(self, *, Bucket, Key):
-        assert Bucket == 'audit-fixture' and Key.startswith(PREFIX)
-        body = Body(self.files[Key[len(PREFIX):]])
+        assert Bucket == 'audit-fixture' and Key.startswith(self.prefix)
+        body = Body(self.files[Key[len(self.prefix):]])
         self.bodies.append(body)
         return {'Body': body, **(self.metadata if not Key.endswith('.empty') else {'VersionId': 'v2'})}
 
@@ -74,19 +75,57 @@ def test_private_evidence(tmp_path):
     assert json.loads(path.read_bytes()) == result
 
 
-def test_failed_get_leaves_no_evidence_or_private_diagnostic(tmp_path, monkeypatch, capsys):
+def test_bucket_root_attempt():
+    prefix = PREFIX[PREFIX.index('attempts/'):]
+    result = verifier.compare(S3(prefix), 's3://audit-fixture/' + prefix, RAW)
+    assert result['version_ids_in_manifest_order'] == ['v1', 'v2']
+
+
+@pytest.mark.parametrize(('case', 'code'), [
+    ('uri', 'invalid_uri'), ('manifest', 'invalid_manifest'),
+    ('extra', 'unexpected_key'), ('duplicate', 'duplicate_key'), ('missing', 'missing_key'),
+    ('version', 'missing_version'), ('short', 'short_object'), ('long', 'long_object'),
+    ('digest', 'digest_mismatch'), ('sdk', 'verification_error'), ('save', 'verification_error'),
+])
+def test_cli_failure(case, code, tmp_path, monkeypatch, capsys):
     manifest = tmp_path / 'manifest'
     manifest.write_bytes(RAW)
     path = tmp_path / 'evidence'
     s3 = S3()
-    s3.get_object = Mock(side_effect=OSError('private/nested name: private bytes'))
+    uri = URI
+    key = 'private/nested name'
+    if case == 'uri':
+        uri += '../private/'
+    elif case == 'manifest':
+        manifest.write_bytes(b'private malformed manifest')
+    elif case == 'extra':
+        s3.listed.append('private extra')
+    elif case == 'duplicate':
+        s3.listed.append(key)
+    elif case == 'missing':
+        s3.listed.remove(key)
+    elif case == 'version':
+        s3.metadata.clear()
+    elif case in ('short', 'long', 'digest'):
+        size = len(FILES[key]) + {'short': -1, 'long': 1, 'digest': 0}[case]
+        s3.files[key] = b'x' * size
+    elif case == 'sdk':
+        class PrivateSDKError(Exception):
+            pass
+        s3.get_object = Mock(side_effect=PrivateSDKError(key))
+    elif case == 'save':
+        path.write_bytes(b'previous private evidence')
     monkeypatch.setitem(sys.modules, 'boto3', Mock(client=Mock(return_value=s3)))
-    monkeypatch.setattr(sys, 'argv', ['verify', '--workspace-uri', URI, '--manifest', str(manifest),
+    monkeypatch.setattr(sys, 'argv', ['verify', '--workspace-uri', uri, '--manifest', str(manifest),
                                      '--evidence', str(path)])
     assert verifier.main() == 1
-    assert not path.exists()
+    if case == 'save':
+        assert path.read_bytes() == b'previous private evidence'
+    else:
+        assert not path.exists()
     captured = capsys.readouterr()
-    assert 'private' not in captured.err and not captured.out
+    assert captured.out == ''
+    assert captured.err == f'Workspace comparison unsuccessful ({code}).\n'
 
 
 @pytest.mark.parametrize('listed', [[], [*FILES, 'extra'], [*FILES, '.empty']])

@@ -103,7 +103,9 @@ func closeInvestigation(ctx context.Context, resolve func() (closePlan, error), 
 		if !term.IsTerminal(int(os.Stdin.Fd())) || !term.IsTerminal(int(os.Stderr.Fd())) {
 			return fmt.Errorf("--yes is required without a terminal (or use --dry-run)")
 		}
-		fmt.Fprintf(os.Stderr, "\nProceed with this plan for %s/%s? [y/N]: ", plan.ClusterID, plan.InvestigationID)
+		if _, err := fmt.Fprintf(os.Stderr, "\nProceed with this plan for %s/%s? [y/N]: ", plan.ClusterID, plan.InvestigationID); err != nil {
+			return err
+		}
 		scanner := bufio.NewScanner(os.Stdin)
 		if !scanner.Scan() || !strings.EqualFold(strings.TrimSpace(scanner.Text()), "y") {
 			return fmt.Errorf("aborted")

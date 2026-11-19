@@ -398,12 +398,14 @@ class TestReaperLambda(unittest.TestCase):
         # Mock task definitions
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
-        result = handler.lambda_handler({}, None)
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
 
         assert result['checked'] == 1
         assert result['reaped'] == 0
         assert result['skipped'] == 0
         assert result['errors'] == 1
+        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-123')
 
         # Verify access point deletion was NOT called when directory deletion fails
         # This prevents orphaned directories (once AP is deleted, we lose the tags)
@@ -447,9 +449,12 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
         # Set TASK_DEFINITION_FAMILY so task definitions are fetched
-        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
+        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'), \
+             patch('handler.backup_investigation_to_s3', return_value=True):
             result = handler.lambda_handler({}, None)
 
+        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-123')
+        self.mock_efs.delete_access_point.assert_called_once_with(AccessPointId='fsap-123456')
         assert result['checked'] == 1
         assert result['reaped'] == 0
         assert result['skipped'] == 0
@@ -626,8 +631,10 @@ class TestReaperLambda(unittest.TestCase):
         # shutil.rmtree raises OSError on failure
         self.mock_shutil.rmtree.side_effect = OSError("Permission denied")
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-fail', self.mock_context, 'ap')
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.delete_investigation_directory('test-cluster', 'inv-fail', self.mock_context, 'ap')
 
+        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-fail')
         assert result is False
 
     def test_directory_deletion_nonexistent_directory(self):

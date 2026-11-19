@@ -18,6 +18,8 @@ sources:
     resource: repo://components/trusted-actions/internal/executor/executor.go
   - id: openwiki-source-f827e8cc9159566a8bea7544
     resource: repo://components/trusted-actions/internal/middleware/audit.go
+  - id: openwiki-source-1e2f8d8e30514257b103cd4f
+    resource: repo://components/trusted-actions/internal/middleware/logging.go
   - id: openwiki-source-fa9f309e7fc236ae68cbe6fa
     resource: repo://components/trusted-actions/internal/models/audit.go
   - id: openwiki-source-0a4dbcd3f9f3b6e51a1a5f7a
@@ -32,10 +34,10 @@ sources:
     resource: repo://components/trusted-actions/terraform/regional/cloudwatch.tf
   - id: openwiki-source-6955d983b4d48fea403e850a
     resource: repo://components/trusted-actions/terraform/regional/ecs.tf
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+    at: 2026-11-19T16:04:15.171Z
 ---
 
 # Trusted Actions audit and logging
@@ -82,6 +84,8 @@ Records are written through the `audit.Logger` interface (`Log(record Record)`),
 
 This `AuditEntry` model (`internal/models/audit.go`) is a separate, broader "one row per HTTP request" audit trail, independent of the narrower `audit.Record` described above, and is exposed to API clients via `AuditEntry.ToOpenAPI()`.
 
+A third, unrelated piece of logging sits alongside both of these: `internal/middleware/logging.go`'s `NewLogger` is registered as a global chi middleware (`router.Use(middleware.NewLogger(logger))`), ahead of the `/api/v0/trusted-actions` route group, so it wraps every request the process serves, including `/health`. It logs one structured line per request — method, URI, status, byte count, duration, user agent, remote address, request ID — tagged with the message `"Request completed"`, not `"audit record"`. Because the CloudWatch subscription filter driving the Firehose pipeline (below) matches only lines with `msg == "audit record"`, these general request-completion lines share the same `/ecs/${var.app_name}` CloudWatch log group as `audit.Record` lines but are never forwarded to Firehose or S3 — they stay in CloudWatch under the group's own 30-day retention. `NewLogger` is a general-purpose HTTP access log, not part of either audit trail.
+
 The `audit.Record` itself is emitted by `internal/executor.Executor.Execute`, which is invoked once per action attempt. It builds the record at the top of the call and defers logging it immediately:
 
 ```go
@@ -116,7 +120,7 @@ A `Scope.Run` failure is wrapped in `executor.Failure`, which separates the call
 
 `NewAuditLogger` is wired into the request chain in `cmd/server/main.go`, inside the `router.Route("/api/v0/trusted-actions", …)` group — chi applies `authnMiddleware.AuthenticateAccountJWT`, then `middleware.NewAuditLogger(dataStore, logger)`, then `authzMiddleware.AuthorizeAPI`, before reaching any handler. Because the audit middleware wraps the authorization step and the handler, its deferred `CreateAuditEntry` write captures the final response status (including a `403` from `AuthorizeAPI` denying the call) and whatever username authentication already resolved, for every request under that route group. `actionAuditor`, the `audit.Logger` the executor logs through, is a second, independent piece of wiring: `main.go` constructs it as `audit.NewMockLogger(logger)` — the codebase's only production `audit.Logger` implementation is named `MockLogger` and keeps its records only in an in-process slice for tests; durability for `audit.Record` therefore depends entirely on its `logrus` line (tagged `"audit record"`) reaching the CloudWatch → Firehose → S3 pipeline below, not on any database write. A comment at this point in `main.go` flags this as known technical debt: `internal/audit.Logger` (per-action decision/outcome) and the request-level `AuditEntry` store predate each other — one is a holdover from a pre-HTTP-server CLI tool — and were never unified into one persisted trail.
 
-(repo://components/trusted-actions/internal/executor/executor.go, repo://components/trusted-actions/internal/middleware/audit.go, repo://components/trusted-actions/internal/models/audit.go, repo://components/trusted-actions/cmd/server/main.go#L205-L221, repo://components/trusted-actions/cmd/server/main.go#L374-L386, repo://components/trusted-actions/internal/audit/mock.go)
+(repo://components/trusted-actions/internal/executor/executor.go, repo://components/trusted-actions/internal/middleware/audit.go, repo://components/trusted-actions/internal/middleware/logging.go, repo://components/trusted-actions/internal/models/audit.go, repo://components/trusted-actions/cmd/server/main.go#L204-L220, repo://components/trusted-actions/cmd/server/main.go#L364-L369, repo://components/trusted-actions/cmd/server/main.go#L392-L400, repo://components/trusted-actions/internal/audit/mock.go)
 
 ## From request to persisted record: the database behind `AuditEntry`
 
@@ -171,7 +175,7 @@ Trusted Actions' `ARCHITECTURE.md` lists exactly two controls under its Security
 
 The two controls are complementary, not interchangeable: allowlisting is a preventive control decided before a request is authorized, while the audit record set is a detective control recording what was attempted and its outcome — including attempts an allowlisted but unauthorized caller made and that were denied or skipped.
 
-(repo://components/trusted-actions/ARCHITECTURE.md#L162-L166, repo://components/trusted-actions/internal/config/config.go#L55, repo://components/trusted-actions/internal/config/config.go#L242-L243, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34)
+(repo://components/trusted-actions/ARCHITECTURE.md#L179-L182, repo://components/trusted-actions/internal/config/config.go#L55-L55, repo://components/trusted-actions/internal/config/config.go#L242-L243, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34)
 
 ## Relationship to other pages
 

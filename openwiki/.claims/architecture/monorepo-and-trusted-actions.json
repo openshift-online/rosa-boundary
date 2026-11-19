@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:c16b1289605cde17b27c8e78ad3d3b413258066ae72c82c32e0eea7df44cea17",
+  "pageVersion": "sha256:a8a9d7e2461188ff8f1f3c2777719462296cc4a63987469d97356f2ffa44d8af",
   "claims": [
     {
       "id": "claim_bb99a71168ed4f4ba678e9a32dbd25fd",
@@ -34,7 +34,7 @@
         },
         {
           "resource": "repo://go.mod",
-          "version": "repo-file-v1:sha256:6cb6547eacb408ea336733338a4dfefd0861fcef90debf415f36ba0eed9b2919"
+          "version": "repo-file-v1:sha256:7e12272bf5010c42c450e817e20874e7eeba02d5db259e9727bc2be1e8a44969"
         }
       ]
     },
@@ -115,10 +115,32 @@
           "version": "repo-lines-v1:sha256:3d11ef95fd32491e81dcdbabc3851a7f4d3ed0ffda1d3dbf1b8ece39524e0f37:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0YzkyNTQwODBiYjkxOTFhNmYxNGIxMjVkYTVhY2JiYzFiMGRmZDYyMTMxOTYwZDRiYjg4OTkyMTIzYmE5ODciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4N2NjZTM2ODQ3YThiMDdmZWJhYzU0MmJhZWE5ZTJmMjlmZmIyZjAwM2UxNGU3ZmZhNmVkNzY2NGNmNDc3NTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0MTBkMjFlMGNlNDZhZDlhM2E0ODkxYTAwYWM3YTg4ODZkZDQ1YmM4OGQyNWU4MTE5OGUxNjRiMDVkMTIwNDcifQ"
         }
       ]
+    },
+    {
+      "id": "claim_964183bb274f4c2b99f344575def47b5",
+      "statement": "The root OWNERS file's second filter, which only attaches a `component/boundary` label without restricting approval, currently matches `^(cmd/rosa-boundary/|internal/|lambda/|deploy/regional/|hcp-terraform/rosa-boundary/)` — covering Boundary's CLI/lambda source plus its regional deployment Terraform and its own HCP workspace tree — and no path in root OWNERS attaches a `component/trusted-actions` label; that classification instead happens via components/trusted-actions/OWNERS, hcp-terraform/rosa-trusted-actions/OWNERS, and the `.tekton/OWNERS` filter for `rosa-trusted-actions-*.yaml`.",
+      "evidence": [
+        {
+          "resource": "repo://.tekton/OWNERS#L24-L46",
+          "version": "repo-lines-v1:sha256:8a153b46f80aa653e30d1c30efc3007131a648929be23096fbf6f452c7bc88d4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjOGM0ZTM3ZGI0Y2U5MjQyN2FlMzI2MTk5NjJhYWNlYmVhZmVlZGNkNTdlNzI1ZDk0NzgzYjUxODA2MzhlMGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIxZjYxNjMxZjYzZTY0NjBkYmM3MTNkODJhYmY4MGVmNTdhN2JiODljODE5ZjEyNmI2NTQ1YjgxOThhMDYzMTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJlOWQ3MzBiYWZmYWZkYjAyMjVmYzczMzQ5N2E5MDg3M2Y2YjZkMmQwOTdhOWY2YzEwNTRkODVkMDk4MmU3ZjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://OWNERS#L28-L31",
+          "version": "repo-lines-v1:sha256:5b8803497fcaf95655d788b5d6c9089ba92acd7781b5c478d63175dd5103f98c:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMTk1OGQ0ZGEwZjkwNTlhZmM2MmJlMmM0M2I2NjE4Y2YzNGEyMWIyMWU0MDM5MmYxYjI1ZDk3NmZiNTE5ZWRiMiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzhhMjRjZjY5MmJjMmM1MDhmNmQ4OTc2N2NmMmMzZGFjMzUyZjVjYjIzNWNmMDVkZWJiMzYyNmU1NzM4NTcyYSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWRkOGUwMzc3NjQ3MTZkNzAyZmNkNDAzY2NjYjc5NDU4NmM3ZDE0NGQ5NjE4Mzc3YzdlNzA5OWExYTZiMzExYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjEsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTcwMDg5YzhmZWEwNTA0YzJjM2RiZGVhYjI3ZTE1OTc0ZjIwOTdiNjExZjkxOTZjN2RjNWEzZGQ0YTI3NDE2NSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/OWNERS",
+          "version": "repo-file-v1:sha256:a033f183b468798a8cabd3243db2bcc675467090330008eacc956e9114a606b9"
+        },
+        {
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/OWNERS",
+          "version": "repo-file-v1:sha256:a033f183b468798a8cabd3243db2bcc675467090330008eacc956e9114a606b9"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-17T16:03:58.857Z"
+    "at": "2026-11-19T16:04:15.171Z"
   }
 }

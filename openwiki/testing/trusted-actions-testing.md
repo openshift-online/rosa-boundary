@@ -1,11 +1,11 @@
 ---
 type: testing-guide
 title: Trusted Actions testing and CI
-description: Describes the Trusted Actions component's unit, integration, and mock-dependency testing strategy, its Make targets and Codecov patch-coverage gate, and the Konflux Tekton pipelines that build and push its image on PR and push events in this monorepo.
-tags: [trusted-actions, testing, ci, codecov, coverage, integration-tests, backplane, tekton, go]
+description: Describes the Trusted Actions component's unit, integration, and mock-dependency testing strategy, its Make targets, Postgres test tooling, and its Codecov patch-coverage gate, plus the Konflux Tekton pipelines that build and push its image on PR and push events in this monorepo.
+tags: [trusted-actions, testing, ci, codecov, coverage, integration-tests, backplane, postgres, tekton, go]
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+    at: 2026-11-19T16:04:15.171Z
 sources:
   - id: openwiki-source-eebdf2baefd63a03b1cb3b5e
     resource: repo://.tekton/rosa-trusted-actions-pull-request.yaml
@@ -15,8 +15,12 @@ sources:
     resource: repo://codecov.yml
   - id: openwiki-source-3051f255965c31db61eae3a3
     resource: repo://components/trusted-actions/codecov.yml
+  - id: openwiki-source-da2b59baf4fcefd99282d06d
+    resource: repo://components/trusted-actions/compose.postgres.yml
   - id: openwiki-source-c62a53560e154d1649f9a5b2
     resource: repo://components/trusted-actions/CONTRIBUTING.md
+  - id: openwiki-source-6b93bc866fdc94b322d46e84
+    resource: repo://components/trusted-actions/docker-compose.test.yml
   - id: openwiki-source-2d8b922c7e5e8b7514a7bbff
     resource: repo://components/trusted-actions/docs/adding-a-trusted-action.md
   - id: openwiki-source-56c54c10348f1e72daffc214
@@ -47,7 +51,7 @@ sources:
     resource: repo://components/trusted-actions/tests/proxy-backplane/README.md
   - id: openwiki-source-202f5239bfb095a7cbbf7f0f
     resource: repo://docs/trusted-actions-monorepo-migration.md
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
 ---
 
 ## Scope and where these tests live
@@ -91,6 +95,7 @@ components/trusted-actions` from the repository root.
 | `make test` | Generates OpenAPI code, compiles (but does not run) the `tests/actions` integration tests under the `integration` build tag to catch build breakage early, then runs `go test -v ./...` (SQLite-backed store tests only; Postgres-backed store tests require `TEST_POSTGRES_URL` and are opt-in via `make test-postgres`). |
 | `make test-race` | Runs `go test -race -v ./...` for the same unit test set with the Go race detector enabled. |
 | `make test-coverage` | Runs `go test -coverprofile=coverage.out ./...` and renders `coverage.html` via `go tool cover -html`. |
+| `make test-postgres` | Starts an ephemeral Postgres container via `docker-compose.test.yml` (`make test-postgres-up`), runs `go test -v -count=1 ./internal/store/...` against it with `TEST_POSTGRES_URL` set, then tears the container down (`make test-postgres-down`) — including when the tests themselves fail. |
 | `make test-integration` | Starts the server in the background (`make run &`), waits a few seconds, runs `scripts/test-api.sh` against it, then stops the server. Fails and kills the server if the script fails. |
 | `make test-api` | Runs `scripts/test-api.sh` directly against an already-running server; does not start or stop anything itself. |
 | `make test-actions` | Runs the `tests/actions` action-level integration tests (`-tags=integration`) against the mock Backplane server, which must already be running via `make mock-backplane`. |
@@ -100,14 +105,47 @@ components/trusted-actions` from the repository root.
 `make test` is the baseline unit-test gate; `make test-coverage` is the local
 equivalent of the CI coverage step described below.
 
+### Postgres test tooling: two separate Compose files
+
+Trusted Actions' `Makefile` defines two distinct Postgres Compose stacks, and
+only one of them is part of the automated test harness:
+
+- **`docker-compose.test.yml`** backs the actual Postgres-backed test target.
+  `make test-postgres-up` starts an ephemeral container (database
+  `trusted_actions_test`, exposed on `localhost:5433`) via `$(COMPOSE) -p
+  rosa-ta-postgres-test -f docker-compose.test.yml up -d --wait`. The
+  composite `make test-postgres` target starts that container, runs `go test
+  -v -count=1 ./internal/store/...` with `TEST_POSTGRES_URL=postgres://postgres:postgres@localhost:5433/trusted_actions_test?sslmode=disable`,
+  and tears the container down afterward — including on failure, via
+  `test-postgres-down` before exiting non-zero. These store tests are opt-in:
+  plain `make test` / `make test-coverage` never start Postgres and only
+  exercise the SQLite-backed code paths across `./...`.
+- **`compose.postgres.yml`** is a separate, longer-lived Postgres instance
+  for local development and manual testing rather than automated tests:
+  `make postgres-up` / `postgres-down` / `postgres-logs` start, stop, and
+  tail it (database `trusted_actions` on `localhost:5432` — a different port
+  from the test stack's `5433` so both can run at once), and `make
+  run-postgres` runs the server directly against it
+  (`DATABASE_URL=postgres://postgres:postgres@localhost:5432/trusted_actions?sslmode=disable
+  go run ./cmd/server`). No `test-*` Make target touches
+  `compose.postgres.yml`.
+
+Both files are selected through the same `COMPOSE` Makefile variable, which
+prefers `podman compose` when `podman-compose`/`docker-compose` and `podman`
+are both on `PATH`, falling back to `docker compose` otherwise. This Postgres
+tooling is unrelated to the `integration/` harness described below: that
+harness never touches Postgres (the server runs SQLite-backed during
+`itest-run.sh`) and uses its own, separate `podman-compose.yml` solely to run
+the `localstack` AWS emulator.
+
 ## Coverage: Codecov patch-coverage gate
 
 Per `TESTING.md`, `CONTRIBUTING.md`, and
 [`docs/adding-a-trusted-action.md`](../../components/trusted-actions/docs/adding-a-trusted-action.md),
-Trusted Actions enforces **patch coverage >= 80% on all PRs** via Codecov,
-and new code must include unit tests to meet that bar. Coverage effort is
-explicitly focused on the two packages considered the primary correctness
-surface:
+Trusted Actions' contributor documentation states that it enforces **patch
+coverage >= 80% on all PRs** via Codecov, and that new code must include unit
+tests to meet that bar. Coverage effort is explicitly focused on the two
+packages considered the primary correctness surface:
 
 - `internal/handlers/` — the HTTP API handler logic.
 - `internal/config/` — configuration loading and validation.
@@ -121,7 +159,20 @@ and mock code out of coverage metrics. `TESTING.md` additionally excludes
 `tools.go`, and `docs/` from coverage accounting. This Trusted-Actions-specific
 `codecov.yml` is distinct from the monorepo's root-level `codecov.yml`, which
 sets an auto/informational project and patch target for the Boundary side of
-the repository and does not define the 80% handlers/config gate.
+the repository and does not define a Trusted-Actions-specific handlers/config
+gate.
+
+**Documentation and config currently disagree on the actual number.**
+`components/trusted-actions/codecov.yml` itself sets
+`coverage.status.patch.default.target` to `50%` (its own header comment reads
+"Enforces >=50% patch coverage on all PRs"), not 80% — so the patch-coverage
+threshold Codecov mechanically enforces is lower than the 80% bar stated in
+`TESTING.md`, `CONTRIBUTING.md`, and `docs/adding-a-trusted-action.md`.
+Contributors should still target 80% as the project's documented expectation,
+but should not assume Codecov will fail a PR whose patch coverage falls
+between 50% and 80%; check the current `codecov.yml` value directly rather
+than relying on either number as the ground truth for what CI will actually
+gate on.
 
 Generate a local coverage report with:
 
@@ -187,23 +238,41 @@ executor → a real (if disposable) cluster → response — with **mock auth** 
 exposed as a `make` target:
 
 - **`itest-up.sh`** (`make itest-up`) — creates (or reuses) a disposable
-  `kind` cluster, starts the `podman-compose.yml` stack (`localstack`, an AWS
-  emulator), waits for both to report healthy, applies fixtures from
-  `integration/fixtures/` (a pull secret and a Prometheus deployment), and
-  waits for at least two Prometheus alert-evaluation cycles before returning.
+  `kind` cluster and waits for its `kube-system` pods to become ready; starts
+  the `podman-compose.yml` stack (`localstack`, an AWS emulator) and waits
+  for it to report healthy; applies fixtures from `integration/fixtures/` (a
+  pull secret and a Prometheus deployment) and waits for the `prometheus-k8s-0`
+  pod to become ready; and then waits for at least two Prometheus
+  alert-evaluation cycles (polling the `ALERTS` query until it returns two or
+  more results) before reporting the environment ready. All of this runs
+  under a configurable timeout (`ROSA_TA_ITEST_WAIT_TIMEOUT`, default 120s
+  per wait) and requires `kind`, `kubectl`, `podman`, `podman-compose`, and
+  `jq` on `PATH`.
 - **`itest-run.sh`** (`make itest-run`) — retrieves a fresh kubeconfig from
   the kind cluster, exports `ROSA_TA_AUTH=disabled`, `ROSA_TA_KUBECONFIG`,
-  `DATABASE_URL`, and the AWS emulator endpoint variables, starts the server,
-  waits for `/health`, then exercises one action per execution scope (a
-  `kube-api` `get` against `kube-system` pods, and an `aws-api` `aws-get`
-  sweep across the EC2 and Route 53 resources LocalStack's community image
-  supports), polling `GET /runs/{id}` until each execution reports
-  `status: succeeded`. It also submits a request with an invalid param and
-  asserts that execution fails, to confirm input validation survives the
-  full HTTP path. The server is stopped on exit either way.
-- **`itest-down.sh`** (`make itest-down`) — stops localstack, deletes the
-  kind cluster, and removes generated local artifacts (kubeconfig, SQLite
-  DB file, server log). Safe to run even if nothing is up.
+  `DATABASE_URL`, and the AWS emulator endpoint/region/credential variables,
+  builds and starts the server, and waits for `/health`. It then runs a
+  sequence of real actions against the live server and polls `GET
+  /runs/{id}` until each reports `status: succeeded`: a `kube-api` `get`
+  listing pods in `kube-system`; `describe-nodes` across all nodes and then
+  against a single named node, asserting the response carries `conditions`,
+  `capacity`, and a `pods` array; `get-pull-secret-email`; `list-alerts` with
+  and without a `severity` filter, asserting both critical and warning alert
+  counts and that the filter excludes warnings; and an `aws-api` `aws-get`
+  sweep that seeds and reads back a tagged EC2 instance, then reads every
+  other `aws-get` resource LocalStack's community image supports
+  (`ec2-vpcs`, `ec2-subnets`, `ec2-route-tables`, `ec2-security-groups`,
+  `ec2-dhcp-options`, `route53-hosted-zones`, `route53-record-sets`), seeding
+  a DHCP option set and a hosted zone first since neither exists in a stock
+  LocalStack. It finishes by submitting an `aws-get` request with a param the
+  resource does not accept and asserting that execution fails, confirming
+  input validation survives the full HTTP path. The server is stopped on
+  exit either way.
+- **`itest-down.sh`** (`make itest-down`) — stops localstack (if its
+  container exists), deletes the kind cluster (if one with the configured
+  name exists), and removes generated local artifacts (kubeconfig, SQLite DB
+  file and its `-shm`/`-wal` siblings, server log). Safe to run even if
+  nothing is up.
 
 This harness requires `kind`, `kubectl`, `podman`, `podman-compose`, `jq`,
 `go`, and `curl` on `PATH`. Per `integration/README.md`, five `aws-get`

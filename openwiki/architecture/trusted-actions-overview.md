@@ -1,8 +1,8 @@
 ---
 type: architecture
 title: Trusted Actions architecture
-description: Explains Trusted Actions' two-layer architecture (HTTP request handling vs. asynchronous action execution), its Go module/CLI layout, its own container image, and the plugin model for adding new actions.
-tags: [trusted-actions, architecture, openapi, oapi-codegen, backplane, worker-pool, plugin, catalog, rta, containerfile]
+description: Explains Trusted Actions' two-layer architecture (HTTP request handling vs. asynchronous action execution across both a Kubernetes/Backplane scope and an AWS scope), its Go module/CLI layout, its own container image, OpenAPI-first code generation, and the plugin model for adding new actions.
+tags: [trusted-actions, architecture, openapi, oapi-codegen, backplane, worker-pool, plugin, catalog, rta, containerfile, aws]
 sources:
   - id: openwiki-source-1907132ec84c53dc704aba84
     resource: repo://components/trusted-actions/ARCHITECTURE.md
@@ -22,6 +22,10 @@ sources:
     resource: repo://components/trusted-actions/internal/actions/actions.go
   - id: openwiki-source-ca741c88383eefd799ab4729
     resource: repo://components/trusted-actions/internal/catalog/catalog.go
+  - id: openwiki-source-f617c80d88140492d3c932a7
+    resource: repo://components/trusted-actions/internal/executor/aws.go
+  - id: openwiki-source-65433781c88c8141f580330f
+    resource: repo://components/trusted-actions/internal/executor/executor.go
   - id: openwiki-source-bb22eaf8c5b90ecba65669c7
     resource: repo://components/trusted-actions/internal/handlers/api.go
   - id: openwiki-source-bdc8587bf24f5edc150b8aea
@@ -32,16 +36,18 @@ sources:
     resource: repo://components/trusted-actions/internal/rta/client.go
   - id: openwiki-source-2acf8cecbee106a6b2feb9d9
     resource: repo://components/trusted-actions/internal/rta/command.go
+  - id: openwiki-source-fea1c4c690d64395b484bcdb
+    resource: repo://components/trusted-actions/internal/worker/pool.go
   - id: openwiki-source-4c833b02bf6d5fc7a2476dea
     resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
   - id: openwiki-source-7a5e071b6b6192c80a6918aa
     resource: repo://internal/cmd/root.go
-generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+    at: 2026-11-19T16:04:15.171Z
 ---
 
 Trusted Actions is an OpenAPI-based HTTP API that executes a fixed catalog of
@@ -65,29 +71,41 @@ over HTTP. Trusted Actions never trusts a caller's identity directly: every
 request is validated against OCM/AMS (JWT signature verification plus an
 `AccessReview` call), and the service reaches a managed cluster only through a
 short-lived, RBAC-scoped Backplane session created per execution — it never
-holds a standing credential to any cluster.
+holds a standing credential to any cluster. A second, parallel execution
+domain reaches AWS directly, through per-cluster credentials resolved via OCM
+and (in production) Backplane's cloud-credentials flow rather than a
+standing account credential.
 
-<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
-```text
+```mermaid
 flowchart LR
     subgraph vpc["rosa-boundary AWS account"]
-        CLI["rosa-boundary CLI<br/>investigation container"] --> TA["Trusted Actions<br/>ECS + ALB"]
+        CLI["rosa-boundary CLI investigation container"] --> TA["Trusted Actions: ECS + ALB"]
         TA --> DB[("Aurora")]
     end
 
     CAD["CAD"] --> TA
     AGENT["ROSA AI agent"] --> TA
-    TA -->|"JWT validation + AccessReview"| OCM["OCM / AMS"]
+    TA -->|"JWT validation plus AccessReview"| OCM["OCM / AMS"]
     TA -->|"RBAC-scoped session"| BP["Backplane"]
-    BP --> K8S["Managed cluster<br/>kube API"]
-    TA -.-> AWS["AWS APIs<br/>(aws-api scope)"]
+    BP --> K8S["Managed cluster kube API"]
+    TA -->|"per-cluster credentials"| AWS["AWS APIs: aws-api scope"]
 ```
+*Callers, identity verification, and the two execution scopes (Kubernetes via Backplane, AWS directly) Trusted Actions reaches from the rosa-boundary AWS account.*
 
-The dashed edge to AWS APIs is **not implemented yet**: the `actions` package
-already defines an `AWSAction` interface and `AWSTarget`/`AWSActionRequest`
-types alongside the Kubernetes-scoped `KubeAction` interface, so the
-architecture anticipates a future `aws-api` execution scope, but no action in
-the current catalog uses it to reach AWS directly.
+Both execution scopes are implemented today. The `actions` package defines a
+`KubeAction` interface (actions that reach a cluster's Kubernetes API through
+Backplane) and an `AWSAction`/`AWSWriteAction` interface (actions that reach
+AWS directly), and the catalog registers actions of both kinds: `get`,
+`patch`, `delete`, `describe-nodes`, `get-pull-secret-email`, and
+`list-alerts` use `Scope: openapi.KubeApi`, while `aws-get` (read) and
+`aws-reboot`/`aws-terminate` (write, EC2-instance-scoped) use
+`Scope: openapi.AwsApi`. The executor dispatches each action to whichever of
+its two `executor.Scope` implementations — `KubeScope` or `AWSScope` — claims
+it (`Scope.Supports`); an AWS write action also fixes its own `Operation()`
+and `Resource()` so a caller cannot relabel a write as a read or as a
+different, more permissive operation, and every AWS write is additionally
+checked against a per-cluster infrastructure-ID tag before it is allowed to
+touch an instance.
 
 **The investigation-container edge is architectural, not yet wired in code.**
 Nothing in the Boundary root `Containerfile` (the multi-stage SRE-tools image
@@ -121,8 +139,10 @@ persisted `executions` row:
 A request to run an action is validated, authorized, and persisted as a
 pending execution by the first layer, which then returns immediately. A
 background worker in the second layer later claims that pending execution,
-resolves and runs the action against the target cluster (or, in the future,
-AWS), and writes the result back to the store. Callers poll
+resolves and runs the action against whichever target its scope owns — a
+managed cluster's Kubernetes API for `KubeApi`-scoped actions, or AWS directly
+for `AwsApi`-scoped actions — and writes the result back to the store. Callers
+poll
 `GET /runs/{id}` to retrieve output once it is ready. See
 [Trusted Actions execution workflow](../workflows/trusted-actions-execution.md)
 for the detailed control flow across both layers, including authorization
@@ -142,15 +162,18 @@ components/trusted-actions/
 │   ├── rta                 # rta CLI implementation: HTTP client + cobra command tree
 │   ├── handlers            # ServerInterface implementation
 │   ├── catalog             # action registry
-│   ├── actions             # action implementations
-│   ├── executor            # authorize -> get client -> execute -> audit
-│   ├── worker              # pool + ExecutorRunner, params -> ResourceTarget
-│   ├── backplane           # client (real Backplane or kubeconfig for local dev)
+│   ├── actions             # action implementations (KubeAction and AWSAction/AWSWriteAction)
+│   ├── executor            # Scope dispatch: authorize -> get client -> execute -> audit
+│   ├── worker              # pool + ExecutorRunner, params -> action target
+│   ├── backplane           # Kubernetes-side client (real Backplane or kubeconfig for local dev)
+│   ├── awsapi              # AWS-side client provider (cloud-credentials via Backplane, static for local dev)
 │   ├── auth                # action-level authorization, authentication layer
-│   ├── authorization       # resource-level authorization
+│   ├── authorization       # resource-level authorization (Kubernetes namespace/secret, AWS region/operation)
+│   ├── audit               # per-execution decision/outcome audit logging (mock today)
+│   ├── models              # Execution, Audit, Output domain types shared by store/worker/handlers
 │   ├── ocm                 # OCM SDK client
 │   ├── store               # SQLite + Postgres, migrations
-│   ├── middleware          # audit, logging, recovery
+│   ├── middleware          # request ID, recovery, logging, request-level audit
 │   └── config              # env + optional YAML config file
 ├── openapi/                # OpenAPI 3.0 specification source files
 ├── Containerfile           # Trusted Actions' own, single-purpose server image
@@ -159,12 +182,25 @@ components/trusted-actions/
 
 `cmd/server/main.go` is the composition root: it loads configuration, wires
 authentication/authorization middleware (real OCM-backed or a mock, depending
-on `ROSA_TA_AUTH`), constructs the Backplane client provider (a real
-Backplane-CLI-backed client, or a kubeconfig-backed one for local
-development), builds the `catalog.Catalog`, and starts the HTTP server
-(chi router) alongside the worker pool. The binary it builds (bound by
+on `ROSA_TA_AUTH`), constructs both execution-scope dependencies — the
+Backplane client provider (a real Backplane-CLI-backed client, or a
+kubeconfig-backed one for local development) for Kubernetes-scoped actions,
+and the AWS client provider (cloud credentials resolved through Backplane, or
+a static/local-emulator provider for local development) for AWS-scoped
+actions — builds the `catalog.Catalog`, and starts the HTTP server (chi
+router) alongside the worker pool. The binary it builds (bound by
 `Makefile`'s `MAIN_PATH=./cmd/server`) is `rosa-trusted-actions-server`, the
 same binary the component's `Containerfile` packages as its entrypoint.
+
+Of these packages, `openapi`, `handlers`, `catalog`, `auth`, `middleware`,
+`store`, and `config` sit on the synchronous HTTP request path (router →
+middleware → handlers → store); `worker`, `executor`, `actions`, `backplane`,
+`awsapi`, `authorization`, and `audit` sit on the asynchronous execution path
+that a worker drives after claiming a pending execution. `models` defines
+domain types (`Execution`, `Audit`, `Output`) shared by both paths, `ocm`
+is a shared OCM SDK client used by authentication, the Backplane provider, and
+the AWS cloud-credentials provider, and `rta` is the standalone client CLI,
+not part of the server at all.
 
 ### The `rta` CLI and the two other command-line tools
 
@@ -265,8 +301,8 @@ plugin mechanism in `internal/actions`:
      for actions that run against a cluster's Kubernetes API.
    - `AWSAction` adds `RequiredServices(target AWSTarget) []awsapi.Service` and
      `Execute(ctx, awsapi.Clients, AWSActionRequest) (*ActionResult, error)`
-     for actions that would run against the AWS API directly (the scope the
-     context diagram shows as not yet implemented end-to-end).
+     for actions that run against the AWS API directly (`aws-get`,
+     `aws-reboot`, `aws-terminate` in the current catalog).
    - `AWSWriteAction` additionally requires `Operation() string` and
      `Resource() string`, fixed by the action rather than taken from the
      caller's request, so a write cannot be mislabeled as a read or as a
@@ -280,10 +316,14 @@ plugin mechanism in `internal/actions`:
 3. **Catalog** the action by adding a mandatory `ActionDefinition` to
    `internal/catalog/catalog.go` (`Catalog.New()`), giving it a `Name`,
    `Description`, `Type` (`openapi.Read`/`openapi.Write`), `Scope`
-   (`openapi.KubeApi`, currently the only scope any cataloged action uses),
-   `AllowedRoles`, and its `ParamDefinition`s. Optional fields
-   (`DryRunAction`, `WriteCooldownSeconds`, `Approval`) support dry-run
-   pairing, rate limiting, and an approval requirement for sensitive writes.
+   (`openapi.KubeApi` for `get`, `patch`, `delete`, `describe-nodes`,
+   `get-pull-secret-email`, and `list-alerts`; `openapi.AwsApi` for `aws-get`,
+   `aws-reboot`, and `aws-terminate`), `AllowedRoles`, and its
+   `ParamDefinition`s. Optional fields (`DryRunAction`, `WriteCooldownSeconds`,
+   `Approval`) support dry-run pairing, rate limiting, and an approval
+   requirement for sensitive writes; `aws-terminate` additionally narrows
+   `AllowedRoles` to `SREP` only, since terminating an instance is
+   irreversible.
 
 **A registered action is inert until it is cataloged.** `RegisterActionFactory`
 only makes an action constructible by name via `CreateAction`; nothing in the

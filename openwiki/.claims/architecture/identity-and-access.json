@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:6def2c6e34e126192666f7cf7bbe39421dd279924d070dfbec05a64e6ff87875",
+  "pageVersion": "sha256:f4de41ef204c2f4ef50ecf826fce08e310b21f8148b025875ff2e696b686737b",
   "claims": [
     {
       "id": "claim_6aa30656a4c94ab4928d40011e47bd4e",
@@ -26,15 +26,15 @@
       "evidence": [
         {
           "resource": "repo://internal/cmd/cli.go#L56-L136",
-          "version": "repo-lines-v1:sha256:7ffe6e42f7d54f1e6d6ec64da54f80ca8a2976e80088e5be503964acf0ebfe91:eyJzZWxlY3RlZExpbmVDb3VudCI6ODEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkYzUyMzJkN2MwZmJjZGY5YWRkNzQ1Yjk4MGIxNDk0MWE5M2I2ZjY3Y2IyMjk5ZWQ1MGE0MDM1YjkzOTVmN2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhZjY4NWU5MTQ4ZDUzMjk4MGVlM2JmNGM1OGYyOTVhZjVkMWMyMTY4ODJkZGFiYmNhMjJiNDUzMWZhYzdkNzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNTdlMmNiOGNjMTkyYjJkNmRlYTU4YzY1NDM3OWRiMDUwMzVjYjRiY2U4MzAwYjg4MzZjNmI5YTYzZGZlOWUifQ"
+          "version": "repo-lines-v1:sha256:8a35f30ce891d478e38babb7e5a22d4e84d15952d8daf6f1d14ad1e78ef75fd2:eyJzZWxlY3RlZExpbmVDb3VudCI6ODEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkYzUyMzJkN2MwZmJjZGY5YWRkNzQ1Yjk4MGIxNDk0MWE5M2I2ZjY3Y2IyMjk5ZWQ1MGE0MDM1YjkzOTVmN2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhZjY4NWU5MTQ4ZDUzMjk4MGVlM2JmNGM1OGYyOTVhZjVkMWMyMTY4ODJkZGFiYmNhMjJiNDUzMWZhYzdkNzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNTdlMmNiOGNjMTkyYjJkNmRlYTU4YzY1NDM3OWRiMDUwMzVjYjRiY2U4MzAwYjg4MzZjNmI5YTYzZGZlOWUifQ"
         },
         {
           "resource": "repo://internal/cmd/create_investigation.go#L22-L60",
           "version": "repo-lines-v1:sha256:68f83e4a33ccc1541f5d76b896ec09def9ba16ee2c13078962d1015e3512dfab:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxZGI0YzhjZTAxNWFlYmVkNzc1MDMwM2JmM2RmNzhmZjkzOGQ4YmY2YzA3ZDk1ZThlNmMyMzliMWYwYzYwYzMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1N2JjZGM1NTFiNDU5MDY3ODM3NDZkZTg1NWRkODQwMjJmMWZhOGYxMzM3MzUzOGE3NTc1ZjY4ZjRjZjY2NDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY5MDQwMWE4Y2IyMDVhNGUzZjdjMDllMmUzYzM4OTA5YTljZjQ3YzdkYjMxNjcwMWUwMmY4NDU1ZTk4Mzk4NTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkYjk1YTA1MTk4NzM0OTA1NWM3NGVlMzY4NTYzNTNkMmYxMDBhM2I1MWE2NmYzYTM4ZjkyY2UxZGI1YjZhNTMifQ"
         },
         {
-          "resource": "repo://internal/cmd/start_session.go#L33-L177",
-          "version": "repo-lines-v1:sha256:7918ada5c2b7985410f6d77927de420766daf308287c69a7734ddf765ddc7110:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQ1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNTExYWZjM2MyOTE4NjEyZDg3MDBkOGUzZTljNDlmNzExMDJjMzM5NTlmZTkzNzAzNzFhYTIwOTA2MDQ5NmQ0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNDdmMWYyMjUzNjI0NmJhYjA1Zjg4ZjJkNDRjMmM4NWExNThlZjM3MmVjZDBmYTA2ZWJjZmY2ZTBkNGVlNDYyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0YmYxZGI5YjgyMGMwZmM0ZTRlZTUyMmRhZTI3ZmE3ZjJjMjg0ZWQ2OTM0NzVmNTMxNmM0YWIzZDUzMTIwZTU0In0"
+          "resource": "repo://internal/cmd/start_session.go#L32-L190",
+          "version": "repo-lines-v1:sha256:acf3830fac0e96939c82131ccfb4c2167e5062ae026837a88703f9743a37a502:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNTExYWZjM2MyOTE4NjEyZDg3MDBkOGUzZTljNDlmNzExMDJjMzM5NTlmZTkzNzAzNzFhYTIwOTA2MDQ5NmQ0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNDdmMWYyMjUzNjI0NmJhYjA1Zjg4ZjJkNDRjMmM4NWExNThlZjM3MmVjZDBmYTA2ZWJjZmY2ZTBkNGVlNDYyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI0YmYxZGI5YjgyMGMwZmM0ZTRlZTUyMmRhZTI3ZmE3ZjJjMjg0ZWQ2OTM0NzVmNTMxNmM0YWIzZDUzMTIwZTU0In0"
         }
       ]
     },
@@ -43,11 +43,11 @@
       "statement": "The create-investigation Lambda validates OIDC issuer signature, expiry, and audience by routing on the unverified iss claim to the matching issuer's JWKS endpoint, checks required group/role membership, and derives the task ABAC tag from the token claims before resource creation.",
       "evidence": [
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L181-L256",
+          "resource": "repo://lambda/create-investigation/handler.py#L172-L247",
           "version": "repo-lines-v1:sha256:21a1afdb5ef06573b3cb76be6af32cd09552c411841bfee153b183b425f23715:eyJzZWxlY3RlZExpbmVDb3VudCI6NzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIzODExMjkyZDlkNTIxMmIxODRiMzM5ZDdkZjM5OTczNzY2NDBlMDJjNzRmNTFhNjVlMmFlMGY0NGE4ZTlhYWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1Yjk1MjY1YjU1YTY2NTM5MWU0MDMzZmRjZmU2YjgyNThlOWJmMzYzMWQ1ZDM3YTFiN2QzOTE1MzIyNzQ5MGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjliOTQwMDdlZDI2MjQyNDhiZTI3ODdlYmQ5OGMzMzIyMDY4YjE0NjczODhmNDRiYjBkMmEwZDE2YWZmYWVhMzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJlZGQzZGU3ODkzYjY1ODJlYWYwODFkM2Q2MjQ5M2I5MWRiNWU2NDYzMTM0NjNkZDQ4NDQ1ZTI1YWNlY2EzMmMifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L374-L457",
+          "resource": "repo://lambda/create-investigation/handler.py#L363-L446",
           "version": "repo-lines-v1:sha256:460d1b087bb7c060f6debfc6fb5f5929d92304be292b09070624104492d537c0:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlN2M5NTdiY2I0NGZiNjczYzk4YjAwNTBhNzVkMzgwODJkYjgxZDkxOGRlMzEzYTNmMDdjMTIzNTMwNmQ3ZWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwOGZiYWU4NGJmODQ5OTQ2OTliNzRjNzMzOGViNjA5OGYwZWI2MTBlZmZjODJlODJmYzdmZjcwMjFhODk1M2MifQ"
         }
       ]
@@ -61,7 +61,7 @@
           "version": "repo-lines-v1:sha256:833d8938644ec5cc109d37ef0dac53963a920be920d6a235a204fea5ca5ec58b:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjViN2JhNjY5OWIwZTNkZDhhMmM2YTk5M2M3OWQ4Mjk5YmE4MDg0MmY2YTlmNThiNDdmYzUwZWQ3NzhiNDU1MDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIwZWY0ZDE1ODU3OTc0MDc4Y2YzYTBhNDY4M2M4N2Y1ZDMzZjc5YmMyYThjYWViZjk4NTg4NTM1NDJiMmJkNTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU1MGE4NDZhZTI1ZWY4OTQ0ZTdjYWY1MTU0YWVlM2YzM2Q1ZDNhZmY0MGRiMWYxMzJmZWQyZDczYjM5OTQ5YmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcyYmI3ZDIzMTM0ZmZjNjhmOGJmZmNkMGYxMDVjYjVkODg5NzFiMzRiZmUyN2U3ZGJjMTNjYTE1MzQ5YjY2ZTkifQ"
         },
         {
-          "resource": "repo://deploy/regional/iam.tf#L188-L213",
+          "resource": "repo://deploy/regional/iam.tf#L199-L224",
           "version": "repo-lines-v1:sha256:3f73c54ab1f7f52177fa6df7113142529cca0cc1d4ceb93d96e00ee5c59e36aa:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViNmE2ZTZkNGE1YTY4NjYyMGUyMzRiM2ExZTMxZTNkNzdlNzA0ZTYzM2I3ODM5OWNjYWM3YjU5Mzg1OTZhYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIwOTliOGM1OWNjMDkwNWFiODZlYjU3YmNhOTcyOWM1NTQ4NjQzZmI3Yzk5MWM1ZWVmNDU0MzY0MmIzNWJmNTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5MjljZjQ3Y2Y2YWMzZTdiNDZlODIzN2Y2YmZkN2I1MTVlYTk0NTRiZjM2NzVmMWIyY2FhOGI2ODRjMDM3MDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA3ZGE5NzQ5NTdhMGMxMTlhZGM0ZmUwNWNiYzU5Mjc1Yzc4ZDBkMDFmMWM4ZGUzYzU3ZmYwZDdlMDZjODlkNTcifQ"
         }
       ]
@@ -71,7 +71,7 @@
       "statement": "Lambda Function URL uses AWS IAM authorization, the regional invoker policy allows direct lambda:InvokeFunction, and the Lambda validates the caller OIDC token independently.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/iam.tf#L260-L275",
+          "resource": "repo://deploy/regional/iam.tf#L283-L298",
           "version": "repo-lines-v1:sha256:96ef5f8c93d3c1d65a225b2bf1c1349edf604d1402307e34351e01fba96d43e7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUwMzg4ZWUzMGYwMDM2ZGYxMzIzYzI3OTE1NDUyYjE0MTRjMzE1MTRjZDcxZWQwOWI1N2Y2ZmUxZWRlNzI3ZjEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI4OWI3MmEzYTc5Y2MyOGMxNDk4MjJkOTJkNzA2YmEwMTMxNjRhOGUzYmQ0NWEzMDlkNmFhNzA2YzFiNGQ4ZGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiZDk1YjE4NDViZmMyNzA4YWU1ZjYyNTUxYTE1MzU5NWZiNDZlZGVjNDJkZDkyYTRjY2QxMzE5ZWMzZTQ2Y2EifQ"
         },
         {
@@ -79,7 +79,7 @@
           "version": "repo-lines-v1:sha256:e74d921c520673e56c2883066d8f81c1ab7518cc757eda461347021c9d1c2d98:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImEyMjg4ZGRjNTAxZTRlZGQwY2VjNTZhY2U4ZmU5OWRkNjQxMzVmYjNiZTZhOWI5MzJjMDNmMWNmODAyZjBiYTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY0NTRhODcyZTQ3NjFjMmUzOWMwNDFhN2I3NzJmYzA5MDFmYWVlN2EyYjJlYTE0OWQzOTJlN2NiOGQyYjVlOTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4MjhkZjViNWM1NWMzNGYxZGE5NzJkNjM3MzEwNGJkN2EwMjQ5ZGQ3ZGI4ZTJkMWI3ZGZlNjQ4MTc1ODE1ZmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUzYTJlMTUyNmY2Zjg4ZDU4NzA3NDMyZWM2NWFjZmJmYjViMTFhMDVmYmFkN2NiNjdjM2U4YzQ0ZDM3MjVkZGIifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L111-L139",
+          "resource": "repo://lambda/create-investigation/handler.py#L110-L138",
           "version": "repo-lines-v1:sha256:deadaa3af5f5543519e4d34e11b7e8458fbc6d497c28b7934da4f1badf647991:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2MWEwMDJhM2VmN2JmM2FhMTQyMThjN2VmNWZjYzAwOWEzNWQ1YjhlYjBlNWEyNjUyM2JiMTA2ZmNjMzA0MmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyMDMyYzcyMzlmZTc2MjAyZTcxOGNhY2UxM2YzOGM0MmM3YjNiODZhN2VkMjlmMzJlYTZhZDk5ODAxMDFjYTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdlNWIwOTNmZWU5MzcwOTU4YjUwNTJmZmFkYjA4MDQwMWE4N2U5MmQyMzdiZDA1NGEwNDNhMGQ5ZDkwOWQ0YTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM1NTE3ZjY2MTkwMTI2ZDk0NmE4ZjhkMzkyNTE3ZDQ2NzU2ZjhiOTM1ZWRkZDFiNDYxYTUzNzBkNDljMDljNDMifQ"
         }
       ]
@@ -167,10 +167,86 @@
           "version": "repo-lines-v1:sha256:714d5cccd7d2e7b410649c5f2459580d8f02e4f2b9ce39b0eb1c885c1fe289a7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1NmUxNzM2NGJkOTUxMzZmNTdkZDE3NmVlNzI5MTlhYjM4MjkyOWU5N2VlM2VhM2U2YmU3NTBiOTk5MmExMTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzYTFlMjY4ZGY0ZDEwYTJkNTcwYzdkYTVhYmE2MThlZTlmNzc2YjJmNGQzMDM3Mzc4OTk0MmFjOGExYWY0OWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZhY2JlZjg0NmQzZDcwOThmZTg3MmViNDhhMWNjZTU1Mzk2ZTI4Y2FjN2U1MTZjNDQyNjI2NjVlZjg5ODJhZDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
         }
       ]
+    },
+    {
+      "id": "claim_1f262d2cb9d44aff9d93e2613738bae8",
+      "statement": "internal/cmd/auth_options.go centralizes CLI flag/option plumbing shared by every authenticating command: addOutputFlag/commandOutput register and validate the -o/--output flag, tokenOptions builds the auth.Options value (including UseDeviceCode from the resolved profile) passed to every token-acquisition call, and configureDeviceCode lets config init set a saved device-flow preference only from an explicit --use-device-code=true, never inherited from an existing profile or environment.",
+      "evidence": [
+        {
+          "resource": "repo://internal/cmd/auth_options.go#L1-L48",
+          "version": "repo-lines-v1:sha256:1db4541d12f1d8ea4a8d518bb00aa195a6717e6bab199de39e8270c3dff13e89:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljNzgzNTVjNGRhMzdkZjhmNzA4ZjE0M2ZlMTkxNzNkYzE0NmFkY2Q5OWQxNjM2NTk0ZDI2NWM1NDA3NzU1YmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_23da56bbe30a421cb998505103dce9f4",
+      "statement": "All PKCE and device-code token acquisition, caching, and clearing is owned by the internal/auth package (oidc.go, device.go, callback.go, token.go); internal/cmd/root.go's assumeRoleWithRetryOptions and isAuthError orchestrate retries by calling into that package (CachedTokenForConfig, GetTokenWithOptions, ClearToken) rather than implementing the flows, and internal/cmd/cli.go's commandPreRun only resolves configuration and selects which role to assume before delegating to assumeRoleWithRetryOptions.",
+      "evidence": [
+        {
+          "resource": "repo://internal/auth/oidc.go#L57-L103",
+          "version": "repo-lines-v1:sha256:e9ea5031b635147af373ffeac5a424e91ce669012d52406ab7e0a48b85a6f986:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwOWM3YTExZThjZjE2NzQyYWM5NjY1OTMyYWJiMWMyOTMzMGNlMGE3ZmE4YjAzZTdhNWY2MTA5ZTI5NWRmMTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc4MzJiZWU3OWY0YmIyZmMzZmE5NDRiZjIzYTZkYjEyMWVlZjUzOGIzOTEwNDJjZTM3MTdmZTM4ODBkNTFjZTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3NzE5MWJmNzAwMGVhODM0NzFhMDBkODZmYjYzYjc3ZjZlZjZiYWU0MGY4YmYzYjM3NDMyZTc5MDAzNmQ4MWEifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/cli.go#L56-L136",
+          "version": "repo-lines-v1:sha256:8a35f30ce891d478e38babb7e5a22d4e84d15952d8daf6f1d14ad1e78ef75fd2:eyJzZWxlY3RlZExpbmVDb3VudCI6ODEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkYzUyMzJkN2MwZmJjZGY5YWRkNzQ1Yjk4MGIxNDk0MWE5M2I2ZjY3Y2IyMjk5ZWQ1MGE0MDM1YjkzOTVmN2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhZjY4NWU5MTQ4ZDUzMjk4MGVlM2JmNGM1OGYyOTVhZjVkMWMyMTY4ODJkZGFiYmNhMjJiNDUzMWZhYzdkNzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNTdlMmNiOGNjMTkyYjJkNmRlYTU4YzY1NDM3OWRiMDUwMzVjYjRiY2U4MzAwYjg4MzZjNmI5YTYzZGZlOWUifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/root.go#L100-L139",
+          "version": "repo-lines-v1:sha256:3cb7b8686528aaed13e2a5d18f969e705bf988751a5a7221e77ae5d3c83a5f54:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExYWEzYjdiMDA2ZjhhNGIzY2U1ZDgzY2NmOWI5NThmYzQ4MDFmMWUyYmVjMWJiOWRhZTJkMDQyNmE5MDU2NDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdjMzk3Y2U2ZWQ0MGUyNjQzZmQ5MzY2NmZhZjNkMWY0ZDQ0ZjRlYWZmODA4NzA2NDUzMWViZjYwMzIxNjZiYjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_7d5dff51c17f4217a1329802709c5d62",
+      "statement": "The device-authorization flow (acquireDeviceToken in internal/auth/device.go) is a distinct implementation from the PKCE browser flow: it is selected by explicit --use-device-code=true, else ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE, else the profile's saved oidc_use_device_code, else default false; it validates the provider's device-authorization response (expiry bounds, verification URI scheme/host, user-code length, absence of control characters, and that the URI does not embed the device code) before displaying it, and bounds polling to the provider's expires_in window while handling authorization_pending, slow_down, access_denied, and expired_token.",
+      "evidence": [
+        {
+          "resource": "repo://internal/auth/device.go#L40-L151",
+          "version": "repo-lines-v1:sha256:5db611cd67225f26288c982c5a26502833b6fd80d48028185fbe734fd0a6c7e3:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI2YzA2YmNjMGFjMWNkNWFmMDI0MDRjNmIyY2I0NzhiNTMzOWNiYThiNWY0ZTExNWU5YzA4Zjc3OGRlN2E0OGQxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI2MWQ3MDY0NjJjZTBmZTNmYjc4MzU1M2E4NTRkMTIyNzYwYmMwMGFmNjU0MTcxOTNhOWY4NDVhZGJjNzRhZTIzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiMDZlNTExNmY5NTNkNDIwZmQ3ZDVjNGRlYzAyZTY0OWRmM2YyZWNkM2YwMTJhNWJjYTVmZDYzMjY1NzgxOWRkIn0"
+        },
+        {
+          "resource": "repo://internal/config/config_test.go#L12-L42",
+          "version": "repo-lines-v1:sha256:5fd5f3c7d98df156d1e1e29134c4e9e8dd26425ebf585922afbe60e4981ee5a4:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ2MzgxMGI3MmNlNjUwZWI4M2E1ZmEwYjlmZmExYTY2MjY4MDEzZTY0NzBmN2Q4MzBkMjM1M2M4MTE5Zjg2ZTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA5NTA0ZDU0ZmQ1ZDBmODQ1ZTgxYzA4NjkxMzRiOTNjYWFlNjAzZTQxNmIxNTk5NGFkYWFjYmZlOTg4N2MwYWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY2ZjNhM2E1NjFhZTUwYzY4NzllOTBkMWFmZWVmMzNmZjFjZTIxNGI1MThjNGJkMzFkM2I1ZWNhZWI0MjI5NmYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_dd797eeb2e3a47f4a76941f4e36fc778",
+      "statement": "The PKCE browser-callback flow (acquireBrowserToken delegating to internal/auth/callback.go) runs a local callback HTTP server bound to 127.0.0.1:8400 that rejects a missing authorization code or a state mismatch (treated as possible CSRF) and sanitizes any provider-supplied error/error_description by stripping ASCII control characters and capping length before echoing them into the browser response, guarding against injection from an untrusted redirect.",
+      "evidence": [
+        {
+          "resource": "repo://internal/auth/callback.go#L28-L113",
+          "version": "repo-lines-v1:sha256:7563418ade3b5bf3ce8af56f2385c2d1093b2811662cd524d53f3be057fde468:eyJzZWxlY3RlZExpbmVDb3VudCI6ODYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE2NDY0MTNkNThlYTM1NjI5Mzg0ZDRjNTZlZTUwODJjMDI4NWU3ZWE1MmNmM2MzYjlhOGExMWM3Yzc0MGY2NGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNkYzBkMDhlZDg0NjBmYmE2ODYxZjk1OGRiNWYxZWQwNmNmYzgyMTQ3NmVjNDdjNjRhZTgxYWQ2OGNlYjhmNjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://internal/auth/oidc.go#L114-L184",
+          "version": "repo-lines-v1:sha256:8c0038240ab06a05af163f5cb03187b7c7607ff6e53c3c440931c14430bbc5d5:eyJzZWxlY3RlZExpbmVDb3VudCI6NzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVhYjM5NDFkOGYwMjE4NWFkMWU0ZjE3YWJlODZiYWQ0ZjMyMTU2MWRkZDRiNzQwMDFhYjE1YWM1YWYwNTliMmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1N2QzMTBlZTg3NWJiMGM2MDFkM2Y2YThhYjA5NDlkY2UwYTZjODZjMjI4YTMzNDhiNWE5ODhhMGEyYjcwZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM0YzE2MWQyZDdjYmE1NjNmN2I5M2YwN2VlZGE1OTExNjNkZGFhMWFjNGI3NGM3YzE5MmFhM2Q2ZmEyMGNmMTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_99721fdd7dc54a3780617a72943dbfa5",
+      "statement": "The ID token cache in internal/auth/token.go is scoped per OIDC issuer and client ID (CachedTokenForConfig/SaveTokenForConfig), so switching profiles or issuers never reuses another deployment's cached token and a legacy unscoped cache is not trusted once a profile is configured; the cache file is written mode 0600 with permissions re-applied via os.Chmod on every write.",
+      "evidence": [
+        {
+          "resource": "repo://internal/auth/token.go#L23-L138",
+          "version": "repo-lines-v1:sha256:44f99fcfc9a1c40efb5c814c37f57aa161ac528663791c84926c03298cd0fc06:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzY2MyNmI2MTM3MWM2YzJkZWY3YTEwNjFjYjRmZDg2NzNjYTA2ZjA0ZjVmMDk1ODEwMmIzYmFlMWZmM2EzZGNjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmNTA0YWE5ZDYxNTMxOGVmNmUzZjc0NGFmZmRlOTdiZjI3YmNlMGIwY2NiZTE3Yjg3YTVlYjg3M2RhNDNlMjczIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhYzQzYzI4MmI5MGI3ZWI0Zjg0M2E0YzFjMjY0ZTExOTU1OTcwZWU1NzkxN2YzNzdjZjgzODVkMWIzM2Q4ODdkIn0"
+        }
+      ]
+    },
+    {
+      "id": "claim_3c81e90ee1b146f7901d5faa512997b6",
+      "statement": "rosa-boundary login (runLogin in internal/cmd/config_commands.go) calls auth.GetTokenWithOptions directly with no AWS role assumption, existing purely to obtain, reuse, or force-refresh (--force) a cached ID token ahead of time.",
+      "evidence": [
+        {
+          "resource": "repo://internal/cmd/config_commands.go#L324-L348",
+          "version": "repo-lines-v1:sha256:926eb45435b3a9bb218e89521f895ddd1c0a1ea30ec29d508b8064f4039ab440:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdkYjZmNTA3YjJmY2RmZTk4NWNlM2IwM2JmMGQ1MmNmNjIwNzNiMGQ5ZjlhYzk1ZDFmMjkzZThmMjIyNjRiMTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1N2QzMTBlZTg3NWJiMGM2MDFkM2Y2YThhYjA5NDlkY2UwYTZjODZjMjI4YTMzNDhiNWE5ODhhMGEyYjcwZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-17T16:03:58.857Z"
+    "at": "2026-11-19T16:04:15.171Z"
   }
 }

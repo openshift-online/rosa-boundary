@@ -28,10 +28,10 @@ sources:
     resource: repo://Makefile
   - id: openwiki-source-b22643f9c083ba8127bcda92
     resource: repo://OWNERS
-generated: { by: "openwiki/0.7.1", at: "2026-11-17T16:03:58.857Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-17T16:03:58.857Z
+    at: 2026-11-19T16:04:15.171Z
 ---
 
 ## Why this page exists
@@ -182,8 +182,12 @@ equivalent) exclusion in any of these files today:
   `AlexSmithGH`, `eth1030`, `BATMAN-JD`) across the whole repository, and its
   own comment states the intent explicitly: "everyone listed here can still
   review and approve either component." A second filter
-  (`^(cmd/rosa-boundary/|internal/|lambda/)`) only adds a
-  `component/boundary` label and does not restrict approval.
+  (`^(cmd/rosa-boundary/|internal/|lambda/|deploy/regional/|hcp-terraform/rosa-boundary/)`)
+  only adds a `component/boundary` label for Boundary's CLI/lambda source,
+  regional deployment, and its own HCP workspace tree, and does not restrict
+  approval; no path in root `OWNERS` attaches a `component/trusted-actions`
+  label, since that classification happens in the component, HCP, and
+  `.tekton/` `OWNERS` files below.
 - [`.tekton/OWNERS`](../../.tekton/OWNERS) splits approval **within the same
   directory** by filename pattern, because both components' pipeline
   definitions live in `.tekton/`: its header comment states that parent

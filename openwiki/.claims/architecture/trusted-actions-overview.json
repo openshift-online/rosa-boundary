@@ -1,14 +1,22 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:59b46c72edf11658465c7cac35be434c1d0ee96ed6e2d85fc9ca4ee2052d5ca2",
+  "pageVersion": "sha256:06a015125a5cd5b80a094b0c949ef4f40d559f4c8f6377b0e25d897bf37b12a7",
   "claims": [
     {
       "id": "claim_4275808ba78f45a3a7efb3aa5a6a2cfe",
-      "statement": "Trusted Actions' intended callers are the rosa-boundary CLI running inside the SRE investigation container, plus external consumers CAD and the ROSA AI agent, all reaching Trusted Actions over HTTP; Trusted Actions validates callers against OCM/AMS and reaches managed clusters only through a short-lived, RBAC-scoped Backplane session, and direct AWS-API scope execution is not yet implemented end-to-end.",
+      "statement": "Trusted Actions' intended callers are the rosa-boundary CLI running inside the SRE investigation container, plus external consumers CAD and the ROSA AI agent, all reaching Trusted Actions over HTTP; Trusted Actions validates callers against OCM/AMS and reaches managed clusters only through a short-lived, RBAC-scoped Backplane session. A second execution scope reaches AWS directly using per-cluster credentials resolved through OCM and Backplane's cloud-credentials flow (or a static/local-emulator provider for local development); both the Kubernetes-scoped (KubeApi) and AWS-scoped (AwsApi) execution paths are implemented in the catalog and executor today, not merely planned.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L7-L29",
-          "version": "repo-lines-v1:sha256:82469e8db8016a1dee607837e1daccbc16067d6b80dbc8e65ab6ce84bf6707d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlMzYzNGRiYjgwMWE3M2I3MGU4OWVkNzc1NDZjNzdiMTA5M2JiODhjOWU0NzkxOGU5NjY1OTRkYTQ5OTRhZjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3YzA2YzU2MWQ1YzMyNzM0MzY4NTI2OGE0NmIzMzkxZjM5OThlZWU4OTBkMmJlNTFmMGQyMWNjNGE1M2FlNmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU3OTQ1MDRjNzQzZmU2OGU1NjM0NTk5OTk4ZWEyMjkxZDQxNGUzMGU5ZjBlODlhM2FjYjRmMjg5ZGU4NmM2OGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIwMjRmNTQ4Y2RmZjBjMTM3MWZkMTcyYWRkYjFkZTI4MzkyMzNkYjQwY2Y2MWM2ZWU0ZTAzMzY2YjljZjIzYzIifQ"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L276-L343",
+          "version": "repo-lines-v1:sha256:b7deb271cf57430cff0ccfa5043c1706731f2e7f1cda70fae0151868d8b5f49b:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhODQxNzE4NThkMDBjNTk4MmEwOGE5NjkxZWVlMWYyOGE4NTVkY2QyNWEyZjFlNGIzOGQ3YmZlMTAwNTdlMDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmYWMxOGEzYjU0OTg2OTA0YzI3NzhhNDBjZjVkZWM0ZmViYzU2MmNlNWRhOThlNTY3MmMxZWM2NzY5YWI2MTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMzNDE1OTI1ZWZkYjgwZWFmYzFkNzE5MjZiMWQzOTQ3ZDI5YWE5OGZjNjE3Yjk0MjliYzc2NDc5NTkyY2Q4YzEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhmY2VjZjUzMjNiOWE0N2NjZmE1MGQ3N2M2ZDllMjk3NTNiYTFjOGVlNWJlYzU0NjRjZjljNWE2ZGY4MTNjODQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L120-L176",
+          "version": "repo-lines-v1:sha256:32d80aa6c816fb5474df7b8f2dd2548449cd0cc23626058c310a61c34f99afde:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4YzM0ZDEzNGUxOTlhZTRlM2ZlOGQyMDNhNmM0ODBiNDI1ZGE2NmQ3ZWYyYzM0MTY0MjA5MjUyNjIyMzE4NjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmMTU5Yzk2ZWIwMzUwNjQ0ZTMyOThjNGM0NzgwMDVmNDg0NzJlZmY4NDFmZjNiMTM2N2YwYzMzZmU5ZTRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNiMDQ1ZDQzZTU1YjFmZjE5MzNlOTEzOWVmNTQwZGJmOTM5NGExMmM5OWExYjJmMjkzZmE1MmVjZWMwMmQ3MWIifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L1-L54",
+          "version": "repo-lines-v1:sha256:48804c2f0d21d8575bde7ff64a582e034f28a002d83aa0b3754bb6d322871b20:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4MDZlZjg3ZWY4ODk5MGE2YjNkYzdhMzliNjMwODU3ZTg4MmQ4MjY5NDdmNDg4OThhY2U5ZDlmYTFjMzk2OWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdkZTcyOGM5YWZhZmY3ODg4NzJlODFmOGZhODU0OTY4OGI4NTk2YWI1OTMzMTcxZjgxOWQ3Yjk2NmUxMTg3NjYifQ"
         }
       ]
     },
@@ -17,8 +25,8 @@
       "statement": "Nothing in the Boundary root Containerfile (which builds the unrelated SRE-tools investigation image, not Trusted Actions) or in internal/cmd (the rosa-boundary CLI's command package) currently invokes the Trusted Actions HTTP API or an rta client; the architectural edge from the investigation container to Trusted Actions is not yet wired into the rosa-boundary CLI's own code, though an SRE can still reach Trusted Actions manually via the standalone rta CLI.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L1-L60",
-          "version": "repo-lines-v1:sha256:8240eef52e2e3a13f25f70ab533dc1d70601f2ac11bef52299c385c3355933d9:eyJzZWxlY3RlZExpbmVDb3VudCI6NjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhMzdmY2JiMDM5ZDVlZTg4MjgyZWM1ZmE1OTkwNjQ5MGNlODg0NzUxZDBhNGVmMDE4MWZjNTAwZmQ2ZmEyMzIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMzA5YjBlYWMwM2M2ZThkMTQ4ZjVmYTUzOTE3MTFmM2I2NTdhMTczNTMxNGE5NTE1Yzc1ZmNmNTJhZmYyY2QifQ"
+          "resource": "repo://Containerfile#L1-L64",
+          "version": "repo-lines-v1:sha256:9be4db34928b1a3e3af201c908513ed08928355a3cb837144ab9d54877d7d017:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhMzdmY2JiMDM5ZDVlZTg4MjgyZWM1ZmE1OTkwNjQ5MGNlODg0NzUxZDBhNGVmMDE4MWZjNTAwZmQ2ZmEyMzIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMzA5YjBlYWMwM2M2ZThkMTQ4ZjVmYTUzOTE3MTFmM2I2NTdhMTczNTMxNGE5NTE1Yzc1ZmNmNTJhZmYyY2QifQ"
         },
         {
           "resource": "repo://components/trusted-actions/internal/rta/client.go#L1-L53",
@@ -26,7 +34,7 @@
         },
         {
           "resource": "repo://internal/cmd/root.go",
-          "version": "repo-file-v1:sha256:82126fd8419a4246a6b31ab6b814e99206a389f24715664dbd0bd7605f57370b"
+          "version": "repo-file-v1:sha256:67f4522490257dc906ce08107a6c900484c3cf6749b65861371d9d8a0cf09f21"
         }
       ]
     },
@@ -45,8 +53,8 @@
       "statement": "cmd/server/main.go is the composition root: it loads config, wires authn/authz middleware (real OCM-backed or mock depending on ROSA_TA_AUTH), constructs the Backplane client provider (real Backplane-CLI-backed or kubeconfig-backed for local dev), builds the catalog, and starts the HTTP server and worker pool together.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L70-L250",
-          "version": "repo-lines-v1:sha256:1616553b4c6c7445e150e803d8b6926802809792dbd63e95ff535b6b06f88c90:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYjk2NGRjZDM5NjViNTNkZWM5YzNmNTIzNTY5YWZjYzU5NTk2MTRmNWZlNDZmMDVhZDUzN2RiMDk5NTFiNmY0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYWExOGJjYjQxN2UyZGU1ZjExZjkxMzRmOTRjYmYxMWZkMjcyNjA2MzlkNGU4ODU2YmQ3NTU2NTk4ODU2Y2FkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxNmJhNzFhN2JlMzljMzcxM2QzNDQ3Mjc2YTIxOTBjN2I5MzgyNTRkOWVhYjE1MTBjYTA3ZTUzNjY0ZTg5NzViIn0"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L70-L264",
+          "version": "repo-lines-v1:sha256:2da699d0a0bdc75fc057e29f9fe91d0a18f1a2fc943e65fb320238f0182ea13d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTk1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYjk2NGRjZDM5NjViNTNkZWM5YzNmNTIzNTY5YWZjYzU5NTk2MTRmNWZlNDZmMDVhZDUzN2RiMDk5NTFiNmY0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYWExOGJjYjQxN2UyZGU1ZjExZjkxMzRmOTRjYmYxMWZkMjcyNjA2MzlkNGU4ODU2YmQ3NTU2NTk4ODU2Y2FkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxNmJhNzFhN2JlMzljMzcxM2QzNDQ3Mjc2YTIxOTBjN2I5MzgyNTRkOWVhYjE1MTBjYTA3ZTUzNjY0ZTg5NzViIn0"
         }
       ]
     },
@@ -116,11 +124,11 @@
     },
     {
       "id": "claim_f0fc7c98963042cab16b3193617695fb",
-      "statement": "ActionDefinition entries in the catalog carry Name, Description, Type (openapi.Read/openapi.Write), Scope (openapi.KubeApi being the only scope any current cataloged action uses), AllowedRoles, ParamDefinitions, and optional DryRunAction/WriteCooldownSeconds/Approval fields that support dry-run pairing, write rate limiting, and an approval requirement.",
+      "statement": "ActionDefinition entries in the catalog carry Name, Description, Type (openapi.Read/openapi.Write), Scope (openapi.KubeApi for get/patch/delete/describe-nodes/get-pull-secret-email/list-alerts; openapi.AwsApi for aws-get/aws-reboot/aws-terminate), AllowedRoles, ParamDefinitions, and optional DryRunAction/WriteCooldownSeconds/Approval fields that support dry-run pairing, write rate limiting, and an approval requirement; aws-terminate further narrows AllowedRoles to SREP only because terminating an instance is irreversible.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L18-L55",
-          "version": "repo-lines-v1:sha256:6d09a0d2410b5edd427fb22e41fa0d8cea8f3886b2abe70e29973aadb641bb43:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2M2Q5YmVhOTRhZWQ3M2MwMzU5YjMyMzU2OWMyOWUyNzRmYzAzNGYwZTQ1Y2YwMGIwMGZiZDJjZTU1ZmEwN2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM3Y2Y2NjVjYzYwZjRlYTcyZGFlOTI1ODE2ZTkxMWNiMDRhNzQzZTNjN2Y0NzY5Y2IyYmVlMTE3ZGE3ZjQ5ZmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwZGYwNDI5YjliZWI2NWIxMWFkYTg0M2ExNGI0NzMxYTA2MzFmOGQzZmZiNzFmM2U0OTE1YWI0OTg1OWNmMTIifQ"
+          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L18-L176",
+          "version": "repo-lines-v1:sha256:e92c3e911ea52a5721354cd75838013d95a75abdb01d2695a155e4c7bcc71141:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkNjNkOWJlYTk0YWVkNzNjMDM1OWIzMjM1NjljMjllMjc0ZmMwMzRmMGU0NWNmMDBiMDBmYmQyY2U1NWZhMDdiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjN2NmNjY1Y2M2MGY0ZWE3MmRhZTkyNTgxNmU5MTFjYjA0YTc0M2UzYzdmNDc2OWNiMmJlZTExN2RhN2Y0OWZiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzYjA0NWQ0M2U1NWIxZmYxOTMzZTkxMzllZjU0MGRiZjkzOTRhMTJjOTlhMWIyZjI5M2ZhNTJlY2VjMDJkNzFiIn0"
         }
       ]
     },
@@ -183,18 +191,50 @@
       "statement": "Trusted Actions' own Containerfile at components/trusted-actions/Containerfile is a distinct, much simpler image from the repository-root Containerfile: a two-stage build (registry.access.redhat.com/hi/go builder stage running `go build ./cmd/server`, then a registry.access.redhat.com/hi/core-runtime runtime stage pinned by digest) that copies in only the compiled rosa-trusted-actions-server binary, EXPOSEs port 8080, and runs as non-root USER 1001 with ENTRYPOINT [\"rosa-trusted-actions-server\"]; the root Containerfile instead builds Boundary's multi-stage SRE-tools investigation container and has no stage, binary, or purpose in common with it.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L1-L23",
-          "version": "repo-lines-v1:sha256:2eea9f13c2888b3a7f993238980057c13e4498623e0c3fae2dd4088930dad5f4:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
+          "resource": "repo://Containerfile#L1-L27",
+          "version": "repo-lines-v1:sha256:bd4887c78c1ffcc9e02a888edb9ccf5beb6d7fcee56cd64b67b0137fc76838c3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
         },
         {
           "resource": "repo://components/trusted-actions/Containerfile#L1-L20",
           "version": "repo-lines-v1:sha256:50c494a09f6b08bbaed9da3f2ca83672733ed7db7452a89a688f00161ce7cdbb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5OTc0NzYwYTY5ZGZlMjMzYzkyYjFkYmRhYmYwMGM4Mjc4NWU1ODMyOWNhZTc3ZDBhOTc3ZDJhNWI0MmMzYjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjYWYyYzUyYmE5YjkzOWQ0MjI0MTM2MDVhOWVmMWVkZGNhZDZjNzE0NDlkYjEyZWRiMzE3ZWI3MjgzYWNjNmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
+    },
+    {
+      "id": "claim_df5cf81df374456f94d776a926467fdf",
+      "statement": "The executor dispatches each action to whichever of its two Scope implementations (KubeScope or AWSScope) reports Supports(action) true; AWSScope resolves the target cluster's AWS region, and for AWS write actions also its infrastructure ID, via the AWS client provider (which in turn resolves through OCM), and a write action fixes its own Operation() and Resource() so a target param cannot relabel what is being changed, with the instance's cluster-ownership tag checked before the write proceeds.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L33-L89",
+          "version": "repo-lines-v1:sha256:4fb645f9b60f8c19d1e488925b1ea793455858e1e747c77ac0b990613e127bd6:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyNzAwMTdkNzAxNjYyMzhmMDkzOWUzZTI4NWE2NjQ5MDI2ZDZiM2QwNWRkNmFhZWJkYTZjYzYyOTJlMmI3N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVmNWI2MzQzMWZjMDA0ODc4YWVlNzlmYThmZDQ1OGM1YTU4Y2Q5MjhmODAxY2UxYzMyZDA1ZWM0MDkzYjk0MzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiNTg1ZGI5MTM4NDA0MjQwYmUxODZiZjY0OWU1MTViMTFmMzdlZWIxNmM1N2IzZGFlNTYwZmFmMWZhZmU2MWEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L34-L57",
+          "version": "repo-lines-v1:sha256:54ec93c29d8f83a7c3dd2ce9075624a3060afc41bc8c815b91a9e30febd0e711:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkODRiYjI5YzMxMTIyYmZkM2Y2NTRjYTA1ODAyNWQ3NTZjNjA1ZjFiMTU5ZmM0NTgwNmRhNjQwMzA4MWE4ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiM2Q1OTI2ODFkMjBlNjhkMTE2N2Y3ZjBjYTBkZGYzNWJkYmVjYTkxZDM1NjJiMDI0NDExYjYyOWMwNmRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVjNDQ2NjMyNjQxMzIwZGY4NmUzMTQzNjBkNThiYmNlNjA5YTMxNWNhNjUzMmM0MTdhNzYyYTE3NWQ3ODY4NjkifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_aead4aef27d94c8994203c316eeaefd9",
+      "statement": "Among Trusted Actions' internal packages, openapi, handlers, catalog, auth, middleware, store, and config sit on the synchronous HTTP request path (router -> middleware -> handlers -> store), while worker, executor, actions, backplane, awsapi, authorization, and audit sit on the asynchronous execution path that a worker drives after claiming a pending execution; models supplies domain types (Execution, Audit, Output) shared by both paths, ocm is a shared OCM SDK client used by authentication and by both the Backplane and AWS credential providers, and rta is a standalone client CLI outside the server process entirely.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L1-L36",
+          "version": "repo-lines-v1:sha256:7048d01e10e2894b5c877fa76e41597e935d0f2a0a8f49913452d4e0227eb8e9:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmMWQwMzZjYmJmM2RmNDZlMjA0NTA3MWUwODIyNDVlY2UyMDRjN2Y1M2VjZjBhNGUwMjJiZmY5YmIyMjhmNDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg0ZTI2N2M5MTljMjdjZmVhYjVkYzFkYmM1MWU3YjgzMmUyYzk4ZTAyYzljZWI1MDIzM2RkY2Y5OTQ3NDI3NDMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L1-L14",
+          "version": "repo-lines-v1:sha256:5ca5ed65e91545ca8c07948b6debf0c4958bba90822ac92e22741decdf00500f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4MDZlZjg3ZWY4ODk5MGE2YjNkYzdhMzliNjMwODU3ZTg4MmQ4MjY5NDdmNDg4OThhY2U5ZDlmYTFjMzk2OWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwY2EwMTBmOThkYjM2NmU3OGEyZDBiNWZlY2NlMWExMWJiZWNmM2U5YmI5MTAyZWZmMmY0MzgxNDIzZWY5ZDMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L1-L16",
+          "version": "repo-lines-v1:sha256:3bbeec54758022a3ea2cf09acb5deaa074333caab7f0cf4ef447da4406d650ff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJiZjczYTZhNTA3YWQ5YmJmMzBiZDAxMDNiYWVhYTgxODI3NDk1ODE1MzJlZGY4YzQ2NDQyOWMxNGM4ZDI1YTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkZTI1YmYyOGRkYjgzY2M5MGIyMTI4YjQ5ZjliMjdlYTc5ZWNkNTE4NmVmOGVmYWZhNDQ4MWEwZjlmNWRlNzkifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "at": "2026-11-19T16:04:15.171Z"
   }
 }

@@ -3,9 +3,6 @@ type: integration
 title: Trusted Actions API surface and clients
 description: Describes the OpenAPI-defined Trusted Actions HTTP contract (catalog, run, runs, audit, health), its ocm_jwt bearer security scheme, its external OCM/AMS and Backplane dependencies, and the rta/action-cli/test-client command-line tools that call or bypass it.
 tags: [trusted-actions, openapi, http-api, ocm, backplane, cli, rta, jwt, access-review]
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
 sources:
   - id: openwiki-source-b4d4b45d5e0381ad76cf80b7
     resource: repo://components/trusted-actions/cmd/action-cli/main.go
@@ -33,6 +30,10 @@ sources:
     resource: repo://components/trusted-actions/internal/rta/auth.go
   - id: openwiki-source-a6c0f8d599d4aca7d9811870
     resource: repo://components/trusted-actions/internal/rta/client.go
+  - id: openwiki-source-f5156c7c11b54dc232ae5f24
+    resource: repo://components/trusted-actions/oapi-codegen.yaml
+  - id: openwiki-source-20608c0947a7a6342aff3941
+    resource: repo://components/trusted-actions/openapi/components/README.md
   - id: openwiki-source-56f07e75cbe06bb5f580eb13
     resource: repo://components/trusted-actions/openapi/components/securitySchemes/ocm_jwt.yaml
   - id: openwiki-source-691e3595919207dd50c0ab04
@@ -45,12 +46,16 @@ sources:
     resource: repo://components/trusted-actions/openapi/paths/audit.yaml
   - id: openwiki-source-d99445947485c014be3f2668
     resource: repo://components/trusted-actions/openapi/paths/catalog.yaml
+  - id: openwiki-source-aee647f2ba5623a8c33e1ecb
+    resource: repo://components/trusted-actions/openapi/paths/README.md
   - id: openwiki-source-ca2c2cb42493a58623491b24
     resource: repo://components/trusted-actions/openapi/paths/runs.yaml
   - id: openwiki-source-1751c8e501e8474716d618dc
     resource: repo://components/trusted-actions/openapi/paths/runs%40%7Bexec_id%7D%40output.yaml
   - id: openwiki-source-aba6fb165c9fb1e4cd49aa4d
     resource: repo://components/trusted-actions/openapi/paths/runs%40%7Bid%7D.yaml
+  - id: openwiki-source-ba94497537ea15e99b6e3f92
+    resource: repo://components/trusted-actions/openapi/README.md
   - id: openwiki-source-48302ab227b3652ec0a8dd2d
     resource: repo://components/trusted-actions/scripts/test-api.sh
   - id: openwiki-source-7fb7f94b66091c260f5a54d1
@@ -59,21 +64,64 @@ sources:
     resource: repo://components/trusted-actions/tests/proxy-backplane/main.go
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-19T16:04:15.171Z
 ---
 
-Trusted Actions exposes a single HTTP API, defined OpenAPI-first in
-<!-- openwiki: broken internal link [../../components/trusted-actions/openapi] file "../../components/trusted-actions/openapi" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`components/trusted-actions/openapi/`](../../components/trusted-actions/openapi),
+Trusted Actions exposes a single HTTP API, defined OpenAPI-first under
+[`components/trusted-actions/openapi/`](../../components/trusted-actions/openapi/openapi.yaml),
 for discovering, executing, and auditing a fixed catalog of narrow operations
 ("trusted actions") against managed OpenShift clusters and AWS resources. The
-spec is the source of truth for the wire contract; server handlers and the Go
-client are generated from it (see
+spec is the source of truth for the wire contract; the server's handler
+interfaces and request/response models are generated from it (see
 [Trusted Actions architecture](../architecture/trusted-actions-overview.md)
-for the codegen pipeline and the two-layer request/execution design). This
-page documents the contract itself, the external services it depends on at
-request time, how the server itself is built and shipped, and the
-command-line tooling built around it.
+for the two-layer request/execution design). This page documents the
+contract itself, the directory that defines it, the external services it
+depends on at request time, how the server itself is built and shipped, and
+the command-line tooling built around it.
+
+## OpenAPI directory structure: the source of truth for the wire contract
+
+`components/trusted-actions/openapi/` holds the hand-maintained OpenAPI
+document, split across files the way the in-tree
+[`openapi/README.md`](../../components/trusted-actions/openapi/README.md),
+[`openapi/components/README.md`](../../components/trusted-actions/openapi/components/README.md),
+and [`openapi/paths/README.md`](../../components/trusted-actions/openapi/paths/README.md)
+describe:
+
+- **`openapi/openapi.yaml`** is the entrypoint: API metadata, the `servers`
+  URL template, tag descriptions, the top-level `paths` map (each entry a
+  `$ref` into `paths/`), and the `security`/`securitySchemes` declarations
+  (just `ocm_jwt`, applied globally — see below).
+- **`openapi/components/`** holds reusable building blocks: `schemas/` for
+  request/response/model shapes and `securitySchemes/` for the `ocm_jwt`
+  scheme definition, each `$ref`'d from `openapi.yaml` or from a path file.
+- **`openapi/paths/`** holds one file per route (e.g. `catalog.yaml`,
+  `{action}.yaml`, `{action}@run.yaml`, `runs.yaml`, `runs@{id}.yaml`,
+  `runs@{exec_id}@output.yaml`, `audit.yaml`), each defining the operation(s)
+  for that path and `$ref`'d from `openapi.yaml`'s `paths` map.
+
+This split document is the only place route shapes, parameters, and error
+responses are defined; nothing downstream hand-edits the contract. Two Go
+packages consume it differently:
+
+- **`internal/openapi`** (`api.go`) is fully generated, not hand-written.
+  `oapi-codegen.yaml` configures [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen)
+  to read the bundled spec and emit a chi-compatible server interface plus
+  request/response model types (`generate: { chi-server: true, models:
+  true }`, `output: internal/openapi/api.go`). `cmd/server/main.go` wires a
+  hand-written `internal/handlers.APIHandler` into the generated
+  `openapi.HandlerWithOptions(...)` chi adapter; regenerating `api.go` from a
+  changed spec, not editing it directly, is how new routes or fields reach
+  the server.
+- **`internal/rta`** is entirely hand-written. It is the Go client/CLI
+  package behind `cmd/rta` (`client.go`, `action.go`, `execution.go`,
+  `audit.go`, `command.go`, `auth.go`); it imports the generated
+  `internal/openapi` request/response types for its request and response
+  bodies but contains no generated code of its own — its HTTP calls, token
+  handling, and command tree are maintained directly.
 
 ## Route surface
 
@@ -81,8 +129,7 @@ All routes are rooted at `/api/v0/trusted-actions`, as declared by the
 `servers` entry in
 [`openapi/openapi.yaml`](../../components/trusted-actions/openapi/openapi.yaml).
 Each path is defined in its own file under
-<!-- openwiki: broken internal link [../../components/trusted-actions/openapi/paths] file "../../components/trusted-actions/openapi/paths" does not exist. Fix the href or restore the target, then delete this comment. -->
-[`openapi/paths/`](../../components/trusted-actions/openapi/paths) and
+[`openapi/paths/`](../../components/trusted-actions/openapi/paths/README.md) and
 `$ref`'d from the root document:
 
 | Path | Method | Purpose |

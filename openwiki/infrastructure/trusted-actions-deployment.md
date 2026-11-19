@@ -3,6 +3,9 @@ type: infrastructure
 title: Trusted Actions deployment and infrastructure
 description: Explains Trusted Actions' two-tier Terraform deployment (global account-wide IAM/secrets/ACM-validation vs. regional VPC/ALB/ECS/DNS), its ECS+ALB runtime co-located in the rosa-boundary AWS account, its Postgres-or-SQLite store, its private per-region DNS model, the container_environment compatibility shim for in-flight image upgrades, and how its HCP Terraform workspaces (now rebound into this monorepo) apply those roots.
 tags: [trusted-actions, terraform, aws, ecs, alb, hcp-terraform, dns, postgres, sqlite]
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-19T16:04:15.171Z
 sources:
   - id: openwiki-source-1907132ec84c53dc704aba84
     resource: repo://components/trusted-actions/ARCHITECTURE.md
@@ -24,6 +27,8 @@ sources:
     resource: repo://components/trusted-actions/terraform/global/iam.tf
   - id: openwiki-source-6278264e014b3f1b80505e27
     resource: repo://components/trusted-actions/terraform/global/secrets.tf
+  - id: openwiki-source-ddf8c0ff0c0bb3583d8316e1
+    resource: repo://components/trusted-actions/terraform/global/variables.tf
   - id: openwiki-source-021894d351b0f9e2d81b1bbe
     resource: repo://components/trusted-actions/terraform/regional/acm.tf
   - id: openwiki-source-c3a3cc5a01d6f55e78542562
@@ -46,10 +51,7 @@ sources:
     resource: repo://docs/trusted-actions-monorepo-migration.md
   - id: openwiki-source-37ce5ca787d481a0d0fc0453
     resource: repo://hcp-terraform/rosa-trusted-actions/main.tf
-generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
-verified:
-  - by: openwiki/0.7.0
-    at: 2026-11-13T18:18:24.408Z
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
 ---
 
 ## Overview
@@ -124,8 +126,11 @@ independently-applied regional stacks.*
   wildcards so the same global role set works against every region without
   a re-apply ([`terraform/global/iam.tf`](../../components/trusted-actions/terraform/global/iam.tf)).
 - A single Secrets Manager secret (`APP_NAME/ta`) holding `ocm_client_secret`,
-  `ocm_token`, and `backplane_client_secret`, with `ignore_changes` on the
-  secret string so out-of-band rotation does not show as Terraform drift
+  `ocm_token`, and `backplane_client_secret` as a single JSON secret string,
+  sourced directly from the global workspace's own sensitive Terraform
+  variables with no `lifecycle` block on either resource — rotating the
+  secret value out of band (e.g. in the AWS console) will show up as
+  Terraform drift on the next plan
   ([`terraform/global/secrets.tf`](../../components/trusted-actions/terraform/global/secrets.tf)).
 - A DNS-01 ACM validation CNAME, written once to the shared public hosted
   zone when `internal_fqdn` and a public zone (existing or newly created)

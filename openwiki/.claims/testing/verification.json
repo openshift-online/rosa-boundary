@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:11716c47595a655a5bd1932f533141ac6f1e35cc8106179900bd147a03ab92a0",
+  "pageVersion": "sha256:93e8b3d9ea2b95358e9152bf9f8345b48aadcb04c76a2778a89c58852129bf80",
   "claims": [
     {
       "id": "claim_20f7ff5a69cd43e8aa9ad2bbc0f4f2ee",
-      "statement": "deploy/regional/tests/claude_default_model.tftest.hcl verifies the claude_default_model <-> bedrock_model_agreements consistency guard in variables.tf: claude_default_model must be a known Bedrock inference-profile ID (a key in local.claude_inference_profile_foundation_models) that resolves to a foundation model present in bedrock_model_agreements, and bare foundation-model IDs are rejected even if that foundation model is itself approved. The suite uses mock_provider \"aws\" plus override_data for aws_partition and per-subnet AZ/VPC/route-table data to satisfy the module's Bedrock-endpoint and subnet_outbound_routing preconditions, so each plan run fails or succeeds only on the claude_default_model validation under test.",
+      "statement": "deploy/regional/tests/claude_default_model.tftest.hcl verifies the claude_default_model <-> bedrock_model_agreements consistency guard in variables.tf: claude_default_model must be a known Bedrock inference-profile ID (a key in local.claude_inference_profile_foundation_models) that resolves to a foundation model present in bedrock_model_agreements, and bare foundation-model IDs are rejected even if that foundation model is itself approved. The suite uses mock_provider \"aws\" plus override_data for aws_partition and per-subnet AZ/VPC/route-table data to satisfy the module's Bedrock-endpoint and subnet_outbound_routing preconditions, so each plan run fails or succeeds only on the claude_default_model validation under test. Re-reading lines 93-136 confirms the run blocks (default_sonnet55_profile_succeeds, haiku55_requires_matching_agreement, approved_sonnet55_us_profile_succeeds, approved_sonnet55_eu_profile_succeeds) exercise exactly this validation with no other AWS behavior asserted.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L1-L27",
@@ -12,17 +12,17 @@
         },
         {
           "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L53-L91",
-          "version": "repo-lines-v1:sha256:fe37e80eb80f6ba25a42dfbeda73f94d95f3a0765aec7de77bf64aff19dd0dc2:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmYzIxMTRkNmMzZjc5ZDhlODQ1NGRlYzZjYzBmZWU5NDc2MzcyOTBiZTZiOTdhMGFlZGE2YWYyYzlkNDllM2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ0ZDJjZGE0Yjc0NjJmN2I1NWZlZjhkYzMyZGE4N2E1MWE0YzYzMjMwNzcwMTQ4NTQ5NmY4YWZmNmU1OWYyNjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFmMWNjNzgyNTdhNWUyZGE0NGQxOTkxM2Y5NTg3ZGZhNTQ5MDFmNzBkYWY4ODBmZTc2MTc0MzVlZDk2MjE5MjAifQ"
+          "version": "repo-lines-v1:sha256:fe37e80eb80f6ba25a42dfbeda73f94d95f3a0765aec7de77bf64aff19dd0dc2:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmYzIxMTRkNmMzZjc5ZDhlODQ1NGRlYzZjYzBmZWU5NDc2MzcyOTBiZTZiOTdhMGFlZGE2YWYyYzlkNDllM2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ0ZDJjZGE0Yjc0NjJmN2I1NWZlZjhkYzMyZGE4N2E1MWE0YzYzMjMwNzcwMTQ4NTQ5NmY4YWZmNmU1OWYyNjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhY2Q2NGQ3MWUwMjY0M2E4MzcxNjE1N2Y3MTE1NjFjODZjNTRhNDkyZDljMWM1MDIxNDhjYWMzZjI5MTljYjIifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L93-L131",
-          "version": "repo-lines-v1:sha256:6bdc69bd9751c33569fe2095f028afcea6cb54b192dc07cd23d18770be72bb42:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFjNjYwNmI0OTI2ZjhjYjVkNTg4MWJmZDAwMDI2M2I1ZGNjNGE1ZDhjNTQyNDhjMjAwNzExN2RkNTZmYjBlMTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://deploy/regional/tests/claude_default_model.tftest.hcl#L93-L136",
+          "version": "repo-lines-v1:sha256:f01a33697a482bf863bdb4f5c64ffa62e55ea1e3321db1d2486bb2e6f4ea4899:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM2ZWRhYmZjODg3M2Q4MGFhMDBkY2QxNWU5NWY0Njc1MjZlNmNlNTczNzZhYWFkMTc1OGU0YzM0NDlkYTVmZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkyYmMwNTBhYmE3OTM5NDQ2MjA2ZDQ0NDg4ODRlYzkwOGJlM2JkZGZmZjE0MzFjOTMyMWZiZTkwOTViY2M1NTEifQ"
         }
       ]
     },
     {
       "id": "claim_ab537d442b0d4834b387d3aaa8ec29da",
-      "statement": "The mocked regional IAM ownership suite requires shared IAM identities and managed attachments to remain account-owned, permits the dedicated locally owned content-files service role as an exception, verifies shared-role inline grants attach to account-role lookups, and checks policy suffixes and dedicated reaper access-point restrictions without contacting live AWS.",
+      "statement": "The mocked regional IAM ownership suite requires shared IAM identities and managed attachments to remain account-owned, permits the dedicated locally owned content-files service role as an exception, verifies shared-role inline grants attach to account-role lookups, and checks policy suffixes and dedicated reaper access-point restrictions without contacting live AWS. Re-reading lines 180-242 confirms these assertions cover exact legacy inline-policy JSON scopes (task_s3, s3_replication, task_kms, task_ssm_logging, bedrock_invocation_logging, execution_secrets, task_bedrock, sre_shared_ecs_exec, lambda invocation/EFS grants) and that the investigation reaper's EFS mount/write/root-access grant in both the Lambda policy and the EFS file-system policy is conditioned on its own dedicated aws_efs_access_point.reaper rather than a file-system-wide grant.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/iam-content-files.tf#L1-L43",
@@ -30,15 +30,15 @@
         },
         {
           "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L1-L73",
-          "version": "repo-lines-v1:sha256:e580ed6b2b2584b04f8a49b40961f59cbc7bfc0fe044b1684124efdde5df9d3c:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwNmVkNjVhYjZhMjA5ZmVmNmViMGI2NmQ2YWVjZGU4ODNkNzI4MjZhMDhmZmE1ZmMyNzAxYzkwOTlkZjdhNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY0ZTYwNWY2ZDEzZmI5ZWQ5ZmE3YjgxODYzOTIyMjc3NDFhZTQ4OTQwNTA2OGRmZGZjZTliZDY0MDM2NWNkMWEifQ"
+          "version": "repo-lines-v1:sha256:d40b69129c644bb6dd99869cfa585714d3ab3a59287f90001c010ad734b84f8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3OTIyYWY1MzA0MTk3MzEyMTZlMTg2MGI5MWY5YmQyMWI5MzYyMTcyOTJiM2EwZGI3MGUxZTljNWFkMzQ5ZDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFkYjY1MzA4MWMzZjcxNjk0MDM2OTM2ZWIzZDFhYWFlYjg4Yjg5YmY3MzYxODEzMzdhYTEyNjFhZGZkOTQzOGMifQ"
         },
         {
           "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L105-L149",
-          "version": "repo-lines-v1:sha256:029dbd0b5112b99188412c8d73415957db0936266922a71a388c4fd7c83ec95d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmMWYyYmI4NWEwMWNlYjUxOWIxNTJhMWM1ZWQxOTdkZWUwMjRkZGU3MTRhMzZhMmMzOWJjNTIwMDlmNjQ1NTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjYTRkZDJhMTIyMDMxMTFkMmJjODk2MTViN2VjY2YzYWExMGQ0YmEyMzExNTQwYjA3YWMzNjVjYjQ4Mzc5OTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM3ODFiYTJjMjkwYTNiNjY5Y2I2MjM1MTk4YjVlMGNlN2RiOGY1ZGNmYjQ2MzBkYzRjMmZmMzY5NDVhZGM4MTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkZjQ2MDE3NzVmNTIxYjg5ZTI0Y2Y5YTA5MzZkNjU2N2E5MGQ2Y2QyNjEzZTg3MmMzYzZmYjcwZjRkYzA4ODEifQ"
+          "version": "repo-lines-v1:sha256:e5498f9277c5c94f22929ad392760fe62c8a8a41c7fae81d7b4d52b9feefc10d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlY2MyMTcyYjNhM2RmM2JmMTVmNjFkN2MyN2Y1M2UxYzE2MjJmNDcwODdiN2Y0NDg0OGEzMjZlODIzNWZlZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjNzc4MzViYzhiNTAzNmZiZmI4YmE0NmM5OTJkN2FmODAyODU2YjQ3YmE2MjdhNTA3MDlkOTAxNzczZjQwYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNTJlY2M3MWUwNmYwMjAzZjIzYzJhZTlkMzA1NDJiYTY1NjNkNmNmMjg2MjM1YjdjODVhZGI3ZWI4MDdjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwYmM4NjA0OWYyZmUyNGIwYzhhZjI2YzgzOTY0Zjk1NWI5N2FlYTJhYjA0MzRlZDQ2ZDczYzY5ZGY5M2Y3YTIifQ"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L180-L245",
-          "version": "repo-lines-v1:sha256:ab9ea8e5d6c431c767ab255a5548ccb76d3cafb9dd87ab72ade30574adbffa88:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwYzFmMTg4ZjE0MmVkN2E4MjQ2ODBiMjA3MTcyYzU1MTliYzYxNGE0OGZkYTdjZjE2N2VkYjhkZGY3OTk1NmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhMDM5Nzc3NDcxMzUxZjNjODE3MTQxZjM5MDFlNDBiMjNiOTJjY2Y0YTM5Y2NjNjEyYmI5ZDM4NjU4YjY1OTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI5YWY3Y2MxYTNlN2M5ZTg4ZWQwZTM2ZjY2OTczZTAyYjg2OGUzMWUxNTk5MTIzNzFmZWJiMmQwZDhjZGQ5ZmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBiYTJkNzA1NTc5ZDllMDQ4NzM2YmQ0Y2ZmMzQ5NjczNmUwNmRkYmY4YThlZTJiMzg0M2RlNDYzZWMxNjJkMWQifQ"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L180-L242",
+          "version": "repo-lines-v1:sha256:2582ee99552e3110b84869fd9fc905e0ba4d743b4ce5153a89b98d49e9b43f07:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxZGZmZTg3NzZmOTA1MDEwNWRhZTgwZjVkNThhNjZlYTE2Y2RkMTY3ZmI3ODU4YmViMjFkMmUzYTViNWFlZmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZiNWIxN2RmNDliYTI4Yjg0MGYwZmQ1OTVlNTZjMzk2MzM5Mzk0NDgzM2YwMjlkMWRhMDRkNWFiYjA0NzQ4MTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU3OTRhYjA3MGYyODJkYjczMmZmNTYxZDIzYTU1MTMyYjk0MjhiMjdhNzljOWRjOTRjNjMyM2ZjZDQ2OGNlMjcifQ"
         }
       ]
     },
@@ -170,17 +170,17 @@
     },
     {
       "id": "claim_85225173e5b540c2a9cd656337429511",
-      "statement": "A separate mocked regional content-files Terraform test checks S3 Files filesystem and mount defaults, service-role and read-only access grants, TLS/network boundaries and invalid storage-size inputs without proving AWS behavior.",
+      "statement": "A separate mocked regional content-files Terraform test checks S3 Files filesystem and mount defaults, service-role and read-only access grants, TLS/network boundaries and custom nested prefixes/proxy CPU apportionment, without proving AWS behavior. Re-reading lines 123-335 confirms per-prefix filesystem/policy/volume wiring, an ECS stopTimeout-vs-entrypoint-watchdog arithmetic assertion, the content_files service role's scoped trust policy, task-client allow-mount/deny-write/deny-root-access and whole-bucket-deny policies, per-filesystem deny-other-principals/deny-insecure-transport statements, the dedicated security group's TCP 2049 restriction to the Fargate task security group, and the custom-prefix/kube-proxy CPU-split and dependsOn case.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/tests/content-files.tftest.hcl#L123-L336",
-          "version": "repo-lines-v1:sha256:921325d1e9066e1ceb3c8902010c7931ca8a686688b8ef6bc8dc75803338af29:eyJzZWxlY3RlZExpbmVDb3VudCI6MjE0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5ZjFhNDdjOTI0YTlhOGJjNjcwZTk4ZDEyYWU4N2EwNGY3MTdhZDE4MDgxZmExZmY5MGE2NzZhZTdlY2UxNzFjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwOWY5MzA4M2MxOTcxMjFiOTgyNzAwYmE4YWZhYmQxNzIyY2YxZDNlNzQwNDUwOWU4MGVmYTI3MjQ3ZjYyZjA3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+          "resource": "repo://deploy/regional/tests/content-files.tftest.hcl#L123-L335",
+          "version": "repo-lines-v1:sha256:33ad0f6d03d0924b0ca0a8ca99788daaa1d769774b4d4322af79b81109aab7f0:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5ZjFhNDdjOTI0YTlhOGJjNjcwZTk4ZDEyYWU4N2EwNGY3MTdhZDE4MDgxZmExZmY5MGE2NzZhZTdlY2UxNzFjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1M2QzMDgyMTlhNjAyMjY1YjBiMGJiZmE1MWYwZTU3YWE2ZWRlNjdiYmVmYzAwOWRjMmVkNTQxOTAwMzgzOTYzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwOWY5MzA4M2MxOTcxMjFiOTgyNzAwYmE4YWZhYmQxNzIyY2YxZDNlNzQwNDUwOWU4MGVmYTI3MjQ3ZjYyZjA3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4NzJmMWZiYTVkNjY1NjRmZmNhM2UwNmEwNDk5ZjFkMzczYmMwYzI3NmUyOGY5NDk0NWM3OTE4ODYwZTQ0Y2RkIn0"
         }
       ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-11-13T18:18:24.408Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-19T16:04:15.171Z"
   }
 }

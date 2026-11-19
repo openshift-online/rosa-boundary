@@ -1,8 +1,11 @@
 ---
 type: integration
 title: Keycloak and OIDC provider integration
-description: Describes how Boundary's account Terraform registers Keycloak as an AWS IAM OIDC provider per environment, how the shared SRE and Lambda-invoker roles gate assumption on audience/session-tag conditions, and how the Kustomize Keycloak deployment and CLI/Lambda OIDC consumers fit around that trust.
+description: Describes how Boundary's account Terraform registers Keycloak as an AWS IAM OIDC provider per environment, how the shared SRE and Lambda-invoker roles gate assumption on audience/session-tag conditions, how the Kustomize Keycloak deployment and CLI/Lambda OIDC consumers fit around that trust, and where the realm-setup walkthrough's example configuration diverges from the claims/mappers the deployment actually requires.
 tags: [keycloak, oidc, aws-iam, terraform, kubernetes, kustomize, abac]
+verified:
+  - by: openwiki/0.7.1
+    at: 2026-11-19T16:04:15.171Z
 sources:
   - id: openwiki-source-7abd92951c465f5a76e176f4
     resource: repo://deploy/account/main.tf
@@ -24,31 +27,28 @@ sources:
     resource: repo://deploy/keycloak/components/cnpg/external-secret-db.yaml
   - id: openwiki-source-3684bc42074ffe349698c05f
     resource: repo://deploy/keycloak/components/keycloak/keycloak.yaml
+  - id: openwiki-source-279f98830f5678a0ca20716c
+    resource: repo://deploy/keycloak/components/keycloak/kustomization.yaml
   - id: openwiki-source-9d5cae9d3aa92e38c6c83da6
     resource: repo://deploy/keycloak/components/keycloak/route.yaml
   - id: openwiki-source-e0b6878ee330d7f6ee18b18e
     resource: repo://deploy/keycloak/overlays/dev/kustomization.yaml
-  - id: openwiki-source-d8e76337d241d645fdbde114
-    resource: repo://internal/auth/device.go
-  - id: openwiki-source-f3c901cd7f81495d7b85597f
-    resource: repo://internal/auth/oidc.go
-  - id: openwiki-source-872fbb99e33ba1498c5790f0
-    resource: repo://internal/auth/token.go
+  - id: openwiki-source-ccf4876ba24e136ca2d3bf1e
+    resource: repo://docs/configuration/keycloak-realm-setup.md
   - id: openwiki-source-a6037a5955153e01dc60d90b
     resource: repo://internal/lambda/client.go
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-12T16:02:44.301Z" }
-verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - id: openwiki-source-23775c3de52f3ab95a13cb8b
+    resource: repo://README.md
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
 ---
 
 # Keycloak and OIDC provider integration
 
 Boundary integrates with Keycloak on two separately configured surfaces that must be read together: `deploy/account` Terraform registers one or more Keycloak realms as AWS IAM OIDC providers and uses them to gate the shared SRE and Lambda-invoker role trust policies, while a Kustomize deployment under `deploy/keycloak/` runs a development Keycloak instance on OpenShift. The CLI and the `create-investigation` Lambda are the two application-side OIDC consumers of whichever issuer(s) are configured. Staging uses Red Hat EmployeeIDP rather than the dev Keycloak instance deployed by the Kustomize manifests, which define no OIDC realm or client resource themselves.
 
-For the end-to-end authorization model that these resources feed into — ABAC session tags, ECS Exec isolation, and the two-stage CLI role assumption — see [Identity and Access Architecture](../architecture/identity-and-access.md).
+This page covers the identity-provider deployment itself and its direct consumers — the IAM trust it feeds, and the shape of the Lambda's token checks. For the CLI's actual PKCE/device-code token-acquisition mechanics, caching, and the end-to-end two-stage role-assumption flow, see [Identity and Access Architecture](../architecture/identity-and-access.md).
 
 ## AWS IAM OIDC provider resources per environment
 
@@ -102,13 +102,25 @@ The database credentials are sourced from AWS Systems Manager Parameter Store ke
 
 The dev ClusterSecretStore reads Parameter Store in `us-east-2` using the external-secrets operator's service account. The overlay also contains a namespace SecretStore and a separately annotated service account; do not assume that this namespace-scoped store is the one used by the database ExternalSecret, which explicitly names the ClusterSecretStore.
 
+Neither the base nor the dev overlay defines an actual Keycloak realm, client, group, or protocol mapper — those are the `KeycloakRealmImport` custom resource described in `docs/configuration/keycloak-realm-setup.md`, which is a separate, optional resource layered on top of this Kustomize composition (see the realm-setup drift notes below for where that walkthrough's example configuration needs adjustment before it satisfies this deployment's actual requirements).
+
 ## OIDC consumption by the application
 
-The CLI configures a Keycloak base URL, realm, and OIDC client ID, then obtains an ID token through either a browser-based PKCE authorization-code flow (`internal/auth/oidc.go`) or an OAuth device-code flow (`internal/auth/device.go`), selected via `Options.UseDeviceCode`. Both flows are entered through `GetTokenWithOptions`, whose internal `getTokenWithOptionsAndDeps` helper does the actual work shared by both paths: it checks the on-disk token cache first (unless a forced refresh is requested), dispatches to `acquireDeviceToken` or `acquireBrowserToken` depending on `Options.UseDeviceCode`, validates the returned ID token's expiration against a buffer, and then writes the token back to the cache. Tokens are cached on disk scoped to the configured issuer and client ID (`internal/auth/token.go`), so switching Keycloak URL, realm, or client invalidates any previously cached token.
+The CLI and the `create-investigation` Lambda are this deployment's two direct OIDC consumers:
 
-The device-code flow (`acquireDeviceToken`) requests a PKCE-protected device authorization from `{issuer}/protocol/openid-connect/auth/device`, validates the response's device code, user code, verification URI, and expiry before printing the verification URL and user code for the operator, and then polls `{issuer}/protocol/openid-connect/token` at the provider-supplied interval (capped and defaulted defensively) until it receives an ID token or a terminal `access_denied`/`expired_token` response; `authorization_pending` and `slow_down` responses extend polling rather than failing it. The browser flow (`acquireBrowserToken`) starts a local callback server before opening the system browser to the Keycloak authorization endpoint and exchanges the returned authorization code and PKCE verifier for an ID token at the token endpoint.
+- **CLI**: configures a Keycloak base URL, realm, and OIDC client ID, then authenticates against that realm's `/protocol/openid-connect/auth` and `/protocol/openid-connect/token` endpoints using either a browser-based PKCE authorization-code flow or an OAuth device-code flow. Both flows require the Keycloak client to be public (no client secret) with PKCE and standard-flow support enabled, and a registered redirect URI matching the CLI's local callback (`http://localhost:8400/callback`). The detailed flow mechanics, token caching, and the subsequent two-stage AWS role assumption are covered in [Identity and Access Architecture](../architecture/identity-and-access.md); this page is only concerned with what the identity-provider side must expose for that flow to work.
+- **Lambda**: the `create-investigation` Lambda receives issuer/realm/client settings as environment variables per configured environment (primary, and optional stage/prod). It routes an incoming token by its unverified `iss` claim to the matching issuer's JWKS endpoint and verifies RS256 signature, expiry, and audience before trusting any identity/group/session-tag claims; stage and production issuers are accepted only when their environment variables are configured. After validation it checks that the token's `groups` claim (or, if absent, `realm_access.roles`) contains at least one of the Lambda's configured `REQUIRED_GROUPS`, and extracts the configured ABAC tag (`ABAC_TAG_KEY`, default `username`) from the token's `https://aws.amazon.com/tags` → `principal_tags` claim — falling back to `preferred_username` only when the configured key is the default `username`, and otherwise failing closed with a 403 if that tag is missing.
+- **`get_config` bootstrap path**: the Lambda's `get_config` action is dispatched before any OIDC token extraction or validation runs, so it is reachable without a valid ID token at all. It returns a fixed allowlist of deployment metadata (function name, invoker/SRE role ARNs, EFS filesystem ID, ECS cluster name, AWS region, and the Keycloak URL/realm/client ID) read from Lambda environment variables; AWS IAM authorizes the invocation itself (the CLI's `GetConfig` calls the Lambda via the SDK without attaching an OIDC token, relying on the invoker-role session's SigV4 credentials), and any principal with `lambda:InvokeFunction` on the function can read this metadata. This lets `rosa-boundary config init` discover realm/issuer settings for a profile before the operator has completed OIDC login.
 
-The create-investigation Lambda receives issuer/client settings as environment variables. It routes an incoming token by its issuer to the matching configured JWKS endpoint and verifies its signature, expiry, and audience before interpreting identity/group/session-tag claims. Stage and production issuers are accepted only when configured. The Lambda's `get_config` action is a separate bootstrap path authenticated by the AWS invoker role; it returns configuration identifiers before the CLI has completed OIDC setup.
+## Realm-setup walkthrough versus the deployment's actual OIDC requirements
+
+The root README's "OIDC Identity Requirements" table and the Terraform/Lambda configuration it describes require a Keycloak realm whose tokens carry specific claims, and the realm-setup walkthrough's example `KeycloakRealmImport` does not fully satisfy them as written:
+
+- **Audience — consistent.** The README requires `aud` to match `rosa-boundary-sre`, and the walkthrough's example client configures an `oidc-audience-mapper` with `included.client.audience: "rosa-boundary-sre"`, matching both the README and the client ID (`rosa-boundary-sre`) used throughout the example. No drift here.
+- **Groups — drift.** The README states the `groups` claim "must contain `sre-team`", matching the Lambda's `REQUIRED_GROUPS` environment variable (populated from the regional `required_groups` Terraform variable, commonly `["sre-team"]`). The walkthrough's example realm instead creates `sre-admins`, `sre-operators`, and `sre-viewers` groups (plus separately named `sre-admin`/`sre-user` realm roles) and never creates or mentions an `sre-team` group. A realm built exactly as documented will emit a `groups` claim that does not intersect the Lambda's default `REQUIRED_GROUPS`, so every token it issues will be rejected with a 403 "not authorized" response unless the deployer either adds an `sre-team` group (or renames an existing one) or reconfigures `required_groups` to match the example's group names — a reconciliation step the walkthrough does not call out.
+- **AWS session tags — drift.** The README requires a mapper emitting an AWS session-tags claim (`https://aws.amazon.com/tags`) that maps `preferred_username` to `principal_tags.username`, and this page's own IAM trust conditions (`aws:RequestTag/uuid`, `aws:RequestTag/roles`) and the regional ECS Exec policy's `PrincipalTag`/`ResourceTag` comparison all depend on that claim being present. The walkthrough's example `protocolMappers` list defines only `groups`, `email`, `name`, and `audience` mappers — no AWS session-tags (`oidc-hardcoded-attribute-mapper`/session-tags style) mapper is configured anywhere in `docs/configuration/keycloak-realm-setup.md`. A realm built exactly from this example therefore issues tokens with no `https://aws.amazon.com/tags` claim at all. The Lambda's own ABAC extraction silently falls back to the `preferred_username` claim only because its configured `ABAC_TAG_KEY` default is `username`, so investigation creation itself would still proceed; however, `sts:TagSession` would have no principal tags to apply during `AssumeRoleWithWebIdentity`, so the shared SRE role would never receive `aws:PrincipalTag/username`, and both the optional `aws:RequestTag/roles`/`aws:RequestTag/uuid` trust conditions (if enabled) and the regional ECS Exec resource-tag match would fail closed. Anyone following this walkthrough for a Keycloak-backed deployment needs to add the missing session-tags mapper before ECS Exec or UUID/role-gated role assumption can work.
+
+These are gaps in the example `KeycloakRealmImport` payload the walkthrough tells readers to copy, not in the Terraform or Lambda code that consumes its output — the account Terraform and Lambda correctly enforce `aud`, group membership, and ABAC session tags; a realm actually configured to emit all three (audience, `sre-team` membership or an aligned `required_groups`, and the AWS session-tags mapper) works as intended.
 
 ## Evidence-backed claims
 
@@ -119,7 +131,12 @@ The create-investigation Lambda receives issuer/client settings as environment v
 - The `shared_iam` module receives each provider's ARN and issuer URL from the account root rather than creating its own provider, and derives each trust condition's audience domain from the ARN. [main.tf wiring](repo://deploy/account/main.tf#L52-L64) · [domain derivation](repo://deploy/account/modules/shared-iam/oidc.tf#L1-L7)
 - `aws_iam_role.sre_shared`'s session duration is the configurable, validated `oidc_session_duration` (3600-43200 seconds), while `aws_iam_role.lambda_invoker`'s session duration is hard-coded to the AWS minimum of 3600 seconds. [sre_shared duration](repo://deploy/account/modules/shared-iam/oidc.tf#L19-L21) · [session duration validation](repo://deploy/account/modules/shared-iam/variables.tf#L13-L19) · [lambda_invoker duration](repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L9-L11)
 - Both `sre_shared` and `lambda_invoker` build an identical per-environment trust-condition pattern: an always-present audience match against that environment's own client ID, plus an optional `aws:RequestTag/uuid` condition when `enable_uuid_allowlist` is set and an optional `aws:RequestTag/roles` condition restricted to `required_oidc_role` when `enable_oidc_group_enforcement` is set (default `true`, default role `ai-sd-sre`), each backed by a module precondition that rejects a blank allowlist or role name while its switch is enabled. [sre_shared trust](repo://deploy/account/modules/shared-iam/oidc.tf#L19-L109) · [lambda_invoker trust](repo://deploy/account/modules/shared-iam/lambda-invoker.tf#L9-L86) · [variable defaults](repo://deploy/account/variables.tf#L195-L214)
-- The Lambda routes tokens to issuer-specific JWKS endpoints and validates signature, expiry, and audience before trusting any identity/group/session-tag claims. [Lambda issuer validation](repo://lambda/create-investigation/handler.py#L374-L410)
-- The CLI derives its authorization and token endpoints from the configured Keycloak base URL, realm, and client ID, starts a local callback server before opening the browser, and exchanges the returned authorization code with a PKCE code verifier for an ID token. [PKCE flow](repo://internal/auth/oidc.go#L118-L188)
-- The CLI also supports an OAuth device-code flow as an alternative to the browser flow, sharing the same token cache, expiration check, and status-reporting path as the PKCE flow. [device flow](repo://internal/auth/device.go#L40-L124) · [shared orchestration](repo://internal/auth/oidc.go#L63-L103)
-- Lambda's `get_config` action is dispatched before OIDC validation and returns only configuration identifiers through the IAM-authenticated invocation path. [early dispatch](repo://lambda/create-investigation/handler.py#L88-L117) · [config response](repo://lambda/create-investigation/handler.py#L1048-L1072) · [CLI invocation](repo://internal/lambda/client.go#L200-L222)
+- The Lambda routes tokens to issuer-specific JWKS endpoints and validates signature, expiry, and audience before trusting any identity/group/session-tag claims, then requires the token's `groups` (or `realm_access.roles`) claim to intersect its configured `REQUIRED_GROUPS`, and extracts its ABAC tag from the `https://aws.amazon.com/tags` → `principal_tags` claim, falling back to `preferred_username` only for the default `username` key. [issuer/JWKS validation](repo://lambda/create-investigation/handler.py#L374-L410) · [group and ABAC claim handling](repo://lambda/create-investigation/handler.py#L179-L228)
+- The Lambda's `get_config` action is dispatched before any OIDC token is extracted or validated, and the CLI's corresponding `GetConfig` call invokes the Lambda via the AWS SDK without attaching an OIDC token at all, relying solely on the invoker role's SigV4-authorized invocation permission; this lets configuration discovery happen before OIDC login completes. [early dispatch before token extraction](repo://lambda/create-investigation/handler.py#L92-L121) · [config response contents](repo://lambda/create-investigation/handler.py#L1091-L1111) · [CLI GetConfig invocation](repo://internal/lambda/client.go#L212-L234)
+- The realm-setup walkthrough's example `KeycloakRealmImport` configures an audience mapper consistent with the README's `aud` requirement, but its example groups (`sre-admins`/`sre-operators`/`sre-viewers`) do not include the `sre-team` group the README and the Lambda's default `required_groups`/`REQUIRED_GROUPS` configuration expect, and its `protocolMappers` list omits any AWS session-tags mapper for the `https://aws.amazon.com/tags` claim the README, the IAM trust conditions, and the regional ECS Exec ABAC policy all require. [example client/groups/mappers](repo://docs/configuration/keycloak-realm-setup.md#L51-L179) · [README OIDC identity requirements](repo://README.md#L82-L99)
+
+## Related pages
+
+- [Identity and Access Architecture](../architecture/identity-and-access.md)
+- [System overview](../architecture/system-overview.md)
+- [Credential lifecycle](../security/credential-lifecycle.md)

@@ -91,10 +91,11 @@ func closeInvestigation(ctx context.Context, resolve func() (closePlan, error), 
 	if len(plan.SessionIDs)+len(plan.SessionsWaiting) != 0 && !closeForce && !closeDryRun {
 		return fmt.Errorf("%d active session(s) remain (including sessions shutting down); use --force to stop/wait or --dry-run to preview", len(plan.SessionIDs)+len(plan.SessionsWaiting))
 	}
-	printClosePlan(plan)
+	preview := plan.preview()
+	printClosePlan(preview)
 	if closeDryRun {
 		if closeOutputFormat == "json" {
-			return output.JSON(plan)
+			return output.JSON(preview)
 		}
 		return nil
 	}
@@ -131,8 +132,8 @@ func closeInvestigation(ctx context.Context, resolve func() (closePlan, error), 
 	// Neither ECS visibility nor a task-written S3 marker establishes complete escrow.
 	unresolved := append(slices.Clone(plan.SessionIDs), plan.SessionsWaiting...)
 	unresolved = append(unresolved, plan.VisibleStopped...)
-	if len(plan.SessionIDs)+len(plan.SessionsWaiting) > 0 || plan.ReceiptDigest == "" || plan.FinalizationBlocked != "" {
-		return fmt.Errorf("cannot finalize investigation %s/%s: %s; visible unresolved task IDs: %v (older IDs may be unknown); access point %s and task definitions retained; ask the operator to verify complete escrow after shutdown", plan.ClusterID, plan.InvestigationID, plan.FinalizationBlocked, unresolved, plan.AccessPointID)
+	if reason := plan.blockingReason(); reason != "" {
+		return fmt.Errorf("cannot finalize investigation %s/%s: %s; visible unresolved task IDs: %v (older IDs may be unknown); access point %s and task definitions retained; ask the operator to verify complete escrow after shutdown", plan.ClusterID, plan.InvestigationID, reason, unresolved, plan.AccessPointID)
 	}
 	// A seal must also fence new launches server-side. Recheck the same owner,
 	// seal, exact receipt bytes, mounts and idle state before each mutation.
@@ -143,7 +144,7 @@ func closeInvestigation(ctx context.Context, resolve func() (closePlan, error), 
 		}
 		expected := plan
 		expected.TaskDefinitions = plan.TaskDefinitions[removed:]
-		if !sameClosePlan(expected, next) || next.FinalizationBlocked != "" {
+		if !sameClosePlan(expected, next) || next.blockingReason() != "" {
 			return fmt.Errorf("after deregistering %d definitions, close evidence or resources changed; retaining access point %s", removed, plan.AccessPointID)
 		}
 		return nil
@@ -186,16 +187,16 @@ var closeBucket = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)
 func (p *closePlan) checkReceipt(ctx context.Context, read func(context.Context, string, string, string) ([]byte, error)) {
 	p.ReceiptDigest = ""
 	if len(p.SessionIDs)+len(p.SessionsWaiting) != 0 {
-		p.FinalizationBlocked = "sessions have not stopped; operator verification requires a quiescent sealed workspace"
+		// Do not fetch a receipt until sessions have stopped.
 		return
 	}
 	if p.VerifiedSeal != p.Seal || !closeSeal.MatchString(p.Seal) || !closeBucket.MatchString(p.Bucket) {
-		p.FinalizationBlocked = "operator seal, verification tag or audit bucket tag is missing, mismatched or invalid"
+		p.receiptError = "operator seal, verification tag or audit bucket tag is missing, mismatched or invalid"
 		return
 	}
 	b, err := read(ctx, p.Bucket, p.AccessPointID, p.Seal)
 	if err != nil {
-		p.FinalizationBlocked = fmt.Sprintf("cannot read operator receipt: %v", err)
+		p.receiptError = fmt.Sprintf("cannot read operator receipt: %v", err)
 		return
 	}
 	var r struct {
@@ -208,10 +209,10 @@ func (p *closePlan) checkReceipt(ctx context.Context, read func(context.Context,
 		Manifest      string `json:"manifest_ref"`
 	}
 	if json.Unmarshal(b, &r) != nil || r.Version != 1 || r.Cluster != p.ClusterID || r.Investigation != p.InvestigationID || r.AP != p.AccessPointID || r.Seal != p.Seal || r.Status != "verified" || strings.TrimSpace(r.Manifest) == "" {
-		p.FinalizationBlocked = "operator receipt is invalid or does not match this sealed investigation"
+		p.receiptError = "operator receipt is invalid or does not match this sealed investigation"
 		return
 	}
-	p.FinalizationBlocked = ""
+	p.receiptError = ""
 	p.ReceiptDigest = fmt.Sprintf("%x", sha256.Sum256(b))
 }
 
@@ -222,23 +223,23 @@ func printCloseInvestigationSummary(cluster, investigationID, accessPointID stri
 }
 
 type closePlan struct {
-	Profile             string   `json:"profile"`
-	AccountID           string   `json:"account_id"`
-	Region              string   `json:"region"`
-	ECSCluster          string   `json:"ecs_cluster"`
-	FilesystemID        string   `json:"efs_filesystem_id"`
-	AccessPointID       string   `json:"access_point_id"`
-	ClusterID           string   `json:"cluster_id"`
-	InvestigationID     string   `json:"investigation_id"`
-	SessionIDs          []string `json:"sessions_to_stop"`
-	SessionsWaiting     []string `json:"sessions_to_wait_for_stop"`
-	VisibleStopped      []string `json:"visible_stopped_sessions"`
-	FinalizationBlocked string   `json:"finalization_blocked_reason"`
-	TaskDefinitions     []string `json:"task_definitions_to_deregister"`
-	VerifiedSeal        string   `json:"audit_close_verified,omitempty"`
-	Seal                string   `json:"audit_close_seal,omitempty"`
-	Bucket              string   `json:"audit_close_bucket,omitempty"`
-	ReceiptDigest       string   `json:"receipt_sha256,omitempty"`
+	Profile         string   `json:"profile"`
+	AccountID       string   `json:"account_id"`
+	Region          string   `json:"region"`
+	ECSCluster      string   `json:"ecs_cluster"`
+	FilesystemID    string   `json:"efs_filesystem_id"`
+	AccessPointID   string   `json:"access_point_id"`
+	ClusterID       string   `json:"cluster_id"`
+	InvestigationID string   `json:"investigation_id"`
+	SessionIDs      []string `json:"sessions_to_stop"`
+	SessionsWaiting []string `json:"sessions_to_wait_for_stop"`
+	VisibleStopped  []string `json:"visible_stopped_sessions"`
+	receiptError    string
+	TaskDefinitions []string `json:"task_definitions_to_deregister"`
+	VerifiedSeal    string   `json:"audit_close_verified,omitempty"`
+	Seal            string   `json:"audit_close_seal,omitempty"`
+	Bucket          string   `json:"audit_close_bucket,omitempty"`
+	ReceiptDigest   string   `json:"receipt_sha256,omitempty"`
 }
 
 // The same ID token was accepted by STS before this check. Never use the
@@ -327,7 +328,29 @@ func sameClosePlan(a, b closePlan) bool {
 	return a.VerifiedSeal == b.VerifiedSeal && a.Seal == b.Seal && a.Bucket == b.Bucket && a.ReceiptDigest == b.ReceiptDigest && a.AccessPointID == b.AccessPointID && a.ClusterID == b.ClusterID && a.InvestigationID == b.InvestigationID && slices.Equal(a.SessionIDs, b.SessionIDs) && slices.Equal(a.SessionsWaiting, b.SessionsWaiting) && slices.Equal(a.VisibleStopped, b.VisibleStopped) && slices.Equal(a.TaskDefinitions, b.TaskDefinitions)
 }
 
-func printClosePlan(p closePlan) {
+func (p closePlan) blockingReason() string {
+	switch {
+	case len(p.SessionIDs)+len(p.SessionsWaiting) != 0:
+		return "sessions have not stopped; operator verification requires a quiescent sealed workspace"
+	case p.receiptError != "":
+		return p.receiptError
+	case p.ReceiptDigest == "":
+		return "no verified operator receipt"
+	default:
+		return ""
+	}
+}
+
+type closePreview struct {
+	closePlan
+	FinalizationBlocked string `json:"finalization_blocked_reason"`
+}
+
+func (p closePlan) preview() closePreview {
+	return closePreview{p, p.blockingReason()}
+}
+
+func printClosePlan(p closePreview) {
 	output.Status("Profile: %s Account: %s Region: %s", p.Profile, p.AccountID, p.Region)
 	output.Status("ECS: %s EFS: %s Access point: %s", p.ECSCluster, p.FilesystemID, p.AccessPointID)
 	output.Status("Investigation: %s/%s", p.ClusterID, p.InvestigationID)

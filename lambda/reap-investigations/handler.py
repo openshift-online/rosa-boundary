@@ -478,6 +478,11 @@ def still_unsealed(access_point_id: str, cluster_id: str, investigation_id: str)
             and not any(t['Key'] == 'AuditCloseSeal' for t in points[0]['Tags']))
 
 
+def cleanup_allowed(access_point_id: str, cluster_id: str, investigation_id: str, context: Any) -> bool:
+    """Refresh the seal, then check the time left after the EFS lookup."""
+    return still_unsealed(access_point_id, cluster_id, investigation_id) and work_seconds(context) > 0
+
+
 def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str, context: Any, task_def_arns: List[str]) -> bool:
     """
     Reap a stale investigation by deleting directory, access point, and task definitions.
@@ -501,7 +506,7 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
     try:
         if not delete_investigation_directory(cluster_id, investigation_id, context, access_point_id):
             return False
-        if not still_unsealed(access_point_id, cluster_id, investigation_id) or not work_seconds(context):
+        if not cleanup_allowed(access_point_id, cluster_id, investigation_id, context):
             return False
         all_success = delete_access_point(access_point_id)
     except (ClientError, BotoCoreError, OSError, ValueError) as e:
@@ -714,7 +719,7 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str, conte
                     cluster_id, investigation_id)
         return False
 
-    if not still_unsealed(access_point_id, cluster_id, investigation_id) or not work_seconds(context):
+    if not cleanup_allowed(access_point_id, cluster_id, investigation_id, context):
         logger.warning("Workspace cleanup deferred for %s", access_point_id)
         return False
 

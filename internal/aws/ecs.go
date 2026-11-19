@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -210,8 +211,8 @@ func (c *ECSClient) StopTask(ctx context.Context, taskID, reason string) error {
 
 // WaitForExecAgent polls DescribeTasks every 500 ms until the container's
 // ExecuteCommandAgent reaches RUNNING state, the context is cancelled, or
-// maxWait elapses. Call this before ExecuteCommand — the SSM data channel is
-// closed immediately if the agent hasn't registered on its side yet.
+// maxWait elapses. RUNNING does not guarantee the Session Manager target has
+// registered yet; ExecuteCommand separately handles that registration race.
 func (c *ECSClient) WaitForExecAgent(ctx context.Context, taskID, container string, maxWait time.Duration) error {
 	const pollInterval = 500 * time.Millisecond
 	ctx, cancel := context.WithTimeout(ctx, maxWait)
@@ -260,12 +261,19 @@ func (c *ECSClient) isExecAgentRunning(ctx context.Context, taskID, container st
 
 // ExecuteCommand calls ECS ExecuteCommand and returns the session details.
 func (c *ECSClient) ExecuteCommand(ctx context.Context, taskID, container, command string) (*ExecuteCommandSession, error) {
-	out, err := c.client.ExecuteCommand(ctx, &ecs.ExecuteCommandInput{
+	input := &ecs.ExecuteCommandInput{
 		Cluster:     aws.String(c.cluster),
 		Task:        aws.String(taskID),
 		Container:   aws.String(container),
 		Command:     aws.String(command),
 		Interactive: true,
+	}
+	out, err := executeWhenTargetConnected(ctx, func(attemptCtx context.Context) (*ecs.ExecuteCommandOutput, error) {
+		return c.client.ExecuteCommand(attemptCtx, input, func(o *ecs.Options) {
+			// This operation is not idempotent. Only retry explicit target
+			// rejections, not SDK transport failures or unknown outcomes.
+			o.Retryer = aws.NopRetryer{}
+		})
 	})
 	if err != nil {
 		return nil, fmt.Errorf("ExecuteCommand failed: %w", err)
@@ -309,6 +317,38 @@ func (c *ECSClient) ExecuteCommand(ctx context.Context, taskID, container, comma
 		Target:     target,
 		RawSession: rawSession,
 	}, nil
+}
+
+const execTargetConnectTimeout = 15 * time.Second
+
+// ECS can report its Exec agent RUNNING before the Session Manager target can
+// accept Exec. Retry only the modeled rejection that confirms no session opened.
+func executeWhenTargetConnected(ctx context.Context, execute func(context.Context) (*ecs.ExecuteCommandOutput, error)) (*ecs.ExecuteCommandOutput, error) {
+	attemptCtx, cancel := context.WithTimeout(ctx, execTargetConnectTimeout)
+	defer cancel()
+
+	delay := 250 * time.Millisecond
+	var lastNotConnected error
+	for attemptCtx.Err() == nil {
+		out, err := execute(attemptCtx)
+		var disconnected *types.TargetNotConnectedException
+		if !errors.As(err, &disconnected) {
+			return out, err
+		}
+		lastNotConnected = err
+		select {
+		case <-attemptCtx.Done():
+		case <-time.After(delay):
+		}
+		delay = min(2*time.Second, 2*delay)
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	if lastNotConnected != nil {
+		return nil, fmt.Errorf("timed out after %s waiting for the Session Manager target to connect: %w", execTargetConnectTimeout, lastNotConnected)
+	}
+	return nil, attemptCtx.Err()
 }
 
 // ecsExecTarget accepts either a short task ID or a full task ARN, but the

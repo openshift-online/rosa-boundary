@@ -35,7 +35,7 @@ func TestPendingOCMTokenOverlapsCallerWork(t *testing.T) {
 
 	// Returning before the approval completes is what lets the task start
 	// while the human approves.
-	pending := startOCMTokenAcquisition(context.Background(), ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowDevice)
+	pending := startOCMTokenAcquisition(context.Background(), ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowDevice, nil)
 	defer pending.Discard()
 	select {
 	case <-started:
@@ -44,8 +44,8 @@ func TestPendingOCMTokenOverlapsCallerWork(t *testing.T) {
 	}
 	close(release)
 
-	token, err := pending.Wait(context.Background())
-	if err != nil || token.AccessToken != "token" {
+	token, grant, err := pending.Take(context.Background())
+	if err != nil || grant != nil || token.AccessToken != "token" {
 		t.Fatalf("token=%+v err=%v", token, err)
 	}
 	if pending.token.AccessToken != "" {
@@ -61,7 +61,7 @@ func TestPendingOCMTokenDiscardCancelsApproval(t *testing.T) {
 		return ocmcredentials.Token{}, ctx.Err()
 	})
 
-	pending := startOCMTokenAcquisition(context.Background(), ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowAuthCode)
+	pending := startOCMTokenAcquisition(context.Background(), ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowAuthCode, nil)
 	pending.Discard()
 	select {
 	case <-canceled:
@@ -71,14 +71,14 @@ func TestPendingOCMTokenDiscardCancelsApproval(t *testing.T) {
 	pending.Discard() // safe to repeat on deferred cleanup paths
 }
 
-func TestPendingOCMTokenWaitReportsFailureAndCancellation(t *testing.T) {
+func TestPendingOCMTokenTakeReportsFailureAndCancellation(t *testing.T) {
 	failure := errors.New("denied")
 	stubOCMAcquirer(t, func(context.Context, ocmcredentials.Flow) (ocmcredentials.Token, error) {
 		return ocmcredentials.Token{}, failure
 	})
-	pending := startOCMTokenAcquisition(context.Background(), ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowDevice)
+	pending := startOCMTokenAcquisition(context.Background(), ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowDevice, nil)
 	defer pending.Discard()
-	if _, err := pending.Wait(context.Background()); !errors.Is(err, failure) {
+	if _, _, err := pending.Take(context.Background()); !errors.Is(err, failure) {
 		t.Fatalf("expected acquisition failure, got %v", err)
 	}
 
@@ -87,10 +87,10 @@ func TestPendingOCMTokenWaitReportsFailureAndCancellation(t *testing.T) {
 		return ocmcredentials.Token{}, ctx.Err()
 	})
 	ctx, cancel := context.WithCancel(context.Background())
-	blocked := startOCMTokenAcquisition(ctx, ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowDevice)
+	blocked := startOCMTokenAcquisition(ctx, ocmcredentials.Environment{Name: "staging"}, ocmcredentials.FlowDevice, nil)
 	defer blocked.Discard()
 	cancel()
-	if _, err := blocked.Wait(ctx); !errors.Is(err, context.Canceled) {
+	if _, _, err := blocked.Take(ctx); !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected cancellation, got %v", err)
 	}
 }

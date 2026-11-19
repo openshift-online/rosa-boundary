@@ -314,6 +314,30 @@ are task-scoped, excluded from S3 sync, and destroyed when the task stops.
 
 ### Configure or clear OCM on an existing task
 
+An ECS Exec agent can report `RUNNING` before Session Manager can connect. The
+CLI retries AWS `TargetNotConnectedException` for up to 15 seconds before
+reporting the failure. It does not retry authorization errors or requests whose
+outcome is unknown.
+
+Plain join leaves existing credentials alone. To explicitly authorize and replace
+them, then renew during the attachment to the default shell:
+
+```bash
+./bin/rosa-boundary --profile <profile-name> session join <session-id> \
+  --renew-ocm --ocm-url staging --ocm-auth-flow device
+```
+
+Renewal requires a renewal-capable task image, a known expiry, and an online
+refresh grant from OCM. Older task images with the original OCM helper
+automatically get one-shot configuration. Use `session create --no-ocm-renewal`
+to explicitly configure once. See the
+[CLI authentication guide](../architecture/cli-authentication.md) for option
+precedence. Scheduling and successful renewals are silent unless you pass
+`--verbose`. If renewal stops, the shell remains open and the CLI prints a
+profile-qualified manual configure command on stderr. Disconnect cancels the
+local worker without clearing credentials or stopping the task. Manual clear
+or configure prevents the old worker from replacing those credentials again.
+
 ```bash
 # Uses a fresh OCM token; auth-code is the default unless device mode is selected
 ./bin/rosa-boundary --profile <profile-name> session credentials configure ocm <session-id> --ocm-url production

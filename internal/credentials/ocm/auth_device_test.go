@@ -46,7 +46,7 @@ func newTestDeviceAuthenticator(server *httptest.Server, output *challengeOutput
 	a := NewAuthenticator(nil)
 	a.HTTPClient = &http.Client{Transport: redirectOCMTransport{server: server}}
 	a.Status = output.status
-	a.OpenBrowser = func(string) error { panic("device mode launched browser") }
+	a.OpenBrowser = func(context.Context, string) error { panic("device mode launched browser") }
 	a.Listen = func(string, string) (net.Listener, error) { panic("device mode started callback listener") }
 	return a
 }
@@ -259,7 +259,7 @@ func TestAcquireAuthCodeShowsBrowserGuidance(t *testing.T) {
 		listener, err = net.Listen("tcp", "127.0.0.1:0")
 		return listener, err
 	}
-	a.OpenBrowser = func(authorizationURL string) error {
+	a.OpenBrowser = func(_ context.Context, authorizationURL string) error {
 		parsed, err := url.Parse(authorizationURL)
 		if err != nil {
 			return err

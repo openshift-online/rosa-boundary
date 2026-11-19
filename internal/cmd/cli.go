@@ -316,6 +316,7 @@ func buildSessionCommand() *cobra.Command {
 	start.Flags().Bool("no-connect", false, "Do not join the session after it starts (connecting is the default)")
 	start.Flags().Bool("no-wait", false, "Return without waiting for RUNNING; skip connecting and OCM credential injection")
 	start.Flags().String("with-credentials", "ocm", "Configure credentials after startup: ocm (default), none (opt out)")
+	start.Flags().Bool("no-ocm-renewal", false, "Configure OCM once without retaining an attachment refresh grant")
 	start.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	start.Flags().String("ocm-auth-flow", "", "OCM-only sign-in override: auth-code or device")
 	deploymentFlags(start, true, false)
@@ -378,14 +379,17 @@ func buildSessionCommand() *cobra.Command {
 		if _, err := commandOutput(cmd); err != nil {
 			return err
 		}
-		if err := requireTerminal(); err != nil {
+		if err := validateJoinOCM(cmd); err != nil {
 			return err
 		}
-		return nil
+		return requireTerminal()
 	})
 	join.Flags().String("container", "rosa-boundary", "Container to enter")
 	join.Flags().String("command", defaultExecCommand, "Command to run")
 	join.Flags().Bool("no-wait", false, "Do not wait for RUNNING")
+	join.Flags().Bool("renew-ocm", false, "Authorize and replace OCM credentials, then renew while attached")
+	join.Flags().String("ocm-url", "", "OCM environment or approved canonical URL (requires --renew-ocm)")
+	join.Flags().String("ocm-auth-flow", "", "OCM-only sign-in override: auth-code or device (requires --renew-ocm)")
 	deploymentFlags(join, true, false)
 	stop := commandLeaf("close [session-id]", "Close a session without closing its investigation", cobra.ArbitraryArgs, func(cmd *cobra.Command, args []string) error {
 		stopReason, stopWait, stopYes = flagString(cmd, "reason"), flagBool(cmd, "wait"), flagBool(cmd, "yes")

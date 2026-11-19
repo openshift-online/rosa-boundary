@@ -22,6 +22,32 @@ For ordinary authenticated commands, explicit `--use-device-code=true|false` (ba
 
 Boundary uses an OIDC **ID token** for STS and Lambda. `session create` configures a **fresh OCM access token** by default (equivalent to `--with-credentials ocm`); `--with-credentials none` opts out. `session credentials configure ocm` retries configuration on a running task. OCM tokens are injected into task-scoped, audit-excluded storage rather than EFS home or the Boundary token cache. OCM follows the same device preference by default; `--ocm-auth-flow auth-code|device` on create and `--auth-flow auth-code|device` on configure override **OCM only**. Explicit `auth-code` requires a browser callback even if Boundary uses device mode. One create command may need two separate human approvals; a cached Boundary ID token cannot replace OCM approval. `session create --no-wait` skips injection and warns with a follow-up command; explicitly combining `--no-wait` and `--with-credentials ocm` is rejected.
 
+An attached `session create` schedules OCM renewal only after a confirmed initial
+upload with a usable expiry and online refresh grant. An older helper
+automatically gets the original one-shot request, without renewal.
+Use `--no-ocm-renewal` to explicitly configure once,
+`--with-credentials none` to skip all OCM authorization, or `--no-connect` to
+configure once without attaching. Plain `session join` never replaces existing
+credentials. `session join <session-id> --renew-ocm` explicitly authorizes and
+replaces the task token before opening the default `rosa-boundary` login shell;
+it cannot be used with another container, custom command, or `--no-wait`.
+
+On create and opt-in join, explicit `--ocm-url` takes precedence over
+`ROSA_BOUNDARY_OCM_URL`, the selected profile, and the URL-only local OCM
+configuration fallback. Explicit `--ocm-auth-flow auth-code|device` overrides
+the effective Boundary device preference (flag, environment, then profile) for
+OCM only. The CLI reports when it cannot schedule renewal. On refresh rejection
+or an unconfirmed replacement, the shell stays open and the CLI offers a
+profile-qualified one-shot configure command. Renewal never switches OCM flows
+or automatically requests fresh OCM approval. New helper connections may require
+separate Boundary sign-in when STS credentials approach expiry. The CLI budgets
+for that sign-in before exchanging the OCM grant, and configures only once if
+the initial token lifetime is too short for renewal. Scheduled and
+successful renewals are silent by default; use `--verbose` to see their status.
+Approval prompts and failure warnings still go to local stderr and may interrupt
+the shell display. Use one-shot configuration if uninterrupted full-screen
+terminal output is required.
+
 ## Human-approved authentication and JSON output
 
 Every auth-bearing leaf offers `-o json` / `--output json`. Authentication guidance is human-readable **stderr**, not a machine-readable event API. Device approvals display the verification URL and user code on stderr even with `-o json`; browser authorization guidance remains on stderr. Tokens, OAuth `device_code`, PKCE verifiers, and raw token responses are not printed. Monitor stderr **while the process runs** to approve each challenge, including an STS retry. Treat URLs/codes as sensitive operational output and share them privately, never in shared CI logs. Check the process exit status before acting on any result: completing authentication does not mean the command succeeded. See the [script-driven example](../runbooks/user-access-guide.md#script-driven-human-approved-login).

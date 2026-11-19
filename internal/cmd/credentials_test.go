@@ -175,7 +175,7 @@ func TestSessionCredentialFailureRetainsSessionAndCleanupCommand(t *testing.T) {
 		credentials.FlowDevice,
 		errors.New("configure failed"),
 	)
-	for _, expected := range []string{"INV-1", "task-123", "still running", "session credentials configure ocm \"task-123\" --ocm-url \"staging\" --auth-flow \"device\"", "session close \"task-123\" --yes"} {
+	for _, expected := range []string{"INV-1", "task-123", "still running", `session credentials configure ocm 'task-123' --region 'us-east-2' --ecs-cluster 'boundary' --ocm-url 'https://api.stage.openshift.com' --auth-flow 'device'`, `session close 'task-123' --yes`} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error %q does not contain %q", err, expected)
 		}
@@ -187,12 +187,12 @@ func TestSessionCredentialFailureWithoutLocalOCMURL(t *testing.T) {
 	selectedProfile = "stage-east"
 	t.Cleanup(func() { selectedProfile = previous })
 	warning := sessionCredentialFailure("INV-1", "task-123", "boundary", "us-east-1", credentials.Environment{}, credentials.FlowDevice, errors.New("local URL unavailable")).Error()
-	for _, want := range []string{"without confirmed OCM credentials", `session credentials configure ocm "task-123" --auth-flow "device"`, "specify --ocm-url", "session close"} {
+	for _, want := range []string{"without confirmed OCM credentials", `session credentials configure ocm 'task-123' --region 'us-east-1' --ecs-cluster 'boundary' --auth-flow 'device'`, "specify --ocm-url", "session close"} {
 		if !strings.Contains(warning, want) {
 			t.Errorf("missing %q in %q", want, warning)
 		}
 	}
-	if strings.Contains(warning, `--ocm-url ""`) {
+	if strings.Contains(warning, `--ocm-url ''`) {
 		t.Errorf("retry contains empty URL: %s", warning)
 	}
 }
@@ -212,7 +212,7 @@ func TestFailedStartOCMLoginEmitsRetryWarning(t *testing.T) {
 		_ = r.Close()
 	}()
 	warning := warnStartCredentialFailure("INV-1", "task-123", "boundary", "us-east-1",
-		credentials.Environment{Name: "staging", URL: credentials.StagingURL}, credentials.FlowDevice, errors.New("OCM login denied"))
+		ocmSetup{environment: credentials.Environment{Name: "staging", URL: credentials.StagingURL}, flow: credentials.FlowDevice}, errors.New("OCM login denied"))
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestFailedStartOCMLoginEmitsRetryWarning(t *testing.T) {
 	if stderr.String() != "Warning: "+warning+"\n" {
 		t.Errorf("warning not displayed on stderr: %q", stderr.String())
 	}
-	for _, want := range []string{"OCM login denied", `--profile "stage-east" session credentials configure ocm "task-123" --ocm-url "staging"`, "session close"} {
+	for _, want := range []string{"OCM login denied", `--profile 'stage-east' session credentials configure ocm 'task-123'`, `--ocm-url 'https://api.stage.openshift.com' --auth-flow 'device'`, "session close"} {
 		if !strings.Contains(warning, want) {
 			t.Errorf("warning missing %q: %s", want, warning)
 		}

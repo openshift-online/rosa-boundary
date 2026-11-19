@@ -20,7 +20,7 @@ func TestInvalidIDTokenRejectsWithoutCaching(t *testing.T) {
 	cfg := PKCEConfig{KeycloakURL: "https://example.test", Realm: "test", ClientID: "boundary"}
 	_, err := getTokenWithOptionsAndDeps(context.Background(), cfg, true,
 		Options{}, oidcDependencies{
-			browserOpener:         func(string) error { return nil },
+			browserOpener:         func(context.Context, string) error { return nil },
 			callbackServerStarter: func(context.Context, string) (string, error) { return "code", nil },
 			codeExchanger: func(context.Context, string, string, string, string, string) (string, error) {
 				return "invalid-id-token", nil
@@ -43,7 +43,7 @@ func TestGetTokenReturnsValidCachedToken(t *testing.T) {
 
 	browserCalled := false
 	deps := oidcDependencies{
-		browserOpener: func(string) error {
+		browserOpener: func(context.Context, string) error {
 			browserCalled = true
 			return errors.New("browser should not be opened")
 		},
@@ -74,7 +74,7 @@ func TestGetTokenAuthenticatesAndCachesToken(t *testing.T) {
 	var authURL string
 	var callbackState string
 	deps := oidcDependencies{
-		browserOpener: func(gotURL string) error {
+		browserOpener: func(_ context.Context, gotURL string) error {
 			authURL = gotURL
 			return nil
 		},
@@ -228,7 +228,7 @@ func TestGetTokenContinuesAfterBrowserLaunchFailure(t *testing.T) {
 			}
 			return freshToken, nil
 		},
-		browserOpener: func(string) error {
+		browserOpener: func(context.Context, string) error {
 			return errors.New("browser launch failed")
 		},
 	}
@@ -254,7 +254,7 @@ func TestGetTokenReturnsCallbackError(t *testing.T) {
 		callbackServerStarter: func(context.Context, string) (string, error) {
 			return "", errors.New("state mismatch (possible CSRF)")
 		},
-		browserOpener: func(string) error { return nil },
+		browserOpener: func(context.Context, string) error { return nil },
 		codeExchanger: func(_ context.Context, _, _, _, _, _ string) (string, error) {
 			exchangeCalled = true
 			return "unexpected-token", nil

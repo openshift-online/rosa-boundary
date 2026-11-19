@@ -14,8 +14,10 @@ import (
 
 const (
 	ConfigureCommand = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper configure ocm"
+	RenewCommand     = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper renew ocm"
 	ClearCommand     = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper clear ocm"
 	readyMarker      = "__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"
+	renewalMarker    = "__ROSA_BOUNDARY_CREDENTIAL_OCM_GENERATIONS_V1__"
 	successMarker    = "__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"
 	defaultMaxOutput = 1024 * 1024
 )
@@ -43,19 +45,46 @@ func NewTransfer() *Transfer {
 // Configure waits until terminal echo is disabled, sends one request, and
 // closes stdin after the task-side helper confirms successful validation.
 func (t *Transfer) Configure(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials, request []byte) error {
-	if len(request) == 0 {
-		return errors.New("credential request is empty")
+	payload, err := encodeRequest(request)
+	if err != nil {
+		return err
 	}
-	payload := base64.StdEncoding.EncodeToString(request) + "\n"
-	return t.run(ctx, region, session, credentials, payload, true)
+	return t.run(ctx, region, session, credentials, func(bool) (string, error) { return payload, nil })
+}
+
+// ConfigureAttachment sends exactly one request. An older helper advertises
+// only readiness, so send the original access-token-and-URL request instead.
+func (t *Transfer) ConfigureAttachment(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials, requestFor func(bool) ([]byte, error)) (bool, error) {
+	usesGeneration := false
+	err := t.run(ctx, region, session, credentials, func(supported bool) (string, error) {
+		usesGeneration = supported
+		request, err := requestFor(supported)
+		if err != nil {
+			return "", err
+		}
+		defer clear(request)
+		return encodeRequest(request)
+	})
+	return usesGeneration && err == nil, err
+}
+
+func encodeRequest(request []byte) (string, error) {
+	if len(request) == 0 {
+		return "", errors.New("credential request is empty")
+	}
+	if base64.StdEncoding.EncodedLen(len(request)) > 65536 {
+		return "", errors.New("credential request exceeded the safety limit")
+	}
+	return base64.StdEncoding.EncodeToString(request) + "\n", nil
 }
 
 // Clear requires helper success but sends no credential payload.
 func (t *Transfer) Clear(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials) error {
-	return t.run(ctx, region, session, credentials, "", false)
+	return t.run(ctx, region, session, credentials, nil)
 }
 
-func (t *Transfer) run(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials, payload string, requireReady bool) error {
+func (t *Transfer) run(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials, payloadFor func(supportsGeneration bool) (string, error)) error {
+	requireReady := payloadFor != nil
 	runner := t.RunPlugin
 	if runner == nil {
 		return errors.New("credential session runner is not configured")
@@ -76,6 +105,13 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 	}
 	pluginInput, inputWriter := io.Pipe()
 	pluginOutput, outputWriter := io.Pipe()
+	// exec.Cmd waits for its stdin copier. Closing both pipes on cancellation
+	// also unblocks the protocol if a helper stops reading or writing.
+	stopClosing := context.AfterFunc(protocolCtx, func() {
+		_ = inputWriter.CloseWithError(protocolCtx.Err())
+		_ = pluginOutput.CloseWithError(protocolCtx.Err())
+	})
+	defer stopClosing()
 	pluginResult := make(chan error, 1)
 	go func() {
 		err := runner(protocolCtx, region, session, credentials, pluginInput, outputWriter, io.Discard)
@@ -122,12 +158,21 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 					cancel()
 					break
 				}
-				if _, err := io.WriteString(inputWriter, payload); err != nil {
-					protocolErr = errors.New("credential helper stopped before accepting the request")
+				// Capability must precede READY, including when the plugin
+				// splits the markers across arbitrary read boundaries.
+				ready := strings.Index(current, readyMarker)
+				supportsGeneration := strings.Contains(current[:ready], renewalMarker)
+				payload, err := payloadFor(supportsGeneration)
+				if err != nil {
+					protocolErr = err
 					cancel()
 					break
 				}
-				payload = ""
+				if _, err := io.WriteString(inputWriter, payload); err != nil {
+					protocolErr = credentialPipeError(protocolCtx, "credential helper stopped before accepting the request")
+					cancel()
+					break
+				}
 				if err := t.debug("Credential request sent; keeping plugin stdin open until helper exit"); err != nil {
 					protocolErr = err
 					cancel()
@@ -160,7 +205,7 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 		}
 		if readErr != nil {
 			if !errors.Is(readErr, io.EOF) {
-				protocolErr = errors.New("credential helper output could not be read")
+				protocolErr = credentialPipeError(protocolCtx, "credential helper output could not be read")
 			}
 			break
 		}
@@ -198,6 +243,13 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 		return errors.New("credential helper did not confirm success")
 	}
 	return nil
+}
+
+func credentialPipeError(ctx context.Context, message string) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("credential operation timed out or was canceled: %w", err)
+	}
+	return errors.New(message)
 }
 
 func (t *Transfer) debug(format string, args ...any) error {

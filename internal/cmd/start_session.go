@@ -47,9 +47,10 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 
 	authRes := cachedAuthResult
 	cfg := authRes.Config
-	if configureOCM && !cmd.Flags().Changed("ocm-auth-flow") && startOCMFlow == "" {
+	if configureOCM && ocmFlow == "" {
 		ocmFlow = defaultOCMFlow(cfg.OIDCUseDeviceCode)
 	}
+	ocmOptions := ocmSetup{environment: ocmEnvironment, flow: ocmFlow}
 
 	clusterID := startClusterID
 
@@ -128,7 +129,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	_, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, false, options)
+	sreIDToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, false, options)
 	if err != nil {
 		return fmt.Errorf("role assumption failed: %w", err)
 	}
@@ -149,14 +150,21 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	// is recoverable: the task remains usable and the user can retry with
 	// --ocm-url on the configure command.
 	var pendingOCM *pendingOCMToken
+	var renewal *ocmRenewal
+	var renewalAuth *renewalAWS
 	var ocmErr error
 	if configureOCM {
-		if ocmEnvironment.Name == "" {
-			ocmEnvironment, ocmErr = ocmcredentials.ResolveEnvironment(startOCMURL)
+		if ocmOptions.environment.Name == "" {
+			ocmOptions.environment, ocmErr = ocmcredentials.ResolveEnvironment(startOCMURL)
 		}
 		if ocmErr == nil {
 			output.Status("\n=== Authorizing OCM while the session starts ===")
-			pendingOCM = startOCMTokenAcquisition(cmd.Context(), ocmEnvironment, ocmFlow)
+			var attachmentAuth attachmentOCMAuth
+			if startOCMRenewalEnabled(configureOCM, startConnect, startNoWait, flagBool(cmd, "no-ocm-renewal")) {
+				attachmentAuth = newAttachmentOCMAuth()
+				renewalAuth = newRenewalAWS(cfg, creds, roleARN, sessionName, sreIDToken, options)
+			}
+			pendingOCM = startOCMTokenAcquisition(cmd.Context(), ocmOptions.environment, ocmOptions.flow, attachmentAuth)
 			defer pendingOCM.Discard()
 		}
 	}
@@ -185,23 +193,27 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	if configureOCM {
 		output.Status("\n=== Step 4: Configuring OCM Credentials ===")
 		if ocmErr == nil {
-			ocmErr = configureOCMWithPendingToken(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, ocmEnvironment, ocmFlow, pendingOCM)
+			renewal, ocmErr = configureOCMWithPendingToken(cmd.Context(), ecsClient, cfg.AWSRegion, creds, ecsCluster, sessionID, ocmOptions, pendingOCM, renewalAuth)
 		}
 		if ocmErr != nil {
-			credentialWarning = warnStartCredentialFailure(investigationID, sessionID, ecsCluster, cfg.AWSRegion, ocmEnvironment, ocmFlow, ocmErr)
+			credentialWarning = warnStartCredentialFailure(investigationID, sessionID, ecsCluster, cfg.AWSRegion, ocmOptions, ocmErr)
 			configureOCM = false
 		}
 	}
 
 	return finishStartSession(cmd, ecsClient, creds, ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion,
-		lambdaResp, roleARN, configureOCM, credentialWarning, timings)
+		lambdaResp, roleARN, configureOCM, credentialWarning, timings, renewal)
+}
+
+func startOCMRenewalEnabled(configure, connect, noWait, optedOut bool) bool {
+	return configure && connect && !noWait && !optedOut
 }
 
 // finishStartSession only reports success after the interactive shell exits.
 // The task may remain RUNNING after the shell disconnects.
 func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, creds *awsclient.TemporaryCredentials,
 	ecsCluster, clusterID, investigationID, sessionID, region string, lambdaResp *lambda.InvestigationResponse,
-	roleARN string, configureOCM bool, credentialWarning string, timings sessionStartupTimings) error {
+	roleARN string, configureOCM bool, credentialWarning string, timings sessionStartupTimings, renewal *ocmRenewal) error {
 	// Auto-connect after the credential attempt; a warning leaves the task
 	// usable even when OCM credentials could not be configured.
 	if startConnect && !startNoWait {
@@ -210,9 +222,11 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 			step = 5
 		}
 		output.Status("\n=== Step %d: Connecting to session ===", step)
-		if err := openInteractiveSession(cmd.Context(), ecsClient, region, creds, sessionID, "rosa-boundary", defaultExecCommand, false); err != nil {
+		if err := openInteractiveSession(cmd.Context(), ecsClient, region, creds, sessionID, credentialContainer, defaultExecCommand, false, attachOCM{renewal: renewal}); err != nil {
 			return err
 		}
+	} else if renewal != nil {
+		renewal.grant.Release()
 	}
 
 	if startOutputFormat == "json" {
@@ -277,8 +291,11 @@ func startSessionResult(clusterID, investigationID, sessionID, ecsCluster, taskA
 func validateStartCredentials(explicit ...bool) (bool, ocmcredentials.Environment, ocmcredentials.Flow, error) {
 	flowExplicit := len(explicit) != 0 && explicit[0]
 	credentialsExplicit := len(explicit) > 1 && explicit[1]
+	var flow ocmcredentials.Flow
+	var err error
 	if startOCMFlow != "" || flowExplicit {
-		if _, err := parseOCMFlow(startOCMFlow); err != nil {
+		flow, err = parseOCMFlow(startOCMFlow)
+		if err != nil {
 			return false, ocmcredentials.Environment{}, "", err
 		}
 	}
@@ -292,19 +309,11 @@ func validateStartCredentials(explicit ...bool) (bool, ocmcredentials.Environmen
 		return false, ocmcredentials.Environment{}, "", fmt.Errorf("unsupported credential provider %q", startCredentials)
 	}
 	var environment ocmcredentials.Environment
-	var err error
 	// Reject invalid user-supplied destinations before creating a task. The
 	// implicit local URL is resolved after launch so missing local OCM config
 	// warns instead of preventing an otherwise usable session.
 	if startOCMURL != "" {
 		environment, err = ocmcredentials.ResolveEnvironment(startOCMURL)
-		if err != nil {
-			return false, ocmcredentials.Environment{}, "", err
-		}
-	}
-	flow := ocmcredentials.Flow("")
-	if startOCMFlow != "" || flowExplicit {
-		flow, err = parseOCMFlow(startOCMFlow)
 		if err != nil {
 			return false, ocmcredentials.Environment{}, "", err
 		}
@@ -317,28 +326,24 @@ func sessionCredentialFailure(investigationID, sessionID, ecsCluster, region str
 	if flow == ocmcredentials.FlowAuthCode {
 		callbackNotice = "; auth-code retry requires a local browser callback (omit --auth-flow for the saved preference)"
 	}
-	retry := fmt.Sprintf("rosa-boundary --profile %q session credentials configure ocm %q", selectedProfile, sessionID)
-	if environment.Name != "" {
-		retry += fmt.Sprintf(" --ocm-url %q", environment.Name)
-	}
-	retry += fmt.Sprintf(" --auth-flow %q --ecs-cluster %q --region %q", flow, ecsCluster, region)
-	if environment.Name == "" {
+	retry := (ocmSetup{environment: environment, flow: flow}).configureCommand(region, ecsCluster, sessionID)
+	if environment.URL == "" {
 		callbackNotice += "; specify --ocm-url production, staging, or integration on retry"
 	}
 	return fmt.Errorf(
-		"investigation %q created session %q, but OCM credential configuration failed: %w; the session is still running without confirmed OCM credentials; retry with: %s%s; clean it up with: rosa-boundary --profile %q session close %q --yes --ecs-cluster %q --region %q",
-		investigationID, sessionID, cause, retry, callbackNotice, selectedProfile, sessionID, ecsCluster, region,
+		"investigation %q created session %q, but OCM credential configuration failed: %w; the session is still running without confirmed OCM credentials; retry with: %s%s; clean it up with: rosa-boundary --profile %s session close %s --yes --ecs-cluster %s --region %s",
+		investigationID, sessionID, cause, retry, callbackNotice, shellArgument(selectedProfile), shellArgument(sessionID), shellArgument(ecsCluster), shellArgument(region),
 	)
 }
 
-func warnStartCredentialFailure(investigationID, sessionID, ecsCluster, region string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, cause error) string {
-	warning := sessionCredentialFailure(investigationID, sessionID, ecsCluster, region, environment, flow, cause).Error()
+func warnStartCredentialFailure(investigationID, sessionID, ecsCluster, region string, setup ocmSetup, cause error) string {
+	warning := sessionCredentialFailure(investigationID, sessionID, ecsCluster, region, setup.environment, setup.flow, cause).Error()
 	output.Warning("%s", warning)
 	return warning
 }
 
 func noWaitCredentialWarning(sessionID, ecsCluster, region string) string {
-	return fmt.Sprintf("--no-wait launched session %q without OCM credentials; once RUNNING, configure them with: rosa-boundary --profile %q session credentials configure ocm %q --ecs-cluster %q --region %q", sessionID, selectedProfile, sessionID, ecsCluster, region)
+	return fmt.Sprintf("--no-wait launched session %q without OCM credentials; once RUNNING, configure them with: %s", sessionID, (ocmSetup{}).configureCommand(region, ecsCluster, sessionID))
 }
 
 func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait, connected bool) error {

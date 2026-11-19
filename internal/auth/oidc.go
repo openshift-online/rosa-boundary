@@ -38,7 +38,7 @@ type tokenResponse struct {
 // oidcDependencies contains the side-effecting operations used by the PKCE flow.
 // Keeping them explicit allows orchestration tests to remain network-free.
 type oidcDependencies struct {
-	browserOpener         func(string) error
+	browserOpener         func(context.Context, string) error
 	callbackServerStarter func(context.Context, string) (string, error)
 	codeExchanger         func(context.Context, string, string, string, string, string) (string, error)
 }
@@ -63,7 +63,7 @@ func GetToken(ctx context.Context, cfg PKCEConfig, force bool) (string, error) {
 // GetTokenWithOptions shares cache and status reporting across browser and device flows.
 func GetTokenWithOptions(ctx context.Context, cfg PKCEConfig, force bool, opts Options) (string, error) {
 	return getTokenWithOptionsAndDeps(ctx, cfg, force, opts, oidcDependencies{
-		browserOpener:         openBrowser,
+		browserOpener:         OpenBrowser,
 		callbackServerStarter: startCallbackServer,
 		codeExchanger:         exchangeCode,
 	})
@@ -154,7 +154,7 @@ func acquireBrowserToken(ctx context.Context, cfg PKCEConfig, deps oidcDependenc
 		codeCh <- callbackResult{code: code, err: err}
 	}()
 
-	if err := deps.browserOpener(authURL); err != nil {
+	if err := deps.browserOpener(callbackCtx, authURL); err != nil {
 		output.Status("Could not open browser automatically. Please visit:\n%s", authURL)
 	} else {
 		if err := output.Debug("Opened browser for authentication. If it fails, visit:\n%s", authURL); err != nil {
@@ -262,16 +262,16 @@ func exchangeCode(ctx context.Context, tokenEndpoint, clientID, redirectURI, cod
 	return tr.IDToken, nil
 }
 
-// openBrowser opens the given URL in the user's default browser.
-func openBrowser(urlStr string) error {
+// OpenBrowser opens the given URL in the user's default browser.
+func OpenBrowser(ctx context.Context, urlStr string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", urlStr)
+		cmd = exec.CommandContext(ctx, "open", urlStr)
 	case "linux":
-		cmd = exec.Command("xdg-open", urlStr)
+		cmd = exec.CommandContext(ctx, "xdg-open", urlStr)
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", urlStr)
+		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", urlStr)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}

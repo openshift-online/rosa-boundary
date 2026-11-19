@@ -14,7 +14,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.52.0
 	github.com/aws/smithy-go v1.28.9
 	github.com/dustinkirkland/golang-petname v0.0.0-20261016130456-fdd95a3d0543
-	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/oauth2 v0.38.0
 	golang.org/x/term v0.48.0

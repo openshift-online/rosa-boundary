@@ -233,14 +233,26 @@ subtrees as defense in depth while preserving unrelated investigation files.
 ### OCM credential configuration
 
 `session credentials configure ocm` issues a fresh workstation-side access token using
-authorization code with PKCE or the device fallback. The CLI streams only an
-access-token-and-URL request over ECS Exec stdin after the task helper disables
-terminal echo. The static helper validates the candidate with `ocm whoami`,
-discards command output, and atomically installs an access-token-only
-configuration. Refresh and offline tokens are never transferred or cached.
+authorization code with PKCE or device approval. The CLI streams the approved URL
+and access token over ECS Exec stdin after the task helper disables terminal
+echo. The static helper validates the candidate with `ocm whoami`, discards its
+output, and atomically installs an access-token-only configuration.
 
-`session credentials clear ocm` removes OCM state and `.kube/config`; stopping the task
-is the authoritative cleanup because it destroys both credential volumes.
+For attached shells, the CLI may retain an **online** refresh grant in workstation
+process memory for the lifetime of the attachment. It is never persisted,
+transferred to the task, or recovered from a workstation token cache. The flow
+does not request offline access. A local worker exchanges the grant before
+expiry and uses a separate bounded ECS Exec connection to install only the
+new access token. Boundary STS authorization for new helper connections can
+be renewed independently; the running shell's AWS credentials are not replaced.
+
+Configure, clear, and renew serialize their commits on the task-local credential
+mount. Attachment uploads carry non-secret generation identifiers so a stale
+worker cannot undo a manual clear or a newer configure. The lock and generation
+state share the audit-excluded OCM mount. Disconnect cancels the local worker,
+not the task; the last installed token remains. `session credentials clear ocm`
+removes OCM credentials and `.kube/config`; stopping the task is authoritative
+cleanup because it destroys both credential volumes.
 
 ### Step 4: Task Expiry (Automatic)
 

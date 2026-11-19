@@ -20,10 +20,11 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 	cachedAuthResult = &AuthResult{Config: testJoinConfig(), Credentials: &awsclient.TemporaryCredentials{}}
 	joinContainer, joinCommand, joinNoWait = "rosa-boundary", defaultExecCommand, false
 	for _, tc := range []struct {
-		name string
-		err  error
+		name  string
+		renew bool
+		err   error
 	}{
-		{"success", nil}, {"plugin failure", errors.New("plugin exited 1")},
+		{"plain join", false, nil}, {"renewal opt-in", true, nil}, {"plugin failure", false, errors.New("plugin exited 1")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := commandAtPath(t, buildRootCommand(), "session", "join")
@@ -31,9 +32,17 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 			if err := cmd.Flags().Set("output", "json"); err != nil {
 				t.Fatal(err)
 			}
+			if tc.renew {
+				if err := cmd.Flags().Set("renew-ocm", "true"); err != nil {
+					t.Fatal(err)
+				}
+			}
 			var stdout bytes.Buffer
 			cmd.SetOut(&stdout)
-			openInteractiveSession = func(context.Context, *awsclient.ECSClient, string, *awsclient.TemporaryCredentials, string, string, string, bool) error {
+			openInteractiveSession = func(_ context.Context, _ *awsclient.ECSClient, _ string, _ *awsclient.TemporaryCredentials, _, _, _ string, _ bool, attach attachOCM) error {
+				if (attach.setup != nil) != tc.renew || attach.renewal != nil {
+					t.Fatal("join must opt in, and must not start a worker before confirmed setup")
+				}
 				if stdout.Len() != 0 {
 					t.Fatal("JSON emitted before shell exit")
 				}

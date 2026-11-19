@@ -65,7 +65,7 @@ func TestDeviceAuthorizationPKCEPollingAndCache(t *testing.T) {
 		return nil
 	}}
 	deps := oidcDependencies{
-		browserOpener: func(string) error { t.Error("device flow opened a browser"); return nil },
+		browserOpener: func(context.Context, string) error { t.Error("device flow opened a browser"); return nil },
 		callbackServerStarter: func(context.Context, string) (string, error) {
 			t.Error("device flow started a local callback listener")
 			return "", nil

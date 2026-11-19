@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // sessionManagerPlugin is the binary name for the AWS SSM Session Manager plugin.
@@ -97,9 +98,22 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 		paramsJSON,
 		ssmEndpoint,
 	)
-	cmd.Stdin = stdin
+	// Hand the plugin an *os.File so Wait returns when the process exits. A
+	// caller-owned io.Reader that stays open would otherwise be copied by an
+	// exec goroutine that Wait cannot interrupt.
+	stdinRead, stdinWrite, err := os.Pipe()
+	if err != nil {
+		return fmt.Errorf("create plugin stdin pipe: %w", err)
+	}
+	defer func() { _ = stdinRead.Close(); _ = stdinWrite.Close() }()
+	go func() {
+		_, _ = io.Copy(stdinWrite, stdin)
+		_ = stdinWrite.Close()
+	}()
+	cmd.Stdin = stdinRead
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+	cmd.WaitDelay = 5 * time.Second
 	env, err := sessionManagerPluginEnv(creds)
 	if err != nil {
 		return err

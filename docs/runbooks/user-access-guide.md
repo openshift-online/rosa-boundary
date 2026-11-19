@@ -251,7 +251,14 @@ This will:
    `--with-credentials none` opts out of OCM injection. A post-launch OCM
    authorization or injection failure leaves the session available and warns
    with the session ID, retry and cleanup commands (also in JSON `warnings`);
-   it does not report credentials as configured. A failed wait still returns
+   it does not report credentials as configured. After OCM is configured, the
+   CLI runs `ocm backplane login <cluster-id>` in the task before connecting. If
+   that fails (for example an invalid cluster ID or missing access), a warning
+   gives the session ID, `ocm backplane login <cluster-id>` to retry inside the
+   session, and the close command; JSON reports `backplane_login: false`. The login
+   is skipped with `--with-credentials none`, `--no-wait`, or an OCM failure. The
+   Backplane kubeconfig lives in the task-scoped `~/.kube`, not the audit escrow.
+   A failed wait still returns
    nonzero, and the session may exist. Use `session list --status all` to inspect it.
 
 ### Step 3: Connect to Investigation Container

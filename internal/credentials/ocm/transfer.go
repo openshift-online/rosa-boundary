@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,13 +14,14 @@ import (
 )
 
 const (
-	ConfigureCommand = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper configure ocm"
-	RenewCommand     = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper renew ocm"
-	ClearCommand     = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper clear ocm"
-	readyMarker      = "__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"
-	renewalMarker    = "__ROSA_BOUNDARY_CREDENTIAL_OCM_GENERATIONS_V1__"
-	successMarker    = "__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"
-	defaultMaxOutput = 1024 * 1024
+	ConfigureCommand            = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper configure ocm"
+	RenewCommand                = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper renew ocm"
+	ClearCommand                = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper clear ocm"
+	readyMarker                 = "__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"
+	renewalMarker               = "__ROSA_BOUNDARY_CREDENTIAL_OCM_GENERATIONS_V1__"
+	successMarker               = "__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"
+	defaultMaxOutput            = 1024 * 1024
+	backplaneLoginCommandPrefix = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper login backplane "
 )
 
 // PluginRunner launches Session Manager with explicit protocol streams.
@@ -76,6 +78,21 @@ func encodeRequest(request []byte) (string, error) {
 		return "", errors.New("credential request exceeded the safety limit")
 	}
 	return base64.StdEncoding.EncodeToString(request) + "\n", nil
+}
+
+var clusterIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
+
+// BackplaneLoginCommand returns the fixed helper command for a validated ID.
+func BackplaneLoginCommand(clusterID string) (string, error) {
+	if !clusterIDPattern.MatchString(clusterID) {
+		return "", fmt.Errorf("cluster ID %q is not a valid Backplane login target", clusterID)
+	}
+	return backplaneLoginCommandPrefix + clusterID, nil
+}
+
+// Login requires helper success but sends no credential payload.
+func (t *Transfer) Login(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials) error {
+	return t.run(ctx, region, session, credentials, nil)
 }
 
 // Clear requires helper success but sends no credential payload.

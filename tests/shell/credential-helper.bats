@@ -281,3 +281,76 @@ STUB
     grep -q 'generation changed' "${TEST_ROOT}/renew.log"
     ! grep -Eq 'delayed-token|SUCCESS__' "${TEST_ROOT}/renew.log"
 }
+
+run_login() {
+    run env PATH="${STUBS}:${PATH}" "$@" bash -c '
+        source "$1"
+        OCM_CONFIG_DIR="$2"
+        KUBECONFIG_DIR="$3"
+        BACKPLANE_LOGIN_TIMEOUT="${5:-40}"
+        login_backplane "$4"
+    ' bash "${HELPER}" "${OCM_DIR}" "${KUBE_DIR}" "${CLUSTER_ID-2abc}" "${LOGIN_TIMEOUT:-40}"
+}
+
+stub_backplane() {
+    cat >"${STUBS}/ocm" <<STUB
+#!/bin/bash
+[[ "\$1 \$2" == "backplane login" ]] || exit 2
+printf 'sensitive cluster detail\\n'
+exit ${1}
+STUB
+    chmod 0755 "${STUBS}/ocm"
+}
+
+@test "backplane login succeeds with OCM configured" {
+    stub_backplane 0
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
+    [[ "${output}" != *"sensitive"* ]]
+}
+
+@test "backplane login fails without leaking output when login fails" {
+    stub_backplane 1
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+    [[ "${output}" != *"sensitive"* ]]
+}
+
+@test "backplane login failure removes partial kubeconfig" {
+    stub_backplane 1
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    printf 'partial' >"${KUBE_DIR}/config"
+    run_login
+    [ "${status}" -ne 0 ]
+    [ ! -e "${KUBE_DIR}/config" ]
+}
+
+@test "backplane login times out when Backplane hangs" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+sleep 30
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    SECONDS=0
+    LOGIN_TIMEOUT=1 run_login
+    [ "${status}" -ne 0 ]
+    [ "${SECONDS}" -lt 15 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+}
+
+@test "backplane login requires OCM credentials and a valid cluster ID" {
+    stub_backplane 0
+    run_login
+    [ "${status}" -ne 0 ]
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    for id in '-x' 'a b' 'a;b' ''; do
+        CLUSTER_ID="${id}" run_login
+        [ "${status}" -ne 0 ]
+        [[ "${output}" != *"SUCCESS"* ]]
+    done
+}

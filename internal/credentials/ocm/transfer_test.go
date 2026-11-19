@@ -255,3 +255,25 @@ func TestTransferClearRequiresOnlySuccess(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestBackplaneLoginCommand(t *testing.T) {
+	command, err := BackplaneLoginCommand("2abc.d-e_1")
+	if err != nil || command != backplaneLoginCommandPrefix+"2abc.d-e_1" {
+		t.Fatalf("command = %q, %v", command, err)
+	}
+	for _, bad := range []string{"", "-x", "a b", "a;rm", "a'b", "$(x)", "a\nb", strings.Repeat("a", 129)} {
+		if _, err := BackplaneLoginCommand(bad); err == nil {
+			t.Errorf("accepted %q", bad)
+		}
+	}
+}
+
+func TestTransferLoginFailsWithoutSuccessMarker(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, _ io.Reader, _, _ io.Writer) error {
+		return nil
+	}
+	transfer := &Transfer{RunPlugin: runner, Timeout: time.Second, MaxOutput: 1024}
+	if err := transfer.Login(context.Background(), "us-east-1", &awsclient.ExecuteCommandSession{}, testCredentials); err == nil {
+		t.Fatal("login without success marker succeeded")
+	}
+}

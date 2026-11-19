@@ -29,6 +29,7 @@ type ocmCredentialTransfer interface {
 	ConfigureAttachment(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials, func(bool) ([]byte, error)) (bool, error)
 	Configure(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials, []byte) error
 	Clear(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials) error
+	Login(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials) error
 }
 
 var newOCMTokenAcquirer = func() ocmTokenAcquirer {
@@ -418,4 +419,22 @@ func defaultOCMFlow(device bool) ocmcredentials.Flow {
 		return ocmcredentials.FlowDevice
 	}
 	return ocmcredentials.FlowAuthCode
+}
+
+// initializeBackplaneLogin runs the fixed helper login inside the task. The
+// cluster ID is not secret, but it is validated before reaching a command line.
+func initializeBackplaneLogin(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID, clusterID string) error {
+	command, err := ocmcredentials.BackplaneLoginCommand(clusterID)
+	if err != nil {
+		return err
+	}
+	session, err := ecsClient.ExecuteCommand(ctx, sessionID, credentialContainer, command)
+	if err != nil {
+		return fmt.Errorf("could not start Backplane login session: %w", err)
+	}
+	if err := newOCMCredentialTransfer().Login(ctx, region, session, credentials); err != nil {
+		return fmt.Errorf("backplane login for cluster %q did not complete (the cluster ID may be invalid or access may be missing): %w", clusterID, err)
+	}
+	output.Status("Initialized Backplane login for cluster %s", clusterID)
+	return nil
 }

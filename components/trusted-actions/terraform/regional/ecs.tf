@@ -29,7 +29,7 @@ locals {
     { name = "ROSA_TA_ALLOWED_ACCOUNTS", value = var.allowed_accounts },
     { name = "AWS_REGION", value = var.aws_region },
     { name = "DATABASE_URL", value = "/data/trusted_actions.db" },
-    { name = "ROSA_TA_CONFIG_ETAG", value = aws_s3_object.config.etag },
+    { name = "ROSA_TA_CONFIG_HASH", value = sha256(local.app_config_effective) },
     ],
     [for name, value in local.compat_env : { name = name, value = value } if value != ""],
   )

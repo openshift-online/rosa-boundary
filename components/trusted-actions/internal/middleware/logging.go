@@ -19,14 +19,14 @@ func NewLogger(logger *logrus.Logger) func(next http.Handler) http.Handler {
 				duration := time.Since(start)
 
 				logger.WithFields(logrus.Fields{
-					"method":        r.Method,
-					"uri":           r.RequestURI,
-					"status":        ww.Status(),
-					"bytes":         ww.BytesWritten(),
-					"duration_ms":   duration.Milliseconds(),
-					"user_agent":    r.UserAgent(),
-					"remote_addr":   r.RemoteAddr,
-					"request_id":    r.Context().Value("request_id"),
+					"method":      r.Method,
+					"uri":         r.RequestURI,
+					"status":      ww.Status(),
+					"bytes":       ww.BytesWritten(),
+					"duration_ms": duration.Milliseconds(),
+					"user_agent":  r.UserAgent(),
+					"remote_addr": r.RemoteAddr,
+					"request_id":  r.Context().Value("request_id"),
 				}).Info("Request completed")
 			}()
 

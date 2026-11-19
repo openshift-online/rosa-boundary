@@ -64,6 +64,26 @@ there must still be installed separately. In particular, check that you have:
   brew install coreutils gnu-sed
   ```
 
+#### Linux (Fedora/RHEL) notes
+
+The commands above show macOS (Homebrew). On Linux:
+
+- Install mise with its installer (`curl https://mise.run | sh`), then activate it in
+  your shell startup file (`eval "$(~/.local/bin/mise activate bash)"` or `zsh`).
+  Open a new shell. Until you run `mise deps` once, each new prompt prints
+  `mise WARN deps: ... run mise deps`.
+- Install `staticcheck` and `golangci-lint` with Go, for example
+  `go install honnef.co/go/tools/cmd/staticcheck@latest` and the
+  [golangci-lint installer](https://golangci-lint.run/docs/welcome/install/),
+  and add `$(go env GOPATH)/bin` (usually `~/go/bin`) to your `PATH`.
+- Coding agents may not inherit your shell's mise activation. If a tool appears
+  missing only in the agent's shell, put the mise-managed tools on its `PATH`
+  (for example `eval "$(mise env -s bash)"`) or restart the agent from an
+  activated shell.
+- GNU coreutils and GNU sed are already the Linux defaults.
+- On SELinux-enforcing hosts (Fedora, RHEL), see
+  [local container build problems](#local-container-build-problems-linux).
+
 The root Python dependencies include `podman-compose`, `pre-commit`, and Skillsaw.
 If invoking the Compose wrapper without an activated virtualenv, run it through
 `uv run --group localstack bash tests/localstack/compose.sh ...`, or ensure
@@ -170,6 +190,10 @@ Configure it locally:
 cp tests/localstack/.env.example tests/localstack/.env
 ```
 
+A personal LocalStack token works only if its account has a **Pro** licence
+(ECS and EFS); startup reports "LocalStack Pro ready with ECS and EFS support"
+when it does. Otherwise use the team workspace's token.
+
 Edit `tests/localstack/.env` and set `LOCALSTACK_AUTH_TOKEN` to your token. Never
 commit it, print it in shared logs, or put it in shell history. An exported shell
 variable overrides the file; `unset LOCALSTACK_AUTH_TOKEN` if an old exported
@@ -237,8 +261,47 @@ login is for module-registry access, not permission to deploy. Container builds
 also need network/registry access to their base images and tool downloads; ask
 the relevant registry owner if an approved image requires authentication.
 
+`terraform login` opens your browser at HCP Terraform. Sign in, create a **user API
+token**, and paste it into the terminal prompt that is waiting (`Enter a value:`;
+input is hidden). Never paste it into chat or a file. Harmless browser errors such
+as `zygote ... Broken pipe` may be printed. Success prints the "Welcome to HCP
+Terraform!" banner. Module access is proven only by `make test-all`.
+
 Do not change staging workspace variables directly in HCP or run local staging
 applies. Follow the reviewed Git/PR delivery path.
+
+## Local container build problems (Linux)
+
+These affect the `container-build-both-architectures` and `lambda-container-build`
+gates of `make test-all`. **No Red Hat subscription or RHEL registration is
+needed**; the images use free UBI repositories.
+
+**`Permission denied` on `/verify-src/...` during the image build (SELinux).** On a
+SELinux-enforcing host, containers cannot read project files labeled
+`user_home_t`, and the Containerfile's verify step bind-mounts the whole repository
+(`source=.`) without relabeling it. Confirm with
+`podman run --rm -v "$PWD:/v:ro" registry.access.redhat.com/ubi9/ubi-minimal ls /v`.
+Relabel the checkout (reversible with `restorecon -R .`):
+
+```bash
+chcon -R -t container_file_t .
+```
+
+A `git checkout` that rewrites files can drop the label on them; reapply it.
+Avoid disabling SELinux system-wide.
+
+**`403` from `cdn.redhat.com` in `microdnf install` (stale entitlement).** Podman
+copies host subscription secrets (`/usr/share/rhel/secrets`, which links to
+`/etc/pki/entitlement`) into builds. If the host has expired RHEL certificates
+(check with `openssl x509 -enddate -noout -in /etc/pki/entitlement/<id>.pem`),
+`microdnf` tries subscription-only repos and fails. Stop podman injecting them for
+your user only, without touching the host or `dnf`:
+
+```bash
+mkdir -p ~/.config/containers && : > ~/.config/containers/mounts.conf
+```
+
+Delete that file to revert.
 
 ## 4. Run all local tests and checks
 

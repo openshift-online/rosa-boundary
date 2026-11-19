@@ -126,7 +126,11 @@ func TestCLIManualInitJSONSeparatesStdoutAndStderr(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = stderr.Close() }()
+	defer func() {
+		if closeErr := stderr.Close(); closeErr != nil {
+			t.Errorf("close stderr: %v", closeErr)
+		}
+	}()
 	previousStderr := os.Stderr
 	os.Stderr = stderr
 	defer func() { os.Stderr = previousStderr }()

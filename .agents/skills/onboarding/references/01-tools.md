@@ -17,3 +17,5 @@ The dependency commands in that guide belong to step 3; do not run them twice.
 OpenWiki installation does not authorize regeneration or require model secrets.
 Completion: tool commands resolve in the agent's shell; run the step 3 assertion
 to identify any remaining tool gaps. Next: step 2.
+Linux (Fedora/RHEL) users: see the runbook's "Linux (Fedora/RHEL) notes". The
+agent shell may not inherit mise activation; verify tools from the agent's shell.

@@ -33,6 +33,11 @@ class PrerequisiteTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Missing"):
                 check.commands(["uv"])
 
+    def test_all_missing_tools_are_reported(self):
+        with patch.object(check.shutil, "which", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "Missing uv, bats"):
+                check.commands(["uv", "bats"])
+
     def test_private_token_presence_and_missing_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:a338f2e22434ef0b020025bc0c018c823301da958d1f43d2c2ebe323fc002cb2",
+  "pageVersion": "sha256:93d990a5bffa2007c3bfa59b2b8f30912e1a78343c81001219773fc0af0fd7a5",
   "claims": [
     {
       "id": "claim_7f2dfd61cb3e4d3eb4577088e2e0533e",
-      "statement": "Boundary investigation create and session create invoke the authorization Lambda with different task-launch settings: the first provisions an EFS access point without a task; the second launches an ECS Fargate task and derives the session from its returned ARN. The Lambda validates identity and constructs a task definition using regional Terraform as a base.",
+      "statement": "Boundary investigation create and session create invoke the authorization Lambda with different task-launch settings: the first provisions an EFS access point without a task; the second launches an ECS Fargate task and derives the session from its returned ARN. The Lambda validates identity and constructs a per-investigation task definition using the regional Terraform task definition as a base.",
       "evidence": [
         {
           "resource": "repo://deploy/regional/ecs.tf#L62-L105",
@@ -15,16 +15,16 @@
           "version": "repo-lines-v1:sha256:b8505651efd14353be09e15d8b886c2f02da94be8938b88557035a4681eaef92:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkOGI2ZGVlNjEzMTU3ZjIxZDMyNWVmNGZkY2JmZTI2NzM4NGZmODgyZTc4MDNlZTNhYTc1MWJhMDM4OWE1N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1N2JjZGM1NTFiNDU5MDY3ODM3NDZkZTg1NWRkODQwMjJmMWZhOGYxMzM3MzUzOGE3NTc1ZjY4ZjRjZjY2NDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4NzE1YzkyMmRlM2U2OWJkMWM3YWY2OTA1NmE5MDI1YjI0ZjY5MmZiZGEzMzFlN2I5MzBiZjlhNjU3MzhiMzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkYjk1YTA1MTk4NzM0OTA1NWM3NGVlMzY4NTYzNTNkMmYxMDBhM2I1MWE2NmYzYTM4ZjkyY2UxZGI1YjZhNTMifQ"
         },
         {
-          "resource": "repo://internal/cmd/start_session.go#L59-L98",
-          "version": "repo-lines-v1:sha256:61867f9a248fa3ad4650d6ad218d0fca7c6d227f3985ea90d69d4e87ab557051:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmNiMThmOWE5NDk5YTFhYTNkMjU4MGExMDkzZWM5NDkwNmIzYzI4YmU0NWQ2YTA5NDdhNjJkMjVhYzg0ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4NzE1YzkyMmRlM2U2OWJkMWM3YWY2OTA1NmE5MDI1YjI0ZjY5MmZiZGEzMzFlN2I5MzBiZjlhNjU3MzhiMzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNWM4ZmFkOTg2YjMyYjViZDk4NzRjOWM3ZTBjYzUyY2UyZjZhY2MxYjU5NjIyNTRhYTZmMmRiMDc3MzVmMWEifQ"
+          "resource": "repo://internal/cmd/start_session.go#L61-L98",
+          "version": "repo-lines-v1:sha256:3ee07ee571d9746f8ca43323389457c53a65d2b322874d4d179573572ce7d29f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA4YmNiMThmOWE5NDk5YTFhYTNkMjU4MGExMDkzZWM5NDkwNmIzYzI4YmU0NWQ2YTA5NDdhNjJkMjVhYzg0ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4NzE1YzkyMmRlM2U2OWJkMWM3YWY2OTA1NmE5MDI1YjI0ZjY5MmZiZGEzMzFlN2I5MzBiZjlhNjU3MzhiMzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNWM4ZmFkOTg2YjMyYjViZDk4NzRjOWM3ZTBjYzUyY2UyZjZhY2MxYjU5NjIyNTRhYTZmMmRiMDc3MzVmMWEifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L693-L1051",
-          "version": "repo-lines-v1:sha256:62297c1138f82495a6e4ee75fb3c149fa531d3f7a03bf498c1de715a8a1cfd60:eyJzZWxlY3RlZExpbmVDb3VudCI6MzU5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhMzA5YWYwMTMyYjViMTUzM2VhZmU2NTIzN2ZiZjZmNTI1MzE4NmYzNGYwNTIzYmZiNGUzZmVmMTQ1MGM0ZDk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlNmIwNDQ5MTQ2OTcyMmU4MzYzYTk0ZTQwNDQ1MzhlMDEzYTJhMjE3ZTM2YjFlNTY4YmE2MGFjYjdiNGM4ZjJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0YTRiZWYyYzg3NWNjMjgyYjY2ZTM1YzZmODc1MjNjMmNiMWJlOWViZTVhMThlZGFjZTA4ZTdjYjljZTkyNDI4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhN2NiYTczZWVmNTNjODJkZmRiODQxYTBjMDNjNGZiZWU1ZDUzMWUwZTg4ZGRlNmIxY2JhMGQ5ZGNjYzM3ODUwIn0"
+          "resource": "repo://lambda/create-investigation/handler.py#L687-L1088",
+          "version": "repo-lines-v1:sha256:24eff8e6fcebe29d5b9eb4fd931bb1eae24d7e765254d5024e4d49413468bb80:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhMzA5YWYwMTMyYjViMTUzM2VhZmU2NTIzN2ZiZjZmNTI1MzE4NmYzNGYwNTIzYmZiNGUzZmVmMTQ1MGM0ZDk3IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIxM2IyMjM0M2U5Yzc1NTkyMzNkYzQ2ZGNlYTU4OTk2NThmNmM4NmE3MzE0ZmE0NjIwOThmMjkyOGFmNmFkM2Y1IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0YTRiZWYyYzg3NWNjMjgyYjY2ZTM1YzZmODc1MjNjMmNiMWJlOWViZTVhMThlZGFjZTA4ZTdjYjljZTkyNDI4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwY2UzMWRhYzQwZWU3YjRiMzdkNDZjYTg5YTczNTVhMmRhMzBkZTc3NTE0ZDVjNzdlMTQwYTZkM2VhY2Q2M2QwIn0"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L79-L300",
-          "version": "repo-lines-v1:sha256:1bb2b1eac3b03498a48dddf52b8e49b9087e5651e159fde6b5ef6d6d5768f22d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIyLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJmOWIxOTgyZThkZDc0ODExODE0NmIzOWEyZDAwNjJmNDA4MWUzNDc3OWI4Njc1YzIzNGM0ZmIxMjRkYzM5MzkwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIzYTIyNDcxMmExZDczYjM0NGRmOGFkZjFjYzNhYjNhYjIyYjE1OTEwNTE3MjBhZmViYWE0Y2U0NDNlN2RkYWU0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiNGNkYzQzYmMzODc4NTQ0OTVkMDU5YjAwNWZlOGVlMTIwYTcxOWZiYzQ2YTgxN2Y1ZWFmN2RjZDY2MGU5ZDNhIn0"
+          "resource": "repo://lambda/create-investigation/handler.py#L79-L306",
+          "version": "repo-lines-v1:sha256:b5261adaf68b971f1748f1d6ea025589d8801b7949fc1acce18812e3d9350530:eyJzZWxlY3RlZExpbmVDb3VudCI6MjI4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIxMWZiZGY5NjcwZjM5Nzc3NTUxMTU0NDdlZjUyYzg4ZmY2MjhkNzVjNTkxMjliMWE5ZjVjMzdmOWMwYmExZGY4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIzYTIyNDcxMmExZDczYjM0NGRmOGFkZjFjYzNhYjNhYjIyYjE1OTEwNTE3MjBhZmViYWE0Y2U0NDNlN2RkYWU0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI2N2YyNTA0M2M4YjNmZmY3OGMyYTk5NzYwOGRkMmI1Y2QzZTZmMjYwZDZhZWI5NTY4YzA3MTBmZTU5NjAwYWJiIn0"
         }
       ]
     },
@@ -100,7 +100,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-11-13T18:18:24.408Z"
+    "by": "openwiki/0.7.1",
+    "at": "2026-11-19T16:04:15.171Z"
   }
 }

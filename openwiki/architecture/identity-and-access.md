@@ -2,10 +2,10 @@
 type: architecture
 title: Identity and Access Architecture (Boundary)
 description: Explains Boundary's identity model — Keycloak OIDC federation into AWS IAM roles for CLI/Lambda/ECS Exec, GitHub OIDC federation for content publishing, and the account-wide shared-iam Terraform module that issues every one of these identities.
-tags: [identity, oidc, authorization, aws-iam, abac, ecs-exec, github-oidc, content-publishing, terraform]
+tags: [identity, oidc, pkce, device-code-flow, authorization, aws-iam, abac, ecs-exec, github-oidc, content-publishing, terraform]
 verified:
   - by: openwiki/0.7.1
-    at: 2026-11-17T16:03:58.857Z
+    at: 2026-11-19T16:04:15.171Z
 sources:
   - id: openwiki-source-1d84986d55624099423b4413
     resource: repo://deploy/account/github-oidc.tf
@@ -29,21 +29,31 @@ sources:
     resource: repo://deploy/regional/iam.tf
   - id: openwiki-source-d176128a85129af793772942
     resource: repo://deploy/regional/lambda-create-investigation.tf
+  - id: openwiki-source-73fb9fed3b2d2567893f6d9c
+    resource: repo://internal/auth/callback.go
   - id: openwiki-source-d8e76337d241d645fdbde114
     resource: repo://internal/auth/device.go
   - id: openwiki-source-f3c901cd7f81495d7b85597f
     resource: repo://internal/auth/oidc.go
   - id: openwiki-source-872fbb99e33ba1498c5790f0
     resource: repo://internal/auth/token.go
+  - id: openwiki-source-1b95004fb4b0795f79ff5862
+    resource: repo://internal/cmd/auth_options.go
   - id: openwiki-source-d2f66eb6a0ccf1ed7a35e866
     resource: repo://internal/cmd/cli.go
+  - id: openwiki-source-edb265becad6a3a68013f0ce
+    resource: repo://internal/cmd/config_commands.go
   - id: openwiki-source-f18b195b06299be0877c0d2e
     resource: repo://internal/cmd/create_investigation.go
+  - id: openwiki-source-7a5e071b6b6192c80a6918aa
+    resource: repo://internal/cmd/root.go
   - id: openwiki-source-2452fe2ff931e1490d573519
     resource: repo://internal/cmd/start_session.go
+  - id: openwiki-source-ed952cc20b88f9a9e8bbf0c3
+    resource: repo://internal/config/config_test.go
   - id: openwiki-source-253b57ec87256e726a724093
     resource: repo://lambda/create-investigation/handler.py
-generated: { by: "openwiki/0.7.1", at: "2026-11-17T16:03:58.857Z" }
+generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
 ---
 
 # Identity and Access Architecture (Boundary)
@@ -58,11 +68,22 @@ This page covers only Boundary's own identity model. Trusted Actions uses a sepa
 
 ## CLI login and AWS credentials
 
-The default CLI login is an authorization-code flow with PKCE: `GetTokenWithOptions` checks the token cache first, then `acquireBrowserToken` creates a verifier/challenge and CSRF state, starts a local callback listener, opens the browser, and exchanges the callback code at the Keycloak token endpoint. A separate device-authorization flow (`--use-device-code`, or a default forced by configuration) lives in its own module, `acquireDeviceToken`: it posts to the provider's device endpoint, displays a verification URL and user code, and polls the token endpoint on the provider-supplied interval until approval, denial, or expiry. Both flows return a raw ID token to the same caller, `getTokenWithOptionsAndDeps`, which validates its expiration before caching it.
+Flag parsing and other auth-adjacent plumbing shared across every authenticating command is centralized in `internal/cmd/auth_options.go` rather than duplicated per command: `addOutputFlag`/`commandOutput` register and validate the `-o/--output text|json` flag used by every auth-bearing leaf, `tokenOptions` builds the `auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode}` value passed into every token-acquisition call from the resolved profile, and `configureDeviceCode` guards the `config init` bootstrap path so a saved device-flow preference is set only by an explicit `--use-device-code=true` on that command — bootstrap never inherits a preference from an existing profile or environment.
 
-The returned ID token is cached with mode `0600` (re-applied with `os.Chmod` on every write in case an older cache was created with broader permissions). Cache reads parse the JWT expiration and treat tokens expiring within a 30-second buffer as unusable, deleting a malformed cache file outright. A freshly obtained token is also rejected before caching if it does not have at least that same 30-second remaining lifetime, which maps to the same `expirationBuffer` constant used by the cache reader. An explicit force-login bypasses the cache entirely. The CLI's central pre-run hook, `commandPreRun` in `internal/cmd/cli.go`, authenticates AWS-dependent commands, reuses a cached token when possible, and retries once with a fresh login for recognized token-authentication failures (`isAuthError`) via `assumeRoleWithRetryOptions`.
+All actual PKCE/device-code token acquisition, caching, and clearing is owned by the dedicated `internal/auth` package (`oidc.go`, `device.go`, `callback.go`, `token.go`), not by `internal/cmd`:
 
-`commandPreRun` selects the AWS role to assume before invocation based on the invoked command: `investigation create` and `session create` assume the invoker role (session name `rosa-boundary-invoker`), and both also require `invoker_role_arn` and `lambda_function_name` to be configured; every other operational command (`session list`, `session join`, `session close`, `investigation list`, `investigation close`, credential configuration) assumes the shared SRE role directly (session name `rosa-boundary-session`) and requires `sre_role_arn`.
+- `GetTokenWithOptions` → `getTokenWithOptionsAndDeps` (`internal/auth/oidc.go`) is the single entrypoint both flows share: unless `force` is set, it checks the cache (`CachedTokenForConfig`) first, dispatches to `acquireBrowserToken` or `acquireDeviceToken` based on `Options.UseDeviceCode`, validates that the resulting token has at least `expirationBuffer` (30s) of remaining lifetime, and persists it via `SaveTokenForConfig`.
+- The **PKCE browser-callback flow** (`acquireBrowserToken`, delegating to `internal/auth/callback.go`) is the default (bare `--use-device-code` or no flag means PKCE unless device mode is otherwise selected — see below). It generates a PKCE verifier/challenge and a CSRF `state`, starts a local callback HTTP server on `127.0.0.1:8400` (`startCallbackServer`) before opening the system browser, and waits up to 120 seconds for the redirect. The callback handler rejects a missing `code` and a `state` mismatch (treated as a possible CSRF attempt), and sanitizes any provider-supplied `error`/`error_description` by stripping ASCII control characters and capping length before ever echoing them into the browser response — guarding against terminal/HTML injection from an untrusted redirect. A successful callback is exchanged for an ID token at the Keycloak token endpoint (`exchangeCode`).
+- The **device-authorization flow** (`acquireDeviceToken` in `internal/auth/device.go`) is a distinct, separately implemented path selected by explicit `--use-device-code=true` (bare flag means true), else `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE`, else the selected profile's saved `oidc_use_device_code`, else default `false` — the same precedence `config init` bootstrap deliberately bypasses (see above). It also builds a PKCE challenge, posts to the provider's device-authorization endpoint, and validates the response defensively before use: it rejects an `expires_in` that is zero, negative, or over an hour; a verification URI that is empty, non-`http(s)`, or embeds the device code itself; an oversized user code or URI; or any ASCII control character in either value. Only after those checks does it print the verification URL and user code to stderr and begin polling. Polling honors `authorization_pending` (keep waiting), `slow_down` (add 5s to the interval), `access_denied`, and `expired_token`; the whole exchange is bounded by a context timeout equal to the provider's `expires_in`, and a polling interval larger than that window is rejected outright rather than risk an unreachable poll.
+- Both flows return a raw ID token to the same caller, `getTokenWithOptionsAndDeps`, so cache format, the 30-second expiration buffer, and persistence behavior are identical regardless of which flow produced the token.
+
+The ID token cache (`internal/auth/token.go`) is scoped per OIDC issuer and client: `CachedTokenForConfig`/`SaveTokenForConfig` key cache entries by the profile's Keycloak issuer URL and client ID, so switching profiles or issuers never reuses another deployment's cached token, and a legacy unscoped cache is not trusted once a profile is configured. The cache file is written with mode `0600`, re-applied via `os.Chmod` on every write in case an older cache was created with broader permissions. On read, an entry whose JWT cannot be parsed is deleted outright; an entry that is within the 30-second expiration buffer is treated as absent (without deletion). A freshly obtained token is rejected before caching under the same buffer. An explicit force-login bypasses the cache entirely.
+
+Role selection and retry orchestration are split across two distinct `internal/cmd` files, not merged into token acquisition itself:
+
+- `commandPreRun` in `internal/cmd/cli.go` is the CLI's central pre-run hook (`root.PersistentPreRunE`). After resolving the active profile and required settings, it decides **which role** to assume for the invoked command — `investigation create` and `session create` get the invoker role (session name `rosa-boundary-invoker`, requiring `invoker_role_arn` and `lambda_function_name`); every other operational command (`session list`, `session join`, `session close`, `investigation list`, `investigation close`, credential configuration) gets the shared SRE role directly (session name `rosa-boundary-session`, requiring `sre_role_arn`) — then calls `assumeRoleWithRetryOptions` once to populate the cached auth result the command uses.
+- `assumeRoleWithRetryOptions` and its retry predicate `isAuthError` are defined in `internal/cmd/root.go`, separately from `cli.go`'s role-selection logic. This function is what actually drives `internal/auth`: it checks `CachedTokenForConfig` to know whether the token it is about to use came from the cache, requests a token via `GetTokenWithOptions` (triggering whichever OIDC flow is configured if no valid cache exists), and calls `AssumeRoleWithWebIdentity`. If STS rejects a *cached* token with a recognized auth error (`ExpiredToken`, `InvalidClientTokenId`, or an `InvalidIdentityToken` not tied to a claim/principal/tag failure), it explicitly clears that cache entry with `auth.ClearToken` and retries once with a forced fresh login through the same OIDC flow — it never silently switches between browser and device mode.
+- `rosa-boundary login` (`runLogin` in `internal/cmd/config_commands.go`) calls `auth.GetTokenWithOptions` directly, with no role assumption at all; it exists purely to obtain, reuse, or force-refresh (`--force`) a cached ID token ahead of time.
 
 `session create` (`runStartSession` in `internal/cmd/start_session.go`) performs a second, explicit role assumption after its Lambda call: it invokes the Lambda with SigV4 credentials from the invoker-role session, then selects the role ARN to assume next — the operator-configured `sre_role_arn` override if set, otherwise the `role_arn` the Lambda returned — rejecting the call outright if neither is available, and validates that ARN against the selected profile's `account_id` via `checkRoleAccounts` before using it. It then builds a `PKCEConfig` from the profile's Keycloak URL/realm/client ID and calls `assumeRoleWithRetryOptions` again — this time against that resolved SRE role ARN, using a session name derived from the Lambda-reported owner (falling back to `rosa-boundary-sre`) — to obtain the credentials used for ECS operations. This is a two-stage flow: the invoker credential authorizes the Lambda invocation only, while the returned/configured SRE role credential is used for ECS task waiting, credential configuration, and ECS Exec. By contrast, `investigation create` (`runCreateInvestigation` in `internal/cmd/create_investigation.go`) only ever authenticates with the invoker role: it makes a single Lambda call (`CreateInvestigationOnly`, which sets `skip_task`) to create the investigation's EFS access point without launching an ECS task, so no second role assumption is needed.
 
@@ -159,6 +180,9 @@ Regional Terraform roots never read account Terraform state directly; they consu
 ## Evidence-backed claims
 
 - The CLI uses an OIDC authorization-code flow with PKCE (with a separately implemented device-authorization alternative), caches the ID token with restrictive permissions, and rejects tokens within a 30-second expiration buffer both on cache read and immediately after acquisition. [OIDC flow](repo://internal/auth/oidc.go#L57-L184) · [device flow](repo://internal/auth/device.go#L40-L124) · [token cache](repo://internal/auth/token.go#L16-L138)
+- `internal/cmd/auth_options.go` centralizes CLI flag/option plumbing shared by every authenticating command: the `-o/--output` flag and its validation, the `auth.Options` value (including `UseDeviceCode`) built from the resolved profile for every token-acquisition call, and the guard that lets `config init` set a saved device-flow preference only from an explicit `--use-device-code=true`. [auth_options.go](repo://internal/cmd/auth_options.go#L1-L48)
+- All PKCE/device-code token acquisition, caching, and clearing is owned by the `internal/auth` package (`oidc.go`, `device.go`, `callback.go`, `token.go`); `internal/cmd/root.go`'s `assumeRoleWithRetryOptions`/`isAuthError` orchestrate calls into that package (including `ClearToken` on a detected auth error) but do not implement the flows themselves, and `internal/cmd/cli.go`'s `commandPreRun` only resolves configuration and selects which role to assume before delegating to `assumeRoleWithRetryOptions`. [token acquisition entrypoint](repo://internal/auth/oidc.go#L57-L103) · [retry/orchestration](repo://internal/cmd/root.go#L100-L139) · [pre-run role selection](repo://internal/cmd/cli.go#L56-L136)
+- The PKCE browser-callback flow runs a local callback HTTP server on `127.0.0.1:8400` that validates the CSRF `state` parameter and sanitizes provider-supplied error text (stripping control characters, capping length) before it is ever echoed back, while the separately implemented device-authorization flow validates the device-authorization response's expiry, verification URI, and user code before displaying them, and bounds polling to the provider's `expires_in` window. [PKCE callback server](repo://internal/auth/callback.go#L45-L113) · [device response validation and polling](repo://internal/auth/device.go#L40-L151)
 - CLI authentication selects the invoker role for `investigation create` and `session create`, and the shared SRE role directly for other operational commands; `session create` invokes the Lambda first and then assumes the SRE role via a second, explicit `assumeRoleWithRetryOptions` call (role ARN resolved from a configured `sre_role_arn` override or, failing that, the Lambda's returned `role_arn`, validated against the profile's account ID), while `investigation create` makes a single invoker-only Lambda call and never assumes the SRE role. [pre-run role selection](repo://internal/cmd/cli.go#L56-L136) · [session create two-stage flow](repo://internal/cmd/start_session.go#L33-L177) · [investigation create single-stage flow](repo://internal/cmd/create_investigation.go#L22-L60)
 - The Lambda validates signed OIDC tokens against configured issuer JWKS/audience, checks required group membership, and derives the task ABAC identifier from claims before creating resources. [claims extraction and group/ABAC checks](repo://lambda/create-investigation/handler.py#L181-L256) · [issuer routing and JWKS verification](repo://lambda/create-investigation/handler.py#L374-L457)
 - The shared SRE role requires OIDC session tagging and regional IAM policy gates ECS Exec on equality between the task resource tag and the caller's principal tag. [role trust](repo://deploy/account/modules/shared-iam/oidc.tf#L12-L85) · [regional ABAC policy](repo://deploy/regional/iam.tf#L188-L213)

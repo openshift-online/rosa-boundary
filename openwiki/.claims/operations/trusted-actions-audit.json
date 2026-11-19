@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:c2c862d53690b3a45739ee3915c36da0f72f31b5c4fc608888fd0699efe5d7e6",
+  "pageVersion": "sha256:481f3d9d803ac42cd3d5f7fcae658e92545681933041a32c2bed72cc1b30686c",
   "claims": [
     {
       "id": "claim_7edddde747824182be3063aaf40fc1e9",
@@ -52,7 +52,7 @@
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf",
-          "version": "repo-file-v1:sha256:f23a3ddbb60b4f776d087e5a0fc1e0475940dcc844790db70e22b24b36aa5fdb"
+          "version": "repo-file-v1:sha256:477c25f478e509057eac5e4cbadb3498dc8acb9d42eed85654f2ecb63318c4e5"
         },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/cloudwatch.tf",
@@ -117,8 +117,8 @@
           "version": "repo-lines-v1:sha256:c338ea83e8286da83ea99ec23d2a8713ee7eda6550d661377f0fa22902667047:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzMzOGVhODNlODI4NmRhODNlYTk5ZWMyM2QyYTg3MTNlZTdlZGE2NTUwZDY2MTM3N2YwZmEyMjkwMjY2NzA0NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYzMzOGVhODNlODI4NmRhODNlYTk5ZWMyM2QyYTg3MTNlZTdlZGE2NTUwZDY2MTM3N2YwZmEyMjkwMjY2NzA0NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWM0MGNlOTBhMjdkNzFjMGQxYjRlYzUyNThhN2U0NGY3YWJjMTMwZWQ3NTY2NjA1ZDBjMzdhOGVhMDdkOWUzYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODNmMDkwODJlZDBkYjFlMzRhZjBjOTBjZDFjODZhMGNjNDljNzVkMmYxZGZiZTZhYzliYTZlODY0ODc0ZDAxNyJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34",
-          "version": "repo-lines-v1:sha256:38e94adcb3125f2927f982e12cc2020b130264b8de6090b19a2b9fe22fabc15a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L35",
+          "version": "repo-lines-v1:sha256:d75e54d60e44f957e182a2851454d49840a741d2d82e5b93b3a3d7486b67f004:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
         }
       ]
     },
@@ -132,7 +132,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf",
-          "version": "repo-file-v1:sha256:f23a3ddbb60b4f776d087e5a0fc1e0475940dcc844790db70e22b24b36aa5fdb"
+          "version": "repo-file-v1:sha256:477c25f478e509057eac5e4cbadb3498dc8acb9d42eed85654f2ecb63318c4e5"
         }
       ]
     },
@@ -149,8 +149,8 @@
           "version": "repo-lines-v1:sha256:345e8051f171cef0a4564722d96853a411af5cf69cd6bb167f37910db2b54e7e:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTE5OWExM2FjNzI0NDZhZWY2MDE1YTY0NDVlODE0ZGU3Njc3OTI0Nzg1MGU3Y2FjMjEyMDYxMmUxZWE2ZDYzNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTExMjE5NjBmZWQyNzc4M2M1OTBmYmYyYmU1NWE1MzExMWUwMGUzMGY0NTNmNmRkYjg3ZDY2NzJkNjc2MzkyMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2M3NjU5OGIzNDFiNTVkYmViNjcxOWJkMWFiMmYxZGQ5MmMxMGY5OTk3YmJkMzM1NzE0NjRjNGI0ZTRhMGQ2NCJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34",
-          "version": "repo-lines-v1:sha256:38e94adcb3125f2927f982e12cc2020b130264b8de6090b19a2b9fe22fabc15a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L35",
+          "version": "repo-lines-v1:sha256:d75e54d60e44f957e182a2851454d49840a741d2d82e5b93b3a3d7486b67f004:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
         }
       ]
     },
@@ -159,11 +159,11 @@
       "statement": "The SQLite database file backing AuditEntry and Execution persistence is stored on a Docker volume (sqlite-data) bound to host path /mnt/ecs-data on the single EC2 container instance running the Trusted Actions ECS service (aws_ecs_service.app sets desired_count = 1, launch_type = \"EC2\"), so losing that instance or its host volume loses all persisted audit entries and execution records with no redundancy or backup configured in this Terraform.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L151-L163",
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L152-L164",
           "version": "repo-lines-v1:sha256:0ddb0baae034b88f63d78c1d1684f570a170ec5a083b3a80706f9a1a1200744d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5N2FlN2IxNDdmNDU4YjYyN2EzNTgzZmYxNDMxZDQzYmU0MDE2NDcyN2EwYjhhNGYyYjA2NDU5OTgwN2ExODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzOGQzMjk0MWM5YmE0NWMzZWJjZmYwYzkyNmQxZmQwMWFiYjliZDQ4MGNhYjc3Y2ZmY2ZhNGQ1MGU2MjQzMjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjViZWVkMmM3ZDgxYmUwMTMyMmI3ODBjMjUxMGUyZTMxMDNkZjI2MzUyNDRiMDk5ZDFhYTVhNWZmN2ExMjUyNTUifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L78-L145",
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L79-L146",
           "version": "repo-lines-v1:sha256:afbf481f280968d8c48a89a408d44277b98f10f05c90ce3fdd3c52d126415476:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJlNDEzODY2ZWRkZDVkMmNiMGE3NmY4NmJmMzkzYzViZjFjN2I3MDM0ZjBmNzY3ODY5ZTdlNjRlNGQ4NmEzMGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4N2JiZDBmOTNiY2Y1ZmE4ODAwYjFlYTkxMTJjZDIxNWQ1ZTk4YmYyY2VlZTBkMWEzMTlmNGM1ZTI5MzViMGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY3OGIyNjE2NmI5Mjg4ZmU3NDljMWIxZWRjZjUzM2VlMDA0YTExYmQxMmQ5NzFmYzljZDdmMzBiNjNlN2M4N2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY3YWU1NTIwMGIyYzk3YzQwM2MxZWIwNzFiNGVlYmFiMzM3OGM3NjAzZTlkNzcxYTQ1YTMyYzhlOWZlMjIzNDgifQ"
         }
       ]
@@ -185,8 +185,8 @@
           "version": "repo-lines-v1:sha256:100591fbf11aa894970309121b3787374294eef119eaacf306ad5149a82bf39c:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzhmYzcwNTZjYTIwN2E2ZGIyZWM4MDdjYzgyZDhlNGQ4NzY3ZWQ2NTczOWYxNzMwZjgxYTJjMWFkYzFmNTMyNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMThhNjQ4Y2RiMDIxZWZiMmEwM2FhNGU2MWI4NWQzNDRmYTVkMGIzY2ViMDVmYmY1ZmUyMDc0NzQzYTE1OTI0MyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDBiMTk1MzY5OWE1YzA2OWExZDYyYjliOWQ5YTdiY2NmYmEwYmE4YWFkOWE0OGQ1MzAyNzMyYmExODY5ZTY0NiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDk0NzQzZDNiMDMzZWNkODc1OTlmOGQwMTRhZDBhOGJjNTI1YmRhZTJjNTU0N2Y4ZTk1ZTI3OTQ1MGE0ZDc0MCJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34",
-          "version": "repo-lines-v1:sha256:38e94adcb3125f2927f982e12cc2020b130264b8de6090b19a2b9fe22fabc15a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L35",
+          "version": "repo-lines-v1:sha256:d75e54d60e44f957e182a2851454d49840a741d2d82e5b93b3a3d7486b67f004:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MjY3OTM1ZmM2MzM0NjVkODQ4YjQwYTRlZDY5NjdlN2I3YTMyM2Y4MWNkNTNjMTEwYWUyMTAyOTY4N2FhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5MzJiZTZiOWRmODIwMzM1NDAxZWMxZDVhNTcyZGNkZjM0ZjEwZjkyNTI0NDg0ZTBkZjUzNjRiZDIyYjBiYmYifQ"
         }
       ]
     },
@@ -195,7 +195,7 @@
       "statement": "The executor's audit.Logger is wired in cmd/server/main.go as audit.NewMockLogger(logger), the codebase's only production audit.Logger implementation, which keeps audit.Record values only in an in-process slice for tests and otherwise relies solely on its logrus line (tagged \"audit record\") reaching the CloudWatch-to-Firehose-to-S3 pipeline for durability; a comment in main.go documents that this per-action audit.Logger and the request-level AuditEntry store predate each other and were never unified into one persisted trail.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L205-L221",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L204-L220",
           "version": "repo-lines-v1:sha256:2cd46fee264c25046da7dcd5c5913f738b7a2020bf2fdd9fdeeaf55dc70d543b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3OTRlMjE0YTAyY2Q4NTY1NTgwNGQ5MTUwNWQ5ZGVjOTQzOWUyNmVjZGM0MmE2MjJjZDUwNDEyNzViZjkzZTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3YmM0ODBlZjQ1N2FjNDU5NGI3Y2NjY2UyYzllZGU5YzhhYjNkZmY1OWJjODVjMDg3ZjJhNTM4YjI3OGYzMWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI2MGMwY2Y5M2NjYTAwNTZlYThhMTQ2MGZlZDA4NWM5Nzg0M2RmMTUyYjcxOTgyNGExM2EyNGNiOTM1YTRhOTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM0MGY4MWNiMjVjMWY4ZTk0OWQyZjc5N2Q3MTI4ZTgzNGQzMDA0YzVmODIxMTQ3M2Q4ZmIyMmE2NWJmYWQ2ZjUifQ"
         },
         {
@@ -209,7 +209,7 @@
       "statement": "NewAuditLogger is mounted inside the authenticated /api/v0/trusted-actions chi route group between authnMiddleware.AuthenticateAccountJWT and authzMiddleware.AuthorizeAPI, so its deferred CreateAuditEntry write captures the final response status (including a 403 from AuthorizeAPI denying the call) and the username authentication already resolved, for every request that reaches that route group.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L374-L386",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L388-L400",
           "version": "repo-lines-v1:sha256:ee4aa30ed6e093f9ede9868761e66f51b51031fb055f8145fddb9d27f46b9020:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYTVhMWVkOTg1MzFkODc5Y2NhNzBjYjMyZWZlZDM3Yjg0ODk4Y2YwNzlhOTVlZDM1NmFjMzMwNjBkOWVkZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmODA5MmZmZjllOGM3YmUyZTE5OTg3ZGU1NDEyOTg1ODNkNTM4Mzc1MzM2ZjJkMWQyMzlmODZhYTQwYTM0YjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1OTczNTcyY2Y0ZjEwZWVjNjcxYTNmZDhjZTJiOGViN2RiODRmOTllZTllMmY5YWY2N2E4NjE0M2FmMWJhMmYifQ"
         },
         {
@@ -217,10 +217,32 @@
           "version": "repo-lines-v1:sha256:7493744722dc66b7def6498320674530840f558ecca67d744894d25fd9cacc18:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViYmIzMjlhM2I0MTExZWFmNGVkNzU0NzMzNWEzYjg3NWJjMjFkZGQ1Mzk5OTBhOWZlZGJmOGEwNzBlMTQ1ZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiYzg0NzUwMDMxMTE2YzA5Nzk2MWY0ZDEwNmU3YThjNjU3M2JhMmM0ZmQ2MDVjY2JkNTgxZDI2NGI0YmJlODAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
+    },
+    {
+      "id": "claim_427424d60a104b31a8c50588355a72c5",
+      "statement": "internal/middleware/logging.go's NewLogger is a general-purpose, global chi HTTP access-log middleware (registered via router.Use before the /api/v0/trusted-actions route group) that logs one \"Request completed\" line per request for every route including /health; because its log message is not \"audit record\", it is excluded from the CloudWatch subscription filter that feeds the Firehose/S3 audit pipeline even though it writes to the same /ecs/${var.app_name} log group, making it distinct from both the AuditEntry middleware and the audit.Record executor trail.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L364-L369",
+          "version": "repo-lines-v1:sha256:0c9565e0398d87a8bca82c0be4caf6f2d0236d1190af3bdb3d8aa6bdd50664b9:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODc3MDgwYjhjMGJkMWI5ZmU2MzJhMTM0OTFjM2UxNzNlOGVhYzQ5YTg5OWQ4Y2VmZTRkNGY4NWU4MmNhYzM4YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZmRjM2E4ZDgxM2QxM2YzYjU4ZGRlN2RiNDVjMDlkOWRhM2I4NDFkMGViODJlNzg2OTMyNWE2OTNhOWVlMjNjMiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDI3OTJlMzlmM2U2MTMyM2JlMzU2MmM2ZWRlYjJjNjEyNzYwOGI5ZTk1ZDY0MTU3M2JiNzgzOGU5ZTk3NjZmZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzJmMzQxZWI5ZWM2ZGJlNjU3YjAyMTE4OWI2ODY4ZTYzZjUxMGNiOGY5YzYzZTQ4MmM1OTY0NDEyZDBiMjU0YiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/middleware/logging.go",
+          "version": "repo-file-v1:sha256:e6a930007f384229c8a4920ee7ac48a98f5904e80f2a7af5824dfb6e804eeb00"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf#L8-L16",
+          "version": "repo-lines-v1:sha256:eccd450d870ec0b55541d8bfba1b03f2c50ff26745834c25bacfc025f29c4da1:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYzJiZDBjY2JjYzVkYWNkNDhlYzlkMjg3ZThkMTdmYjFkODI1OTJjOGVkMTU4YWU5YWI2MGI4MGVlYjZiODFjMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDA0MjIxOTE5M2MxZmE1ZGMwOTMyMzQxZGRjYTI3M2Y2NmY1MTMwODI0YTVjN2ViNjEwNjExYmVlNGM5NWI2OSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODA1YTBjN2FiYmUzMjhhZDA1Mjk0YWM2ZmIzNTZjNDRiZWI2ODQ1ZGJkN2JlNjUyZmFmNzQ1MzBmN2Y4Y2VjMiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/cloudwatch.tf",
+          "version": "repo-file-v1:sha256:15679afd7afaf36af26ea27b3e390be0b512ab24a2f3ceb475534a44a6c795ff"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "at": "2026-11-19T16:04:15.171Z"
   }
 }

@@ -1,8 +1,6 @@
 module github.com/openshift-online/rosa-boundary
 
-go 1.26.0
-
-toolchain go1.27.4
+go 1.27.4
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.48.0

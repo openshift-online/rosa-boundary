@@ -82,6 +82,13 @@ def validate_identifier(value: str, name: str) -> None:
         raise ValueError(f"{name} contains path traversal characters: {value}")
 
 
+def work_seconds(context: Any) -> float:
+    """Time for new work, excluding the 30-second cleanup reserve."""
+    if context is None:
+        return 300.0
+    return max(0, context.get_remaining_time_in_millis() - 30000) / 1000
+
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Main Lambda handler for reaping stale investigations.
@@ -109,6 +116,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     errors = 0
     now = datetime.now(timezone.utc)
 
+    if not work_seconds(context):
+        logger.warning("Insufficient time for investigation discovery")
+        return {'checked': 0, 'reaped': 0, 'skipped': 0, 'errors': 0}
+
     try:
         # List all access points with investigation tags
         access_points = list_investigation_access_points()
@@ -122,18 +133,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         all_task_def_arns = list_all_task_definitions() if TASK_DEFINITION_FAMILY else []
         logger.info("Found %d active task definition(s)", len(all_task_def_arns))
 
-        # Calculate reaping deadline: reserve 30s for final cleanup
-        import time
-        if context:
-            remaining_ms = context.get_remaining_time_in_millis()
-            deadline = time.time() + max(10, (remaining_ms / 1000) - 30)
-        else:
-            # Test environment without context - use a large deadline
-            deadline = time.time() + 3600  # 1 hour
-
         for ap in access_points:
             # Check deadline before processing each investigation
-            if time.time() >= deadline:
+            if not work_seconds(context):
                 logger.warning("Reaping deadline reached - stopping investigation processing")
                 break
 
@@ -142,6 +144,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             tags = {tag['Key']: tag['Value'] for tag in ap.get('Tags', [])}
             cluster_id = tags.get('ClusterID', '')
             investigation_id = tags.get('InvestigationID', '')
+
+            if 'AuditCloseSeal' in tags:
+                logger.info("Skipping sealed access point %s", ap_id)
+                skipped += 1
+                continue
 
             # Verify ManagedBy tag before cleanup (defense-in-depth)
             # IAM policy restricts DeleteAccessPoint, but directory deletion happens through EFS mount
@@ -461,6 +468,21 @@ def list_investigation_access_points() -> List[Dict[str, Any]]:
     return access_points
 
 
+def still_unsealed(access_point_id: str, cluster_id: str, investigation_id: str) -> bool:
+    """Require one unsealed AP on this path; a duplicate may hold the seal."""
+    path = f'/{cluster_id}/{investigation_id}'
+    points = [point for point in list_investigation_access_points()
+              if point.get('RootDirectory', {}).get('Path') == path]
+    return (len(points) == 1 and points[0]['AccessPointId'] == access_point_id
+            and 'Tags' in points[0]
+            and not any(t['Key'] == 'AuditCloseSeal' for t in points[0]['Tags']))
+
+
+def cleanup_allowed(access_point_id: str, cluster_id: str, investigation_id: str, context: Any) -> bool:
+    """Refresh the seal, then check the time left after the EFS lookup."""
+    return still_unsealed(access_point_id, cluster_id, investigation_id) and work_seconds(context) > 0
+
+
 def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str, context: Any, task_def_arns: List[str]) -> bool:
     """
     Reap a stale investigation by deleting directory, access point, and task definitions.
@@ -478,35 +500,20 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
     Returns:
         True if all steps succeeded, False if any step failed
     """
-    all_success = True
-    dir_deleted = False
+    if not work_seconds(context):
+        return False
 
-    # Step 1: Delete EFS directory
     try:
-        dir_deleted = delete_investigation_directory(cluster_id, investigation_id, context)
-        if not dir_deleted:
-            logger.error("Failed to delete directory for %s/%s", cluster_id, investigation_id)
-            all_success = False
-    except (OSError, ValueError) as e:
-        logger.error("Error deleting directory for %s/%s: %s",
-                    cluster_id, investigation_id, e, exc_info=True)
-        all_success = False
+        if not delete_investigation_directory(cluster_id, investigation_id, context, access_point_id):
+            return False
+        if not cleanup_allowed(access_point_id, cluster_id, investigation_id, context):
+            return False
+        all_success = delete_access_point(access_point_id)
+    except (ClientError, BotoCoreError, OSError, ValueError) as e:
+        logger.error("Cleanup deferred for %s: %s", access_point_id, e, exc_info=True)
+        return False
 
-    # Step 2: Delete access point (only if directory deletion succeeded)
-    if dir_deleted:
-        try:
-            ap_deleted = delete_access_point(access_point_id)
-            if not ap_deleted:
-                logger.error("Failed to delete access point %s", access_point_id)
-                all_success = False
-        except (ClientError, BotoCoreError) as e:
-            logger.error("Error deleting access point %s: %s",
-                        access_point_id, e, exc_info=True)
-            all_success = False
-    else:
-        logger.warning("Skipping access point deletion for %s - directory deletion failed", access_point_id)
-
-    # Step 3: Delete task definitions (even if previous steps failed)
+    # Deregister task definitions after workspace cleanup
     try:
         deregistered = delete_task_definitions(cluster_id, investigation_id, task_def_arns)
         logger.info("Deregistered %d task definition(s) for %s/%s",
@@ -535,7 +542,7 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
         context: Lambda context object for timeout calculation
 
     Returns:
-        True if upload succeeded or S3_AUDIT_BUCKET not configured, False if upload failed
+        True only if the complete eligible tree was uploaded within budget
 
     Raises:
         ValueError: If configuration is invalid
@@ -545,19 +552,10 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
                     cluster_id, investigation_id)
         return False  # Missing S3 configuration prevents deletion
 
-    if not os.path.exists(directory_path):
-        logger.info("Directory %s does not exist - nothing to backup", directory_path)
-        return True
-
-    # Calculate deadline: reserve 30s for error handling/cleanup after backup
-    import time
-    if context:
-        remaining_ms = context.get_remaining_time_in_millis()
-        upload_timeout = max(10, (remaining_ms / 1000) - 30)  # Minimum 10s, reserve 30s buffer
-    else:
-        # Test environment without context - use a large timeout
-        upload_timeout = 300  # 5 minutes
-    deadline = time.time() + upload_timeout
+    upload_timeout = work_seconds(context)
+    if not upload_timeout:
+        logger.warning("Insufficient time for backup; retaining workspace")
+        return False
 
     # S3 prefix for uploaded files
     s3_prefix = f"{cluster_id}/{investigation_id}/reaper-final-backup/"
@@ -571,7 +569,7 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
             's3',
             config=BotocoreConfig(
                 connect_timeout=5,
-                read_timeout=int(upload_timeout),
+                read_timeout=min(10, upload_timeout),
                 retries={'max_attempts': 3, 'mode': 'standard'}
             )
         )
@@ -579,16 +577,25 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
         file_count = 0
         bytes_uploaded = 0
 
+        def fail_walk(error):
+            raise error  # os.walk silently skips unreadable subtrees by default
+
         # Walk directory tree (followlinks=False prevents symlink exfiltration)
-        for root, dirs, files in os.walk(directory_path, followlinks=False):
+        for root, dirs, files in os.walk(directory_path, onerror=fail_walk, followlinks=False):
             # Check deadline before processing each directory
-            if time.time() >= deadline:
+            if not work_seconds(context):
                 logger.error("Upload deadline reached for %s/%s - directory retained",
                             cluster_id, investigation_id)
                 return False
 
             # Calculate relative path from investigation directory
             rel_root = os.path.relpath(root, directory_path)
+
+            # Prune excluded trees before scandir: they need not be readable.
+            if rel_root == '.' and '.kube' in dirs:
+                dirs.remove('.kube')
+            if rel_root == '.config' and 'ocm' in dirs:
+                dirs.remove('ocm')
 
             # Skip excluded directories (.config/ocm/*, .kube/*)
             if rel_root != '.':
@@ -605,7 +612,7 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
             # Upload each file in this directory
             for filename in files:
                 # Check deadline before each file upload
-                if time.time() >= deadline:
+                if not work_seconds(context):
                     logger.error("Upload deadline reached for %s/%s - directory retained",
                                 cluster_id, investigation_id)
                     return False
@@ -634,6 +641,10 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
                 file_count += 1
                 bytes_uploaded += file_stat.st_size
 
+        if not work_seconds(context):
+            logger.warning("Backup exhausted its budget; retaining workspace")
+            return False
+
         logger.info("Successfully backed up %d file(s) (%d bytes) to S3 for %s/%s",
                    file_count, bytes_uploaded, cluster_id, investigation_id)
         return True
@@ -659,7 +670,7 @@ def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory
         return False
 
 
-def delete_investigation_directory(cluster_id: str, investigation_id: str, context: Any) -> bool:
+def delete_investigation_directory(cluster_id: str, investigation_id: str, context: Any, access_point_id: str) -> bool:
     """
     Delete investigation directory from mounted EFS filesystem.
 
@@ -682,7 +693,9 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str, conte
     real_path = os.path.realpath(directory_path)
 
     # Verify path is within EFS mount (prevents traversal)
-    if not real_path.startswith(os.path.realpath(EFS_MOUNT_PATH) + os.sep):
+    validate_identifier(cluster_id, 'ClusterID')
+    validate_identifier(investigation_id, 'InvestigationID')
+    if real_path != os.path.join(os.path.realpath(EFS_MOUNT_PATH), cluster_id, investigation_id):
         raise ValueError(f"Path traversal detected: {directory_path} resolves to {real_path}")
 
     # Verify mount exists
@@ -690,7 +703,11 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str, conte
         logger.error("EFS not mounted at %s", EFS_MOUNT_PATH)
         return False
 
-    if not os.path.exists(directory_path):
+    try:
+        if not stat.S_ISDIR(os.lstat(directory_path).st_mode):
+            logger.error("Workspace is not a directory; refusing cleanup")
+            return False
+    except FileNotFoundError:
         logger.info("Directory %s does not exist (already deleted or never created)",
                    directory_path)
         return True
@@ -700,6 +717,10 @@ def delete_investigation_directory(cluster_id: str, investigation_id: str, conte
     if not backup_success:
         logger.error("S3 backup failed for %s/%s - refusing to delete directory",
                     cluster_id, investigation_id)
+        return False
+
+    if not cleanup_allowed(access_point_id, cluster_id, investigation_id, context):
+        logger.warning("Workspace cleanup deferred for %s", access_point_id)
         return False
 
     logger.info("Deleting directory: %s", directory_path)

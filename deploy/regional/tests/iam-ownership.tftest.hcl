@@ -148,7 +148,8 @@ run "legacy_policy_names_ownership_and_original_scopes" {
       Version = "2012-10-17"
       Statement = [
         { Effect = "Allow", Action = ["s3:PutObject"], Resource = "${aws_s3_bucket.audit.arn}/*" },
-        { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.audit.arn }
+        { Effect = "Allow", Action = ["s3:ListBucket"], Resource = aws_s3_bucket.audit.arn },
+        { Effect = "Deny", Action = ["s3:PutObject"], Resource = ["${aws_s3_bucket.audit.arn}/_boundary-close/*", "${aws_s3_bucket.audit.arn}/*/*/reaper-final-backup/*"] }
       ]
       } && (
       jsondecode(aws_iam_role_policy.s3_replication[0].policy).Statement[0].Resource == aws_s3_bucket.audit.arn &&
@@ -197,7 +198,9 @@ run "legacy_policy_names_ownership_and_original_scopes" {
       jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[2].Resource == "arn:aws:ecs:us-east-1:123456789012:task/${aws_ecs_cluster.main.name}/*" &&
       jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[4].Resource == aws_efs_file_system.sre_home.arn &&
       jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[5].Resource == "arn:aws:elasticfilesystem:us-east-1:123456789012:access-point/*" &&
-      jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[5].Condition.StringEquals["aws:ResourceTag/ManagedBy"] == "rosa-boundary-lambda"
+      jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[5].Condition.StringEquals["aws:ResourceTag/ManagedBy"] == "rosa-boundary-lambda" &&
+      jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[5].Condition.StringEquals["aws:ResourceTag/AuditCloseVerified"] == "$${aws:ResourceTag/AuditCloseSeal}" &&
+      jsondecode(aws_iam_role_policy.sre_shared_ecs_exec.policy).Statement[9].Resource == "${aws_s3_bucket.audit.arn}/_boundary-close/fsap-*/*.json"
     )
     error_message = "Retain ABAC enforcement and region/account-scoped managed EFS cleanup."
   }

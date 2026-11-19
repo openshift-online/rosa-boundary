@@ -315,16 +315,29 @@ func (c *ECSClient) ListTaskDefinitionsByFamily(ctx context.Context, familyPrefi
 	return arns, nil
 }
 
-// TaskDefinitionAccessPoint returns the EFS access point mounted as the
+// ActiveTaskDefinitionAccessPoint returns an empty string for an inactive revision,
+// or for an active revision without an EFS access point mounted as the
 // investigation home. Family names alone cannot uniquely encode a cluster and
 // investigation pair when their IDs contain dashes; close verifies the mount.
-func (c *ECSClient) TaskDefinitionAccessPoint(ctx context.Context, arn string) (string, error) {
+func (c *ECSClient) ActiveTaskDefinitionAccessPoint(ctx context.Context, arn string) (string, error) {
 	out, err := c.client.DescribeTaskDefinition(ctx, &ecs.DescribeTaskDefinitionInput{TaskDefinition: aws.String(arn)})
 	if err != nil {
 		return "", fmt.Errorf("DescribeTaskDefinition failed for %s: %w", arn, err)
 	}
 	if out.TaskDefinition == nil {
 		return "", fmt.Errorf("DescribeTaskDefinition returned no definition for %s", arn)
+	}
+	if aws.ToString(out.TaskDefinition.TaskDefinitionArn) != arn {
+		return "", fmt.Errorf("DescribeTaskDefinition returned a different or missing ARN for %s", arn)
+	}
+	// The ACTIVE list can still contain a just-deregistered revision.
+	switch out.TaskDefinition.Status {
+	case types.TaskDefinitionStatusInactive:
+		return "", nil
+	case types.TaskDefinitionStatusActive:
+		// Verify the mount below.
+	default:
+		return "", fmt.Errorf("DescribeTaskDefinition returned unexpected status %q for %s", out.TaskDefinition.Status, arn)
 	}
 	for _, volume := range out.TaskDefinition.Volumes {
 		if aws.ToString(volume.Name) == "sre-home" && volume.EfsVolumeConfiguration != nil && volume.EfsVolumeConfiguration.AuthorizationConfig != nil {
@@ -349,6 +362,16 @@ func (c *ECSClient) DeregisterTaskDefinition(ctx context.Context, taskDefinition
 // including ones whose desired status is already STOPPED during audit sync.
 // Both tags must match; startedBy can fill in only missing, not conflicting tags.
 func (c *ECSClient) ListTasksByInvestigation(ctx context.Context, clusterID, investigationID string) ([]TaskSummary, error) {
+	return c.listInvestigationTasks(ctx, clusterID, investigationID, false)
+}
+
+// ListVisibleInvestigationTasks includes recently stopped tasks for diagnostics.
+// ECS does not retain complete launch history; even an empty result proves nothing about escrow.
+func (c *ECSClient) ListVisibleInvestigationTasks(ctx context.Context, clusterID, investigationID string) ([]TaskSummary, error) {
+	return c.listInvestigationTasks(ctx, clusterID, investigationID, true)
+}
+
+func (c *ECSClient) listInvestigationTasks(ctx context.Context, clusterID, investigationID string, includeStopped bool) ([]TaskSummary, error) {
 	var filtered []TaskSummary
 	seen := make(map[string]bool)
 	startedBy := investigationStartedBy(clusterID, investigationID)
@@ -380,7 +403,7 @@ func (c *ECSClient) ListTasksByInvestigation(ctx context.Context, clusterID, inv
 						}
 					}
 					matchesTags := t.Tags["investigation_id"] == investigationID && t.Tags["cluster_id"] == clusterID
-					if t.Status != "STOPPED" && (matchesTags || aws.ToString(raw.StartedBy) == startedBy) && !seen[t.TaskARN] {
+					if (includeStopped || t.Status != "STOPPED") && (matchesTags || aws.ToString(raw.StartedBy) == startedBy) && !seen[t.TaskARN] {
 						filtered = append(filtered, *t)
 						seen[t.TaskARN] = true
 					}
@@ -408,7 +431,7 @@ func (c *ECSClient) ListTasksByInvestigation(ctx context.Context, clusterID, inv
 			if err := checkStartedByTaskTags(*task, clusterID, investigationID); err != nil {
 				return nil, err
 			}
-			if task.Status != "STOPPED" {
+			if includeStopped || task.Status != "STOPPED" {
 				filtered = append(filtered, *task)
 			}
 			seen[arn] = true

@@ -66,6 +66,7 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_efs" {
             # It prevents the reaper role from deleting unrelated access points.
             "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda"
           }
+          Null = { "aws:ResourceTag/AuditCloseSeal" = "true" }
         }
       },
       {

@@ -6,6 +6,8 @@ Tests the periodic garbage collection using mocked boto3 clients.
 
 import os
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch, call
 
@@ -34,6 +36,8 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_efs = MagicMock()
         self.mock_shutil = MagicMock()
         self.mock_os_path = MagicMock()
+        self.mock_os_path.join.side_effect = os.path.join
+        self.mock_os_path.realpath.side_effect = lambda path: path
         self.mock_context = MagicMock()
         self.mock_context.get_remaining_time_in_millis.return_value = 300000  # 5 minutes
 
@@ -52,6 +56,9 @@ class TestReaperLambda(unittest.TestCase):
         self.efs_patcher.start()
         self.shutil_patcher.start()
         self.os_path_patcher.start()
+        self.enterContext(patch('handler.still_unsealed', return_value=True))
+        self.lstat = self.enterContext(patch('handler.os.lstat'))
+        self.lstat.return_value.st_mode = 0o40755
 
     def tearDown(self):
         """Clean up patches"""
@@ -59,6 +66,24 @@ class TestReaperLambda(unittest.TestCase):
         self.efs_patcher.stop()
         self.shutil_patcher.stop()
         self.os_path_patcher.stop()
+
+    def test_invocation_inside_reserve_does_not_start_discovery(self):
+        self.mock_context.get_remaining_time_in_millis.return_value = 29999
+        result = handler.lambda_handler({}, self.mock_context)
+        self.assertEqual(result['checked'], 0)
+        self.mock_efs.describe_access_points.assert_not_called()
+
+    def test_sealed_access_point_skipped(self):
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [{
+            'AccessPointId': 'ap', 'RootDirectory': {'Path': '/cluster/inv'},
+            'Tags': [{'Key': k, 'Value': v} for k, v in {
+                'ClusterID': 'cluster', 'InvestigationID': 'inv', 'AuditCloseSeal': '',
+                'ManagedBy': 'rosa-boundary-lambda'}.items()]}]}
+        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+        with patch('handler.reap_investigation') as reap:
+            result = handler.lambda_handler({}, self.mock_context)
+        self.assertEqual(result['skipped'], 1)
+        reap.assert_not_called()
 
     def test_no_access_points(self):
         """Test reaper with no investigation access points"""
@@ -373,12 +398,14 @@ class TestReaperLambda(unittest.TestCase):
         # Mock task definitions
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
-        result = handler.lambda_handler({}, None)
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.lambda_handler({}, None)
 
         assert result['checked'] == 1
         assert result['reaped'] == 0
         assert result['skipped'] == 0
         assert result['errors'] == 1
+        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-123')
 
         # Verify access point deletion was NOT called when directory deletion fails
         # This prevents orphaned directories (once AP is deleted, we lose the tags)
@@ -422,9 +449,12 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
 
         # Set TASK_DEFINITION_FAMILY so task definitions are fetched
-        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
+        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'), \
+             patch('handler.backup_investigation_to_s3', return_value=True):
             result = handler.lambda_handler({}, None)
 
+        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-123')
+        self.mock_efs.delete_access_point.assert_called_once_with(AccessPointId='fsap-123456')
         assert result['checked'] == 1
         assert result['reaped'] == 0
         assert result['skipped'] == 0
@@ -590,7 +620,7 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_os_path.exists.return_value = True
 
         with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.delete_investigation_directory('test-cluster', 'inv-large', self.mock_context)
+            result = handler.delete_investigation_directory('test-cluster', 'inv-large', self.mock_context, 'ap')
 
         assert result is True
 
@@ -601,16 +631,18 @@ class TestReaperLambda(unittest.TestCase):
         # shutil.rmtree raises OSError on failure
         self.mock_shutil.rmtree.side_effect = OSError("Permission denied")
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-fail', self.mock_context)
+        with patch('handler.backup_investigation_to_s3', return_value=True):
+            result = handler.delete_investigation_directory('test-cluster', 'inv-fail', self.mock_context, 'ap')
 
+        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-fail')
         assert result is False
 
     def test_directory_deletion_nonexistent_directory(self):
         """Test that nonexistent directories are handled gracefully"""
         self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = False  # Directory doesn't exist
+        self.lstat.side_effect = FileNotFoundError
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-missing', self.mock_context)
+        result = handler.delete_investigation_directory('test-cluster', 'inv-missing', self.mock_context, 'ap')
 
         # Should return True (directory already deleted)
         assert result is True
@@ -621,7 +653,7 @@ class TestReaperLambda(unittest.TestCase):
         """Test error when EFS is not mounted"""
         self.mock_os_path.ismount.return_value = False  # EFS not mounted
 
-        result = handler.delete_investigation_directory('test-cluster', 'inv-unmounted', self.mock_context)
+        result = handler.delete_investigation_directory('test-cluster', 'inv-unmounted', self.mock_context, 'ap')
 
         assert result is False
         self.mock_shutil.rmtree.assert_not_called()
@@ -1220,7 +1252,7 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_os_path.ismount.return_value = True
         self.mock_os_path.exists.return_value = True
 
-        result = handler.delete_investigation_directory('cluster-1', 'inv-1', self.mock_context)
+        result = handler.delete_investigation_directory('cluster-1', 'inv-1', self.mock_context, 'ap')
 
         assert result is False
         self.mock_shutil.rmtree.assert_not_called()
@@ -1233,6 +1265,120 @@ class TestReaperLambda(unittest.TestCase):
         assert count == 0
         # Should not call deregister since TASK_DEFINITION_FAMILY is not configured
         self.mock_ecs.deregister_task_definition.assert_not_called()
+
+
+class TestRecovery(unittest.TestCase):
+    def setUp(self):
+        temp = TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        mount = Path(temp.name)
+        self.workspace = mount / 'cluster' / 'inv'
+        self.files = {'note': b'original', 'nested/empty': b'', 'nested/data': b'\x00\xff'}
+        for name, data in {**self.files, '.kube/config': b'excluded'}.items():
+            path = self.workspace / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        (self.workspace / 'link').symlink_to(self.workspace / '.kube/config')
+        self.enterContext(patch.object(handler, 'EFS_MOUNT_PATH', str(mount)))
+        self.enterContext(patch.object(handler.os.path, 'ismount', return_value=True))
+        self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit'))
+        self.s3 = self.enterContext(patch('handler.boto3.client')).return_value
+        self.efs = self.enterContext(patch.object(handler, 'efs'))
+        self.efs.describe_access_points.return_value = {'AccessPoints': [
+            {'AccessPointId': 'ap', 'Tags': [], 'RootDirectory': {'Path': '/cluster/inv'}}]}
+        self.context = MagicMock()
+        self.context.get_remaining_time_in_millis.return_value = 120000
+
+    def reap(self):
+        return handler.reap_investigation('cluster', 'inv', 'ap', self.context, [])
+
+    def assert_retained(self):
+        self.efs.delete_access_point.assert_not_called()
+        self.efs.tag_resource.assert_not_called()
+        self.efs.untag_resource.assert_not_called()
+        for name, data in self.files.items():
+            self.assertEqual((self.workspace / name).read_bytes(), data)
+
+    def test_partial_then_full_retry(self):
+        objects = {}
+        fail_second = True
+
+        def upload(path, bucket, key):
+            if fail_second and len(objects) == 1:
+                raise OSError('injected failure')
+            objects[(bucket, key)] = Path(path).read_bytes()
+
+        self.s3.upload_file.side_effect = upload
+        self.assertFalse(self.reap())
+        self.assertEqual(len(objects), 1)
+        self.assert_retained()
+
+        fail_second = False
+        self.s3.upload_file.reset_mock()
+        self.efs.delete_access_point.side_effect = lambda **kw: self.assertFalse(self.workspace.exists())
+        self.assertTrue(self.reap())
+        self.efs.delete_access_point.assert_called_once_with(AccessPointId='ap')
+        expected = {('audit', 'cluster/inv/reaper-final-backup/' + k): v for k, v in self.files.items()}
+        self.assertEqual(objects, expected)
+        self.assertCountEqual([args.args[1:] for args in self.s3.upload_file.call_args_list], expected.keys())
+
+    def test_seal_added_during_backup_blocks_deletion(self):
+        self.efs.describe_access_points.return_value['AccessPoints'][0]['Tags'] = [
+            {'Key': 'AuditCloseSeal', 'Value': ''}]
+        self.assertFalse(self.reap())
+        self.assert_retained()
+        self.efs.describe_access_points.assert_called_once_with(FileSystemId=handler.EFS_FILESYSTEM_ID)
+
+    def test_duplicate_access_point_blocks_removal_of_shared_path(self):
+        points = self.efs.describe_access_points.return_value['AccessPoints']
+        points.append(dict(points[0], AccessPointId='another-ap'))
+        self.assertFalse(self.reap())
+        self.assert_retained()
+
+    def test_seal_after_directory_removal_retains_access_point(self):
+        point, = self.efs.describe_access_points.return_value['AccessPoints']
+        self.efs.describe_access_points.side_effect = [
+            {'AccessPoints': [point]},
+            {'AccessPoints': [dict(point, Tags=[{'Key': 'AuditCloseSeal', 'Value': 'hold'}])]},
+        ]
+        self.assertFalse(self.reap())
+        self.assertFalse(self.workspace.exists())
+        self.efs.delete_access_point.assert_not_called()
+
+    def test_exhausted_before_backup(self):
+        self.context.get_remaining_time_in_millis.return_value = 500
+        self.assertFalse(self.reap())
+        self.s3.upload_file.assert_not_called()
+        self.assert_retained()
+
+    def test_exhausted_during_last_upload(self):
+        def upload(*args):
+            if self.s3.upload_file.call_count == len(self.files):
+                self.context.get_remaining_time_in_millis.return_value = 500
+        self.s3.upload_file.side_effect = upload
+        self.assertFalse(self.reap())
+        self.assert_retained()
+
+    def test_symlinked_cluster_within_mount_cannot_redirect_cleanup(self):
+        cluster = self.workspace.parent
+        other = cluster.with_name('other')
+        cluster.rename(other)
+        cluster.symlink_to(other, target_is_directory=True)
+        self.assertFalse(self.reap())
+        self.s3.upload_file.assert_not_called()
+        self.assert_retained()
+
+    def test_unreadable_subdirectory(self):
+        scandir = os.scandir
+
+        def inaccessible(path):
+            if path == str(self.workspace / 'nested'):
+                raise PermissionError('injected failure')
+            return scandir(path)
+
+        with patch('os.scandir', side_effect=inaccessible):
+            self.assertFalse(self.reap())
+        self.assert_retained()
 
 
 if __name__ == '__main__':

@@ -3,6 +3,33 @@
 setup() {
     REPO_ROOT="$(cd "${BATS_TEST_DIRNAME}/../.." && pwd)"
     ENTRYPOINT="${REPO_ROOT}/entrypoint.sh"
+    export TRACE="$BATS_TEST_TMPDIR/trace" REPORT="$BATS_TEST_TMPDIR/report" READY="$BATS_TEST_TMPDIR/ready"
+    export FIXTURE="$BATS_TEST_TMPDIR/fixture"
+    export TASK=0123456789abcdef0123456789abcdef INVESTIGATION_ID=inv-test
+    export S3_AUDIT_ESCROW=s3://audit/prefix/ ECS_CONTAINER_METADATA_URI_V4=http://metadata.invalid
+    export PATH="$BATS_TEST_TMPDIR:$PATH"
+    export KUBE_PROXY_PORT='' CLAUDE_CODE_USE_BEDROCK=0 TASK_TIMEOUT=0
+    cat >"$BATS_TEST_TMPDIR/curl" <<'STUB'
+#!/bin/bash
+printf '{"TaskARN":"arn:aws:ecs:us-east-1:123456789012:task/cluster/%s"}\n' "$TASK"
+STUB
+    cat >"$BATS_TEST_TMPDIR/aws" <<'STUB'
+#!/bin/bash
+echo "$*" >>"$TRACE"
+case "$2" in
+    sync)
+        if [[ -e $FIXTURE ]]; then cp "$FIXTURE" "$FIXTURE.uploaded"; fi
+        if [[ -n ${SIGNAL_PARENT:-} && ! -e $READY ]]; then
+            touch "$READY"
+            kill -TERM "$SIGNAL_PARENT" || exit 98
+        fi
+        if [[ -n ${STALL:-} ]]; then exec sleep 30; fi
+        exit "${TRANSFER_RC:-0}" ;;
+    cp) cat >"$REPORT"; exit "${REPORT_RC:-0}" ;;
+    *) exit 99 ;;
+esac
+STUB
+    chmod +x "$BATS_TEST_TMPDIR/"{curl,aws}
 }
 
 @test "skill reconciler runs as sre with explicit home and can be disabled" {
@@ -20,36 +47,16 @@ setup() {
     [ "${output}" = "runuser:--user sre -- env HOME=/home/sre bash ${ENTRYPOINT}" ]
 }
 
-@test "skill helper is stopped and reaped before signal audit sync" {
+@test "nonzero workload exit still reports transfer and preserves workload status" {
     run bash -c '
-        source "$1"
-        SKILL_RECONCILER_PID=12345
-        CHILD_PID=""
-        exec 3>&1
-        kill() { printf "kill:%s\n" "$*" >&3; }
-        wait() { printf "wait:%s\n" "$*" >&3; }
-        sync_to_s3() { printf "audit-sync\n"; }
-        cleanup
-    ' bash "${ENTRYPOINT}"
-
-    [ "${status}" -eq 0 ]
-    [ "${output}" = $'kill:-TERM 12345\nwait:12345\naudit-sync' ]
-}
-
-@test "normal workload failure still stops skill helper through EXIT trap" {
-    run env KUBE_PROXY_PORT="" CLAUDE_CODE_USE_BEDROCK=0 TASK_TIMEOUT=0 \
-        S3_AUDIT_ESCROW="s3://audit/" bash -c '
         source "$1"
         verify_credential_mounts() { :; }
         initialize_credential_mounts() { :; }
-        start_skill_reconciler() { :; }
-        stop_skill_reconciler() { printf "stop-helper\n"; }
         runuser() { return 7; }
         main false
     ' bash "${ENTRYPOINT}"
-
     [ "${status}" -eq 7 ]
-    [ "${output}" = "stop-helper" ]
+    jq -e '.status == "unverified" and .transfer_rc == 0' "$REPORT"
 }
 
 @test "agent defaults run as sre with explicit HOME and support opt out" {
@@ -142,12 +149,11 @@ setup() {
             verify_credential_mounts() { printf "verify\\n"; }
             initialize_credential_mounts() { printf "initialize\\n"; }
             runuser() { :; }
-            sync_to_s3() { :; }
             main true
         ' bash "${ENTRYPOINT}"
 
     [ "${status}" -eq 0 ]
-    [ "${output}" = $'verify\ninitialize' ]
+    [[ "${output}" == $'verify\ninitialize\n'* ]]
 }
 
 @test "credential mounts are initialized with sre ownership and mode 0700" {
@@ -169,119 +175,177 @@ setup() {
     [ "${#lines[@]}" -eq 6 ]
 }
 
-@test "configured audit sync excludes both credential subtrees" {
-    run env \
-        S3_AUDIT_ESCROW="s3://audit-bucket/investigation/" \
-        SYNC_TIMEOUT="123" \
-        bash -c '
-            timeout() { printf "arg:%s\n" "$@"; }
-            source "$1"
-            sync_to_s3
-        ' bash "${ENTRYPOINT}"
-
-    [ "${status}" -eq 0 ]
-    [[ "${output}" == *"arg:123"* ]]
-    [[ "${output}" == *"arg:aws"* ]]
-    [[ "${output}" == *"arg:s3"* ]]
-    [[ "${output}" == *"arg:sync"* ]]
-    [[ "${output}" == *"arg:/home/sre"* ]]
-    [[ "${output}" == *"arg:s3://audit-bucket/investigation/"* ]]
-    [ "$(grep --count --fixed-strings 'arg:--exclude' <<<"${output}")" -eq 2 ]
-    [[ "${output}" == *$'arg:.config/ocm/*'* ]]
-    [[ "${output}" == *$'arg:.kube/*'* ]]
-    [[ "${output}" == *"arg:--no-follow-symlinks"* ]]
-    [[ "${output}" == *"arg:--quiet"* ]]
-    [[ "${output}" != *"/home/sre/.config/ocm"* ]]
-    [[ "${output}" != *"/home/sre/.kube"* ]]
-}
-
-@test "auto-generated audit sync uses the same credential exclusions" {
-    run env \
-        S3_AUDIT_ESCROW="" \
-        S3_AUDIT_BUCKET="audit-bucket" \
-        CLUSTER_ID="cluster-1" \
-        INVESTIGATION_ID="investigation-1" \
-        ECS_CONTAINER_METADATA_URI_V4="" \
-        bash -c '
-            date() { printf "20260911\n"; }
-            timeout() { printf "arg:%s\n" "$@"; }
-            source "$1"
-            sync_to_s3
-        ' bash "${ENTRYPOINT}"
-
-    [ "${status}" -eq 0 ]
-    [[ "${output}" == *"arg:s3://audit-bucket/cluster-1/investigation-1/20260911//"* ]]
-    [ "$(grep --count --fixed-strings 'arg:--exclude' <<<"${output}")" -eq 2 ]
-    [[ "${output}" == *$'arg:.config/ocm/*'* ]]
-    [[ "${output}" == *$'arg:.kube/*'* ]]
-    [[ "${output}" == *"arg:--no-follow-symlinks"* ]]
-}
-
-@test "credential exclusion patterns cover nested files without excluding audit controls" {
-    run env S3_AUDIT_ESCROW="s3://audit-bucket/investigation/" bash -c '
-        timeout() { printf "%s\n" "$@"; }
-        source "$1"
-
-        mapfile -t sync_output < <(sync_to_s3)
-        patterns=()
-        for ((index = 0; index < ${#sync_output[@]}; index++)); do
-            if [[ "${sync_output[index]}" == "--exclude" ]]; then
-                patterns+=("${sync_output[index + 1]}")
+@test "explicit and generated destinations use fresh attempts, exclusions and correlated reports" {
+    for mode in explicit generated; do
+        if [[ $mode == generated ]]; then
+            unset S3_AUDIT_ESCROW
+            export S3_AUDIT_BUCKET=audit CLUSTER_ID=cluster-test
+        fi
+        previous=""
+        for retry in 1 2; do
+            : >"$TRACE"
+            run bash -c 'source "$1"; sync_to_s3' bash "$ENTRYPOINT"
+            [ "$status" -eq 0 ]
+            uri=$(jq -er '.workspace_uri' "$REPORT")
+            attempt=$(jq -er '.attempt_id' "$REPORT")
+            [ "$previous" != "$attempt" ]
+            previous="$attempt"
+            if [[ $mode == explicit ]]; then
+                [ "$uri" = "s3://audit/prefix/attempts/$attempt/workspace/" ]
+            else
+                [[ $uri == s3://audit/cluster-test/inv-test/????????/"$TASK/attempts/$attempt/workspace/" ]]
             fi
+            jq -e --arg t "$TASK" '.schema_version == 1 and .status == "unverified" and .task_id == $t and .investigation_id == "inv-test" and .transfer_rc == 0' "$REPORT"
+            [ "$(head -1 "$TRACE")" = "s3 sync /home/sre $uri --exclude .config/ocm/* --exclude .kube/* --no-follow-symlinks --quiet" ]
+            [ "$(tail -1 "$TRACE")" = "s3 cp - ${uri%workspace/}report.json --content-type application/json --quiet" ]
+            [ "$(wc -l <"$TRACE")" -eq 2 ]
         done
-        [[ "${#patterns[@]}" -eq 2 ]]
-
-        excluded() {
-            local relative_path="$1"
-            local pattern
-
-            for pattern in "${patterns[@]}"; do
-                if [[ "${relative_path}" == ${pattern} ]]; then
-                    return 0
-                fi
-            done
-            return 1
-        }
-
-        excluded ".config/ocm/ocm.json"
-        excluded ".config/ocm/.ocm.json.upload-token-canary.tmp"
-        excluded ".config/ocm/cache/nested/state.json"
-        excluded ".kube/config"
-        excluded ".kube/cache/discovery/response.json"
-        ! excluded "control.txt"
-        ! excluded ".config/rosa-boundary/config.yaml"
-        ! excluded ".config/ocm-control.txt"
-        ! excluded ".kube-control/config"
-    ' bash "${ENTRYPOINT}"
-
-    [ "${status}" -eq 0 ]
+    done
 }
 
-@test "signal cleanup and normal exit use the shared protected sync" {
-    run bash -c '
-        source "$1"
-        sync_to_s3() { printf "protected-sync\n"; }
-        CHILD_PID=""
-        cleanup
-    ' bash "${ENTRYPOINT}"
+@test "missing correlation or configuration does not upload" {
+    for field in INVESTIGATION_ID ECS_CONTAINER_METADATA_URI_V4 S3_AUDIT_ESCROW TASK; do
+        run env "$field=" bash -c 'source "$1"; sync_to_s3' bash "$ENTRYPOINT"
+        [ "$status" -ne 0 ]
+        [[ "$output" == *result=unverified* ]]
+        [ ! -e "$TRACE" ]
+    done
+}
 
-    [ "${status}" -eq 0 ]
-    [ "${output}" = "protected-sync" ]
-
-    run env \
-        KUBE_PROXY_PORT="" \
-        CLAUDE_CODE_USE_BEDROCK="0" \
-        S3_AUDIT_ESCROW="s3://audit-bucket/investigation/" \
-        TASK_TIMEOUT="0" \
-        bash -c '
+@test "sync timeout overrides cannot disable or exceed the bound" {
+    for v in "" 0 91 123 bad 1d -1 09 999999999999999999999 85 1; do
+        run env SYNC_TIMEOUT="$v" bash -c '
             source "$1"
-            verify_credential_mounts() { :; }
-            initialize_credential_mounts() { :; }
-            runuser() { :; }
-            sync_to_s3() { printf "protected-sync\n"; }
-            main true
-        ' bash "${ENTRYPOINT}"
+            timeout() {
+                while [[ $1 == --* ]]; do shift; done
+                if [[ $4 == sync ]]; then printf "budget=%s\n" "$1"; else cat >/dev/null; fi
+            }
+            sync_to_s3
+        ' bash "$ENTRYPOINT"
+        [ "$status" -eq 0 ]
+        expected=85
+        if [[ $v == 1 ]]; then expected=1; fi
+        grep -Fx "budget=$expected" <<<"$output"
+    done
+}
 
-    [ "${status}" -eq 0 ]
-    [ "${output}" = "protected-sync" ]
+@test "partial transfer, timeout and report write failure never claim verification" {
+    echo partial >"$FIXTURE"
+    for fault in TRANSFER_RC=9 STALL=1 REPORT_RC=3; do
+        rm -f "$REPORT"
+        run env "$fault" SYNC_TIMEOUT=1 bash -c 'source "$1"; cleanup' bash "$ENTRYPOINT"
+        [ "$status" -ne 0 ]
+        [[ "$output" == *result=unverified* ]]
+        cmp "$FIXTURE" "$FIXTURE.uploaded"
+        jq -e '.status == "unverified"' "$REPORT"
+        case $fault in
+            TRANSFER*) [ "$status" -eq 9 ]; jq -e '.transfer_rc == 9' "$REPORT" ;;
+            STALL*) [ "$status" -eq 124 ]; jq -e '.transfer_rc == 124' "$REPORT" ;;
+            REPORT*) [[ "$output" == *reason=report_failed* ]] ;;
+        esac
+    done
+}
+
+@test "TERM during mount initialization exits without calling AWS" {
+    run timeout 8 bash -c '
+        source "$1"
+        verify_credential_mounts() { :; }
+        initialize_credential_mounts() { kill -TERM "$$"; }
+        main true
+    ' bash "$ENTRYPOINT"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *reason=interrupted_mount_setup* ]]
+    [ ! -e "$TRACE" ]
+    [ ! -e "$REPORT" ]
+}
+
+@test "TERM during stalled sync does not restart cleanup or mask the timeout" {
+    run env STALL=1 SYNC_TIMEOUT=1 timeout 8 bash -c '
+        source "$1"
+        export SIGNAL_PARENT=$$
+        cleanup
+    ' bash "$ENTRYPOINT"
+    [ "$status" -eq 124 ]
+    [ -e "$READY" ]
+    [ "$(grep -c "^s3 sync " "$TRACE")" -eq 1 ]
+    [ "$(grep -c "^s3 cp " "$TRACE")" -eq 1 ]
+    jq -e '.status == "unverified" and .transfer_rc == 124' "$REPORT"
+    [[ "$output" == *shutdown_rc=124* ]]
+}
+
+@test "whole-shutdown watchdog interrupts a blocked upload without a terminal report" {
+    run env STALL=1 bash -c '
+        source "$1"
+        # Shorten only the outer test clock; the actual sync timeout is 85s.
+        SHUTDOWN_SECONDS=1
+        cleanup
+    ' bash "$ENTRYPOINT"
+    [ "$status" -eq 124 ]
+    [[ "$output" == *result=unverified*shutdown_rc=124* ]]
+    [ "$(wc -l <"$TRACE")" -eq 1 ]
+    [ ! -e "$REPORT" ]
+}
+
+@test "hard kill after partial upload leaves no report for this attempt; retained fixture can retry" {
+    export STALL=1
+    printf 'retained bytes' >"$FIXTURE"
+    printf '{"status":"verified","task_id":"another-task"}' >"$BATS_TEST_TMPDIR/stale.json"
+    run python3 - "$ENTRYPOINT" <<'PY'
+import os, pathlib, signal, subprocess, sys, time
+p = subprocess.Popen(['bash', '-c', 'source "$1"; sync_to_s3', 'bash', sys.argv[1]], start_new_session=True)
+try:
+    for _ in range(100):
+        if pathlib.Path(os.environ['FIXTURE'] + '.uploaded').exists(): break
+        time.sleep(.05)
+    else: raise AssertionError('upload did not begin')
+finally:
+    os.killpg(p.pid, signal.SIGKILL)
+    p.wait(timeout=5)
+PY
+    [ "$status" -eq 0 ]
+    [ ! -e "$REPORT" ]
+    first=$(cut -d' ' -f4 "$TRACE")
+    rm "$FIXTURE.uploaded"
+    unset STALL
+    run bash -c 'source "$1"; sync_to_s3' bash "$ENTRYPOINT"
+    [ "$status" -eq 0 ]
+    [ "$(jq -r .workspace_uri "$REPORT")" != "$first" ]
+    jq -e '.status == "unverified" and .transfer_rc == 0' "$REPORT"
+    [ "$(<"$FIXTURE.uploaded")" = 'retained bytes' ]
+}
+
+@test "TERM INT HUP on waiting entrypoint allow final managed write and report once" {
+    # Avoid SIGINT being ignored by asynchronous jobs of noninteractive Bash.
+    run python3 - "$ENTRYPOINT" <<'PY'
+import os, pathlib, signal, subprocess, sys, time
+ready, trace, fixture = map(pathlib.Path, map(os.environ.get, ("READY", "TRACE", "FIXTURE")))
+script = r"""
+source "$1"
+verify_credential_mounts() { :; }
+initialize_credential_mounts() { :; }
+runuser() {
+    trap 'echo final >"$FIXTURE"; exit 0' TERM
+    echo initial >"$FIXTURE"; touch "$READY"
+    while :; do sleep .05; done
+}
+main workload
+"""
+for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    ready.unlink(missing_ok=True)
+    trace.unlink(missing_ok=True)
+    with subprocess.Popen(["bash", "-c", script, "bash", sys.argv[1]], start_new_session=True) as p:
+        try:
+            for _ in range(100):
+                if ready.exists(): break
+                time.sleep(.05)
+            assert ready.exists()
+            p.send_signal(sig)
+            assert p.wait(timeout=8) == 0
+            assert len(trace.read_text().splitlines()) == 2
+            assert pathlib.Path(str(fixture)+".uploaded").read_text() == "final\n"
+        finally:
+            try: os.killpg(p.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+PY
+    [ "$status" -eq 0 ]
 }

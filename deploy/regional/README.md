@@ -56,10 +56,11 @@ Trusted Actions HTTPS origin, without `/api/v0/trusted-actions`; the CLI appends
 that path. An optional trailing slash is removed before setting the main
 container's environment. An explicit port must be in the range 1–65535.
 
-The Git-managed primary staging workspace selects
+All Git-managed staging and production regional workspaces select the shared origin
 `https://rosa-trusted-actions.dev0.rosav1.devshift.net`, matching TA stage's
-configured private hostname and shared VPC. Other deployments remain unset
-until their endpoint and connectivity are established. Change HCP-managed
+configured hostname. The URL is the same across Regions; private DNS and
+networking determine resolution and access from each VPC. Populating the
+variable does not establish that connectivity. Change HCP-managed
 values in `hcp-terraform/rosa-boundary/main.tf`, not the workspace UI/API.
 Personal dev can set `rta_server_url` in its local tfvars.
 

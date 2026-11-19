@@ -32,7 +32,8 @@ Implementation points:
   [main container environment](../../deploy/regional/ecs.tf).
 - Deployment-specific origins in the Git-managed `variables` lists in
   [Boundary's HCP definition](../../hcp-terraform/rosa-boundary/main.tf).
-  Leave other deployments unset; do not edit workload variables directly in HCP.
+  Every staging and production regional workspace uses the shared origin;
+  do not edit workload variables directly in HCP.
 - The create-investigation Lambda preserves `RTA_SERVER` from the base task
   definition. A regression test covers this; no Lambda runtime change is needed.
 - For personal dev, explicitly supply the Terraform input through the supported
@@ -72,16 +73,18 @@ Use TA's approved regional origin as the configuration handoff. Its existing
 already returns a URL, not merely a hostname; require its HTTPS form. Do not
 grant Boundary broad access to TA Terraform state solely to discover this value.
 
-Git configuration selects
-`https://rosa-trusted-actions.dev0.rosav1.devshift.net` for primary staging
-Boundary in `us-east-1`, matching TA stage's configured hostname and shared
-VPC/subnets. TA has an internal ALB, private DNS, HTTPS support and VPC-CIDR
-ingress; Boundary already permits outbound traffic. Verify the deployed
-configuration, DNS, trusted TLS and backend health separately.
+All four staging and production Boundary regional workspaces select
+`https://rosa-trusted-actions.dev0.rosav1.devshift.net` through one shared
+local in the HCP definition. There is no need for a different
+client URL per Region: private DNS and networking determine where that hostname
+resolves and whether it is reachable from each VPC.
 
-Do not copy that origin into all regions or production. Other VPCs need an
-explicit connectivity/DNS/ingress design or an independently approved local TA
-deployment. Internet NAT does not make an internal ALB reachable.
+Primary staging Boundary and the currently declared TA stage deployment share
+a VPC/subnets. TA has an internal ALB, private DNS, HTTPS support and VPC-CIDR
+ingress; Boundary already permits outbound traffic. Configuring the shared URL
+does not itself establish regional DNS or connectivity. Verify deployed DNS,
+trusted TLS, network access and backend health separately in each Region.
+Internet NAT does not make an internal ALB reachable.
 
 Configuration changes affect new investigation tasks, not running sessions.
 Keep Boundary and TA deployment states and release paths separate. Review

@@ -214,9 +214,19 @@ terraform apply \
   -var='private_subnet_ids=["subnet-0042826174855e520","subnet-0f9392e3159168d6f"]' \
   -var='public_subnet_ids=["subnet-01821c41d92b0f8b1","subnet-0f52e06526c080dfa"]' \
   -var="container_image=quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:<digest>" \
-  -var="backplane_url=https://api.stage.backplane.openshift.com" \
-  -var="backplane_client_id=trusted-actions" \
-  -var="internal_fqdn=rosa-trusted-actions.internal.company.com"
+  -var="internal_fqdn=rosa-trusted-actions.internal.company.com" \
+  -var='app_config=actions:
+  aws_allowed_regions: [us-east-1]
+  ocm:
+    base_url: https://api.stage.openshift.com
+    client_id: <ocm_client_id>
+  backplane:
+    base_url: https://api.stage.backplane.openshift.com
+    client_id: <backplane_client_id>
+  roles:
+    - id: SREP
+      amsResource: BackplaneOsdSrepResource
+'
 ```
 
 Or with var-files:
@@ -230,10 +240,22 @@ vpc_id                = "vpc-008ef33919b443f10"
 private_subnet_ids    = ["subnet-0042826174855e520", "subnet-0f9392e3159168d6f"]
 public_subnet_ids     = ["subnet-01821c41d92b0f8b1", "subnet-0f52e06526c080dfa"]
 container_image       = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:<digest>"
-backplane_url         = "https://api.stage.backplane.openshift.com"
-backplane_client_id   = "trusted-actions"
 internal_fqdn         = "rosa-trusted-actions.internal.company.com"
+app_config            = <<-YAML
+  actions:
+    aws_allowed_regions: [us-east-1]
+  ocm:
+    base_url: https://api.stage.openshift.com
+    client_id: <ocm_client_id>
+  backplane:
+    base_url: https://api.stage.backplane.openshift.com
+    client_id: <backplane_client_id>
+  roles:
+    - id: SREP
+      amsResource: BackplaneOsdSrepResource
+YAML
 ```
+
 
 ```bash
 terraform apply -var-file=terraform.tfvars

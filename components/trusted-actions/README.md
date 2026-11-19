@@ -381,6 +381,71 @@ Typical output:
 | `name`      | no       | Specific resource name — omit to list all                             |
 | `group`     | no       | API group (omit for core resources)                                   |
 
+## Real cluster via curl (stage)
+
+Stage is VPC-private — `rosa-trusted-actions.dev0.rosav1.devshift.net` only resolves inside `vpc-008ef33919b443f10` (Private Hosted Zone, see [`docs/networking.md`](docs/networking.md)). Run from a bastion, SSM session, or `aws ecs execute-command` in that VPC. Unlike local mock auth, every request needs a live OCM JWT and a real `target_cluster` + `jira`:
+
+```bash
+# 1. Token — caller must have SREP/CAD/AiAgent via OCM AccessReview (else 403)
+TOKEN=$(ocm token) # or: ocm login && ocm token
+BASE=https://rosa-trusted-actions.dev0.rosav1.devshift.net/api/v0/trusted-actions
+CLUSTER=<id | external_id (UUID) | display_name> # any OCM form, matched by id = '%s' or external_id = '%s' or display_name = '%s'
+JIRA=OHSS-1234 # required, format ^[A-Z]+-\d+$
+```
+
+```bash
+# Discover — catalog and per-action params
+curl -s -H "Authorization: Bearer $TOKEN" $BASE/ | jq .
+curl -s -H "Authorization: Bearer $TOKEN" $BASE/get | jq .         # also: describe-nodes, patch, delete, list-alerts, aws-get, aws-reboot, aws-terminate
+curl -s -H "Authorization: Bearer $TOKEN" $BASE/aws-get | jq .      # resource: ec2-instances, ec2-vpcs, load-balancers, cloudtrail-events, etc.
+```
+
+```bash
+# Run — POST /{action}/run returns 202 {id, status: pending}
+# Kube: list pods
+curl -s -X POST $BASE/get/run \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"target_cluster\":\"$CLUSTER\",\"jira\":\"$JIRA\",\"params\":{\"resource\":\"pods\",\"version\":\"v1\",\"namespace\":\"openshift-monitoring\"}}" | jq .
+
+# Kube: get one object (adds name)
+curl -s -X POST $BASE/get/run \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"target_cluster\":\"$CLUSTER\",\"jira\":\"$JIRA\",\"params\":{\"resource\":\"pods\",\"version\":\"v1\",\"namespace\":\"kube-system\",\"name\":\"coredns-xyz\"}}" | jq .
+
+# Kube: describe-nodes (no namespace param)
+curl -s -X POST $BASE/describe-nodes/run \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"target_cluster\":\"$CLUSTER\",\"jira\":\"$JIRA\",\"params\":{}}" | jq .
+
+# AWS: always in the cluster's own region (no region param)
+curl -s -X POST $BASE/aws-get/run \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"target_cluster\":\"$CLUSTER\",\"jira\":\"$JIRA\",\"params\":{\"resource\":\"ec2-instances\",\"filters\":\"instance-state-name=running\"}}" | jq .
+```
+
+```bash
+# Poll + output — execution is async on a background worker
+ID=<uuid from 202>
+curl -s -H "Authorization: Bearer $TOKEN" $BASE/runs/$ID | jq .         # status: pending → succeeded/failed/timed_out
+curl -s -H "Authorization: Bearer $TOKEN" $BASE/runs/$ID/output | jq . # only when terminal; holds resources/message
+
+# loop until terminal
+while true; do s=$(curl -s -H "Authorization: Bearer $TOKEN" $BASE/runs/$ID | jq -r .status); echo "$s"; [[ $s =~ succeeded|failed|timed_out ]] && break; sleep 2; done
+```
+
+```bash
+# Writes need extra flags — dry_run previews, force bypasses 429 cooldown/max-concurrent
+curl -s -X POST $BASE/aws-reboot/run \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"target_cluster\":\"$CLUSTER\",\"jira\":\"$JIRA\",\"params\":{\"id\":\"i-0abc123\"},\"dry_run\":true}" | jq .
+
+# rta CLI equivalent (preferred for humans)
+export RTA_SERVER=https://rosa-trusted-actions.dev0.rosav1.devshift.net
+rta action run get --cluster $CLUSTER --jira $JIRA --param resource=pods --param version=v1 --param namespace=default
+```
+
+> Missing `target_cluster` → `400 missing-target-cluster`, bad `jira` → `400 invalid-jira`, no entitlement → `403`, write cooldown → `429 write-cooldown` (retry with `"force":true`).
+
 ## Development
 
 ### Code Generation

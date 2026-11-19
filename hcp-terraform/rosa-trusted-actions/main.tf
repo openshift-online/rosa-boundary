@@ -181,7 +181,7 @@ module "rosa_trusted_actions" {
               client_id: ${var.ocm_client_id}
             backplane:
               base_url: https://api.stage.backplane.openshift.com
-              client_id: trusted-actions
+              client_id: ${var.backplane_client_id}
             roles:
               - id: SREP
                 amsResource: BackplaneOsdSrepResource

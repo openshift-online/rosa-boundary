@@ -207,12 +207,6 @@ variable "allowed_secrets" {
   default     = null
 }
 
-variable "ocm_client_id" {
-  description = "DEPRECATED: use app_config (ocm.client_id). Still applied as ROSA_TA_OCM_CLIENT_ID when set, overriding the file."
-  type        = string
-  default     = null
-}
-
 variable "backplane_url" {
   description = "DEPRECATED: use app_config (backplane.base_url). Still applied as ROSA_TA_BACKPLANE_URL when set, overriding the file."
   type        = string
@@ -224,6 +218,7 @@ variable "backplane_client_id" {
   type        = string
   default     = null
 }
+
 
 
 variable "ocm_base_url" {

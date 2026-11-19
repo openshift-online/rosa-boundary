@@ -80,15 +80,39 @@ var runningPollInterval = 2 * time.Second
 
 // WaitForRunning polls until the task reaches RUNNING state or the context is cancelled.
 func (c *ECSClient) WaitForRunning(ctx context.Context, taskID string) error {
+	_, err := c.WaitForRunningWithTimings(ctx, taskID)
+	return err
+}
+
+// TaskStartup contains the ECS control plane's timestamps, not local poll times.
+// ECS may omit individual timestamps.
+type TaskStartup struct {
+	CreatedAt     *time.Time `json:"created_at,omitempty"`
+	PullStartedAt *time.Time `json:"pull_started_at,omitempty"`
+	PullStoppedAt *time.Time `json:"pull_stopped_at,omitempty"`
+	StartedAt     *time.Time `json:"started_at,omitempty"`
+}
+
+// WaitForRunningWithTimings reads timestamps from the successful waiter poll,
+// avoiding another API call on the session creation path.
+func (c *ECSClient) WaitForRunningWithTimings(ctx context.Context, taskID string) (*TaskStartup, error) {
 	// Equal minimum and maximum delays disable the waiter's backoff and jitter.
 	waiter := ecs.NewTasksRunningWaiter(c.client, func(o *ecs.TasksRunningWaiterOptions) {
 		o.MinDelay = runningPollInterval
 		o.MaxDelay = runningPollInterval
 	})
-	return waiter.Wait(ctx, &ecs.DescribeTasksInput{
+	out, err := waiter.WaitForOutput(ctx, &ecs.DescribeTasksInput{
 		Cluster: aws.String(c.cluster),
 		Tasks:   []string{taskID},
 	}, 10*time.Minute)
+	if err != nil {
+		return nil, err
+	}
+	if len(out.Tasks) == 0 {
+		return nil, nil
+	}
+	t := out.Tasks[0]
+	return &TaskStartup{t.CreatedAt, t.PullStartedAt, t.PullStoppedAt, t.StartedAt}, nil
 }
 
 // WaitForStopped polls until the task reaches STOPPED state or the context is cancelled.

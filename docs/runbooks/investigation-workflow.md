@@ -173,6 +173,20 @@ Output includes the Boundary session ID (underlying ECS task ID or ARN), **not**
 the short-lived SSM session ID created by ECS Exec. Save it for join and stop.
 An investigation workspace can outlive multiple sessions.
 
+### Measure session startup
+
+For an approved dev baseline, run `rosa-boundary --verbose session create <cluster-id> --with-credentials none --no-connect -o json` without `--no-wait`. Save `task_arn` and `startup_timings`, then close the session and investigation as usual. In verbose mode, the CLI reports:
+
+- `lambda_round_trip_ms`: client-observed time for the create Lambda call, including network and SDK overhead. This is not the Lambda runtime duration.
+- `invoke_to_running_ms`: from the start of that call until the CLI observes ECS `RUNNING`. It includes role assumption and polling delay, but not initial Boundary login, OCM injection, or ECS Exec readiness. It overlaps the ECS intervals; do not add them together.
+- `ecs`: ECS `created_at`, `pull_started_at`, `pull_stopped_at`, and `started_at`, when present. The derived `ecs_created_to_pull_ms` includes provisioning such as ENI setup but does not isolate ENI time; `ecs_image_pull_ms` measures the pull; `ecs_after_image_pull_ms` covers the rest of startup. A missing or reversed timestamp pair produces no duration, not zero.
+
+In verbose mode, `--no-wait` reports only the Lambda round trip. Startup timings also appear on stderr as debug messages before credential injection or interactive connection. Without `--verbose`, timings are absent from both stderr and JSON.
+
+For the server-side duration, use the authorized operator/audit-reader identity in the same region. In CloudWatch Logs Insights, select `/aws/lambda/<create-investigation-function>` and a narrow launch window. Find the invocation that logged the exact task ARN, returning only `@requestId` and `@logStream` (not the log message). Then filter that stream to the same request ID and `@type = "REPORT"`, and select `@duration` and, when present, `@initDuration` (milliseconds). Keep cold-start initialization separate from runtime duration; don't substitute a function-wide metric for this invocation. If correlation is unavailable, record the runtime duration as unknown.
+
+Before deciding between SOCI and image slimming, repeat on fresh tasks and record the actual container `imageDigest` (from `DescribeTasks`), task architecture/platform version, and cold-start status alongside the phase times. If pull time consistently dominates, compare candidate images or SOCI against the same baseline. For SOCI, also measure time to a usable ECS Exec shell and first representative tool invocation: lazy loading can shift I/O past `RUNNING` rather than remove it. Recheck the existing image/tool acceptance gates before adopting either approach.
+
 ### Timeouts and handover
 
 The CLI defaults `--session-timeout` to **1h** and sends it explicitly; Terraform's

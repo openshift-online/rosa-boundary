@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/spf13/cobra"
@@ -66,6 +67,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 
 	invokerCredProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	lambdaClient := lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, invokerCredProvider)
+	invokeStart := time.Now()
 	lambdaResp, err := lambdaClient.CreateInvestigation(cmd.Context(), authRes.IDToken, lambda.InvestigationRequest{
 		ClusterID:       clusterID,
 		InvestigationID: investigationID,
@@ -75,6 +77,8 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	if err != nil {
 		return fmt.Errorf("lambda call failed (outcome may be unknown for %s/%s; inspect with rosa-boundary --profile %q session list --status all --region %q --ecs-cluster %q before retrying): %w", clusterID, investigationID, selectedProfile, cfg.AWSRegion, cfg.ClusterName, err)
 	}
+
+	timings := sessionStartupTimings{LambdaRoundTripMS: time.Since(invokeStart).Milliseconds()}
 
 	// The Boundary session ID is the underlying ECS task ID.
 	sessionID := path.Base(lambdaResp.TaskARN)
@@ -161,11 +165,15 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	if !startNoWait {
 		output.Status("\n=== Step 3: Waiting for session to be RUNNING ===")
 		output.Status("Session: %s", sessionID)
-		if err := ecsClient.WaitForRunning(cmd.Context(), sessionID); err != nil {
+		startup, err := ecsClient.WaitForRunningWithTimings(cmd.Context(), sessionID)
+		if err != nil {
 			return fmt.Errorf("session did not reach RUNNING: %w", err)
 		}
+		readyMS := time.Since(invokeStart).Milliseconds()
+		timings.recordRunning(readyMS, startup)
 		output.Status("Session is RUNNING")
 	}
+	timings.print()
 
 	var credentialWarning string
 	if startNoWait {
@@ -186,14 +194,14 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	}
 
 	return finishStartSession(cmd, ecsClient, creds, ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion,
-		lambdaResp, roleARN, configureOCM, credentialWarning)
+		lambdaResp, roleARN, configureOCM, credentialWarning, timings)
 }
 
 // finishStartSession only reports success after the interactive shell exits.
 // The task may remain RUNNING after the shell disconnects.
 func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, creds *awsclient.TemporaryCredentials,
 	ecsCluster, clusterID, investigationID, sessionID, region string, lambdaResp *lambda.InvestigationResponse,
-	roleARN string, configureOCM bool, credentialWarning string) error {
+	roleARN string, configureOCM bool, credentialWarning string, timings sessionStartupTimings) error {
 	// Auto-connect after the credential attempt; a warning leaves the task
 	// usable even when OCM credentials could not be configured.
 	if startConnect && !startNoWait {
@@ -209,6 +217,9 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 
 	if startOutputFormat == "json" {
 		result := startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM, startNoWait, startConnect)
+		if output.Verbose {
+			result["startup_timings"] = timings
+		}
 		if credentialWarning != "" {
 			result["warnings"] = []string{credentialWarning}
 		}

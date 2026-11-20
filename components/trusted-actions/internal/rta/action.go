@@ -213,6 +213,9 @@ available parameters, their defaults, and which ones are required.`,
 			fmt.Fprintf(w, "Action:     %s\n", exec.Action)
 			fmt.Fprintf(w, "Cluster:    %s\n", exec.TargetCluster)
 			fmt.Fprintf(w, "Status:     %s\n", exec.Status)
+			if exec.Reason != nil {
+				fmt.Fprintf(w, "Reason:     %s\n", *exec.Reason)
+			}
 			if exec.DurationSeconds != nil {
 				fmt.Fprintf(w, "Duration:   %ds\n", *exec.DurationSeconds)
 			}

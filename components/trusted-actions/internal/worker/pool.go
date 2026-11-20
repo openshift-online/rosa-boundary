@@ -125,14 +125,8 @@ func (p *Pool) workerLoop(ctx context.Context) {
 
 func (p *Pool) process(ctx context.Context, exec *models.Execution) {
 	result := p.runner.Run(ctx, exec)
-	status := result.Status
 	completedAt := time.Now().UTC()
 
-	// TODO: persist reason alongside status once the store has somewhere to
-	// put it (Store.UpdateExecutionStatus / the executions table currently
-	// has no failure-reason column, and the OpenAPI-generated Execution type
-	// has no field to expose it through either). Surfaced via structured
-	// logging for now so it isn't silently dropped.
 	if result.Reason != "" {
 		p.logger.WithFields(logrus.Fields{
 			"execution_id": exec.ID,
@@ -141,11 +135,7 @@ func (p *Pool) process(ctx context.Context, exec *models.Execution) {
 		}).Warn("execution completed with failure reason")
 	}
 
-	output, err := models.OutputFromActionResult(result.Output)
-	if err != nil {
-		p.logger.WithError(err).WithField("execution_id", exec.ID).Error("creating execution output data")
-		status = "failed"
-	}
+	output := models.OutputFromActionResult(result.Output)
 
 	// Detached from ctx's cancellation: if ctx is cancelled (e.g. shutdown)
 	// right as Run finishes, we've already computed a terminal status and
@@ -155,7 +145,7 @@ func (p *Pool) process(ctx context.Context, exec *models.Execution) {
 	updateCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 
-	if err := p.store.UpdateExecutionWithResult(updateCtx, exec.ID, status, &completedAt, output); err != nil {
+	if err := p.store.UpdateExecutionWithResult(updateCtx, exec.ID, result.Status, result.Reason, &completedAt, output); err != nil {
 		p.logger.WithError(err).WithField("execution_id", exec.ID).Error("updating execution with result after run")
 	}
 }

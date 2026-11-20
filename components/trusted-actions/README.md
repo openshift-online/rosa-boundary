@@ -171,8 +171,8 @@ In another shell rooted at the `rosa-trusted-actions` clone:
 ```bash
 # We need to build the CLI before using it -- This is NOT required for the next runs of the CLI
 make build-rta
-# Calling the CLI
-./bin/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" action list
+# Calling the CLI - Replace <platform> with your platform
+./dist/<platform>/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" action list
 ```
 
 You should see:
@@ -220,21 +220,21 @@ The `get` action lists or fetches Kubernetes resources. `resource`, `version`, a
 
 ```bash
 # List pods in the default namespace
-./bin/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
+./dist/<platform>/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
   action run get --cluster <cluster-id> --jira TEST-1234 -o json \
     --param resource=pods \
     --param version=v1 \
     --param namespace=default
 
 # List pods in a different namespace
-./bin/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
+./dist/<platform>/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
   action run get --cluster <cluster-id> --jira TEST-1234 -o json \
     --param resource=pods \
     --param version=v1 \
     --param namespace=kube-system
 
 # Get a specific pod
-./bin/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
+./dist/<platform>/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
   action run get --cluster <cluster-id> --jira TEST-1234 -o json \
     --param resource=pods \
     --param version=v1 \

@@ -479,14 +479,20 @@ COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 
 ENV HOME=/home/sre
 
-# Test the final filesystem offline as sre; helper and pins are read-only mounts,
-# not runtime contents. External acceptance must also reconcile both inventories.
-# Mount the context directory to avoid Buildah's single-file bind-mount issue.
-RUN --network=none --mount=type=bind,source=.,target=/verify-src,ro \
-    runuser --user sre -- python3 /verify-src/build/verify_sre_tools.py runtime \
+# Test the final filesystem offline as sre. Buildah can expose the context root
+# as 0700, so stage only the verifier and pins with readable permissions. Remove
+# them in this layer; external acceptance must also reconcile both inventories.
+# Mount a directory to avoid Buildah's single-file bind-mount issue.
+RUN --network=none --mount=type=bind,source=.,target=/verify-context,ro \
+    install --directory --mode=0755 /verify-src/build /verify-src/components/trusted-actions \
+    && install --mode=0644 /verify-context/build/sre_tools.py /verify-context/build/verify_sre_tools.py /verify-src/build/ \
+    && install --mode=0644 /verify-context/Containerfile /verify-src/Containerfile \
+    && install --mode=0644 /verify-context/components/trusted-actions/VERSION /verify-src/components/trusted-actions/VERSION \
+    && runuser --user sre -- python3 /verify-src/build/verify_sre_tools.py runtime \
         --containerfile /verify-src/Containerfile \
         --rta-version-file /verify-src/components/trusted-actions/VERSION \
-        --rta-commit "${RTA_COMMIT}"
+        --rta-commit "${RTA_COMMIT}" \
+    && rm --recursive /verify-src
 
 # The entrypoint runs as root for privileged setup (alternatives --set, chown,
 # runuser). ECS Exec sessions drop to the sre user via the CLI's default

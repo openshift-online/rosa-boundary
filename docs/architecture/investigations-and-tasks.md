@@ -72,8 +72,16 @@ Every investigation's access point is tagged with:
 - `Name` — `<cluster-id>-<investigation-id>`
 - `CreatedAt` — original creation timestamp
 
-These are creator tags: handover does not update them or transfer CLI close
-ownership to the new task's actor. See [creator-versus-actor semantics](session-lifecycle.md#actual-resource-tags-creator-versus-actor).
+These are creator tags, recorded for provenance. Handover does not update
+them, and they do not decide who may close: any authorized Boundary SRE may explicitly request close. The reaper waits
+if a different SRE is attached. A running task whose SRE has detached leaves the investigation idle;
+its `oidc_sub` tag is provenance too. See [creator-versus-actor semantics](session-lifecycle.md#actual-resource-tags-creator-versus-actor)
+and [automated investigation close](investigation-close.md).
+
+The close service's own markers also live here once a close begins:
+`AuditCloseSeal`, `AuditCloseManagedBy`, `AuditCloseRequest` and
+`AuditCloseBucket`. A seal without `AuditCloseManagedBy` is a manual retention
+hold that automation never removes.
 
 The `investigation list` command discovers investigations by scanning access points on the configured filesystem and filtering for both `ClusterID` and `InvestigationID` tags.
 
@@ -140,15 +148,16 @@ An SRE can cycle through start/stop iterations or request handover. Lambda waits
 
 ### Closing an Investigation
 
-`investigation close <cluster-id> <investigation-id>` resolves and previews the complete plan, confirms before changing anything, then performs cleanup in order:
+`investigation close <cluster-id> <investigation-id>` previews the plan, confirms, and then **requests** a close. The CLI performs no cleanup of its own. The investigation reaper revalidates who may close, seals the workspace, stops only the tasks the request consented to stop, copies the workspace to its own attempt prefix in the audit bucket, verifies that copy independently, and only then:
 
-1. **Stops running tasks** (requires `--force` if any are active)
-2. **Deregisters task definitions** matching the investigation's family prefix
-3. **Deletes the EFS access point**
+1. **Deregisters task definitions** matching the investigation's family prefix
+2. **Deletes the EFS access point**
 
-Note: deleting the access point removes the entry point, but the underlying EFS files at `/{cluster_id}/{investigation_id}/` are preserved on the filesystem. The S3 audit bucket retains per-task snapshots subject to the bucket's retention policy.
+Deleting the access point removes the entry point; the underlying EFS files at `/{cluster_id}/{investigation_id}/` are deliberately preserved on a normal close. The S3 audit bucket retains per-task snapshots and the close attempt's verified copy, subject to the bucket's retention policy.
 
-If an investigation is left open, the separate [investigation reaper](../../lambda/reap-investigations/handler.py) periodically cleans up eligible stale investigations. Unlike a manual close, it attempts to remove the EFS directory as well as the access point and task definitions.
+Accepted is not closed: `--wait`, or a later `--status`, reports the service's current status. Any late task, read error or changed byte retains the data and starts a fresh attempt on the next schedule.
+
+If an investigation is left open, the same reaper eventually reaps it as a stale candidate, through the same verified gate. Unlike a normal close, the stale route may also remove the EFS directory. See [automated investigation close](investigation-close.md).
 
 ### Timeout Enforcement
 
@@ -158,11 +167,11 @@ The reaper only stops **tasks** — it does not close investigations or clean up
 
 ### Stale Investigation Cleanup
 
-The investigation reaper runs on a separate EventBridge schedule (default: every 8 hours). It checks managed EFS access points for running tasks and a `CreatedAt` tag; an investigation without running tasks becomes eligible once its configured grace period (default: 168 hours) has elapsed. Age is measured from original creation, not idle duration or handover. The current legacy-backfill path treats missing `CreatedAt` as stale when no tasks are running; it does not enforce the age grace period for those access points. Before cleanup it checks task activity again, then attempts to delete the EFS directory, access point, and associated task definitions. Failures are logged; remaining tagged access points can be retried on a later run. See the [Lambda implementation](../../lambda/reap-investigations/handler.py) and [regional Terraform](../../deploy/regional/lambda-reap-investigations.tf) for current behavior and configuration.
+The investigation reaper runs on a separate EventBridge schedule (default: every 8 hours). It checks managed EFS access points for running tasks and a `CreatedAt` tag; an investigation without running tasks becomes eligible once its configured grace period (default: 168 hours) has elapsed. Age is measured from original creation, not idle duration or handover. The current legacy-backfill path treats missing `CreatedAt` as stale when no tasks are running; it does not enforce the age grace period for those access points. Before cleanup it checks task activity again, then runs the same verified finalization pipeline an explicit close runs — seal, observe quiet twice, measure, copy, verify independently — and only then removes the EFS directory, access point and associated task definitions. There is no backup-only route around that gate. Failures are logged; remaining tagged access points can be retried on a later run. See the [Lambda implementation](../../lambda/reap-investigations/handler.py) and [regional Terraform](../../deploy/regional/lambda-reap-investigations.tf) for current behavior and configuration.
 
 ## Known Gaps
 
-**Manual close does not clean EFS directories.** `investigation close` deletes the access point but not the underlying files. The investigation reaper attempts directory cleanup for stale managed investigations; manual close removes the tagged access point the reaper uses for discovery, so those directories can remain.
+**Normal close retains EFS directories, deliberately.** `investigation close` removes the access point but keeps the underlying files; reclaiming them is a stricter, separate decision. Only the stale route may reclaim a directory. Because close removes the tagged access point the reaper uses for discovery, a retained directory's path is recorded in the close status record instead, which stays readable after the access point is gone. Do not recreate a closed investigation over a retained directory.
 
 **No guaranteed final sync.** The S3 audit sync happens on task exit, not on investigation close. If a task was force-killed or the sync timed out, the latest EFS state may not be in S3 before the access point is deleted.
 
@@ -197,7 +206,7 @@ Expired tasks are eligible for periodic reaping subject to active-session protec
 
 ### What does `investigation close` actually delete?
 
-It stops running tasks (with `--force`), deregisters per-investigation task definitions, and deletes the EFS access point. It does **not** delete the underlying EFS directory data or the S3 audit artifacts.
+It asks the close service to finalize the investigation. The service stops tasks only with explicit consent (`--force`), deregisters per-investigation task definitions and deletes the EFS access point after verifying its own copy of the workspace. It does **not** delete the underlying EFS directory data or the S3 audit artifacts.
 
 ### What is the maximum number of open investigations?
 
@@ -205,7 +214,7 @@ AWS allows 10,000 EFS access points per filesystem. Since each investigation cor
 
 ### Are investigation filesystems shared across SREs?
 
-Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session create` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. The CLI permits only Alice (the access point's `oidc_sub` owner) to close the investigation; this is not yet enforced by IAM against use of other AWS clients. See the separate [ROSAENG-75946 close-ownership work](https://redhat.atlassian.net/browse/ROSAENG-75946).
+Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session create` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. Alice may explicitly request close while Bob is attached, but the reaper waits for Bob to detach. Without stop consent it also waits for his task to stop. Alice gains nothing from having created it, and Bob gains nothing lasting from having launched the task. This is enforced service-side by the close service and rechecked by the reaper, not by IAM against direct use of other AWS clients. See [automated investigation close](investigation-close.md) and the separate [ROSAENG-75946 close-ownership work](https://redhat.atlassian.net/browse/ROSAENG-75946).
 
 This is by design. The investigation ID represents a **shared workspace** for a cluster incident, not a per-user workspace. The isolation boundary is at the `(cluster_id, investigation_id)` level. Per-user isolation is enforced at the **ECS Exec layer** via the deployment's configured ABAC task/principal tag (which may be `uuid` or `username`); this restricts who can `exec` into a running container, but not who can mount the shared workspace through a new authorized task.
 

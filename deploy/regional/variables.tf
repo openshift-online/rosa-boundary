@@ -483,6 +483,34 @@ variable "investigation_grace_period_hours" {
   }
 }
 
+variable "investigation_close_quiet_seconds" {
+  description = "Seconds between the two task observations a close must see quiet before the workspace is measured and copied. Longer narrows the window in which a task that already passed its launch check appears after the first scan; it does not eliminate that window, and no receipt claims otherwise. Review this value before rollout."
+  type        = number
+  default     = 15
+
+  validation {
+    condition     = var.investigation_close_quiet_seconds >= 1 && var.investigation_close_quiet_seconds <= 120
+    error_message = "Close quiet interval must be between 1 and 120 seconds (it has to fit inside one Lambda invocation)"
+  }
+}
+
+variable "investigation_close_requests_per_run" {
+  description = "Explicit close requests finalized per scheduled invocation. The cap keeps a backlog of requests from starving the stale sweep in the same run; the remainder is picked up on the next schedule."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.investigation_close_requests_per_run >= 1 && var.investigation_close_requests_per_run <= 25
+    error_message = "Close requests per run must be between 1 and 25"
+  }
+}
+
+variable "investigation_stale_reclaim_directories" {
+  description = "Whether stale reaping may reclaim an investigation's EFS directory after its backup has been independently verified. Normal close always retains the directory regardless of this setting. Set false to keep every workspace and reclaim them manually."
+  type        = bool
+  default     = true
+}
+
 # ---------------------------------------------------------------------------
 # regional content storage, SSE-KMS replication and grants.
 # Every Region has a content bucket and task read grant. Publisher grants and

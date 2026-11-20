@@ -767,6 +767,127 @@ class TestCleanup(FinalizerCase):
         self.assertEqual(self.ecs.deregister_task_definition.call_count, 1)
 
 
+class TestRecovery(FinalizerCase):
+    def retry(self, ap, mode):
+        # Exercise the production dispatch, including an AP that no longer
+        # exists. No in-process progress from the previous pass is required.
+        with patch('boto3.client'):
+            import handler
+        with patch.object(self.finalizer, 'find_access_point', return_value=ap):
+            return handler.finalize_one(self.finalizer, CLUSTER, INVESTIGATION,
+                                        self.request(), mode, FakeContext())
+
+    def interrupted(self, stage, mode):
+        ap = self.access_point()
+        if stage == 'directory':
+            obj, method = close_finalization.shutil, 'rmtree'
+        elif stage == 'ap':
+            obj, method = self.efs, 'delete_access_point'
+        else:
+            obj, method = self.finalizer, 'publish_receipt'
+        original = getattr(obj, method)
+
+        def crash_after(*args, **kwargs):
+            original(*args, **kwargs)
+            raise RuntimeError('simulated runtime exit')
+
+        with patch.object(obj, method, side_effect=crash_after):
+            with self.assertRaisesRegex(RuntimeError, 'runtime exit'):
+                self.finalize(mode, access_point=ap)
+        self.finalizer._attempt_id = ''
+        self.finalizer._cleanup = None
+        self.finalizer._verification_digest = None
+        return ap if stage == 'directory' else None
+
+    def check_recovery(self, stage, mode):
+        ap = self.interrupted(stage, mode)
+        status_key = records.status_key(CLUSTER, INVESTIGATION)
+        attempt = self.s3.json_at(status_key)['attempt_id']
+        prefix = records.attempt_workspace_prefix(ACCESS_POINT, attempt)
+        original = {k: self.s3.objects[k].copy() for k in self.s3.keys_under(prefix)}
+        self.assertEqual(len(original), 2)
+        if stage == 'receipt':
+            receipt_key = self.s3.keys_under(f'{records.CONTROL_PREFIX}/{ACCESS_POINT}/')[0]
+            receipt_version = self.s3.objects[receipt_key]['version']
+        self.assertTrue(self.retry(ap, mode))
+        status = self.s3.json_at(status_key)
+        self.assertEqual(status['status'], records.STATUS_COMPLETED)
+        self.assertEqual(status['attempt_id'], attempt)
+        self.assertEqual(self.receipt()['attempt_id'], attempt)
+        self.assertEqual(status['directory_retained'], mode == 'request')
+        self.assertEqual(self.workspace.exists(), mode == 'request')
+        self.assertTrue(status['access_point_deleted'])
+        self.assertEqual(self.receipt()['object_versions'], 2)
+        self.assertTrue(self.receipt()['cleanup_complete'])
+        if stage == 'receipt':
+            self.assertEqual(self.s3.objects[receipt_key]['version'], receipt_version)
+        for k, v in original.items():
+            self.assertEqual(self.s3.objects[k], v)
+        version = self.s3.version
+        self.assertTrue(self.retry(None, mode))
+        self.assertEqual(self.s3.version, version, 'second retry rewrote completion')
+
+    def test_crash_after_stale_directory_removal(self):
+        self.check_recovery('directory', 'stale')
+
+    def test_crash_after_ap_deletion(self):
+        self.check_recovery('ap', 'request')
+
+    def test_crash_after_receipt_publication(self):
+        self.check_recovery('receipt', 'stale')
+
+    def test_partial_rmtree_is_not_verified_as_a_new_smaller_workspace(self):
+        ap = self.access_point()
+
+        def partial_removal(_directory):
+            (self.workspace / 'notes.txt').unlink()
+            raise OSError('interrupted during removal')
+
+        with patch('close_finalization.shutil.rmtree', side_effect=partial_removal):
+            status = self.finalize('stale', access_point=ap)
+        self.assertEqual(status['status'], records.STATUS_CLEANUP_INCOMPLETE)
+        version = self.s3.version
+        for _ in range(2):
+            self.assertFalse(self.retry(ap, 'stale'))
+        self.assertEqual(self.s3.version, version)
+        self.assertTrue((self.workspace / 'nested' / 'log').exists())
+        self.efs.delete_access_point.assert_not_called()
+
+    def test_late_write_after_ap_deletion_blocks_completion(self):
+        self.interrupted('ap', 'request')
+        (self.workspace / 'notes.txt').write_text('updated since verification')
+        version = self.s3.version
+        self.assertFalse(self.retry(None, 'request'))
+        self.assertEqual(self.s3.version, version)
+        self.assertEqual((self.workspace / 'notes.txt').read_text(), 'updated since verification')
+
+    def test_recovery_requires_the_original_managed_seal(self):
+        ap = self.interrupted('directory', 'stale')
+        del ap['tags'][records.TAG_MANAGED]
+        self.assertFalse(self.retry(ap, 'stale'))
+        self.efs.delete_access_point.assert_not_called()
+
+    def test_changed_backup_version_cannot_authorize_cleanup(self):
+        ap = self.interrupted('directory', 'stale')
+        status = self.s3.json_at(records.status_key(CLUSTER, INVESTIGATION))
+        key = records.attempt_workspace_prefix(ACCESS_POINT, status['attempt_id']) + 'notes.txt'
+        self.s3._store(key, self.s3.objects[key]['body'])
+        version = self.s3.version
+        for _ in range(2):
+            self.assertFalse(self.retry(ap, 'stale'))
+        self.assertEqual(self.s3.version, version)
+        self.efs.delete_access_point.assert_not_called()
+
+    def test_missing_evidence_cannot_authorize_cleanup(self):
+        ap = self.interrupted('directory', 'stale')
+        status = self.s3.json_at(records.status_key(CLUSTER, INVESTIGATION))
+        del self.s3.objects[records.attempt_evidence_key(
+            ACCESS_POINT, status['attempt_id'], 'verification.json')]
+        self.assertFalse(self.retry(ap, 'stale'))
+        self.assertEqual(status, self.s3.json_at(records.status_key(CLUSTER, INVESTIGATION)))
+        self.efs.delete_access_point.assert_not_called()
+
+
 class TestRuntimeBudget(FinalizerCase):
     def test_too_little_time_to_seal_stops_before_mutating_anything(self):
         status = self.finalize(seconds=5)

@@ -926,18 +926,10 @@ def authenticated_lambda(monkeypatch):
 
 
 def close_event(**body):
-    payload = {'action': 'close_status', 'cluster_id': CLUSTER,
+    payload = {'action': 'request_close', 'cluster_id': CLUSTER,
                'investigation_id': INVESTIGATION}
     payload.update(body)
     return {'headers': {'x-oidc-token': 'token'}, 'body': json.dumps(payload)}
-
-
-@pytest.mark.parametrize('action', ['request_close', 'register_auto_close', 'cancel_auto_close'])
-def test_close_writes_are_unavailable_before_reaper_rollout(authenticated_lambda, action):
-    with patch.object(close_requests, 'dispatch') as dispatched:
-        response = handler.lambda_handler(close_event(action=action), None)
-    assert response['statusCode'] == 503
-    dispatched.assert_not_called()
 
 
 def test_the_dispatch_route_uses_the_validated_claims_not_the_request_body(authenticated_lambda):

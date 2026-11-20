@@ -57,6 +57,7 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_efs" {
         Resource = aws_efs_file_system.sre_home.arn
       },
       {
+        Sid      = "DeleteUnsealedInvestigationAccessPoint"
         Effect   = "Allow"
         Action   = "elasticfilesystem:DeleteAccessPoint"
         Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
@@ -82,12 +83,45 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_efs" {
             "elasticfilesystem:AccessPointArn" = aws_efs_access_point.reaper.arn
           }
         }
+      },
+      {
+        # A seal this reaper applied may be finished by this reaper. A seal
+        # without the managed marker is a manual or legacy hold and stays
+        # protected by IAM, not only by handler logic.
+        Sid      = "DeleteOwnManagedSealedAccessPoint"
+        Effect   = "Allow"
+        Action   = "elasticfilesystem:DeleteAccessPoint"
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/ManagedBy"           = "rosa-boundary-lambda"
+            "aws:ResourceTag/AuditCloseManagedBy" = "rosa-boundary-reaper"
+          }
+        }
+      },
+      {
+        # Apply the managed close marker. The Null condition means IAM itself
+        # refuses to overwrite an existing seal of any kind.
+        Sid      = "SealUnsealedInvestigationAccessPoint"
+        Effect   = "Allow"
+        Action   = "elasticfilesystem:TagResource"
+        Resource = "arn:${data.aws_partition.current.partition}:elasticfilesystem:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:access-point/*"
+        Condition = {
+          StringEquals = { "aws:ResourceTag/ManagedBy" = "rosa-boundary-lambda" }
+          Null         = { "aws:ResourceTag/AuditCloseSeal" = "true" }
+        }
       }
     ]
   })
 }
 
-# Lambda permissions for S3 audit backup
+# Lambda permissions for close requests, attempt evidence and receipts.
+#
+# Everything the finalizer reads or writes lives under the service-only
+# _boundary-close/ prefix, which the investigation task role is explicitly
+# denied (see the task_s3 policy). The historical reaper-final-backup/ prefix
+# is no longer written: a shared prefix cannot show which attempt produced it,
+# so each close copies into its own attempt prefix instead.
 resource "aws_iam_role_policy" "reap_investigations_lambda_s3" {
   name = "s3-audit-backup${local.regional_policy_suffix}"
   role = data.aws_iam_role.reap_investigations_lambda.id
@@ -101,18 +135,42 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_s3" {
         Resource = aws_s3_bucket.audit.arn
         Condition = {
           StringLike = {
-            "s3:prefix" = "*/*/reaper-final-backup/*"
+            "s3:prefix" = "_boundary-close/*"
           }
         }
       },
       {
         Effect = "Allow"
         Action = [
-          "s3:PutObject",
-          "s3:PutObjectAcl"
+          "s3:GetObject",
+          "s3:PutObject"
         ]
-        # Reaper writes to a deterministic path: s3://bucket/{cluster}/{investigation}/reaper-final-backup/*
-        Resource = "${aws_s3_bucket.audit.arn}/*/*/reaper-final-backup/*"
+        Resource = "${aws_s3_bucket.audit.arn}/_boundary-close/*"
+      }
+    ]
+  })
+}
+
+# Finalization needs to observe sessions and stop consented tasks.
+resource "aws_iam_role_policy" "reap_investigations_lambda_sessions" {
+  name = "close-session-observation${local.regional_policy_suffix}"
+  role = data.aws_iam_role.reap_investigations_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect    = "Allow"
+        Action    = "ecs:StopTask"
+        Resource  = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Condition = { StringEquals = { "ecs:cluster" = aws_ecs_cluster.main.arn } }
+      },
+      {
+        # DescribeSessions cannot be scoped to an SSM resource ARN. A RUNNING
+        # task is not proof of an attached session, so the finalizer has to ask.
+        Effect   = "Allow"
+        Action   = "ssm:DescribeSessions"
+        Resource = "*"
       }
     ]
   })
@@ -192,13 +250,24 @@ resource "aws_lambda_function" "reap_investigations" {
   timeout          = 300 # 5 minutes (enough to process many investigations)
   memory_size      = 256 # Need more memory than task reaper for directory operations
 
+  # Finalization is serialized to one invocation per deployment. This is an
+  # operational constraint on finalizers so two of them cannot interleave
+  # sealing, copying and cleanup for the same workspace. It is not a lock
+  # against session creation or against any other EFS client, and nothing in
+  # the handler treats it as one.
+  reserved_concurrent_executions = 1
+
   environment {
     variables = {
       ECS_CLUSTER            = aws_ecs_cluster.main.name
       EFS_FILESYSTEM_ID      = aws_efs_file_system.sre_home.id
       GRACE_PERIOD_HOURS     = var.investigation_grace_period_hours
       S3_AUDIT_BUCKET        = aws_s3_bucket.audit.id
+      AWS_ACCOUNT_ID         = data.aws_caller_identity.current.account_id
       TASK_DEFINITION_FAMILY = aws_ecs_task_definition.rosa_boundary.family
+      CLOSE_QUIET_SECONDS    = tostring(var.investigation_close_quiet_seconds)
+      CLOSE_REQUESTS_PER_RUN = tostring(var.investigation_close_requests_per_run)
+      CLOSE_STALE_RECLAIM    = tostring(var.investigation_stale_reclaim_directories)
     }
   }
 

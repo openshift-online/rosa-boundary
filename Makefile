@@ -202,11 +202,11 @@ test-lambda-reap-tasks: ## Run reap-tasks Lambda unit tests
 
 test-lambda-reap-investigations: ## Run reap-investigations Lambda unit tests
 	@echo "Running reap-investigations unit tests..."
-	cd lambda/reap-investigations && uv run --with boto3 python -m unittest test_handler -v
+	cd lambda/reap-investigations && uv run --with boto3 python -m unittest test_handler test_close_finalization -v
 
 test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	@echo "Running create-investigation unit tests..."
-	cd lambda/create-investigation && uv run pytest test_handler.py -v
+	cd lambda/create-investigation && uv run pytest test_handler.py test_close_requests.py -v
 
 # Build helper unit tests
 test-github-dl: ## Run all build-helper unit and contract tests (venv auto-created in /tmp)

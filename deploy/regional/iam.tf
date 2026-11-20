@@ -314,6 +314,46 @@ resource "aws_iam_role_policy" "create_investigation_lambda_ecs" {
   })
 }
 
+# The authenticated close request/status actions record requests and intents
+# and read status. They deliberately cannot write status, attempt evidence or
+# receipts: an SRE's request must never be able to double as its own audit
+# evidence, so only the reaper writes those.
+resource "aws_iam_role_policy" "create_investigation_lambda_close_requests" {
+  name = "s3-close-requests${local.regional_policy_suffix}"
+  role = data.aws_iam_role.create_investigation_lambda.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = aws_s3_bucket.audit.arn
+        Condition = {
+          StringLike = {
+            "s3:prefix" = [
+              "_boundary-close/requests/*",
+              "_boundary-close/intents/*",
+            ]
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:GetObject", "s3:PutObject"]
+        Resource = [
+          "${aws_s3_bucket.audit.arn}/_boundary-close/requests/*",
+          "${aws_s3_bucket.audit.arn}/_boundary-close/intents/*",
+        ]
+      },
+      {
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.audit.arn}/_boundary-close/status/*"
+      }
+    ]
+  })
+}
+
 resource "aws_iam_role_policy" "create_investigation_lambda_efs" {
   name = "efs-access-point-management${local.regional_policy_suffix}"
   role = data.aws_iam_role.create_investigation_lambda.id

@@ -226,7 +226,7 @@ run "legacy_policy_names_ownership_and_original_scopes" {
   }
   assert {
     condition = (
-      length(jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement) == 2 &&
+      length(jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement) == 3 &&
       jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement[0].Principal.AWS == data.aws_iam_role.task.arn &&
       jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement[0].Condition.Null["elasticfilesystem:AccessPointArn"] == "false" &&
       jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement[1].Principal.AWS == data.aws_iam_role.reap_investigations_lambda.arn &&
@@ -238,6 +238,51 @@ run "legacy_policy_names_ownership_and_original_scopes" {
       jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[2].Resource == aws_efs_file_system.sre_home.arn
     )
     error_message = "EFS must grant reaper mount/write/root access in both policies only via its dedicated access point; task access remains dynamic."
+  }
+  assert {
+    condition = (
+      jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement[2].Sid == "DenyWorkloadUseOfTheServiceAccessPoint" &&
+      jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement[2].Effect == "Deny" &&
+      jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement[2].Principal.AWS == data.aws_iam_role.task.arn &&
+      jsondecode(aws_efs_file_system_policy.sre_home.policy).Statement[2].Condition.StringEquals["elasticfilesystem:AccessPointArn"] == aws_efs_access_point.reaper.arn
+    )
+    error_message = "A workload must not be able to mount the service access point that carries close evidence."
+  }
+  assert {
+    condition = (
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[1].Sid == "DeleteUnsealedInvestigationAccessPoint" &&
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[1].Condition.Null["aws:ResourceTag/AuditCloseSeal"] == "true" &&
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[3].Sid == "DeleteOwnManagedSealedAccessPoint" &&
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[3].Condition.StringEquals["aws:ResourceTag/AuditCloseManagedBy"] == "rosa-boundary-reaper" &&
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[4].Sid == "SealUnsealedInvestigationAccessPoint" &&
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[4].Action == "elasticfilesystem:TagResource" &&
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_efs.policy).Statement[4].Condition.Null["aws:ResourceTag/AuditCloseSeal"] == "true"
+    )
+    error_message = "IAM itself must refuse to overwrite a manual seal and must only let the reaper finish seals it applied."
+  }
+  assert {
+    condition = (
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_s3.policy).Statement[0].Condition.StringLike["s3:prefix"] == "_boundary-close/*" &&
+      jsondecode(aws_iam_role_policy.reap_investigations_lambda_s3.policy).Statement[1].Resource == "${aws_s3_bucket.audit.arn}/_boundary-close/*" &&
+      length(regexall("reaper-final-backup", aws_iam_role_policy.reap_investigations_lambda_s3.policy)) == 0
+    )
+    error_message = "Close evidence is written only under the service-only prefix; the shared historical backup prefix is no longer written."
+  }
+  assert {
+    condition = (
+      jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement[1].Resource == [
+        "${aws_s3_bucket.audit.arn}/_boundary-close/requests/*",
+        "${aws_s3_bucket.audit.arn}/_boundary-close/intents/*",
+      ] &&
+      jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement[2].Action == "s3:GetObject" &&
+      jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement[2].Resource == "${aws_s3_bucket.audit.arn}/_boundary-close/status/*" &&
+      length(jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement) == 3
+    )
+    error_message = "The request handler may record requests and intents and read status, but must never write status, evidence or receipts."
+  }
+  assert {
+    condition     = aws_lambda_function.reap_investigations.reserved_concurrent_executions == 1
+    error_message = "Finalization must be serialized to one invocation per deployment."
   }
 }
 

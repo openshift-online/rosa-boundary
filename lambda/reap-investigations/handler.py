@@ -1,31 +1,50 @@
 """
-AWS Lambda handler for periodic garbage collection of stale investigations.
+AWS Lambda handler for investigation close finalization and garbage collection.
 
-This Lambda runs on a schedule (default: every 8 hours) to:
-1. List all EFS access points with investigation tags
-2. Check each investigation for staleness (no running tasks + grace period elapsed)
-3. Delete: EFS directory, access point, and associated task definitions
+This Lambda runs on a schedule (default: every 8 hours) and is the only
+component that finalizes an investigation. Each invocation:
+
+1. Finishes explicit close requests recorded by authenticated SREs
+2. Activates auto-close intents whose session task has stopped
+3. Reaps stale investigations (no running tasks + grace period elapsed)
+
+All three routes run through one bounded pipeline — seal, drain, copy, verify,
+publish, clean up — so there is no alternative, less-verified way to reach
+deletion. The schedule is the recovery path: a request survives a lost CLI, and
+an invocation that runs out of runtime resumes on the next one.
+
+Finalization is intended to run one invocation at a time per deployment
+(``reserved_concurrent_executions = 1`` in the regional Terraform). That is an
+operational serialization constraint on finalizers, not a lock against session
+creation or against any other EFS client.
 
 Environment Variables:
 - ECS_CLUSTER: ECS cluster name
 - EFS_FILESYSTEM_ID: EFS filesystem ID
 - GRACE_PERIOD_HOURS: Staleness threshold (default: 72)
-- S3_AUDIT_BUCKET: Optional S3 bucket for investigation backups
+- S3_AUDIT_BUCKET: Audit bucket holding close requests, evidence and receipts
+- AWS_ACCOUNT_ID: Expected audit bucket owner
 - TASK_DEFINITION_FAMILY: Task definition family prefix for cleanup
+- CLOSE_QUIET_SECONDS: Interval between the two quiet observations (default 15)
+- CLOSE_REQUESTS_PER_RUN: Explicit requests finalized per invocation (default 3)
+- CLOSE_STALE_RECLAIM: Whether stale reaping may reclaim directories (default true)
 """
 
 import os
 import logging
 import re
-import stat
-import shutil
 import hashlib
+import uuid
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timedelta, timezone
 
 import boto3
 from botocore.config import Config as BotocoreConfig
 from botocore.exceptions import BotoCoreError, ClientError
+
+import boundary_close_records as records
+import close_finalization
+import investigation_sessions as sessions
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -40,12 +59,31 @@ efs = boto3.client(
     config=BotocoreConfig(connect_timeout=5, read_timeout=10, retries={'max_attempts': 3, 'mode': 'standard'})
 )
 
+s3 = boto3.client(
+    's3',
+    config=BotocoreConfig(connect_timeout=5, read_timeout=30, retries={'max_attempts': 3, 'mode': 'standard'})
+)
+
+ssm = boto3.client(
+    'ssm',
+    config=BotocoreConfig(connect_timeout=5, read_timeout=10, retries={'max_attempts': 3, 'mode': 'standard'})
+)
+
 ECS_CLUSTER = os.environ.get('ECS_CLUSTER')
 EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
 GRACE_PERIOD_HOURS = int(os.environ.get('GRACE_PERIOD_HOURS', '72'))
 S3_AUDIT_BUCKET = os.environ.get('S3_AUDIT_BUCKET', '')
+AWS_ACCOUNT_ID = os.environ.get('AWS_ACCOUNT_ID', '')
 TASK_DEFINITION_FAMILY = os.environ.get('TASK_DEFINITION_FAMILY', '')
+CLOSE_QUIET_SECONDS = int(os.environ.get('CLOSE_QUIET_SECONDS', '15'))
+CLOSE_REQUESTS_PER_RUN = int(os.environ.get('CLOSE_REQUESTS_PER_RUN', '3'))
+CLOSE_STALE_RECLAIM = os.environ.get('CLOSE_STALE_RECLAIM', 'true').lower() != 'false'
 EFS_MOUNT_PATH = '/mnt/efs'
+
+# A finalization needs room for the quiet recheck, a copy and the cleanup
+# reserve. Starting one with less time would checkpoint immediately and burn
+# budget that explicit requests and stale candidates both need.
+CLOSE_MIN_SECONDS = 60
 
 # Identifier validation pattern (must match create-investigation Lambda)
 IDENTIFIER_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9._-]*$')
@@ -82,11 +120,8 @@ def validate_identifier(value: str, name: str) -> None:
         raise ValueError(f"{name} contains path traversal characters: {value}")
 
 
-def work_seconds(context: Any) -> float:
-    """Time for new work, excluding the 30-second cleanup reserve."""
-    if context is None:
-        return 300.0
-    return max(0, context.get_remaining_time_in_millis() - 30000) / 1000
+# One definition of the runtime budget, shared with the finalization pipeline.
+work_seconds = records.work_seconds
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -118,7 +153,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     if not work_seconds(context):
         logger.warning("Insufficient time for investigation discovery")
-        return {'checked': 0, 'reaped': 0, 'skipped': 0, 'errors': 0}
+        return {'checked': 0, 'reaped': 0, 'skipped': 0, 'errors': 0,
+                'requests_processed': 0, 'intents_activated': 0, 'close_errors': 0}
+
+    # Explicit requests run first, under their own per-run cap, so neither they
+    # nor the stale sweep can starve the other.
+    close_summary = process_close_work(context)
 
     try:
         # List all access points with investigation tags
@@ -128,10 +168,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Build running tasks set once to avoid repeated cluster-wide pagination
         running_tasks = list_all_running_tasks()
         logger.info("Found %d running task(s) in cluster", len(running_tasks))
-
-        # Fetch all active task definitions once to avoid repeated pagination
-        all_task_def_arns = list_all_task_definitions() if TASK_DEFINITION_FAMILY else []
-        logger.info("Found %d active task definition(s)", len(all_task_def_arns))
 
         for ap in access_points:
             # Check deadline before processing each investigation
@@ -225,7 +261,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 errors += 1
                 continue
 
-            reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context, all_task_def_arns)
+            reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context)
 
             if reap_success:
                 reaped += 1
@@ -239,7 +275,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'checked': checked,
             'reaped': reaped,
             'skipped': skipped,
-            'errors': errors
+            'errors': errors,
+            **close_summary,
         }
     except Exception as e:
         logger.error("Unexpected error during investigation reaping: %s", e, exc_info=True)
@@ -252,8 +289,301 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         'checked': checked,
         'reaped': reaped,
         'skipped': skipped,
-        'errors': errors
+        'errors': errors,
+        **close_summary,
     }
+
+
+def build_finalizer() -> close_finalization.Finalizer:
+    """Build the single finalization pipeline used by every close route."""
+    return close_finalization.Finalizer(
+        ecs=ecs, efs=efs, s3=s3, ssm=ssm,
+        ecs_cluster=ECS_CLUSTER,
+        efs_filesystem_id=EFS_FILESYSTEM_ID,
+        audit_bucket=S3_AUDIT_BUCKET,
+        account_id=AWS_ACCOUNT_ID,
+        mount_path=EFS_MOUNT_PATH,
+        started_by=investigation_started_by,
+        task_definition_family=TASK_DEFINITION_FAMILY,
+        quiet_seconds=CLOSE_QUIET_SECONDS,
+        stale_reclaim=CLOSE_STALE_RECLAIM,
+    )
+
+
+def process_close_work(context: Any) -> Dict[str, int]:
+    """Finalize explicit close requests and activate eligible auto-close intents.
+
+    Failures here never abort the stale sweep: each investigation's outcome is
+    recorded in its own status record, and the next invocation resumes.
+    """
+    # requests_processed counts passes, not successes: a pass that retained the
+    # workspace also increments close_errors.
+    summary = {'requests_processed': 0, 'intents_activated': 0, 'close_errors': 0}
+    if not S3_AUDIT_BUCKET:
+        logger.warning("S3_AUDIT_BUCKET is not configured; close requests cannot be processed")
+        return summary
+    finalizer = build_finalizer()
+    try:
+        summary['intents_activated'] = activate_auto_close_intents(finalizer, context)
+        summary['requests_processed'] = finalize_close_requests(finalizer, context, summary)
+    except (ClientError, BotoCoreError, ValueError) as error:
+        # Close work must never abort the stale sweep, and a malformed record
+        # must never stop the schedule for the whole deployment.
+        logger.error("Close request processing could not run: %s", type(error).__name__,
+                     exc_info=True)
+        summary['close_errors'] += 1
+    return summary
+
+
+def _identifiers_from_key(key: str, prefix: str, depth: int) -> Optional[List[str]]:
+    """Split a control key into validated identifier segments, or None."""
+    if not key.startswith(prefix):
+        return None
+    parts = key[len(prefix):].split('/')
+    if len(parts) != depth:
+        return None
+    parts[-1] = parts[-1].removesuffix('.json')
+    try:
+        for part in parts:
+            records.safe_segment(part)
+    except ValueError:
+        logger.warning("Ignoring control record with an unsafe key")
+        return None
+    return parts
+
+
+def _request_identity(key: str) -> Optional[List[str]]:
+    """Split a request key into cluster, investigation, request time and token."""
+    prefix = f'{records.CONTROL_PREFIX}/requests/'
+    if not key.startswith(prefix):
+        return None
+    parts = key[len(prefix):].split('/')
+    if len(parts) != 3:
+        return None
+    parsed = records.parse_request_filename(parts[2])
+    if parsed is None:
+        return None
+    try:
+        records.safe_segment(parts[0])
+        records.safe_segment(parts[1])
+    except ValueError:
+        logger.warning("Ignoring close request with an unsafe key")
+        return None
+    return [parts[0], parts[1], parsed[0], parsed[1]]
+
+
+def _answered(status: Optional[Dict[str, Any]], token: str, stamp: str) -> bool:
+    """Return whether a recorded outcome already answers this request.
+
+    A retained outcome the reaper can resolve by itself is *not* an answer:
+    treating one as final is how a single throttled API call would end a close
+    request forever, while the CLI and the runbook promise a retry.
+    """
+    if not status or status.get('status') not in records.TERMINAL_STATUSES:
+        return False
+    if status.get('status') == records.STATUS_RETAINED and status.get('retryable'):
+        return False
+    if status.get('request_token') == token:
+        return True
+    # An outcome recorded after this request was written already covers it; an
+    # older outcome does not. Both sides are compared as sortable UTC stamps.
+    try:
+        return records.request_stamp(status.get('updated_at', '')) >= stamp
+    except (TypeError, ValueError):
+        return False
+
+
+def finalize_close_requests(finalizer, context: Any, summary: Dict[str, int]) -> int:
+    """Finalize recorded close requests within this invocation's budget.
+
+    Records are object-locked and never deleted, so the scan must be able to
+    pass over an answered request without reading it. The request time is in
+    the key and the status record is read once per investigation, which keeps
+    a long history from starving the newest requests.
+
+    Within a run the budget goes to the investigations that have waited
+    longest, not to whichever keys sort first. A request that cannot finish in
+    one pass — one waiting for a task to stop, most commonly — stays
+    unanswered for as long as the wait lasts, so always taking the head of the
+    key space would let a few waiting investigations hold the entire budget
+    and starve every request recorded behind them indefinitely. Ordering by
+    the last recorded progress rotates the queue, because each attempt writes
+    a status and so sends that investigation to the back.
+    """
+    statuses: Dict[Any, Optional[Dict[str, Any]]] = {}
+    candidates: Dict[Any, Any] = {}
+    for key in finalizer.list_keys(f'{records.CONTROL_PREFIX}/requests/'):
+        if work_seconds(context) < CLOSE_MIN_SECONDS:
+            break
+        identity = _request_identity(key)
+        if identity is None:
+            continue
+        cluster_id, investigation_id, stamp, token = identity
+        investigation = (cluster_id, investigation_id)
+        if investigation not in statuses:
+            statuses[investigation] = finalizer.get_json(
+                records.status_key(cluster_id, investigation_id), records.KIND_STATUS)
+        if _answered(statuses[investigation], token, stamp):
+            continue
+        # One attempt per investigation per run: a second request for the same
+        # workspace is governed by the outcome of the first, and that outcome
+        # is not known until this run has written it.
+        candidates.setdefault(investigation, (key, stamp, token))
+
+    def waited_longest(item):
+        investigation, (_key, stamp, _token) = item
+        status = statuses[investigation] or {}
+        # An investigation nobody has attempted yet has no progress stamp, so
+        # it sorts ahead of every investigation that has one.
+        return (str(status.get('updated_at', '')), stamp)
+
+    finalized = 0
+    for investigation, (key, stamp, token) in sorted(candidates.items(), key=waited_longest):
+        if finalized >= CLOSE_REQUESTS_PER_RUN or work_seconds(context) < CLOSE_MIN_SECONDS:
+            break
+        cluster_id, investigation_id = investigation
+        try:
+            request = records.validate_request(
+                finalizer.get_json(key, records.KIND_REQUEST) or {})
+        except (ValueError, ClientError, BotoCoreError):
+            logger.warning("Ignoring unreadable or malformed close request")
+            summary['close_errors'] += 1
+            continue
+        if (request['cluster_id'] != cluster_id
+                or request['investigation_id'] != investigation_id
+                or request['request_token'] != token):
+            logger.warning("Ignoring close request whose identity disagrees with its key")
+            summary['close_errors'] += 1
+            continue
+        mode = 'stale' if request['trigger'] == records.TRIGGER_STALE else 'request'
+        if not finalize_one(finalizer, cluster_id, investigation_id, request, mode, context):
+            summary['close_errors'] += 1
+        finalized += 1
+    return finalized
+
+
+def finalize_one(finalizer, cluster_id: str, investigation_id: str,
+                 request: Dict[str, Any], mode: str, context: Any) -> bool:
+    """Resolve the workspace and run one finalization pass."""
+    try:
+        access_point = finalizer.find_access_point(cluster_id, investigation_id)
+    except close_finalization.Retained as stop:
+        finalizer.write_status(cluster_id, investigation_id, stop.status, phase=stop.phase,
+                               reason=stop.reason, request_token=request['request_token'])
+        return False
+    if access_point is None:
+        # The workspace is gone. Record a terminal outcome so a later status
+        # lookup still answers, without claiming work this run did not do and
+        # without overwriting a close that already completed.
+        existing = finalizer.get_json(records.status_key(cluster_id, investigation_id),
+                                      records.KIND_STATUS)
+        if existing and existing.get('status') == records.STATUS_COMPLETED:
+            # Already closed, so there is nothing to finalize — but this
+            # request still has to be answered. Leaving it unanswered would
+            # bring it back on every invocation, holding a budget slot for
+            # good. Report the close that happened rather than claiming work
+            # this run did.
+            finalizer.write_status(
+                cluster_id, investigation_id, records.STATUS_COMPLETED, phase='resolve',
+                reason='this investigation was already closed; nothing remained to finalize',
+                request_token=request['request_token'],
+                access_point_path=existing.get('access_point_path', ''),
+                directory_retained=existing.get('directory_retained', True),
+                access_point_deleted=existing.get('access_point_deleted', True),
+                task_definitions_removed=existing.get('task_definitions_removed', 0))
+            return True
+        finalizer.write_status(
+            cluster_id, investigation_id, records.STATUS_RETAINED, phase='resolve',
+            reason='no managed access point exists for this workspace',
+            request_token=request['request_token'])
+        return False
+    status = finalizer.finalize(cluster_id=cluster_id, investigation_id=investigation_id,
+                                access_point=access_point, request=request, mode=mode,
+                                context=context)
+    return status.get('status') == records.STATUS_COMPLETED
+
+
+def activate_auto_close_intents(finalizer, context: Any) -> int:
+    """Turn eligible auto-close intents into recorded close requests.
+
+    An intent is activated only once its own task is observed stopped and the
+    SRE that recorded it is still eligible. A handover to another active SRE
+    supersedes the intent: it is not inherited consent to close the new
+    holder's investigation.
+
+    Another SRE's task left running is a weaker signal than an attached
+    session — the investigation reads as idle — but activating into it would
+    still seal a workspace somebody may be running work in, on nobody's
+    present say-so. So an intent waits for the whole investigation to go
+    quiet unless its author explicitly consented to stopping every task.
+    """
+    activated = 0
+    prefix = f'{records.CONTROL_PREFIX}/intents/'
+    for key in finalizer.list_keys(prefix):
+        # Intents run before requests, so they get the same per-run cap: an
+        # unbounded burst of activations would otherwise spend the invocation
+        # before a single recorded request was finalized.
+        if activated >= CLOSE_REQUESTS_PER_RUN or work_seconds(context) < CLOSE_MIN_SECONDS:
+            break
+        parts = _identifiers_from_key(key, prefix, 3)
+        if parts is None:
+            continue
+        cluster_id, investigation_id, _task = parts
+        try:
+            intent = records.validate_intent(
+                finalizer.get_json(key, records.KIND_INTENT) or {})
+        except (ValueError, ClientError, BotoCoreError):
+            logger.warning("Ignoring unreadable or malformed auto-close intent")
+            continue
+        if intent.get('cancelled') or intent.get('activated_request_token'):
+            continue
+        observation = finalizer.observe(cluster_id, investigation_id)
+        if observation['state'] == records.STATE_UNKNOWN:
+            logger.info("Auto-close intent deferred: investigation state is unknown")
+            continue
+        remaining = sessions.nonterminal_task_ids(observation)
+        if intent['task_id'] in remaining:
+            continue
+        # Supersession is decided before the wait below, so a handover still
+        # cancels a stale intent instead of leaving it deferred forever.
+        superseded = sessions.request_superseded(intent, observation)
+        if superseded:
+            logger.info("Auto-close intent superseded for %s/%s", cluster_id, investigation_id)
+            finalizer.put_json(key, dict(intent, cancelled=True,
+                                         cancelled_at=records.now_iso(),
+                                         cancelled_reason=superseded))
+            continue
+        if remaining and intent['stop_scope'] != records.STOP_INVESTIGATION:
+            # Another task is still running and this intent was not consent to
+            # stop it. Wait for it rather than seal around work in progress.
+            logger.info("Auto-close intent deferred: another task is still running")
+            continue
+        request_token = str(uuid.uuid4())
+        requested_at = records.now_iso()
+        request = {
+            'schema_version': records.REQUEST_SCHEMA_VERSION,
+            'kind': records.KIND_REQUEST,
+            'request_token': request_token,
+            'cluster_id': cluster_id,
+            'investigation_id': investigation_id,
+            'access_point_id': intent['access_point_id'],
+            'requester_sub': intent['requester_sub'],
+            'requester_username': intent.get('requester_username', ''),
+            'stop_scope': intent['stop_scope'],
+            'stop_task_ids': ([intent['task_id']]
+                              if intent['stop_scope'] == records.STOP_SESSION_TASK else []),
+            'trigger': 'auto_close',
+            'requested_at': requested_at,
+            'activated_from_intent': intent['task_id'],
+            'deployment': ECS_CLUSTER,
+        }
+        finalizer.put_json(
+            records.request_key(cluster_id, investigation_id, request_token, requested_at),
+            request)
+        finalizer.put_json(key, dict(intent, activated_request_token=request_token,
+                                     activated_at=records.now_iso()))
+        activated += 1
+    return activated
 
 
 def is_investigation_stale(cluster_id: str, investigation_id: str,
@@ -374,38 +704,6 @@ def list_all_running_tasks() -> List[Dict[str, str]]:
     return tasks
 
 
-def list_all_task_definitions() -> List[str]:
-    """
-    List all ACTIVE task definitions.
-    Returns list of task definition ARNs.
-    Fetched once per Lambda invocation to avoid repeated pagination.
-    """
-    task_def_arns = []
-    next_token = None
-
-    while True:
-        try:
-            kwargs = {
-                'status': 'ACTIVE'
-            }
-
-            if next_token:
-                kwargs['nextToken'] = next_token
-
-            response = ecs.list_task_definitions(**kwargs)
-            task_def_arns.extend(response.get('taskDefinitionArns', []))
-
-            next_token = response.get('nextToken')
-            if not next_token:
-                break
-
-        except (ClientError, BotoCoreError) as e:
-            logger.error("Failed to list task definitions: %s", e, exc_info=True)
-            raise
-
-    return task_def_arns
-
-
 def list_tasks_by_investigation(cluster_id: str, investigation_id: str) -> List[str]:
     """
     List RUNNING tasks for the given investigation.
@@ -468,358 +766,51 @@ def list_investigation_access_points() -> List[Dict[str, Any]]:
     return access_points
 
 
-def still_unsealed(access_point_id: str, cluster_id: str, investigation_id: str) -> bool:
-    """Require one unsealed AP on this path; a duplicate may hold the seal."""
-    path = f'/{cluster_id}/{investigation_id}'
-    points = [point for point in list_investigation_access_points()
-              if point.get('RootDirectory', {}).get('Path') == path]
-    return (len(points) == 1 and points[0]['AccessPointId'] == access_point_id
-            and 'Tags' in points[0]
-            and not any(t['Key'] == 'AuditCloseSeal' for t in points[0]['Tags']))
+def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str,
+                       context: Any) -> bool:
+    """Reap one stale investigation through the shared verified gate.
 
+    Stale reaping has no separate, backup-only destructive path. It runs the
+    same pipeline an explicit close runs — seal, observe, copy, independently
+    verify, publish, then clean up — and reclaims the directory only when that
+    gate passed. It carries no stop consent: a scheduled, unattended job never
+    stops a task, and the idle precondition above is what makes that safe.
 
-def cleanup_allowed(access_point_id: str, cluster_id: str, investigation_id: str, context: Any) -> bool:
-    """Refresh the seal, then check the time left after the EFS lookup."""
-    return still_unsealed(access_point_id, cluster_id, investigation_id) and work_seconds(context) > 0
-
-
-def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str, context: Any, task_def_arns: List[str]) -> bool:
+    The request is recorded before the pass begins. Sealing happens early, and
+    the stale sweep skips sealed access points, so without a persisted request
+    an interrupted pass would leave a sealed workspace that nothing ever
+    revisits. With one, the request route resumes it on the next invocation.
     """
-    Reap a stale investigation by deleting directory, access point, and task definitions.
-
-    Directory must be deleted before access point - once the access point is gone,
-    we lose the tags that identify the directory location, making it unreclaimable.
-
-    Args:
-        cluster_id: Cluster identifier
-        investigation_id: Investigation identifier
-        access_point_id: EFS access point ID to delete
-        context: Lambda context object for timeout calculation
-        task_def_arns: Pre-fetched list of all active task definition ARNs
-
-    Returns:
-        True if all steps succeeded, False if any step failed
-    """
-    if not work_seconds(context):
+    if work_seconds(context) < CLOSE_MIN_SECONDS:
+        logger.info("Not enough runtime left to reap %s; deferring to the next invocation",
+                    access_point_id)
         return False
-
-    try:
-        if not delete_investigation_directory(cluster_id, investigation_id, context, access_point_id):
-            return False
-        if not cleanup_allowed(access_point_id, cluster_id, investigation_id, context):
-            return False
-        all_success = delete_access_point(access_point_id)
-    except (ClientError, BotoCoreError, OSError, ValueError) as e:
-        logger.error("Cleanup deferred for %s: %s", access_point_id, e, exc_info=True)
-        return False
-
-    # Deregister task definitions after workspace cleanup
-    try:
-        deregistered = delete_task_definitions(cluster_id, investigation_id, task_def_arns)
-        logger.info("Deregistered %d task definition(s) for %s/%s",
-                   deregistered, cluster_id, investigation_id)
-    except (ClientError, BotoCoreError) as e:
-        logger.error("Error deregistering task definitions for %s/%s: %s",
-                    cluster_id, investigation_id, e, exc_info=True)
-        all_success = False
-
-    return all_success
-
-
-def backup_investigation_to_s3(cluster_id: str, investigation_id: str, directory_path: str, context: Any) -> bool:
-    """
-    Upload investigation directory to S3 before deletion.
-
-    Uploads to s3://{bucket}/{cluster_id}/{investigation_id}/reaper-final-backup/
-    with the same exclusions as entrypoint.sh (.config/ocm/*, .kube/*).
-
-    Uses boto3 S3 client for uploading (AWS CLI not available in Lambda runtime).
-
-    Args:
-        cluster_id: Cluster identifier
-        investigation_id: Investigation identifier
-        directory_path: Local EFS directory path to backup
-        context: Lambda context object for timeout calculation
-
-    Returns:
-        True only if the complete eligible tree was uploaded within budget
-
-    Raises:
-        ValueError: If configuration is invalid
-    """
     if not S3_AUDIT_BUCKET:
-        logger.error("S3_AUDIT_BUCKET not configured - cannot backup %s/%s",
-                    cluster_id, investigation_id)
-        return False  # Missing S3 configuration prevents deletion
-
-    upload_timeout = work_seconds(context)
-    if not upload_timeout:
-        logger.warning("Insufficient time for backup; retaining workspace")
+        logger.error("S3_AUDIT_BUCKET is not configured; refusing to reap %s", access_point_id)
         return False
-
-    # S3 prefix for uploaded files
-    s3_prefix = f"{cluster_id}/{investigation_id}/reaper-final-backup/"
-
-    logger.info("Backing up %s to s3://%s/%s (timeout: %.1fs)",
-                directory_path, S3_AUDIT_BUCKET, s3_prefix, upload_timeout)
-
+    finalizer = build_finalizer()
+    request_token = str(uuid.uuid4())
+    requested_at = records.now_iso()
+    request = {
+        'schema_version': records.REQUEST_SCHEMA_VERSION,
+        'kind': records.KIND_REQUEST,
+        'request_token': request_token,
+        'cluster_id': cluster_id,
+        'investigation_id': investigation_id,
+        'access_point_id': access_point_id,
+        'requester_sub': '',
+        'stop_scope': records.STOP_NONE,
+        'stop_task_ids': [],
+        'trigger': records.TRIGGER_STALE,
+        'requested_at': requested_at,
+        'deployment': ECS_CLUSTER,
+    }
     try:
-        # Create S3 client with timeout configuration matching upload window
-        s3 = boto3.client(
-            's3',
-            config=BotocoreConfig(
-                connect_timeout=5,
-                read_timeout=min(10, upload_timeout),
-                retries={'max_attempts': 3, 'mode': 'standard'}
-            )
-        )
-
-        file_count = 0
-        bytes_uploaded = 0
-
-        def fail_walk(error):
-            raise error  # os.walk silently skips unreadable subtrees by default
-
-        # Walk directory tree (followlinks=False prevents symlink exfiltration)
-        for root, dirs, files in os.walk(directory_path, onerror=fail_walk, followlinks=False):
-            # Check deadline before processing each directory
-            if not work_seconds(context):
-                logger.error("Upload deadline reached for %s/%s - directory retained",
-                            cluster_id, investigation_id)
-                return False
-
-            # Calculate relative path from investigation directory
-            rel_root = os.path.relpath(root, directory_path)
-
-            # Prune excluded trees before scandir: they need not be readable.
-            if rel_root == '.' and '.kube' in dirs:
-                dirs.remove('.kube')
-            if rel_root == '.config' and 'ocm' in dirs:
-                dirs.remove('ocm')
-
-            # Skip excluded directories (.config/ocm/*, .kube/*)
-            if rel_root != '.':
-                path_parts = rel_root.split(os.sep)
-
-                # Skip .config/ocm/* paths
-                if len(path_parts) >= 2 and path_parts[0] == '.config' and path_parts[1] == 'ocm':
-                    continue
-
-                # Skip .kube/* paths
-                if path_parts[0] == '.kube':
-                    continue
-
-            # Upload each file in this directory
-            for filename in files:
-                # Check deadline before each file upload
-                if not work_seconds(context):
-                    logger.error("Upload deadline reached for %s/%s - directory retained",
-                                cluster_id, investigation_id)
-                    return False
-
-                local_path = os.path.join(root, filename)
-
-                # Use lstat to check file type without following symlinks
-                # OSError propagates to outer handler which returns False and retains directory
-                file_stat = os.lstat(local_path)
-
-                # Only upload regular files, skip symlinks and other types
-                if not stat.S_ISREG(file_stat.st_mode):
-                    continue
-
-                # Calculate S3 key: prefix + relative path from investigation directory
-                if rel_root == '.':
-                    relative_path = filename
-                else:
-                    relative_path = os.path.join(rel_root, filename)
-
-                s3_key = f"{s3_prefix}{relative_path}"
-
-                # Upload file to S3
-                s3.upload_file(local_path, S3_AUDIT_BUCKET, s3_key)
-
-                file_count += 1
-                bytes_uploaded += file_stat.st_size
-
-        if not work_seconds(context):
-            logger.warning("Backup exhausted its budget; retaining workspace")
-            return False
-
-        logger.info("Successfully backed up %d file(s) (%d bytes) to S3 for %s/%s",
-                   file_count, bytes_uploaded, cluster_id, investigation_id)
-        return True
-
-    except ClientError as e:
-        # Do not log file paths or S3 keys (may contain investigation identifiers)
-        error_code = e.response.get('Error', {}).get('Code', 'Unknown')
-        logger.error("S3 backup failed for %s/%s with error code %s",
-                    cluster_id, investigation_id, error_code)
+        finalizer.put_json(
+            records.request_key(cluster_id, investigation_id, request_token, requested_at),
+            request)
+    except (ClientError, BotoCoreError, ValueError):
+        logger.error("Could not record the stale close request for %s; deferring",
+                     access_point_id, exc_info=True)
         return False
-    except BotoCoreError as e:
-        logger.error("S3 backup failed for %s/%s: boto3 error",
-                    cluster_id, investigation_id)
-        return False
-    except OSError as e:
-        # File read errors (permissions, disk errors, etc.)
-        logger.error("S3 backup failed for %s/%s: filesystem error",
-                    cluster_id, investigation_id)
-        return False
-    except Exception as e:
-        logger.error("Unexpected error during S3 backup for %s/%s: %s",
-                    cluster_id, investigation_id, type(e).__name__, exc_info=True)
-        return False
-
-
-def delete_investigation_directory(cluster_id: str, investigation_id: str, context: Any, access_point_id: str) -> bool:
-    """
-    Delete investigation directory from mounted EFS filesystem.
-
-    Validates path to prevent traversal, verifies EFS is mounted, backs up to S3,
-    then deletes the directory tree.
-
-    Args:
-        cluster_id: Cluster identifier
-        investigation_id: Investigation identifier
-        context: Lambda context object for timeout calculation
-
-    Returns:
-        True if deletion succeeded, False otherwise
-
-    Raises:
-        ValueError: If path validation fails
-    """
-    # Build and validate directory path
-    directory_path = os.path.join(EFS_MOUNT_PATH, cluster_id, investigation_id)
-    real_path = os.path.realpath(directory_path)
-
-    # Verify path is within EFS mount (prevents traversal)
-    validate_identifier(cluster_id, 'ClusterID')
-    validate_identifier(investigation_id, 'InvestigationID')
-    if real_path != os.path.join(os.path.realpath(EFS_MOUNT_PATH), cluster_id, investigation_id):
-        raise ValueError(f"Path traversal detected: {directory_path} resolves to {real_path}")
-
-    # Verify mount exists
-    if not os.path.ismount(EFS_MOUNT_PATH):
-        logger.error("EFS not mounted at %s", EFS_MOUNT_PATH)
-        return False
-
-    try:
-        if not stat.S_ISDIR(os.lstat(directory_path).st_mode):
-            logger.error("Workspace is not a directory; refusing cleanup")
-            return False
-    except FileNotFoundError:
-        logger.info("Directory %s does not exist (already deleted or never created)",
-                   directory_path)
-        return True
-
-    # Backup to S3 before deletion (required step)
-    backup_success = backup_investigation_to_s3(cluster_id, investigation_id, directory_path, context)
-    if not backup_success:
-        logger.error("S3 backup failed for %s/%s - refusing to delete directory",
-                    cluster_id, investigation_id)
-        return False
-
-    if not cleanup_allowed(access_point_id, cluster_id, investigation_id, context):
-        logger.warning("Workspace cleanup deferred for %s", access_point_id)
-        return False
-
-    logger.info("Deleting directory: %s", directory_path)
-    try:
-        shutil.rmtree(directory_path)
-        logger.info("Successfully deleted directory: %s", directory_path)
-        return True
-    except OSError as e:
-        logger.error("Failed to delete directory %s: %s", directory_path, e, exc_info=True)
-        return False
-
-
-def delete_access_point(access_point_id: str) -> bool:
-    """
-    Delete EFS access point.
-
-    Returns:
-        True if deletion succeeded, False otherwise
-    """
-    try:
-        efs.delete_access_point(AccessPointId=access_point_id)
-        logger.info("Deleted access point: %s", access_point_id)
-        return True
-    except ClientError as e:
-        if e.response['Error']['Code'] == 'AccessPointNotFound':
-            logger.warning("Access point %s already deleted", access_point_id)
-            return True
-        logger.error("Failed to delete access point %s: %s",
-                    access_point_id, e, exc_info=True)
-        return False
-    except Exception as e:
-        logger.error("Unexpected error deleting access point %s: %s",
-                    access_point_id, e, exc_info=True)
-        return False
-
-
-def delete_task_definitions(cluster_id: str, investigation_id: str, all_task_def_arns: List[str]) -> int:
-    """
-    Deregister all task definitions for an investigation.
-    Family prefix: {TASK_DEFINITION_FAMILY}-{cluster_id}-{investigation_id}
-
-    Args:
-        cluster_id: Cluster identifier
-        investigation_id: Investigation identifier
-        all_task_def_arns: Pre-fetched list of all active task definition ARNs
-
-    Returns:
-        Number of task definitions deregistered
-    """
-    if not TASK_DEFINITION_FAMILY:
-        logger.warning("TASK_DEFINITION_FAMILY not configured - cannot deregister task definitions")
-        return 0
-
-    family_prefix = f'{TASK_DEFINITION_FAMILY}-{cluster_id}-{investigation_id}'
-    deregistered = 0
-
-    logger.info("Searching for task definitions with familyPrefix: %s", family_prefix)
-
-    try:
-        # Filter pre-fetched task definitions by parsing ARN structure
-        # ARN format: arn:aws:ecs:region:account:task-definition/family-cluster-investigation-timestamp:revision
-        # Must match exact family, cluster_id, and investigation_id to prevent name collisions
-        matching_arns = []
-        for arn in all_task_def_arns:
-            # Extract task definition name from ARN
-            if ':task-definition/' not in arn:
-                continue
-
-            task_def_name = arn.split(':task-definition/', 1)[1]
-            # Reject malformed ARNs before matching an investigation's family.
-            family_with_timestamp, separator, revision = task_def_name.rpartition(':')
-            if not separator or not revision.isdigit():
-                continue
-
-            # Expected format: {family_prefix}-{timestamp}
-            # Check if it starts with family_prefix followed by '-' and timestamp
-            if not family_with_timestamp.startswith(f'{family_prefix}-'):
-                continue
-
-            # Verify timestamp format follows immediately (YYYYMMDDTHHMMSS pattern)
-            suffix = family_with_timestamp[len(family_prefix) + 1:]  # +1 for the '-'
-            if re.fullmatch(r'\d{8}T\d{6}', suffix):
-                matching_arns.append(arn)
-
-        logger.info("Found %d task definition(s) matching prefix %s",
-                   len(matching_arns), family_prefix)
-
-        for arn in matching_arns:
-            try:
-                ecs.deregister_task_definition(taskDefinition=arn)
-                deregistered += 1
-                logger.info("Deregistered task definition: %s", arn)
-            except (ClientError, BotoCoreError) as e:
-                logger.error("Failed to deregister task definition %s: %s",
-                           arn, e, exc_info=True)
-
-        return deregistered
-
-    except Exception as e:
-        logger.error("Error filtering task definitions for %s: %s",
-                    family_prefix, e, exc_info=True)
-        raise
+    return finalize_one(finalizer, cluster_id, investigation_id, request, 'stale', context)

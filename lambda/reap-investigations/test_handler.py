@@ -1,15 +1,17 @@
 """
-Unit tests for investigation reaper Lambda handler.
+Unit tests for the investigation reaper Lambda handler.
 
-Tests the periodic garbage collection using mocked boto3 clients.
+These cover the handler's own responsibilities: discovery, staleness, the skip
+rules that protect sealed and unmanaged workspaces, and the orchestration of
+explicit close requests and auto-close intents. The finalization pipeline
+itself — seal, drain, copy, verify, publish, clean up — is covered by
+test_close_finalization.py, which every route now goes through.
 """
 
 import os
 import unittest
-from pathlib import Path
-from tempfile import TemporaryDirectory
-from datetime import datetime, timedelta
-from unittest.mock import MagicMock, patch, call
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 # Set environment variables before importing handler
 os.environ['AWS_DEFAULT_REGION'] = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
@@ -21,51 +23,57 @@ os.environ['GRACE_PERIOD_HOURS'] = '72'
 # AWS regions/credentials or contact AWS. Tests replace these clients per case.
 with patch('boto3.client'):
     import handler
+    import boundary_close_records as records
+
+from botocore.exceptions import ClientError
 
 
-class TestReaperLambda(unittest.TestCase):
-    """Test cases for investigation reaper Lambda handler"""
+def access_point(ap_id='fsap-123456', cluster='test-cluster', investigation='inv-123',
+                 age_hours=100, extra_tags=None, path=None, with_root=True):
+    created_at = datetime.now(timezone.utc) - timedelta(hours=age_hours)
+    tags = {
+        'ClusterID': cluster,
+        'InvestigationID': investigation,
+        'ManagedBy': 'rosa-boundary-lambda',
+        'CreatedAt': created_at.isoformat(),
+    }
+    tags.update(extra_tags or {})
+    entry = {
+        'AccessPointId': ap_id,
+        'Tags': [{'Key': key, 'Value': value} for key, value in tags.items()],
+    }
+    if with_root:
+        entry['RootDirectory'] = {'Path': path or f'/{cluster}/{investigation}'}
+    return entry
+
+
+class TestReaperDiscovery(unittest.TestCase):
+    """The scan that decides which investigations are even considered."""
 
     def setUp(self):
-        """Set up test fixtures"""
-        # Keep reload(handler) isolated from real AWS client construction too.
-        client_patcher = patch("boto3.client")
+        client_patcher = patch('boto3.client')
         client_patcher.start()
         self.addCleanup(client_patcher.stop)
         self.mock_ecs = MagicMock()
         self.mock_efs = MagicMock()
-        self.mock_shutil = MagicMock()
-        self.mock_os_path = MagicMock()
-        self.mock_os_path.join.side_effect = os.path.join
-        self.mock_os_path.realpath.side_effect = lambda path: path
         self.mock_context = MagicMock()
-        self.mock_context.get_remaining_time_in_millis.return_value = 300000  # 5 minutes
+        self.mock_context.get_remaining_time_in_millis.return_value = 300000
 
-        # Set up default paginator mock for list_tasks_by_investigation
-        # Individual tests can override this as needed
-        mock_paginator = MagicMock()
-        mock_paginator.paginate.return_value = [{'taskArns': []}]
-        self.mock_ecs.get_paginator.return_value = mock_paginator
+        paginator = MagicMock()
+        paginator.paginate.return_value = [{'taskArns': []}]
+        self.mock_ecs.get_paginator.return_value = paginator
+        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
 
-        self.ecs_patcher = patch('handler.ecs', self.mock_ecs)
-        self.efs_patcher = patch('handler.efs', self.mock_efs)
-        self.shutil_patcher = patch('handler.shutil', self.mock_shutil)
-        self.os_path_patcher = patch('handler.os.path', self.mock_os_path)
+        self.enterContext(patch('handler.ecs', self.mock_ecs))
+        self.enterContext(patch('handler.efs', self.mock_efs))
+        # Close-request processing has its own tests; keep discovery isolated.
+        self.close_work = self.enterContext(patch(
+            'handler.process_close_work',
+            return_value={'requests_finalized': 0, 'intents_activated': 0, 'close_errors': 0}))
+        self.reap = self.enterContext(patch('handler.reap_investigation', return_value=True))
 
-        self.ecs_patcher.start()
-        self.efs_patcher.start()
-        self.shutil_patcher.start()
-        self.os_path_patcher.start()
-        self.enterContext(patch('handler.still_unsealed', return_value=True))
-        self.lstat = self.enterContext(patch('handler.os.lstat'))
-        self.lstat.return_value.st_mode = 0o40755
-
-    def tearDown(self):
-        """Clean up patches"""
-        self.ecs_patcher.stop()
-        self.efs_patcher.stop()
-        self.shutil_patcher.stop()
-        self.os_path_patcher.stop()
+    def run_handler(self, context=False):
+        return handler.lambda_handler({}, self.mock_context if context else None)
 
     def test_invocation_inside_reserve_does_not_start_discovery(self):
         self.mock_context.get_remaining_time_in_millis.return_value = 29999
@@ -73,1312 +81,664 @@ class TestReaperLambda(unittest.TestCase):
         self.assertEqual(result['checked'], 0)
         self.mock_efs.describe_access_points.assert_not_called()
 
-    def test_sealed_access_point_skipped(self):
-        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [{
-            'AccessPointId': 'ap', 'RootDirectory': {'Path': '/cluster/inv'},
-            'Tags': [{'Key': k, 'Value': v} for k, v in {
-                'ClusterID': 'cluster', 'InvestigationID': 'inv', 'AuditCloseSeal': '',
-                'ManagedBy': 'rosa-boundary-lambda'}.items()]}]}
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-        with patch('handler.reap_investigation') as reap:
-            result = handler.lambda_handler({}, self.mock_context)
-        self.assertEqual(result['skipped'], 1)
-        reap.assert_not_called()
-
     def test_no_access_points(self):
-        """Test reaper with no investigation access points"""
-        # Mock empty access point list
         self.mock_efs.describe_access_points.return_value = {'AccessPoints': []}
-
-        # FIX: Mock list_tasks to prevent infinite loop (called even with no access points)
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 0
-        assert result['reaped'] == 0
-        assert result['skipped'] == 0
-        assert result['errors'] == 0
-
-        # Verify describe_access_points was called
+        result = self.run_handler()
+        self.assertEqual((result['checked'], result['reaped'], result['skipped'], result['errors']),
+                         (0, 0, 0, 0))
         self.mock_efs.describe_access_points.assert_called_once()
 
-    def test_skip_investigation_with_running_tasks(self):
-        """Test that investigations with running tasks are skipped"""
-        # Create access point
-        created_at = datetime.utcnow() - timedelta(hours=100)  # Old enough to be stale
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
+    def test_sealed_access_point_skipped(self):
+        """A seal of any kind takes the workspace out of the stale sweep.
 
-        # Mock access point list
+        A managed seal is finished through its own request; a legacy or manual
+        seal stays retained for review. Neither is reaped here.
+        """
+        for seal_tags in ({'AuditCloseSeal': ''},
+                          {'AuditCloseSeal': 'abc',
+                           'AuditCloseManagedBy': records.MANAGED_BY}):
+            with self.subTest(seal_tags=seal_tags):
+                self.reap.reset_mock()
+                self.mock_efs.describe_access_points.return_value = {
+                    'AccessPoints': [access_point(extra_tags=seal_tags)]}
+                result = self.run_handler()
+                self.assertEqual(result['skipped'], 1)
+                self.reap.assert_not_called()
+
+    def test_unmanaged_access_point_skipped(self):
         self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-
-        # Mock running task
-        task_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/abc123'
-        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
-        self.mock_ecs.describe_tasks.return_value = {
-            'tasks': [{
-                'taskArn': task_arn,
-                'tags': [
-                    {'key': 'cluster_id', 'value': 'test-cluster'},
-                    {'key': 'investigation_id', 'value': 'inv-123'}
-                ]
-            }]
-        }
-
-        result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 1
-        assert result['reaped'] == 0
-        assert result['skipped'] == 1
-        assert result['errors'] == 0
-
-        # Verify no cleanup operations were called
-        self.mock_efs.delete_access_point.assert_not_called()
-
-    def test_skip_investigation_within_grace_period(self):
-        """Test that recent investigations are skipped"""
-        # Create recent access point (within grace period)
-        created_at = datetime.utcnow() - timedelta(hours=24)  # Only 24 hours old
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
-
-        # Mock access point list
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-
-        # Mock no running tasks
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 1
-        assert result['reaped'] == 0
-        assert result['skipped'] == 1
-        assert result['errors'] == 0
-
-        # Verify no cleanup operations were called
-        self.mock_efs.delete_access_point.assert_not_called()
-
-    def test_reap_stale_investigation(self):
-        """Test reaping a stale investigation (happy path)"""
-        # Create old access point (past grace period)
-        created_at = datetime.utcnow() - timedelta(hours=100)  # 100 hours old
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
-
-        # Mock access point list
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-
-        # Mock no running tasks
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        # Mock EFS mount verification
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-
-        # Mock successful subprocess
-        # shutil.rmtree returns None on success
-
-        # Mock successful access point deletion
-        self.mock_efs.delete_access_point.return_value = {}
-
-        # Mock task definition list (no task definitions)
-        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
-
-        # Backup is required before deleting a directory; test reaping independently.
-        with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 1
-        assert result['reaped'] == 1
-        assert result['skipped'] == 0
-        assert result['errors'] == 0
-
-        # Verify cleanup operations were called
-        self.mock_shutil.rmtree.assert_called_once()  # Directory deletion
-        self.mock_efs.delete_access_point.assert_called_once_with(
-            AccessPointId='fsap-123456'
-        )
-
-    def test_reap_multiple_investigations(self):
-        """Test reaping multiple stale investigations"""
-        # Create multiple old access points
-        created_at = datetime.utcnow() - timedelta(hours=100)
-        access_points = [
-            {
-                'AccessPointId': f'fsap-{i}',
-                'CreationTime': created_at,
-                'RootDirectory': {
-                    'Path': f'/test-cluster/inv-{i}'
-                },
-                'Tags': [
-                    {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                    {'Key': 'InvestigationID', 'Value': f'inv-{i}'},
-                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                    {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-                ]
-            }
-            for i in range(3)
-        ]
-
-        # Mock access point list
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': access_points
-        }
-
-        # Mock no running tasks for all investigations
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        # Mock EFS operations
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        # shutil.rmtree returns None on success
-        self.mock_efs.delete_access_point.return_value = {}
-        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
-
-        with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 3
-        assert result['reaped'] == 3
-        assert result['skipped'] == 0
-        assert result['errors'] == 0
-
-        # Verify cleanup was called for each investigation
-        assert self.mock_efs.delete_access_point.call_count == 3
+            'AccessPoints': [access_point(extra_tags={'ManagedBy': 'someone-else'})]}
+        result = self.run_handler()
+        self.assertEqual(result['skipped'], 1)
+        self.reap.assert_not_called()
 
     def test_skip_access_point_missing_tags(self):
-        """Test that access points without required tags are skipped"""
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': datetime.utcnow(),
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'}
-                # Missing InvestigationID tag
-            ]
-        }
+        entry = access_point()
+        entry['Tags'] = [{'Key': 'ClusterID', 'Value': 'test-cluster'},
+                         {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}]
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [entry]}
+        result = self.run_handler()
+        self.assertEqual((result['checked'], result['skipped'], result['errors']), (1, 1, 0))
 
+    def test_access_point_path_mismatch_is_an_error(self):
         self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
+            'AccessPoints': [access_point(path='/wrong-cluster/wrong-investigation')]}
+        result = self.run_handler()
+        self.assertEqual((result['errors'], result['reaped'], result['skipped']), (1, 0, 0))
 
-        # FIX: Mock list_tasks to prevent infinite loop
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 1
-        assert result['reaped'] == 0
-        assert result['skipped'] == 1
-        assert result['errors'] == 0
-
-    def test_access_point_path_mismatch(self):
-        """Test that access points with mismatched paths are counted as errors"""
-        access_point = {
-            'AccessPointId': 'fsap-path-mismatch',
-            'CreationTime': datetime.utcnow() - timedelta(hours=100),
-            'RootDirectory': {
-                'Path': '/wrong-cluster/wrong-investigation'  # Doesn't match tags
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
-            ]
-        }
-
+    def test_access_point_missing_root_directory_is_an_error(self):
         self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
+            'AccessPoints': [access_point(with_root=False)]}
+        result = self.run_handler()
+        self.assertEqual((result['errors'], result['reaped']), (1, 0))
 
-        # FIX: Mock list_tasks to prevent infinite loop in list_all_running_tasks()
-        # When not configured, MagicMock().get('nextToken') returns MagicMock (truthy!)
-        # causing while True loop to never break
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+    def test_invalid_identifiers_are_errors(self):
+        for cluster, investigation in (('../escape', 'inv-123'), ('test-cluster', '..')):
+            with self.subTest(cluster=cluster, investigation=investigation):
+                entry = access_point(cluster=cluster, investigation=investigation)
+                self.mock_efs.describe_access_points.return_value = {'AccessPoints': [entry]}
+                result = self.run_handler()
+                self.assertEqual(result['errors'], 1)
+                self.reap.assert_not_called()
 
-        result = handler.lambda_handler({}, None)
+    def test_skip_investigation_with_running_tasks(self):
+        task_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/abc123'
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
+        self.mock_ecs.describe_tasks.return_value = {'tasks': [{
+            'taskArn': task_arn,
+            'tags': [{'key': 'cluster_id', 'value': 'test-cluster'},
+                     {'key': 'investigation_id', 'value': 'inv-123'}]}]}
+        result = self.run_handler()
+        self.assertEqual((result['checked'], result['reaped'], result['skipped']), (1, 0, 1))
+        self.reap.assert_not_called()
 
-        # Should count as error (not skip, not reap)
-        assert result['errors'] == 1
-        assert result['reaped'] == 0
-        assert result['skipped'] == 0
-
-    def test_access_point_missing_root_directory(self):
-        """Test that access points without RootDirectory are counted as errors"""
-        access_point = {
-            'AccessPointId': 'fsap-no-root',
-            'CreationTime': datetime.utcnow() - timedelta(hours=100),
-            # RootDirectory missing entirely
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
-            ]
-        }
-
+    def test_skip_investigation_within_grace_period(self):
         self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
+            'AccessPoints': [access_point(age_hours=24)]}
+        result = self.run_handler()
+        self.assertEqual((result['checked'], result['reaped'], result['skipped']), (1, 0, 1))
+        self.reap.assert_not_called()
 
-        # FIX: Mock list_tasks to prevent infinite loop
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
+    def test_stale_investigation_goes_through_the_shared_gate(self):
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+        result = self.run_handler()
+        self.assertEqual((result['checked'], result['reaped'], result['errors']), (1, 1, 0))
+        self.reap.assert_called_once_with('test-cluster', 'inv-123', 'fsap-123456', None)
 
-        result = handler.lambda_handler({}, None)
+    def test_reap_multiple_investigations(self):
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [
+            access_point(ap_id=f'fsap-{i}', investigation=f'inv-{i}') for i in range(3)]}
+        result = self.run_handler()
+        self.assertEqual((result['checked'], result['reaped']), (3, 3))
+        self.assertEqual(self.reap.call_count, 3)
 
-        # Should count as error
-        assert result['errors'] == 1
-        assert result['reaped'] == 0
+    def test_failed_reap_counts_as_an_error(self):
+        self.reap.return_value = False
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+        result = self.run_handler()
+        self.assertEqual((result['reaped'], result['errors']), (0, 1))
 
-    def test_handle_directory_deletion_error_gracefully(self):
-        """Test that directory deletion errors prevent access point deletion"""
-        created_at = datetime.utcnow() - timedelta(hours=100)
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
+    def test_task_reappearing_before_reap_cancels_it(self):
+        """The refresh immediately before reaping is a real gate, not a log line."""
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+        paginator = MagicMock()
+        paginator.paginate.return_value = [{'taskArns': ['arn:aws:ecs:::task/x/late']}]
+        self.mock_ecs.get_paginator.return_value = paginator
+        result = self.run_handler()
+        self.assertEqual((result['reaped'], result['skipped']), (0, 1))
+        self.reap.assert_not_called()
 
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        # Mock directory deletion failure
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        self.mock_shutil.rmtree.side_effect = OSError("Permission denied")
-
-        # Mock task definitions
-        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
-
-        with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 1
-        assert result['reaped'] == 0
-        assert result['skipped'] == 0
-        assert result['errors'] == 1
-        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-123')
-
-        # Verify access point deletion was NOT called when directory deletion fails
-        # This prevents orphaned directories (once AP is deleted, we lose the tags)
-        self.mock_efs.delete_access_point.assert_not_called()
-
-    def test_handle_access_point_deletion_error_gracefully(self):
-        """Test that access point deletion errors don't prevent task def cleanup"""
-        created_at = datetime.utcnow() - timedelta(hours=100)
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        # Mock successful directory deletion
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        # shutil.rmtree returns None on success
-
-        # Mock access point deletion failure
-        from botocore.exceptions import ClientError
-        self.mock_efs.delete_access_point.side_effect = ClientError(
-            {'Error': {'Code': 'InternalServerError', 'Message': 'Server error'}},
-            'DeleteAccessPoint'
-        )
-
-        # Mock task definition list (only called if TASK_DEFINITION_FAMILY is set)
-        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
-
-        # Set TASK_DEFINITION_FAMILY so task definitions are fetched
-        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'), \
-             patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.lambda_handler({}, None)
-
-        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-123')
-        self.mock_efs.delete_access_point.assert_called_once_with(AccessPointId='fsap-123456')
-        assert result['checked'] == 1
-        assert result['reaped'] == 0
-        assert result['skipped'] == 0
-        assert result['errors'] == 1
-
-        # Verify task definition list was fetched once at start
-        self.mock_ecs.list_task_definitions.assert_called_once()
-
-    def test_handle_task_definition_error_gracefully(self):
-        """Test that task definition errors produce run-level error payload"""
-        created_at = datetime.utcnow() - timedelta(hours=100)
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        # Mock task definition list failure
-        from botocore.exceptions import ClientError
-        self.mock_ecs.list_task_definitions.side_effect = ClientError(
-            {'Error': {'Code': 'ThrottlingException', 'Message': 'Rate exceeded'}},
-            'ListTaskDefinitions'
-        )
-
-        # Patch TASK_DEFINITION_FAMILY to trigger list_task_definitions call
-        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
-            result = handler.lambda_handler({}, None)
-
-        # Should return run-level error payload when ListTaskDefinitions fails
-        assert 'error' in result
-        assert 'AWS API error' in result['error']
-        assert result['checked'] == 0  # Failed before processing any access points
-        assert result['reaped'] == 0
-        assert result['skipped'] == 0
-        assert result['errors'] == 0
-
-    def test_missing_ecs_cluster(self):
-        """Test that missing ECS_CLUSTER raises ValueError"""
-        with patch('handler.ECS_CLUSTER', None):
-            with self.assertRaises(ValueError) as cm:
-                handler.lambda_handler({}, None)
-            assert 'ECS_CLUSTER' in str(cm.exception)
-
-    def test_missing_efs_filesystem_id(self):
-        """Test that missing EFS_FILESYSTEM_ID raises ValueError"""
-        with patch('handler.EFS_FILESYSTEM_ID', None):
-            with self.assertRaises(ValueError) as cm:
-                handler.lambda_handler({}, None)
-            assert 'EFS_FILESYSTEM_ID' in str(cm.exception)
-
-    def test_pagination_with_many_access_points(self):
-        """Test pagination when listing many access points"""
-        # Create multiple access points across pages
-        created_at = datetime.utcnow() - timedelta(hours=100)
-        page1_aps = [
-            {
-                'AccessPointId': f'fsap-{i}',
-                'CreationTime': created_at,
-                'RootDirectory': {
-                    'Path': f'/test-cluster/inv-{i}'
-                },
-                'Tags': [
-                    {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                    {'Key': 'InvestigationID', 'Value': f'inv-{i}'},
-                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                    {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-                ]
-            }
-            for i in range(50)
+    def test_access_point_pagination(self):
+        pages = [
+            {'AccessPoints': [access_point(ap_id='fsap-1', investigation='inv-1')],
+             'NextToken': 'next'},
+            {'AccessPoints': [access_point(ap_id='fsap-2', investigation='inv-2')]},
         ]
-        page2_aps = [
-            {
-                'AccessPointId': f'fsap-{i}',
-                'CreationTime': created_at,
-                'RootDirectory': {
-                    'Path': f'/test-cluster/inv-{i}'
-                },
-                'Tags': [
-                    {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                    {'Key': 'InvestigationID', 'Value': f'inv-{i}'},
-                    {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                    {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-                ]
-            }
-            for i in range(50, 100)
+        self.mock_efs.describe_access_points.side_effect = pages
+        result = self.run_handler()
+        self.assertEqual(result['checked'], 2)
+        self.assertEqual(self.mock_efs.describe_access_points.call_count, 2)
+
+    def test_running_task_pagination(self):
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+        self.mock_ecs.list_tasks.side_effect = [
+            {'taskArns': ['arn:aws:ecs:::task/c/one'], 'nextToken': 'next'},
+            {'taskArns': ['arn:aws:ecs:::task/c/two']},
         ]
+        self.mock_ecs.describe_tasks.return_value = {'tasks': [{
+            'taskArn': 'arn:aws:ecs:::task/c/one',
+            'tags': [{'key': 'cluster_id', 'value': 'test-cluster'},
+                     {'key': 'investigation_id', 'value': 'inv-123'}]}]}
+        result = self.run_handler()
+        self.assertEqual(self.mock_ecs.list_tasks.call_count, 2)
+        self.assertEqual(result['skipped'], 1)
 
-        # Mock paginated response
-        self.mock_efs.describe_access_points.side_effect = [
-            {'AccessPoints': page1_aps, 'NextToken': 'token123'},
-            {'AccessPoints': page2_aps}
-        ]
-
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        # shutil.rmtree returns None on success
-        self.mock_efs.delete_access_point.return_value = {}
-        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
-
-        with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.lambda_handler({}, None)
-
-        assert result['checked'] == 100
-        assert result['reaped'] == 100
-        assert result['skipped'] == 0
-        assert result['errors'] == 0
-
-        # Verify pagination worked
-        assert self.mock_efs.describe_access_points.call_count == 2
-
-    def test_staleness_calculation_edge_cases(self):
-        """Test staleness calculation boundary conditions"""
-        # Test exactly at grace period boundary (72 hours)
-        created_at = datetime.utcnow() - timedelta(hours=72, minutes=0)
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'}
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        # Add mocks for reaping operations
-        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
-        self.mock_efs.delete_access_point.return_value = {}
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        # shutil.rmtree returns None on success
-
-        # At exactly 72 hours, should not be stale yet (needs to be > grace period)
-        result = handler.lambda_handler({}, None)
-
-        # Depending on clock precision, might be skipped or reaped
-        # The important thing is it doesn't error
-        assert 'error' not in result
-        assert result['checked'] == 1
-
-    def test_directory_deletion_with_large_directory(self):
-        """Test directory deletion with simulated large directory"""
-        # Simulate deletion taking significant time but completing
-        # shutil.rmtree returns None on success
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-
-        with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.delete_investigation_directory('test-cluster', 'inv-large', self.mock_context, 'ap')
-
-        assert result is True
-
-    def test_directory_deletion_failure(self):
-        """Test directory deletion failure handling"""
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        # shutil.rmtree raises OSError on failure
-        self.mock_shutil.rmtree.side_effect = OSError("Permission denied")
-
-        with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.delete_investigation_directory('test-cluster', 'inv-fail', self.mock_context, 'ap')
-
-        self.mock_shutil.rmtree.assert_called_once_with('/mnt/efs/test-cluster/inv-fail')
-        assert result is False
-
-    def test_directory_deletion_nonexistent_directory(self):
-        """Test that nonexistent directories are handled gracefully"""
-        self.mock_os_path.ismount.return_value = True
-        self.lstat.side_effect = FileNotFoundError
-
-        result = handler.delete_investigation_directory('test-cluster', 'inv-missing', self.mock_context, 'ap')
-
-        # Should return True (directory already deleted)
-        assert result is True
-        # Should not call subprocess
-        self.mock_shutil.rmtree.assert_not_called()
-
-    def test_directory_deletion_efs_not_mounted(self):
-        """Test error when EFS is not mounted"""
-        self.mock_os_path.ismount.return_value = False  # EFS not mounted
-
-        result = handler.delete_investigation_directory('test-cluster', 'inv-unmounted', self.mock_context, 'ap')
-
-        assert result is False
-        self.mock_shutil.rmtree.assert_not_called()
-
-    def test_access_point_already_deleted(self):
-        """Test that already-deleted access points are handled gracefully"""
-        from botocore.exceptions import ClientError
-
-        self.mock_efs.delete_access_point.side_effect = ClientError(
-            {'Error': {'Code': 'AccessPointNotFound', 'Message': 'Not found'}},
-            'DeleteAccessPoint'
-        )
-
-        result = handler.delete_access_point('fsap-nonexistent')
-
-        # Should return True (already deleted is success)
-        assert result is True
-
-    def test_task_definition_deregistration_with_multiple_revisions(self):
-        """Test deregistering multiple task definition revisions"""
-        # Simulate multiple revisions of same family with timestamp suffix
-        task_def_arns = [
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:1',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:2',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:3',
-        ]
-
-        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
-            count = handler.delete_task_definitions('test-cluster', 'inv-123', task_def_arns)
-
-        assert count == 3
-        assert self.mock_ecs.deregister_task_definition.call_count == 3
-
-    def test_task_definition_deregistration_ignores_neighboring_families(self):
-        """Only the exact investigation's timestamped ECS family is deregistered."""
-        target = 'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:1'
-        other_arns = [
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-1234-20261005T120000:1',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000-extra:1',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000',
-            'arn:aws:ecs:us-east-1:123:service/rosa-boundary-test-cluster-inv-123-20261005T120000:1',
-        ]
-
-        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
-            count = handler.delete_task_definitions('test-cluster', 'inv-123', other_arns + [target])
-
-        assert count == 1
-        self.mock_ecs.deregister_task_definition.assert_called_once_with(taskDefinition=target)
-
-    def test_task_definition_deregistration_failure_continues(self):
-        """Test that task def deregistration continues on individual failures"""
-        # Simulate revisions with timestamp suffix
-        task_def_arns = [
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:1',
-            'arn:aws:ecs:us-east-1:123:task-definition/rosa-boundary-test-cluster-inv-123-20261005T120000:2',
-        ]
-
-        # First deregister fails, second succeeds
-        from botocore.exceptions import ClientError
-        self.mock_ecs.deregister_task_definition.side_effect = [
-            ClientError(
-                {'Error': {'Code': 'InvalidParameterException', 'Message': 'Bad param'}},
-                'DeregisterTaskDefinition'
-            ),
-            {}  # Success
-        ]
-
-        with patch('handler.TASK_DEFINITION_FAMILY', 'rosa-boundary'):
-            count = handler.delete_task_definitions('test-cluster', 'inv-123', task_def_arns)
-
-        # Should still count the successful one
-        assert count == 1
-        assert self.mock_ecs.deregister_task_definition.call_count == 2
-
-    def test_staleness_check_ecs_error_increments_errors(self):
-        """Test that ECS API errors during staleness check increment error count"""
-        from botocore.exceptions import ClientError
-
-        created_at = datetime.utcnow() - timedelta(hours=100)
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-
-        # ECS list_tasks fails with throttling during list_all_running_tasks()
-        self.mock_ecs.list_tasks.side_effect = ClientError(
-            {'Error': {'Code': 'ThrottlingException', 'Message': 'Rate exceeded'}},
-            'ListTasks'
-        )
-
-        result = handler.lambda_handler({}, None)
-
-        # Should return AWS API error (list_all_running_tasks raises, caught in main try/except)
-        assert 'error' in result
-        assert 'AWS API error' in result['error']
-
-    def test_describe_tasks_failure_after_list_tasks(self):
-        """Test that describe_tasks failure is handled correctly"""
-        from botocore.exceptions import ClientError
-
-        created_at = datetime.utcnow() - timedelta(hours=100)
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat() + 'Z'}
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-
-        # list_tasks succeeds but describe_tasks fails during list_all_running_tasks()
-        self.mock_ecs.list_tasks.return_value = {
-            'taskArns': ['arn:aws:ecs:us-east-1:123:task/cluster/abc123']
-        }
+    def test_describe_tasks_failure_stops_the_run(self):
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+        self.mock_ecs.list_tasks.return_value = {'taskArns': ['arn:aws:ecs:::task/c/one']}
         self.mock_ecs.describe_tasks.side_effect = ClientError(
-            {'Error': {'Code': 'AccessDeniedException', 'Message': 'No permission'}},
-            'DescribeTasks'
-        )
+            {'Error': {'Code': 'AccessDenied', 'Message': 'denied'}}, 'DescribeTasks')
+        result = self.run_handler()
+        self.assertIn('error', result)
+        self.reap.assert_not_called()
 
-        result = handler.lambda_handler({}, None)
+    def test_missing_configuration_fails_loudly(self):
+        for variable in ('ECS_CLUSTER', 'EFS_FILESYSTEM_ID'):
+            with self.subTest(variable=variable), patch.object(handler, variable, None):
+                with self.assertRaises(ValueError):
+                    handler.lambda_handler({}, None)
 
-        # Error in list_all_running_tasks() causes early return with AWS API error dict
-        assert 'error' in result
-        assert 'AWS API error' in result['error']
 
-    def test_list_access_points_failure_returns_aws_error(self):
-        """Test that access point listing failure is handled correctly"""
-        from botocore.exceptions import ClientError
+class TestStaleness(unittest.TestCase):
+    """Creation-age versus inactivity semantics are unchanged by close work."""
 
-        self.mock_efs.describe_access_points.side_effect = ClientError(
-            {'Error': {'Code': 'AccessDeniedException', 'Message': 'No permission'}},
-            'DescribeAccessPoints'
-        )
-
-        # FIX: Mock list_tasks for defensive programming (not reached due to exception, but safer)
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        result = handler.lambda_handler({}, None)
-
-        # Should return AWS API error dict (not raise)
-        assert 'error' in result
-        assert 'AWS API error' in result['error']
-        assert result['checked'] == 0
-
-    def test_timezone_aware_creation_time(self):
-        """Test that timezone-aware CreationTime is handled correctly"""
-        from datetime import timezone
-
-        # Create timezone-aware datetime (as AWS returns)
-        created_at = datetime.now(timezone.utc) - timedelta(hours=100)
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': created_at,  # Timezone-aware
-            'RootDirectory': {
-                'Path': '/test-cluster/inv-123'
-            },
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'test-cluster'},
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'},
-                {'Key': 'CreatedAt', 'Value': created_at.isoformat()}  # ISO format with timezone
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        # Mock successful directory deletion
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-        # shutil.rmtree returns None on success
-        self.mock_efs.delete_access_point.return_value = {}
-        self.mock_ecs.list_task_definitions.return_value = {'taskDefinitionArns': []}
-
-        with patch('handler.backup_investigation_to_s3', return_value=True):
-            result = handler.lambda_handler({}, None)
-
-        # Should successfully reap without timezone comparison errors
-        assert result['reaped'] == 1
-        assert result['errors'] == 0
-
-    def test_staleness_with_no_creation_time_zero_grace_period(self):
-        """Test legacy investigations (no CreatedAt) are reaped when idle, regardless of grace period"""
-        with patch('handler.GRACE_PERIOD_HOURS', 0):
-            result = handler.is_investigation_stale(
-                'cluster', 'inv', None, datetime.utcnow(), []
-            )
-
-            assert result['is_stale'] is True
-            assert 'legacy investigation (missing CreatedAt tag)' in result['reason']
-
-    def test_staleness_with_no_creation_time_nonzero_grace_period(self):
-        """Test legacy investigations (no CreatedAt) are reaped when idle, regardless of grace period"""
-        result = handler.is_investigation_stale(
-            'cluster', 'inv', None, datetime.utcnow(), []
-        )
-
-        assert result['is_stale'] is True
-        assert 'legacy investigation (missing CreatedAt tag)' in result['reason']
-
-    def test_invalid_cluster_id_increments_errors(self):
-        """Test that invalid cluster_id in tags increments error count"""
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': datetime.utcnow(),
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': '../../../etc'},  # Path traversal attempt
-                {'Key': 'InvestigationID', 'Value': 'inv-123'},
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-
-        # FIX: Mock list_tasks to prevent infinite loop
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        result = handler.lambda_handler({}, None)
-
-        # Should increment errors due to validation failure
-        assert result['errors'] == 1
-        assert result['reaped'] == 0
-
-    def test_invalid_investigation_id_increments_errors(self):
-        """Test that invalid investigation_id in tags increments error count"""
-        access_point = {
-            'AccessPointId': 'fsap-123456',
-            'CreationTime': datetime.utcnow(),
-            'Tags': [
-                {'Key': 'ClusterID', 'Value': 'valid-cluster'},
-                {'Key': 'InvestigationID', 'Value': '../../secrets'},  # Path traversal attempt
-                {'Key': 'ManagedBy', 'Value': 'rosa-boundary-lambda'}
-            ]
-        }
-
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point]
-        }
-
-        # FIX: Mock list_tasks to prevent infinite loop
-        self.mock_ecs.list_tasks.return_value = {'taskArns': []}
-
-        result = handler.lambda_handler({}, None)
-
-        # Should increment errors due to validation failure
-        assert result['errors'] == 1
-        assert result['reaped'] == 0
-
-    def test_task_pagination_with_many_running_tasks(self):
-        """Test task listing pagination when > 100 tasks exist"""
-        # Create two pages of tasks (AWS max is 100 per page)
-        page1_tasks = [f'arn:aws:ecs:us-east-1:123:task/cluster/task-{i}' for i in range(100)]
-        page2_tasks = [f'arn:aws:ecs:us-east-1:123:task/cluster/task-{i}' for i in range(100, 150)]
-
-        # Mock paginator to return tasks matching the startedBy value
-        mock_paginator = MagicMock()
-        mock_paginator.paginate.return_value = [
-            {'taskArns': page1_tasks},
-            {'taskArns': page2_tasks}
-        ]
-        self.mock_ecs.get_paginator.return_value = mock_paginator
-
-        # Call list_tasks_by_investigation
-        result = handler.list_tasks_by_investigation('test-cluster', 'test-inv')
-
-        # Should find all 150 tasks across both pages
-        assert len(result) == 150, f"Expected 150 tasks, got {len(result)}"
-
-        # Verify paginator was called with correct parameters
-        self.mock_ecs.get_paginator.assert_called_once_with('list_tasks')
-
-        # Verify paginate was called with startedBy filter
-        expected_started_by = handler.investigation_started_by('test-cluster', 'test-inv')
-        mock_paginator.paginate.assert_called_once_with(
-            cluster=handler.ECS_CLUSTER,
-            desiredStatus='RUNNING',
-            startedBy=expected_started_by
-        )
-
-    def test_staleness_just_before_grace_period(self):
-        """Test investigation just before grace period expires (should NOT reap)"""
-        now = datetime.utcnow()
-        # 71 hours 59 minutes old (just before 72h grace period)
-        created_at = now - timedelta(hours=71, minutes=59)
-
-        result = handler.is_investigation_stale('cluster', 'inv', created_at, now, [])
-
-        assert result['is_stale'] is False, "Should not be stale yet"
-        assert 'within grace period' in result['reason']
-
-    def test_staleness_just_after_grace_period(self):
-        """Test investigation just after grace period expires (SHOULD reap)"""
-        now = datetime.utcnow()
-        # 72 hours 1 minute old (just after 72h grace period)
-        created_at = now - timedelta(hours=72, minutes=1)
-
-        result = handler.is_investigation_stale('cluster', 'inv', created_at, now, [])
-
-        assert result['is_stale'] is True, "Should be stale"
-        assert 'no tasks' in result['reason']
-        assert '72h old' in result['reason']
-
-    def test_staleness_exactly_at_grace_period(self):
-        """Test investigation exactly at grace period boundary (should NOT reap, requires >)"""
-        now = datetime.utcnow()
-        # Exactly 72 hours old
-        created_at = now - timedelta(hours=72)
-
-        result = handler.is_investigation_stale('cluster', 'inv', created_at, now, [])
-
-        # The code uses `age > grace_period`, so exactly equal should NOT be stale
-        assert result['is_stale'] is False, "Should not be stale at exact boundary"
-
-    def test_task_filtering_by_started_by(self):
-        """Test that only tasks with matching startedBy value are returned (avoids tag propagation race)"""
-        # Mock paginator to return only tasks matching the deterministic startedBy value
-        # This simulates ECS filtering by startedBy, which avoids tag propagation delays
-        matching_tasks = ['arn:aws:ecs:us-east-1:123:task/cluster/task-match']
-
-        mock_paginator = MagicMock()
-        mock_paginator.paginate.return_value = [
-            {'taskArns': matching_tasks}
-        ]
-        self.mock_ecs.get_paginator.return_value = mock_paginator
-
-        result = handler.list_tasks_by_investigation('test-cluster', 'test-inv')
-
-        # Should return only tasks filtered by startedBy (no tag-based filtering needed)
-        assert len(result) == 1, f"Expected 1 matching task, got {len(result)}"
-        assert result[0] == 'arn:aws:ecs:us-east-1:123:task/cluster/task-match'
-
-        # Verify the correct startedBy value was used
-        expected_started_by = handler.investigation_started_by('test-cluster', 'test-inv')
-        mock_paginator.paginate.assert_called_once_with(
-            cluster=handler.ECS_CLUSTER,
-            desiredStatus='RUNNING',
-            startedBy=expected_started_by
-        )
-
-    def test_validate_identifier_accepts_valid_values(self):
-        """Test that validate_identifier accepts valid cluster/investigation IDs"""
-        valid_ids = [
-            'cluster-1',
-            'inv_123',
-            'test.cluster',
-            'a',  # Single char
-            'cluster-name-with-many-dashes',
-            'cluster_with_underscores',
-            'cluster.with.dots',
-            'MixedCase123',
-        ]
-
-        for valid_id in valid_ids:
-            # Should not raise
-            handler.validate_identifier(valid_id, 'test')
-
-    def test_validate_identifier_rejects_invalid_values(self):
-        """Test that validate_identifier rejects invalid identifiers"""
-        invalid_ids = [
-            '',  # Empty
-            '..',  # Dot-dot
-            '.',  # Single dot
-            '../etc',  # Path traversal
-            'test/slash',  # Slash
-            '/etc',  # Leading slash
-            '-leading-dash',  # Leading dash not allowed
-            '_leading-underscore',  # Leading underscore not allowed
-        ]
-
-        for invalid_id in invalid_ids:
-            with self.assertRaises(ValueError):
-                handler.validate_identifier(invalid_id, 'test')
-
-    def test_s3_backup_success(self):
-        """Test successful S3 backup using boto3 S3 client"""
-        # Stop os.path patcher to use real path operations
-        self.os_path_patcher.stop()
-
-        # Mock file stat structure
-        from unittest.mock import MagicMock
-        mock_stat = MagicMock()
-        mock_stat.st_mode = 0o100644  # Regular file
-        mock_stat.st_size = 1024
-
-        with patch('handler.boto3.client') as mock_boto3_client, \
-             patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.lstat', return_value=mock_stat), \
-             patch('handler.os.path.exists', return_value=True):
-
-            # Mock directory structure
-            mock_walk.return_value = [
-                ('/mnt/efs/cluster-1/inv-1', ['subdir'], ['file1.txt', 'file2.log']),
-                ('/mnt/efs/cluster-1/inv-1/subdir', [], ['file3.txt']),
-            ]
-
-            # Mock S3 client
-            mock_s3 = MagicMock()
-            mock_boto3_client.return_value = mock_s3
-
-            with patch('handler.S3_AUDIT_BUCKET', 'test-bucket'):
-                result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
-
-            assert result is True
-
-            # Verify S3 client created with proper config
-            mock_boto3_client.assert_called_once()
-            assert mock_boto3_client.call_args[0][0] == 's3'
-
-            # Verify upload_file called for each file (3 files total)
-            assert mock_s3.upload_file.call_count == 3
-
-            # Verify correct S3 keys (checking actual call arguments)
-            upload_calls = mock_s3.upload_file.call_args_list
-            uploaded_keys = [call[0][2] for call in upload_calls]  # Third argument is s3_key
-
-            assert 'cluster-1/inv-1/reaper-final-backup/file1.txt' in uploaded_keys
-            assert 'cluster-1/inv-1/reaper-final-backup/file2.log' in uploaded_keys
-            assert 'cluster-1/inv-1/reaper-final-backup/subdir/file3.txt' in uploaded_keys
-
-        # Restart os.path patcher for other tests
-        self.os_path_patcher.start()
-
-    def test_s3_backup_skips_excluded_paths(self):
-        """Test S3 backup excludes .config/ocm/* and .kube/* paths"""
-        # Stop os.path patcher to use real path operations
-        self.os_path_patcher.stop()
-
-        # Mock file stat structure
-        from unittest.mock import MagicMock
-        mock_stat = MagicMock()
-        mock_stat.st_mode = 0o100644  # Regular file
-        mock_stat.st_size = 1024
-
-        with patch('handler.boto3.client') as mock_boto3_client, \
-             patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.lstat', return_value=mock_stat), \
-             patch('handler.os.path.exists', return_value=True):
-
-            # Mock directory structure with excluded paths
-            mock_walk.return_value = [
-                ('/mnt/efs/cluster-1/inv-1', ['.config', '.kube', 'data'], ['file1.txt']),
-                ('/mnt/efs/cluster-1/inv-1/.config', ['ocm', 'other'], ['config.txt']),  # .config/config.txt should be uploaded
-                ('/mnt/efs/cluster-1/inv-1/.config/ocm', [], ['token.json']),  # Should be skipped
-                ('/mnt/efs/cluster-1/inv-1/.config/other', [], ['other.txt']),  # .config/other/* should be uploaded
-                ('/mnt/efs/cluster-1/inv-1/.kube', [], ['kubeconfig']),  # Should be skipped
-                ('/mnt/efs/cluster-1/inv-1/data', [], ['file2.txt']),  # Should be uploaded
-            ]
-
-            mock_s3 = MagicMock()
-            mock_boto3_client.return_value = mock_s3
-
-            with patch('handler.S3_AUDIT_BUCKET', 'test-bucket'):
-                result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
-
-            assert result is True
-
-            # Should upload: file1.txt, .config/config.txt, .config/other/other.txt, data/file2.txt (4 files)
-            # Should NOT upload: .config/ocm/token.json, .kube/kubeconfig
-            assert mock_s3.upload_file.call_count == 4
-            upload_calls = mock_s3.upload_file.call_args_list
-            uploaded_keys = [call[0][2] for call in upload_calls]
-
-            # Verify excluded paths NOT uploaded
-            assert not any('ocm/token.json' in key for key in uploaded_keys), "Should not upload .config/ocm/* files"
-            assert not any('.kube' in key for key in uploaded_keys), "Should not upload .kube/* files"
-
-            # Verify allowed files ARE uploaded
-            assert any('file1.txt' in key for key in uploaded_keys), "Should upload file1.txt"
-            assert any('file2.txt' in key for key in uploaded_keys), "Should upload data/file2.txt"
-            assert any('.config/config.txt' in key for key in uploaded_keys), "Should upload .config/config.txt"
-            assert any('.config/other/other.txt' in key for key in uploaded_keys), "Should upload .config/other/other.txt"
-
-        # Restart os.path patcher for other tests
-        self.os_path_patcher.start()
-
-    def test_s3_backup_failure(self):
-        """Test failed S3 backup prevents directory deletion"""
-        from botocore.exceptions import ClientError
-
-        # Stop os.path patcher to use real path operations
-        self.os_path_patcher.stop()
-
-        # Mock file stat structure
-        from unittest.mock import MagicMock
-        mock_stat = MagicMock()
-        mock_stat.st_mode = 0o100644  # Regular file
-        mock_stat.st_size = 1024
-
-        with patch('handler.boto3.client') as mock_boto3_client, \
-             patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.lstat', return_value=mock_stat), \
-             patch('handler.os.path.exists', return_value=True):
-
-            mock_walk.return_value = [
-                ('/mnt/efs/cluster-1/inv-1', [], ['file1.txt']),
-            ]
-
-            # Mock S3 client that raises ClientError
-            mock_s3 = MagicMock()
-            mock_s3.upload_file.side_effect = ClientError(
-                {'Error': {'Code': 'AccessDenied', 'Message': 'Access Denied'}},
-                'PutObject'
-            )
-            mock_boto3_client.return_value = mock_s3
-
-            with patch('handler.S3_AUDIT_BUCKET', 'test-bucket'):
-                result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
-
-            assert result is False
-
-        # Restart os.path patcher for other tests
-        self.os_path_patcher.start()
-
-    @patch('handler.os.path.exists')
-    def test_s3_backup_missing_config(self, mock_exists):
-        """Test S3 backup fails when S3_AUDIT_BUCKET not configured"""
-        mock_exists.return_value = True
-
-        with patch('handler.S3_AUDIT_BUCKET', ''):
-            result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
-
-        # Missing S3 configuration prevents deletion
-        assert result is False
-
-    def test_s3_backup_skips_symlinks(self):
-        """Test S3 backup skips symlinks for security"""
-        # Stop os.path patcher to use real path operations
-        self.os_path_patcher.stop()
-
-        # Mock lstat to return different types
-        from unittest.mock import MagicMock
-        def lstat_side_effect(path):
-            mock_stat = MagicMock()
-            if 'symlink' in path:
-                mock_stat.st_mode = 0o120777  # Symlink
-            else:
-                mock_stat.st_mode = 0o100644  # Regular file
-            mock_stat.st_size = 1024
-            return mock_stat
-
-        with patch('handler.boto3.client') as mock_boto3_client, \
-             patch('handler.os.walk') as mock_walk, \
-             patch('handler.os.lstat', side_effect=lstat_side_effect), \
-             patch('handler.os.path.exists', return_value=True):
-
-            # Mock directory with symlink
-            mock_walk.return_value = [
-                ('/mnt/efs/cluster-1/inv-1', [], ['file1.txt', 'symlink.txt']),
-            ]
-
-            mock_s3 = MagicMock()
-            mock_boto3_client.return_value = mock_s3
-
-            with patch('handler.S3_AUDIT_BUCKET', 'test-bucket'):
-                result = handler.backup_investigation_to_s3('cluster-1', 'inv-1', '/mnt/efs/cluster-1/inv-1', self.mock_context)
-
-            assert result is True
-
-            # Should only upload regular file, not symlink
-            assert mock_s3.upload_file.call_count == 1
-            uploaded_path = mock_s3.upload_file.call_args[0][0]
-            assert 'symlink' not in uploaded_path, "Should not upload symlinks"
-
-        # Restart os.path patcher for other tests
-        self.os_path_patcher.start()
-
-    @patch('handler.backup_investigation_to_s3')
-    def test_directory_deletion_blocked_by_failed_backup(self, mock_backup):
-        """Test that directory deletion is blocked when S3 backup fails"""
-        mock_backup.return_value = False
-
-        self.mock_os_path.ismount.return_value = True
-        self.mock_os_path.exists.return_value = True
-
-        result = handler.delete_investigation_directory('cluster-1', 'inv-1', self.mock_context, 'ap')
-
-        assert result is False
-        self.mock_shutil.rmtree.assert_not_called()
-
-    def test_task_definition_deregistration_missing_family(self):
-        """Test that task definition deregistration skips when TASK_DEFINITION_FAMILY not configured"""
-        with patch('handler.TASK_DEFINITION_FAMILY', ''):
-            count = handler.delete_task_definitions('test-cluster', 'inv-123', [])
-
-        assert count == 0
-        # Should not call deregister since TASK_DEFINITION_FAMILY is not configured
-        self.mock_ecs.deregister_task_definition.assert_not_called()
-
-
-class TestRecovery(unittest.TestCase):
     def setUp(self):
-        temp = TemporaryDirectory()
-        self.addCleanup(temp.cleanup)
-        mount = Path(temp.name)
-        self.workspace = mount / 'cluster' / 'inv'
-        self.files = {'note': b'original', 'nested/empty': b'', 'nested/data': b'\x00\xff'}
-        for name, data in {**self.files, '.kube/config': b'excluded'}.items():
-            path = self.workspace / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(data)
-        (self.workspace / 'link').symlink_to(self.workspace / '.kube/config')
-        self.enterContext(patch.object(handler, 'EFS_MOUNT_PATH', str(mount)))
-        self.enterContext(patch.object(handler.os.path, 'ismount', return_value=True))
-        self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit'))
-        self.s3 = self.enterContext(patch('handler.boto3.client')).return_value
-        self.efs = self.enterContext(patch.object(handler, 'efs'))
-        self.efs.describe_access_points.return_value = {'AccessPoints': [
-            {'AccessPointId': 'ap', 'Tags': [], 'RootDirectory': {'Path': '/cluster/inv'}}]}
+        self.now = datetime.now(timezone.utc)
+
+    def test_running_task_is_never_stale(self):
+        tasks = [{'cluster_id': 'c', 'investigation_id': 'i'}]
+        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(days=30),
+                                                self.now, tasks)
+        self.assertFalse(result['is_stale'])
+        self.assertEqual(result['running_tasks'], 1)
+
+    def test_idle_and_old_is_stale(self):
+        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(hours=100),
+                                                self.now, [])
+        self.assertTrue(result['is_stale'])
+
+    def test_idle_and_recent_is_not_stale(self):
+        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(hours=1),
+                                                self.now, [])
+        self.assertFalse(result['is_stale'])
+
+    def test_exactly_at_grace_period_is_not_stale(self):
+        result = handler.is_investigation_stale(
+            'c', 'i', self.now - timedelta(hours=handler.GRACE_PERIOD_HOURS), self.now, [])
+        self.assertFalse(result['is_stale'])
+
+    def test_missing_creation_tag_backfills(self):
+        result = handler.is_investigation_stale('c', 'i', None, self.now, [])
+        self.assertTrue(result['is_stale'])
+        self.assertIn('legacy', result['reason'])
+
+    def test_other_investigations_tasks_are_ignored(self):
+        tasks = [{'cluster_id': 'other', 'investigation_id': 'i'}]
+        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(hours=100),
+                                                self.now, tasks)
+        self.assertTrue(result['is_stale'])
+
+
+class TestIdentifierValidation(unittest.TestCase):
+    def test_accepts_valid_values(self):
+        for value in ('cluster-1', 'INV_123', 'a.b-c', '0'):
+            handler.validate_identifier(value, 'ClusterID')
+
+    def test_rejects_traversal_and_empty(self):
+        for value in ('', '.', '..', '../etc', 'a/b', '-leading', '.hidden'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                handler.validate_identifier(value, 'ClusterID')
+
+    def test_control_root_cannot_be_an_investigation(self):
+        """The control prefix lives outside any workspace the CLI can name."""
+        with self.assertRaises(ValueError):
+            handler.validate_identifier('.boundary-control', 'ClusterID')
+
+
+TOKEN = '11111111-2222-4333-8444-555555555555'
+REQUESTED_AT = '2026-01-01T00:00:00+00:00'
+
+
+class TestCloseWorkOrchestration(unittest.TestCase):
+    """Requests and intents, bounded and fair, before the stale sweep."""
+
+    def setUp(self):
+        self.finalizer = MagicMock()
+        self.finalizer.list_keys.return_value = []
         self.context = MagicMock()
-        self.context.get_remaining_time_in_millis.return_value = 120000
+        self.context.get_remaining_time_in_millis.return_value = 300000
+        self.enterContext(patch('handler.build_finalizer', return_value=self.finalizer))
+        self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit-bucket'))
+        self.enterContext(patch.object(handler, 'ECS_CLUSTER', 'test-cluster'))
 
-    def reap(self):
-        return handler.reap_investigation('cluster', 'inv', 'ap', self.context, [])
+    def request_record(self, token=TOKEN, requested_at=REQUESTED_AT, **overrides):
+        record = {
+            'schema_version': records.REQUEST_SCHEMA_VERSION,
+            'kind': records.KIND_REQUEST,
+            'request_token': token,
+            'cluster_id': 'cluster',
+            'investigation_id': 'inv',
+            'access_point_id': 'fsap-00000000',
+            'requester_sub': 'sre-a',
+            'stop_scope': records.STOP_NONE,
+            'stop_task_ids': [],
+            'trigger': 'cli_close',
+            'requested_at': requested_at,
+        }
+        record.update(overrides)
+        return record
 
-    def assert_retained(self):
-        self.efs.delete_access_point.assert_not_called()
-        self.efs.tag_resource.assert_not_called()
-        self.efs.untag_resource.assert_not_called()
-        for name, data in self.files.items():
-            self.assertEqual((self.workspace / name).read_bytes(), data)
+    def key_for(self, record):
+        return records.request_key(record['cluster_id'], record['investigation_id'],
+                                   record['request_token'], record['requested_at'])
 
-    def test_partial_then_full_retry(self):
-        objects = {}
-        fail_second = True
+    def queue(self, *recorded, status=None):
+        """Serve the given request records and one status record."""
+        by_key = {self.key_for(record): record for record in recorded}
+        self.finalizer.list_keys.side_effect = lambda prefix: (
+            sorted(by_key) if prefix.endswith('/requests/') else [])
 
-        def upload(path, bucket, key):
-            if fail_second and len(objects) == 1:
-                raise OSError('injected failure')
-            objects[(bucket, key)] = Path(path).read_bytes()
+        def get_json(key, kind):
+            if kind == records.KIND_REQUEST:
+                return by_key.get(key)
+            if kind == records.KIND_STATUS:
+                return status
+            return None
 
-        self.s3.upload_file.side_effect = upload
-        self.assertFalse(self.reap())
-        self.assertEqual(len(objects), 1)
-        self.assert_retained()
+        self.finalizer.get_json.side_effect = get_json
+        self.finalizer.find_access_point.return_value = {
+            'id': 'fsap-00000000', 'tags': {}, 'path': '/cluster/inv'}
+        self.finalizer.finalize.return_value = {'status': records.STATUS_COMPLETED}
+        return by_key
 
-        fail_second = False
-        self.s3.upload_file.reset_mock()
-        self.efs.delete_access_point.side_effect = lambda **kw: self.assertFalse(self.workspace.exists())
-        self.assertTrue(self.reap())
-        self.efs.delete_access_point.assert_called_once_with(AccessPointId='ap')
-        expected = {('audit', 'cluster/inv/reaper-final-backup/' + k): v for k, v in self.files.items()}
-        self.assertEqual(objects, expected)
-        self.assertCountEqual([args.args[1:] for args in self.s3.upload_file.call_args_list], expected.keys())
+    def status_record(self, **overrides):
+        record = {'kind': records.KIND_STATUS, 'status': records.STATUS_COMPLETED,
+                  'request_token': TOKEN, 'updated_at': '2026-01-02T00:00:00+00:00',
+                  'retryable': False}
+        record.update(overrides)
+        return record
 
-    def test_seal_added_during_backup_blocks_deletion(self):
-        self.efs.describe_access_points.return_value['AccessPoints'][0]['Tags'] = [
-            {'Key': 'AuditCloseSeal', 'Value': ''}]
-        self.assertFalse(self.reap())
-        self.assert_retained()
-        self.efs.describe_access_points.assert_called_once_with(FileSystemId=handler.EFS_FILESYSTEM_ID)
+    def test_without_an_audit_bucket_no_close_work_runs(self):
+        with patch.object(handler, 'S3_AUDIT_BUCKET', ''):
+            summary = handler.process_close_work(self.context)
+        self.assertEqual(summary['requests_processed'], 0)
 
-    def test_duplicate_access_point_blocks_removal_of_shared_path(self):
-        points = self.efs.describe_access_points.return_value['AccessPoints']
-        points.append(dict(points[0], AccessPointId='another-ap'))
-        self.assertFalse(self.reap())
-        self.assert_retained()
+    def test_request_is_finalized_through_the_shared_pipeline(self):
+        self.queue(self.request_record())
+        summary = handler.process_close_work(self.context)
+        self.assertEqual(summary['requests_processed'], 1)
+        self.assertEqual(self.finalizer.finalize.call_args.kwargs['mode'], 'request')
 
-    def test_seal_after_directory_removal_retains_access_point(self):
-        point, = self.efs.describe_access_points.return_value['AccessPoints']
-        self.efs.describe_access_points.side_effect = [
-            {'AccessPoints': [point]},
-            {'AccessPoints': [dict(point, Tags=[{'Key': 'AuditCloseSeal', 'Value': 'hold'}])]},
-        ]
-        self.assertFalse(self.reap())
-        self.assertFalse(self.workspace.exists())
-        self.efs.delete_access_point.assert_not_called()
+    def test_a_scheduled_sweep_request_resumes_on_the_stale_route(self):
+        """An interrupted stale pass leaves a sealed workspace; its recorded
+        request is what brings the sweep back to it."""
+        self.queue(self.request_record(trigger=records.TRIGGER_STALE, requester_sub=''))
+        handler.process_close_work(self.context)
+        self.assertEqual(self.finalizer.finalize.call_args.kwargs['mode'], 'stale')
 
-    def test_exhausted_before_backup(self):
-        self.context.get_remaining_time_in_millis.return_value = 500
-        self.assertFalse(self.reap())
-        self.s3.upload_file.assert_not_called()
-        self.assert_retained()
+    def test_a_terminal_status_for_this_request_is_not_reprocessed(self):
+        self.queue(self.request_record(), status=self.status_record())
+        handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_not_called()
 
-    def test_exhausted_during_last_upload(self):
-        def upload(*args):
-            if self.s3.upload_file.call_count == len(self.files):
-                self.context.get_remaining_time_in_millis.return_value = 500
-        self.s3.upload_file.side_effect = upload
-        self.assertFalse(self.reap())
-        self.assert_retained()
+    def test_an_older_outcome_does_not_answer_a_newer_request(self):
+        """Otherwise one completed close would silently end every later one."""
+        self.queue(self.request_record(token='22222222-3333-4444-8555-666666666666',
+                                       requested_at='2026-02-01T00:00:00+00:00'),
+                   status=self.status_record(updated_at='2026-01-02T00:00:00+00:00'))
+        handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_called_once()
 
-    def test_symlinked_cluster_within_mount_cannot_redirect_cleanup(self):
-        cluster = self.workspace.parent
-        other = cluster.with_name('other')
-        cluster.rename(other)
-        cluster.symlink_to(other, target_is_directory=True)
-        self.assertFalse(self.reap())
-        self.s3.upload_file.assert_not_called()
-        self.assert_retained()
+    def test_a_newer_outcome_answers_an_older_request(self):
+        self.queue(self.request_record(token='22222222-3333-4444-8555-666666666666',
+                                       requested_at='2026-01-01T00:00:00+00:00'),
+                   status=self.status_record(updated_at='2026-03-01T00:00:00+00:00'))
+        handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_not_called()
 
-    def test_unreadable_subdirectory(self):
-        scandir = os.scandir
+    def test_a_retryable_retention_is_picked_up_again(self):
+        """A throttled API call must not end a close request forever."""
+        self.queue(self.request_record(),
+                   status=self.status_record(status=records.STATUS_RETAINED, retryable=True))
+        handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_called_once()
 
-        def inaccessible(path):
-            if path == str(self.workspace / 'nested'):
-                raise PermissionError('injected failure')
-            return scandir(path)
+    def test_a_final_retention_is_not_picked_up_again(self):
+        self.queue(self.request_record(),
+                   status=self.status_record(status=records.STATUS_RETAINED, retryable=False))
+        handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_not_called()
 
-        with patch('os.scandir', side_effect=inaccessible):
-            self.assertFalse(self.reap())
-        self.assert_retained()
+    def test_a_request_whose_identity_disagrees_with_its_key_is_refused(self):
+        record = self.request_record()
+        key = self.key_for(record)
+        self.finalizer.list_keys.side_effect = lambda prefix: (
+            [key] if prefix.endswith('/requests/') else [])
+        self.finalizer.get_json.side_effect = lambda k, kind: (
+            dict(record, cluster_id='other') if kind == records.KIND_REQUEST else None)
+        summary = handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_not_called()
+        self.assertEqual(summary['close_errors'], 1)
+
+    def test_a_malformed_request_is_an_error_not_a_close(self):
+        key = self.key_for(self.request_record())
+        self.finalizer.list_keys.side_effect = lambda prefix: (
+            [key] if prefix.endswith('/requests/') else [])
+        self.finalizer.get_json.side_effect = lambda k, kind: (
+            {'kind': records.KIND_REQUEST} if kind == records.KIND_REQUEST else None)
+        summary = handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_not_called()
+        self.assertEqual(summary['close_errors'], 1)
+
+    def test_a_key_the_scan_cannot_parse_is_skipped(self):
+        for key in (f'{records.CONTROL_PREFIX}/requests/cluster/inv/{TOKEN}.json',
+                    f'{records.CONTROL_PREFIX}/requests/../inv/20260101T000000Z-{TOKEN}.json',
+                    f'{records.CONTROL_PREFIX}/requests/cluster/20260101T000000Z-x.json'):
+            with self.subTest(key=key):
+                self.finalizer.get_json.reset_mock()
+                self.finalizer.list_keys.side_effect = lambda prefix: (
+                    [key] if prefix.endswith('/requests/') else [])
+                handler.process_close_work(self.context)
+                self.finalizer.finalize.assert_not_called()
+
+    def test_requests_are_capped_per_run_so_the_stale_sweep_is_not_starved(self):
+        self.queue(*[self.request_record(token=f'1111111{i}-2222-4333-8444-555555555555',
+                                         investigation_id=f'inv{i}') for i in range(5)])
+        with patch.object(handler, 'CLOSE_REQUESTS_PER_RUN', 2):
+            summary = handler.process_close_work(self.context)
+        self.assertEqual(summary['requests_processed'], 2)
+
+    def test_a_waiting_request_does_not_starve_every_later_one(self):
+        """The budget rotates; it is not spent on the head of the key space.
+
+        A request waiting for a task to stop stays unanswered for as long as
+        the wait lasts. Taking the first few keys every run would let a
+        handful of waiting investigations hold the whole budget forever, so a
+        request recorded behind them would never be finalized at all.
+        """
+        waiting = [self.request_record(token=f'1111111{i}-2222-4333-8444-555555555555',
+                                       investigation_id=f'inv{i}') for i in range(3)]
+        latecomer = self.request_record(token='99999999-2222-4333-8444-555555555555',
+                                        investigation_id='zzz-last')
+        by_key = {self.key_for(record): record for record in waiting + [latecomer]}
+        # Each waiting investigation already has a non-terminal status; the
+        # latecomer has none, so it has waited longest by definition.
+        waiting_status = {
+            records.status_key(r['cluster_id'], r['investigation_id']): {
+                'kind': records.KIND_STATUS, 'status': records.STATUS_WAITING_FOR_TASKS,
+                'request_token': r['request_token'], 'retryable': True,
+                'updated_at': '2026-01-02T00:00:00+00:00'}
+            for r in waiting}
+        self.finalizer.list_keys.side_effect = lambda prefix: (
+            sorted(by_key) if prefix.endswith('/requests/') else [])
+        self.finalizer.get_json.side_effect = lambda key, kind: (
+            by_key.get(key) if kind == records.KIND_REQUEST else waiting_status.get(key))
+        self.finalizer.find_access_point.return_value = {
+            'id': 'fsap-00000000', 'tags': {}, 'path': '/cluster/inv'}
+        self.finalizer.finalize.return_value = {'status': records.STATUS_WAITING_FOR_TASKS}
+
+        with patch.object(handler, 'CLOSE_REQUESTS_PER_RUN', 3):
+            handler.process_close_work(self.context)
+
+        finalized = [call.kwargs['investigation_id']
+                     for call in self.finalizer.finalize.call_args_list]
+        self.assertIn('zzz-last', finalized,
+                      'a request behind three waiting ones was never finalized')
+
+    def test_an_investigation_already_closed_does_not_come_back_every_run(self):
+        """A request recorded after the close finished must be answered.
+
+        The workspace is gone and the recorded outcome is `completed`, so
+        there is nothing to do — but the request still has to be marked
+        answered, or it is re-read and re-resolved on every invocation and
+        holds a budget slot for good.
+        """
+        late = self.request_record(token='99999999-2222-4333-8444-555555555555',
+                                   requested_at='2026-02-01T00:00:00+00:00')
+        self.queue(late, status=self.status_record(
+            request_token=TOKEN, updated_at='2026-01-02T00:00:00+00:00'))
+        self.finalizer.find_access_point.return_value = None
+
+        handler.process_close_work(self.context)
+
+        self.assertTrue(self.finalizer.write_status.call_args_list,
+                        'no status was recorded, so the request stays unanswered')
+        call = self.finalizer.write_status.call_args
+        # The earlier completion is reported, not overwritten with a failure.
+        self.assertEqual(call.args[2], records.STATUS_COMPLETED)
+        self.assertEqual(call.kwargs['request_token'], late['request_token'])
+        # And the record it produces does answer this request, so the next
+        # invocation passes over it instead of resolving it again.
+        answer = records.build_status(call.args[0], call.args[1], call.args[2], **call.kwargs)
+        self.assertTrue(handler._answered(answer, late['request_token'],
+                                          records.request_stamp(late['requested_at'])))
+
+    def test_the_scan_stops_when_the_runtime_budget_runs_out(self):
+        self.queue(*[self.request_record(token=f'1111111{i}-2222-4333-8444-555555555555',
+                                         investigation_id=f'inv{i}') for i in range(5)])
+        self.context.get_remaining_time_in_millis.return_value = 31000
+        summary = handler.process_close_work(self.context)
+        self.assertEqual(summary['requests_processed'], 0)
+        self.finalizer.finalize.assert_not_called()
+
+    def test_an_answered_request_is_skipped_without_reading_it(self):
+        """Records are object-locked and never deleted, so the scan has to be
+        able to pass over history cheaply."""
+        answered = self.request_record()
+        self.queue(answered, status=self.status_record())
+        handler.process_close_work(self.context)
+        read_kinds = [call.args[1] for call in self.finalizer.get_json.call_args_list]
+        self.assertNotIn(records.KIND_REQUEST, read_kinds)
+
+    def test_the_status_record_is_read_once_per_investigation(self):
+        self.queue(*[self.request_record(token=f'1111111{i}-2222-4333-8444-555555555555',
+                                         requested_at=f'2026-01-0{i + 1}T00:00:00+00:00')
+                     for i in range(3)])
+        with patch.object(handler, 'CLOSE_REQUESTS_PER_RUN', 1):
+            handler.process_close_work(self.context)
+        status_reads = [call for call in self.finalizer.get_json.call_args_list
+                        if call.args[1] == records.KIND_STATUS]
+        self.assertEqual(len(status_reads), 1)
+
+    def test_a_missing_workspace_records_a_terminal_status(self):
+        self.queue(self.request_record())
+        self.finalizer.find_access_point.return_value = None
+        handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_not_called()
+        self.finalizer.write_status.assert_called_once()
+        self.assertEqual(self.finalizer.write_status.call_args.args[2], records.STATUS_RETAINED)
+
+    def test_a_completed_close_is_not_overwritten_by_a_late_request(self):
+        """An auto-close intent activated after an explicit close finished must
+        not turn a verified close into a reported failure."""
+        self.queue(self.request_record(token='22222222-3333-4444-8555-666666666666',
+                                       requested_at='2026-02-01T00:00:00+00:00'),
+                   status=self.status_record(updated_at='2026-01-02T00:00:00+00:00'))
+        self.finalizer.find_access_point.return_value = None
+        handler.process_close_work(self.context)
+        # The late request is answered, but the answer is the close that
+        # happened — never `retained`, and never a cleanup claim it did not do.
+        for call in self.finalizer.write_status.call_args_list:
+            self.assertEqual(call.args[2], records.STATUS_COMPLETED)
+            self.assertEqual(call.kwargs['directory_retained'], True)
+
+
+class TestStaleReapRoute(unittest.TestCase):
+    """The scheduled sweep uses the same gate, with no stop consent."""
+
+    def setUp(self):
+        self.finalizer = MagicMock()
+        self.finalizer.find_access_point.return_value = {
+            'id': 'fsap-00000000', 'tags': {}, 'path': '/cluster/inv'}
+        self.finalizer.get_json.return_value = None
+        self.finalizer.finalize.return_value = {'status': records.STATUS_COMPLETED}
+        self.context = MagicMock()
+        self.context.get_remaining_time_in_millis.return_value = 300000
+        self.enterContext(patch('handler.build_finalizer', return_value=self.finalizer))
+        self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit-bucket'))
+
+    def test_the_stale_route_carries_no_stop_consent(self):
+        self.assertTrue(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
+                                                   self.context))
+        request = self.finalizer.finalize.call_args.kwargs['request']
+        self.assertEqual(self.finalizer.finalize.call_args.kwargs['mode'], 'stale')
+        self.assertEqual(request['stop_scope'], records.STOP_NONE)
+        self.assertEqual(request['stop_task_ids'], [])
+        self.assertEqual(request['trigger'], records.TRIGGER_STALE)
+        self.assertEqual(request['requester_sub'], '')
+
+    def test_the_stale_request_is_recorded_before_the_pass_begins(self):
+        """Sealing happens early and the sweep skips sealed access points, so
+        an unrecorded pass that stops halfway would strand the workspace."""
+        handler.reap_investigation('cluster', 'inv', 'fsap-00000000', self.context)
+        key, record = self.finalizer.put_json.call_args.args
+        records.validate_request(record)
+        self.assertEqual(key, records.request_key('cluster', 'inv', record['request_token'],
+                                                  record['requested_at']))
+        self.assertLess(self.finalizer.put_json.call_count,
+                        self.finalizer.finalize.call_count + 1)
+
+    def test_a_request_that_cannot_be_recorded_defers_the_pass(self):
+        self.finalizer.put_json.side_effect = ClientError(
+            {'Error': {'Code': 'AccessDenied'}}, 'PutObject')
+        self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
+                                                    self.context))
+        self.finalizer.finalize.assert_not_called()
+
+    def test_too_little_runtime_defers_the_pass(self):
+        self.context.get_remaining_time_in_millis.return_value = 31000
+        self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
+                                                    self.context))
+        self.finalizer.finalize.assert_not_called()
+
+    def test_without_an_audit_bucket_nothing_is_reaped(self):
+        with patch.object(handler, 'S3_AUDIT_BUCKET', ''):
+            self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
+                                                        self.context))
+        self.finalizer.finalize.assert_not_called()
+
+
+class TestAutoCloseIntents(unittest.TestCase):
+    def setUp(self):
+        self.finalizer = MagicMock()
+        self.context = MagicMock()
+        self.context.get_remaining_time_in_millis.return_value = 300000
+        self.key = f'{records.CONTROL_PREFIX}/intents/cluster/inv/{"a" * 32}.json'
+        self.finalizer.list_keys.return_value = [self.key]
+        self.enterContext(patch.object(handler, 'ECS_CLUSTER', 'test-cluster'))
+
+    def intent(self, **overrides):
+        record = {
+            'schema_version': records.INTENT_SCHEMA_VERSION,
+            'kind': records.KIND_INTENT,
+            'cluster_id': 'cluster',
+            'investigation_id': 'inv',
+            'access_point_id': 'fsap-00000000',
+            'task_id': 'a' * 32,
+            'requester_sub': 'sre-a',
+            'stop_scope': records.STOP_SESSION_TASK,
+            'created_at': '2026-01-01T00:00:00+00:00',
+            'cancelled': False,
+        }
+        record.update(overrides)
+        return record
+
+    def observation(self, state, holder=None, tasks=()):
+        return {'state': state, 'holder_sub': holder, 'active_sessions': 0,
+                'tasks': list(tasks), 'reason': '', 'observed_at': '2026-01-01T00:00:00+00:00'}
+
+    def test_intent_waits_while_its_own_task_runs(self):
+        self.finalizer.get_json.return_value = self.intent()
+        self.finalizer.observe.return_value = self.observation(
+            records.STATE_ACTIVE, 'sre-a',
+            [{'task_id': 'a' * 32, 'last_status': 'RUNNING', 'oidc_sub': 'sre-a'}])
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 0)
+
+    def test_intent_activates_once_its_task_has_stopped(self):
+        self.finalizer.get_json.return_value = self.intent()
+        self.finalizer.observe.return_value = self.observation(records.STATE_IDLE)
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 1)
+        written = [call.args[1] for call in self.finalizer.put_json.call_args_list]
+        request = next(r for r in written if r.get('kind') == records.KIND_REQUEST)
+        records.validate_request(request)
+        self.assertEqual(request['trigger'], 'auto_close')
+        self.assertEqual(request['stop_task_ids'], ['a' * 32])
+
+    def test_handover_supersedes_an_intent_instead_of_closing_the_new_holder(self):
+        self.finalizer.get_json.return_value = self.intent()
+        self.finalizer.observe.return_value = self.observation(
+            records.STATE_ACTIVE, 'sre-b',
+            [{'task_id': 'b' * 32, 'last_status': 'RUNNING', 'oidc_sub': 'sre-b'}])
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 0)
+        cancelled = self.finalizer.put_json.call_args.args[1]
+        self.assertTrue(cancelled['cancelled'])
+        self.assertIn('superseded', cancelled['cancelled_reason'])
+
+    def test_unknown_state_defers_rather_than_closing(self):
+        self.finalizer.get_json.return_value = self.intent()
+        self.finalizer.observe.return_value = self.observation(records.STATE_UNKNOWN)
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 0)
+        self.finalizer.put_json.assert_not_called()
+
+    def test_another_sres_detached_task_defers_the_intent_without_cancelling_it(self):
+        """Idle is not consent to seal around somebody else's running task.
+
+        A's own task has stopped and B is not attached, so the investigation
+        reads idle and A's request is not superseded. A only consented to
+        stopping their own task, so the intent waits for B's task rather than
+        sealing a workspace B may still be using.
+        """
+        self.finalizer.get_json.return_value = self.intent()
+        self.finalizer.observe.return_value = self.observation(
+            records.STATE_IDLE,
+            tasks=[{'task_id': 'b' * 32, 'last_status': 'RUNNING', 'oidc_sub': 'sre-b'}])
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 0)
+        # Deferred, not cancelled: it is still valid once the task stops.
+        self.finalizer.put_json.assert_not_called()
+
+    def test_explicit_whole_investigation_consent_activates_despite_a_running_task(self):
+        """The SRE did authorize stopping every task, so the wait is waived."""
+        self.finalizer.get_json.return_value = self.intent(
+            stop_scope=records.STOP_INVESTIGATION)
+        self.finalizer.observe.return_value = self.observation(
+            records.STATE_IDLE,
+            tasks=[{'task_id': 'b' * 32, 'last_status': 'RUNNING', 'oidc_sub': 'sre-b'}])
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 1)
+        written = [call.args[1] for call in self.finalizer.put_json.call_args_list]
+        request = next(r for r in written if r.get('kind') == records.KIND_REQUEST)
+        records.validate_request(request)
+        self.assertEqual(request['stop_scope'], records.STOP_INVESTIGATION)
+
+    def test_intent_activation_is_capped_so_requests_still_get_the_budget(self):
+        """Intents run first, so an unbounded burst would starve requests."""
+        keys = [f'{records.CONTROL_PREFIX}/intents/cluster/inv{i}/{"a" * 32}.json'
+                for i in range(5)]
+        self.finalizer.list_keys.return_value = keys
+        self.finalizer.get_json.side_effect = lambda key, kind: self.intent()
+        self.finalizer.observe.return_value = self.observation(records.STATE_IDLE)
+        with patch.object(handler, 'CLOSE_REQUESTS_PER_RUN', 2):
+            self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 2)
+
+    def test_an_intent_without_an_access_point_is_rejected_not_a_crash(self):
+        """A KeyError here would escape the reaper's handling and take the
+        whole invocation down, stale sweep included."""
+        intent = self.intent()
+        del intent['access_point_id']
+        self.finalizer.get_json.return_value = intent
+        self.finalizer.observe.return_value = self.observation(records.STATE_IDLE)
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 0)
+        self.finalizer.put_json.assert_not_called()
+
+    def test_cancelled_and_already_activated_intents_are_ignored(self):
+        for overrides in ({'cancelled': True},
+                          {'activated_request_token': '11111111-2222-4333-8444-555555555555'}):
+            with self.subTest(overrides=overrides):
+                self.finalizer.put_json.reset_mock()
+                self.finalizer.get_json.return_value = self.intent(**overrides)
+                self.assertEqual(
+                    handler.activate_auto_close_intents(self.finalizer, self.context), 0)
+                self.finalizer.put_json.assert_not_called()
+
+
+class TestKeyParsing(unittest.TestCase):
+    def test_unsafe_control_keys_are_ignored(self):
+        prefix = f'{records.CONTROL_PREFIX}/requests/'
+        self.assertIsNone(handler._identifiers_from_key(f'{prefix}../x/y.json', prefix, 3))
+        self.assertIsNone(handler._identifiers_from_key(f'{prefix}a/b.json', prefix, 3))
+        self.assertIsNone(handler._identifiers_from_key('other/a/b/c.json', prefix, 3))
+        self.assertEqual(handler._identifiers_from_key(f'{prefix}a/b/c.json', prefix, 3),
+                         ['a', 'b', 'c'])
 
 
 if __name__ == '__main__':

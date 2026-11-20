@@ -114,12 +114,22 @@ func TestPrintStartSessionSummary_OverridesAndNoWait(t *testing.T) {
 	})
 }
 
+// noCloseService stands in for a profile without a close service; the hook
+// must never build one unless a close is actually going to be requested.
+func noCloseService() (closeService, error) { return closeService{}, nil }
+
 func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 	savedStartProfile(t)
 	previousOpen, previousConnect, previousNoWait, previousFormat := openInteractiveSession, startConnect, startNoWait, startOutputFormat
+	previousPrompt, previousAuto := sessionClosePrompt, autoCloseRequested
 	t.Cleanup(func() {
 		openInteractiveSession, startConnect, startNoWait, startOutputFormat = previousOpen, previousConnect, previousNoWait, previousFormat
+		sessionClosePrompt, autoCloseRequested = previousPrompt, previousAuto
 	})
+	// The exit prompt defaults to leaving the investigation open; never open a
+	// terminal from a unit test.
+	sessionClosePrompt = func(sessionCloseTarget) bool { return false }
+	autoCloseRequested = false
 	startConnect, startNoWait = true, false
 	failure := errors.New("ECS Exec plugin failed")
 	for _, format := range []string{"text", "json"} {
@@ -151,7 +161,7 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 				selectedProfile = "stage-east" // Normally resolved by commandPreRun.
 				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
-					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "", sessionStartupTimings{}, nil)
+					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "", sessionStartupTimings{}, nil, noCloseService)
 				stdout, readErr := os.ReadFile(stdoutFile.Name())
 				if readErr != nil {
 					t.Fatal(readErr)
@@ -218,7 +228,7 @@ func TestFinishStartSessionJSONWarnsWithoutReportingCredentials(t *testing.T) {
 			}
 			cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 			err = finishStartSession(cmd, nil, nil, "boundary", "rosa", "INV-1", "task-123", "us-east-1",
-				&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, tc.warning, timings, nil)
+				&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, tc.warning, timings, nil, noCloseService)
 			if err != nil {
 				t.Fatal(err)
 			}

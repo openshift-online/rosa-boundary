@@ -144,7 +144,10 @@ rosa-boundary session credentials clear ocm <session-id>
 # Stop a session, check CloudWatch and S3 audit evidence, then close its workspace
 rosa-boundary session close <session-id> --wait
 rosa-boundary investigation close my-cluster incident-42 --dry-run
-rosa-boundary investigation close my-cluster incident-42
+rosa-boundary investigation close my-cluster incident-42 --wait
+
+# Or decide when the session starts: request close on a normal disconnect
+rosa-boundary session create my-cluster --investigation-id incident-42 --auto-close
 ```
 
 ## Repository Structure
@@ -219,9 +222,11 @@ investigation and its reusable workspace open until `investigation close`.
 - `--with-credentials ocm` — configure OCM before returning or connecting; incompatible with `--no-wait`
 - `--ocm-url` — `production`, `staging`, `integration`, or an approved canonical URL
 - `--ocm-auth-flow` — `auth-code` (default) or `device`
+- `--auto-close` — request investigation close when the attached session ends, without an exit prompt; needs an attached session
+- `--auto-close-stop-all` — with `--auto-close`, also consent to stopping the investigation's other tasks
 - `--output text|json`
 
-**`session join`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
+**`session join`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`, `--auto-close`, `--auto-close-stop-all`
 
 **`session credentials configure ocm`**: `--ocm-url` selects the environment and defaults to the non-secret URL in the workstation's OCM configuration; `--auth-flow auth-code|device` selects the fresh-token flow. The command never copies or caches local access, refresh, or offline tokens.
 
@@ -229,7 +234,7 @@ investigation and its reusable workspace open until `investigation close`.
 
 **`session close`**: `--reason`, `--wait`, `--yes` (required without a terminal). Use `session close --all` to close all your active sessions in the selected deployment, including sessions still starting; other users\' sessions and investigations are left alone. `--all` cannot be combined with a session ID. All targets are shown before one confirmation; `--wait` requests all stops before waiting. Partial failures return a nonzero exit status and identify affected sessions; verify status and audit evidence before retrying.
 
-**`investigation close`**: `--dry-run`, `--force` (stop active sessions), `--yes` (required without a terminal unless dry-running). Only the investigation creator can close it through the CLI; verify the plan before confirmation. Stopping is not proof of audit sync.
+**`investigation close`**: `--dry-run`, `--force` (consent to stopping this investigation's active sessions), `--yes` (required without a terminal unless dry-running), `--wait` (follow the close service to a terminal status). Close is a request: the close service verifies its own backup of the workspace before removing the access point, and the EFS directory is retained. While an investigation is held, only the SRE holding it may close it; when no sessions are active, any authorized Boundary SRE may. Accepted is not closed, and stopping is not proof of audit sync. See [automated investigation close](docs/architecture/investigation-close.md).
 
 **`login`**: `--force`
 

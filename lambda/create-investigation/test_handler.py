@@ -207,17 +207,16 @@ class TestInputValidation:
 
     def test_invalid_special_characters(self):
         """Invalid identifiers with special characters."""
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("test; DROP TABLE;", "test_field")
+        for value in ("test; DROP TABLE;", "inv@123", "test/../../etc/passwd", "inv 123"):
+            with pytest.raises(ValueError, match="alphanumeric characters"):
+                handler.validate_identifier(value, "test_field")
 
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("inv@123", "test_field")
-
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("test/../../etc/passwd", "test_field")
-
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("inv 123", "test_field")
+    def test_identifier_must_start_with_a_letter_or_digit(self):
+        """An identifier the close and reap paths cannot represent in a key
+        must not become an investigation nobody can close."""
+        for value in ("_boundary-close", "-leading", "_private"):
+            with pytest.raises(ValueError, match="must start with a letter or digit"):
+                handler.validate_identifier(value, "test_field")
 
     def test_invalid_length(self):
         """Invalid identifiers that are too long or empty."""

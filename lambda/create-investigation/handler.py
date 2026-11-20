@@ -23,6 +23,8 @@ import requests
 from jwt import PyJWKClient
 from botocore.exceptions import ClientError, BotoCoreError, WaiterError
 
+import close_requests
+
 class HandoverFailedError(Exception):
     """Raised when an existing investigation task cannot be stopped for handover."""
     def __init__(self, message: str, failed_tasks: list = None, status_code: int = 500):
@@ -229,6 +231,13 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"User {username} authorized via group(s): {matched_groups}")
 
+        # Close request/status actions reuse this authenticated front door but
+        # share none of the creation path: they only record a request the
+        # reaper must revalidate, and they never seal, stop, verify or delete.
+        action = body.get('action')
+        if action in close_requests.ACTIONS:
+            return handle_close_action(action, body, user_sub, username)
+
         # EmployeeIDP's uuid principal tag is the corporate UUID, not OIDC sub.
         # Keep this optional log property separate from the metric dimensions.
         uuid_value = principal_tags.get('uuid')
@@ -333,6 +342,80 @@ def emit_task_creation_metric(outcome: str, actor_uuid: Optional[str] = None) ->
         logger.warning('Failed to emit task-creation metric')
 
 
+def handle_close_action(action: str, body: Dict[str, Any], user_sub: str,
+                        username: str) -> Dict[str, Any]:
+    """Run one authenticated close request/status action.
+
+    Identity comes from the already-validated OIDC claims, never from the
+    request body. Errors are returned with their own status codes so the CLI
+    can tell "not authorized" from "state unknown, retry" from "outcome
+    unknown".
+    """
+    config = {
+        'audit_bucket': os.environ.get('S3_AUDIT_BUCKET', ''),
+        'ecs_cluster': ECS_CLUSTER,
+        'efs_filesystem_id': EFS_FILESYSTEM_ID,
+        'account_id': os.environ.get('AWS_ACCOUNT_ID', ''),
+        'started_by': investigation_started_by,
+    }
+    clients = {'ecs': ecs, 'efs': efs, 'ssm': ssm}
+    try:
+        return response(200, close_requests.dispatch(action, body, {'sub': user_sub,
+                                                                    'username': username},
+                                                     config, clients))
+    except close_requests.CloseRequestError as error:
+        logger.warning("Close action %s refused (%d): %s", action, error.status_code,
+                       error.message)
+        return response(error.status_code, {'error': error.message, **error.extra})
+
+
+def close_marker(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[str]:
+    """Return a reason when a close marker is observed on the workspace path.
+
+    Sealing is best effort. This check narrows the window in which a launch can
+    race a finalization; it does not create an atomic admission barrier, and no
+    caller may describe it as one.
+    """
+    expected_path = f"/{cluster_id}/{investigation_id}"
+    paginator = efs.get_paginator('describe_access_points')
+    for page in paginator.paginate(FileSystemId=efs_filesystem_id):
+        for access_point in page.get('AccessPoints', []):
+            if (access_point.get('RootDirectory', {}).get('Path') or '') != expected_path:
+                continue
+            tags = {t['Key']: t['Value'] for t in access_point.get('Tags', [])}
+            if close_requests.TAG_SEAL not in tags:
+                continue
+            if tags.get(close_requests.TAG_MANAGED) == close_requests.MANAGED_BY:
+                return ('Workspace is closing: an automated close is in progress for audit '
+                        'finalization')
+            return 'Workspace sealed for audit verification; contact the operator'
+    return None
+
+
+def _discard_investigation_task_definition(task_def_arn: Optional[str]) -> None:
+    """Best-effort cleanup of a definition registered for a launch we abandoned."""
+    if not task_def_arn:
+        return
+    try:
+        ecs.deregister_task_definition(taskDefinition=task_def_arn)
+    except (ClientError, BotoCoreError) as error:
+        logger.error("Failed to deregister abandoned task definition: %s", type(error).__name__)
+
+
+def _discard_new_access_point(access_point_id: str, cluster_id: str,
+                              investigation_id: str) -> None:
+    """Best-effort cleanup of an access point this invocation just created."""
+    try:
+        efs.delete_access_point(AccessPointId=access_point_id)
+    except ClientError as error:
+        code = error.response.get('Error', {}).get('Code', 'Unknown')
+        if code not in ('AccessPointNotFound', 'FileSystemNotFound'):
+            logger.error("Failed to clean up access point after abandoning a launch for "
+                         "%s/%s: %s", cluster_id, investigation_id, code)
+    except Exception as error:
+        logger.error("Unexpected error cleaning up access point: %s", type(error).__name__)
+
+
 def validate_identifier(identifier: str, field_name: str) -> bool:
     """
     Validate that an identifier contains only safe characters.
@@ -353,9 +436,13 @@ def validate_identifier(identifier: str, field_name: str) -> bool:
     if len(identifier) > 64:
         raise ValueError(f"Invalid {field_name}: must be 64 characters or less")
 
-    # Allow alphanumeric, hyphens, and underscores only
-    if not re.match(r'^[a-zA-Z0-9_-]+$', identifier):
-        raise ValueError(f"Invalid {field_name}: must contain only alphanumeric characters, hyphens, and underscores")
+    # Allow alphanumeric, hyphens, and underscores, and require an
+    # alphanumeric first character. The leading-character rule matches the
+    # reaper's long-standing identifier pattern and the close-record key
+    # segments: an identifier the finalizer cannot represent would create an
+    # investigation nobody could close or reap.
+    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*$', identifier):
+        raise ValueError(f"Invalid {field_name}: must start with a letter or digit and contain only alphanumeric characters, hyphens, and underscores")
 
     return True
 
@@ -492,6 +579,10 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                 # A seal applies to the workspace, not just this mount handle. Scan
                 # all pages so an older, duplicate AP cannot hide a sealed one.
                 if ap.get('RootDirectory', {}).get('Path') == expected_path and 'AuditCloseSeal' in tags:
+                    if tags.get(close_requests.TAG_MANAGED) == close_requests.MANAGED_BY:
+                        raise HandoverFailedError(
+                            'Workspace is closing: an automated close is in progress for '
+                            'audit finalization', status_code=409)
                     raise HandoverFailedError('Workspace sealed for audit verification; contact the operator', status_code=409)
                 if ap.get('LifeCycleState') != 'available':
                     continue
@@ -925,6 +1016,31 @@ def create_investigation_task(
         deadline = created_at + timedelta(seconds=task_timeout)
         task_tags.append({'key': 'deadline', 'value': deadline.isoformat()})
 
+    # Late close check, as close to the launch as practical. This narrows the
+    # window between the lookup above and the launch below; it does not remove
+    # it. A launch that already passed this check can still become visible
+    # after a reaper observation, which is why the reaper re-enumerates tasks
+    # and invalidates its attempt rather than trusting a single quiet scan.
+    # An ambiguous answer here fails closed: no task is launched.
+    try:
+        late_reason = close_marker(efs_filesystem_id, cluster_id, investigation_id)
+    except (ClientError, BotoCoreError):
+        # An unreadable answer here fails closed, and the definition and any
+        # access point this invocation created are discarded with it rather
+        # than left behind for the next attempt to trip over.
+        logger.error("Could not check the close marker before launching for %s/%s",
+                     cluster_id, investigation_id)
+        _discard_investigation_task_definition(investigation_task_def_arn)
+        if ap_newly_created:
+            _discard_new_access_point(access_point_id, cluster_id, investigation_id)
+        raise
+    if late_reason:
+        logger.warning("Close marker observed before launch for %s/%s", cluster_id, investigation_id)
+        _discard_investigation_task_definition(investigation_task_def_arn)
+        if ap_newly_created:
+            _discard_new_access_point(access_point_id, cluster_id, investigation_id)
+        raise HandoverFailedError(late_reason, status_code=409)
+
     # Launch ECS task using the per-investigation task definition
     task_arn = None
     try:
@@ -1033,6 +1149,35 @@ def create_investigation_task(
                         f"Investigation: {investigation_id}, Cluster: {cluster_id}, Error: {str(e)}"
                     )
             raise
+
+        # The marker can still appear between the pre-launch check and here.
+        # Stop what we started: a late task that keeps running would invalidate
+        # the finalization attempt and leave the workspace retained anyway.
+        # An ambiguous answer leaves the task alone — the reaper re-enumerates
+        # tasks before it attests, and an observed late task retains the data.
+        try:
+            late_reason = close_marker(efs_filesystem_id, cluster_id, investigation_id)
+        except (ClientError, BotoCoreError):
+            logger.warning(
+                "Could not recheck the close marker after launching for %s/%s; the reaper "
+                "re-enumerates tasks before attesting", cluster_id, investigation_id)
+            late_reason = None
+        if late_reason:
+            logger.warning("Close marker observed after launch for %s/%s; stopping the late task",
+                           cluster_id, investigation_id)
+            try:
+                ecs.stop_task(cluster=cluster, task=task_arn,
+                              reason='Investigation close observed after launch')
+            except (ClientError, BotoCoreError):
+                logger.error("Could not stop the late task; close stays pending until it stops")
+            _discard_investigation_task_definition(investigation_task_def_arn)
+            if ap_newly_created:
+                # A second access point on this path would make every later
+                # close refuse the workspace as ambiguous.
+                _discard_new_access_point(access_point_id, cluster_id, investigation_id)
+            raise HandoverFailedError(
+                f'{late_reason}; the late session was stopped and close remains pending',
+                status_code=409)
 
         return {
             'taskArn': task_arn,

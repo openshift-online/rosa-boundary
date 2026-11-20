@@ -4,25 +4,25 @@ go 1.26.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.48.0
-	github.com/aws/aws-sdk-go-v2/config v1.33.18
-	github.com/aws/aws-sdk-go-v2/credentials v1.21.0
+	github.com/aws/aws-sdk-go-v2/config v1.33.19
+	github.com/aws/aws-sdk-go-v2/credentials v1.21.1
 	github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.65.12
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.344.3
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.349.0
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.42.0
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.64.0
-	github.com/aws/aws-sdk-go-v2/service/route53 v1.70.10
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.71.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-chi/cors v1.2.2
 	github.com/go-chi/render v1.0.3
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.12.0
+	github.com/jackc/pgx/v5 v5.13.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/oapi-codegen/oapi-codegen/v2 v2.8.2
 	github.com/oapi-codegen/runtime v1.9.0
 	github.com/onsi/gomega v1.44.0
 	github.com/openshift-online/ocm-cli v1.0.17
-	github.com/openshift-online/ocm-sdk-go v0.1.521
+	github.com/openshift-online/ocm-sdk-go v0.1.522
 	github.com/openshift/backplane-api v0.0.0-20261019192131-62bd35e29175
 	github.com/openshift/backplane-cli v1.1.0
 	github.com/sirupsen/logrus v1.10.2
@@ -118,8 +118,8 @@ require (
 	github.com/oasdiff/yaml v0.1.1 // indirect
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
-	github.com/openshift-online/ocm-api-model/clientapi v0.0.473 // indirect
-	github.com/openshift-online/ocm-api-model/model v0.0.473 // indirect
+	github.com/openshift-online/ocm-api-model/clientapi v0.0.474 // indirect
+	github.com/openshift-online/ocm-api-model/model v0.0.474 // indirect
 	github.com/openshift-online/ocm-common v0.0.45 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect

@@ -153,6 +153,14 @@ class TestReaperDiscovery(unittest.TestCase):
         self.assertEqual((result['checked'], result['reaped'], result['skipped']), (1, 0, 1))
         self.reap.assert_not_called()
 
+    def test_legacy_access_point_goes_to_verified_cleanup_without_grace(self):
+        ap = access_point(age_hours=0)
+        ap['Tags'] = [tag for tag in ap['Tags'] if tag['Key'] != 'CreatedAt']
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [ap]}
+        result = self.run_handler()
+        self.assertEqual(result['reaped'], 1)
+        self.reap.assert_called_once_with('test-cluster', 'inv-123', ap['AccessPointId'], None)
+
     def test_skip_investigation_within_grace_period(self):
         self.mock_efs.describe_access_points.return_value = {
             'AccessPoints': [access_point(age_hours=24)]}

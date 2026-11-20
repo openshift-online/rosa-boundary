@@ -219,6 +219,17 @@ def _unknown(reason, tasks=None, active_sessions=0):
     }
 
 
+def _list_task_arns(ecs, ecs_cluster, started_by):
+    paginator = ecs.get_paginator('list_tasks')
+    # startedBy must be the only ECS filter. Its default desired status is
+    # RUNNING; also look for tasks asked to stop but not yet terminal.
+    matching = {arn for page in paginator.paginate(cluster=ecs_cluster, startedBy=started_by)
+                for arn in page.get('taskArns', [])}
+    stopping = {arn for page in paginator.paginate(cluster=ecs_cluster, desiredStatus='STOPPED')
+                for arn in page.get('taskArns', [])}
+    return matching, sorted(matching | stopping)
+
+
 def observe_investigation(ecs, ssm, ecs_cluster, started_by):
     """Observe the current holder of an investigation; see the reaper module.
 
@@ -226,16 +237,10 @@ def observe_investigation(ecs, ssm, ecs_cluster, started_by):
     task with no attached session is idle, not held: its ``oidc_sub`` tag is
     provenance. Anything that could not be read completely is ``unknown``.
     """
-    arns = []
     try:
-        for desired in ('RUNNING', 'STOPPED'):
-            paginator = ecs.get_paginator('list_tasks')
-            for page in paginator.paginate(cluster=ecs_cluster, desiredStatus=desired,
-                                           startedBy=started_by):
-                arns.extend(page.get('taskArns', []))
+        matching, arns = _list_task_arns(ecs, ecs_cluster, started_by)
     except (ClientError, BotoCoreError):
         return _unknown('task scan failed; investigation state is unknown')
-    arns = sorted(set(arns))
 
     described = []
     for chunk in _chunks(arns, DESCRIBE_CHUNK):
@@ -246,9 +251,10 @@ def observe_investigation(ecs, ssm, ecs_cluster, started_by):
         if response.get('failures'):
             return _unknown('task description reported failures; investigation state is unknown')
         tasks = response.get('tasks', [])
-        if len(tasks) != len(chunk):
+        if {task.get('taskArn') for task in tasks} != set(chunk):
             return _unknown('task description is incomplete; investigation state is unknown')
-        described.extend(tasks)
+        described.extend(task for task in tasks
+                         if task.get('taskArn') in matching or task.get('startedBy') == started_by)
 
     observed = []
     session_holders = set()

@@ -652,7 +652,8 @@ def test_close_marker_distinguishes_managed_from_legacy_seals():
     base = {'ClusterID': CLUSTER, 'InvestigationID': INVESTIGATION,
             'ManagedBy': 'rosa-boundary-lambda'}
     cases = [
-        ({}, None),
+        ({'CreatedAt': '2026-01-01T00:00:00Z'}, None),
+        ({}, 'Legacy investigation workspace is retiring'),
         ({close_requests.TAG_SEAL: 'x'}, 'sealed for audit verification'),
         ({close_requests.TAG_SEAL: 'x',
           close_requests.TAG_MANAGED: close_requests.MANAGED_BY}, 'automated close'),
@@ -665,6 +666,15 @@ def test_close_marker_distinguishes_managed_from_legacy_seals():
             assert reason is None
         else:
             assert expected in reason
+
+
+def test_a_retiring_workspace_cannot_be_reused_for_handover():
+    with patch.object(handler, 'efs') as efs:
+        efs.get_paginator.return_value = _marker_pages({
+            'ClusterID': CLUSTER, 'InvestigationID': INVESTIGATION,
+            'ManagedBy': 'rosa-boundary-lambda'})
+        with pytest.raises(handler.HandoverFailedError, match='retiring'):
+            handler.find_existing_access_point('fs-1', CLUSTER, INVESTIGATION)
 
 
 def test_a_marker_observed_before_launch_stops_the_launch():

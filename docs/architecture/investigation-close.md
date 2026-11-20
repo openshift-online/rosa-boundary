@@ -294,6 +294,7 @@ interpreted optimistically.
 * **Normal close retains the EFS directory.** The access point and the
   investigation's task definitions are removed; the directory stays. Reclaiming
   it is a stricter, separate decision.
+* **Undated managed investigation access points are retired, not reused.** Without a `CreatedAt` tag, new launches and handovers are refused. The scheduled stale sweep applies no age grace to these access points; active tasks, manual holds and failed verification still prevent destructive cleanup.
 * **Stale reaping may reclaim the directory**, but only behind the same
   verified gate, and only when `investigation_stale_reclaim_directories` is
   enabled. If reclamation fails, the verified copy and evidence are kept and

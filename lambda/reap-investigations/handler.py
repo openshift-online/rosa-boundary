@@ -728,7 +728,6 @@ def list_tasks_by_investigation(cluster_id: str, investigation_id: str) -> List[
         paginator = ecs.get_paginator('list_tasks')
         for page in paginator.paginate(
             cluster=ECS_CLUSTER,
-            desiredStatus='RUNNING',
             startedBy=started_by
         ):
             task_arns.extend(page.get('taskArns', []))

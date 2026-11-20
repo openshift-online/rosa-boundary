@@ -107,6 +107,25 @@ def clients(tasks=(), sessions_active=0, sessions_by_task=None, describe_error=F
     return ecs, ssm
 
 
+@pytest.mark.parametrize('module', [requests, sessions])
+def test_tasks_stopping_are_checked_without_combining_ecs_filters(module):
+    ours = dict(task(TASK_A, HOLDER), desiredStatus='STOPPED', startedBy='marker')
+    other = dict(task(TASK_B, OTHER), desiredStatus='STOPPED', startedBy='other')
+    ecs, ssm = clients(tasks=[ours, other], sessions_active=1)
+
+    def pages(**kwargs):
+        if kwargs == {'cluster': CLUSTER, 'startedBy': 'marker'}:
+            return [{'taskArns': []}]
+        assert kwargs == {'cluster': CLUSTER, 'desiredStatus': 'STOPPED'}
+        return [{'taskArns': [t['taskArn']]} for t in (other, ours)]
+
+    ecs.get_paginator.return_value.paginate.side_effect = pages
+    observation = module.observe_investigation(ecs, ssm, CLUSTER, 'marker')
+    assert observation['state'] == 'active'
+    assert observation['holder_sub'] == HOLDER
+    assert [t['task_id'] for t in observation['tasks']] == [TASK_A]
+
+
 SCENARIOS = {
     'idle': dict(tasks=()),
     'held with an attached session': dict(tasks=[task(TASK_A, HOLDER)], sessions_active=1),

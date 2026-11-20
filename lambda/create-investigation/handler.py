@@ -369,6 +369,13 @@ def handle_close_action(action: str, body: Dict[str, Any], user_sub: str,
         return response(error.status_code, {'error': error.message, **error.extra})
 
 
+def retiring_legacy_access_point(tags):
+    return tags.get('ManagedBy') == 'rosa-boundary-lambda' and not tags.get('CreatedAt')
+
+
+LEGACY_RETIREMENT = 'Legacy investigation workspace is retiring; start a new investigation ID'
+
+
 def close_marker(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[str]:
     """Return a reason when a close marker is observed on the workspace path.
 
@@ -384,6 +391,8 @@ def close_marker(efs_filesystem_id: str, cluster_id: str, investigation_id: str)
                 continue
             tags = {t['Key']: t['Value'] for t in access_point.get('Tags', [])}
             if close_requests.TAG_SEAL not in tags:
+                if retiring_legacy_access_point(tags):
+                    return LEGACY_RETIREMENT
                 continue
             if tags.get(close_requests.TAG_MANAGED) == close_requests.MANAGED_BY:
                 return ('Workspace is closing: an automated close is in progress for audit '
@@ -552,7 +561,7 @@ def find_running_tasks_for_investigation(cluster: str, cluster_id: str, investig
     started_by = investigation_started_by(cluster_id, investigation_id)
     matching = []
     paginator = ecs.get_paginator('list_tasks')
-    for page in paginator.paginate(cluster=cluster, desiredStatus='RUNNING', startedBy=started_by):
+    for page in paginator.paginate(cluster=cluster, startedBy=started_by):
         matching.extend(page.get('taskArns', []))
     return matching
 
@@ -597,6 +606,8 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                         f"expected {expected_path!r}, got {actual_path!r}; skipping"
                     )
                     continue
+                if retiring_legacy_access_point(tags):
+                    raise HandoverFailedError(LEGACY_RETIREMENT, status_code=409)
                 if match is not None:
                     raise HandoverFailedError('Multiple access points match the workspace; contact the operator', status_code=409)
                 match = ap

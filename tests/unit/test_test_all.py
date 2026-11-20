@@ -24,8 +24,11 @@ def test_runner_continues_after_failure_and_preserves_full_output(tmp_path):
 
 @pytest.mark.parametrize('http_code,failures,attempts,passed', [
     (502, 1, 2, True), (503, 3, 3, False), (403, 1, 1, False),
+    (500, 1, 2, True), (500, 3, 3, False), (401, 1, 1, False),
 ])
 def test_module_download_retry_is_selective_and_bounded(tmp_path, monkeypatch, http_code, failures, attempts, passed):
+    diagnostic = (f'Error: Error accessing remote module registry\nFailed to retrieve a download URL\nlater: {http_code} Internal Server Error returned from\nhttps://example.test/private'
+                  if http_code in (500, 401) else f'Error: Failed to download module\nbad response code: {http_code}.')
     counter = tmp_path / 'attempts'
     command = [sys.executable, '-c', f'''from pathlib import Path
 p = Path({str(counter)!r})
@@ -33,13 +36,15 @@ n = int(p.read_text()) + 1 if p.exists() else 1
 p.write_text(str(n))
 print(f'attempt {{n}}')
 if n <= {failures}:
-    print('Error: Failed to download module\\nbad response code: {http_code}.')
+    print({diagnostic!r})
     raise SystemExit(1)
 ''']
     monkeypatch.setattr(runner_module.time, 'sleep', lambda _: None)
     runner = runner_module.Runner(tmp_path)
     assert runner.run('init', command, retry_module_download=True) is passed
     assert int(counter.read_text()) == attempts
+    if http_code == 500 and not passed:
+        assert runner.results[0]['detail'] == 'module registry HTTP 500'
     log = Path(runner.results[0]['log']).read_text()
     for n in range(1, attempts + 1):
         assert f'attempt {n}' in log
@@ -125,6 +130,7 @@ def test_terraform_failure_blocks_module_tests_but_attempts_next_root(tmp_path):
         with patch.object(runner, "run", return_value=False) as run:
             runner_module.terraform_checks(runner, ["deploy/account/main.tf", "deploy/regional/main.tf"])
     assert run.call_count == 2
+    assert [r['status'] for r in runner.results] == ['BLOCKED', 'BLOCKED']
     for call in run.call_args_list:
         assert call.args[1] == ["terraform", "init", "-backend=false", "-input=false", "-no-color"]
         assert not call.kwargs["cwd"].exists()  # disposable directory cleaned up

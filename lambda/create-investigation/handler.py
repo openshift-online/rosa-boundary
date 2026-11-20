@@ -369,6 +369,34 @@ def handle_close_action(action: str, body: Dict[str, Any], user_sub: str,
         return response(error.status_code, {'error': error.message, **error.extra})
 
 
+def require_durable_admission(client, cluster_id: str, investigation_id: str) -> None:
+    """Any request or status retires the ID, including after AP deletion.
+
+    A request prefix ends in '/'; an exact status key sorts before longer
+    keys sharing its prefix. One list result suffices regardless of history.
+    Intents alone are not requests. This observation is not a cross-service lock.
+    """
+    bucket = os.environ.get('S3_AUDIT_BUCKET')
+    owner = os.environ.get('AWS_ACCOUNT_ID')
+    if not bucket or not owner:
+        raise HandoverFailedError('Close admission is not configured', status_code=503)
+    requests = close_requests.requests_prefix(cluster_id, investigation_id)
+    status = close_requests.status_key(cluster_id, investigation_id)
+    try:
+        for prefix in (requests, status):
+            page = client.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1,
+                                          ExpectedBucketOwner=owner)
+            keys = [item['Key'] for item in page.get('Contents', [])]
+            if page['KeyCount'] != len(keys) or (not keys and page['IsTruncated']):
+                raise ValueError('incomplete admission listing')
+            if keys and (prefix == requests or keys[0] == status):
+                raise HandoverFailedError(
+                    'Investigation has a durable close record; start a new investigation ID',
+                    status_code=409)
+    except (ClientError, BotoCoreError, KeyError, ValueError) as error:
+        raise HandoverFailedError('Cannot verify durable close state', status_code=503) from error
+
+
 def retiring_legacy_access_point(tags):
     return tags.get('ManagedBy') == 'rosa-boundary-lambda' and not tags.get('CreatedAt')
 
@@ -822,6 +850,12 @@ def create_investigation_task(
     # Create EFS access point for investigation (idempotent: reuse if already exists)
     access_point_path = f"/{cluster_id}/{investigation_id}"
 
+    admission_client = boto3.client('s3')
+
+    def check_admission():
+        require_durable_admission(admission_client, cluster_id, investigation_id)
+
+    check_admission()
     existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
     ap_newly_created = False
 
@@ -886,6 +920,7 @@ def create_investigation_task(
 
             for existing_task in existing_tasks:
                 try:
+                    check_admission()
                     ecs.stop_task(
                         cluster=cluster,
                         task=existing_task,
@@ -925,6 +960,7 @@ def create_investigation_task(
     else:
         try:
             logger.info(f"Creating EFS access point: {access_point_path}")
+            check_admission()
             ap_response = efs.create_access_point(
                 FileSystemId=efs_filesystem_id,
                 PosixUser={
@@ -960,6 +996,7 @@ def create_investigation_task(
 
     # When skip_task=True, return immediately without launching an ECS task
     if skip_task:
+        check_admission()
         return {
             'taskArn': '',
             'accessPointId': access_point_id
@@ -973,6 +1010,9 @@ def create_investigation_task(
     # This ensures each investigation gets its own isolated EFS directory rather than all
     # Lambda-launched tasks sharing the static access point from the base task definition.
     investigation_task_def_arn = None
+    # A request racing AP creation may now name that very AP. Preserve it
+    # for the finalizer if admission fails; it is not a failed registration.
+    check_admission()
     try:
         investigation_task_def_arn = register_investigation_task_definition(
             task_def=task_def,
@@ -1034,7 +1074,11 @@ def create_investigation_task(
     # and invalidates its attempt rather than trusting a single quiet scan.
     # An ambiguous answer here fails closed: no task is launched.
     try:
+        check_admission()
         late_reason = close_marker(efs_filesystem_id, cluster_id, investigation_id)
+    except HandoverFailedError:
+        _discard_investigation_task_definition(investigation_task_def_arn)
+        raise  # The finalizer may need this AP, including a newly created one.
     except (ClientError, BotoCoreError):
         # An unreadable answer here fails closed, and the definition and any
         # access point this invocation created are discarded with it rather
@@ -1108,6 +1152,23 @@ def create_investigation_task(
         task_arn = run_response['tasks'][0]['taskArn']
         logger.info(f"Launched ECS task: {task_arn}")
 
+        def stop_late_task():
+            try:
+                ecs.stop_task(cluster=cluster, task=task_arn,
+                              reason='Investigation close observed after launch')
+            except (ClientError, BotoCoreError):
+                logger.error('Could not stop late task %s; verify it stops before closing', task_arn)
+            _discard_investigation_task_definition(investigation_task_def_arn)
+
+        def recheck_launched_task():
+            try:
+                check_admission()
+            except HandoverFailedError:
+                stop_late_task()
+                # The request may name this AP; leave it for the finalizer.
+                raise
+
+        recheck_launched_task()
         # Apply tags explicitly using TagResource API
         # (tags in run_task don't always apply immediately for IAM evaluation)
         logger.info(f"Applying tags to task: {task_arn}")
@@ -1164,8 +1225,9 @@ def create_investigation_task(
         # The marker can still appear between the pre-launch check and here.
         # Stop what we started: a late task that keeps running would invalidate
         # the finalization attempt and leave the workspace retained anyway.
-        # An ambiguous answer leaves the task alone — the reaper re-enumerates
-        # tasks before it attests, and an observed late task retains the data.
+        # An ambiguous EFS answer leaves the task alone only after durable
+        # admission succeeds. The reaper still re-enumerates before attesting.
+        recheck_launched_task()
         try:
             late_reason = close_marker(efs_filesystem_id, cluster_id, investigation_id)
         except (ClientError, BotoCoreError):
@@ -1176,18 +1238,13 @@ def create_investigation_task(
         if late_reason:
             logger.warning("Close marker observed after launch for %s/%s; stopping the late task",
                            cluster_id, investigation_id)
-            try:
-                ecs.stop_task(cluster=cluster, task=task_arn,
-                              reason='Investigation close observed after launch')
-            except (ClientError, BotoCoreError):
-                logger.error("Could not stop the late task; close stays pending until it stops")
-            _discard_investigation_task_definition(investigation_task_def_arn)
+            stop_late_task()
             if ap_newly_created:
                 # A second access point on this path would make every later
                 # close refuse the workspace as ambiguous.
                 _discard_new_access_point(access_point_id, cluster_id, investigation_id)
             raise HandoverFailedError(
-                f'{late_reason}; the late session was stopped and close remains pending',
+                f'{late_reason}; session stop requested and close remains pending',
                 status_code=409)
 
         return {

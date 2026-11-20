@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 
+	boundaryaws "github.com/openshift-online/rosa-boundary/internal/aws"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awslambda "github.com/aws/aws-sdk-go-v2/service/lambda"
 )
@@ -160,6 +162,7 @@ type CloseStatusResponse struct {
 	// itself. A client must not promise a retry the service will not make.
 	Retryable          bool   `json:"retryable"`
 	AccessPointPresent bool   `json:"access_point_present"`
+	JoinAccessPointID  string `json:"join_access_point_id"`
 	OpenRequests       int    `json:"open_requests"`
 	Seal               string `json:"seal"`
 	UpdatedAt          string `json:"updated_at"`
@@ -208,8 +211,9 @@ type Client struct {
 // Using sdk invocation avoids SCP restrictions that target lambda:InvokeFunctionUrl.
 func New(functionName, region string, credentials aws.CredentialsProvider) *Client {
 	sdk := awslambda.New(awslambda.Options{
-		Region:      region,
-		Credentials: credentials,
+		BaseEndpoint: boundaryaws.IntegrationEndpoint(),
+		Region:       region,
+		Credentials:  credentials,
 	})
 	return &Client{functionName: functionName, sdk: sdk}
 }

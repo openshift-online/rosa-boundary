@@ -73,9 +73,8 @@ Every investigation's access point is tagged with:
 - `CreatedAt` — original creation timestamp
 
 These are creator tags, recorded for provenance. Handover does not update
-them, and they do not decide who may close: close eligibility is derived from
-the investigation's current holder, observed from the sessions attached to its
-tasks. A running task whose SRE has detached leaves the investigation idle;
+them, and they do not decide who may close: any authorized Boundary SRE may explicitly request close. The reaper waits
+if a different SRE is attached. A running task whose SRE has detached leaves the investigation idle;
 its `oidc_sub` tag is provenance too. See [creator-versus-actor semantics](session-lifecycle.md#actual-resource-tags-creator-versus-actor)
 and [automated investigation close](investigation-close.md).
 
@@ -156,7 +155,7 @@ An SRE can cycle through start/stop iterations or request handover. Lambda waits
 
 Deleting the access point removes the entry point; the underlying EFS files at `/{cluster_id}/{investigation_id}/` are deliberately preserved on a normal close. The S3 audit bucket retains per-task snapshots and the close attempt's verified copy, subject to the bucket's retention policy.
 
-Accepted is not closed: `--wait`, or a later `--dry-run`, reports the service's current status. Any late task, read error or changed byte retains the data and starts a fresh attempt on the next schedule.
+Accepted is not closed: `--wait`, or a later `--status`, reports the service's current status. Any late task, read error or changed byte retains the data and starts a fresh attempt on the next schedule.
 
 If an investigation is left open, the same reaper eventually reaps it as a stale candidate, through the same verified gate. Unlike a normal close, the stale route may also remove the EFS directory. See [automated investigation close](investigation-close.md).
 
@@ -215,7 +214,7 @@ AWS allows 10,000 EFS access points per filesystem. Since each investigation cor
 
 ### Are investigation filesystems shared across SREs?
 
-Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session create` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. Close eligibility follows the investigation's current holder, not its creator: while Bob has a session attached, only Bob may close it; once no sessions are attached — even if a task Bob launched is still running — any authorized Boundary SRE may. Alice gains nothing from having created it, and Bob gains nothing lasting from having launched the task. This is enforced service-side by the close service and rechecked by the reaper, not by IAM against direct use of other AWS clients. See [automated investigation close](investigation-close.md) and the separate [ROSAENG-75946 close-ownership work](https://redhat.atlassian.net/browse/ROSAENG-75946).
+Yes. The EFS access point path is computed from `/{cluster_id}/{investigation_id}/` — it does not include a username or any per-user identifier. If SRE Alice creates an investigation for cluster `c1` with ID `inv-123`, and SRE Bob later runs `session create` with the same pair, Bob's task reuses Alice's EFS access point and mounts the same directory as `/home/sre`. Bob has full read/write access to ordinary files Alice left behind; task-scoped OCM and kubeconfig credentials are not persisted there. Alice may explicitly request close while Bob is attached, but the reaper waits for Bob to detach. Without stop consent it also waits for his task to stop. Alice gains nothing from having created it, and Bob gains nothing lasting from having launched the task. This is enforced service-side by the close service and rechecked by the reaper, not by IAM against direct use of other AWS clients. See [automated investigation close](investigation-close.md) and the separate [ROSAENG-75946 close-ownership work](https://redhat.atlassian.net/browse/ROSAENG-75946).
 
 This is by design. The investigation ID represents a **shared workspace** for a cluster incident, not a per-user workspace. The isolation boundary is at the `(cluster_id, investigation_id)` level. Per-user isolation is enforced at the **ECS Exec layer** via the deployment's configured ABAC task/principal tag (which may be `uuid` or `username`); this restricts who can `exec` into a running container, but not who can mount the shared workspace through a new authorized task.
 

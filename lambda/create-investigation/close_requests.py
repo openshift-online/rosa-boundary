@@ -327,10 +327,10 @@ def nonterminal_task_ids(observation):
             if task['last_status'] != 'STOPPED']
 
 
-def authorize_close(observation, requester_sub):
+def authorize_close(observation, requester_sub, *, explicit=False):
     """Apply the close authorization matrix; see the reaper module for details."""
     state = observation.get('state')
-    if state == STATE_UNKNOWN:
+    if state not in (STATE_ACTIVE, STATE_IDLE):
         return False, STATE_UNKNOWN, observation.get('reason') or 'investigation state is unknown'
     if not requester_sub:
         return False, 'unauthenticated', 'the requester has no authenticated subject'
@@ -338,9 +338,9 @@ def authorize_close(observation, requester_sub):
         return True, STATE_IDLE, ''
     if requester_sub == observation.get('holder_sub'):
         return True, 'holder', ''
-    return False, 'not_holder', (
-        'another SRE holds an attached session on this investigation; only that SRE may '
-        'close it while they are attached, and a handover transfers that authority')
+    if explicit:
+        return True, 'authorized_sre', ''
+    return False, 'not_holder', 'session close callback refused: another SRE is attached'
 
 
 # --------------------------------------------------------------------------
@@ -441,6 +441,7 @@ def resolve_investigation(efs, efs_filesystem_id, cluster_id, investigation_id):
     return {
         'access_point_id': access_point_id,
         'file_system_id': match.get('FileSystemId', ''),
+        'available': match.get('LifeCycleState') == 'available',
         'path': expected_path,
         'tags': tags,
     }
@@ -479,13 +480,13 @@ def _validate_stop_scope(body):
 
 
 def _existing_equivalent_request(s3, bucket, account_id, cluster_id, investigation_id,
-                                 requester_sub, stop_scope, stop_task_ids, status_record):
+                                 requester_sub, stop_scope, stop_task_ids, trigger, status_record):
     """Return a prior pending request from the same SRE with the same consent.
 
     Duplicate submissions must not reset a seal, expand consent or multiply
     work, so an identical resubmission is answered with the request already on
-    file. Consent that differs at all — a wider scope, or a different task —
-    is a new request: silently answering it with the old one would drop the
+    file. A different trigger has different handover semantics. Different
+    consent — a wider scope or a different task — also needs a new request: silently answering it with the old one would drop the
     consent the SRE just gave.
 
     A terminal outcome ends de-duplication. After a retained close the SRE has
@@ -501,6 +502,7 @@ def _existing_equivalent_request(s3, bucket, account_id, cluster_id, investigati
         if not record or record.get('kind') != KIND_REQUEST:
             continue
         if (record.get('requester_sub') == requester_sub
+                and record.get('trigger') == trigger
                 and record.get('stop_scope') == stop_scope
                 and sorted(record.get('stop_task_ids') or []) == stop_task_ids):
             return record
@@ -520,7 +522,8 @@ def handle_request_close(body, identity, config, clients):
     observation = observe_investigation(
         clients['ecs'], clients['ssm'], config['ecs_cluster'],
         config['started_by'](cluster_id, investigation_id))
-    allowed, basis, reason = authorize_close(observation, identity['sub'])
+    allowed, basis, reason = authorize_close(
+        observation, identity['sub'], explicit=trigger == 'cli_close')
     if not allowed:
         # Unknown is retryable and must not be reported as a permission denial.
         status_code = 409 if basis == STATE_UNKNOWN else 403
@@ -539,7 +542,7 @@ def handle_request_close(body, identity, config, clients):
     status_record = _get_json(s3, bucket, status_key(cluster_id, investigation_id), account_id)
     existing = _existing_equivalent_request(
         s3, bucket, account_id, cluster_id, investigation_id, identity['sub'],
-        stop_scope, stop_task_ids, status_record)
+        stop_scope, stop_task_ids, trigger, status_record)
     if existing:
         return {
             'action': 'request_close',
@@ -696,7 +699,8 @@ def handle_close_status(body, identity, config, clients):
                                      'assuming any outcome')
 
     recorded_requests = []
-    for key in _list_requests(s3, bucket, cluster_id, investigation_id, account_id):
+    request_keys = _list_requests(s3, bucket, cluster_id, investigation_id, account_id)
+    for key in request_keys:
         parsed = parse_request_filename(key.rsplit('/', 1)[-1])
         if parsed:
             recorded_requests.append(parsed)
@@ -766,6 +770,12 @@ def handle_close_status(body, identity, config, clients):
         'investigation_id': investigation_id,
         'open_requests': len(recorded_requests),
         'access_point_present': access_point_present,
+        # Positive proof for newer CLI clients: never join an old task on the
+        # strength of a different AP now occupying its investigation path.
+        'join_access_point_id': (investigation['access_point_id'] if investigation
+                                 and investigation['available'] and tags.get('CreatedAt')
+                                 and seal_state == 'none' and status_record is None
+                                 and not request_keys else ''),
         'seal': seal_state,
     })
     return result

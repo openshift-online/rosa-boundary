@@ -286,19 +286,33 @@ def test_an_idle_record_names_the_running_tasks_owner_without_making_them_holder
     assert record['observation']['nonterminal_task_ids'] == [TASK_ID]
 
 
-def test_another_sre_cannot_close_a_held_investigation():
+@pytest.mark.parametrize('requester', [OTHER_SRE, CREATOR])
+def test_explicit_non_holder_request_records_actor_and_activity_without_stopping(requester):
+    harness = held_by(HOLDER)
+    result = harness.dispatch('request_close', sub=requester)
+    assert result['status'] == close_requests.STATUS_ACCEPTED
+    record = harness.s3.json_at(harness.request_key_for(result['request_token']))
+    assert record['requester_sub'] == requester
+    assert record['observed_holder_sub'] == HOLDER
+    assert record['stop_scope'] == 'none'
+    assert record['authorization_basis'] == 'authorized_sre'
+    harness.ecs.stop_task.assert_not_called()
+
+
+@pytest.mark.parametrize('trigger', ['auto_close', 'session_exit_prompt'])
+def test_session_callback_from_a_former_holder_is_refused(trigger):
     harness = held_by(HOLDER)
     with pytest.raises(close_requests.CloseRequestError) as error:
-        harness.dispatch('request_close', sub=OTHER_SRE)
+        harness.dispatch('request_close', {'trigger': trigger}, sub=OTHER_SRE)
     assert error.value.status_code == 403
     assert harness.s3.put_calls == []
 
 
-def test_the_original_creator_has_no_standing_authority():
+def test_explicit_request_does_not_reuse_a_session_callback_token():
     harness = held_by(HOLDER)
-    with pytest.raises(close_requests.CloseRequestError) as error:
-        harness.dispatch('request_close', sub=CREATOR)
-    assert error.value.status_code == 403
+    callback = harness.dispatch('request_close', {'trigger': 'auto_close'})
+    explicit = harness.dispatch('request_close')
+    assert explicit['request_token'] != callback['request_token']
 
 
 def test_after_handover_the_new_holder_may_close():
@@ -635,8 +649,11 @@ with patch('boto3.client'):
 
 
 @pytest.fixture(autouse=True)
-def _no_real_aws_clients():
-    with patch('boto3.client'):
+def _no_real_aws_clients(monkeypatch):
+    monkeypatch.setenv('S3_AUDIT_BUCKET', 'test-audit')
+    monkeypatch.setenv('AWS_ACCOUNT_ID', '123456789012')
+    with patch('boto3.client') as client:
+        client.return_value.list_objects_v2.return_value = {'KeyCount': 0, 'IsTruncated': False}
         yield
 
 
@@ -693,6 +710,119 @@ def test_a_retiring_workspace_cannot_be_reused_for_handover():
             'ManagedBy': 'rosa-boundary-lambda'})
         with pytest.raises(handler.HandoverFailedError, match='retiring'):
             handler.find_existing_access_point('fs-1', CLUSTER, INVESTIGATION)
+
+
+@pytest.mark.parametrize('skip', [True, False])
+@pytest.mark.parametrize('record,expected', [('request', 409), ('status', 409), ('denied', 503),
+                                             ('incomplete', 503)])
+def test_durable_admission_precedes_workspace_lookup_and_all_mutations(skip, record, expected):
+    requests = close_requests.requests_prefix(CLUSTER, INVESTIGATION)
+    status = close_requests.status_key(CLUSTER, INVESTIGATION)
+
+    def listing(Bucket, ExpectedBucketOwner, MaxKeys, Prefix):
+        assert (Bucket, ExpectedBucketOwner, MaxKeys) == ('test-audit', '123456789012', 1)
+        assert Prefix in (requests, status)
+        if record == 'denied':
+            raise ClientError({'Error': {'Code': 'AccessDenied'}}, 'ListObjectsV2')
+        if record == 'incomplete':
+            return {}
+        key = requests + 'unparsed' if record == 'request' else status
+        contents = [{'Key': key}] if key.startswith(Prefix) else []
+        return {'KeyCount': len(contents), 'Contents': contents, 'IsTruncated': False}
+
+    with patch('boto3.client') as client, patch.object(handler, 'efs') as efs, \
+            patch.object(handler, 'ecs') as ecs:
+        client.return_value.list_objects_v2.side_effect = listing
+        with pytest.raises(handler.HandoverFailedError) as failure:
+            handler.create_investigation_task(
+                cluster='test-cluster', task_def='boundary', oidc_sub=HOLDER,
+                username='alice', abac_tag_key='username', abac_tag_value='alice',
+                investigation_id=INVESTIGATION, cluster_id=CLUSTER, subnets=['subnet'],
+                security_group='sg', efs_filesystem_id='fs-1', skip_task=skip)
+        assert failure.value.status_code == expected
+        assert not efs.mock_calls and not ecs.mock_calls
+
+
+def test_close_accepted_during_handover_preflight_does_not_stop_the_old_task():
+    existing = task()
+    with patch.object(handler, 'require_durable_admission', side_effect=[
+            None, handler.HandoverFailedError('Close accepted', status_code=409)]), \
+            patch.object(handler, 'find_existing_access_point', return_value={'AccessPointId': ACCESS_POINT}), \
+            patch.object(handler, 'find_running_tasks_for_investigation', return_value=[existing['taskArn']]), \
+            patch.object(handler, 'ecs') as ecs, patch.object(handler, 'ssm') as ssm:
+        ecs.describe_tasks.return_value = {'tasks': [existing]}
+        ssm.describe_sessions.return_value = {'Sessions': []}
+        with pytest.raises(handler.HandoverFailedError, match='Close accepted'):
+            handler.create_investigation_task(
+                cluster='test-cluster', task_def='boundary', oidc_sub=HOLDER,
+                username='alice', abac_tag_key='username', abac_tag_value='alice',
+                investigation_id=INVESTIGATION, cluster_id=CLUSTER, subnets=['subnet'],
+                security_group='sg', efs_filesystem_id='fs-1')
+        ssm.describe_sessions.assert_called_once()
+        ecs.stop_task.assert_not_called()
+        ecs.run_task.assert_not_called()
+
+
+@pytest.mark.parametrize('accepted_after', ['ap', 'definition', 'launch', 'tag'])
+def test_close_racing_creation_retains_the_ap_named_by_the_request(accepted_after):
+    accepted = False
+
+    def mutation(stage, result):
+        def invoke(**kwargs):
+            nonlocal accepted
+            accepted |= stage == accepted_after
+            return result
+        return invoke
+
+    def listing(**kwargs):
+        prefix = close_requests.requests_prefix(CLUSTER, INVESTIGATION)
+        contents = [{'Key': prefix + 'request'}] if accepted and kwargs['Prefix'] == prefix else []
+        return {'KeyCount': len(contents), 'Contents': contents, 'IsTruncated': False}
+
+    with patch('boto3.client') as s3, patch.object(handler, 'efs') as efs, \
+            patch.object(handler, 'ecs') as ecs, patch.object(handler, 'sts'), \
+            patch.object(handler, 'find_existing_access_point', return_value=None), \
+            patch.object(handler, 'find_running_tasks_for_investigation', return_value=[]), \
+            patch.object(handler, 'register_investigation_task_definition',
+                         side_effect=mutation('definition', 'def-1')) as register:
+        s3.return_value.list_objects_v2.side_effect = listing
+        efs.create_access_point.side_effect = mutation('ap', {'AccessPointId': ACCESS_POINT})
+        ecs.run_task.side_effect = mutation('launch', {'tasks': [{'taskArn': 'arn:task/late'}]})
+        ecs.tag_resource.side_effect = mutation('tag', {})
+        with pytest.raises(handler.HandoverFailedError) as failure:
+            handler.create_investigation_task(
+                cluster='test-cluster', task_def='boundary', oidc_sub=HOLDER,
+                username='alice', abac_tag_key='username', abac_tag_value='alice',
+                investigation_id=INVESTIGATION, cluster_id=CLUSTER, subnets=['subnet'],
+                security_group='sg', efs_filesystem_id='fs-1')
+        assert failure.value.status_code == 409
+        efs.delete_access_point.assert_not_called()
+        assert register.called == (accepted_after != 'ap')
+        assert ecs.deregister_task_definition.called == register.called
+        assert ecs.tag_resource.called == (accepted_after == 'tag')
+        assert ecs.run_task.called == (accepted_after in ('launch', 'tag'))
+        assert ecs.stop_task.called == ecs.run_task.called
+
+
+def test_join_proof_requires_the_current_available_dated_ap_and_no_records():
+    page = access_point_page()
+    ap = page['AccessPoints'][0]
+    harness = Harness(pages=[page])
+
+    def proof():
+        return harness.dispatch('close_status')['join_access_point_id']
+
+    assert not proof()  # retiring, undated AP
+    ap['Tags'].append({'Key': 'CreatedAt', 'Value': '2026-01-01T00:00:00Z'})
+    assert proof() == ACCESS_POINT
+    ap['LifeCycleState'] = 'deleting'
+    assert not proof()
+    ap['LifeCycleState'] = 'available'
+    harness.s3.objects[close_requests.status_key(CLUSTER, INVESTIGATION)] = b'{}'
+    assert not proof()  # even a malformed status is not open
+    harness.s3.objects.clear()
+    harness.s3.objects[close_requests.requests_prefix(CLUSTER, INVESTIGATION) + 'malformed'] = b'{}'
+    assert not proof()
 
 
 def test_a_marker_observed_before_launch_stops_the_launch():

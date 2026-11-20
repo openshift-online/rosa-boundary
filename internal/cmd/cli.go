@@ -101,7 +101,8 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 	required := []string{"account_id", "aws_region", "keycloak_url"}
 	role := cfg.SRERoleARN
 	session := "rosa-boundary-session"
-	if cmd.Name() == "create" && (cmd.Parent().Name() == "session" || cmd.Parent().Name() == "investigation") {
+	statusOnly := cmd.Name() == "close" && cmd.Parent().Name() == "investigation" && flagBool(cmd, "status")
+	if statusOnly || (cmd.Name() == "create" && (cmd.Parent().Name() == "session" || cmd.Parent().Name() == "investigation")) {
 		role, session = cfg.InvokerRoleARN, "rosa-boundary-invoker"
 		required = append(required, "invoker_role_arn", "lambda_function_name")
 		if cmd.Parent().Name() == "session" {
@@ -121,7 +122,10 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		if cmd.Name() == "close" && cmd.Parent().Name() == "investigation" {
 			// Close is a request to the close service: the CLI previews with
 			// the SRE role and submits through the invoker role.
-			required = append(required, "efs_filesystem_id", "invoker_role_arn", "lambda_function_name")
+			required = append(required, "efs_filesystem_id")
+			if !flagBool(cmd, "dry-run") {
+				required = append(required, "invoker_role_arn", "lambda_function_name")
+			}
 		}
 	}
 	if err := config.RequireSettings(cfg, required...); err != nil {
@@ -288,7 +292,7 @@ func buildInvestigationCommand() *cobra.Command {
 		closeOutputFormat = flagString(cmd, "output")
 		return runCloseInvestigation(cmd, nil)
 	})
-	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --dry-run, to see the current status.\n\nWhile an SRE has a session attached, only that SRE may close the investigation; a handover transfers that authority. When no sessions are attached, any authorized Boundary SRE may close it, even if a task is still running — stopping that task is separate consent (--force)."
+	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --status, to see the current status.\n\nAny authorized Boundary SRE may request close, even while another SRE is attached. The reaper waits for that SRE to detach, even with --force. Without stop consent it also waits for running tasks to stop."
 	close.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(2)(cmd, args); err != nil {
 			return err
@@ -296,7 +300,7 @@ func buildInvestigationCommand() *cobra.Command {
 		if flagBool(cmd, "dry-run") && flagBool(cmd, "wait") {
 			return errors.New("--wait has no meaning with --dry-run, which submits nothing")
 		}
-		if !flagBool(cmd, "dry-run") && !flagBool(cmd, "yes") {
+		if !flagBool(cmd, "status") && !flagBool(cmd, "dry-run") && !flagBool(cmd, "yes") {
 			if err := requireTerminal(); err != nil {
 				return fmt.Errorf("--yes is required without a terminal unless --dry-run: %w", err)
 			}
@@ -304,10 +308,14 @@ func buildInvestigationCommand() *cobra.Command {
 		_, err := commandOutput(cmd)
 		return err
 	})
+	close.Flags().Bool("status", false, "Look up recorded close status without submitting a request (also works after cleanup)")
 	close.Flags().Bool("force", false, "Consent to stopping this investigation's running tasks")
 	close.Flags().Bool("yes", false, "Skip confirmation")
 	close.Flags().Bool("dry-run", false, "Show complete plan without making changes")
 	close.Flags().Bool("wait", false, "Wait for the close service to finish (stopping the wait does not cancel the request)")
+	for _, other := range []string{"dry-run", "yes", "force", "wait"} {
+		close.MarkFlagsMutuallyExclusive("status", other)
+	}
 	deploymentFlags(close, true, true)
 	group.AddCommand(create, list, close)
 	return group

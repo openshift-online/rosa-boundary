@@ -10,7 +10,7 @@ import (
 )
 
 func hookTarget() sessionCloseTarget {
-	return sessionCloseTarget{ClusterID: "cluster", InvestigationID: "inv", SessionID: "task-1"}
+	return sessionCloseTarget{ClusterID: "cluster", InvestigationID: "inv", SessionID: "task-1", AccessPointID: "fsap-1"}
 }
 
 func resolvesTo(target sessionCloseTarget) func() (sessionCloseTarget, error) {
@@ -32,7 +32,7 @@ func withHookState(t *testing.T, auto, stopAll bool, answer bool) *fakeCloseServ
 
 func TestJoinRequiresOpenInvestigation(t *testing.T) {
 	target := hookTarget()
-	open := lambda.CloseStatusResponse{ClusterID: target.ClusterID, InvestigationID: target.InvestigationID, Status: lambda.CloseStatusNone, Seal: "none", AccessPointPresent: true}
+	open := lambda.CloseStatusResponse{ClusterID: target.ClusterID, InvestigationID: target.InvestigationID, Status: lambda.CloseStatusNone, Seal: "none", AccessPointPresent: true, JoinAccessPointID: target.AccessPointID}
 	for _, tc := range []struct {
 		name   string
 		change func(*lambda.CloseStatusResponse)
@@ -43,6 +43,8 @@ func TestJoinRequiresOpenInvestigation(t *testing.T) {
 		{"unknown", func(s *lambda.CloseStatusResponse) { s.Status = lambda.CloseStatusUnknown }},
 		{"queued", func(s *lambda.CloseStatusResponse) { s.OpenRequests = 1 }},
 		{"manual seal", func(s *lambda.CloseStatusResponse) { s.Seal = "legacy" }},
+		{"old service", func(s *lambda.CloseStatusResponse) { s.JoinAccessPointID = "" }},
+		{"replacement AP", func(s *lambda.CloseStatusResponse) { s.JoinAccessPointID = "fsap-2" }},
 		{"missing AP", func(s *lambda.CloseStatusResponse) { s.AccessPointPresent = false }},
 		{"wrong investigation", func(s *lambda.CloseStatusResponse) { s.InvestigationID = "other" }},
 	} {

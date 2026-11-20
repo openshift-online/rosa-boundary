@@ -52,7 +52,7 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 				return tc.err
 			}
 			target := hookTarget()
-			service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{{ClusterID: target.ClusterID, InvestigationID: target.InvestigationID, Status: lambda.CloseStatusNone, Seal: "none", AccessPointPresent: true}}}
+			service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{{ClusterID: target.ClusterID, InvestigationID: target.InvestigationID, Status: lambda.CloseStatusNone, Seal: "none", AccessPointPresent: true, JoinAccessPointID: target.AccessPointID}}}
 			err := joinSession(cmd, []string{target.SessionID},
 				func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error) { return target, nil },
 				func(*cobra.Command, *AuthResult) (closeService, error) { return service.service(), nil })

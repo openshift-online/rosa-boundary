@@ -40,16 +40,16 @@ involved. The storage is the audit bucket that already exists.
 
 ## Who may close
 
-An investigation has one current owner at a time. Ownership is transferable by
-handover and is *not* conferred permanently by having created the workspace:
-the access point's `oidc_sub` tag is recorded for provenance only.
+Any authenticated SRE authorized to use this Boundary deployment may explicitly
+request close. Neither creating the workspace nor holding its attached session
+is required. The access point's `oidc_sub` is provenance only.
 
 | Observed state | Who may request seal/close |
 | --- | --- |
-| Held by SRE A | A only. Another SRE — including whoever created it — may not close A's investigation while A holds it. |
-| Handed over from A to B | B only. A's earlier request and auto-close intent are superseded, not inherited consent. |
+| Held by SRE A | Any authorized SRE may explicitly request close. If someone other than A asks, the reaper waits for A to detach before sealing or draining, even with stop consent. |
+| Handed over from A to B | An explicit request remains pending. A session-exit callback or auto-close intent from A is superseded, not inherited consent. |
 | No active sessions | Any authenticated SRE authorized to use Boundary. No creator match and no handover is required to close an idle investigation, and a task left running does not reserve it for whoever launched it. |
-| Incomplete, contradictory or unavailable | Unknown. Nobody may close; the request is deferred and retried. Unknown is never treated as idle. |
+| Incomplete, contradictory or unavailable | Unknown. A new request is refused as retryable; the reaper defers an already recorded request. Unknown is never treated as idle. |
 
 ### What "held" is observed from
 
@@ -60,24 +60,16 @@ Two service-side signals, which answer different questions:
 * the non-terminal ECS tasks themselves, whose `oidc_sub` tag records the SRE
   each task was launched for.
 
-The task tag is provenance, reported as `task_owner_subs`, and never authority:
-
-* a RUNNING task is **not** proof that a shell is attached. An investigation
-  whose SRE detached but whose task is still running is **idle**, and any
-  eligible SRE may request its close.
-* reading a running task as "held" would be worse than wrong, it would be
-  unclearable: the SRE who walked away would hold an exclusive claim that
-  nobody else could release, which is exactly the creator-forever rule this
-  design rejects.
-* having launched a task confers no more authority than having created the
-  workspace.
+A RUNNING task is **not** proof that a shell is attached. An investigation
+whose SRE detached but whose task is still running is **idle**. The task's
+owner is still reported in `task_owner_subs` for provenance, not permission.
 
 Anything that could not be read completely is `unknown`: a scan that failed, a
 description that came back short, a non-terminal task with no owner tag or no
 session target — where "no session attached" cannot be distinguished from "not
 observed" — or two SREs attached at once.
 
-Idle is not a licence to destroy anything. Idle widens who may *ask*; it does
+Idle is not a licence to destroy anything. Detaching does
 not stop a task, and the finalizer still refuses to measure, copy or delete a
 workspace while any task is non-terminal. See the stop-consent table below.
 
@@ -97,16 +89,15 @@ Being allowed to close is separate from being allowed to stop someone's work:
 | `session_task` | Stop only the named tasks. Other tasks keep the close waiting. This is what the exit prompt and `--auto-close` ask for. |
 | `investigation` | Stop every task of the investigation. `investigation close --force` and `--auto-close-stop-all` ask for this. |
 
-This is what makes an idle investigation with a running task safe: any
-eligible SRE may request its close, the request is recorded and the workspace
-is sealed, but the task keeps running and the close waits until that SRE
-explicitly consents to stopping it. The scheduled stale sweep carries no human
-consent at all, so it never seals an investigation that still has a running
-task — it waits for the task to stop on its own.
+For example, B requests close without stop consent while A is attached. The
+service records B’s request; the reaper reports `waiting_for_tasks`. When A
+detaches, the reaper may seal, but it still waits for A’s task to stop. Once
+quiet, it processes **the same request** through backup verification and normal
+close. The scheduled stale sweep has no stop consent and waits for running
+tasks to stop before it seals.
 
 Consent travels with the request that carried it. A second request cannot widen
-an earlier one, and `--force` is not an authorization override: it does not let
-a former holder close the current holder's active investigation.
+an earlier one, and `--force` is not an authorization override: it does not permit the reaper to interrupt a different attached holder.
 
 ## What a seal means, and what it does not
 
@@ -216,8 +207,8 @@ Every route — an explicit request, an activated auto-close intent, and the
 stale sweep — runs the same pipeline. There is no second, less-verified path to
 deletion.
 
-1. **Revalidate.** Re-derive the observation and reapply the matrix. A handover
-   supersedes the request; an unknown state defers it.
+1. **Revalidate.** Re-derive the observation and reapply the matrix. A different holder
+   defers an explicit request but supersedes a session callback. Unknown state defers both.
 2. **Seal.** Apply a fresh managed marker, or reuse an existing managed one.
    Never replace a manual or legacy seal.
 3. **Drain.** Stop only the consented tasks. Anything outside that scope leaves
@@ -242,7 +233,13 @@ deletion.
    delete the access point — but only if every earlier cleanup step succeeded,
    because the access point is the sole handle to a directory that was not
    reclaimed. Finally publish a receipt describing exactly what happened,
-   including what was *not* cleaned up.
+   including what was *not* cleaned up. Before AP deletion, persist the cleanup
+   disposition under the verified attempt's `delete-ap.json`. If interrupted,
+   resume that attempt: match the request, seal, AP, manifest, and verification
+   digest, check the backed-up versions, and compare any remaining directory.
+   Never treat a partially removed workspace as a new backup. Missing or
+   inconsistent evidence (including a legacy checkpoint without the digest)
+   requires investigation; an absent AP alone is not evidence of completion.
 
 Every status says whether the reaper will come back to it. A retention the
 reaper can resolve by itself — a throttled API call, an invalidated attempt, a
@@ -320,13 +317,12 @@ request and prints its token. `--wait` polls until the service reports an outcom
 will not leave by itself, and bounds itself in wall-clock time because an
 interactive command has no deadline. Stopping the wait does not cancel the
 request, and a request whose submission timed out has an **unknown** outcome
-that must be looked up rather than blindly resubmitted. A `retained` or
+that must be looked up rather than blindly resubmitted. Run `investigation close <cluster-id> <investigation-id> --status` to read the service record, even after AP deletion. `--dry-run` previews an existing workspace instead. A `retained` or
 `cleanup_incomplete` outcome is reported as a failure, not as a close, and
 says whether the reaper will retry it.
 
-The close service is contacted only when a close is actually going to be
-requested, and the request carries the identity token minted with those
-credentials. A session can easily outlive the token its command started with.
+The local preview does not contact the close service. Status lookups and
+requests carry the identity token used to assume the invoker role. A session can easily outlive the token its command started with.
 
 Eligibility is enforced by the service, not by the CLI: the CLI has no way to
 observe attached sessions.
@@ -362,8 +358,8 @@ session.
 | Symptom | Meaning | Action |
 | --- | --- | --- |
 | `accepted` for several schedules | the reaper has not reached it yet, or it keeps checkpointing | check the reaper's logs and runtime; raise `investigation_close_requests_per_run` if requests are backing up |
-| `waiting_for_tasks` | a task outside the consented stop scope is running | stop it, or resubmit with wider consent from an eligible SRE |
-| `retained` after a handover | the request was superseded | submit a fresh request from the current holder |
+| `waiting_for_tasks` | another SRE is attached, or a task outside the consented stop scope is running | wait for detachment and for tasks to stop; no resubmission is required |
+| `retained` after a handover | a session callback was superseded | submit a fresh explicit request |
 | `retained` with a verification reason | the attempt could not be trusted | the data is intact and the status is marked retryable; the next pass starts a new attempt. Investigate repeated failures before forcing anything |
 | `retained` because the directory is missing | the reaper could not measure a source at the expected EFS path | investigate the mount and workspace disposition before requesting close again; a missing directory is not a verified empty directory |
 | `retained` with a manual seal | a retention hold is in place | review the hold; it is deliberately not removed automatically |

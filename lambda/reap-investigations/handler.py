@@ -381,6 +381,10 @@ def _answered(status: Optional[Dict[str, Any]], token: str, stamp: str) -> bool:
     """
     if not status or status.get('status') not in records.TERMINAL_STATUSES:
         return False
+    # Completion belongs to the investigation, not just one request. Keep
+    # its original token, receipt and attempt intact even for a later request.
+    if status.get('status') == records.STATUS_COMPLETED:
+        return True
     if status.get('status') == records.STATUS_RETAINED and status.get('retryable'):
         return False
     if status.get('request_token') == token:
@@ -428,6 +432,9 @@ def finalize_close_requests(finalizer, context: Any, summary: Dict[str, int]) ->
         # One attempt per investigation per run: a second request for the same
         # workspace is governed by the outcome of the first, and that outcome
         # is not known until this run has written it.
+        prior = statuses[investigation] or {}
+        if _cleanup_pending(prior) and token != prior.get('request_token'):
+            continue  # Only the request that verified this backup can resume cleanup.
         candidates.setdefault(investigation, (key, stamp, token))
 
     def waited_longest(item):
@@ -456,42 +463,49 @@ def finalize_close_requests(finalizer, context: Any, summary: Dict[str, int]) ->
             summary['close_errors'] += 1
             continue
         mode = 'stale' if request['trigger'] == records.TRIGGER_STALE else 'request'
-        if not finalize_one(finalizer, cluster_id, investigation_id, request, mode, context):
+        if not finalize_one(finalizer, cluster_id, investigation_id, request, mode, context,
+                            existing=statuses[investigation]):
             summary['close_errors'] += 1
         finalized += 1
     return finalized
 
 
+_UNREAD = object()
+
+
+def _cleanup_pending(status):
+    return status and status.get('status') != records.STATUS_COMPLETED and (
+        'verification_sha256' in status or status.get('phase') == 'verified'
+        or status.get('status') == records.STATUS_CLEANUP_INCOMPLETE)
+
+
 def finalize_one(finalizer, cluster_id: str, investigation_id: str,
-                 request: Dict[str, Any], mode: str, context: Any) -> bool:
+                 request: Dict[str, Any], mode: str, context: Any, existing=_UNREAD) -> bool:
     """Resolve the workspace and run one finalization pass."""
+    if existing is _UNREAD:
+        existing = finalizer.get_json(records.status_key(cluster_id, investigation_id),
+                                      records.KIND_STATUS)
+    if existing and existing.get('status') == records.STATUS_COMPLETED:
+        return True
     try:
         access_point = finalizer.find_access_point(cluster_id, investigation_id)
+        if _cleanup_pending(existing):
+            try:
+                outcome = finalizer.resume_verified(cluster_id, investigation_id, access_point,
+                                                    request, mode, context, existing)
+            except (ValueError, TypeError, KeyError, OSError, ClientError, BotoCoreError,
+                    close_finalization.AttemptInvalid):
+                logger.warning('Cannot resume verified close for %s/%s; preserving checkpoint',
+                               cluster_id, investigation_id, exc_info=True)
+                return False
+            return outcome['status'] == records.STATUS_COMPLETED
     except close_finalization.Retained as stop:
+        if _cleanup_pending(existing):
+            return False
         finalizer.write_status(cluster_id, investigation_id, stop.status, phase=stop.phase,
                                reason=stop.reason, request_token=request['request_token'])
         return False
     if access_point is None:
-        # The workspace is gone. Record a terminal outcome so a later status
-        # lookup still answers, without claiming work this run did not do and
-        # without overwriting a close that already completed.
-        existing = finalizer.get_json(records.status_key(cluster_id, investigation_id),
-                                      records.KIND_STATUS)
-        if existing and existing.get('status') == records.STATUS_COMPLETED:
-            # Already closed, so there is nothing to finalize — but this
-            # request still has to be answered. Leaving it unanswered would
-            # bring it back on every invocation, holding a budget slot for
-            # good. Report the close that happened rather than claiming work
-            # this run did.
-            finalizer.write_status(
-                cluster_id, investigation_id, records.STATUS_COMPLETED, phase='resolve',
-                reason='this investigation was already closed; nothing remained to finalize',
-                request_token=request['request_token'],
-                access_point_path=existing.get('access_point_path', ''),
-                directory_retained=existing.get('directory_retained', True),
-                access_point_deleted=existing.get('access_point_deleted', True),
-                task_definitions_removed=existing.get('task_definitions_removed', 0))
-            return True
         finalizer.write_status(
             cluster_id, investigation_id, records.STATUS_RETAINED, phase='resolve',
             reason='no managed access point exists for this workspace',

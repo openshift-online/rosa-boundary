@@ -22,8 +22,8 @@ questions, and only one of them decides who holds the investigation:
 Idle is not a licence to destroy anything. Being eligible to *request* close is
 separate from consenting to stop a running task: the finalizer stops only tasks
 the request's ``stop_scope`` consented to, and will not measure, copy or delete
-a workspace while any task is non-terminal. Idle here widens who may ask, not
-what happens next.
+a workspace while any task is non-terminal. An explicit request from a
+non-holder waits while another SRE is attached.
 
 Anything incomplete, contradictory or unavailable is reported as ``unknown``:
 a scan that failed, a non-terminal task whose owner tag or session target
@@ -231,19 +231,19 @@ def nonterminal_task_ids(observation):
             if task['last_status'] != 'STOPPED']
 
 
-def authorize_close(observation, requester_sub):
+def authorize_close(observation, requester_sub, *, explicit=False):
     """Apply the close authorization matrix.
 
     Returns ``(allowed, basis, reason)``. ``basis`` is ``holder`` when the
     requester is the SRE whose session is attached and ``idle`` when no session
-    is attached; both are recorded in the request so a later revalidation can
-    tell which rule was used.
+    is attached. A fresh explicit request can also be recorded on the
+    ``authorized_sre`` basis while a different holder is attached.
 
     ``task_owner_subs`` is deliberately not consulted: having launched a task,
     like having created the workspace, is provenance and not authority.
     """
     state = observation.get('state')
-    if state == STATE_UNKNOWN:
+    if state not in (STATE_ACTIVE, STATE_IDLE):
         return False, STATE_UNKNOWN, observation.get('reason') or 'investigation state is unknown'
     if not requester_sub:
         return False, 'unauthenticated', 'the requester has no authenticated subject'
@@ -255,20 +255,18 @@ def authorize_close(observation, requester_sub):
         return True, STATE_IDLE, ''
     if requester_sub == observation.get('holder_sub'):
         return True, 'holder', ''
-    return False, 'not_holder', (
-        'another SRE holds an attached session on this investigation; only that SRE may '
-        'close it while they are attached, and a handover transfers that authority')
+    if explicit:
+        return True, 'authorized_sre', ''
+    return False, 'not_holder', 'session close callback refused: another SRE is attached'
 
 
 def request_superseded(request, observation):
     """Return a reason when a persisted request may no longer be acted on.
 
-    A request that was valid when it was accepted is revalidated before every
-    mutation. Handover to another SRE supersedes it; it is never inherited
-    consent to close the new holder's investigation. An idle investigation may
-    still be closed by the original requester after revalidation.
+    Handover supersedes session callbacks and intents, not explicit requests.
     """
-    allowed, basis, reason = authorize_close(observation, request.get('requester_sub', ''))
+    allowed, basis, reason = authorize_close(
+        observation, request.get('requester_sub', ''), explicit=request.get('trigger') == 'cli_close')
     if allowed:
         return ''
     if basis == 'not_holder':

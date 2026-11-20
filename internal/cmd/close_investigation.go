@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"regexp"
@@ -78,6 +79,10 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 	}
 
 	authRes := cachedAuthResult
+	if flagBool(cmd, "status") {
+		service := closeService{client: lambda.New(authRes.Config.LambdaFunctionName, authRes.Config.AWSRegion, awsclient.StaticCredentialsProvider(authRes.Credentials)), idToken: authRes.IDToken}
+		return showRecordedCloseStatus(cmd.Context(), cmd.OutOrStdout(), service, closeClusterID, closeInvestigationID)
+	}
 
 	if authRes.Config.EFSFilesystemID == "" {
 		return fmt.Errorf("EFS filesystem ID is required; set --efs-filesystem-id, ROSA_BOUNDARY_EFS_FILESYSTEM_ID, or efs_filesystem_id in config")
@@ -116,19 +121,11 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 }
 
 // closeSubmissionGate decides whether a close request may be submitted at all.
-// It is separate from the submission so the rules that stop one — a read-only
-// preview, running tasks without consent, an unanswered confirmation — can
-// be exercised without a close service.
-//
-// A running task is a consent question, not an authorization one: the CLI
-// cannot see attached sessions, so it never decides who may close. It only
-// refuses to submit a request that would silently need someone's task stopped.
+// Running tasks affect finalization, not submission: without --force the
+// recorded request waits for the tasks to stop on their own.
 func closeSubmissionGate(plan closePlan, confirm func(closePlan) (bool, error)) (bool, error) {
 	if closeDryRun {
 		return false, nil
-	}
-	if active := len(plan.SessionIDs) + len(plan.SessionsWaiting); active != 0 && !closeForce {
-		return false, fmt.Errorf("%d running task(s) remain (including tasks shutting down); use --force to consent to stopping them, or --dry-run to preview", active)
 	}
 	if closeYes {
 		return true, nil
@@ -188,6 +185,30 @@ func newCloseService(cmd *cobra.Command, authRes *AuthResult) (closeService, err
 	}, nil
 }
 
+// Look up the durable record, without requiring an access point or planning a close.
+func showRecordedCloseStatus(ctx context.Context, out io.Writer, service closeService, clusterID, investigationID string) error {
+	status, err := service.client.CloseStatus(ctx, service.idToken, lambda.CloseActionRequest{
+		ClusterID: clusterID, InvestigationID: investigationID,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot read close status for %s/%s (no request submitted): %w", clusterID, investigationID, err)
+	}
+	if closeOutputFormat == "json" {
+		return json.NewEncoder(out).Encode(status)
+	}
+	var message strings.Builder
+	fmt.Fprintf(&message, "Close status for %s/%s: %s\n", clusterID, investigationID, status.Status)
+	if status.Phase != "" {
+		fmt.Fprintf(&message, "Phase: %s\n", status.Phase)
+	}
+	if status.RequestToken != "" {
+		fmt.Fprintf(&message, "Request: %s\n", status.RequestToken)
+	}
+	fmt.Fprintln(&message, status.Reason)
+	_, err = io.WriteString(out, message.String())
+	return err
+}
+
 // closeStopScope maps --force onto stop consent. Authorization is separate:
 // consent to stop tasks never decides who may close.
 func closeStopScope() string {
@@ -208,7 +229,7 @@ func submitCloseRequest(ctx context.Context, service closeService, clusterID, in
 		// A transport or timeout failure leaves the outcome unknown. The
 		// request may already be persisted; looking it up is safe, resubmitting
 		// blindly is not.
-		return fmt.Errorf("close request outcome is unknown for %s/%s; look it up with 'rosa-boundary investigation close %s %s --dry-run' before retrying: %w", clusterID, investigationID, clusterID, investigationID, err)
+		return fmt.Errorf("close request outcome is unknown for %s/%s; look it up with 'rosa-boundary investigation close %s %s --status' before retrying: %w", clusterID, investigationID, clusterID, investigationID, err)
 	}
 	status := &lambda.CloseStatusResponse{
 		Status:            accepted.Status,
@@ -308,7 +329,7 @@ func closeStatusGuidance(clusterID, investigationID string, status *lambda.Close
 	if status.Status == lambda.CloseStatusCompleted {
 		return "Close completed."
 	}
-	return fmt.Sprintf("Accepted is not closed. Check progress with: rosa-boundary --profile %q investigation close %q %q --dry-run", selectedProfile, clusterID, investigationID)
+	return fmt.Sprintf("Accepted is not closed. Check progress with: rosa-boundary --profile %q investigation close %q %q --status", selectedProfile, clusterID, investigationID)
 }
 
 // The reaper issues a lowercase UUIDv4 as the seal. It becomes one S3 key
@@ -478,9 +499,8 @@ func authenticatedSubject(token string) (string, error) {
 }
 
 // resolveClosePlan builds the read-only preview. It deliberately performs no
-// authorization: eligibility depends on who currently holds the investigation,
-// which only the close service can observe, and the access point's creator tag
-// is provenance rather than permission.
+// authorization: the service authorizes the request, and the access point's
+// creator tag is provenance rather than permission.
 func resolveClosePlan(ctx context.Context, efsClient *awsclient.EFSClient, ecsClient *awsclient.ECSClient, clusterID, investigationID, ecsCluster, filesystemID string) (closePlan, error) {
 	ap, err := efsClient.FindAccessPointByTags(ctx, clusterID, investigationID)
 	if err != nil {

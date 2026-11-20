@@ -380,11 +380,11 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         handler.process_close_work(self.context)
         self.finalizer.finalize.assert_not_called()
 
-    def test_an_older_outcome_does_not_answer_a_newer_request(self):
-        """Otherwise one completed close would silently end every later one."""
+    def test_an_older_retention_does_not_answer_a_newer_request(self):
         self.queue(self.request_record(token='22222222-3333-4444-8555-666666666666',
                                        requested_at='2026-02-01T00:00:00+00:00'),
-                   status=self.status_record(updated_at='2026-01-02T00:00:00+00:00'))
+                   status=self.status_record(status=records.STATUS_RETAINED,
+                                             updated_at='2026-01-02T00:00:00+00:00'))
         handler.process_close_work(self.context)
         self.finalizer.finalize.assert_called_once()
 
@@ -485,13 +485,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
                       'a request behind three waiting ones was never finalized')
 
     def test_an_investigation_already_closed_does_not_come_back_every_run(self):
-        """A request recorded after the close finished must be answered.
-
-        The workspace is gone and the recorded outcome is `completed`, so
-        there is nothing to do — but the request still has to be marked
-        answered, or it is re-read and re-resolved on every invocation and
-        holds a budget slot for good.
-        """
+        """Even a later request is answered by the original completion."""
         late = self.request_record(token='99999999-2222-4333-8444-555555555555',
                                    requested_at='2026-02-01T00:00:00+00:00')
         self.queue(late, status=self.status_record(
@@ -500,17 +494,9 @@ class TestCloseWorkOrchestration(unittest.TestCase):
 
         handler.process_close_work(self.context)
 
-        self.assertTrue(self.finalizer.write_status.call_args_list,
-                        'no status was recorded, so the request stays unanswered')
-        call = self.finalizer.write_status.call_args
-        # The earlier completion is reported, not overwritten with a failure.
-        self.assertEqual(call.args[2], records.STATUS_COMPLETED)
-        self.assertEqual(call.kwargs['request_token'], late['request_token'])
-        # And the record it produces does answer this request, so the next
-        # invocation passes over it instead of resolving it again.
-        answer = records.build_status(call.args[0], call.args[1], call.args[2], **call.kwargs)
-        self.assertTrue(handler._answered(answer, late['request_token'],
-                                          records.request_stamp(late['requested_at'])))
+        self.finalizer.write_status.assert_not_called()
+        self.finalizer.finalize.assert_not_called()
+        self.finalizer.find_access_point.assert_not_called()
 
     def test_the_scan_stops_when_the_runtime_budget_runs_out(self):
         self.queue(*[self.request_record(token=f'1111111{i}-2222-4333-8444-555555555555',
@@ -564,11 +550,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
                    status=self.status_record(updated_at='2026-01-02T00:00:00+00:00'))
         self.finalizer.find_access_point.return_value = None
         handler.process_close_work(self.context)
-        # The late request is answered, but the answer is the close that
-        # happened — never `retained`, and never a cleanup claim it did not do.
-        for call in self.finalizer.write_status.call_args_list:
-            self.assertEqual(call.args[2], records.STATUS_COMPLETED)
-            self.assertEqual(call.kwargs['directory_retained'], True)
+        self.finalizer.write_status.assert_not_called()
 
 
 class TestStaleReapRoute(unittest.TestCase):

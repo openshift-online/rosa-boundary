@@ -525,7 +525,7 @@ a review deadline. A hold prevents routine cleanup, not writes through an
 existing mount.
 
 If a close is in flight and must be stopped, removing nothing is usually
-correct: the reaper retains data on any ambiguity, and `--dry-run` shows the
+correct: the reaper retains data on any ambiguity, and `--status` shows the
 current disposition.
 
 ## Phase 6: Close Investigation
@@ -548,9 +548,9 @@ What it does:
    service decides eligibility: the CLI cannot observe attached sessions and
    does not pretend to. The access point's creator tag is provenance, not
    permission.
-3. Refuses to submit while sessions are visible unless `--force`, which is
-   **stop consent only**. It does not let a former holder close the current
-   holder's active investigation, and it does not waive verification.
+3. Records the request even when tasks are running. Without `--force`, the
+   reaper waits for them to stop. With it, the reaper still waits for a
+   different attached SRE to detach; it does not waive backup verification.
 4. With `--wait`, polls until the service reports an outcome it will not leave
    by itself, bounded in wall-clock time. Stopping the wait does not cancel the
    request. A `retained` or `cleanup_incomplete` result is reported as a
@@ -560,7 +560,7 @@ What it does:
 Status values are deliberately distinguishable — `accepted`,
 `waiting_for_tasks`, `verifying`, `retained`, `cleanup_incomplete`,
 `completed`. **Accepted is not closed.** Status stays answerable after the
-access point is deleted.
+access point is deleted: use `investigation close <cluster-id> <investigation-id> --status` (optionally `-o json`). This lookup never submits a request.
 
 The EFS directory is retained on a normal close. Only the stale sweep may
 reclaim a directory, behind the same verified gate. Do not recreate a closed
@@ -644,9 +644,8 @@ The deployment's shared SRE role is scoped at runtime by ABAC:
 - Cross-user task access is prevented at IAM policy level without per-user roles
 
 Investigation close has its own authorization, enforced service-side rather
-than by ABAC: while an SRE has a session attached, only that SRE may close the
-investigation, and when no sessions are attached any authorized Boundary SRE
-may. A task left running after its SRE detached does not keep the investigation
+than by ABAC: any authorized Boundary SRE may explicitly request close,
+including while another SRE is attached. A task left running after its SRE detached does not keep the investigation
 held — but stopping that task still needs the explicit consent of whoever
 requests the close. Creating an investigation confers no standing authority
 over it. See

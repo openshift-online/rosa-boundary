@@ -200,7 +200,7 @@ class Finalizer:
         extra = {'ExpectedBucketOwner': self.account_id} if self.account_id else None
         self.s3.upload_fileobj(handle, self.audit_bucket, key, ExtraArgs=extra)
 
-    def get_json(self, key, kind):
+    def get_json(self, key, kind, *, evidence=False):
         try:
             response = self.s3.get_object(**self._owner({'Bucket': self.audit_bucket,
                                                          'Key': key}))
@@ -217,7 +217,15 @@ class Finalizer:
                     return None
             raise
         with closing(response['Body']) as stream:
-            body = stream.read(records.MAX_RECORD_BYTES + 1)
+            limit = records.MAX_EVIDENCE_BYTES if evidence else records.MAX_RECORD_BYTES
+            body = stream.read(limit + 1)
+        if evidence:
+            if len(body) > limit:
+                raise ValueError('oversized recovery evidence')
+            document = json.loads(body)
+            if not isinstance(document, dict) or document.get('kind') != kind:
+                raise ValueError('invalid recovery evidence')
+            return document
         return records.decode_record(body, kind)
 
     def list_keys(self, prefix):
@@ -228,8 +236,11 @@ class Finalizer:
             keys.extend(obj['Key'] for obj in page.get('Contents', []))
         return sorted(keys)
 
-    def write_status(self, cluster_id, investigation_id, status, **kwargs):
+    def write_status(self, cluster_id, investigation_id, status, *, verification_digest=None,
+                     **kwargs):
         record = records.build_status(cluster_id, investigation_id, status, **kwargs)
+        if verification_digest is not None:
+            record['verification_sha256'] = verification_digest
         self.put_json(records.status_key(cluster_id, investigation_id), record)
         return record
 
@@ -413,6 +424,7 @@ class Finalizer:
         request_token = request['request_token']
         self._attempt_id = ''
         self._cleanup = None
+        self._verification_digest = None
         try:
             return self._finalize(cluster_id=cluster_id, investigation_id=investigation_id,
                                   access_point=access_point, request=request, mode=mode,
@@ -448,6 +460,10 @@ class Finalizer:
 
     def _write_outcome(self, cluster_id, investigation_id, access_point, request_token,
                        status, phase, reason, retryable):
+        if self._verification_digest and self._cleanup is None:
+            # Disposition is uncertain. Preserve the verified checkpoint.
+            return self.get_json(records.status_key(cluster_id, investigation_id),
+                                 records.KIND_STATUS)
         cleanup = self._cleanup or {}
         if cleanup:
             # Cleanup already ran: report its disposition, not the defaults.
@@ -458,6 +474,7 @@ class Finalizer:
             cluster_id, investigation_id, status, phase=phase, reason=reason,
             access_point_id=access_point['id'], access_point_path=access_point.get('path', ''),
             request_token=request_token, attempt_id=self._attempt_id, retryable=retryable,
+            verification_digest=self._verification_digest,
             directory_retained=cleanup.get('directory_retained', True),
             access_point_deleted=cleanup.get('access_point_deleted', False),
             task_definitions_removed=cleanup.get('task_definitions_removed', 0))
@@ -467,9 +484,8 @@ class Finalizer:
         request_token = request['request_token']
         access_point_id = access_point['id']
 
-        # 1. Revalidate authorization against the current observation. A request
-        #    that was valid when accepted is not authority once the
-        #    investigation changes hands.
+        # 1. Revalidate authorization against the current observation. Handover
+        #    supersedes a session callback, but not an explicit close.
         initial = self.observe(cluster_id, investigation_id)
         if mode == 'request':
             if initial['state'] == records.STATE_UNKNOWN:
@@ -485,6 +501,13 @@ class Finalizer:
                 # A handover is a real answer: this requester is no longer
                 # eligible and an eligible SRE has to ask again.
                 raise Retained(records.STATUS_RETAINED, superseded, 'authorize')
+            if (initial['state'] == records.STATE_ACTIVE
+                    and initial['holder_sub'] != request['requester_sub']):
+                # Explicit close is not permission to interrupt another shell,
+                # even if the requester supplied investigation-wide stop consent.
+                raise Retained(records.STATUS_WAITING_FOR_TASKS,
+                               'another SRE is attached; waiting for detachment',
+                               'authorize', retryable=True)
         elif initial['state'] != records.STATE_IDLE:
             raise Retained(records.STATUS_WAITING_FOR_TASKS,
                            f'stale candidate is not idle: {initial["reason"]}', 'authorize',
@@ -581,6 +604,12 @@ class Finalizer:
         verification_document = {
             'schema_version': records.RECEIPT_SCHEMA_VERSION,
             'kind': 'close_verification',
+            'deployment': self.ecs_cluster,
+            'filesystem': self.efs_filesystem_id,
+            'path': access_point['path'],
+            'mode': mode,
+            'reclaim': mode == 'stale' and self.stale_reclaim,
+            'source_sha256': hashlib.sha256(records.encode_evidence(source_document)).hexdigest(),
             'assurance': records.RECEIPT_ASSURANCE,
             'attempt_id': attempt_id,
             'access_point_id': access_point_id,
@@ -601,16 +630,125 @@ class Finalizer:
         # 6. Point at the verified evidence before anything destructive runs,
         #    so a failure between here and the receipt still leaves a record
         #    naming the attempt that holds the data.
+        digest = hashlib.sha256(records.encode_evidence(verification_document)).hexdigest()
         self.write_status(cluster_id, investigation_id, records.STATUS_VERIFYING,
-                          phase='verified', access_point_id=access_point_id,
+                          phase='verified', verification_digest=digest, access_point_id=access_point_id,
                           access_point_path=access_point.get('path', ''),
                           request_token=request_token, attempt_id=attempt_id, retryable=True,
                           reason='backup verified; cleanup pending')
 
         # 7. Clean up what this route is allowed to clean up, then publish a
         #    receipt describing exactly what happened.
+        self._verification_digest = digest
+        return self.finish_verified(cluster_id, investigation_id, access_point, request_token,
+                                    directory_path, mode, verification_document, evidence)
+
+    def resume_verified(self, cluster_id, investigation_id, ap, request, mode, context, status):
+        """Replay only the recorded attempt. Any uncertainty leaves its pointer intact."""
+        token = request['request_token']
+        ap_id = request['access_point_id']
+        attempt = status['attempt_id']
+        path = f'/{cluster_id}/{investigation_id}'
+        identity = dict(attempt_id=attempt, access_point_id=ap_id, request_token=token)
+
+        def require(condition):
+            if not condition:
+                raise ValueError('cleanup recovery evidence or current state disagrees')
+
+        def matches(document, fields):
+            return document and all(document.get(k) == v for k, v in fields.items())
+
+        require(matches(status, dict(identity, cluster_id=cluster_id,
+                                     investigation_id=investigation_id, access_point_path=path)))
+        prefix = records.attempt_prefix(ap_id, attempt)
+        source = self.get_json(prefix + 'source-manifest.json', 'close_source_manifest',
+                               evidence=True)
+        proof = self.get_json(prefix + 'verification.json', 'close_verification', evidence=True)
+        require(matches(source, dict(identity, cluster_id=cluster_id,
+                                     investigation_id=investigation_id, workspace_present=True)))
+        require(proof and hashlib.sha256(records.encode_evidence(proof)).hexdigest()
+                == status.get('verification_sha256'))
+        require(hashlib.sha256(records.encode_evidence(source)).hexdigest()
+                == proof.get('source_sha256'))
+        seal = source['seal']
+        records.receipt_key(ap_id, seal)  # Validate even if the AP is gone.
+        require(matches(proof, dict(identity, seal=seal, mode=mode, path=path,
+                                    filesystem=self.efs_filesystem_id, deployment=self.ecs_cluster,
+                                    assurance=records.RECEIPT_ASSURANCE,
+                                    schema_version=records.RECEIPT_SCHEMA_VERSION)))
+        reclaim = proof['reclaim']
+        require(type(reclaim) is bool and (not reclaim or mode == 'stale'))
+        for key in ('quiet_observation', 'final_observation'):
+            require(matches(proof[key], dict(state=records.STATE_IDLE, nonterminal_tasks=0,
+                                             active_sessions=0)))
+        manifest = source['entries']
+        require(isinstance(manifest, list) and len(manifest) == source['file_count'])
+        body = json.dumps(manifest, sort_keys=True, separators=(',', ':')).encode()
+        uri = f's3://{self.audit_bucket}/{records.attempt_workspace_prefix(ap_id, attempt)}'
+        evidence = self.verify_copy(uri, body)
+        require(source['manifest_sha256'] == evidence['manifest_sha256']
+                and matches(proof, dict(manifest_sha256=evidence['manifest_sha256'],
+                                        destination_uri_sha256=evidence['workspace_uri_sha256'],
+                                        version_ids_in_manifest_order=evidence[
+                                            'version_ids_in_manifest_order'])))
+        prepared = self.get_json(prefix + 'delete-ap.json', 'delete_ap')
+        if prepared is not None:
+            require(matches(prepared, dict(identity, seal=seal,
+                                           verification_sha256=status['verification_sha256']))
+                    and prepared['complete'] is True
+                    and prepared['directory_retained'] is (not reclaim)
+                    and prepared['access_point_deleted'] is False
+                    and type(prepared['task_definitions_removed']) is int)
+        absent = ap is None
+        if absent:
+            require(prepared is not None)
+            ap = dict(id=ap_id, path=path, file_system_id=self.efs_filesystem_id)
+        else:
+            require(matches(ap, dict(id=ap_id, path=path, file_system_id=self.efs_filesystem_id))
+                    and matches(ap['tags'], {records.TAG_SEAL: seal,
+                                             records.TAG_MANAGED: records.MANAGED_BY}))
+        directory = os.path.join(self.mount_path, cluster_id, investigation_id)
+        require(os.path.ismount(self.mount_path)
+                and os.path.realpath(directory) == os.path.realpath(self.mount_path) + path)
+        # Do not use exists(): permission and I/O failures are not absence.
+        try:
+            require(stat.S_ISDIR(os.lstat(directory).st_mode))
+            removed = False
+        except FileNotFoundError:
+            removed = True
+        require(not removed or reclaim)
+        if prepared is not None:
+            require(removed == reclaim)
+        # An absent AP doesn't evict an existing mount. Don't declare a
+        # retained workspace complete if a late writer changed it on recovery.
+        observed = self.observe(cluster_id, investigation_id)
+        require(observed['state'] == records.STATE_IDLE
+                and not sessions.nonterminal_task_ids(observed))
+        if not removed:
+            require(build_source_manifest(directory, context)[0] == manifest)
+        require(not reclaim or removed or self.stale_reclaim)
+        self._verification_digest = status['verification_sha256']
+        return self.finish_verified(cluster_id, investigation_id, ap, token, directory,
+                                    mode, proof, evidence, directory_removed=removed,
+                                    prepared=prepared, ap_absent=absent)
+
+    def finish_verified(self, cluster_id, investigation_id, access_point, request_token,
+                        directory_path, mode, verification_document, evidence, *,
+                        directory_removed=False, prepared=None, ap_absent=False):
+        access_point_id = access_point['id']
+        attempt_id = verification_document['attempt_id']
+        seal = verification_document['seal']
+        ready_key = records.attempt_prefix(access_point_id, attempt_id) + 'delete-ap.json'
+
+        def prepare(result):
+            self.put_json(ready_key, dict(result, kind='delete_ap', attempt_id=attempt_id,
+                                          seal=seal, request_token=request_token,
+                                          access_point_id=access_point_id,
+                                          verification_sha256=self._verification_digest))
+
         cleanup = self.cleanup(cluster_id, investigation_id, access_point_id, directory_path,
-                               mode)
+                               mode, verification_document['reclaim'], prepare,
+                               directory_removed, prepared, ap_absent)
         self._cleanup = cleanup
         receipt = self.publish_receipt(cluster_id, investigation_id, access_point, seal,
                                        request_token, attempt_id, evidence,
@@ -623,13 +761,15 @@ class Finalizer:
             access_point_path=access_point.get('path', ''),
             request_token=request_token, attempt_id=attempt_id,
             receipt_key_name=receipt, retryable=not cleanup['complete'],
+            verification_digest=self._verification_digest,
             directory_retained=cleanup['directory_retained'],
             access_point_deleted=cleanup['access_point_deleted'],
             task_definitions_removed=cleanup['task_definitions_removed'],
-            observations=[_observation_summary(initial), _observation_summary(quiet),
-                          _observation_summary(final_observation)])
+            observations=[verification_document[k] for k in (
+                'initial_observation', 'quiet_observation', 'final_observation')])
 
-    def cleanup(self, cluster_id, investigation_id, access_point_id, directory_path, mode):
+    def cleanup(self, cluster_id, investigation_id, access_point_id, directory_path, mode,
+                reclaim, prepare, directory_removed, prepared, ap_absent):
         """Remove what the route permits, recording each step separately.
 
         Normal close retains the EFS directory: reclaiming it is a separate,
@@ -640,8 +780,12 @@ class Finalizer:
                   'task_definitions_removed': 0, 'complete': True, 'reason': ''}
         reasons = []
 
-        if mode == 'stale':
-            if not self.stale_reclaim:
+        if prepared is not None:
+            result.update(prepared)
+        elif directory_removed:
+            result['directory_retained'] = False
+        elif mode == 'stale':
+            if not reclaim:
                 reasons.append('directory reclamation is disabled; the workspace is retained')
             else:
                 try:
@@ -655,15 +799,20 @@ class Finalizer:
             reasons.append('normal close retains the EFS directory')
 
         try:
-            result['task_definitions_removed'] = self.deregister_task_definitions(
-                cluster_id, investigation_id)
+            if prepared is None:
+                result['task_definitions_removed'] = self.deregister_task_definitions(
+                    cluster_id, investigation_id)
         except (ClientError, BotoCoreError):
             result['complete'] = False
             reasons.append('task definitions could not be deregistered')
 
         if result['complete']:
+            if prepared is None:
+                result['reason'] = '; '.join(reasons)
+                prepare(result)
             try:
-                self.efs.delete_access_point(AccessPointId=access_point_id)
+                if not ap_absent:
+                    self.efs.delete_access_point(AccessPointId=access_point_id)
                 result['access_point_deleted'] = True
             except ClientError as error:
                 if error.response.get('Error', {}).get('Code') == 'AccessPointNotFound':
@@ -676,7 +825,8 @@ class Finalizer:
                 reasons.append('the access point could not be deleted')
         # Deleting an access point does not evict an existing mount and is not
         # evidence that one was evicted.
-        result['reason'] = '; '.join(reasons)
+        if reasons:
+            result['reason'] = '; '.join(reasons)
         return result
 
     def deregister_task_definitions(self, cluster_id, investigation_id):
@@ -739,10 +889,14 @@ class Finalizer:
                 'after a reaper observation.',
                 'Deleting the access point does not evict an existing mount.',
             ],
-            'issued_at': records.now_iso(),
         }
         key = records.receipt_key(access_point['id'], seal)
-        self.put_json(key, receipt)
+        existing = self.get_json(key, None)
+        if existing:
+            existing.pop('issued_at', None)
+        if existing != receipt:
+            receipt['issued_at'] = records.now_iso()
+            self.put_json(key, receipt)
         return key
 
 

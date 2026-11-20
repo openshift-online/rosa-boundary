@@ -156,7 +156,13 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 					os.Stdout = old
 					_ = stdoutFile.Close()
 				}()
-				openInteractiveSession = func(_ context.Context, _ *awsclient.ECSClient, _ string, _ *awsclient.TemporaryCredentials, sessionID, _, _ string, _ bool, _ attachOCM) error {
+				openInteractiveSession = func(ctx context.Context, _ *awsclient.ECSClient, _ string, _ *awsclient.TemporaryCredentials, sessionID, _, _ string, _ bool, attachment attachOCM) error {
+					if attachment.admit == nil {
+						t.Fatal("create auto-attach missing pre-Exec admission check")
+					}
+					if err := attachment.admit(ctx); err != nil {
+						return err
+					}
 					if sessionID != "task-123" {
 						t.Errorf("session ID = %q", sessionID)
 					}
@@ -168,7 +174,10 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 				selectedProfile = "stage-east" // Normally resolved by commandPreRun.
 				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
-					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "", sessionStartupTimings{}, nil, noCloseService)
+					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123", AccessPointID: "fsap-1"}, "role", false, "", sessionStartupTimings{}, nil, func() (closeService, error) {
+						service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{{ClusterID: "rosa", InvestigationID: "inv", AccessPointPresent: true, JoinAccessPointID: "fsap-1", Status: lambda.CloseStatusNone, Seal: "none"}}}
+						return service.service(), nil
+					})
 				stdout, readErr := os.ReadFile(stdoutFile.Name())
 				if readErr != nil {
 					t.Fatal(readErr)

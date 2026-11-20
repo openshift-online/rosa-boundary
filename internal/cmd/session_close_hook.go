@@ -38,6 +38,7 @@ type sessionCloseTarget struct {
 	ClusterID       string
 	InvestigationID string
 	SessionID       string
+	AccessPointID   string
 }
 
 func (t sessionCloseTarget) valid() bool {
@@ -55,6 +56,7 @@ func resolveSessionCloseTarget(ctx context.Context, ecsClient *awsclient.ECSClie
 		ClusterID:       task.Tags["cluster_id"],
 		InvestigationID: task.Tags["investigation_id"],
 		SessionID:       sessionID,
+		AccessPointID:   task.Tags["access_point_id"],
 	}
 	if !target.valid() {
 		return sessionCloseTarget{}, fmt.Errorf("session %s has no investigation identity tags; close cannot be requested for it", sessionID)
@@ -75,6 +77,9 @@ func requireOpenForJoin(ctx context.Context, service closeService, target sessio
 	}
 	if status.Status != lambda.CloseStatusNone || status.OpenRequests != 0 || status.Seal != "none" || !status.AccessPointPresent {
 		return fmt.Errorf("investigation %s/%s is not open for join (close status: %s, seal: %s)", target.ClusterID, target.InvestigationID, status.Status, status.Seal)
+	}
+	if target.AccessPointID == "" || target.AccessPointID != status.JoinAccessPointID {
+		return fmt.Errorf("session %s does not identify a matching open workspace; session was not joined", target.SessionID)
 	}
 	return nil
 }
@@ -214,7 +219,7 @@ func afterAttachedSession(ctx context.Context, newService closeServiceFactory, r
 	if requestErr != nil {
 		// The session itself succeeded; say exactly what is unresolved rather
 		// than turning a close failure into a session failure.
-		output.Warning("close request outcome is unknown for %s/%s: %v; before retrying check 'rosa-boundary investigation close %s %s --dry-run'",
+		output.Warning("close request outcome is unknown for %s/%s: %v; before retrying check 'rosa-boundary investigation close %s %s --status'",
 			target.ClusterID, target.InvestigationID, requestErr, target.ClusterID, target.InvestigationID)
 		return sessionCloseOutcome{Note: "close request outcome unknown; check status before retrying"}
 	}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -201,7 +202,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		}
 	}
 
-	// The close service is built after the shell exits, not now: a session may
+	// Build the service again after shell exit: a session may
 	// outlive the credentials and ID token this command started with.
 	closeServiceFor := func() (closeService, error) { return newCloseService(cmd, authRes) }
 	return finishStartSession(cmd, ecsClient, creds, ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion,
@@ -222,7 +223,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 	if renewal != nil {
 		defer renewal.grant.Release()
 	}
-	target := sessionCloseTarget{ClusterID: clusterID, InvestigationID: investigationID, SessionID: sessionID}
+	target := sessionCloseTarget{ClusterID: clusterID, InvestigationID: investigationID, SessionID: sessionID, AccessPointID: lambdaResp.AccessPointID}
 	outcome := sessionCloseOutcome{}
 	// Auto-connect after the credential attempt; a warning leaves the task
 	// usable even when OCM credentials could not be configured.
@@ -243,7 +244,15 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 			step = 5
 		}
 		output.Status("\n=== Step %d: Connecting to session ===", step)
-		if err := openInteractiveSession(cmd.Context(), ecsClient, region, creds, sessionID, credentialContainer, defaultExecCommand, false, attachOCM{renewal: renewal}); err != nil {
+		// A close may be accepted while this new task waits for its Exec agent.
+		admit := func(ctx context.Context) error {
+			service, err := newService()
+			if err != nil {
+				return fmt.Errorf("cannot verify close status before attaching: %w", err)
+			}
+			return requireOpenForJoin(ctx, service, target)
+		}
+		if err := openInteractiveSession(cmd.Context(), ecsClient, region, creds, sessionID, credentialContainer, defaultExecCommand, false, attachOCM{renewal: renewal, admit: admit}); err != nil {
 			if autoCloseRequested {
 				// The SRE asked to close when their session ended, not when it
 				// failed to start.

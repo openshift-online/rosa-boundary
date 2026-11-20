@@ -278,8 +278,7 @@ func TestCloseRequestSubmission(t *testing.T) {
 	})
 }
 
-// The gate is what stops a read-only preview, a close without stop consent and
-// an unanswered confirmation from ever reaching the close service.
+// Confirmation gates submission. Stop consent controls later drain, not submission.
 func TestCloseSubmissionGate(t *testing.T) {
 	oldForce, oldYes, oldDry := closeForce, closeYes, closeDryRun
 	t.Cleanup(func() { closeForce, closeYes, closeDryRun = oldForce, oldYes, oldDry })
@@ -300,10 +299,8 @@ func TestCloseSubmissionGate(t *testing.T) {
 	}{
 		{name: "dry run submits nothing", plan: busy, dryRun: true},
 		{name: "dry run does not even ask", plan: idle, dryRun: true},
-		{name: "running session without consent", plan: busy, yes: true,
-			wantErr: "use --force"},
-		{name: "session already stopping without consent", plan: stopping, yes: true,
-			wantErr: "use --force"},
+		{name: "running session without consent", plan: busy, yes: true, wantSubmit: true},
+		{name: "session already stopping without consent", plan: stopping, yes: true, wantSubmit: true},
 		{name: "force is consent", plan: busy, force: true, yes: true, wantSubmit: true},
 		{name: "confirmation declined", plan: idle, wantAsked: true, wantErr: "aborted"},
 		{name: "confirmation accepted", plan: idle, answer: true, wantAsked: true,

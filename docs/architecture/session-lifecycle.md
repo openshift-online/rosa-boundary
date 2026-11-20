@@ -64,8 +64,8 @@ is the selected ABAC key. Access-point `username` and `oidc_sub` identify the
 **original workspace creator**. Reuse does not retag the access point or reset
 `CreatedAt`. Those tags are provenance and do **not** decide who may close: the
 close service derives the current holder from the sessions attached to the
-investigation's tasks, so a handover transfers close eligibility even though
-the access-point tags stay put. A task's own `oidc_sub` tag is provenance for
+investigation's tasks, so the reaper can defer an explicit request from a different SRE
+without interrupting the attached session. Handover supersedes session-bound callbacks. A task's own `oidc_sub` tag is provenance for
 the same reason: a task still RUNNING after its SRE detached leaves the
 investigation idle, not held. A successor's task can therefore
 have a different subject from its access point. Investigation age-based cleanup

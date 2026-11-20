@@ -11,7 +11,7 @@ What runs here and what does not:
 
 * The CLI half runs in full. The test binary resolves real LocalStack EFS and
   ECS state, previews it, and reaches the submission step, which fails on this
-  profile because no close service is configured. That failure is the proof
+  profile because the named close service is not deployed. That failure is the proof
   the command got that far without mutating anything.
 * The service half — the request handler and the reaper finalizer — is not
   deployed as a Lambda in the LocalStack stack, so these tests do not drive
@@ -61,6 +61,8 @@ def close_cli_env(localstack_cli_env, test_efs):
             'oidc_client_id': client_id,
             'oidc_use_device_code': False,
             'sre_role_arn': role_arn,
+            'invoker_role_arn': role_arn,
+            'lambda_function_name': f'absent-close-{uuid4().hex}',
             'ecs_cluster_name': ecs_cluster,
             'efs_filesystem_id': test_efs,
         }
@@ -209,10 +211,10 @@ def _preview(bin_path, env, cluster_id, investigation_id):
     return json.loads(result.stdout)
 
 
-# The submission step reports this when the profile names no close service.
+# The submission step reports this when the named LocalStack Lambda does not exist.
 # Reaching it proves the CLI resolved, previewed and accepted the workspace
 # and then tried to hand it to the service instead of acting by itself.
-NO_SERVICE = 'no close service configured'
+NO_SERVICE = 'ResourceNotFoundException'
 
 
 def _assert_nothing_was_mutated(efs_client, ecs_client, filesystem_id, access_point_ids,
@@ -305,9 +307,9 @@ def test_close_command_surface_matches_the_request_protocol(tmp_path, localstack
     assert help_text.returncode == 0
     # The help states the authorization rule the service enforces, including
     # that a running task does not reserve the investigation.
-    assert 'session attached' in help_text.stdout
-    assert 'any authorized Boundary SRE' in help_text.stdout
-    assert 'stopping that task is separate consent' in help_text.stdout
+    assert 'Any authorized Boundary SRE may request close' in help_text.stdout
+    assert 'waits for that SRE to detach, even with --force' in help_text.stdout
+    assert 'Without stop consent it also waits for running tasks to stop' in help_text.stdout
     # And that a recorded request is not a finished close.
     assert 'not a completed close' in help_text.stdout
 
@@ -506,6 +508,12 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
     bin_path = localstack_cli_binary
     every_definition = (target_definition, other_definition, adjacent_definition)
 
+    # Status for a name without an AP must reach the service, not the local
+    # preview, even without --yes. A lookup error must not submit a close.
+    status = _close(bin_path, env, cluster_id, 'no-such-workspace', '--status')
+    assert status.returncode != 0
+    assert NO_SERVICE in status.stderr and 'no request submitted' in status.stderr
+
     # A missing cluster ID must fail before resolving anything at all.
     missing_cluster = _close(bin_path, env, investigation_id, '--yes', timeout=10)
     assert missing_cluster.returncode != 0
@@ -513,9 +521,8 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
     _assert_nothing_was_mutated(efs_client, ecs_client, test_efs, [ap_id], every_definition)
 
     # Ownership is no longer decided here. The access point's `oidc_sub` tag is
-    # provenance, and the authorization matrix — current holder, or any
-    # eligible SRE when no session is attached — is applied by the service
-    # against observed sessions, which the CLI cannot see. The command must
+    # provenance. Another authorized SRE can explicitly request close even
+    # while the original holder is attached. The command must
     # therefore carry the request to the service rather than refusing locally.
     efs_client.tag_resource(ResourceId=ap_id, Tags=[{'Key': 'oidc_sub', 'Value': 'another-sre'}])
     not_creator = _close(bin_path, env, cluster_id, investigation_id, '--yes')
@@ -824,12 +831,11 @@ def test_close_scopes_stop_consent_to_one_cluster_and_stops_nothing_itself(ecs_c
     assert task_id_2 not in json.dumps(plan), 'the other cluster must not appear in the plan'
     assert 'tasks have not stopped' in plan['finalization_blocked_reason']
 
-    # Without --force, a running session blocks submission. Consent to stop
-    # someone's work is explicit, and withholding it stops nothing.
+    # Without --force the CLI still reaches the service. A running task
+    # blocks finalization, not submission.
     without_force = _close(bin_path, env, cluster_id_1, investigation_id, '--yes')
     assert without_force.returncode != 0
-    assert 'force' in without_force.stderr.lower()
-    assert 'running task' in without_force.stderr.lower()
+    assert NO_SERVICE in without_force.stderr, without_force.stderr
     _assert_nothing_was_mutated(efs_client, ecs_client, test_efs, ap_ids,
                                 task_arns=task_arns, ecs_cluster=cluster_name)
 

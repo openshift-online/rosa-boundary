@@ -7,10 +7,14 @@
 #   scripts/e2e-local.sh                      # all tests
 #   scripts/e2e-local.sh TestGet_ListPods     # one test, as a -run pattern
 #
-# Configuration comes from the environment, optionally loaded from a file
-# (.env.e2e by default, override with E2E_ENV_FILE). Sourcing
-# scripts/setup-local-staging.sh first also works — anything already exported
-# is left alone.
+# The server is configured through config/ci.yaml (CONFIG_FILE below, override
+# with RTA_CONFIG_FILE) — the same config-file mechanism the deployment uses.
+# The environment still overrides the file for every key, which is why this
+# script unsets the two endpoint variables below; the remaining environment
+# contract is only what the file cannot hold (credentials, the cluster's
+# region). Anything already exported is otherwise left alone, and an optional
+# .env.e2e (override with E2E_ENV_FILE) or scripts/setup-local-staging.sh both
+# still work.
 #
 # Required:
 #   E2E_CLUSTER_ID                 OCM cluster ID of the staging cluster to act on
@@ -64,8 +68,16 @@ CONFIG_FILE="${RTA_CONFIG_FILE:-config/ci.yaml}"
 SSO_TOKEN_URL="${SSO_TOKEN_URL:-https://sso.redhat.com/auth/realms/redhat-external/protocol/openid-connect/token}"
 
 export ROSA_TA_AUTH=enabled
-export ROSA_TA_OCM_BASE_URL="${ROSA_TA_OCM_BASE_URL:-https://api.stage.openshift.com}"
-export ROSA_TA_BACKPLANE_URL="${ROSA_TA_BACKPLANE_URL:-https://api.stage.backplane.openshift.com}"
+# The server reads ocm.base_url and backplane.base_url from the config file
+# (CONFIG_FILE, default config/ci.yaml) — the same mechanism the deployment
+# uses. Any environment value would silently override the file, so it is
+# removed the way ROSA_TA_KUBECONFIG is below.
+for url_var in ROSA_TA_OCM_BASE_URL ROSA_TA_BACKPLANE_URL; do
+    if [ -n "${!url_var:-}" ]; then
+        log "Unsetting $url_var so the server reads the endpoint from $CONFIG_FILE"
+        unset "$url_var"
+    fi
+done
 export ROSA_TA_BACKPLANE_CLIENT_ID="${ROSA_TA_BACKPLANE_CLIENT_ID:-${ROSA_TA_OCM_CLIENT_ID:-}}"
 export ROSA_TA_BACKPLANE_CLIENT_SECRET="${ROSA_TA_BACKPLANE_CLIENT_SECRET:-${ROSA_TA_OCM_CLIENT_SECRET:-}}"
 export DATABASE_URL="${DATABASE_URL:-/tmp/rta-e2e.db}"
@@ -73,18 +85,6 @@ export DATABASE_URL="${DATABASE_URL:-/tmp/rta-e2e.db}"
 for required in E2E_CLUSTER_ID ROSA_TA_OCM_CLIENT_ID ROSA_TA_OCM_CLIENT_SECRET ROSA_TA_AWS_ALLOWED_REGIONS; do
     [ -n "${!required:-}" ] || fail "$required is not set (see the header of this script)"
 done
-
-# The same guard the CI step applies. Everything below reaches a real cluster
-# with real credentials, so pointing it at production has to be deliberate
-# rather than a forgotten default.
-case "$ROSA_TA_OCM_BASE_URL" in
-    *stage* | *integration* | *int.*) ;;
-    *) fail "refusing to run against non-staging OCM: $ROSA_TA_OCM_BASE_URL" ;;
-esac
-case "$ROSA_TA_BACKPLANE_URL" in
-    https://*stage* | https://*int*) ;;
-    *) fail "refusing to run against non-staging backplane: $ROSA_TA_BACKPLANE_URL" ;;
-esac
 
 # The server selects the kubeconfig provider over backplane whenever this is
 # set, which would skip the path the suite exists to exercise.
@@ -106,8 +106,19 @@ else
 
     # An exclusion that matches the backplane host sends the request straight
     # out again, which looks exactly like having configured no proxy at all.
-    backplane_host=${ROSA_TA_BACKPLANE_URL#https://}
-    backplane_host=${backplane_host%%/*}
+    # The endpoint now lives in the config file, so the host the NO_PROXY check
+    # needs comes from there too. RTA_CONFIG_FILE is honored: a custom copy is
+    # checked against its own backplane, not the staging default.
+    backplane_host=$(awk '
+        /^backplane:/ { in_backplane = 1; next }
+        /^[^ ]/       { in_backplane = 0 }
+        in_backplane && /base_url:/ {
+            sub(/.*base_url:[[:space:]]*/, "")
+            sub(/^https:\/\//, "")
+            sub(/\/.*/, "")
+            print
+        }' "$CONFIG_FILE")
+    [ -n "$backplane_host" ] || fail "could not read backplane base_url from $CONFIG_FILE"
     for entry in $(echo "${NO_PROXY:-${no_proxy:-}}" | tr ',' ' '); do
         entry=${entry#.}
         [ -n "$entry" ] || continue

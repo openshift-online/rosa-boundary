@@ -13,6 +13,16 @@ roles:
 - id: "ROSAAiAgent"
   amsResource: "BackplaneOsdAiAgentResource"
 
+# The same endpoints the deployment's app_config sets, so the suite exercises
+# the config-file path the server is configured through in production rather
+# than overriding them from the environment. Pointing the suite at anything
+# else means editing a copy of this file and passing RTA_CONFIG_FILE.
+ocm:
+  base_url: https://api.stage.openshift.com
+
+backplane:
+  base_url: https://api.stage.backplane.openshift.com
+
 workers:
   concurrency: 4
   # Short, because the suite polls each execution to completion: the poll

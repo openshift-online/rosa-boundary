@@ -135,18 +135,29 @@ func TestIncompleteClosePlanPreview(t *testing.T) {
 
 // fakeCloseService records what the CLI asked the close service to do.
 type fakeCloseService struct {
-	requests  []lambda.CloseActionRequest
-	accept    *lambda.CloseActionResponse
-	acceptErr error
-	statuses  []*lambda.CloseStatusResponse
-	statusErr error
-	calls     int
-	tokens    []string
+	requests     []lambda.CloseActionRequest
+	intents      []lambda.CloseActionRequest
+	cancellation []lambda.CloseActionRequest
+	accept       *lambda.CloseActionResponse
+	acceptErr    error
+	cancelErr    error
+	statuses     []*lambda.CloseStatusResponse
+	statusErr    error
+	calls        int
+	tokens       []string
 }
 
 // service wraps the fake in the pairing the CLI actually passes around.
 func (f *fakeCloseService) service() closeService {
 	return closeService{client: f, idToken: "fresh-token"}
+}
+
+func (f *fakeCloseService) CancelAutoClose(_ context.Context, _ string, req lambda.CloseActionRequest) (*lambda.CloseActionResponse, error) {
+	f.cancellation = append(f.cancellation, req)
+	if f.cancelErr != nil {
+		return nil, f.cancelErr
+	}
+	return &lambda.CloseActionResponse{Cancelled: true, TaskID: req.TaskID}, nil
 }
 
 func (f *fakeCloseService) RequestClose(_ context.Context, idToken string, req lambda.CloseActionRequest) (*lambda.CloseActionResponse, error) {
@@ -156,6 +167,15 @@ func (f *fakeCloseService) RequestClose(_ context.Context, idToken string, req l
 		return nil, f.acceptErr
 	}
 	return f.accept, nil
+}
+
+func (f *fakeCloseService) RegisterAutoClose(_ context.Context, idToken string, req lambda.CloseActionRequest) (*lambda.CloseActionResponse, error) {
+	f.intents = append(f.intents, req)
+	f.tokens = append(f.tokens, idToken)
+	if f.acceptErr != nil {
+		return nil, f.acceptErr
+	}
+	return &lambda.CloseActionResponse{Registered: true, TaskID: req.TaskID, StopScope: req.StopScope}, nil
 }
 
 func (f *fakeCloseService) CloseStatus(_ context.Context, _ string, _ lambda.CloseActionRequest) (*lambda.CloseStatusResponse, error) {

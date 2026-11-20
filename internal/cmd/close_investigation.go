@@ -59,9 +59,12 @@ func investigationTaskDefinitions(arns []string, familyPrefix string) []string {
 	return result
 }
 
-// closeServiceAPI is the close service as the CLI uses it.
+// closeServiceAPI is the close service as the CLI uses it. One interface
+// keeps the close command and the session hook talking to the same contract.
 type closeServiceAPI interface {
 	RequestClose(context.Context, string, lambda.CloseActionRequest) (*lambda.CloseActionResponse, error)
+	RegisterAutoClose(context.Context, string, lambda.CloseActionRequest) (*lambda.CloseActionResponse, error)
+	CancelAutoClose(context.Context, string, lambda.CloseActionRequest) (*lambda.CloseActionResponse, error)
 	CloseStatus(context.Context, string, lambda.CloseActionRequest) (*lambda.CloseStatusResponse, error)
 }
 

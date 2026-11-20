@@ -145,6 +145,9 @@ rosa-boundary session credentials clear ocm <session-id>
 rosa-boundary session close <session-id> --wait
 rosa-boundary investigation close my-cluster incident-42 --dry-run
 rosa-boundary investigation close my-cluster incident-42 --wait
+
+# Or decide when the session starts: request close on a normal disconnect
+rosa-boundary session create my-cluster --investigation-id incident-42 --auto-close
 ```
 
 ## Repository Structure
@@ -219,9 +222,11 @@ investigation and its reusable workspace open until `investigation close`.
 - `--with-credentials ocm` — configure OCM before returning or connecting; incompatible with `--no-wait`
 - `--ocm-url` — `production`, `staging`, `integration`, or an approved canonical URL
 - `--ocm-auth-flow` — `auth-code` (default) or `device`
+- `--auto-close` — request investigation close when the attached session ends, without an exit prompt; needs an attached session
+- `--auto-close-stop-all` — with `--auto-close`, also consent to stopping the investigation's other tasks
 - `--output text|json`
 
-**`session join`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`
+**`session join`**: `--container` (default: `rosa-boundary`), `--command` (default: `runuser -u sre -- sh -c 'cd ~ && exec bash --login'`), `--no-wait`, `--auto-close`, `--auto-close-stop-all`
 
 **`session credentials configure ocm`**: `--ocm-url` selects the environment and defaults to the non-secret URL in the workstation's OCM configuration; `--auth-flow auth-code|device` selects the fresh-token flow. The command never copies or caches local access, refresh, or offline tokens.
 

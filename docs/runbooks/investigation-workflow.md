@@ -566,6 +566,32 @@ The EFS directory is retained on a normal close. Only the stale sweep may
 reclaim a directory, behind the same verified gate. Do not recreate a closed
 investigation over a retained directory; choose a distinct investigation ID.
 
+### Close when the session ends
+
+After a normal interactive exit, `session create` and `session join` offer to
+request close. The default is to leave the investigation open, and there is no
+prompt for JSON output, a failed attachment, a timeout or a lost connection.
+
+```bash
+# Ask once, when the shell exits (default is "no")
+./bin/rosa-boundary --profile "$PROFILE" session join "$SESSION_ID"
+
+# Decide up front: request close on a normal disconnect, no prompt
+./bin/rosa-boundary --profile "$PROFILE" session join "$SESSION_ID" --auto-close
+
+# Also consent to stopping the investigation's other tasks
+./bin/rosa-boundary --profile "$PROFILE" session create "$CLUSTER_ID" \
+  --auto-close --auto-close-stop-all
+```
+
+`--auto-close` records its intent before attaching, so a crashed CLI still
+leaves it recorded; if the intent cannot be recorded, the command fails instead
+of attaching without it, and if the session then fails to attach the intent is
+withdrawn. There is no heartbeat: a laptop that disappears while
+its task keeps running is not detected immediately. The reaper activates the
+intent once that task is observed stopped, and a handover to another active SRE
+supersedes it rather than closing the new holder's session.
+
 Both positional IDs are required for `investigation close`. Ensure the selected
 profile has the correct `efs_filesystem_id`, ECS cluster, `invoker_role_arn`
 and `lambda_function_name`. See

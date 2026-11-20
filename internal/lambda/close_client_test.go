@@ -41,7 +41,7 @@ func TestRequestCloseSendsTheAuthenticatedAction(t *testing.T) {
 	result, err := client.RequestClose(context.Background(), "id-token", CloseActionRequest{
 		ClusterID: "cluster", InvestigationID: "inv",
 		StopScope: StopScopeSessionTask, StopTaskIDs: []string{"task-1"},
-		Trigger: TriggerCLIClose,
+		Trigger: TriggerSessionExitPrompt,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestRequestCloseSendsTheAuthenticatedAction(t *testing.T) {
 	}
 	body := sentBody(t, invoker)
 	if body["action"] != "request_close" || body["stop_scope"] != StopScopeSessionTask ||
-		body["trigger"] != TriggerCLIClose {
+		body["trigger"] != TriggerSessionExitPrompt {
 		t.Fatalf("unexpected request body: %v", body)
 	}
 	if ids, ok := body["stop_task_ids"].([]any); !ok || len(ids) != 1 || ids[0] != "task-1" {
@@ -71,6 +71,30 @@ func TestRequestCloseRejectsAnAnonymousAcceptance(t *testing.T) {
 	client := &Client{functionName: "test-function", sdk: invoker}
 	if _, err := client.RequestClose(context.Background(), "id-token", CloseActionRequest{}); err == nil {
 		t.Fatal("accepted a request without its identity")
+	}
+}
+
+func TestRegisterAutoCloseRequiresConfirmation(t *testing.T) {
+	ok := &recordingInvoker{payload: buildLambdaResponse(http.StatusOK, map[string]any{
+		"action": "register_auto_close", "registered": true, "task_id": "task-1",
+	})}
+	client := &Client{functionName: "test-function", sdk: ok}
+	if _, err := client.RegisterAutoClose(context.Background(), "id-token", CloseActionRequest{
+		ClusterID: "cluster", InvestigationID: "inv", TaskID: "task-1",
+		StopScope: StopScopeSessionTask,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if body := sentBody(t, ok); body["action"] != "register_auto_close" || body["task_id"] != "task-1" {
+		t.Fatalf("unexpected intent body: %v", body)
+	}
+
+	unconfirmed := &recordingInvoker{payload: buildLambdaResponse(http.StatusOK, map[string]any{
+		"action": "register_auto_close", "registered": false,
+	})}
+	client = &Client{functionName: "test-function", sdk: unconfirmed}
+	if _, err := client.RegisterAutoClose(context.Background(), "id-token", CloseActionRequest{}); err == nil {
+		t.Fatal("unconfirmed auto-close intent reported as persisted")
 	}
 }
 

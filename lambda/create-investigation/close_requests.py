@@ -372,8 +372,16 @@ def _get_json(s3, bucket, key, account_id):
     try:
         response = s3.get_object(**kwargs)
     except ClientError as error:
-        if error.response.get('Error', {}).get('Code') in ('NoSuchKey', '404', 'NotFound'):
+        code = error.response.get('Error', {}).get('Code')
+        if code in ('NoSuchKey', '404', 'NotFound'):
             return None
+        if code in ('AccessDenied', '403'):
+            # A missing GET can be forbidden with prefix-scoped ListBucket. An
+            # exact key sorts first; only a successful list can prove absence.
+            page = s3.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1,
+                                         **({'ExpectedBucketOwner': account_id} if account_id else {}))
+            if not any(obj['Key'] == key for obj in page.get('Contents', [])):
+                return None
         raise
     with closing(response['Body']) as stream:
         body = stream.read(MAX_RECORD_BYTES + 1)

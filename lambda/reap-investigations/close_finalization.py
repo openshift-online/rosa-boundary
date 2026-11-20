@@ -205,8 +205,16 @@ class Finalizer:
             response = self.s3.get_object(**self._owner({'Bucket': self.audit_bucket,
                                                          'Key': key}))
         except ClientError as error:
-            if error.response.get('Error', {}).get('Code') in ('NoSuchKey', '404', 'NotFound'):
+            code = error.response.get('Error', {}).get('Code')
+            if code in ('NoSuchKey', '404', 'NotFound'):
                 return None
+            if code in ('AccessDenied', '403'):
+                # A missing GET can be forbidden with prefix-scoped ListBucket. An
+                # exact key sorts first; only a successful list can prove absence.
+                page = self.s3.list_objects_v2(**self._owner({
+                    'Bucket': self.audit_bucket, 'Prefix': key, 'MaxKeys': 1}))
+                if not any(obj['Key'] == key for obj in page.get('Contents', [])):
+                    return None
             raise
         with closing(response['Body']) as stream:
             body = stream.read(records.MAX_RECORD_BYTES + 1)

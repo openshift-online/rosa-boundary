@@ -333,6 +333,7 @@ resource "aws_iam_role_policy" "create_investigation_lambda_close_requests" {
             "s3:prefix" = [
               "_boundary-close/requests/*",
               "_boundary-close/intents/*",
+              "_boundary-close/status/*",
             ]
           }
         }

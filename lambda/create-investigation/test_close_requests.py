@@ -43,6 +43,10 @@ class FakeS3:
             raise ClientError({'Error': {'Code': 'NoSuchKey'}}, 'GetObject')
         return {'Body': io.BytesIO(self.objects[Key])}
 
+    def list_objects_v2(self, Bucket, Prefix, MaxKeys, **kwargs):
+        return {'Contents': [{'Key': key} for key in sorted(self.objects)
+                             if key.startswith(Prefix)][:MaxKeys]}
+
     def get_paginator(self, name):
         assert name == 'list_objects_v2'
         store = self
@@ -56,6 +60,19 @@ class FakeS3:
 
     def json_at(self, key):
         return json.loads(self.objects[key].decode())
+
+
+def test_missing_or_unreadable_record_with_prefix_scoped_list_permission():
+    s3 = MagicMock()
+    s3.get_object.side_effect = ClientError({'Error': {'Code': 'AccessDenied'}}, 'GetObject')
+    key = '_boundary-close/status/c/i.json'
+    s3.list_objects_v2.return_value = {'Contents': [{'Key': key + '.other'}]}
+    assert close_requests._get_json(s3, 'audit', key, '123') is None
+    s3.list_objects_v2.assert_called_once_with(Bucket='audit', Prefix=key, MaxKeys=1,
+                                              ExpectedBucketOwner='123')
+    s3.list_objects_v2.return_value = {'Contents': [{'Key': key}]}
+    with pytest.raises(ClientError):
+        close_requests._get_json(s3, 'audit', key, '123')
 
 
 def access_point_page(tags=None, path=None, ap_id=ACCESS_POINT):
@@ -565,6 +582,7 @@ def test_status_distinguishes_a_managed_seal_from_a_legacy_one():
 
 def test_an_unreadable_status_is_not_reported_as_an_outcome():
     harness = idle()
+    harness.s3.objects[close_requests.status_key(CLUSTER, INVESTIGATION)] = b'{}'
     with patch.object(harness.s3, 'get_object', side_effect=ClientError(
             {'Error': {'Code': 'AccessDenied'}}, 'GetObject')):
         with pytest.raises(close_requests.CloseRequestError) as error:

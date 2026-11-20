@@ -202,6 +202,20 @@ class FinalizerCase(unittest.TestCase):
         return self.s3.json_at(records.receipt_key(ACCESS_POINT, seal))
 
 
+class TestOptionalRecord(FinalizerCase):
+    def test_access_denied_is_absent_only_if_a_scoped_list_confirms_it(self):
+        s3 = self.finalizer.s3 = MagicMock()
+        s3.get_object.side_effect = ClientError({'Error': {'Code': '403'}}, 'GetObject')
+        key = records.status_key(CLUSTER, INVESTIGATION)
+        s3.list_objects_v2.return_value = {}
+        self.assertIsNone(self.finalizer.get_json(key, records.KIND_STATUS))
+        s3.list_objects_v2.assert_called_once_with(Bucket='audit', Prefix=key, MaxKeys=1,
+                                                  ExpectedBucketOwner='123456789012')
+        s3.list_objects_v2.return_value = {'Contents': [{'Key': key}]}
+        with self.assertRaises(ClientError):
+            self.finalizer.get_json(key, records.KIND_STATUS)
+
+
 class TestHappyPath(FinalizerCase):
     def test_normal_close_verifies_then_retains_the_directory(self):
         status = self.finalize()

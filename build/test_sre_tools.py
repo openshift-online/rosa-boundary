@@ -291,7 +291,7 @@ def test_runtime_validation_directory_mount_contract():
     run = validations[0]
     assert run.startswith('--network=none ')
     assert run.count('--mount=') == 1
-    assert '--mount=type=bind,source=.,target=/verify-src,ro ' in run
+    assert '--mount=type=bind,from=verify-inputs,source=/verify-src,target=/verify-src,ro ' in run
     assert 'runuser --user sre -- python3 /verify-src/build/verify_sre_tools.py runtime' in run
     assert '--containerfile /verify-src/Containerfile' in run
 

@@ -34,6 +34,7 @@ data "archive_file" "create_investigation_lambda" {
   excludes = [
     "Containerfile",
     "test_handler.py",
+    "test_close_requests.py",
     "conftest.py",
     "pytest.ini",
     "test-security-fixes.sh",

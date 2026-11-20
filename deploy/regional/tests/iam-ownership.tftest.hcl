@@ -239,6 +239,18 @@ run "legacy_policy_names_ownership_and_original_scopes" {
     )
     error_message = "EFS must grant reaper mount/write/root access in both policies only via its dedicated access point; task access remains dynamic."
   }
+  assert {
+    condition = (
+      jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement[1].Resource == [
+        "${aws_s3_bucket.audit.arn}/_boundary-close/requests/*",
+        "${aws_s3_bucket.audit.arn}/_boundary-close/intents/*",
+      ] &&
+      jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement[2].Action == "s3:GetObject" &&
+      jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement[2].Resource == "${aws_s3_bucket.audit.arn}/_boundary-close/status/*" &&
+      length(jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement) == 3
+    )
+    error_message = "The request handler may record requests and intents and read status, but must never write status, evidence or receipts."
+  }
 }
 
 run "additional_region_names_cannot_collide_with_legacy_grants" {

@@ -341,3 +341,490 @@ def authorize_close(observation, requester_sub, *, explicit=False):
     if explicit:
         return True, 'authorized_sre', ''
     return False, 'not_holder', 'session close callback refused: another SRE is attached'
+
+
+# --------------------------------------------------------------------------
+# Audit-bucket control records.
+# --------------------------------------------------------------------------
+
+
+def _s3():
+    return boto3.client('s3')
+
+
+def _put_record(s3, bucket, key, record, account_id):
+    """Publish one complete record. Partial JSON is never exposed."""
+    kwargs = {
+        'Bucket': bucket,
+        'Key': key,
+        'Body': encode_record(record),
+        'ContentType': 'application/json',
+    }
+    if account_id:
+        kwargs['ExpectedBucketOwner'] = account_id
+    s3.put_object(**kwargs)
+
+
+def _get_json(s3, bucket, key, account_id):
+    kwargs = {'Bucket': bucket, 'Key': key}
+    if account_id:
+        kwargs['ExpectedBucketOwner'] = account_id
+    try:
+        response = s3.get_object(**kwargs)
+    except ClientError as error:
+        code = error.response.get('Error', {}).get('Code')
+        if code in ('NoSuchKey', '404', 'NotFound'):
+            return None
+        if code in ('AccessDenied', '403'):
+            # A missing GET can be forbidden with prefix-scoped ListBucket. An
+            # exact key sorts first; only a successful list can prove absence.
+            page = s3.list_objects_v2(Bucket=bucket, Prefix=key, MaxKeys=1,
+                                         **({'ExpectedBucketOwner': account_id} if account_id else {}))
+            if not any(obj['Key'] == key for obj in page.get('Contents', [])):
+                return None
+        raise
+    with closing(response['Body']) as stream:
+        body = stream.read(MAX_RECORD_BYTES + 1)
+    if len(body) > MAX_RECORD_BYTES:
+        raise ValueError('control record is oversized')
+    record = json.loads(body.decode('utf-8'))
+    if not isinstance(record, dict):
+        raise ValueError('control record is not an object')
+    return record
+
+
+def _list_requests(s3, bucket, cluster_id, investigation_id, account_id):
+    prefix = requests_prefix(cluster_id, investigation_id)
+    keys = []
+    kwargs = {'Bucket': bucket, 'Prefix': prefix}
+    if account_id:
+        kwargs['ExpectedBucketOwner'] = account_id
+    paginator = s3.get_paginator('list_objects_v2')
+    for page in paginator.paginate(**kwargs):
+        keys.extend(obj['Key'] for obj in page.get('Contents', []))
+    return sorted(keys)
+
+
+# --------------------------------------------------------------------------
+# Investigation identity.
+# --------------------------------------------------------------------------
+
+
+def resolve_investigation(efs, efs_filesystem_id, cluster_id, investigation_id):
+    """Find the managed access point for an investigation.
+
+    Unlike the creation path, a sealed access point is not an error here: a
+    close request may legitimately follow a managed seal. Conflicting identity
+    is always an error — cleanup is refused rather than guessed.
+    """
+    expected_path = f'/{cluster_id}/{investigation_id}'
+    match = None
+    paginator = efs.get_paginator('describe_access_points')
+    for page in paginator.paginate(FileSystemId=efs_filesystem_id):
+        for access_point in page.get('AccessPoints', []):
+            if (access_point.get('RootDirectory', {}).get('Path') or '') != expected_path:
+                continue
+            if match is not None:
+                raise ValueError('multiple access points share this workspace path; '
+                                 'close refused until the duplicate is resolved')
+            match = access_point
+    if match is None:
+        return None
+    tags = {tag['Key']: tag['Value'] for tag in match.get('Tags', [])}
+    if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
+        raise ValueError('access point identity tags conflict with its path; close refused')
+    if tags.get('ManagedBy') != MANAGED_BY_LAMBDA:
+        raise ValueError('access point is not Lambda-managed; close refused')
+    access_point_id = match.get('AccessPointId', '')
+    if not ACCESS_POINT_PATTERN.match(access_point_id):
+        raise ValueError('access point identifier is malformed; close refused')
+    return {
+        'access_point_id': access_point_id,
+        'file_system_id': match.get('FileSystemId', ''),
+        'available': match.get('LifeCycleState') == 'available',
+        'path': expected_path,
+        'tags': tags,
+    }
+
+
+# --------------------------------------------------------------------------
+# Actions.
+# --------------------------------------------------------------------------
+
+
+class CloseRequestError(Exception):
+    """Reported to the caller with an explicit status code and no internals."""
+
+    def __init__(self, status_code, message, **extra):
+        super().__init__(message)
+        self.status_code = status_code
+        self.message = message
+        self.extra = extra
+
+
+def _validate_stop_scope(body):
+    stop_scope = body.get('stop_scope', STOP_NONE)
+    if stop_scope not in STOP_SCOPES:
+        raise CloseRequestError(400, f'stop_scope must be one of {", ".join(STOP_SCOPES)}')
+    stop_task_ids = body.get('stop_task_ids') or []
+    if not isinstance(stop_task_ids, list) or not all(
+            isinstance(task_id, str) and TASK_ID_PATTERN.match(task_id)
+            for task_id in stop_task_ids):
+        raise CloseRequestError(400, 'stop_task_ids must be ECS task identifiers')
+    if stop_scope == STOP_SESSION_TASK and not stop_task_ids:
+        raise CloseRequestError(400, 'stop_scope session_task requires stop_task_ids')
+    if stop_scope != STOP_SESSION_TASK and stop_task_ids:
+        raise CloseRequestError(400, 'stop_task_ids are only meaningful with '
+                                     'stop_scope session_task')
+    return stop_scope, sorted(set(stop_task_ids))
+
+
+def _existing_equivalent_request(s3, bucket, account_id, cluster_id, investigation_id,
+                                 requester_sub, stop_scope, stop_task_ids, trigger, status_record):
+    """Return a prior pending request from the same SRE with the same consent.
+
+    Duplicate submissions must not reset a seal, expand consent or multiply
+    work, so an identical resubmission is answered with the request already on
+    file. A different trigger has different handover semantics. Different
+    consent — a wider scope or a different task — also needs a new request: silently answering it with the old one would drop the
+    consent the SRE just gave.
+
+    A terminal outcome ends de-duplication. After a retained close the SRE has
+    to be able to ask again.
+    """
+    if status_record and status_record.get('status') in TERMINAL_STATUSES:
+        return None
+    for key in _list_requests(s3, bucket, cluster_id, investigation_id, account_id):
+        try:
+            record = _get_json(s3, bucket, key, account_id)
+        except (ClientError, BotoCoreError, ValueError):
+            continue
+        if not record or record.get('kind') != KIND_REQUEST:
+            continue
+        if (record.get('requester_sub') == requester_sub
+                and record.get('trigger') == trigger
+                and record.get('stop_scope') == stop_scope
+                and sorted(record.get('stop_task_ids') or []) == stop_task_ids):
+            return record
+    return None
+
+
+def handle_request_close(body, identity, config, clients):
+    """Record an authenticated, authorized close request."""
+    cluster_id = body['cluster_id']
+    investigation_id = body['investigation_id']
+    stop_scope, stop_task_ids = _validate_stop_scope(body)
+    trigger = body.get('trigger', 'cli_close')
+    if trigger not in TRIGGERS:
+        raise CloseRequestError(400, f'trigger must be one of {", ".join(TRIGGERS)}')
+
+    investigation = _require_investigation(config, clients, cluster_id, investigation_id)
+    observation = observe_investigation(
+        clients['ecs'], clients['ssm'], config['ecs_cluster'],
+        config['started_by'](cluster_id, investigation_id))
+    allowed, basis, reason = authorize_close(
+        observation, identity['sub'], explicit=trigger == 'cli_close')
+    if not allowed:
+        # Unknown is retryable and must not be reported as a permission denial.
+        status_code = 409 if basis == STATE_UNKNOWN else 403
+        raise CloseRequestError(status_code, reason, state=observation['state'])
+
+    if stop_scope == STOP_SESSION_TASK:
+        observed_tasks = set(nonterminal_task_ids(observation))
+        unknown_tasks = [task for task in stop_task_ids if task not in observed_tasks]
+        if unknown_tasks:
+            raise CloseRequestError(
+                409, 'stop consent names tasks that are not part of this investigation')
+
+    s3 = clients['s3']
+    bucket = config['audit_bucket']
+    account_id = config['account_id']
+    status_record = _get_json(s3, bucket, status_key(cluster_id, investigation_id), account_id)
+    existing = _existing_equivalent_request(
+        s3, bucket, account_id, cluster_id, investigation_id, identity['sub'],
+        stop_scope, stop_task_ids, trigger, status_record)
+    if existing:
+        return {
+            'action': 'request_close',
+            'request_token': existing['request_token'],
+            'duplicate': True,
+            'status': (status_record or {}).get('status', STATUS_ACCEPTED),
+            'state': observation['state'],
+            'access_point_id': investigation['access_point_id'],
+            'stop_scope': existing['stop_scope'],
+            'message': 'An equivalent request is already recorded; it was not resubmitted.',
+        }
+
+    request_token = str(uuid.uuid4())
+    requested_at = now_iso()
+    record = {
+        'schema_version': REQUEST_SCHEMA_VERSION,
+        'kind': KIND_REQUEST,
+        'request_token': request_token,
+        'cluster_id': cluster_id,
+        'investigation_id': investigation_id,
+        'access_point_id': investigation['access_point_id'],
+        'file_system_id': investigation['file_system_id'],
+        'access_point_path': investigation['path'],
+        # Provenance only. Creating an investigation never confers permanent
+        # authority over it.
+        'original_creator_sub': investigation['tags'].get('oidc_sub', ''),
+        'observed_holder_sub': observation.get('holder_sub') or '',
+        'requester_sub': identity['sub'],
+        'requester_username': identity.get('username', ''),
+        'authorization_basis': basis,
+        'observation': {
+            'state': observation['state'],
+            'active_sessions': observation['active_sessions'],
+            'nonterminal_task_ids': nonterminal_task_ids(observation),
+            # Provenance: an idle investigation may still have a task running,
+            # and the record should show whose it was.
+            'task_owner_subs': observation.get('task_owner_subs', []),
+            'observed_at': observation['observed_at'],
+        },
+        'stop_scope': stop_scope,
+        'stop_task_ids': stop_task_ids,
+        'trigger': trigger,
+        'requested_at': requested_at,
+        'deployment': config['ecs_cluster'],
+    }
+    _put_record(s3, bucket,
+                request_key(cluster_id, investigation_id, request_token, requested_at),
+                record, account_id)
+    logger.info('Recorded close request for %s/%s (basis=%s, scope=%s)',
+                cluster_id, investigation_id, basis, stop_scope)
+    return {
+        'action': 'request_close',
+        'request_token': request_token,
+        'duplicate': False,
+        'status': STATUS_ACCEPTED,
+        'state': observation['state'],
+        'access_point_id': investigation['access_point_id'],
+        'stop_scope': stop_scope,
+        'message': ('Close requested. Finalization runs in the scheduled reaper; '
+                    'accepted is not closed.'),
+    }
+
+
+def handle_register_auto_close(body, identity, config, clients):
+    """Persist auto-close intent for one attached session before it attaches."""
+    cluster_id = body['cluster_id']
+    investigation_id = body['investigation_id']
+    task_id = body.get('task_id', '')
+    if not isinstance(task_id, str) or not TASK_ID_PATTERN.match(task_id):
+        raise CloseRequestError(400, 'task_id must be an ECS task identifier')
+    stop_scope = body.get('stop_scope', STOP_SESSION_TASK)
+    if stop_scope not in (STOP_SESSION_TASK, STOP_INVESTIGATION):
+        raise CloseRequestError(
+            400, 'auto-close stop scope must be session_task or investigation')
+
+    investigation = _require_investigation(config, clients, cluster_id, investigation_id)
+    observation = observe_investigation(
+        clients['ecs'], clients['ssm'], config['ecs_cluster'],
+        config['started_by'](cluster_id, investigation_id))
+    allowed, basis, reason = authorize_close(observation, identity['sub'])
+    if not allowed:
+        raise CloseRequestError(409 if basis == STATE_UNKNOWN else 403, reason,
+                                state=observation['state'])
+
+    record = {
+        'schema_version': INTENT_SCHEMA_VERSION,
+        'kind': KIND_INTENT,
+        'cluster_id': cluster_id,
+        'investigation_id': investigation_id,
+        'access_point_id': investigation['access_point_id'],
+        'task_id': task_id,
+        'requester_sub': identity['sub'],
+        'requester_username': identity.get('username', ''),
+        'stop_scope': stop_scope,
+        'authorization_basis': basis,
+        'cancelled': False,
+        'created_at': now_iso(),
+        'deployment': config['ecs_cluster'],
+    }
+    _put_record(clients['s3'], config['audit_bucket'],
+                intent_key(cluster_id, investigation_id, task_id), record,
+                config['account_id'])
+    return {
+        'action': 'register_auto_close',
+        'registered': True,
+        'task_id': task_id,
+        'stop_scope': stop_scope,
+        'access_point_id': investigation['access_point_id'],
+        'message': ('Auto-close intent recorded. The reaper activates it only after this '
+                    'task is observed stopped and the requester is still eligible.'),
+    }
+
+
+def handle_cancel_auto_close(body, identity, config, clients):
+    """Withdraw a previously recorded auto-close intent."""
+    cluster_id = body['cluster_id']
+    investigation_id = body['investigation_id']
+    task_id = body.get('task_id', '')
+    if not isinstance(task_id, str) or not TASK_ID_PATTERN.match(task_id):
+        raise CloseRequestError(400, 'task_id must be an ECS task identifier')
+    key = intent_key(cluster_id, investigation_id, task_id)
+    existing = _get_json(clients['s3'], config['audit_bucket'], key, config['account_id'])
+    if not existing or existing.get('kind') != KIND_INTENT:
+        return {'action': 'cancel_auto_close', 'cancelled': False,
+                'message': 'No auto-close intent is recorded for this task.'}
+    if existing.get('requester_sub') != identity['sub']:
+        raise CloseRequestError(403, 'only the SRE that recorded an auto-close intent '
+                                     'may withdraw it')
+    record = dict(existing)
+    record['cancelled'] = True
+    record['cancelled_at'] = now_iso()
+    _put_record(clients['s3'], config['audit_bucket'], key, record, config['account_id'])
+    return {'action': 'cancel_auto_close', 'cancelled': True, 'task_id': task_id}
+
+
+def handle_close_status(body, identity, config, clients):
+    """Report finalization status, including after the access point is deleted.
+
+    Status is resolved from service metadata keyed by cluster and investigation
+    rather than by access point, so a completed close stays discoverable once
+    the access point no longer exists.
+    """
+    cluster_id = body['cluster_id']
+    investigation_id = body['investigation_id']
+    s3 = clients['s3']
+    bucket = config['audit_bucket']
+    account_id = config['account_id']
+
+    try:
+        status_record = _get_json(s3, bucket, status_key(cluster_id, investigation_id),
+                                  account_id)
+    except (ClientError, BotoCoreError, ValueError):
+        raise CloseRequestError(503, 'close status could not be read; retry before '
+                                     'assuming any outcome')
+
+    recorded_requests = []
+    request_keys = _list_requests(s3, bucket, cluster_id, investigation_id, account_id)
+    for key in request_keys:
+        parsed = parse_request_filename(key.rsplit('/', 1)[-1])
+        if parsed:
+            recorded_requests.append(parsed)
+    # Keys sort by request time, so the last one is the most recent.
+    recorded_requests.sort()
+
+    access_point_present = False
+    seal_state = 'none'
+    try:
+        investigation = resolve_investigation(
+            clients['efs'], config['efs_filesystem_id'], cluster_id, investigation_id)
+    except ValueError as error:
+        investigation = None
+        seal_state = f'unresolved: {error}'
+    if investigation:
+        access_point_present = True
+        tags = investigation['tags']
+        if TAG_SEAL in tags:
+            seal_state = 'managed' if tags.get(TAG_MANAGED) == MANAGED_BY else 'legacy'
+
+    if status_record:
+        status = status_record.get('status', STATUS_UNKNOWN)
+        result = {
+            'action': 'close_status',
+            'status': status,
+            'phase': status_record.get('phase', ''),
+            'reason': status_record.get('reason', ''),
+            'request_token': status_record.get('request_token', ''),
+            'attempt_id': status_record.get('attempt_id', ''),
+            'directory_retained': bool(status_record.get('directory_retained', True)),
+            'access_point_deleted': bool(status_record.get('access_point_deleted', False)),
+            'access_point_path': status_record.get('access_point_path', ''),
+            # Whether the scheduled reaper will pick this up again by itself.
+            'retryable': bool(status_record.get('retryable', False)),
+            'updated_at': status_record.get('updated_at', ''),
+        }
+    elif recorded_requests:
+        result = {
+            'action': 'close_status',
+            'status': STATUS_ACCEPTED,
+            'phase': 'queued',
+            'reason': 'a close request is recorded and has not been picked up yet',
+            'request_token': recorded_requests[-1][1],
+            'attempt_id': '',
+            'directory_retained': True,
+            'access_point_deleted': False,
+            'access_point_path': f'/{cluster_id}/{investigation_id}',
+            'retryable': True,
+            'updated_at': '',
+        }
+    else:
+        result = {
+            'action': 'close_status',
+            'status': STATUS_NONE,
+            'phase': '',
+            'reason': 'no close request is recorded for this investigation',
+            'request_token': '',
+            'attempt_id': '',
+            'directory_retained': True,
+            'access_point_deleted': False,
+            'access_point_path': f'/{cluster_id}/{investigation_id}',
+            'retryable': False,
+            'updated_at': '',
+        }
+    result.update({
+        'cluster_id': cluster_id,
+        'investigation_id': investigation_id,
+        'open_requests': len(recorded_requests),
+        'access_point_present': access_point_present,
+        # Positive proof for newer CLI clients: never join an old task on the
+        # strength of a different AP now occupying its investigation path.
+        'join_access_point_id': (investigation['access_point_id'] if investigation
+                                 and investigation['available'] and tags.get('CreatedAt')
+                                 and seal_state == 'none' and status_record is None
+                                 and not request_keys else ''),
+        'seal': seal_state,
+    })
+    return result
+
+
+def _require_investigation(config, clients, cluster_id, investigation_id):
+    try:
+        investigation = resolve_investigation(
+            clients['efs'], config['efs_filesystem_id'], cluster_id, investigation_id)
+    except ValueError as error:
+        raise CloseRequestError(409, str(error))
+    except (ClientError, BotoCoreError):
+        raise CloseRequestError(503, 'the investigation workspace could not be resolved; '
+                                     'retry before assuming any outcome')
+    if investigation is None:
+        raise CloseRequestError(404, 'investigation workspace not found')
+    return investigation
+
+
+_HANDLERS = {
+    'request_close': handle_request_close,
+    'register_auto_close': handle_register_auto_close,
+    'cancel_auto_close': handle_cancel_auto_close,
+    'close_status': handle_close_status,
+}
+
+
+def dispatch(action, body, identity, config, clients=None):
+    """Run one close action and return its response body.
+
+    ``config`` carries the deployment values the handler already resolved
+    (``audit_bucket``, ``ecs_cluster``, ``efs_filesystem_id``, ``account_id``
+    and the shared ``started_by`` function). ``clients`` is injected by tests.
+    """
+    if action not in _HANDLERS:
+        raise CloseRequestError(400, f'unsupported action: {action}')
+    if not config.get('audit_bucket'):
+        raise CloseRequestError(500, 'close requests are not configured in this deployment')
+    clients = clients or {}
+    if 's3' not in clients:
+        clients['s3'] = _s3()
+    try:
+        return _HANDLERS[action](body, identity, config, clients)
+    except CloseRequestError:
+        raise
+    except ValueError as error:
+        raise CloseRequestError(400, str(error))
+    except (ClientError, BotoCoreError):
+        # Outcome unknown: never let a transport failure read as a completed close.
+        logger.exception('Close action %s failed against AWS', action)
+        raise CloseRequestError(503, 'the close service could not complete this request; '
+                                     'look up its status before retrying')

@@ -256,7 +256,6 @@ module "rosa_trusted_actions" {
       github_repo_name       = "rosa-boundary"
       variable_set_names     = ["rosa-trusted-actions-rosa-boundary-prod-rosa-trusted-actions-aws-dynamic-creds"]
       remote_state_consumer_workspaces = ["rosa-trusted-actions-prod-us-east-1"]
-      remote_state_consumer_workspaces = ["rosa-trusted-actions-prod"]
       variables = [
         {
           key         = "aws_region"
@@ -284,7 +283,7 @@ module "rosa_trusted_actions" {
           key         = "internal_fqdn"
           value       = ""
           category    = "terraform"
-          description = "Prod internal FQDN (Private Hosted Zone name). Must match rosa-trusted-actions-prod. Leave empty until DNS is ready."
+          description = "Prod internal FQDN (Private Hosted Zone name). Must match rosa-trusted-actions-prod-us-east-1. Leave empty until DNS is ready."
         },
         {
           key      = "default_tags"
@@ -318,7 +317,7 @@ module "rosa_trusted_actions" {
     # Reuses rosa-boundary-prod's VPC (vpc-0f7b78f35f6edd98b) in the same account/region
     # as boundary prod Region A. Prod-global must be applied first so
     # terraform_remote_state can read IAM ARNs and the Secrets Manager ARN.
-    rosa-trusted-actions-prod = {
+    rosa-trusted-actions-prod-us-east-1 = {
       terraform_version      = "1.16.0"
       auto_apply             = true
       auto_apply_run_trigger = true

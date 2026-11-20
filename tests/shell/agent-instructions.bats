@@ -19,7 +19,7 @@ setup() {
 
     for path in .claude/CLAUDE.md .codex/AGENTS.md .config/opencode/AGENTS.md; do
         [ -L "${TEST_HOME}/${path}" ]
-        [ "$(readlink -f "${TEST_HOME}/${path}")" = "${TEST_HOME}/AGENTS.md" ]
+        [[ "${TEST_HOME}/${path}" -ef "${TEST_HOME}/AGENTS.md" ]]
         cmp "${TEST_HOME}/AGENTS.md" "${TEST_HOME}/${path}"
     done
     cmp "${SKELETON}/AGENTS.md" "${TEST_HOME}/AGENTS.md"

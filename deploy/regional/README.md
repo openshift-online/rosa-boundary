@@ -49,6 +49,32 @@ graph. Older examples below that describe role creation must use the account roo
 - **VPC** with at least 2 subnets (for high availability)
 - **Container image** pushed to a container registry (ECR, Docker Hub, etc.)
 
+## Trusted Actions CLI endpoint
+
+`rta_server_url` defaults to empty, leaving `RTA_SERVER` unset. Set it to the
+Trusted Actions HTTPS origin, without `/api/v0/trusted-actions`; the CLI appends
+that path. An optional trailing slash is removed before setting the main
+container's environment. An explicit port must be in the range 1–65535.
+
+All Git-managed staging and production regional workspaces select the shared origin
+`https://rosa-trusted-actions.dev0.rosav1.devshift.net`, matching TA stage's
+configured hostname. The URL is the same across Regions; private DNS and
+networking determine resolution and access from each VPC. Populating the
+variable does not establish that connectivity. Change HCP-managed
+values in `hcp-terraform/rosa-boundary/main.tf`, not the workspace UI/API.
+Personal dev can set `rta_server_url` in its local tfvars.
+
+No OCM environment overrides, token variables or timeout settings are added.
+The CLI uses its existing OCM credential discovery and five-minute timeout.
+Use Boundary's existing user credential injection; missing or expired tokens
+still require credential configuration. This setting does not grant TA
+authorization or create DNS/network access.
+
+The endpoint applies to newly created investigation tasks. The deployed image
+must also contain `rta`; adding the setting does not update an image pin or
+modify running sessions. Verify DNS, trusted HTTPS and read-only authenticated
+catalog access from an approved new task separately.
+
 ## Architecture
 
 ```

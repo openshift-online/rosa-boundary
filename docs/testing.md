@@ -188,6 +188,40 @@ runs offline as `sre`, with a read-only filesystem, dropped capabilities, and no
 credentials. It mounts the helpers and Containerfile read-only, overrides the
 entrypoint, and does not test investigation or audit behavior.
 
+## Trusted Actions CLI Installation Acceptance
+
+The Boundary image builds `rta` from the nested TA module, not a released
+binary or the TA server image. `make test-github-dl` also collects its build,
+pipeline/provenance and final-image verifier contracts under `build/`.
+Run the separate module's focused CLI tests with:
+
+```bash
+cd components/trusted-actions
+go test ./internal/rta ./cmd/rta
+cd ../..
+```
+
+Build through `make build-amd64`, then run
+`make verify-image-tools TOOL_IMAGE=<built-image> TOOL_COMMIT=<expected-commit>`.
+For a modified checkout the expected commit includes `-dirty`. Without
+`TOOL_COMMIT`, the verifier compares against the image's OCI revision label;
+that is a consistency check, not independent source-provenance evidence.
+Both the Containerfile's offline final-stage check and this external check
+execute `rta --help` and `rta version -o json` as `sre`, verify the component
+version, Linux architecture, commit and static ELF linkage, and reject added
+toolchain/cache/source paths. RTA is not added to the six-tool inventory or the
+coding-agent pin list.
+
+Run `make verify-image-context TOOL_IMAGE=<built-image>` to test real Podman
+context filtering with synthetic included/ignored files. This creates an
+untagged local test image, uses no real credential files and does not publish.
+The test is opt-in in the normal build-helper suite.
+
+Keep existing architecture guards: a Go cross-build alone does not prove an
+arm64 Boundary image is supported. These checks make no API requests and do not
+prove ECS environment propagation, TA endpoint connectivity, authentication,
+authorization or audit behavior.
+
 ## Coding Agent Installation Acceptance
 
 Claude Code, OpenCode, the OpenAI Codex CLI and pi are pinned and updated under

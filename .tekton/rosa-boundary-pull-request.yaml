@@ -14,6 +14,7 @@ metadata:
     # .containerignore    - build context filter
     # build/              - multi-arch helper (platform_convert) and GitHub download helper
     # skel/               - skeleton user config (bashrc.d, .claude/, .local/bin/)
+    # components/trusted-actions/ - bundled CLI source, dependencies and version
     # .tekton/rosa-boundary-* - Boundary image pipeline definitions
     pipelinesascode.tekton.dev/on-cel-expression: |
       event == "pull_request" && target_branch == "main"
@@ -23,6 +24,7 @@ metadata:
         || x.matches('^\\.containerignore$')
         || x.matches('^build/')
         || x.matches('^skel/')
+        || x.matches('^components/trusted-actions/(cmd/rta/|internal/|go\\.(mod|sum)$|VERSION$)')
         || x.matches('^\\.tekton/rosa-boundary-')
       )
   labels:
@@ -246,6 +248,7 @@ spec:
       - name: BUILD_ARGS
         value:
         - $(params.build-args[*])
+        - RTA_COMMIT=$(tasks.clone-repository.results.commit)
       - name: PRIVILEGED_NESTED
         value: $(params.privileged-nested)
       - name: SOURCE_URL

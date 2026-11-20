@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline acceptance helper; mount build/ and Containerfile read-only, run as sre.
 
-Runtime: python3 /verify/verify_sre_tools.py runtime --containerfile /pins/Containerfile
+Runtime: python3 /verify/verify_sre_tools.py runtime --containerfile /pins/Containerfile --rta-version-file /pins/RTA_VERSION
 Reconcile: python3 build/verify_sre_tools.py compare amd64.json arm64.json --containerfile Containerfile
 Inventory ships at /usr/local/share/rosa-boundary/tool-versions.json.
 """
@@ -13,6 +13,7 @@ import platform
 import re
 import shutil
 import stat
+import struct
 import subprocess
 import tempfile
 
@@ -38,6 +39,8 @@ AGENT_PAYLOADS = {'claude': Path('/usr/local/lib/claude-code'),
                   'pi': Path('/usr/local/lib/pi')}
 AGENT_PATHS = {agent: Path('/usr/local/bin') / agent for agent in AGENTS}
 SEARCH_TOOLS = {'fd': 'FD_VERSION', 'rg': 'RIPGREP_VERSION'}
+RTA_PATH = Path('/usr/local/bin/rta')
+RTA_BUILD_PATHS = (Path('/usr/local/go'), Path('/go/pkg/mod'), Path('/src/trusted-actions'))
 
 
 def declared_pins(source, directive, names, value):
@@ -150,7 +153,70 @@ def elf_arch(path, arch):
         raise ValueError('wrong executable architecture: ' + str(path))
 
 
-def runtime(entries, expected, agents, search):
+def static_elf(path):
+    """Require a complete ELF64 little-endian program table without a loader."""
+    with path.open('rb') as binary:
+        size = os.fstat(binary.fileno()).st_size
+        header = binary.read(64)
+        if len(header) != 64 or header[:7] != b'\x7fELF\x02\x01\x01':
+            raise ValueError('invalid ELF64 little-endian header: ' + str(path))
+        fields = struct.unpack('<16sHHIQQQIHHHHHH', header)
+        phoff, ehsize, phentsize, phnum = fields[5], fields[8], fields[9], fields[10]
+        if (fields[3] != 1 or ehsize != 64 or phentsize != 56
+                or phnum in (0, 0xffff) or phoff < 64 or phoff + phnum * phentsize > size):
+            raise ValueError('invalid or truncated ELF program table: ' + str(path))
+        binary.seek(phoff)
+        headers = binary.read(phnum * phentsize)
+        if len(headers) != phnum * phentsize:
+            raise ValueError('truncated ELF program table: ' + str(path))
+        for kind, _, offset, _, _, filesz, _, _ in struct.iter_unpack('<IIQQQQQQ', headers):
+            if kind in (2, 3):
+                raise ValueError('dynamic ELF executable: ' + str(path))
+            if offset > size or filesz > size - offset:
+                raise ValueError('truncated ELF segment: ' + str(path))
+
+
+def accept_rta(version, arch, commit=None):
+    """Accept only the static in-tree CLI with exact, offline build metadata."""
+    version = version.strip()
+    if not version:
+        raise ValueError('empty rta VERSION')
+    elf_arch(RTA_PATH, arch)
+    static_elf(RTA_PATH)
+    if RTA_PATH.stat().st_mode & (stat.S_ISUID | stat.S_ISGID | stat.S_IWGRP | stat.S_IWOTH):
+        raise ValueError('elevated or writable rta executable')
+    for path in RTA_BUILD_PATHS:
+        if path.exists():
+            raise ValueError('rta build material remains: ' + str(path))
+    if shutil.which('go'):
+        raise ValueError('Go compiler remains on PATH')
+    with tempfile.TemporaryDirectory() as home:
+        options = dict(check=True, capture_output=True, text=True, timeout=30,
+                       stdin=subprocess.DEVNULL, cwd=home,
+                       env={'HOME': home, 'XDG_CONFIG_HOME': home,
+                            'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C',
+                            'AWS_EC2_METADATA_DISABLED': 'true',
+                            'HTTP_PROXY': 'http://127.0.0.1:9',
+                            'HTTPS_PROXY': 'http://127.0.0.1:9'})
+        result = subprocess.run([str(RTA_PATH), 'version', '-o', 'json'], **options)
+        info = json.loads(result.stdout)
+        if not isinstance(info, dict):
+            raise ValueError('rta version must return a JSON object')
+        if info.get('version') != version:
+            raise ValueError(f'rta: expected version {version}, got {info.get("version")}')
+        if info.get('platform') != 'linux/' + arch:
+            raise ValueError('wrong rta platform')
+        actual_commit = info.get('commit')
+        if not isinstance(actual_commit, str) or not re.fullmatch(r'(?:[a-f0-9]{40}(?:-dirty)?|unknown)', actual_commit):
+            raise ValueError('invalid rta commit')
+        if commit is not None and actual_commit != commit:
+            raise ValueError(f'rta: expected commit {commit}, got {actual_commit}')
+        if not isinstance(info.get('build_date'), str) or not info['build_date'].strip():
+            raise ValueError('missing rta build date')
+        subprocess.run([str(RTA_PATH), '--help'], **options)
+
+
+def runtime(entries, expected, agents, search, rta_version, rta_commit=None):
     if os.getuid() == 0:
         raise ValueError('runtime validation must run unprivileged')
     arch = {'x86_64': 'amd64', 'aarch64': 'arm64', 'arm64': 'arm64'}.get(platform.machine())
@@ -179,6 +245,7 @@ def runtime(entries, expected, agents, search):
     accept_agents(agents, arch)
     accept_search_tools(search, arch)
     accept_process_tools()
+    accept_rta(rta_version, arch, rta_commit)
 
 
 def compare(left, right, expected):
@@ -199,6 +266,8 @@ def main():
     run = sub.add_parser('runtime')
     run.add_argument('--inventory', type=Path, default=INVENTORY)
     run.add_argument('--containerfile', type=Path, required=True)
+    run.add_argument('--rta-version-file', type=Path, required=True)
+    run.add_argument('--rta-commit')
     pair = sub.add_parser('compare')
     pair.add_argument('amd64', type=Path)
     pair.add_argument('arm64', type=Path)
@@ -209,7 +278,8 @@ def main():
     elif args.command == 'runtime':
         runtime(json.loads(args.inventory.read_text()), pins(args.containerfile),
                 agent_pins(args.containerfile),
-                declared_pins(args.containerfile.read_text(), 'ENV', SEARCH_TOOLS, r'\d+\.\d+\.\d+'))
+                declared_pins(args.containerfile.read_text(), 'ENV', SEARCH_TOOLS, r'\d+\.\d+\.\d+'),
+                args.rta_version_file.read_text().strip(), args.rta_commit)
     else:
         compare(json.loads(args.amd64.read_text()), json.loads(args.arm64.read_text()), pins(args.containerfile))
 

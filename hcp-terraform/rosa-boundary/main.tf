@@ -14,6 +14,10 @@ provider "tfe" {
 }
 
 locals {
+  # Populate the same client hostname in every regional workspace.
+  # Regional private DNS/networking determines which TA endpoint it reaches.
+  rta_server_url = "https://rosa-trusted-actions.dev0.rosav1.devshift.net"
+
   # Pass this same configuration to account and regional roots. Destination
   # keys drive ECR; content metadata activates S3 only after replica bootstrap.
   replication_topology = {
@@ -448,6 +452,11 @@ module "rosa_boundary" {
           hcl      = true
         },
         {
+          key      = "rta_server_url"
+          value    = local.rta_server_url
+          category = "terraform"
+        },
+        {
           key      = "container_image"
           value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:7f041588fd65e2fb1b9a8871ea8d90f2d1b07dde"
           category = "terraform"
@@ -656,6 +665,11 @@ module "rosa_boundary" {
           value    = "[\"subnet-0d5fca0e91bca08c4\", \"subnet-01c983035ca092c38\"]"
           category = "terraform"
           hcl      = true
+        },
+        {
+          key      = "rta_server_url"
+          value    = local.rta_server_url
+          category = "terraform"
         },
         {
           key      = "container_image"
@@ -1101,6 +1115,11 @@ module "rosa_boundary" {
           hcl      = true
         },
         {
+          key      = "rta_server_url"
+          value    = local.rta_server_url
+          category = "terraform"
+        },
+        {
           key      = "container_image"
           value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:7f041588fd65e2fb1b9a8871ea8d90f2d1b07dde"
           category = "terraform"
@@ -1361,6 +1380,11 @@ module "rosa_boundary" {
           value    = "[\"subnet-00a1a8beebf302f1d\", \"subnet-02f15688a8ab8a8ab\"]"
           category = "terraform"
           hcl      = true
+        },
+        {
+          key      = "rta_server_url"
+          value    = local.rta_server_url
+          category = "terraform"
         },
         {
           key      = "container_image"

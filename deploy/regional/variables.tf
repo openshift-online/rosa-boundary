@@ -28,6 +28,29 @@ variable "aws_region" {
   type        = string
 }
 
+variable "rta_server_url" {
+  description = "Trusted Actions HTTPS origin for the investigation CLI, without an API path. Empty leaves RTA_SERVER unset. Configure only where private DNS, TLS and network access to that TA deployment are available."
+  type        = string
+  default     = ""
+  nullable    = false
+
+  validation {
+    condition = var.rta_server_url == "" || can(regex(
+      "^https://([A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?\\.)*[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(:[0-9]{1,5})?/?$",
+      var.rta_server_url
+    ))
+    error_message = "rta_server_url must be empty or an HTTPS DNS origin (optionally a port and trailing slash), with no credentials, API path, whitespace, query or fragment."
+  }
+
+  validation {
+    condition = alltrue([
+      for port in regexall(":([0-9]+)/?$", var.rta_server_url) :
+      tonumber(port[0]) >= 1 && tonumber(port[0]) <= 65535
+    ])
+    error_message = "rta_server_url port, if present, must be between 1 and 65535."
+  }
+}
+
 variable "bedrock_model_agreements" {
   description = "Foundation model agreements managed in this account and Region, keyed by foundation model ID with the approved offer ID as value."
   type        = map(string)

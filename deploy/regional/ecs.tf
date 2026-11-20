@@ -133,7 +133,7 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
           }
         ] : []
 
-        environment = [
+        environment = concat([
           {
             # ECS Exec does not inherit exports from the entrypoint process.
             # All agents need this in their SDK credential/region environment.
@@ -166,7 +166,14 @@ resource "aws_ecs_task_definition" "rosa_boundary" {
             name  = "KUBE_PROXY_PORT"
             value = tostring(var.kube_proxy_port)
           }
-        ]
+          ], var.rta_server_url == "" ? [] : [
+          {
+            # Task-definition env also reaches direct ECS Exec processes.
+            # RTA appends /api/v0/trusted-actions itself.
+            name  = "RTA_SERVER"
+            value = trimsuffix(var.rta_server_url, "/")
+          }
+        ])
 
         mountPoints = concat([
           for key, prefix in var.content_prefixes : {

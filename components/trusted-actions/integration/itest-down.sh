@@ -11,6 +11,7 @@ COMPOSE_FILE="$SCRIPT_DIR/podman-compose.yml"
 LOCALSTACK_CONTAINER="rosa-ta-localstack"
 DB_PATH="$SCRIPT_DIR/.trusted_actions.db"
 SERVER_LOG="$SCRIPT_DIR/.server.log"
+BOUNDARY_SERVER_LOG="$SCRIPT_DIR/.server-boundary.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -48,7 +49,7 @@ else
 fi
 
 # --- generated artifacts ---
-rm -f "$KUBECONFIG_PATH" "$DB_PATH" "$DB_PATH-shm" "$DB_PATH-wal" "$SERVER_LOG"
+rm -f "$KUBECONFIG_PATH" "$DB_PATH" "$DB_PATH-shm" "$DB_PATH-wal" "$SERVER_LOG" "$BOUNDARY_SERVER_LOG"
 ok "removed generated local artifacts"
 
 echo

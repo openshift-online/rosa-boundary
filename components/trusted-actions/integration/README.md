@@ -60,6 +60,14 @@ Setup:
     localstack, so the script seeds one of each first. Finally it submits a request with a
     param the resource does not accept and asserts the execution *fails* — the input
     validation is only worth having if it survives the whole HTTP path.
+  - **deployment-region boundary** — the server is then restarted with
+    `ROSA_TA_DEPLOYMENT_REGION` pinned to a different region (`eu-west-1`) while the static
+    provider still resolves every cluster to `AWS_REGION` (`us-east-1`). A kube `get` and an
+    `aws-get` are each submitted and must end `failed`: the executor's cross-cutting boundary
+    gate rejects any cluster whose region is outside the deployment's, for both scopes. The
+    denial reason is not persisted or exposed via the API yet (see `worker.Pool.process`), so
+    it is asserted against the restarted server's log (`.server-boundary.log`) for each
+    execution id.
 
   The server is stopped on exit either way. Requires `kind`, `go`, `curl`, `jq`, and `podman`
   on `PATH`.
@@ -85,7 +93,7 @@ implementation, so a green `itest-run` does not mean the whole AWS read surface 
   ```
 - `make itest-down` (or `./integration/itest-down.sh` directly) stops localstack, deletes the kind
   cluster, and removes the generated local artifacts (`.kind-kubeconfig`, `.trusted_actions.db`,
-  `.server.log`). Safe to run even if nothing is up.
+  `.server.log`, `.server-boundary.log`). Safe to run even if nothing is up.
 
 Reuse the existing `scripts/test-api.sh` / `make test-integration` pattern for broader API
 coverage rather than inventing a second, parallel integration-test concept.

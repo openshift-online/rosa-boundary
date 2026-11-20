@@ -268,7 +268,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 		}
 		return output.JSON(result)
 	}
-	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, startNoWait, startConnect); err != nil {
+	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, startNoWait, startConnect, outcome); err != nil {
 		return err
 	}
 	return nil
@@ -375,7 +375,15 @@ func noWaitCredentialWarning(sessionID, ecsCluster, region string) string {
 	return fmt.Sprintf("--no-wait launched session %q without OCM credentials; once RUNNING, configure them with: %s", sessionID, (ocmSetup{}).configureCommand(region, ecsCluster, sessionID))
 }
 
-func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait, connected bool) error {
+func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait, connected bool, outcome sessionCloseOutcome) error {
+	if outcome.Requested || outcome.Note != "" {
+		message := outcome.Note
+		if outcome.Requested {
+			message = "Investigation close requested; finalization is pending."
+		}
+		_, err := fmt.Fprintf(os.Stdout, "\nInteractive shell disconnected.\nCluster: %s\nInvestigation: %s\nSession ID: %s\n%s\n", clusterID, investigationID, sessionID, message)
+		return err
+	}
 	_, saved, err := config.ReadSavedProfile(selectedProfile)
 	if err != nil {
 		return fmt.Errorf("read saved profile for join suggestion: %w", err)

@@ -21,6 +21,12 @@ var (
 )
 
 func runJoinSession(cmd *cobra.Command, args []string) error {
+	return joinSession(cmd, args, resolveSessionCloseTarget, newCloseService)
+}
+
+func joinSession(cmd *cobra.Command, args []string,
+	resolveTarget func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error),
+	serviceFor func(*cobra.Command, *AuthResult) (closeService, error)) error {
 	if _, err := commandOutput(cmd); err != nil {
 		return err
 	}
@@ -63,41 +69,33 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 			return renewal
 		}
 	}
-	// Derive the investigation from the service's own task tags rather than
-	// from whatever was typed, and only when a close is actually in play.
-	resolveTarget := func() (sessionCloseTarget, error) {
-		return resolveSessionCloseTarget(cmd.Context(), ecsClient, sessionID)
+	// Check durable close state before registering intent or opening ECS Exec.
+	target, err := resolveTarget(cmd.Context(), ecsClient, sessionID)
+	if err != nil {
+		return err
 	}
-	newService := func() (closeService, error) { return newCloseService(cmd, authRes) }
-	var registered *sessionCloseTarget
-	var registeredWith closeService
+	newService := func() (closeService, error) { return serviceFor(cmd, authRes) }
+	service, err := newService()
+	if err != nil {
+		return fmt.Errorf("cannot verify close status; session was not joined: %w", err)
+	}
+	if err := requireOpenForJoin(cmd.Context(), service, target); err != nil {
+		return err
+	}
 	if autoCloseRequested {
-		target, err := resolveTarget()
-		if err != nil {
-			return err
-		}
-		service, err := newService()
-		if err != nil {
-			return fmt.Errorf("--auto-close could not be set up, so the session was not joined: %w", err)
-		}
 		if err := registerAutoCloseIntent(cmd.Context(), service, target); err != nil {
 			return err
 		}
-		registered, registeredWith = &target, service
-		resolveTarget = func() (sessionCloseTarget, error) { return target, nil }
 	}
-
 	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait, attachment); err != nil {
-		if registered != nil {
-			// The SRE asked to close when their session ended, not when it
-			// failed to start.
-			withdrawAutoCloseIntent(cmd.Context(), registeredWith, *registered)
+		if autoCloseRequested {
+			withdrawAutoCloseIntent(cmd.Context(), service, target)
 		}
 		return err
 	}
 
 	format, _ := commandOutput(cmd)
-	outcome := afterAttachedSession(cmd.Context(), newService, resolveTarget, format == "json")
+	outcome := afterAttachedSession(cmd.Context(), newService, func() (sessionCloseTarget, error) { return target, nil }, format == "json")
 	return disconnectedSessionResult(cmd, sessionID, outcome)
 }
 

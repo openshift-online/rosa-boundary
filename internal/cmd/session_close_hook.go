@@ -62,6 +62,23 @@ func resolveSessionCloseTarget(ctx context.Context, ecsClient *awsclient.ECSClie
 	return target, nil
 }
 
+// requireOpenForJoin is a best-effort admission check, not an ECS authorization fence.
+func requireOpenForJoin(ctx context.Context, service closeService, target sessionCloseTarget) error {
+	status, err := service.client.CloseStatus(ctx, service.idToken, lambda.CloseActionRequest{
+		ClusterID: target.ClusterID, InvestigationID: target.InvestigationID,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot verify close status for %s/%s; session was not joined: %w", target.ClusterID, target.InvestigationID, err)
+	}
+	if status == nil || status.ClusterID != target.ClusterID || status.InvestigationID != target.InvestigationID {
+		return fmt.Errorf("no matching close status for %s/%s; session was not joined", target.ClusterID, target.InvestigationID)
+	}
+	if status.Status != lambda.CloseStatusNone || status.OpenRequests != 0 || status.Seal != "none" || !status.AccessPointPresent {
+		return fmt.Errorf("investigation %s/%s is not open for join (close status: %s, seal: %s)", target.ClusterID, target.InvestigationID, status.Status, status.Seal)
+	}
+	return nil
+}
+
 func autoCloseStopScope() string {
 	if autoCloseStopAll {
 		return lambda.StopScopeInvestigation
@@ -149,9 +166,8 @@ type sessionCloseOutcome struct {
 // cancelled command, a timeout or a lost connection returns earlier and
 // preserves its own result. Nothing here closes anything directly; it records
 // a request the close service must still authorize.
-// resolveTarget and newClient are only called once a close is actually in
-// play, so a machine-readable run makes no extra API call and an ordinary join
-// never pays for a role assumption it does not need.
+// Resolve fresh close-service credentials after attachment, which may have
+// lasted longer than the credentials used for join admission.
 func afterAttachedSession(ctx context.Context, newService closeServiceFactory, resolveTarget func() (sessionCloseTarget, error), jsonOutput bool) sessionCloseOutcome {
 	trigger := lambda.TriggerSessionExitPrompt
 	scope := lambda.StopScopeSessionTask

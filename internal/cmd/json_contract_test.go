@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/openshift-online/rosa-boundary/internal/lambda"
+	"github.com/spf13/cobra"
+
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
 )
@@ -48,7 +51,11 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 				}
 				return tc.err
 			}
-			err := runJoinSession(cmd, []string{"task-1"})
+			target := hookTarget()
+			service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{{ClusterID: target.ClusterID, InvestigationID: target.InvestigationID, Status: lambda.CloseStatusNone, Seal: "none", AccessPointPresent: true}}}
+			err := joinSession(cmd, []string{target.SessionID},
+				func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error) { return target, nil },
+				func(*cobra.Command, *AuthResult) (closeService, error) { return service.service(), nil })
 			if tc.err != nil {
 				if err == nil || !strings.Contains(err.Error(), tc.err.Error()) || stdout.Len() != 0 {
 					t.Fatalf("error=%v stdout=%q", err, stdout.String())

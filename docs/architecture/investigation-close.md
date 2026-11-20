@@ -311,6 +311,8 @@ interpreted optimistically.
 
 ## CLI behaviour
 
+`session join` checks the investigation’s durable close status before attaching. A recorded request prevents rejoin through the updated CLI even before the reaper seals the workspace or stops the task. An unreadable status, missing access point, or seal also prevents join. After an accepted exit prompt, `session create` reports pending finalization rather than suggesting a rejoin. This check requires a backend supporting `close_status`; it does not revoke existing shells or enforce an atomic fence against concurrent attachment, older clients, or direct ECS Exec.
+
 ### `investigation close`
 
 Previews read-only (`--dry-run`), confirms unless `--yes`, then submits a

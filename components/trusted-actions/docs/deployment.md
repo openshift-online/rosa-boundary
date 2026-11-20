@@ -345,4 +345,6 @@ Each region's server also enforces a deployment-region boundary: an action
 targeting a cluster whose own OCM region differs from the deployment's is
 denied. That boundary (`ROSA_TA_DEPLOYMENT_REGION`) defaults to `AWS_REGION`
 (`var.aws_region` in the ECS task definition), which every regional root
-already sets, so adding a region needs no extra configuration for this check.
+already sets, so production leaves the override unset. Set
+`ROSA_TA_DEPLOYMENT_REGION` only when deliberately diverging — e.g. integration
+tests that pin a different boundary to prove out-of-region denial.

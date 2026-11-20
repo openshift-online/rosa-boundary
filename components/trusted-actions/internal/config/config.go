@@ -239,9 +239,9 @@ func Load(configFilePath string) (*Config, error) {
 
 		// AWS Configuration
 		AWSRegion: awsRegion,
-		// No fallback other than AWSRegion: which region a deployment is
-		// responsible for is either stated explicitly or inherited from the
-		// region it already runs in.
+		// Prod leaves ROSA_TA_DEPLOYMENT_REGION unset so this inherits
+		// AWS_REGION; an explicit value is for tests that need a different
+		// boundary. See DeploymentRegion.
 		DeploymentRegion:   getEnv("ROSA_TA_DEPLOYMENT_REGION", awsRegion),
 		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
 		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),

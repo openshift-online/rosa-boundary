@@ -378,13 +378,12 @@ module "rosa_trusted_actions" {
               allowed_secrets: []
             ocm:
               base_url: https://api.openshift.com
-              client_id: $${var.ocm_client_id}
+              client_id: ${var.ocm_client_id}
             backplane:
               base_url: https://api.backplane.openshift.com
-              client_id: $${var.backplane_client_id}
+              client_id: ${var.backplane_client_id}
             roles:
               - id: SREP
-                amsResource: BackplaneOsdSrepResource
               - id: ConfigurationAnomalyDetection
                 amsResource: BackplaneOsdCadResource
               - id: ROSAAiAgent

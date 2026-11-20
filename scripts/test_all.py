@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -44,13 +45,26 @@ class Runner:
         self.artifacts = artifacts
         self.results = []
 
-    def run(self, name, command, cwd=ROOT, env=None):
+    def run(self, name, command, cwd=ROOT, env=None, *, retry_module_download=False):
         log = self.artifacts / f"{len(self.results):02d}-{name.replace('/', '-')}.log"
         print(f"Running {name} ...", flush=True)
         try:
-            with log.open("w") as stream:
-                result = subprocess.run(command, cwd=cwd, env=env, stdout=stream, stderr=subprocess.STDOUT, check=False)
-            ok = result.returncode == 0
+            with log.open("w+") as stream:
+                for attempt in range(3):
+                    start = stream.tell()
+                    result = subprocess.run(command, cwd=cwd, env=env, stdout=stream, stderr=subprocess.STDOUT, check=False)
+                    ok = result.returncode == 0
+                    if ok or not retry_module_download or attempt == 2:
+                        break
+                    stream.seek(start)
+                    diagnostic = stream.read()
+                    if ("Error: Failed to download module" not in diagnostic
+                            or not re.search(r"bad response code: (502|503|504)\b", diagnostic)):
+                        break
+                    # Terraform init can be repeated in this disposable directory.
+                    # Keep every attempt (including the final failure) in its log.
+                    print("\nRetrying transient module download error ...", file=stream, flush=True)
+                    time.sleep(2 ** attempt)
         except OSError as error:
             log.write_text(str(error) + "\n")
             ok = False
@@ -134,7 +148,7 @@ def terraform_checks(runner, files):
         env.update(AWS_ACCESS_KEY_ID="test", AWS_SECRET_ACCESS_KEY="test", AWS_EC2_METADATA_DISABLED="true", AWS_ENDPOINT_URL="http://127.0.0.1:9")
         for module in roots:
             directory = snapshot / module
-            if not runner.run(f"terraform-init-{module}", ["terraform", "init", "-backend=false", "-input=false", "-no-color"], cwd=directory, env=env):
+            if not runner.run(f"terraform-init-{module}", ["terraform", "init", "-backend=false", "-input=false", "-no-color"], cwd=directory, env=env, retry_module_download=True):
                 runner.problem(f"terraform-checks-{module}", "blocked by initialization failure; validation/tests did not run")
                 continue
             runner.run(f"terraform-validate-{module}", ["terraform", "validate", "-no-color"], cwd=directory, env=env)

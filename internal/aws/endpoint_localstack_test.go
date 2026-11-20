@@ -1,6 +1,6 @@
 //go:build localstack
 
-package aws
+package aws_test
 
 import (
 	"context"
@@ -11,6 +11,9 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/lambda"
 )
 
 // Exercise the public constructors and STS exchange, not just endpoint parsing.
@@ -25,10 +28,11 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 		token        = "test-web-identity-token"
 		sessionName  = "endpoint-regression"
 	)
-	creds := &TemporaryCredentials{
+	creds := &aws.TemporaryCredentials{
+		Expiry:      time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
 		AccessKeyID: "test-access-key", SecretAccessKey: "test-secret-key", SessionToken: "test-session-token",
 	}
-	provider := StaticCredentialsProvider(creds)
+	provider := aws.StaticCredentialsProvider(creds)
 
 	for _, tc := range []struct {
 		name        string
@@ -57,7 +61,7 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 				}
 			},
 			call: func(ctx context.Context) error {
-				_, err := NewECSClient(region, cluster, provider).ListRunningTasks(ctx, "RUNNING")
+				_, err := aws.NewECSClient(region, cluster, provider).ListRunningTasks(ctx, "RUNNING")
 				return err
 			},
 		},
@@ -70,7 +74,29 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 				}
 			},
 			call: func(ctx context.Context) error {
-				_, err := NewEFSClient(region, filesystemID, provider).ListInvestigations(ctx, cluster)
+				_, err := aws.NewEFSClient(region, filesystemID, provider).ListInvestigations(ctx, cluster)
+				return err
+			},
+		},
+		{
+			name: "Lambda", method: http.MethodPost, path: "/2015-03-31/functions/test-function/invocations",
+			contentType: "application/json", response: `{"statusCode":200,"body":"{\"config\":{\"ecs_cluster_name\":\"stub-cluster\"}}"}`,
+			check: func(t *testing.T, r *http.Request) {
+				var event struct{ Body string }
+				if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+					t.Errorf("decode Lambda event: %v", err)
+					return
+				}
+				var input lambda.ConfigRequest
+				if err := json.Unmarshal([]byte(event.Body), &input); err != nil || input.Action != "get_config" {
+					t.Errorf("unexpected Lambda action %q (decode error: %v)", input.Action, err)
+				}
+			},
+			call: func(ctx context.Context) error {
+				got, err := lambda.New("test-function", region, provider).GetConfig(ctx)
+				if err == nil && (got == nil || got.ECSClusterName != "stub-cluster") {
+					return fmt.Errorf("Lambda did not return the stub config")
+				}
 				return err
 			},
 		},
@@ -93,7 +119,7 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 				}
 			},
 			call: func(ctx context.Context) error {
-				got, err := AssumeRoleWithWebIdentity(ctx, region, roleARN, token, sessionName)
+				got, err := aws.AssumeRoleWithWebIdentity(ctx, region, roleARN, token, sessionName)
 				if err == nil && (got == nil || *got != *creds) {
 					return fmt.Errorf("STS did not return the stub credentials")
 				}
@@ -130,7 +156,7 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 func TestIntegrationEndpointLocalOnly(t *testing.T) {
 	for _, endpoint := range []string{"http://localhost:4566", "http://127.0.0.1:4566", "http://[::1]:4566"} {
 		t.Setenv("LOCALSTACK_ENDPOINT", endpoint)
-		if got := integrationEndpoint(); got == nil || *got != endpoint {
+		if got := aws.IntegrationEndpoint(); got == nil || *got != endpoint {
 			t.Fatalf("expected loopback endpoint %q", endpoint)
 		}
 	}
@@ -145,7 +171,7 @@ func TestIntegrationEndpointRejectsFallbackAndRemote(t *testing.T) {
 					t.Error("test build must reject missing or remote endpoints")
 				}
 			}()
-			integrationEndpoint()
+			aws.IntegrationEndpoint()
 		})
 	}
 }

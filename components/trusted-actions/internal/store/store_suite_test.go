@@ -243,7 +243,7 @@ func testUpdateExecutionStatus(t *testing.T, s Store) {
 	}
 
 	completedAt := time.Now().UTC().Truncate(time.Microsecond)
-	if err := s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", &completedAt, nil); err != nil {
+	if err := s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", "", &completedAt, nil); err != nil {
 		t.Fatalf("UpdateExecutionWithResult failed: %v", err)
 	}
 
@@ -280,7 +280,7 @@ func testUpdateExecutionStatusAndOutput(t *testing.T, s Store) {
 		{"name": "object1", "data": "some data", "some-key": "some value"},
 		{"name": "object2", "data": "some other data", "secret": "can't say"},
 	}
-	g.Expect(s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", &completedAt, &models.ExecutionOutput{
+	g.Expect(s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", "", &completedAt, &models.ExecutionOutput{
 		Message:   "execution logs",
 		Resources: resources,
 	})).To(Succeed())
@@ -298,7 +298,7 @@ func testUpdateExecutionStatusAndOutput(t *testing.T, s Store) {
 
 func testUpdateExecutionStatusNotFound(t *testing.T, s Store) {
 	t.Helper()
-	err := s.UpdateExecutionWithResult(context.Background(), uuid.New(), "succeeded", nil, nil)
+	err := s.UpdateExecutionWithResult(context.Background(), uuid.New(), "succeeded", "", nil, nil)
 	if !strings.Contains(err.Error(), ErrNotFound.Error()) {
 		t.Errorf("expected ErrNotFound in error chain, got %v", err)
 	}

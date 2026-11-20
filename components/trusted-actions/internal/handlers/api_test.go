@@ -319,7 +319,7 @@ func TestAPIHandler_GetExecutionOutput_Found(t *testing.T) {
 			"secret": "can't say",
 		},
 	}
-	err = handler.store.UpdateExecutionWithResult(context.Background(), created.Id, "succeeded", nil, &models.ExecutionOutput{
+	err = handler.store.UpdateExecutionWithResult(context.Background(), created.Id, "succeeded", "", nil, &models.ExecutionOutput{
 		Message:   message,
 		Resources: resources,
 	})

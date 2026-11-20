@@ -21,6 +21,12 @@ var (
 )
 
 func runJoinSession(cmd *cobra.Command, args []string) error {
+	return joinSession(cmd, args, resolveSessionCloseTarget, newCloseService)
+}
+
+func joinSession(cmd *cobra.Command, args []string,
+	resolveTarget func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error),
+	serviceFor func(*cobra.Command, *AuthResult) (closeService, error)) error {
 	if _, err := commandOutput(cmd); err != nil {
 		return err
 	}
@@ -55,7 +61,7 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 			var renewal *ocmRenewal
 			if err == nil {
 				authorization := newRenewalAWS(cfg, authRes.Credentials, cfg.SRERoleARN, "rosa-boundary-session", authRes.IDToken, options)
-				renewal, err = prepareJoinOCM(ctx, ecsClient, authRes, sessionID, setup, authorization)
+				renewal, err = prepareJoinOCM(ctx, ecsClient, authRes, sessionID, setup, authorization, attachment.admit)
 			}
 			if err != nil && ctx.Err() == nil {
 				output.Warning("OCM setup was not confirmed: %v. To retry without renewal, run: %s", err, setup.configureCommand(cfg.AWSRegion, cfg.ClusterName, sessionID))
@@ -63,17 +69,46 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 			return renewal
 		}
 	}
-	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait, attachment); err != nil {
+	// Check durable close state before registering intent or opening ECS Exec.
+	target, err := resolveTarget(cmd.Context(), ecsClient, sessionID)
+	if err != nil {
 		return err
 	}
-	return disconnectedSessionResult(cmd, sessionID)
+	newService := func() (closeService, error) { return serviceFor(cmd, authRes) }
+	service, err := newService()
+	if err != nil {
+		return fmt.Errorf("cannot verify close status; session was not joined: %w", err)
+	}
+	attachment.admit = func(ctx context.Context) error { return requireOpenForJoin(ctx, service, target) }
+	if err := attachment.admit(cmd.Context()); err != nil {
+		return err
+	}
+	if autoCloseRequested {
+		if err := registerAutoCloseIntent(cmd.Context(), service, target); err != nil {
+			return err
+		}
+	}
+	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait, attachment); err != nil {
+		if autoCloseRequested {
+			withdrawAutoCloseIntent(cmd.Context(), service, target)
+		}
+		return err
+	}
+
+	format, _ := commandOutput(cmd)
+	outcome := afterAttachedSession(cmd.Context(), newService, func() (sessionCloseTarget, error) { return target, nil }, format == "json")
+	return disconnectedSessionResult(cmd, sessionID, outcome)
 }
 
 // disconnectedSessionResult is only printed after the ECS Exec shell exits
-// successfully. Disconnecting does not close the task or investigation.
-func disconnectedSessionResult(cmd *cobra.Command, sessionID string) error {
+// successfully. Disconnecting does not close the task, and a recorded close
+// request is not a completed close.
+func disconnectedSessionResult(cmd *cobra.Command, sessionID string, outcome sessionCloseOutcome) error {
 	if format, _ := commandOutput(cmd); format == "json" {
-		return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "session_id": sessionID, "status": "disconnected", "task_closed": false, "investigation_closed": false})
+		return output.JSONTo(cmd.OutOrStdout(), applyCloseOutcome(map[string]any{
+			"profile": selectedProfile, "session_id": sessionID, "status": "disconnected",
+			"task_closed": false,
+		}, outcome))
 	}
 	return nil
 }
@@ -100,11 +135,16 @@ func validateJoinOCM(cmd *cobra.Command) error {
 	return nil
 }
 
-func prepareJoinOCM(ctx context.Context, ecs *awsclient.ECSClient, authRes *AuthResult, sessionID string, setup ocmSetup, authorization *renewalAWS) (*ocmRenewal, error) {
+func prepareJoinOCM(ctx context.Context, ecs *awsclient.ECSClient, authRes *AuthResult, sessionID string, setup ocmSetup, authorization *renewalAWS, admit func(context.Context) error) (*ocmRenewal, error) {
 	cfg := authRes.Config
 	a := newAttachmentOCMAuth()
 	token, grant, err := acquireOCM(ctx, setup.environment, setup.flow, a)
 	if err != nil {
+		return nil, err
+	}
+	// Interactive authentication can outlast admission. Recheck before the helper Exec.
+	if err := admit(ctx); err != nil {
+		grant.Release()
 		return nil, err
 	}
 	// Shell readiness has already checked this same container and task.
@@ -112,6 +152,7 @@ func prepareJoinOCM(ctx context.Context, ecs *awsclient.ECSClient, authRes *Auth
 }
 
 type attachOCM struct {
+	admit   func(context.Context) error
 	renewal *ocmRenewal
 	setup   func(context.Context) *ocmRenewal
 }
@@ -160,6 +201,9 @@ func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, regio
 	}
 
 	output.Status("Session status: %s", task.Status)
+	if task.DesiredStatus != "RUNNING" {
+		return fmt.Errorf("session %s is not intended to run (desired status: %q); session was not joined", sessionID, task.DesiredStatus)
+	}
 
 	if task.Status != "RUNNING" {
 		if noWait {
@@ -191,6 +235,13 @@ func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, regio
 	}
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+
+	// Readiness waits and interactive OCM setup can outlast the first check.
+	if attachment.admit != nil {
+		if err := attachment.admit(ctx); err != nil {
+			return err
+		}
 	}
 
 	// Start ECS Exec session

@@ -23,9 +23,11 @@ with patch('boto3.client'):
 
 
 @pytest.fixture(autouse=True)
-def mock_aws_client_construction():
-    """Keep handler reloads independent of local AWS configuration."""
-    with patch("boto3.client"):
+def mock_aws_client_construction(monkeypatch):
+    monkeypatch.setenv('S3_AUDIT_BUCKET', 'test-audit')
+    monkeypatch.setenv('AWS_ACCOUNT_ID', '123456789012')
+    with patch('boto3.client') as client:
+        client.return_value.list_objects_v2.return_value = {'KeyCount': 0, 'IsTruncated': False}
         yield
 
 
@@ -207,17 +209,16 @@ class TestInputValidation:
 
     def test_invalid_special_characters(self):
         """Invalid identifiers with special characters."""
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("test; DROP TABLE;", "test_field")
+        for value in ("test; DROP TABLE;", "inv@123", "test/../../etc/passwd", "inv 123"):
+            with pytest.raises(ValueError, match="alphanumeric characters"):
+                handler.validate_identifier(value, "test_field")
 
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("inv@123", "test_field")
-
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("test/../../etc/passwd", "test_field")
-
-        with pytest.raises(ValueError, match="must contain only alphanumeric"):
-            handler.validate_identifier("inv 123", "test_field")
+    def test_identifier_must_start_with_a_letter_or_digit(self):
+        """An identifier the close and reap paths cannot represent in a key
+        must not become an investigation nobody can close."""
+        for value in ("_boundary-close", "-leading", "_private"):
+            with pytest.raises(ValueError, match="must start with a letter or digit"):
+                handler.validate_identifier(value, "test_field")
 
     def test_invalid_length(self):
         """Invalid identifiers that are too long or empty."""

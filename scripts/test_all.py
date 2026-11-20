@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -39,23 +40,54 @@ def junit_status(path):
     return "PASS", f"{len(cases)} tests recorded, none skipped"
 
 
+def transient_module_error(diagnostic):
+    """Summarize retryable init errors without echoing signed download URLs."""
+    for heading, pattern, stage in (
+        ('Error accessing remote module registry', r'\b(500|502|503|504) [A-Za-z ]+ returned from', 'module registry'),
+        ('Failed to download module', r'bad response code: (500|502|503|504)\b', 'module download'),
+    ):
+        if f'Error: {heading}' in diagnostic:
+            match = re.search(pattern, ' '.join(diagnostic.split()))
+            if match:
+                return f'{stage} HTTP {match[1]}'
+    return None
+
+
 class Runner:
     def __init__(self, artifacts):
         self.artifacts = artifacts
         self.results = []
 
-    def run(self, name, command, cwd=ROOT, env=None):
+    def run(self, name, command, cwd=ROOT, env=None, *, retry_module_download=False):
         log = self.artifacts / f"{len(self.results):02d}-{name.replace('/', '-')}.log"
         print(f"Running {name} ...", flush=True)
+        detail = None
         try:
-            with log.open("w") as stream:
-                result = subprocess.run(command, cwd=cwd, env=env, stdout=stream, stderr=subprocess.STDOUT, check=False)
-            ok = result.returncode == 0
+            with log.open("w+") as stream:
+                for attempt in range(3):
+                    start = stream.tell()
+                    result = subprocess.run(command, cwd=cwd, env=env, stdout=stream, stderr=subprocess.STDOUT, check=False)
+                    ok = result.returncode == 0
+                    detail = None
+                    if ok or not retry_module_download:
+                        break
+                    stream.seek(start)
+                    detail = transient_module_error(stream.read())
+                    if not detail or attempt == 2:
+                        break
+                    # Terraform init can be repeated in this disposable directory.
+                    # Keep every attempt (including the final failure) in its log.
+                    message = f'{detail}; retrying {name} (attempt {attempt + 2}/3)'
+                    print(message, flush=True)
+                    print('\n' + message, file=stream, flush=True)
+                    time.sleep(2 ** attempt)
         except OSError as error:
             log.write_text(str(error) + "\n")
             ok = False
         self.results.append({"name": name, "status": "PASS" if ok else "FAIL", "passed": ok, "log": str(log)})
-        print(f"  {'PASS' if ok else 'FAIL'}: {log}", flush=True)
+        if detail:
+            self.results[-1]['detail'] = detail
+        print(f"  {'PASS' if ok else 'FAIL'}{': ' + detail if detail else ''}: {log}", flush=True)
         return ok
 
     def report(self, name, status, message):
@@ -134,8 +166,8 @@ def terraform_checks(runner, files):
         env.update(AWS_ACCESS_KEY_ID="test", AWS_SECRET_ACCESS_KEY="test", AWS_EC2_METADATA_DISABLED="true", AWS_ENDPOINT_URL="http://127.0.0.1:9")
         for module in roots:
             directory = snapshot / module
-            if not runner.run(f"terraform-init-{module}", ["terraform", "init", "-backend=false", "-input=false", "-no-color"], cwd=directory, env=env):
-                runner.problem(f"terraform-checks-{module}", "blocked by initialization failure; validation/tests did not run")
+            if not runner.run(f"terraform-init-{module}", ["terraform", "init", "-backend=false", "-input=false", "-no-color"], cwd=directory, env=env, retry_module_download=True):
+                runner.report(f"terraform-checks-{module}", "BLOCKED", "validation/tests did not run because terraform init failed")
                 continue
             runner.run(f"terraform-validate-{module}", ["terraform", "validate", "-no-color"], cwd=directory, env=env)
             tests = list((directory / "tests").glob("*.tftest.hcl"))
@@ -218,7 +250,7 @@ def main():
             print("--require-complete: incomplete coverage makes this run nonzero.")
     print(f"Full logs: {artifacts}")
     print("Not included: deployments/publication, coverage/SARIF uploads, external CI scanners, or live AWS verification.")
-    return int(any(result["status"] == "FAIL" or (args.require_complete and result["status"] == "INCOMPLETE") for result in runner.results))
+    return int(any(result["status"] in ("FAIL", "BLOCKED") or (args.require_complete and result["status"] == "INCOMPLETE") for result in runner.results))
 
 
 if __name__ == "__main__":

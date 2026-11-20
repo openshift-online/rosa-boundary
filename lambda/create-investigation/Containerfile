@@ -127,7 +127,7 @@ COPY --chmod=0755 --from=builder /deps/ ${LAMBDA_TASK_ROOT}/
 
 # Copy the Lambda handler source. This layer is small and changes frequently,
 # so it sits after the dependency layer for optimal cache behaviour.
-COPY --chmod=0644 handler.py ${LAMBDA_TASK_ROOT}/
+COPY --chmod=0644 handler.py close_requests.py ${LAMBDA_TASK_ROOT}/
 
 # Ensure awslambdaric and all dependencies are importable from LAMBDA_TASK_ROOT.
 ENV PYTHONPATH=${LAMBDA_TASK_ROOT}

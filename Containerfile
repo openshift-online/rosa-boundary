@@ -382,7 +382,13 @@ RUN version="$(cat VERSION)" \
         -o /out/rta ./cmd/rta
 
 
-# Stage 10: final
+# Stage 10: immutable inputs for the offline final-image check.
+FROM scratch AS verify-inputs
+COPY Containerfile /verify-src/Containerfile
+COPY build/verify_sre_tools.py build/sre_tools.py /verify-src/build/
+COPY components/trusted-actions/VERSION /verify-src/components/trusted-actions/VERSION
+
+# Stage 11: final
 # Production image. Only this stage ships.
 FROM ${BASE_IMAGE} AS final
 
@@ -481,8 +487,7 @@ ENV HOME=/home/sre
 
 # Test the final filesystem offline as sre; helper and pins are read-only mounts,
 # not runtime contents. External acceptance must also reconcile both inventories.
-# Mount the context directory to avoid Buildah's single-file bind-mount issue.
-RUN --network=none --mount=type=bind,source=.,target=/verify-src,ro \
+RUN --network=none --mount=type=bind,from=verify-inputs,source=/verify-src,target=/verify-src,ro \
     runuser --user sre -- python3 /verify-src/build/verify_sre_tools.py runtime \
         --containerfile /verify-src/Containerfile \
         --rta-version-file /verify-src/components/trusted-actions/VERSION \

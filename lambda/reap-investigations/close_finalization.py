@@ -520,16 +520,13 @@ class Finalizer:
             if not stat.S_ISDIR(os.lstat(directory_path).st_mode):
                 raise Retained(records.STATUS_RETAINED,
                                'workspace is not a directory; cleanup refused', 'measure')
-            workspace_present = True
         except FileNotFoundError:
-            workspace_present = False
+            raise Retained(records.STATUS_RETAINED,
+                           'workspace directory is missing; cannot verify its contents', 'measure')
 
         attempt_id = str(uuid.uuid4())
         self._attempt_id = attempt_id
-        if workspace_present:
-            manifest, skipped = build_source_manifest(directory_path, context)
-        else:
-            manifest, skipped = [], []
+        manifest, skipped = build_source_manifest(directory_path, context)
 
         manifest_bytes = json.dumps(manifest, sort_keys=True,
                                             separators=(',', ':')).encode('utf-8')
@@ -542,7 +539,7 @@ class Finalizer:
             'investigation_id': investigation_id,
             'seal': seal,
             'request_token': request_token,
-            'workspace_present': workspace_present,
+            'workspace_present': True,
             'file_count': len(manifest),
             'skipped': skipped,
             'manifest_sha256': hashlib.sha256(manifest_bytes).hexdigest(),
@@ -558,9 +555,7 @@ class Finalizer:
             raise Retained(records.STATUS_VERIFYING, 'not enough runtime left to copy',
                            'copy', retryable=True)
         destination_uri = self.copy_workspace(access_point_id, attempt_id, directory_path,
-                                              manifest, context) if workspace_present else (
-            f's3://{self.audit_bucket}/'
-            f'{records.attempt_workspace_prefix(access_point_id, attempt_id)}')
+                                              manifest, context)
         evidence = self.verify_copy(destination_uri, manifest_bytes)
 
         # 5. Re-measure the source and re-enumerate tasks. A difference, a new
@@ -571,10 +566,9 @@ class Finalizer:
             raise AttemptInvalid(f'final recheck inconclusive: {final_observation["reason"]}')
         if sessions.nonterminal_task_ids(final_observation):
             raise AttemptInvalid('a task was observed after the workspace was copied')
-        if workspace_present:
-            recheck, _ = build_source_manifest(directory_path, context)
-            if recheck != manifest:
-                raise AttemptInvalid('the workspace changed while it was being copied')
+        recheck, _ = build_source_manifest(directory_path, context)
+        if recheck != manifest:
+            raise AttemptInvalid('the workspace changed while it was being copied')
 
         verification_document = {
             'schema_version': records.RECEIPT_SCHEMA_VERSION,
@@ -608,7 +602,7 @@ class Finalizer:
         # 7. Clean up what this route is allowed to clean up, then publish a
         #    receipt describing exactly what happened.
         cleanup = self.cleanup(cluster_id, investigation_id, access_point_id, directory_path,
-                               mode, workspace_present, context)
+                               mode)
         self._cleanup = cleanup
         receipt = self.publish_receipt(cluster_id, investigation_id, access_point, seal,
                                        request_token, attempt_id, evidence,
@@ -627,8 +621,7 @@ class Finalizer:
             observations=[_observation_summary(initial), _observation_summary(quiet),
                           _observation_summary(final_observation)])
 
-    def cleanup(self, cluster_id, investigation_id, access_point_id, directory_path, mode,
-                workspace_present, context):
+    def cleanup(self, cluster_id, investigation_id, access_point_id, directory_path, mode):
         """Remove what the route permits, recording each step separately.
 
         Normal close retains the EFS directory: reclaiming it is a separate,
@@ -639,7 +632,7 @@ class Finalizer:
                   'task_definitions_removed': 0, 'complete': True, 'reason': ''}
         reasons = []
 
-        if mode == 'stale' and workspace_present:
+        if mode == 'stale':
             if not self.stale_reclaim:
                 reasons.append('directory reclamation is disabled; the workspace is retained')
             else:
@@ -650,8 +643,6 @@ class Finalizer:
                     result['complete'] = False
                     reasons.append('the workspace directory could not be removed; the '
                                    'verified copy and evidence are kept')
-        elif mode == 'stale':
-            result['directory_retained'] = False
         else:
             reasons.append('normal close retains the EFS directory')
 

@@ -102,7 +102,7 @@ func withdrawAutoCloseIntent(ctx context.Context, service closeService, target s
 		InvestigationID: target.InvestigationID,
 		TaskID:          target.SessionID,
 	}); err != nil {
-		output.Warning("the auto-close intent for %s/%s could not be withdrawn after the session failed to attach; withdraw it with 'rosa-boundary session join %s --auto-close=false' or let the close service supersede it: %v",
+		output.Warning("the auto-close intent for %s/%s could not be withdrawn after the session failed to attach; the intent for session %s may still take effect when its task stops: %v",
 			target.ClusterID, target.InvestigationID, target.SessionID, err)
 	}
 }
@@ -175,14 +175,14 @@ func afterAttachedSession(ctx context.Context, newService closeServiceFactory, r
 	}
 	service, serviceErr := newService()
 	if serviceErr != nil {
-		output.Warning("close was not requested for %s/%s: the close service is unavailable (%v); the investigation stays open",
+		output.Warning("close was not requested for %s/%s: the close service is unavailable (%v)",
 			target.ClusterID, target.InvestigationID, serviceErr)
-		return sessionCloseOutcome{Note: "the close service is unavailable; the investigation stays open"}
+		return sessionCloseOutcome{Note: "the close service is unavailable"}
 	}
 	if service.client == nil {
-		output.Warning("close was not requested for %s/%s: this profile has no close service configured; the investigation stays open",
+		output.Warning("close was not requested for %s/%s: this profile has no close service configured",
 			target.ClusterID, target.InvestigationID)
-		return sessionCloseOutcome{Note: "the close service is not configured; the investigation stays open"}
+		return sessionCloseOutcome{Note: "the close service is not configured"}
 	}
 	stopTasks := []string{target.SessionID}
 	if scope == lambda.StopScopeInvestigation {
@@ -198,9 +198,9 @@ func afterAttachedSession(ctx context.Context, newService closeServiceFactory, r
 	if requestErr != nil {
 		// The session itself succeeded; say exactly what is unresolved rather
 		// than turning a close failure into a session failure.
-		output.Warning("close was not requested for %s/%s: %v; the investigation stays open and can be closed with 'rosa-boundary investigation close %s %s'",
+		output.Warning("close request outcome is unknown for %s/%s: %v; before retrying check 'rosa-boundary investigation close %s %s --dry-run'",
 			target.ClusterID, target.InvestigationID, requestErr, target.ClusterID, target.InvestigationID)
-		return sessionCloseOutcome{Note: "close request failed; the investigation stays open"}
+		return sessionCloseOutcome{Note: "close request outcome unknown; check status before retrying"}
 	}
 	output.Status("Close requested for %s/%s (request %s). Accepted is not closed: the close service verifies the backup first.",
 		target.ClusterID, target.InvestigationID, accepted.RequestToken)

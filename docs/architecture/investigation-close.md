@@ -362,6 +362,7 @@ session.
 | `waiting_for_tasks` | a task outside the consented stop scope is running | stop it, or resubmit with wider consent from an eligible SRE |
 | `retained` after a handover | the request was superseded | submit a fresh request from the current holder |
 | `retained` with a verification reason | the attempt could not be trusted | the data is intact and the status is marked retryable; the next pass starts a new attempt. Investigate repeated failures before forcing anything |
+| `retained` because the directory is missing | the reaper could not measure a source at the expected EFS path | investigate the mount and workspace disposition before requesting close again; a missing directory is not a verified empty directory |
 | `retained` with a manual seal | a retention hold is in place | review the hold; it is deliberately not removed automatically |
 | `cleanup_incomplete` | the evidence is good, a cleanup step is not | the status names what remains; retry against the same identity |
 

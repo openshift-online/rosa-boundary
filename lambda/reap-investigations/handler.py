@@ -497,6 +497,12 @@ def finalize_one(finalizer, cluster_id: str, investigation_id: str,
             reason='no managed access point exists for this workspace',
             request_token=request['request_token'])
         return False
+    if access_point['id'] != request['access_point_id']:
+        finalizer.write_status(cluster_id, investigation_id, records.STATUS_RETAINED, phase='resolve',
+                               reason='access point changed since this close request was recorded',
+                               request_token=request['request_token'],
+                               access_point_id=request['access_point_id'])
+        return False
     status = finalizer.finalize(cluster_id=cluster_id, investigation_id=investigation_id,
                                 access_point=access_point, request=request, mode=mode,
                                 context=context)

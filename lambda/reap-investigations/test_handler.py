@@ -531,6 +531,15 @@ class TestCloseWorkOrchestration(unittest.TestCase):
                         if call.args[1] == records.KIND_STATUS]
         self.assertEqual(len(status_reads), 1)
 
+    def test_a_request_does_not_follow_the_name_to_a_replacement_access_point(self):
+        self.queue(self.request_record())
+        self.finalizer.find_access_point.return_value = {'id': 'fsap-11111111'}
+        handler.process_close_work(self.context)
+        self.finalizer.finalize.assert_not_called()
+        status = self.finalizer.write_status.call_args
+        self.assertEqual(status.args[2], records.STATUS_RETAINED)
+        self.assertEqual(status.kwargs['access_point_id'], 'fsap-00000000')
+
     def test_a_missing_workspace_records_a_terminal_status(self):
         self.queue(self.request_record())
         self.finalizer.find_access_point.return_value = None

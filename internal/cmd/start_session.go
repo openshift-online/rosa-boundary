@@ -218,6 +218,10 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 	ecsCluster, clusterID, investigationID, sessionID, region string, lambdaResp *lambda.InvestigationResponse,
 	roleARN string, configureOCM bool, credentialWarning string, timings sessionStartupTimings,
 	renewal *ocmRenewal, newService closeServiceFactory) error {
+	// Also release the grant if intent registration fails before attachment.
+	if renewal != nil {
+		defer renewal.grant.Release()
+	}
 	target := sessionCloseTarget{ClusterID: clusterID, InvestigationID: investigationID, SessionID: sessionID}
 	outcome := sessionCloseOutcome{}
 	// Auto-connect after the credential attempt; a warning leaves the task
@@ -249,8 +253,6 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 		}
 		outcome = afterAttachedSession(cmd.Context(), newService,
 			func() (sessionCloseTarget, error) { return target, nil }, startOutputFormat == "json")
-	} else if renewal != nil {
-		renewal.grant.Release()
 	}
 
 	if startOutputFormat == "json" {

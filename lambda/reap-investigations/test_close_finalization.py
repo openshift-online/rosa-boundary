@@ -252,14 +252,16 @@ class TestHappyPath(FinalizerCase):
             ACCESS_POINT, status['attempt_id'], 'source-manifest.json'))
         self.assertEqual(manifest['entries'], [])
 
-    def test_a_missing_workspace_directory_is_recorded_not_invented(self):
+    def test_a_missing_workspace_is_not_a_verified_empty_backup(self):
         import shutil
         shutil.rmtree(self.workspace)
-        status = self.finalize()
-        self.assertEqual(status['status'], records.STATUS_COMPLETED)
-        manifest = self.s3.json_at(records.attempt_evidence_key(
-            ACCESS_POINT, status['attempt_id'], 'source-manifest.json'))
-        self.assertFalse(manifest['workspace_present'])
+        for mode in ('request', 'stale'):
+            with self.subTest(mode=mode):
+                status = self.finalize(mode=mode)
+                self.assertEqual(status['status'], records.STATUS_RETAINED)
+                self.assertIn('directory is missing', status['reason'])
+                self.efs.delete_access_point.assert_not_called()
+                self.assertFalse(self.s3.keys_under(f'_boundary-close/{ACCESS_POINT}/'))
 
 
 class TestAuthorization(FinalizerCase):

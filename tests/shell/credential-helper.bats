@@ -16,7 +16,11 @@ STUB
     cat >"${STUBS}/ocm" <<'STUB'
 #!/bin/bash
 if [[ "${OCM_TEST_RESULT:-success}" == success ]]; then
-    jq --exit-status '.access_token != "" and .url != ""' "${OCM_CONFIG}" >/dev/null
+    jq --exit-status '.access_token != "" and .url != ""' "${OCM_CONFIG}" >/dev/null || exit 1
+    if [[ -n "${OCM_TEST_GATE:-}" ]]; then
+        touch "${OCM_TEST_GATE}.ready"
+        read -r _ <"${OCM_TEST_GATE}"
+    fi
 else
     printf 'sensitive account response\n'
     exit 1
@@ -36,12 +40,25 @@ request() {
 run_configure() {
     local encoded_request="$1"
     shift
-    run env PATH="${STUBS}:${PATH}" "$@" bash -c '
+    run credential_op "${encoded_request}" configure "$@"
+}
+
+credential_op() {
+    local encoded="$1" operation="$2"
+    shift 2
+    env PATH="${STUBS}:${PATH}" "$@" bash -c '
         source "$1"
         OCM_CONFIG_DIR="$2"
         KUBECONFIG_DIR="$3"
-        configure_ocm
-    ' bash "${HELPER}" "${OCM_DIR}" "${KUBE_DIR}" <<<"${encoded_request}"
+        main "$4" ocm
+    ' bash "${HELPER}" "${OCM_DIR}" "${KUBE_DIR}" "${operation}" <<<"${encoded}"
+}
+
+generation_request() {
+    jq -cn --arg token "$1" --arg gen "$2" --arg expected "${3:-}" '
+        {access_token: $token, url: "https://api.openshift.com", generation: $gen} +
+        (if $expected == "" then {} else {expected_generation: $expected} end)
+    ' | base64 --wrap=0
 }
 
 run_clear() {
@@ -69,7 +86,7 @@ run_clear() {
     run_configure "${encoded}"
 
     [ "${status}" -eq 0 ]
-    [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"* ]]
+    [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_GENERATIONS_V1__"*"__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"* ]]
     [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
     [[ "${output}" != *"${token}"* ]]
     [[ "${output}" != *"${encoded}"* ]]
@@ -94,7 +111,7 @@ run_clear() {
 }
 
 @test "configure rejects malformed and non-object JSON" {
-    for body in '{' '[]' '"value"'; do
+    for body in '{' '[]' '"value"' '{"access_token":"a","url":"https://api.openshift.com"} {"access_token":"b","url":"https://api.openshift.com"}'; do
         run_configure "$(printf '%s' "${body}" | base64 --wrap=0)"
         [ "${status}" -ne 0 ]
         [ ! -e "${OCM_DIR}/ocm.json" ]
@@ -124,7 +141,7 @@ run_clear() {
         [ "$(jq --raw-output .url "${OCM_DIR}/ocm.json")" = "${url}" ]
     done
 
-    for url in production http://api.openshift.com https://attacker.example; do
+    for url in production http://api.openshift.com https://attacker.example $'https://api.openshift.com\n'; do
         run_configure "$(request token "${url}")"
         [ "${status}" -ne 0 ]
     done
@@ -158,7 +175,7 @@ STUB
     [ "$(cat "${OCM_DIR}/ocm.json")" = '{"access_token":"old-working-token"}' ]
     [[ "${output}" == *"unable to install OCM configuration"* ]]
     [[ "${output}" != *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
-    [ -z "$(find "${OCM_DIR}" -name '.rosa-boundary-credential-*' -print -quit)" ]
+    [ -z "$(find "${OCM_DIR}" -name '.rosa-boundary-credential-*' ! -name '.rosa-boundary-credential-lock' -print -quit)" ]
 }
 
 @test "configure bounds request input and restores terminal echo" {
@@ -185,7 +202,7 @@ STUB
             source "$1"
             OCM_CONFIG_DIR="$2"
             KUBECONFIG_DIR="$3"
-            configure_ocm
+            main configure ocm
         '\'' bash "$2" "$3" "$4" <"$1"
         result=$?
         kill "${writer}" 2>/dev/null || true
@@ -206,9 +223,61 @@ STUB
     run_clear
     [ "${status}" -eq 0 ]
     [ "${output}" = __ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__ ]
-    [ -z "$(find "${OCM_DIR}" -type f -print -quit)" ]
+    [ -z "$(find "${OCM_DIR}" -type f ! -name '.rosa-boundary-credential-lock' -print -quit)" ]
     [ ! -e "${KUBE_DIR}/config" ]
 
     run_clear
     [ "${status}" -eq 0 ]
+}
+
+@test "renew installs only the current generation and strips metadata" {
+    first=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    next=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    last=cccccccccccccccccccccccccccccccc
+    run_configure "$(generation_request initial-token "${first}")"
+    [ "${status}" -eq 0 ]
+    run credential_op "$(generation_request bad-token "${next}" "${first}")" renew OCM_TEST_RESULT=failure
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *bad-token* ]]
+    [ "$(jq -r .access_token "${OCM_DIR}/ocm.json")" = initial-token ]
+    run credential_op "$(generation_request renewed-token "${next}" "${first}")" renew
+    [ "${status}" -eq 0 ]
+    [[ "${output}" != *renewed-token* ]]
+    jq -e '.access_token == "renewed-token" and (has("generation") | not)' "${OCM_DIR}/ocm.json"
+    run credential_op "$(generation_request stale-token "${last}" "${first}")" renew
+    [ "${status}" -ne 0 ]
+    [[ "${output}" == *"generation changed"* ]]
+    [ "$(jq -r .access_token "${OCM_DIR}/ocm.json")" = renewed-token ]
+    run_configure "$(request manual-token)"
+    [ "${status}" -eq 0 ]
+    run credential_op "$(generation_request stale-token "${last}" "${next}")" renew
+    [ "${status}" -ne 0 ]
+    [ "$(jq -r .access_token "${OCM_DIR}/ocm.json")" = manual-token ]
+}
+
+@test "clear wins while a renewal is validating" {
+    first=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    next=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    run_configure "$(generation_request initial-token "${first}")"
+    [ "${status}" -eq 0 ]
+    gate="${TEST_ROOT}/release"
+    mkfifo "${gate}"
+    credential_op "$(generation_request delayed-token "${next}" "${first}")" renew OCM_TEST_GATE="${gate}" >"${TEST_ROOT}/renew.log" 2>&1 &
+    worker=$!
+    for ((i = 0; i < 100; ++i)); do
+        [[ -f "${gate}.ready" ]] && break
+        sleep 0.02
+    done
+    if [[ ! -f "${gate}.ready" ]]; then
+        kill "${worker}" 2>/dev/null || true
+        wait "${worker}" || true
+        return 1
+    fi
+    run_clear
+    printf 'continue\n' >"${gate}"
+    [ "${status}" -eq 0 ]
+    ! wait "${worker}"
+    [ ! -e "${OCM_DIR}/ocm.json" ]
+    grep -q 'generation changed' "${TEST_ROOT}/renew.log"
+    ! grep -Eq 'delayed-token|SUCCESS__' "${TEST_ROOT}/renew.log"
 }

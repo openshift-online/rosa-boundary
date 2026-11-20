@@ -3,11 +3,13 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -88,6 +90,90 @@ func TestListOwnedRunningCredentialTasksUsesActualStatusAndOwner(t *testing.T) {
 	if _, err := client.ListOwnedRunningCredentialTasks(context.Background(), ""); err == nil {
 		t.Fatal("empty owner was accepted")
 	}
+}
+
+func TestExecuteCommandRetriesNotConnectedAfterAgentRunning(t *testing.T) {
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		switch req.Header.Get("X-Amz-Target") {
+		case "AmazonEC2ContainerServiceV20141113.DescribeTasks":
+			_, _ = w.Write([]byte(`{"tasks":[{"containers":[{"name":"rosa-boundary","runtimeId":"runtime-id","managedAgents":[{"name":"ExecuteCommandAgent","lastStatus":"RUNNING"}]}]}]}`))
+		case "AmazonEC2ContainerServiceV20141113.ExecuteCommand":
+			var input struct{ Task, Container, Command string }
+			if err := json.NewDecoder(req.Body).Decode(&input); err != nil || input.Task != "task-id" || input.Container != "rosa-boundary" || input.Command != "credential-helper configure ocm" {
+				t.Error("ExecuteCommand targeted the wrong task, container or command")
+			}
+			if attempts.Add(1) == 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"__type":"TargetNotConnectedException","message":"target not connected"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"session":{"sessionId":"opened-once"}}`))
+		default:
+			t.Error("unexpected ECS operation")
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+	client := testInvestigationECSClient(server.URL)
+	ctx := context.Background()
+	if err := client.WaitForExecAgent(ctx, "task-id", "rosa-boundary", time.Second); err != nil {
+		t.Fatal(err)
+	}
+	session, err := client.ExecuteCommand(ctx, "task-id", "rosa-boundary", "credential-helper configure ocm")
+	if err != nil || session.SessionID != "opened-once" || attempts.Load() != 2 {
+		t.Fatalf("expected transient rejection followed by one session, attempts=%d: %v", attempts.Load(), err)
+	}
+}
+
+func TestExecuteCommandDoesNotRetryUnknownOutcome(t *testing.T) {
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.Header().Set("Content-Type", "application/x-amz-json-1.1")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"__type":"ServerException","message":"unknown outcome"}`))
+	}))
+	defer server.Close()
+	client := testInvestigationECSClient(server.URL)
+	if _, err := client.ExecuteCommand(context.Background(), "task-id", "rosa-boundary", "shell"); err == nil || attempts.Load() != 1 {
+		t.Fatalf("expected one attempt and failure, attempts=%d: %v", attempts.Load(), err)
+	}
+}
+
+func TestExecuteWhenTargetConnectedBoundsRetries(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		start := time.Now()
+		calls := 0
+		_, err := executeWhenTargetConnected(context.Background(), func(context.Context) (*ecs.ExecuteCommandOutput, error) {
+			calls++
+			return nil, &types.TargetNotConnectedException{}
+		})
+		var disconnected *types.TargetNotConnectedException
+		if !errors.As(err, &disconnected) || time.Since(start) != execTargetConnectTimeout || calls <= 1 || calls > 12 {
+			t.Fatalf("unexpected retry budget: elapsed=%s calls=%d error=%v", time.Since(start), calls, err)
+		}
+	})
+}
+
+func TestExecuteWhenTargetConnectedStopsBackoffOnCancellation(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			cancel()
+		}()
+		calls := 0
+		_, err := executeWhenTargetConnected(ctx, func(context.Context) (*ecs.ExecuteCommandOutput, error) {
+			calls++
+			return nil, &types.TargetNotConnectedException{}
+		})
+		if !errors.Is(err, context.Canceled) || calls != 1 {
+			t.Fatalf("expected cancellation before retry: calls=%d error=%v", calls, err)
+		}
+	})
 }
 
 func TestECSExecTargetAcceptsShortIDAndARN(t *testing.T) {

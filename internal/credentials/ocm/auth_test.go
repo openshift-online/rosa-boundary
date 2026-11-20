@@ -141,6 +141,25 @@ func (failingListener) Accept() (net.Conn, error) { return nil, errors.New("acce
 func (failingListener) Close() error              { return nil }
 func (failingListener) Addr() net.Addr            { return &net.TCPAddr{} }
 
+func TestAcquireAuthCodeSharesDeadlineWithBrowser(t *testing.T) {
+	a := NewAuthenticator(nil)
+	a.Timeout = 20 * time.Millisecond
+	a.Listen = func(string, string) (net.Listener, error) { return net.Listen("tcp", "127.0.0.1:0") }
+	a.OpenBrowser = func(ctx context.Context, _ string) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
+			t.Fatal("browser opener did not receive the authorization deadline")
+			return nil
+		}
+	}
+	_, err := a.Acquire(context.Background(), FlowAuthCode)
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "timed out waiting for callback") {
+		t.Fatalf("authorization timeout: %v", err)
+	}
+}
+
 func TestAcquireAuthCodeReturnsCallbackServerErrors(t *testing.T) {
 	authenticator := NewAuthenticator(nil)
 	authenticator.Listen = func(string, string) (net.Listener, error) { return failingListener{}, nil }

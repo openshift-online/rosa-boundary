@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/skratchdot/open-golang/open"
+	"github.com/openshift-online/rosa-boundary/internal/auth"
 	"golang.org/x/oauth2"
 )
 
@@ -35,7 +35,7 @@ type Token struct {
 // Authenticator owns the local side effects used by OCM OAuth.
 type Authenticator struct {
 	HTTPClient  *http.Client
-	OpenBrowser func(string) error
+	OpenBrowser func(context.Context, string) error
 	Listen      func(network, address string) (net.Listener, error)
 	Status      func(format string, args ...any)
 	Debug       func(format string, args ...any) error
@@ -46,7 +46,7 @@ type Authenticator struct {
 func NewAuthenticator(status func(string, ...any)) *Authenticator {
 	return &Authenticator{
 		HTTPClient:  http.DefaultClient,
-		OpenBrowser: openBrowser,
+		OpenBrowser: auth.OpenBrowser,
 		Listen:      net.Listen,
 		Status:      status,
 		Timeout:     5 * time.Minute,
@@ -55,14 +55,76 @@ func NewAuthenticator(status func(string, ...any)) *Authenticator {
 
 // Acquire obtains a newly issued access token without reading or writing a cache.
 func (a *Authenticator) Acquire(ctx context.Context, flow Flow) (Token, error) {
+	return a.acquire(ctx, flow, nil)
+}
+
+// AttachmentGrant is an online refresh grant held only by the attached CLI.
+// It must never be serialized or passed to the credential transfer layer.
+type AttachmentGrant struct {
+	refresh string
+}
+
+func (g *AttachmentGrant) Available() bool { return g != nil && g.refresh != "" }
+func (g *AttachmentGrant) Release() {
+	if g != nil {
+		g.refresh = ""
+	}
+}
+
+// AcquireForAttachment makes the same online-only request as Acquire, but
+// retains a refresh grant if the provider supplies one.
+func (a *Authenticator) AcquireForAttachment(ctx context.Context, flow Flow) (Token, *AttachmentGrant, error) {
+	grant := &AttachmentGrant{}
+	token, err := a.acquire(ctx, flow, grant)
+	if err != nil {
+		grant.Release()
+		return Token{}, nil, err
+	}
+	return token, grant, nil
+}
+
+// RefreshTimeout bounds one online exchange and is used by renewal scheduling.
+const RefreshTimeout = 20 * time.Second
+
+// Refresh performs one bounded exchange, never an interactive fallback. Force
+// an exchange by seeding the token source with no access token.
+func (a *Authenticator) Refresh(ctx context.Context, grant *AttachmentGrant) (Token, error) {
+	if !grant.Available() {
+		return Token{}, errors.New("OCM did not issue an online refresh grant")
+	}
+	ctx, cancel := context.WithTimeout(ctx, RefreshTimeout)
+	defer cancel()
+	client := a.HTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	noRedirect := *client
+	noRedirect.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &noRedirect)
+	cfg := a.oauthConfig()
+	cfg.Endpoint.AuthStyle = oauth2.AuthStyleInParams
+	response, err := cfg.TokenSource(ctx, &oauth2.Token{RefreshToken: grant.refresh}).Token()
+	if err != nil {
+		return Token{}, ocmAuthError("OCM online refresh failed", err, ctx, time.Time{})
+	}
+	return attachmentToken(response, grant)
+}
+
+func (a *Authenticator) acquire(ctx context.Context, flow Flow, grant *AttachmentGrant) (Token, error) {
+	timeout := a.Timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 	if flow != FlowAuthCode && flow != FlowDevice {
 		return Token{}, fmt.Errorf("unsupported OCM authentication flow %q; use auth-code or device", flow)
 	}
 	switch flow {
 	case FlowAuthCode:
-		return a.acquireAuthCode(ctx)
+		return a.acquireAuthCode(ctx, grant)
 	default:
-		return a.acquireDevice(ctx)
+		return a.acquireDevice(ctx, grant)
 	}
 }
 
@@ -87,7 +149,7 @@ func (a *Authenticator) oauthContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, oauth2.HTTPClient, client)
 }
 
-func (a *Authenticator) acquireDevice(ctx context.Context) (Token, error) {
+func (a *Authenticator) acquireDevice(ctx context.Context, grant *AttachmentGrant) (Token, error) {
 	ctx = a.oauthContext(ctx)
 	config := a.oauthConfig()
 	verifier := oauth2.GenerateVerifier()
@@ -126,7 +188,7 @@ func (a *Authenticator) acquireDevice(ctx context.Context) (Token, error) {
 		}
 		return Token{}, ocmAuthError("complete OCM device authorization failed", err, ctx, device.Expiry)
 	}
-	result, err := accessTokenOnly(token)
+	result, err := attachmentToken(token, grant)
 	if err != nil {
 		return Token{}, authFailure{message: "OCM authentication returned no access token", reason: "invalid_response"}
 	}
@@ -142,9 +204,7 @@ type authCodeResult struct {
 	err   error
 }
 
-func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
-	// The SDK helper returns a refresh token, so this flow owns the exchange and
-	// immediately reduces its response to the short-lived access token.
+func (a *Authenticator) acquireAuthCode(ctx context.Context, grant *AttachmentGrant) (Token, error) {
 	listen := a.Listen
 	if listen == nil {
 		listen = net.Listen
@@ -166,13 +226,7 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 	verifier := oauth2.GenerateVerifier()
 	config := a.oauthConfig()
 	result := make(chan authCodeResult, 1)
-	timeout := a.Timeout
-	if timeout <= 0 {
-		timeout = 5 * time.Minute
-	}
-	callbackCtx, cancelCallback := context.WithTimeout(ctx, timeout)
-	defer cancelCallback()
-	oauthCtx := a.oauthContext(callbackCtx)
+	oauthCtx := a.oauthContext(ctx)
 
 	mux := http.NewServeMux()
 	mux.Handle("/oauth/callback", authCodeHandler(oauthCtx, config, state, verifier, result, a.debug))
@@ -195,7 +249,7 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 	authorizationURL := config.AuthCodeURL(state, oauth2.S256ChallengeOption(verifier))
 	a.status("Open this URL to authorize OCM:\n%s", authorizationURL)
 	if a.OpenBrowser != nil {
-		if err := a.OpenBrowser(authorizationURL); err != nil {
+		if err := a.OpenBrowser(ctx, authorizationURL); err != nil {
 			a.status("Could not open a browser automatically; use the URL above")
 			if debugErr := a.debug("Automatic browser launch failed"); debugErr != nil {
 				return Token{}, debugErr
@@ -213,7 +267,7 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 		if completed.err != nil {
 			return Token{}, completed.err
 		}
-		token, err := accessTokenOnly(completed.token)
+		token, err := attachmentToken(completed.token, grant)
 		if err != nil {
 			return Token{}, authFailure{message: "OCM authentication returned no access token", reason: "invalid_response"}
 		}
@@ -222,17 +276,11 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context) (Token, error) {
 			return Token{}, err
 		}
 		return token, nil
-	case <-callbackCtx.Done():
-		if ctx.Err() != nil {
-			if err := a.debug("OCM authorization callback wait canceled"); err != nil {
-				return Token{}, err
-			}
-			return Token{}, ctx.Err()
+	case <-ctx.Done():
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return Token{}, fmt.Errorf("OCM authorization timed out waiting for callback: %w", ctx.Err())
 		}
-		if err := a.debug("OCM authorization callback wait timed out"); err != nil {
-			return Token{}, err
-		}
-		return Token{}, errors.New("OCM authorization timed out waiting for callback")
+		return Token{}, ctx.Err()
 	}
 }
 
@@ -335,6 +383,13 @@ func deviceVerificationURL(device *oauth2.DeviceAuthResponse) (string, error) {
 	return ssoBaseURL + "/device?user_code=" + url.QueryEscape(device.UserCode), nil
 }
 
+func attachmentToken(token *oauth2.Token, grant *AttachmentGrant) (Token, error) {
+	if grant != nil && token != nil && token.AccessToken != "" && token.RefreshToken != "" {
+		grant.refresh = token.RefreshToken
+	}
+	return accessTokenOnly(token)
+}
+
 func accessTokenOnly(token *oauth2.Token) (Token, error) {
 	if token == nil || token.AccessToken == "" {
 		return Token{}, errors.New("OCM authentication returned no access token")
@@ -402,8 +457,4 @@ func callDebug(debug func(string, ...any) error, format string, args ...any) err
 		return debug(format, args...)
 	}
 	return nil
-}
-
-func openBrowser(target string) error {
-	return open.Run(target)
 }

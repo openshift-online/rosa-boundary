@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	ocm "github.com/openshift-online/rosa-boundary/internal/credentials/ocm"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
@@ -37,7 +38,32 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 	output.Status("ECS Cluster: %s", clusterName)
 	output.Status("Session:     %s", sessionID)
 
-	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait); err != nil {
+	var attachment attachOCM
+	if flagBool(cmd, "renew-ocm") {
+		cfg := authRes.Config
+		options, err := tokenOptions(cmd, cfg)
+		if err != nil {
+			return err
+		}
+		flow := defaultOCMFlow(cfg.OIDCUseDeviceCode)
+		if cmd.Flags().Changed("ocm-auth-flow") {
+			flow = ocm.Flow(flagString(cmd, "ocm-auth-flow")) // validated before authentication
+		}
+		attachment.setup = func(ctx context.Context) *ocmRenewal {
+			environment, err := ocm.ResolveEnvironment(cfg.OCMURL)
+			setup := ocmSetup{environment: environment, flow: flow}
+			var renewal *ocmRenewal
+			if err == nil {
+				authorization := newRenewalAWS(cfg, authRes.Credentials, cfg.SRERoleARN, "rosa-boundary-session", authRes.IDToken, options)
+				renewal, err = prepareJoinOCM(ctx, ecsClient, authRes, sessionID, setup, authorization)
+			}
+			if err != nil && ctx.Err() == nil {
+				output.Warning("OCM setup was not confirmed: %v. To retry without renewal, run: %s", err, setup.configureCommand(cfg.AWSRegion, cfg.ClusterName, sessionID))
+			}
+			return renewal
+		}
+	}
+	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait, attachment); err != nil {
 		return err
 	}
 	return disconnectedSessionResult(cmd, sessionID)
@@ -52,8 +78,80 @@ func disconnectedSessionResult(cmd *cobra.Command, sessionID string) error {
 	return nil
 }
 
+func validateJoinOCM(cmd *cobra.Command) error {
+	if !flagBool(cmd, "renew-ocm") {
+		if cmd.Flags().Changed("ocm-url") || cmd.Flags().Changed("ocm-auth-flow") {
+			return fmt.Errorf("--ocm-url and --ocm-auth-flow require --renew-ocm on join")
+		}
+		return nil
+	}
+	if flagBool(cmd, "no-wait") || flagString(cmd, "container") != credentialContainer || flagString(cmd, "command") != defaultExecCommand {
+		return fmt.Errorf("--renew-ocm requires waiting for the default rosa-boundary shell")
+	}
+	if cmd.Flags().Changed("ocm-auth-flow") {
+		if _, err := parseOCMFlow(flagString(cmd, "ocm-auth-flow")); err != nil {
+			return err
+		}
+	}
+	if cmd.Flags().Changed("ocm-url") {
+		_, err := ocm.ResolveEnvironment(flagString(cmd, "ocm-url"))
+		return err
+	}
+	return nil
+}
+
+func prepareJoinOCM(ctx context.Context, ecs *awsclient.ECSClient, authRes *AuthResult, sessionID string, setup ocmSetup, authorization *renewalAWS) (*ocmRenewal, error) {
+	cfg := authRes.Config
+	a := newAttachmentOCMAuth()
+	token, grant, err := acquireOCM(ctx, setup.environment, setup.flow, a)
+	if err != nil {
+		return nil, err
+	}
+	// Shell readiness has already checked this same container and task.
+	return installAttachmentOCM(ctx, ecs, cfg.AWSRegion, authRes.Credentials, cfg.ClusterName, sessionID, setup, token, grant, a, authorization)
+}
+
+type attachOCM struct {
+	renewal *ocmRenewal
+	setup   func(context.Context) *ocmRenewal
+}
+
+func (a *attachOCM) takeWorker() func(context.Context) {
+	if a.renewal == nil {
+		return nil
+	}
+	renewal := a.renewal
+	a.renewal = nil
+	return func(ctx context.Context) { renewal.run(ctx, time.Now, waitRenewal) }
+}
+
+func withAttachmentRenewal(ctx context.Context, worker func(context.Context), plugin func(context.Context) error) error {
+	if worker == nil {
+		return plugin(ctx)
+	}
+	workerCtx, cancel := context.WithCancel(ctx)
+	done := make(chan struct{})
+	_ = output.Debug("OCM renewal scheduled while this shell is attached")
+	go func() {
+		defer close(done)
+		worker(workerCtx)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+	return plugin(ctx)
+}
+
 // connectToSession is shared by session join and session create.
-func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, sessionID, container, command string, noWait bool) error {
+func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, region string, creds *awsclient.TemporaryCredentials, sessionID, container, command string, noWait bool, attachment attachOCM) error {
+	// Own setup until the worker takes it. Readiness or Exec failures before
+	// that handoff still need to discard the grant.
+	defer func() {
+		if attachment.renewal != nil {
+			attachment.renewal.grant.Release()
+		}
+	}()
 	// Check task status
 	output.Status("Checking session status...")
 	task, err := ecsClient.DescribeTask(ctx, sessionID)
@@ -81,6 +179,20 @@ func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, regio
 		return fmt.Errorf("session exec agent not ready; check the session status and retry join once the agent is ready: %w", err)
 	}
 
+	// Get the controlling terminal before prompting for OCM approval or
+	// opening an Exec session. Keep stdout reserved for the final result.
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("interactive session requires a controlling terminal: %w", err)
+	}
+	defer func() { _ = tty.Close() }()
+	if attachment.setup != nil {
+		attachment.renewal = attachment.setup(ctx)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	// Start ECS Exec session
 	output.Status("\nConnecting to session...")
 	fmt.Fprintln(os.Stderr)
@@ -94,16 +206,9 @@ func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, regio
 		output.Warning("could not write debug output: %v", err)
 	}
 
-	// Hand off to session-manager-plugin on the controlling terminal. Keep stdout
-	// reserved for the result after the interactive shell exits successfully.
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return fmt.Errorf("interactive session requires a controlling terminal: %w", err)
-	}
-	defer func() { _ = tty.Close() }()
-	// Keep the CLI process alive so an explicit whole-command deadline can
-	// cancel the plugin without claiming the underlying ECS task stopped.
-	err = awsclient.RunSessionManagerPluginWithStreams(ctx, region, session, creds, tty, tty, tty)
+	err = withAttachmentRenewal(ctx, attachment.takeWorker(), func(ctx context.Context) error {
+		return awsclient.RunSessionManagerPluginWithStreams(ctx, region, session, creds, tty, tty, tty)
+	})
 	if ctx.Err() != nil {
 		return fmt.Errorf("interactive connection ended (%w); Boundary session %s may still be running and must be stopped separately", ctx.Err(), sessionID)
 	}

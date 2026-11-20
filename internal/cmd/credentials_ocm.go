@@ -26,6 +26,7 @@ type ocmTokenAcquirer interface {
 }
 
 type ocmCredentialTransfer interface {
+	ConfigureAttachment(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials, func(bool) ([]byte, error)) (bool, error)
 	Configure(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials, []byte) error
 	Clear(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials) error
 }
@@ -224,23 +225,23 @@ func configureOCMForSession(ctx context.Context, ecsClient *awsclient.ECSClient,
 // configureOCMWithPendingToken uploads a token whose authorization was started
 // while the task was still launching. A token that expired, or is about to,
 // during a slow launch is replaced by a fresh authorization.
-func configureOCMWithPendingToken(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, flow ocmcredentials.Flow, pending *pendingOCMToken) error {
-	defer pending.Discard()
+func configureOCMWithPendingToken(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, clusterName, sessionID string, setup ocmSetup, pending *pendingOCMToken, authorization *renewalAWS) (*ocmRenewal, error) {
 	if err := prepareCredentialSession(ctx, ecsClient, sessionID); err != nil {
-		return err
+		return nil, err
 	}
-	token, err := pending.Wait(ctx)
+	token, grant, err := pending.Take(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if ocmTokenNearExpiry(token, time.Now()) {
-		token.AccessToken = ""
+		grant.Release()
 		output.Status("OCM access token is too close to expiry after session startup; requesting another")
-		if token, err = acquireOCMToken(ctx, environment, flow); err != nil {
-			return err
+		token, grant, err = acquireOCM(ctx, setup.environment, setup.flow, pending.authenticator)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return uploadOCMToken(ctx, ecsClient, region, credentials, sessionID, environment, token)
+	return installAttachmentOCM(ctx, ecsClient, region, credentials, clusterName, sessionID, setup, token, grant, pending.authenticator, authorization)
 }
 
 // ocmTokenMinimumRemaining is the least useful lifetime worth uploading.
@@ -252,35 +253,37 @@ func ocmTokenNearExpiry(token ocmcredentials.Token, now time.Time) bool {
 
 // pendingOCMToken is an OCM authorization running alongside task startup.
 type pendingOCMToken struct {
-	cancel context.CancelFunc
-	done   chan struct{}
-	token  ocmcredentials.Token
-	err    error
+	cancel        context.CancelFunc
+	done          chan struct{}
+	token         ocmcredentials.Token
+	err           error
+	grant         *ocmcredentials.AttachmentGrant
+	authenticator attachmentOCMAuth
 }
 
 // startOCMTokenAcquisition begins the interactive OCM authorization without
 // blocking, so the human approval overlaps the wait for the task to start.
 // Callers must call Discard on every path.
-func startOCMTokenAcquisition(ctx context.Context, environment ocmcredentials.Environment, flow ocmcredentials.Flow) *pendingOCMToken {
+func startOCMTokenAcquisition(ctx context.Context, environment ocmcredentials.Environment, flow ocmcredentials.Flow, authenticator attachmentOCMAuth) *pendingOCMToken {
 	ctx, cancel := context.WithCancel(ctx)
-	pending := &pendingOCMToken{cancel: cancel, done: make(chan struct{})}
+	pending := &pendingOCMToken{cancel: cancel, done: make(chan struct{}), authenticator: authenticator}
 	go func() {
 		defer close(pending.done)
-		pending.token, pending.err = acquireOCMToken(ctx, environment, flow)
+		pending.token, pending.grant, pending.err = acquireOCM(ctx, environment, flow, authenticator)
 	}()
 	return pending
 }
 
-// Wait blocks until the authorization finishes and hands over the token.
-func (p *pendingOCMToken) Wait(ctx context.Context) (ocmcredentials.Token, error) {
+// Take waits for authorization and transfers ownership of the token and grant.
+func (p *pendingOCMToken) Take(ctx context.Context) (ocmcredentials.Token, *ocmcredentials.AttachmentGrant, error) {
 	select {
 	case <-p.done:
 	case <-ctx.Done():
-		return ocmcredentials.Token{}, ctx.Err()
+		return ocmcredentials.Token{}, nil, ctx.Err()
 	}
-	token, err := p.token, p.err
-	p.token.AccessToken = ""
-	return token, err
+	token, grant := p.token, p.grant
+	p.token, p.grant = ocmcredentials.Token{}, nil
+	return token, grant, p.err
 }
 
 // Discard stops an unfinished authorization and drops any unused token.
@@ -288,57 +291,91 @@ func (p *pendingOCMToken) Discard() {
 	p.cancel()
 	<-p.done
 	p.token.AccessToken = ""
+	p.grant.Release()
+	p.grant = nil
 }
 
 func acquireOCMToken(ctx context.Context, environment ocmcredentials.Environment, flow ocmcredentials.Flow) (ocmcredentials.Token, error) {
+	token, _, err := acquireOCM(ctx, environment, flow, nil)
+	return token, err
+}
+
+func acquireOCM(ctx context.Context, environment ocmcredentials.Environment, flow ocmcredentials.Flow, authenticator attachmentOCMAuth) (ocmcredentials.Token, *ocmcredentials.AttachmentGrant, error) {
 	output.Status("Requesting a fresh OCM access token for %s...", environment.Name)
-	acquirer := newOCMTokenAcquirer()
-	token, err := acquirer.Acquire(ctx, flow)
+	var token ocmcredentials.Token
+	var grant *ocmcredentials.AttachmentGrant
+	var err error
+	if authenticator != nil {
+		token, grant, err = authenticator.AcquireForAttachment(ctx, flow)
+	} else {
+		token, err = newOCMTokenAcquirer().Acquire(ctx, flow)
+	}
 	if err != nil {
-		return ocmcredentials.Token{}, fmt.Errorf("OCM authentication failed; verify the selected OCM environment and complete the requested approval before retrying: %w", err)
+		grant.Release()
+		return ocmcredentials.Token{}, nil, fmt.Errorf("OCM authentication failed; verify the selected OCM environment and complete the requested approval before retrying: %w", err)
 	}
 	if token.Expiry.IsZero() {
 		output.Status("Fresh OCM access token acquired; server supplied no expiry")
 	} else {
 		output.Status("Fresh OCM access token acquired; expires at %s", token.Expiry.Format(time.RFC3339))
 	}
-	return token, nil
+	return token, grant, nil
 }
 
 // uploadOCMToken requires prepareCredentialSession to have succeeded first.
 func uploadOCMToken(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, token ocmcredentials.Token) error {
-	request, err := ocmcredentials.MarshalRequest(token.AccessToken, environment)
-	token.AccessToken = ""
-	if err != nil {
-		return err
-	}
-	defer func() {
-		for index := range request {
-			request[index] = 0
-		}
-	}()
+	_, err := transferOCMToken(ctx, ecsClient, region, credentials, sessionID, environment, token, "", "")
+	return err
+}
 
-	output.Status("Uploading OCM access token to session %s...", sessionID)
-	if err := credentialDebugf("Requesting static OCM configure command through ECS Exec"); err != nil {
-		return fmt.Errorf("debug output failed: %w", err)
+// transferOCMToken uses the same bounded, access-token-only stream for all uploads.
+func transferOCMToken(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID string, environment ocmcredentials.Environment, token ocmcredentials.Token, generation, expected string) (bool, error) {
+	command := ocmcredentials.ConfigureCommand
+	if expected != "" {
+		command = ocmcredentials.RenewCommand
+	} else {
+		output.Status("Uploading OCM access token to session %s...", sessionID)
 	}
-	session, err := ecsClient.ExecuteCommand(ctx, sessionID, credentialContainer, ocmcredentials.ConfigureCommand)
+	if err := credentialDebugf("Requesting static OCM helper command through ECS Exec"); err != nil {
+		return false, fmt.Errorf("debug output failed: %w", err)
+	}
+	session, err := ecsClient.ExecuteCommand(ctx, sessionID, credentialContainer, command)
 	if err != nil {
-		return fmt.Errorf("could not start OCM credential configure session; check that the Boundary session and its Exec agent are running, then retry: %w", err)
+		return false, fmt.Errorf("could not start OCM credential configure session; check that the Boundary session and its Exec agent are running, then retry: %w", err)
 	}
 	if err := credentialDebugf("ECS Exec configure session established: %s", session.SessionID); err != nil {
-		return fmt.Errorf("debug output failed: %w", err)
+		return false, fmt.Errorf("debug output failed: %w", err)
 	}
-	if err := newOCMCredentialTransfer().Configure(ctx, region, session, credentials, request); err != nil {
-		return fmt.Errorf("could not configure OCM credentials; verify the session is running, then retry with a fresh OCM approval: %w", err)
+	transfer := newOCMCredentialTransfer()
+	installedGeneration := false
+	if generation != "" && expected == "" {
+		installedGeneration, err = transfer.ConfigureAttachment(ctx, region, session, credentials, func(supported bool) ([]byte, error) {
+			if !supported {
+				return ocmcredentials.MarshalRequest(token.AccessToken, environment)
+			}
+			return ocmcredentials.MarshalAttachmentRequest(token.AccessToken, environment, generation, "")
+		})
+	} else {
+		request, marshalErr := ocmcredentials.MarshalAttachmentRequest(token.AccessToken, environment, generation, expected)
+		if marshalErr != nil {
+			return false, marshalErr
+		}
+		defer clear(request)
+		err = transfer.Configure(ctx, region, session, credentials, request)
+	}
+	if err != nil {
+		return false, fmt.Errorf("could not configure OCM credentials; verify the session is running, then retry with a fresh OCM approval: %w", err)
 	}
 
+	if expected != "" {
+		return true, nil
+	}
 	if token.Expiry.IsZero() {
 		output.Status("Configured OCM credentials for session %s (%s)", sessionID, environment.Name)
 	} else {
 		output.Status("Configured OCM credentials for session %s (%s); expires at %s", sessionID, environment.Name, token.Expiry.Format(time.RFC3339))
 	}
-	return nil
+	return installedGeneration, nil
 }
 
 func prepareCredentialSession(ctx context.Context, ecsClient *awsclient.ECSClient, sessionID string) error {

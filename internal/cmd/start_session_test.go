@@ -139,7 +139,7 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 					os.Stdout = old
 					_ = stdoutFile.Close()
 				}()
-				openInteractiveSession = func(_ context.Context, _ *awsclient.ECSClient, _ string, _ *awsclient.TemporaryCredentials, sessionID, _, _ string, _ bool) error {
+				openInteractiveSession = func(_ context.Context, _ *awsclient.ECSClient, _ string, _ *awsclient.TemporaryCredentials, sessionID, _, _ string, _ bool, _ attachOCM) error {
 					if sessionID != "task-123" {
 						t.Errorf("session ID = %q", sessionID)
 					}
@@ -151,7 +151,7 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 				selectedProfile = "stage-east" // Normally resolved by commandPreRun.
 				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
-					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "", sessionStartupTimings{})
+					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, "", sessionStartupTimings{}, nil)
 				stdout, readErr := os.ReadFile(stdoutFile.Name())
 				if readErr != nil {
 					t.Fatal(readErr)
@@ -218,7 +218,7 @@ func TestFinishStartSessionJSONWarnsWithoutReportingCredentials(t *testing.T) {
 			}
 			cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 			err = finishStartSession(cmd, nil, nil, "boundary", "rosa", "INV-1", "task-123", "us-east-1",
-				&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, tc.warning, timings)
+				&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123"}, "role", false, tc.warning, timings, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -269,7 +269,7 @@ func TestNoWaitCredentialWarningGivesProfileQualifiedRetry(t *testing.T) {
 	selectedProfile = "stage-east"
 	t.Cleanup(func() { selectedProfile = previous })
 	warning := noWaitCredentialWarning("task-123", "boundary", "us-east-1")
-	for _, want := range []string{"--no-wait", "without OCM credentials", "once RUNNING", `rosa-boundary --profile "stage-east" session credentials configure ocm "task-123" --ecs-cluster "boundary" --region "us-east-1"`} {
+	for _, want := range []string{"--no-wait", "without OCM credentials", "once RUNNING", `rosa-boundary --profile 'stage-east' session credentials configure ocm 'task-123' --region 'us-east-1' --ecs-cluster 'boundary'`} {
 		if !strings.Contains(warning, want) {
 			t.Errorf("warning missing %q: %s", want, warning)
 		}

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -32,6 +33,7 @@ type TemporaryCredentials struct {
 	AccessKeyID     string
 	SecretAccessKey string
 	SessionToken    string
+	Expiry          time.Time
 }
 
 // AssumeRoleWithWebIdentity calls STS to exchange an OIDC token for temporary AWS credentials.
@@ -82,6 +84,7 @@ func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, se
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
 		SessionToken:    sessionToken,
+		Expiry:          aws.ToTime(out.Credentials.Expiration),
 	}, nil
 }
 

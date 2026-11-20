@@ -102,8 +102,9 @@ make test
 This runs `make test-coverage`, `make test-lambda`, `make test-github-dl`, and
 `make test-shell` sequentially and stops on failure. It requires the Go toolchain,
 `uv`, Python 3 with venv/pip support, and Bats (`brew install bats-core` on macOS
-or `dnf install bats` on Fedora), plus `jq` and GNU coreutils/sed. On macOS,
-install these with `brew install bats-core jq coreutils gnu-sed`; `make test-shell`
+or `dnf install bats` on Fedora), plus `jq`, GNU coreutils/sed, and `flock`
+(from util-linux on Fedora). On macOS, install these with
+`brew install bats-core jq coreutils gnu-sed flock`; `make test-shell`
 adds Homebrew's GNU tools to PATH only for the test process. This matches the
 Linux container's GNU command behavior without changing your shell environment.
 Dependency setup may download packages.

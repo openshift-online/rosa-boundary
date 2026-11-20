@@ -56,7 +56,7 @@ module "aws_dynamic_creds" {
         rosa-trusted-actions = {
           workspace_names = [
             "rosa-trusted-actions-prod-global",
-            "rosa-trusted-actions-prod",
+            "rosa-trusted-actions-prod-us-east-1",
           ]
         }
       }

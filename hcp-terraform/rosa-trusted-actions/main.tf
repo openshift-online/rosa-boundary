@@ -242,6 +242,213 @@ module "rosa_trusted_actions" {
         }
       ]
     }
+
+    # ── Global workspace: prod (514903006123) ──────────────────────────────────
+    # IAM + Secrets + ACM validation CNAME for the prod account. Apply once
+    # before rosa-trusted-actions-prod. Separate from the stage global because
+    # IAM roles/policies are account-scoped and live in disjoint AWS accounts.
+    rosa-trusted-actions-prod-global = {
+      terraform_version      = "1.16.0"
+      auto_apply             = true
+      auto_apply_run_trigger = true
+      working_directory      = "components/trusted-actions/terraform/global"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      variable_set_names     = ["rosa-trusted-actions-rosa-boundary-prod-rosa-trusted-actions-aws-dynamic-creds"]
+      remote_state_consumer_workspaces = ["rosa-trusted-actions-prod"]
+      variables = [
+        {
+          key         = "aws_region"
+          value       = "us-east-1"
+          category    = "terraform"
+          description = "Provider region for the global workspace."
+        },
+        {
+          key      = "environment"
+          value    = "prod"
+          category = "terraform"
+        },
+        {
+          key      = "s3_bucket_name_suffix"
+          value    = "rosa-trusted-actions"
+          category = "terraform"
+        },
+        {
+          key         = "public_zone"
+          value       = ""
+          category    = "terraform"
+          description = "Prod public hosted zone apex — set once the prod zone exists (or use public_zone_id to adopt an existing zone)."
+        },
+        {
+          key         = "internal_fqdn"
+          value       = ""
+          category    = "terraform"
+          description = "Prod internal FQDN (Private Hosted Zone name). Must match rosa-trusted-actions-prod. Leave empty until DNS is ready."
+        },
+        {
+          key      = "default_tags"
+          value    = <<-EOT
+            {
+              owner         = "app-sre"
+              service-phase = "prod"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "ignored_tag_keys"
+          value    = <<-EOT
+            [
+              "app",
+              "app-code",
+              "cost-center",
+              "managed_by_integration",
+              "organization",
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+      ]
+    }
+
+    # ── Regional workspace: us-east-1 prod (514903006123) ───────────────────────
+    # Reuses rosa-boundary-prod's VPC (vpc-0f7b78f35f6edd98b) in the same account/region
+    # as boundary prod Region A. Prod-global must be applied first so
+    # terraform_remote_state can read IAM ARNs and the Secrets Manager ARN.
+    rosa-trusted-actions-prod = {
+      terraform_version      = "1.16.0"
+      auto_apply             = true
+      auto_apply_run_trigger = true
+      working_directory      = "components/trusted-actions/terraform/regional"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      source_workspaces      = ["rosa-trusted-actions-prod-global"]
+      variable_set_names     = ["rosa-trusted-actions-rosa-boundary-prod-rosa-trusted-actions-aws-dynamic-creds"]
+      variables = [
+        {
+          key         = "aws_region"
+          value       = "us-east-1"
+          category    = "terraform"
+          description = "AWS region for this deployment — prod Region A."
+        },
+        {
+          key      = "environment"
+          value    = "prod"
+          category = "terraform"
+        },
+        {
+          key         = "s3_bucket_name_suffix"
+          value       = "rosa-trusted-actions"
+          category    = "terraform"
+          description = "Must match the global workspace's s3_bucket_name_suffix."
+        },
+        {
+          key      = "vpc_id"
+          value    = "vpc-0f7b78f35f6edd98b"
+          category = "terraform"
+        },
+        {
+          key      = "public_subnet_ids"
+          value    = jsonencode(["REPLACE_WITH_PROD_PUBLIC_SUBNET_A", "REPLACE_WITH_PROD_PUBLIC_SUBNET_B"])
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "private_subnet_ids"
+          value    = jsonencode(["subnet-07b28f6e5fb8d80c6", "subnet-0af708edfc074a605"])
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "container_image"
+          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:REPLACE_WITH_PROD_IMAGE_DIGEST"
+          category = "terraform"
+        },
+        {
+          key         = "app_config"
+          value       = <<-YAML
+            actions:
+              aws_allowed_regions: [us-east-1]
+              allowed_namespaces: []
+              allowed_secrets: []
+            ocm:
+              base_url: https://api.openshift.com
+              client_id: $${var.ocm_client_id}
+            backplane:
+              base_url: https://api.backplane.openshift.com
+              client_id: $${var.backplane_client_id}
+            roles:
+              - id: SREP
+                amsResource: BackplaneOsdSrepResource
+              - id: ConfigurationAnomalyDetection
+                amsResource: BackplaneOsdCadResource
+              - id: ROSAAiAgent
+                amsResource: BackplaneOsdAiAgentResource
+            workers:
+              concurrency: 4
+              poll_interval: 5s
+              execution_timeout: 2m
+          YAML
+          category    = "terraform"
+          description = "Complete application config file (config.yaml) uploaded to S3. Prod OCM/Backplane use non-stage base URLs."
+        },
+        {
+          key         = "internal_fqdn"
+          value       = ""
+          category    = "terraform"
+          description = "Prod Private Hosted Zone FQDN — must match rosa-trusted-actions-prod-global. Leave empty until DNS is ready."
+        },
+        {
+          key      = "enable_worm"
+          value    = "true"
+          category = "terraform"
+        },
+        {
+          key      = "retention_days"
+          value    = "90"
+          category = "terraform"
+        },
+        {
+          key      = "default_tags"
+          value    = <<-EOT
+            {
+              owner         = "app-sre"
+              service-phase = "prod"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "ignored_tag_keys"
+          value    = <<-EOT
+            [
+              "app",
+              "app-code",
+              "cost-center",
+              "managed_by_integration",
+              "organization",
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key       = "ocm_client_secret"
+          value     = var.ocm_client_secret
+          category  = "terraform"
+          sensitive = true
+        },
+        {
+          key       = "backplane_client_secret"
+          value     = var.backplane_client_secret
+          category  = "terraform"
+          sensitive = true
+        }
+      ]
+    }
   }
 }
 

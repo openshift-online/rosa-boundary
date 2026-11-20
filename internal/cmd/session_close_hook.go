@@ -145,8 +145,8 @@ func promptForClose(target sessionCloseTarget) bool {
 	if !term.IsTerminal(int(tty.Fd())) {
 		return false
 	}
-	if _, err := fmt.Fprintf(tty, "\nSession %s ended. Request close of investigation %s/%s? Other sessions would keep it open. [y/N]: ",
-		target.SessionID, target.ClusterID, target.InvestigationID); err != nil {
+	if _, err := fmt.Fprintf(tty, "\nYou disconnected. Close investigation %s/%s? This lets Boundary stop this session, but not other sessions. [y/N]: ",
+		target.ClusterID, target.InvestigationID); err != nil {
 		return false
 	}
 	scanner := bufio.NewScanner(tty)
@@ -223,7 +223,7 @@ func afterAttachedSession(ctx context.Context, newService closeServiceFactory, r
 			target.ClusterID, target.InvestigationID, requestErr, target.ClusterID, target.InvestigationID)
 		return sessionCloseOutcome{Note: "close request outcome unknown; check status before retrying"}
 	}
-	output.Status("Close requested for %s/%s (request %s). Accepted is not closed: the close service verifies the backup first.",
+	output.Status("Close request recorded for %s/%s. Boundary will wait for all sessions to stop and verify the backup before closing the investigation.\nRequest ID: %s",
 		target.ClusterID, target.InvestigationID, accepted.RequestToken)
 	return sessionCloseOutcome{
 		Requested:    true,

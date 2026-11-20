@@ -1,3 +1,14 @@
+# ── Remote state ──────────────────────────────────────────────────────────────
+
+# One global workspace exists per AWS account/environment. The default covers
+# stage; regional workspaces in other accounts (prod) point this at their own
+# global so IAM/Secrets ARNs come from the same account.
+variable "global_workspace_name" {
+  description = "HCP Terraform workspace whose state provides IAM role ARNs, the instance profile, and the Secrets Manager ARN (see remote_state.tf)."
+  type        = string
+  default     = "rosa-trusted-actions-global"
+}
+
 # ── Networking ────────────────────────────────────────────────────────────────
 
 variable "aws_region" {

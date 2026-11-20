@@ -22,7 +22,7 @@ Repository skills live in `.agents/skills/`; `.claude/skills` points to the same
 
 - The Boundary verification skills below cover Boundary changes, not the separate Trusted Actions test suite or deployment. For TA changes, check its own Makefile and tests; run commands in `components/trusted-actions/`, not from the repository root.
 - Use [boundary-change-verification](.agents/skills/boundary-change-verification/SKILL.md) to select and run diff-scoped **local Boundary** checks; it does not deploy or create AWS resources. Hand off required live assertions and provenance gaps rather than claiming mocks or plans prove real behavior.
-- Use [boundary-live-verification](.agents/skills/boundary-live-verification/SKILL.md) for an approved test against a contributor's **personal dev** environment. Verify the exact changeset and deployed artifacts before reuse; obtain explicit approval for AWS changes and investigation creation, then record audit evidence and cleanup. Never use it for staging or production.
+- Use [boundary-live-verification](.agents/skills/boundary-live-verification/SKILL.md) for an approved test against a contributor's **ephemeral personal dev** environment. Verify the exact changeset and deployed artifacts before reuse; prefer one broad authorization covering AWS changes, destructive repair/rebuilds, investigation testing, and cleanup rather than per-action prompts. Reconfirm only for scope expansions, safety-critical ambiguity, or mandatory tool/policy gates; record audit evidence and cleanup. Never use it for staging or production.
 
 ## Component boundaries
 

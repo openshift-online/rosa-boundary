@@ -248,13 +248,15 @@ module "rosa_trusted_actions" {
     # before rosa-trusted-actions-prod-us-east-1. Separate from the stage global because
     # IAM roles/policies are account-scoped and live in disjoint AWS accounts.
     rosa-trusted-actions-prod-global = {
-      terraform_version      = "1.16.0"
-      auto_apply             = true
-      auto_apply_run_trigger = true
-      working_directory      = "components/trusted-actions/terraform/global"
-      github_repo_org        = "openshift-online"
-      github_repo_name       = "rosa-boundary"
-      variable_set_names     = ["rosa-trusted-actions-rosa-boundary-prod-rosa-trusted-actions-aws-dynamic-creds"]
+      terraform_version = "1.16.0"
+      # Manual apply gate until prod DNS (public_zone/internal_fqdn) and the
+      # in-cloud prod credentials are confirmed present in the workspace.
+      auto_apply                       = false
+      auto_apply_run_trigger           = false
+      working_directory                = "components/trusted-actions/terraform/global"
+      github_repo_org                  = "openshift-online"
+      github_repo_name                 = "rosa-boundary"
+      variable_set_names               = ["rosa-trusted-actions-rosa-boundary-prod-rosa-trusted-actions-aws-dynamic-creds"]
       remote_state_consumer_workspaces = ["rosa-trusted-actions-prod-us-east-1"]
       variables = [
         {
@@ -318,9 +320,11 @@ module "rosa_trusted_actions" {
     # as boundary prod Region A. Prod-global must be applied first so
     # terraform_remote_state can read IAM ARNs and the Secrets Manager ARN.
     rosa-trusted-actions-prod-us-east-1 = {
-      terraform_version      = "1.16.0"
-      auto_apply             = true
-      auto_apply_run_trigger = true
+      terraform_version = "1.16.0"
+      # Manual apply gate until prod network inputs are finalized (placeholders
+      # in public_subnet_ids/container_image) and prod DNS is ready.
+      auto_apply             = false
+      auto_apply_run_trigger = false
       working_directory      = "components/trusted-actions/terraform/regional"
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
@@ -343,6 +347,12 @@ module "rosa_trusted_actions" {
           value       = "rosa-trusted-actions"
           category    = "terraform"
           description = "Must match the global workspace's s3_bucket_name_suffix."
+        },
+        {
+          key         = "global_workspace_name"
+          value       = "rosa-trusted-actions-prod-global"
+          category    = "terraform"
+          description = "Reads IAM/Secrets outputs from the prod global workspace, not the stage one."
         },
         {
           key      = "vpc_id"
@@ -381,6 +391,7 @@ module "rosa_trusted_actions" {
               client_id: ${var.backplane_client_id}
             roles:
               - id: SREP
+                amsResource: BackplaneOsdSrepResource
               - id: ConfigurationAnomalyDetection
                 amsResource: BackplaneOsdCadResource
               - id: ROSAAiAgent

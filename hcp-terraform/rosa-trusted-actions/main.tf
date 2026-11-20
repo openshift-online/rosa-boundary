@@ -245,7 +245,7 @@ module "rosa_trusted_actions" {
 
     # ── Global workspace: prod (514903006123) ──────────────────────────────────
     # IAM + Secrets + ACM validation CNAME for the prod account. Apply once
-    # before rosa-trusted-actions-prod. Separate from the stage global because
+    # before rosa-trusted-actions-prod-us-east-1. Separate from the stage global because
     # IAM roles/policies are account-scoped and live in disjoint AWS accounts.
     rosa-trusted-actions-prod-global = {
       terraform_version      = "1.16.0"
@@ -255,6 +255,7 @@ module "rosa_trusted_actions" {
       github_repo_org        = "openshift-online"
       github_repo_name       = "rosa-boundary"
       variable_set_names     = ["rosa-trusted-actions-rosa-boundary-prod-rosa-trusted-actions-aws-dynamic-creds"]
+      remote_state_consumer_workspaces = ["rosa-trusted-actions-prod-us-east-1"]
       remote_state_consumer_workspaces = ["rosa-trusted-actions-prod"]
       variables = [
         {

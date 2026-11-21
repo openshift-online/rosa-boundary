@@ -164,11 +164,21 @@ resource "aws_security_group" "reaper_lambda" {
   })
 }
 
-# Archive the Lambda function code (single file, no dependencies)
+# Archive the Lambda function code. The reaper is several standard-library
+# modules now (the finalization pipeline, the record contract, the ownership
+# observation and the shared workspace comparator), so the whole directory is
+# packaged with its tests excluded.
 data "archive_file" "reap_investigations_lambda" {
   type        = "zip"
-  source_file = "${path.module}/../../lambda/reap-investigations/handler.py"
+  source_dir  = "${path.module}/../../lambda/reap-investigations"
   output_path = "${path.module}/.terraform/lambda/reap-investigations.zip"
+
+  excludes = [
+    "test_handler.py",
+    "test_close_finalization.py",
+    "__pycache__",
+    ".pytest_cache",
+  ]
 }
 
 # Lambda function

@@ -1,6 +1,8 @@
 # Whitelist approach: ignore everything, then allow only files needed by the
-# Containerfile (pyproject.toml, uv.lock, handler.py).
+# Containerfile. Every module the Containerfile COPYs must be listed here or
+# the build fails with "no items matching glob ... (1 filtered out)".
 *
 !pyproject.toml
 !uv.lock
 !handler.py
+!close_requests.py

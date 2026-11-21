@@ -251,6 +251,44 @@ def test_the_state_by_actor_matrix_is_exactly_this(name):
         assert requests.authorize_close(handler, requester)[0] is expected, (name, requester)
 
 
+# Exercise the record boundary, not just the policy functions. Reuse the reaper
+# suite's versioned in-memory bucket and temporary on-disk workspace.
+reaper_fixture = load(REAPER / 'test_close_finalization.py', 'finalizer_contract_fixture')
+
+
+class TestExplicitCloseLifecycle(reaper_fixture.FinalizerCase):
+    def test_accepted_record_completes_after_the_other_sre_leaves(self):
+        body = {'cluster_id': reaper_fixture.CLUSTER, 'investigation_id': reaper_fixture.INVESTIGATION}
+        ap = self.access_point()
+        investigation = {'access_point_id': ap['id'], 'file_system_id': ap['file_system_id'],
+                         'path': ap['path'], 'tags': {}}
+        ecs, ssm = clients(tasks=[task(TASK_A, HOLDER)], sessions_active=1)
+        config = {'ecs_cluster': CLUSTER, 'started_by': lambda *_: 'marker',
+                  'audit_bucket': 'audit', 'efs_filesystem_id': 'fs-1', 'account_id': '123456789012'}
+        with patch.object(requests, 'resolve_investigation', return_value=investigation):
+            response = requests.dispatch('request_close', body, {'sub': OTHER}, config,
+                                         {'s3': self.s3, 'ecs': ecs, 'ssm': ssm, 'efs': self.efs})
+        assert response['status'] == 'accepted'
+        key, = self.s3.keys_under(requests.requests_prefix(body['cluster_id'], body['investigation_id']))
+        record = self.s3.json_at(key)
+        assert record['request_token'] == response['request_token']
+        reaper_fixture.records.validate_request(record)
+
+        del self.finalizer.observe  # use the real ECS/SSM observer against the same clients
+        self.finalizer.ecs, self.finalizer.ssm = ecs, ssm
+        waiting = self.finalize(request=record)
+        assert waiting['status'] == 'waiting_for_tasks' and waiting['retryable']
+        self.efs.delete_access_point.assert_not_called()
+        ecs.stop_task.assert_not_called()
+
+        ssm.describe_sessions.return_value = {'Sessions': []}
+        assert self.finalize(request=record)['status'] == 'waiting_for_tasks'
+        ecs.describe_tasks.return_value = {'tasks': [task(TASK_A, HOLDER, status='STOPPED')]}
+        assert self.finalize(request=record)['status'] == 'completed'
+        assert self.receipt()['request_token'] == response['request_token']
+        ecs.stop_task.assert_not_called()
+
+
 def test_every_scenario_is_in_the_matrix():
     assert set(MATRIX) == set(SCENARIOS)
 

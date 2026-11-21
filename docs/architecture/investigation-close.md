@@ -1,6 +1,6 @@
 # Automated investigation close
 
-The finalizer is not yet invoked by the scheduled handler.
+Only close status and admission guards are active. Deploy and verify the scheduled reaper, its permissions and its configuration before enabling close write dispatch in the create Lambda. Until then, authenticated write actions return 503 and do not create records.
 
 ## Who may close
 

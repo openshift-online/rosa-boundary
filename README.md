@@ -28,7 +28,7 @@ LocalStack access, and the complete local test command.
 
 ### Prerequisites
 
-- Go 1.27.3 (the version selected by `go.mod` to build the CLI from source)
+- Go 1.27.4 or newer to build from source (minimum declared in [`go.mod`](go.mod))
 - Terraform (infrastructure deployment)
 - Keycloak with OIDC configured (see [OIDC Identity Requirements](#oidc-identity-requirements))
 - [`session-manager-plugin`](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) — required for interactive access and credential configuration

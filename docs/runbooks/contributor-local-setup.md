@@ -99,7 +99,7 @@ these files as the source of truth instead of guessing versions:
 |---|---|
 | Tool versions | [mise.toml](../../mise.toml); `latest` entries are not exact pins |
 | Python | [mise.toml](../../mise.toml) selects the version; root [pyproject.toml](../../pyproject.toml) declares compatibility |
-| Go toolchain and modules | [go.mod](../../go.mod), including its `toolchain` directive |
+| Minimum Go version and modules | Boundary [go.mod](../../go.mod) and Trusted Actions [go.mod](../../components/trusted-actions/go.mod); contributor version selected by [mise.toml](../../mise.toml) |
 | Python tools and LocalStack test dependencies | Root [pyproject.toml](../../pyproject.toml) and [uv.lock](../../uv.lock) |
 | Lambda-specific Python dependencies | [lambda/create-investigation/pyproject.toml](../../lambda/create-investigation/pyproject.toml) and its lockfile |
 | Pre-commit hook versions | [.pre-commit-config.yaml](../../.pre-commit-config.yaml) |

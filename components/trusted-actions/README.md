@@ -30,7 +30,7 @@ Use `rta <command> --help` for details on any command. All commands support `-o 
 
 ## Prerequisites
 
-- Go 1.21+
+- Go 1.27.4 or newer (minimum declared in [`go.mod`](go.mod))
 - Node.js 16+ (for OpenAPI bundling)
 - Make
 - Git

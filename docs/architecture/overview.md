@@ -23,13 +23,13 @@ rosa-boundary solves the problem of ephemeral, audited SRE access to ROSA/OpenSh
 
 ## 2. Security Model
 
-### 2.1 OIDC Authentication via Red Hat SSO
+### 2.1 OIDC Authentication
 
-All access begins with an OIDC PKCE browser flow against Red Hat SSO (Keycloak). The CLI opens a browser, completes the flow, and caches the ID token at `~/.cache/rosa-boundary/`. No AWS credentials are distributed to SRE laptops directly.
+The CLI signs in to the deployment's external OIDC issuer using browser PKCE by default and caches the ID token under `~/.cache/rosa-boundary/`. Staging and production use Red Hat EmployeeIDP; personal dev can use an approved existing realm. No long-lived AWS credentials are distributed to SRE laptops.
 
-The Keycloak client is configured with a custom protocol mapper that injects a `https://aws.amazon.com/tags` claim into the ID token. AWS STS automatically processes this claim as session tags during `AssumeRoleWithWebIdentity`, which is the mechanism that makes ABAC work without per-user roles.
+The issuer includes a `https://aws.amazon.com/tags` claim in the ID token. AWS STS processes this claim as session tags during `AssumeRoleWithWebIdentity`, allowing ABAC without per-user roles.
 
-Up to three OIDC providers can be registered simultaneously (dev Keycloak, Red Hat EmployeeIDP stage, Red Hat EmployeeIDP production), each with its own thumbprint and client ID. The create-investigation Lambda routes token validation by inspecting the unverified `iss` claim to select the correct JWKS endpoint.
+Up to three OIDC providers can be registered simultaneously (primary and optional stage and production issuers), each with its own thumbprint and client ID. The create-investigation Lambda routes token validation by inspecting the unverified `iss` claim to select the correct JWKS endpoint.
 
 ### 2.2 Two-Step Role Assumption
 
@@ -111,7 +111,7 @@ On TERM, INT, HUP, or workload exit the entrypoint attempts a bounded transfer t
 | Component | Role | Location |
 |-----------|------|----------|
 | `rosa-boundary` Go CLI | SRE workflow automation: login, investigation create/list/close and session create/list/join/close | SRE laptop |
-| Red Hat SSO / Keycloak | OIDC authentication and token issuance; group membership; session tag injection via `https://aws.amazon.com/tags` claim mapper | OpenShift cluster (RHBK operator) |
+| Red Hat SSO / Keycloak | OIDC authentication and token issuance; group membership; session tag injection via `https://aws.amazon.com/tags` claim mapper | External identity provider (Red Hat EmployeeIDP for staging and production); not deployed by this repository |
 | ROSA/OpenShift cluster | Target cluster being investigated | AWS (managed) |
 
 ### IAM / STS
@@ -477,7 +477,6 @@ aws logs tail /ecs/<project>-<stage>/ssm-sessions --follow
 ## Related Documents
 
 - [AWS IAM Policies](../configuration/aws-iam-policies.md) — full policy JSON for all roles
-- [Keycloak Realm Setup](../configuration/keycloak-realm-setup.md) — realm, client, and claim mapper configuration
 - [Investigation Workflow Runbook](../runbooks/investigation-workflow.md) — end-to-end walkthrough with troubleshooting
 - [User Access Guide](../runbooks/user-access-guide.md) — onboarding guide for SREs
 - [LocalStack Test README](../../tests/localstack/README.md) — integration test documentation

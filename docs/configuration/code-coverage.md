@@ -61,7 +61,7 @@ The `codecov.yml` at the repository root configures how Codecov processes and re
 | `test/**`, `tests/**` | Test infrastructure (LocalStack, bats) |
 | `docs/**`, `scripts/**`, `build/**` | Non-Go support files |
 | `skel/**` | Shell skeleton config (bashrc.d) |
-| `deploy/**` | Terraform and Kustomize |
+| `deploy/**` | Terraform |
 | `lambda/**` | Python Lambda functions (separate test suites) |
 
 **Flags**:

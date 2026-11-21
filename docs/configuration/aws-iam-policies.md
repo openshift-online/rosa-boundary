@@ -342,4 +342,4 @@ object ARNs — correct because S3 Bucket Keys are not enabled — and by
 ## Next Steps
 
 - [User Access Guide](../runbooks/user-access-guide.md) - End-user authentication workflow
-- [Keycloak Realm Setup](keycloak-realm-setup.md) - Configure OIDC client
+- [Architecture Overview](../architecture/overview.md) - OIDC issuer, claims, and the IAM OIDC provider the policies trust

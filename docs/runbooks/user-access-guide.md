@@ -20,9 +20,9 @@ EmployeeIDP tokens carry group memberships as LDAP-synced realm roles under `rea
    - **[Rover](https://rover.redhat.com)** — for standalone LDAP groups not managed through app-interface. Request group membership directly through rover.
 3. **Verify** — after membership propagates, authenticate and try an approved investigation. An STS denial may indicate a trust/claim problem before Lambda; a Lambda 403 may indicate group or ABAC-claim authorization failure. Ask the operator to identify the failing stage.
 
-### Self-managed Keycloak (developer deployments)
+### Personal dev deployments
 
-For deployments using a self-hosted Keycloak instance, groups are created and assigned manually by the Keycloak administrator. See [Keycloak Realm Setup](../configuration/keycloak-realm-setup.md) for group and user configuration.
+A contributor-owned dev deployment points at an **existing approved** realm — shared, or self-managed elsewhere — rather than one this repository deploys. Ask its administrator to create your non-admin SRE user and assign the required role or group, and confirm the public client emits the configured group claim and the principal tag matching `abac_tag_key`. See step 1 of [personal-dev bootstrap](personal-dev-bootstrap.md) for the values to collect.
 
 ## Prerequisites
 

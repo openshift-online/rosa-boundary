@@ -81,24 +81,23 @@ See [`deploy/regional/README.md`](deploy/regional/README.md) for the complete de
 
 ### OIDC Identity Requirements
 
-Keycloak must issue tokens with these claims:
+Boundary uses an existing OIDC issuer; this repository does not deploy one.
+Staging and production use Red Hat EmployeeIDP. Personal dev uses an
+[approved existing realm](docs/runbooks/personal-dev-bootstrap.md).
 
-| Claim | Purpose |
-|---|---|
-| `sub` | Stored as `oidc_sub` tag (audit trail) |
-| `preferred_username` | Used as `username` tag (ABAC key) |
-| `email` | Logged |
-| `groups` | Must contain `sre-team` |
-| `aud` | Must match `rosa-boundary-sre` |
-| `https://aws.amazon.com/tags` | Session tags with `principal_tags.username` for ABAC |
+The ID token's `aud` must match the deployment's OIDC client ID. Lambda checks
+the deployment's `required_groups` against the token's `groups` or
+`realm_access.roles` claim. The `https://aws.amazon.com/tags` claim must carry
+`principal_tags` with a value for the configured `abac_tag_key`. EmployeeIDP
+uses LDAP-synced realm roles and the `uuid` principal tag; a personal-dev
+realm may instead be configured to use `username`.
 
-Required Keycloak mappers:
-- Groups (flat names), email, audience (`rosa-boundary-sre`)
-- AWS session tags: map `preferred_username` → `principal_tags.username`
-
-Client settings: public client, standard flow + PKCE, redirect URI `http://localhost:8400/callback`.
-
-See [`docs/configuration/keycloak-realm-setup.md`](docs/configuration/keycloak-realm-setup.md) for step-by-step setup.
+For browser sign-in, the public client must support authorization code with PKCE
+and allow the CLI callback URI `http://localhost:8400/callback`. Ask the
+deployment operator for the approved issuer, client, and claim settings. See the
+[user access guide](docs/runbooks/user-access-guide.md#getting-access) for
+requesting access and [staging deployment](docs/staging-deployment.md) for the
+staging workspace settings.
 
 ### Install and Use the CLI
 
@@ -175,8 +174,7 @@ rosa-boundary/
 ├── deploy/
 │   ├── account/            # Boundary account-wide Terraform state
 │   ├── network/            # Boundary VPC and network Terraform state
-│   ├── regional/           # Boundary per-region Terraform state
-│   └── keycloak/           # Keycloak realm and client configuration
+│   └── regional/           # Boundary per-region Terraform state
 ├── hcp-terraform/
 │   ├── rosa-boundary/      # Boundary HCP workspace definitions
 │   ├── aws-creds/          # Stage and production AWS dynamic credentials

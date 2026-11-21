@@ -204,7 +204,7 @@ RUN mkdir --parents /opt/opencode \
 FROM tools-base AS codex-builder
 
 # renovate: datasource=github-releases depName=openai/codex
-ENV CODEX_VERSION="0.169.0"
+ENV CODEX_VERSION="0.170.0"
 ENV CODEX_URL_SLUG="openai/codex"
 ENV CODEX_URL="https://api.github.com/repos/${CODEX_URL_SLUG}/releases/tags/rust-v${CODEX_VERSION}"
 ENV CODEX_CHECKSUM_FILE="codex-package_SHA256SUMS"

@@ -46,7 +46,35 @@ module "aws_dynamic_creds" {
         }
       }
     }
+
+    rosa-trusted-actions = {
+      plan_role_policy_arns = [
+        "arn:aws:iam::aws:policy/ReadOnlyAccess",
+        aws_iam_policy.rosa_trusted_actions_plan_secrets.arn,
+      ]
+      projects = {
+        rosa-trusted-actions = {
+          workspace_names = [
+            "rosa-trusted-actions-prod-global",
+            "rosa-trusted-actions-prod-us-east-1",
+          ]
+        }
+      }
+    }
   }
+}
+
+resource "aws_iam_policy" "rosa_trusted_actions_plan_secrets" {
+  name        = "rosa-trusted-actions-plan-read-secret"
+  description = "Lets the rosa-trusted-actions prod plan role read its own Secrets Manager secret version during terraform plan/refresh."
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = ["arn:aws:secretsmanager:us-east-1:514903006123:secret:rosa-trusted-actions/ta-??????"]
+    }]
+  })
 }
 
 data "aws_caller_identity" "current" {}

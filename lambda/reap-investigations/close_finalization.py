@@ -54,6 +54,10 @@ EXCLUDED_NESTED = (('.config', 'ocm'),)
 STAGE_RESERVE_SECONDS = 20
 
 
+class TaskDefinitionCleanupError(Exception):
+    """ECS did not confirm the exact revision or its expected state."""
+
+
 class AttemptInvalid(Exception):
     """A finalization attempt cannot be trusted and must be retried fresh.
 
@@ -801,8 +805,8 @@ class Finalizer:
         try:
             if prepared is None:
                 result['task_definitions_removed'] = self.deregister_task_definitions(
-                    cluster_id, investigation_id)
-        except (ClientError, BotoCoreError):
+                    cluster_id, investigation_id, access_point_id)
+        except (ClientError, BotoCoreError, TaskDefinitionCleanupError):
             result['complete'] = False
             reasons.append('task definitions could not be deregistered')
 
@@ -829,13 +833,15 @@ class Finalizer:
             result['reason'] = '; '.join(reasons)
         return result
 
-    def deregister_task_definitions(self, cluster_id, investigation_id):
+    def deregister_task_definitions(self, cluster_id, investigation_id, access_point_id):
         if not self.task_definition_family:
-            return 0
+            raise TaskDefinitionCleanupError('Missing task definition family')
         prefix = f'{self.task_definition_family}-{cluster_id}-{investigation_id}'
-        removed = 0
+        # ECS familyPrefix is an exact family name. The timestamp is part of
+        # that name, so discover revisions before mutating the paginated list.
+        candidates = []
         paginator = self.ecs.get_paginator('list_task_definitions')
-        for page in paginator.paginate(familyPrefix=prefix, status='ACTIVE'):
+        for page in paginator.paginate(status='ACTIVE'):
             for arn in page.get('taskDefinitionArns', []):
                 name = arn.split(':task-definition/', 1)[-1]
                 family, separator, revision = name.rpartition(':')
@@ -844,8 +850,26 @@ class Finalizer:
                 suffix = family[len(prefix) + 1:] if family.startswith(prefix + '-') else None
                 if suffix is None or not re.fullmatch(r'\d{8}T\d{6}', suffix):
                     continue
-                self.ecs.deregister_task_definition(taskDefinition=arn)
-                removed += 1
+                candidates.append(arn)
+
+        removed = 0
+        for arn in candidates:
+            td = self.ecs.describe_task_definition(taskDefinition=arn).get('taskDefinition', {})
+            if td.get('taskDefinitionArn') != arn or td.get('status') not in ('ACTIVE', 'INACTIVE'):
+                raise TaskDefinitionCleanupError(f'Unexpected description for {arn}')
+            if td['status'] == 'INACTIVE':
+                continue
+            # Hyphenated cluster and investigation IDs can produce identical
+            # family names. Bind cleanup to the verified workspace, as in the CLI.
+            home = next((v.get('efsVolumeConfiguration', {}) for v in td.get('volumes', [])
+                         if v.get('name') == 'sre-home'), {})
+            if (home.get('fileSystemId') != self.efs_filesystem_id or
+                    home.get('authorizationConfig', {}).get('accessPointId') != access_point_id):
+                continue
+            result = self.ecs.deregister_task_definition(taskDefinition=arn).get('taskDefinition', {})
+            if result.get('taskDefinitionArn') != arn or result.get('status') != 'INACTIVE':
+                raise TaskDefinitionCleanupError(f'Deregistration not confirmed for {arn}')
+            removed += 1
         return removed
 
     def publish_receipt(self, cluster_id, investigation_id, access_point, seal, request_token,

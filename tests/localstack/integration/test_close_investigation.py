@@ -357,10 +357,14 @@ def test_sre_policy_allows_scoped_access_point_deletion():
 
 
 @pytest.mark.integration
-def test_close_cleanup_lists_and_deregisters_task_definitions(ecs_client, ecs_cleanup):
-    """Exercise the ECS list/deregister sequence used by close-investigation."""
-    timestamp = int(datetime.now().timestamp())
-    family = f'rosa-boundary-dev-cluster-{timestamp}-investigation'
+def test_close_cleanup_lists_and_deregisters_task_definitions(ecs_client, ecs_cleanup, monkeypatch):
+    """Run the reaper's cleanup and check the registered ARNs independently."""
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[3] / 'lambda/reap-investigations'))
+    from close_finalization import Finalizer
+
+    investigation = uuid4().hex
+    family = f'rosa-boundary-dev-cluster-{investigation}-20260101T000000'
+    fs, ap = 'fs-1234567890abcdef0', 'fsap-1234567890abcdef0'
     task_definition_arns = []
 
     for _ in range(2):
@@ -370,6 +374,9 @@ def test_close_cleanup_lists_and_deregisters_task_definitions(ecs_client, ecs_cl
             requiresCompatibilities=['FARGATE'],
             cpu='256',
             memory='512',
+            volumes=[{'name': 'sre-home', 'efsVolumeConfiguration': {
+                'fileSystemId': fs, 'transitEncryption': 'ENABLED',
+                'authorizationConfig': {'accessPointId': ap, 'iam': 'ENABLED'}}}],
             containerDefinitions=[{
                 'name': 'test-container',
                 'image': 'public.ecr.aws/docker/library/alpine:latest',
@@ -379,16 +386,10 @@ def test_close_cleanup_lists_and_deregisters_task_definitions(ecs_client, ecs_cl
         task_definition_arns.append(task_definition_arn)
         ecs_cleanup.register_task_definition(task_definition_arn)
 
-    list_response = ecs_client.list_task_definitions(
-        familyPrefix=family,
-        status='ACTIVE'
-    )
-    listed_arns = list_response.get('taskDefinitionArns', [])
-
-    assert set(task_definition_arns).issubset(listed_arns)
-
-    for task_definition_arn in listed_arns:
-        ecs_client.deregister_task_definition(taskDefinition=task_definition_arn)
+    finalizer = Finalizer(ecs=ecs_client, efs=None, s3=None, ssm=None, ecs_cluster='unused',
+                          efs_filesystem_id=fs, audit_bucket='', account_id='', mount_path='',
+                          started_by=None, task_definition_family='rosa-boundary-dev')
+    assert finalizer.deregister_task_definitions('cluster', investigation, ap) == len(task_definition_arns)
 
     for task_definition_arn in task_definition_arns:
         describe_response = ecs_client.describe_task_definition(

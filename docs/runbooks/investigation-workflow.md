@@ -463,63 +463,70 @@ configured reaper grace expires, have the operator [place a retention hold](#ret
 session on the retained investigation, or have the operator make a separate
 read-only recovery copy under a new destination while writers are quiescent.
 Verify the *whole* recovery copy, not just the missing keys. A successful
-recovery does not change the original attempt's result. The scheduled reaper's
-`reaper-final-backup/` is a separate recovery destination, not task evidence.
+recovery does not change the original attempt's result. The close service's
+own copy under `_boundary-close/evidence/<access-point-id>/attempts/<attempt>/workspace/`
+is a separate recovery destination, not task evidence. (Deployments that ran
+earlier revisions also have a historical `reaper-final-backup/` prefix, which
+is no longer written and cannot show which attempt produced it.)
 If necessary bytes are gone or recovery cannot be verified, do not authorize
 close: assign an incident owner and an escalation deadline.
 
-### Authorize close after verification (deployment operator)
+### Authorize close (automated)
 
-This procedure needs a separate privileged operator; do not give the task or
-shared SRE role permission to issue receipts or tag access points. Deploy the
-updated create/reaper Lambdas, IAM and CLI together before using it. On old
-images there may be no task reports; recover and verify independently instead.
+Close is requested by an authenticated SRE and performed by the investigation
+reaper. There is no separate privileged operator step and no manual receipt
+handoff: the request handler cannot write evidence, and the reaper will not
+accept an SRE's word for a backup it did not verify itself.
 
-1. Identify the exact regional audit bucket, filesystem and AP. Inventory all
-   APs that can reach **any part** of the investigation tree, including a
-   root (`/`) reaper AP. Check the effective filesystem and IAM policies and
-   identify the clients using those mounts; an AP named for the reaper is not
-   proof that only the reaper can use it. Coordinate a maintenance window
-   with those clients' owners: stop new launches, drain in-flight create/reaper
-   invocations and stop all tasks, including pending and stopping ones. A
-   disconnected shell, an empty recent ECS listing, or an AP tag by itself
-   is **not a write barrier**. Do not proceed with alternate writers or unknown
-   unresolved sessions. Keep the workspace quiescent until close completes.
-2. Tag the AP with `AuditCloseSeal=<fresh lowercase UUIDv4>` and
-   `AuditCloseBucket=<regional audit bucket>`. A sealed workspace is not
-   available for regular session creation; sealing does not revoke an existing
-   mount. Never reuse a seal. Before resuming work, remove `AuditCloseVerified`
-   first, then the seal; verification must start over with a new UUID.
-3. Recheck quiescence. Reconcile all required task transfers or verified recovery
-   with the independent manifest. Preserve the immutable manifest/version
-   references in access-controlled audit storage. **Only after verification**,
-   issue a small JSON receipt to the regional audit bucket at
-   `_boundary-close/<access-point-id>/<seal>.json` (create only, e.g. S3
-   PutObject with `If-None-Match: *`). Example shape, not evidence:
+Who may ask:
 
-   ```json
-   {"schema_version":1,"cluster_id":"<cluster>","investigation_id":"<investigation>","access_point_id":"<fsap-id>","seal":"<uuid>","status":"verified","manifest_ref":"<immutable verification evidence reference>"}
-   ```
+| Observed state | Who may request close |
+| --- | --- |
+| Held by SRE A | A only — including against whoever created the investigation |
+| Handed over to B | B only; A's earlier request is superseded |
+| No active sessions | any authenticated SRE authorized to use Boundary |
+| Unclear or unavailable | nobody; the request is deferred and retried |
 
-4. Read back the receipt and confirm the manifest reference and exact AP/seal.
-   Last, set `AuditCloseVerified=<same seal>` on this AP. This authorizes
-   deletion; never set it on a failed, stale or unreadable receipt. The CLI
-   reads the operator receipt, not the task's self-report, and performs no
-   backup of its own. An unreadable receipt or mismatched tags block close.
+What the reaper then does, in order: apply a managed close marker, stop only
+the tasks the request consented to stop, observe the workspace quiet twice with
+a configured interval between, measure every eligible file itself, copy into an
+attempt prefix of its own, compare that copy against its own measurements
+including S3 object versions, re-check the source and the task list, and only
+then deregister task definitions, delete the access point and publish a
+receipt. Any late task, read error, changed byte or ambiguous answer retains
+the data; the status says whether the reaper will start a fresh attempt by
+itself or whether the outcome needs a person.
+
+Read a `schema_version: 2` receipt as what it says it is:
+
+```json
+{"schema_version":2,"assurance":"observed-quiescence","status":"verified","seal":"<uuid>","request_token":"<uuid>","attempt_id":"<uuid>","manifest_ref":"s3://<bucket>/_boundary-close/evidence/<fsap-id>/attempts/<attempt>/source-manifest.json","verification_ref":"s3://<bucket>/_boundary-close/evidence/<fsap-id>/attempts/<attempt>/verification.json","directory_retained":true}
+```
+
+It attests that the copy matched the recorded source observations. It does not
+attest that no later write is possible: sealing is best effort, and a launch
+that already passed its marker check can still appear. The legacy
+`schema_version: 1` operator receipt and its separate `AuditCloseVerified` tag
+are still accepted unchanged; the reaper deliberately does not set that tag
+alongside v2 evidence, so an older CLI refuses a v2 close instead of mistaking
+it for the stronger guarantee.
 
 ### Retention hold
 
-For a new hold, the deployment operator sets a fresh `AuditCloseSeal` on the
-exact AP without setting `AuditCloseVerified` or issuing a receipt.
+To hold an investigation, set a fresh `AuditCloseSeal` on the exact access
+point **without** `AuditCloseManagedBy`. The reaper treats a seal it did not
+apply as a manual hold: it never replaces it, never deletes behind it, and
+reports the workspace as retained for review. IAM enforces the same thing —
+the reaper's grants refuse to overwrite an existing seal of any kind and
+refuse to delete an access point carrying an unmanaged seal.
 
-If verification was granted prematurely, remove **only `AuditCloseVerified`**
-from the affected AP immediately. Leave the seal in place as a retention hold.
-Read the tags back and confirm `investigation close --dry-run` reports that
-finalization is blocked. Preserve the original receipt and its version for
-incident review; do not reauthorize its seal.
+To release a hold, remove the seal. For every hold, assign an owner and record
+a review deadline. A hold prevents routine cleanup, not writes through an
+existing mount.
 
-For every hold, assign an operator and record a review deadline. A hold prevents routine cleanup, not writes
-through an existing mount.
+If a close is in flight and must be stopped, removing nothing is usually
+correct: the reaper retains data on any ambiguity, and `--status` shows the
+current disposition.
 
 ## Phase 6: Close Investigation
 
@@ -528,19 +535,42 @@ through an existing mount.
   <cluster-id> <investigation-id> --dry-run
 # After checking the complete plan and audit evidence, confirm in a terminal:
 ./bin/rosa-boundary --profile <profile-name> investigation close \
-  <cluster-id> <investigation-id>
+  <cluster-id> <investigation-id> --wait
 ```
 
 What it does:
-1. Verifies that the authenticated creator's OIDC subject matches the access point's `oidc_sub` tag and that the access point is Lambda-managed; missing owner tags fail closed. Another SRE can join an authorized shared investigation but cannot close it through the CLI.
-2. Resolves and previews the complete plan (account, region, cluster, filesystem, access point, active session IDs, and matching task definitions) **before** any mutation. `--dry-run` is read-only. A noninteractive close needs `--yes` unless dry-running.
-3. Refuses active, pending, or still-shutting-down sessions without `--force`. With `--force`, plans stops for active sessions and waits for those already stopping to reach STOPPED before deregistering definitions or deleting the access point. The CLI rechecks the plan before mutation; changes require a new preview. Treat partial failures as incomplete and check the reported remaining actions.
-4. Requires a verified operator seal and matching S3 receipt before deregistration or AP deletion. A forced stop is not authorization: rerun after verification. Deleting the access point does not erase the EFS directory.
 
-Both positional IDs are required. Ensure the selected profile has the correct
-`efs_filesystem_id` and ECS cluster. CLI owner validation does **not** constrain
-direct AWS clients using the SRE role; IAM ownership and atomic exclusion of
-concurrent starts/closes remain separate infrastructure work.
+1. Resolves and previews the complete plan (account, region, cluster,
+   filesystem, access point, visible session IDs, matching task definitions and
+   any close seal) **before** anything is requested. `--dry-run` is read-only.
+   A noninteractive close needs `--yes`.
+2. Submits an authenticated close request and prints its token. The close
+   service decides eligibility: the CLI cannot observe attached sessions and
+   does not pretend to. The access point's creator tag is provenance, not
+   permission.
+3. Records the request even when tasks are running. Without `--force`, the
+   reaper waits for them to stop. With it, the reaper still waits for a
+   different attached SRE to detach; it does not waive backup verification.
+4. With `--wait`, polls until the service reports an outcome it will not leave
+   by itself, bounded in wall-clock time. Stopping the wait does not cancel the
+   request. A `retained` or `cleanup_incomplete` result is reported as a
+   failure, the data is kept, and the message says whether the reaper will
+   retry it.
+
+Status values are deliberately distinguishable — `accepted`,
+`waiting_for_tasks`, `verifying`, `retained`, `cleanup_incomplete`,
+`completed`. **Accepted is not closed.** Status stays answerable after the
+access point is deleted: use `investigation close <cluster-id> <investigation-id> --status` (optionally `-o json`). This lookup never submits a request.
+
+The EFS directory is retained on a normal close. Only the stale sweep may
+reclaim a directory, behind the same verified gate. Do not recreate a closed
+investigation over a retained directory; choose a distinct investigation ID.
+
+Both positional IDs are required for `investigation close`. Ensure the selected
+profile has the correct `efs_filesystem_id`, ECS cluster, `invoker_role_arn`
+and `lambda_function_name`. See
+[Automated investigation close](../architecture/investigation-close.md) for the
+full contract, including what the receipt does not prove.
 
 ## Complete Example
 
@@ -571,9 +601,11 @@ SESSION_ID="<session ID from output>"
 # 5. Verify CloudWatch and S3 audit evidence using an audit-reader identity
 # (see "Verify Audit Evidence" above).
 
-# 6. Review the read-only close plan, then confirm closure in a terminal
+# 6. Review the read-only close plan, then request closure in a terminal.
+# --wait follows the close service until its status is terminal; the EFS
+# directory is retained either way.
 ./bin/rosa-boundary --profile "$PROFILE" investigation close "$CLUSTER_ID" "$INV_ID" --dry-run
-./bin/rosa-boundary --profile "$PROFILE" investigation close "$CLUSTER_ID" "$INV_ID"
+./bin/rosa-boundary --profile "$PROFILE" investigation close "$CLUSTER_ID" "$INV_ID" --wait
 ```
 
 ## Authorization Model
@@ -584,6 +616,14 @@ The deployment's shared SRE role is scoped at runtime by ABAC:
 - STS derives principal session tags from the OIDC token's `https://aws.amazon.com/tags` claim; the IAM role trust permits `sts:TagSession`
 - The role policy compares `ecs:ResourceTag/<configured-key>` with `aws:PrincipalTag/<configured-key>` for ECS Exec
 - Cross-user task access is prevented at IAM policy level without per-user roles
+
+Investigation close has its own authorization, enforced service-side rather
+than by ABAC: any authorized Boundary SRE may explicitly request close,
+including while another SRE is attached. A task left running after its SRE detached does not keep the investigation
+held — but stopping that task still needs the explicit consent of whoever
+requests the close. Creating an investigation confers no standing authority
+over it. See
+[Automated investigation close](../architecture/investigation-close.md).
 
 For log retrieval use [Verify Audit Evidence](#verify-audit-evidence), not the task's AWS identity.
 

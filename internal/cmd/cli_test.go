@@ -487,3 +487,29 @@ func TestCLIDiscoveryCannotSwitchIssuerOrRegion(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestCloseFlagCombinationsAreRejectedBeforeAuthentication(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	previousTerminal := requireTerminal
+	requireTerminal = func() error { return nil }
+	t.Cleanup(func() { requireTerminal = previousTerminal })
+	for _, tc := range []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{"close wait with dry run", []string{"investigation", "close", "cluster", "inv", "--dry-run", "--wait"},
+			"no meaning with --dry-run"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := buildRootCommand()
+			root.SetArgs(tc.args)
+			root.SetOut(io.Discard)
+			root.SetErr(io.Discard)
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("err = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}

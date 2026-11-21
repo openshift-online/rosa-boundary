@@ -3,53 +3,13 @@ package cmd
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/openshift-online/rosa-boundary/internal/lambda"
 )
-
-func TestPrintCloseInvestigationSummary(t *testing.T) {
-	cluster := "test-cluster-1"
-	investigationID := "inv-test-123"
-	accessPointID := "fsap-12345"
-	tasksStopped := 2
-	taskDefsRemoved := 1
-
-	old := os.Stdout
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("failed to create pipe: %v", err)
-	}
-
-	t.Cleanup(func() {
-		os.Stdout = old
-	})
-	os.Stdout = w
-
-	if err := printCloseInvestigationSummary(cluster, investigationID, accessPointID, tasksStopped, taskDefsRemoved); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := w.Close(); err != nil {
-		t.Fatalf("failed to close writer: %v", err)
-	}
-	var buf bytes.Buffer
-	if _, err := buf.ReadFrom(r); err != nil {
-		t.Fatalf("failed to read from pipe: %v", err)
-	}
-
-	output := buf.String()
-
-	if !strings.Contains(output, "test-cluster-1/inv-test-123") {
-		t.Errorf("expected Cluster to show %q, got output:\n%s", cluster, output)
-	}
-	if !strings.Contains(output, "Investigation") {
-		t.Errorf("expected Investigation to show %q, got output:\n%s", investigationID, output)
-	}
-	if !strings.Contains(output, "Sessions stopped: 2") {
-		t.Errorf("expected Tasks Stopped to show 2, got output:\n%s", output)
-	}
-}
 
 func TestInvestigationTaskDefinitionsDoNotMatchOtherInvestigations(t *testing.T) {
 	base := "rosa-boundary-stage-cluster-incident-42"
@@ -64,36 +24,6 @@ func TestInvestigationTaskDefinitionsDoNotMatchOtherInvestigations(t *testing.T)
 	}
 }
 
-func TestSameClosePlanDetectsNewSession(t *testing.T) {
-	a := closePlan{AccessPointID: "fsap-1", ClusterID: "c", InvestigationID: "i", SessionIDs: []string{"task-1"}}
-	b := a
-	b.SessionIDs = []string{"task-1", "task-2"}
-	if sameClosePlan(a, b) {
-		t.Fatal("a changed plan cannot be executed")
-	}
-}
-
-func TestSameClosePlanDetectsSessionEnteringShutdown(t *testing.T) {
-	a := closePlan{AccessPointID: "fsap-1", ClusterID: "c", InvestigationID: "i", SessionIDs: []string{"task-1"}, SessionsWaiting: []string{}}
-	b := a
-	b.SessionIDs = []string{}
-	b.SessionsWaiting = []string{"task-1"}
-	if sameClosePlan(a, b) {
-		t.Fatal("changing desired status must require a new close plan")
-	}
-}
-
-func TestCloseRejectsOtherOwnerOrMissingSubject(t *testing.T) {
-	for _, tags := range []map[string]string{{"oidc_sub": "other-user"}, {"username": "same-name"}, {"oidc_sub": ""}} {
-		if err := checkInvestigationOwner(tags, "current-user"); err == nil {
-			t.Fatalf("accepted non-owned investigation tags: %v", tags)
-		}
-	}
-	if err := checkInvestigationOwner(map[string]string{"oidc_sub": "current-user"}, "current-user"); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func TestAuthenticatedSubjectRejectsMissingOrMalformedClaims(t *testing.T) {
 	for _, token := range []string{"bad", "header." + base64.RawURLEncoding.EncodeToString([]byte(`{}`)) + ".signature", "header.!invalid.signature"} {
 		if subject, err := authenticatedSubject(token); err == nil {
@@ -103,5 +33,96 @@ func TestAuthenticatedSubjectRejectsMissingOrMalformedClaims(t *testing.T) {
 	good := "header." + base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"user-1"}`)) + ".signature"
 	if subject, err := authenticatedSubject(good); err != nil || subject != "user-1" {
 		t.Fatalf("subject = %q, error %v", subject, err)
+	}
+}
+
+// Stop consent is separate from authorization: without --force the service is
+// asked to wait rather than to stop anyone's session.
+func TestCloseStopScopeRequiresForce(t *testing.T) {
+	old := closeForce
+	t.Cleanup(func() { closeForce = old })
+	closeForce = false
+	if scope := closeStopScope(); scope != lambda.StopScopeNone {
+		t.Fatalf("default close must not consent to stopping tasks: %q", scope)
+	}
+	closeForce = true
+	if scope := closeStopScope(); scope != lambda.StopScopeInvestigation {
+		t.Fatalf("--force must consent to stopping the investigation: %q", scope)
+	}
+}
+
+func TestReceiptEvidenceMustNameItsOwnAttempt(t *testing.T) {
+	// The real layout the reaper writes. The `evidence/` segment matters: a
+	// copy directly under _boundary-close/<ap>/ would fall inside the SRE
+	// role's receipt read grant.
+	const bucket, ap = "bucket", "fsap-1"
+	attempt := "3b5c9f2e-8a41-4d7b-9c0e-1f2a3b4c5d6e"
+	prefix := "s3://" + bucket + "/_boundary-close/evidence/" + ap + "/attempts/"
+	good := prefix + attempt + "/source-manifest.json"
+	verification := strings.Replace(good, "source-manifest", "verification", 1)
+	other := prefix + "7a1b2c3d-4e5f-4a6b-8c9d-0e1f2a3b4c5d/verification.json"
+
+	if !receiptEvidenceMatches(bucket, ap, good, verification, attempt) {
+		t.Fatal("matching evidence references rejected")
+	}
+	for name, tc := range map[string][5]string{
+		"a second attempt":        {bucket, ap, good, other, attempt},
+		"no manifest reference":   {bucket, ap, "", verification, attempt},
+		"no verification":         {bucket, ap, good, "", attempt},
+		"no attempt":              {bucket, ap, good, verification, ""},
+		"an unstructured key":     {bucket, ap, "s3://bucket/manifest.json", verification, attempt},
+		"one reference for both":  {bucket, ap, good, good, attempt},
+		"another access point":    {bucket, "fsap-2", good, verification, attempt},
+		"another bucket":          {"other-bucket", ap, good, verification, attempt},
+		"no bucket to bind to":    {"", ap, good, verification, attempt},
+		"the pre-isolation shape": {bucket, ap, strings.Replace(good, "evidence/", "", 1), verification, attempt},
+	} {
+		if receiptEvidenceMatches(tc[0], tc[1], tc[2], tc[3], tc[4]) {
+			t.Fatalf("accepted mismatched evidence (%s): %v", name, tc)
+		}
+	}
+}
+
+func TestReportCloseStatusDistinguishesAcceptedFromClosed(t *testing.T) {
+	oldFormat, oldWait := closeOutputFormat, closeWait
+	t.Cleanup(func() { closeOutputFormat, closeWait = oldFormat, oldWait })
+	closeOutputFormat, closeWait = "json", false
+
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Stdout = old })
+	os.Stdout = w
+
+	err = reportCloseStatus("cluster", "inv",
+		&lambda.CloseActionResponse{RequestToken: "token-1", StopScope: lambda.StopScopeNone},
+		&lambda.CloseStatusResponse{Status: lambda.CloseStatusAccepted, Phase: "accepted", DirectoryRetained: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r); err != nil {
+		t.Fatal(err)
+	}
+	var summary map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &summary); err != nil {
+		t.Fatalf("close output is not JSON: %s", buf.String())
+	}
+	if summary["status"] != lambda.CloseStatusAccepted {
+		t.Fatalf("accepted status lost: %v", summary)
+	}
+	if summary["access_point_deleted"] != false {
+		t.Fatalf("cleanup disposition must be reported: %v", summary)
+	}
+	if summary["directory_retained"] != true {
+		t.Fatalf("retained directory must be reported: %v", summary)
+	}
+	if summary["request_token"] != "token-1" {
+		t.Fatalf("request identity must be reported: %v", summary)
 	}
 }

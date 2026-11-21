@@ -48,11 +48,11 @@ func TestSQLiteStore_RollbackLastMigration(t *testing.T) {
 	}
 
 	var count int
-	if err := s.db.Get(&count, "SELECT COUNT(*) FROM schema_migrations WHERE version = '001_init'"); err != nil {
+	if err := s.db.Get(&count, "SELECT COUNT(*) FROM schema_migrations WHERE version = '002_execution_reason'"); err != nil {
 		t.Fatalf("querying schema_migrations: %v", err)
 	}
 	if count != 0 {
-		t.Errorf("expected 001_init to be removed from schema_migrations after rollback, got count %d", count)
+		t.Errorf("expected 002_execution_reason to be removed from schema_migrations after rollback, got count %d", count)
 	}
 }
 

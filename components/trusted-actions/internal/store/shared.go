@@ -2,7 +2,7 @@ package store
 
 // Column lists used by both SQLiteStore and PostgresStore. The order must
 // match the corresponding *Row struct field order for sqlx StructScan.
-const executionColumns = `id, action, status, approval_state, username, target_cluster,
+const executionColumns = `id, action, status, reason, approval_state, username, target_cluster,
 	jira, dry_run, force, params, scope, type, revision,
 	manifest_work_name,
 	runner_seconds, upload_seconds, duration_seconds,

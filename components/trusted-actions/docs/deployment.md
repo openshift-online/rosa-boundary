@@ -340,3 +340,11 @@ steps with the appropriate `aws_region`, `vpc_id`, and subnet variables for
 that region. The same `local_override.tf` file works unchanged — it points to
 the shared `terraform/global/terraform.tfstate` regardless of which region is
 being tested.
+
+Each region's server also enforces a deployment-region boundary: an action
+targeting a cluster whose own OCM region differs from the deployment's is
+denied. That boundary (`ROSA_TA_DEPLOYMENT_REGION`) defaults to `AWS_REGION`
+(`var.aws_region` in the ECS task definition), which every regional root
+already sets, so production leaves the override unset. Set
+`ROSA_TA_DEPLOYMENT_REGION` only when deliberately diverging — e.g. integration
+tests that pin a different boundary to prove out-of-region denial.

@@ -65,7 +65,7 @@ is the selected ABAC key. Access-point `username` and `oidc_sub` identify the
 `CreatedAt`. Those tags are provenance and do **not** decide who may close: the
 close service derives the current holder from the sessions attached to the
 investigation's tasks, so the reaper can defer an explicit request from a different SRE
-without interrupting the attached session. A task's own `oidc_sub` tag is provenance for
+without interrupting the attached session. Handover supersedes session-bound callbacks. A task's own `oidc_sub` tag is provenance for
 the same reason: a task still RUNNING after its SRE detached leaves the
 investigation idle, not held. A successor's task can therefore
 have a different subject from its access point. Investigation age-based cleanup
@@ -112,7 +112,7 @@ audit evidence before replacing their task. The workspace persists, but OCM and
 kubeconfig credential mounts are task-scoped and must be configured afresh.
 After handover the successor, not the original creator, is the SRE who may
 close the investigation; when no sessions are active, any authorized Boundary
-SRE may. An earlier holder's close request is superseded
+SRE may. An earlier holder's close request or auto-close intent is superseded
 rather than inherited. [ROSAENG-75946](https://redhat.atlassian.net/browse/ROSAENG-75946)
 tracks the separate IAM-level close-ownership work.
 

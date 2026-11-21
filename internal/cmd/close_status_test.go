@@ -30,7 +30,7 @@ func TestReadOnlyCloseStatus(t *testing.T) {
 			service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{&want}, statusErr: tc.err}
 			var out bytes.Buffer
 			err := showRecordedCloseStatus(context.Background(), &out, service.service(), "cluster", "inv")
-			if len(service.requests) != 0 {
+			if len(service.requests)+len(service.intents)+len(service.cancellation) != 0 {
 				t.Fatal("status performed a mutation")
 			}
 			if !errors.Is(err, tc.err) {

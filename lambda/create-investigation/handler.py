@@ -236,8 +236,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # reaper must revalidate, and they never seal, stop, verify or delete.
         action = body.get('action')
         if action in close_requests.ACTIONS:
-            if action != 'close_status':
-                return response(503, {'error': 'Close writes are not enabled yet'})
             return handle_close_action(action, body, user_sub, username)
 
         # EmployeeIDP's uuid principal tag is the corporate UUID, not OIDC sub.

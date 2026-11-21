@@ -178,10 +178,12 @@ REQUIRE_GITHUB_TOKEN=true make build-amd64
 make verify-image-tools TOOL_IMAGE=rosa-boundary:latest-amd64
 ```
 
-`make build` requests both amd64 and arm64; it is not necessary to enable ARM
-for this change. The earlier draft identified an amd64-only base digest and
-rejected a mislabeled ARM build. Do not bypass the architecture guard or claim
-ARM support; base-image and ARM enablement work are separate.
+`make build` builds both amd64 and arm64. The pinned `BASE_IMAGE` digest in
+`Containerfile` resolves to a multi-architecture manifest list that includes
+`linux/arm64`, so ARM64 images are buildable (`make build-arm64`). A per-stage
+architecture guard still rejects any image whose contents do not match the
+requested `TARGETARCH`; do not bypass it. For a quick local smoke test a single
+architecture is sufficient, but do not relabel an amd64 build as ARM.
 
 The verifier must enforce the six-tool contract. The existing Make
 target resolves the supplied image reference to an immutable local image ID and

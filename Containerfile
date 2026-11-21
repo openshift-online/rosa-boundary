@@ -87,7 +87,7 @@ RUN --network=none python3 /usr/local/share/sre-tools/sre_tools.py ocm-backplane
         --version "${BACKPLANE_CLI_VERSION}" --arch "$(platform_convert "@@PLATFORM@@" --amd64 --arm64)" --validate-installed
 
 # renovate: datasource=github-releases depName=openshift/osdctl
-ARG OSDCTL_VERSION="v0.67.0"
+ARG OSDCTL_VERSION="v0.68.0"
 RUN --mount=type=secret,id=GITHUB_TOKEN \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_ID \
     --mount=type=secret,id=rosa-boundary-github-app/GITHUB_APP_PEM \

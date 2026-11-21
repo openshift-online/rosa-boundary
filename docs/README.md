@@ -1,12 +1,12 @@
 # ROSA Boundary Access Documentation
 
-This documentation describes the access architecture for ephemeral SRE containers on AWS ECS Fargate, using Keycloak for OIDC authentication and AWS IAM for authorization.
+This documentation describes the access architecture for ephemeral SRE containers on AWS ECS Fargate, using an external identity provider for OIDC authentication and AWS IAM for authorization.
 
 ## System Overview
 
 The ROSA Boundary system provides secure, audited access to ephemeral SRE containers running on AWS ECS Fargate. Access is controlled through a two-tier security model:
 
-1. **Identity Layer**: Keycloak (Red Hat build) provides OIDC authentication and group-based identity
+1. **Identity Layer**: An external OIDC provider (Red Hat EmployeeIDP in staging and production) authenticates users and supplies group claims
 2. **Infrastructure Layer**: AWS ECS Fargate runs ephemeral containers with Lambda-based authorization and tag-based IAM policies
 
 ## Architecture Documentation
@@ -30,7 +30,6 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 
 ## Configuration Guides
 
-- [**Keycloak Realm Setup**](configuration/keycloak-realm-setup.md) - Configure Keycloak realm and OIDC client using KeycloakRealmImport CR
 - [**AWS IAM Policies**](configuration/aws-iam-policies.md) - IAM roles and policies for ECS Exec access
 - [**Bedrock Model Agreements**](configuration/bedrock-model-agreements.md) - Account-level subscription manifest and lifecycle
 - [**Coding Agents on Bedrock**](configuration/coding-agent-bedrock.md) - Task-role defaults for Claude Code, pi, OpenCode and Codex
@@ -64,12 +63,12 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 
 ### Prerequisites
 
-- Keycloak deployed (see `deploy/keycloak/`)
+- Access to the deployment's OIDC issuer — Red Hat EmployeeIDP for staging and production (see the [user access guide](runbooks/user-access-guide.md)); this repository does not deploy an identity provider
 - AWS account with ECS Fargate infrastructure (see `deploy/regional/`)
 
 ### For Administrators
 
-1. Configure [Keycloak realm and OIDC client](configuration/keycloak-realm-setup.md)
+1. Confirm the identity provider's issuer, client, and claim requirements — see [OIDC Identity Requirements](../README.md#oidc-identity-requirements), and [staging deployment](staging-deployment.md) for the variables the staging workspace sets
 2. Create [AWS IAM policies](configuration/aws-iam-policies.md) for users
 3. Deploy Lambda function for investigation creation (see `deploy/regional/lambda-create-investigation.tf`)
 
@@ -80,6 +79,6 @@ See the [User Access Guide](runbooks/user-access-guide.md) for named-profile set
 ## Support
 
 For issues related to specific components:
-- **Keycloak**: Check `oc logs -n keycloak deployment/rhbk-operator`
+- **Identity provider**: Check [OIDC issuer diagnostics](runbooks/troubleshooting.md#oidc-issuer-diagnostics). For login or group access, see the [user access guide](runbooks/user-access-guide.md#getting-access).
 - **AWS ECS/SSM**: Check CloudWatch Logs `/ecs/rosa-boundary-*/ssm-sessions`
 - **Lambda**: Check CloudWatch Logs `/aws/lambda/rosa-boundary-*-create-investigation`

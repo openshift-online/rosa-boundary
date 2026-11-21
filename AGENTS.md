@@ -13,7 +13,7 @@ This is a routing guide, not a snapshot of the implementation. Start with the re
 | Boundary infrastructure and deployments | [regional README](deploy/regional/README.md), [staging guide](docs/staging-deployment.md) | Terraform roots under `deploy/`, Boundary workspace definitions under `hcp-terraform/rosa-boundary/` |
 | Trusted Actions API, CLI, image, and tests | [TA README](components/trusted-actions/README.md), [TA contributor guidance](components/trusted-actions/AGENTS.md), [TA testing](components/trusted-actions/TESTING.md) | `components/trusted-actions/` source, its `go.mod`, Makefile, generated-code rules, and tests |
 | Trusted Actions Terraform and delivery | [migration and current layout](docs/trusted-actions-monorepo-migration.md), [TA deployment guide](components/trusted-actions/docs/deployment.md) | `components/trusted-actions/terraform/{global,regional}/`, `hcp-terraform/rosa-trusted-actions/`, `.tekton/rosa-trusted-actions-*.yaml` |
-| Keycloak | [realm setup](docs/configuration/keycloak-realm-setup.md) | `deploy/keycloak/` |
+| OIDC identity (external IdP) | [architecture overview](docs/architecture/overview.md), [user access guide](docs/runbooks/user-access-guide.md) | `internal/auth/`, `lambda/create-investigation/`, `deploy/account/oidc.tf`, and the OIDC variables in `deploy/regional/` |
 | Cross-cutting questions needing repository context | [OpenWiki](openwiki/quickstart.md) (on demand; see guidance below) | Current source and tests |
 
 ## Verification skills

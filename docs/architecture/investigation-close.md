@@ -1,6 +1,6 @@
 # Automated investigation close
 
-This first layer defines the close contract; it does not enable requests or finalization.
+The finalizer is not yet invoked by the scheduled handler.
 
 ## Who may close
 
@@ -62,6 +62,32 @@ tasks to stop before it seals.
 
 Consent travels with the request that carried it. A second request cannot widen
 an earlier one, and `--force` is not an authorization override: it does not permit the reaper to interrupt a different attached holder.
+
+## What a seal means, and what it does not
+
+A managed seal is an access-point tag set by the reaper:
+`AuditCloseSeal=<uuid>` plus `AuditCloseManagedBy=rosa-boundary-reaper` and
+`AuditCloseRequest=<request token>`. Once it is observed, Boundary's own create,
+reconnect and handover paths reject the investigation.
+
+That is **best effort**. There is still a check-to-launch race: a launch that
+already passed its marker check can appear after a reaper observation. The
+create Lambda checks the marker at lookup and again as late as practical before
+launching, and stops a late task if it sees the marker afterwards. That narrows
+the window; it does not close it.
+
+Nothing in the code, the documentation or a receipt may describe this as atomic
+exclusion. The protections that follow from accepting the weaker guarantee are:
+
+* two task observations separated by a configurable quiet interval before the
+  workspace is measured;
+* a third observation after the copy, which invalidates the attempt if a task
+  appeared; and
+* receipts that state what was observed rather than what was prevented.
+
+A seal set by hand, or any seal without the managed marker, is a retention
+hold. The reaper never replaces it, and IAM refuses to overwrite an existing
+seal of any kind regardless of what the handler asks for.
 
 ## Where the control records live
 
@@ -138,3 +164,108 @@ the bucket, and its one read grant — `_boundary-close/fsap-*/*.json`, for clos
 receipts — is why attempt evidence lives under `evidence/` rather than directly
 beneath the access point: a workspace copied to a key of that shape would have
 exposed every `.json` file in it through a grant meant for receipts alone.
+
+## The finalization sequence
+
+Every route — an explicit request, an activated auto-close intent, and the
+stale sweep — runs the same pipeline. There is no second, less-verified path to
+deletion.
+
+1. **Revalidate.** Re-derive the observation and reapply the matrix. A different holder
+   defers an explicit request but supersedes a session callback. Unknown state defers both.
+2. **Seal.** Apply a fresh managed marker, or reuse an existing managed one.
+   Never replace a manual or legacy seal.
+3. **Drain.** Stop only the consented tasks. Anything outside that scope leaves
+   the close waiting.
+4. **Confirm quiet.** Observe again after the configured quiet interval. A task
+   observed here ends the pass.
+5. **Measure.** Walk the workspace with the trusted mount, recording relative
+   path, length and SHA-256 for every eligible regular file. Credential
+   directories (`.kube/`, `.config/ocm/`) are excluded, symlinks and special
+   files are recorded as skipped, and an unreadable tree, an unsafe path name
+   or a file that changes while it is read invalidates the attempt. A task's
+   own upload report is never the source of truth.
+6. **Copy and verify.** Copy into this attempt's prefix, then compare the exact
+   destination key set, lengths, digests and S3 object versions against the
+   manifest, using the same comparator the operator script uses.
+7. **Recheck.** Re-measure the source and re-enumerate tasks. Any difference, a
+   new task, a read error or an ambiguous answer invalidates the attempt, which
+   is retained and retried as a fresh attempt rather than published.
+8. **Record, clean up, then publish.** Write a status naming the verified
+   attempt *before* anything destructive runs, so a later failure still points
+   at the data. Then deregister this investigation's task definitions and
+   delete the access point — but only if every earlier cleanup step succeeded,
+   because the access point is the sole handle to a directory that was not
+   reclaimed. Finally publish a receipt describing exactly what happened,
+   including what was *not* cleaned up. Before AP deletion, persist the cleanup
+   disposition under the verified attempt's `delete-ap.json`. If interrupted,
+   resume that attempt: match the request, seal, AP, manifest, and verification
+   digest, check the backed-up versions, and compare any remaining directory.
+   Never treat a partially removed workspace as a new backup. Missing or
+   inconsistent evidence (including a legacy checkpoint without the digest)
+   requires investigation; an absent AP alone is not evidence of completion.
+
+Every status says whether the reaper will come back to it. A retention the
+reaper can resolve by itself — a throttled API call, an invalidated attempt, a
+task that appeared late — is marked retryable and is picked up on a later pass.
+A retention that needs a person — a manual hold, a superseded request, a
+missing or conflicting workspace — is not, and neither the CLI nor this
+document promises a retry that will not happen.
+
+The scheduled sweep records its own request before it begins, for the same
+reason: sealing happens early and the sweep skips sealed access points, so an
+interrupted pass with nothing on file would leave a sealed workspace that
+nothing ever revisits.
+
+Every stage checks the remaining runtime first. A stage that cannot finish is
+not started; the pass records its status and the next scheduled invocation
+resumes. A timer expiry never becomes a completed close.
+
+Finalization is serialized to one invocation per deployment
+(`reserved_concurrent_executions = 1`). That is an operational constraint on
+finalizers, not a lock against session creation or any other EFS client.
+
+## Receipts
+
+Schema v2 states its assurance level explicitly:
+
+```json
+{"schema_version":2,"assurance":"observed-quiescence","status":"verified",
+ "seal":"…","request_token":"…","attempt_id":"…",
+ "manifest_ref":"s3://…/attempts/<attempt>/source-manifest.json",
+ "verification_ref":"s3://…/attempts/<attempt>/verification.json",
+ "manifest_sha256":"…","directory_retained":true,"cleanup_complete":true,
+ "limitations":["Verified against the recorded source observations; writes after the final observation are not excluded.", "…"]}
+```
+
+A v2 receipt is accepted only when it names the same cluster, investigation,
+access point and seal, carries the request token the close was authorized
+under, and references the *same attempt* in both evidence references. A
+non-empty manifest reference is not enough.
+
+Schema v1 — the operator receipt — is unchanged and still accepted, including
+its requirement for a separate `AuditCloseVerified` tag. The reaper does **not**
+set that generic tag alongside v2 evidence, which is exactly why an older
+client refuses a v2 close rather than mistaking it for the stronger v1
+guarantee. Any other schema version is refused outright instead of being
+interpreted optimistically.
+
+## What close leaves behind
+
+* **Normal close retains the EFS directory.** The access point and the
+  investigation's task definitions are removed; the directory stays. Reclaiming
+  it is a stricter, separate decision.
+* **Undated managed investigation access points are retired, not reused.** Without a `CreatedAt` tag, new launches and handovers are refused. The scheduled stale sweep applies no age grace to these access points; active tasks, manual holds and failed verification still prevent destructive cleanup.
+* **Stale reaping may reclaim the directory**, but only behind the same
+  verified gate, and only when `investigation_stale_reclaim_directories` is
+  enabled. If reclamation fails, the verified copy and evidence are kept and
+  the status says `cleanup_incomplete`.
+* **A retained directory stays discoverable.** The status record survives access
+  point deletion and names the path, because access-point discovery will not.
+* **Deleting an access point does not evict an existing mount**, and no receipt
+  claims it does.
+* **A cleanup step that failed keeps its access point.** It is the only handle
+  to a directory that was not reclaimed, so it is not deleted until the rest of
+  the cleanup succeeded.
+* An investigation ID whose workspace was retained after a completed close must
+  not be reused; choose a distinct identity.

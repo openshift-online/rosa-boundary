@@ -27,6 +27,7 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 	)
 	creds := &TemporaryCredentials{
 		AccessKeyID: "test-access-key", SecretAccessKey: "test-secret-key", SessionToken: "test-session-token",
+		Expiry: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 	provider := StaticCredentialsProvider(creds)
 

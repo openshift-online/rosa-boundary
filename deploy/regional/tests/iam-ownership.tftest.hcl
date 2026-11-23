@@ -270,6 +270,23 @@ run "legacy_policy_names_ownership_and_original_scopes" {
   }
   assert {
     condition = (
+      [for s in jsondecode(aws_iam_role_policy.reap_investigations_lambda_s3.policy).Statement : {
+        effect   = s.Effect
+        resource = s.Resource
+        } if contains(flatten([s.Action]), "s3:AbortMultipartUpload")
+        ] == [{
+          effect   = "Allow"
+          resource = "${aws_s3_bucket.audit.arn}/_boundary-close/evidence/fsap-*/attempts/*/workspace/*"
+      }]
+    )
+    error_message = "The finalizer can abort multipart uploads only under its attempt workspace prefix."
+  }
+  assert {
+    condition     = one(aws_s3_bucket_lifecycle_configuration.audit.rule).abort_incomplete_multipart_upload[0].days_after_initiation == 7
+    error_message = "The audit bucket must retain its seven-day backstop for orphaned multipart uploads."
+  }
+  assert {
+    condition = (
       jsondecode(aws_iam_role_policy.create_investigation_lambda_close_requests.policy).Statement[1].Resource == [
         "${aws_s3_bucket.audit.arn}/_boundary-close/requests/*",
         "${aws_s3_bucket.audit.arn}/_boundary-close/intents/*",

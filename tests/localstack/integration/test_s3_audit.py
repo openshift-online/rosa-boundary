@@ -1,11 +1,59 @@
 """Test S3 audit bucket with WORM compliance."""
 
+import io
 import re
+from contextlib import closing
 from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
+from botocore.exceptions import ClientError
+
+
+@pytest.mark.integration
+def test_reaper_aborts_failed_multipart_backup_then_uploads_a_fresh_copy(s3_client, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[3] / 'lambda/reap-investigations'))
+    from boundary_close_records import attempt_workspace_prefix
+    from close_finalization import MULTIPART_THRESHOLD, Finalizer
+
+    bucket = f'test-reaper-multipart-{uuid4().hex}'
+    prefix = '_boundary-close/'
+    failed_key, retry_key = (
+        attempt_workspace_prefix('fsap-12345678', str(uuid4())) + 'file.bin' for _ in range(2)
+    )
+    payload = b'x' * MULTIPART_THRESHOLD + b'last part'
+    finalizer = Finalizer(ecs=None, efs=None, s3=s3_client, ssm=None, ecs_cluster='',
+                          efs_filesystem_id='', audit_bucket=bucket, account_id='',
+                          mount_path='', started_by=None, task_definition_family='')
+    real_upload_part = s3_client.upload_part
+
+    def fail_second_part(**kwargs):
+        if kwargs['PartNumber'] == 2:
+            raise ClientError({'Error': {'Code': 'InternalError'}}, 'UploadPart')
+        return real_upload_part(**kwargs)
+
+    s3_client.create_bucket(Bucket=bucket, CreateBucketConfiguration={'LocationConstraint': 'us-east-2'})
+    try:
+        with monkeypatch.context() as patch:
+            patch.setattr(s3_client, 'upload_part', fail_second_part)
+            with pytest.raises(ClientError, match='InternalError'):
+                finalizer.upload_workspace_file(io.BytesIO(payload), failed_key, len(payload), None)
+
+        assert not s3_client.list_multipart_uploads(Bucket=bucket, Prefix=prefix).get('Uploads')
+        assert not s3_client.list_objects_v2(Bucket=bucket, Prefix=prefix).get('Contents')
+
+        finalizer.upload_workspace_file(io.BytesIO(payload), retry_key, len(payload), None)
+        with closing(s3_client.get_object(Bucket=bucket, Key=retry_key)['Body']) as body:
+            assert body.read() == payload
+        assert not s3_client.list_multipart_uploads(Bucket=bucket, Prefix=prefix).get('Uploads')
+    finally:
+        for upload in s3_client.list_multipart_uploads(Bucket=bucket).get('Uploads', []):
+            s3_client.abort_multipart_upload(Bucket=bucket, Key=upload['Key'], UploadId=upload['UploadId'])
+        for key in (failed_key, retry_key):
+            s3_client.delete_object(Bucket=bucket, Key=key)
+        s3_client.delete_bucket(Bucket=bucket)
 
 
 @pytest.mark.integration

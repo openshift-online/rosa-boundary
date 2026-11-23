@@ -132,7 +132,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "audit" {
       expired_object_delete_marker = true
     }
 
-    # Clean up incomplete multipart uploads
+    # Bucket-wide backstop (including _boundary-close workspace backups) for
+    # hard Lambda termination, a lost upload ID, or a failed explicit abort.
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
     }

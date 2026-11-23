@@ -75,4 +75,5 @@ variable "backplane_client_secret" {
   description = "Backplane HMAC signing secret (ROSA_TA_BACKPLANE_CLIENT_SECRET)"
   type        = string
   sensitive   = true
+  default     = ""
 }

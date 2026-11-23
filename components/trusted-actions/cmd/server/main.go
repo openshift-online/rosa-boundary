@@ -286,6 +286,15 @@ func runServer(cmd *cobra.Command, args []string) error {
 			Warn("AWS write operations are enabled")
 	}
 
+	// The static AWS provider (selected below by the endpoint override)
+	// returns the same region for every cluster, which also breaks the
+	// deployment-region boundary if the backplane still reaches real
+	// clusters (no kubeconfig).
+	if cfg.AWSEndpointURL != "" && cfg.Kubeconfig == "" {
+		logger.Fatal("ROSA_TA_AWS_ENDPOINT_URL requires ROSA_TA_KUBECONFIG to be set; " +
+			"otherwise the deployment-region boundary can't tell clusters apart")
+	}
+
 	// Two ways to reach AWS, chosen the same way the Kubernetes path chooses
 	// between a kubeconfig and the real backplane. An endpoint override can
 	// only mean a local emulator, so it selects the single-account static

@@ -87,6 +87,7 @@ variable "retention_days" {
 variable "container_image" {
   description = "Full image URI including digest, e.g. quay.io/redhat-user-workloads/...@sha256:..."
   type        = string
+  default     = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:4a250167997e2bd64479ccf31a0e756f79cf2eede4d83e5de09e0a6594c79526"
 }
 
 variable "task_cpu" {

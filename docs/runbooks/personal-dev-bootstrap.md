@@ -69,7 +69,7 @@ Use a current ROSA Boundary checkout and **your own** AWS account with administr
    # Verify CloudWatch session logs, container sync status, and S3 marker object
    # with a separately authorized audit-reader identity.
     rosa-boundary --profile personal-dev investigation close "$CLUSTER_ID" "$INV_ID" --dry-run
-    rosa-boundary --profile personal-dev investigation close "$CLUSTER_ID" "$INV_ID" --yes
+    rosa-boundary --profile personal-dev investigation close "$CLUSTER_ID" "$INV_ID" --yes --wait
    ```
 
     `exit` only disconnects ECS Exec; `session close --wait` does not prove S3 sync succeeded. Verify evidence *before* closure, do not use `--force` to skip stopping, and report any incomplete cleanup. See the [investigation workflow](investigation-workflow.md) for audit and recovery details.

@@ -6,11 +6,12 @@ before it mutates anything. That independence is a feature — but only if the
 two agree about what they are looking at. These tests feed identical fake ECS
 and SSM clients to both and require identical verdicts.
 
-Session callbacks follow the narrower matrix below. Fresh explicit requests
-are allowed for any authorized subject in a known state, even across handover:
+Fresh close admission requires idle, regardless of trigger. The underlying
+actor policy is separate: explicit requests survive handover at revalidation,
+while intent registration and session callbacks use the narrower matrix below:
 
-  held by SRE A      -> only A may close (the creator has no standing)
-  handed over to B   -> only B may close; A's earlier request is superseded
+  held by SRE A      -> only A may register intent; nobody may submit close
+  handed over to B   -> A's earlier session callback is superseded
   no active sessions -> any authenticated Boundary SRE may close
   anything unclear   -> unknown; nobody may close, retry later
 
@@ -125,6 +126,24 @@ def test_tasks_stopping_are_checked_without_combining_ecs_filters(module):
     assert observation['state'] == 'active'
     assert observation['holder_sub'] == HOLDER
     assert [t['task_id'] for t in observation['tasks']] == [TASK_A]
+
+
+@pytest.mark.parametrize('module', [requests, sessions])
+@pytest.mark.parametrize('last_page,state', [
+    ({'Sessions': [{'SessionId': 'later'}]}, 'active'),
+    ({'Sessions': []}, 'idle'),
+    ({}, 'unknown'),
+    ({'Sessions': {}}, 'unknown'),
+    ({'Sessions': [], 'NextToken': 'more'}, 'unknown'),
+])
+def test_session_scan_requires_complete_pages(module, last_page, state):
+    ecs, ssm = clients(tasks=[task(TASK_A, HOLDER)])
+    ssm.describe_sessions.side_effect = [{'Sessions': [], 'NextToken': 'more'}, last_page]
+    observation = module.observe_investigation(ecs, ssm, CLUSTER, 'marker')
+    assert observation['state'] == state
+    first, second = ssm.describe_sessions.call_args_list
+    assert 'NextToken' not in first.kwargs
+    assert second.kwargs == {**first.kwargs, 'NextToken': 'more'}
 
 
 SCENARIOS = {
@@ -257,7 +276,7 @@ reaper_fixture = load(REAPER / 'test_close_finalization.py', 'finalizer_contract
 
 
 class TestExplicitCloseLifecycle(reaper_fixture.FinalizerCase):
-    def test_accepted_record_completes_after_the_other_sre_leaves(self):
+    def test_refused_close_can_be_retried_after_detach(self):
         body = {'cluster_id': reaper_fixture.CLUSTER, 'investigation_id': reaper_fixture.INVESTIGATION}
         ap = self.access_point()
         investigation = {'access_point_id': ap['id'], 'file_system_id': ap['file_system_id'],
@@ -266,8 +285,13 @@ class TestExplicitCloseLifecycle(reaper_fixture.FinalizerCase):
         config = {'ecs_cluster': CLUSTER, 'started_by': lambda *_: 'marker',
                   'audit_bucket': 'audit', 'efs_filesystem_id': 'fs-1', 'account_id': '123456789012'}
         with patch.object(requests, 'resolve_investigation', return_value=investigation):
-            response = requests.dispatch('request_close', body, {'sub': OTHER}, config,
-                                         {'s3': self.s3, 'ecs': ecs, 'ssm': ssm, 'efs': self.efs})
+            services = {'s3': self.s3, 'ecs': ecs, 'ssm': ssm, 'efs': self.efs}
+            with pytest.raises(requests.CloseRequestError) as error:
+                requests.dispatch('request_close', body, {'sub': OTHER}, config, services)
+            assert error.value.status_code == 409
+            assert not self.s3.keys_under('_boundary-close/')
+            ssm.describe_sessions.return_value = {'Sessions': []}
+            response = requests.dispatch('request_close', body, {'sub': OTHER}, config, services)
         assert response['status'] == 'accepted'
         key, = self.s3.keys_under(requests.requests_prefix(body['cluster_id'], body['investigation_id']))
         record = self.s3.json_at(key)
@@ -276,6 +300,8 @@ class TestExplicitCloseLifecycle(reaper_fixture.FinalizerCase):
 
         del self.finalizer.observe  # use the real ECS/SSM observer against the same clients
         self.finalizer.ecs, self.finalizer.ssm = ecs, ssm
+        # A shell can reattach after admission. Finalization still rechecks.
+        ssm.describe_sessions.return_value = {'Sessions': [{'SessionId': 'reattached'}]}
         waiting = self.finalize(request=record)
         assert waiting['status'] == 'waiting_for_tasks' and waiting['retryable']
         self.efs.delete_access_point.assert_not_called()

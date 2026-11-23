@@ -291,14 +291,14 @@ class TestAuthorization(FinalizerCase):
         self.efs.tag_resource.assert_not_called()
         self.efs.delete_access_point.assert_not_called()
 
-    def test_the_current_holder_may_still_close_while_holding(self):
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER, [running_task()]),
-                             observation(records.STATE_IDLE)]
+    def test_even_the_requesters_own_shell_blocks_sealing_and_stopping(self):
+        self.observations = [observation(records.STATE_ACTIVE, HOLDER, [attached_task()])]
         status = self.finalize(request=self.request(stop_scope=records.STOP_SESSION_TASK,
                                                     stop_task_ids=[TASK_ID]))
-        # Stopping is requested; the pass ends waiting for the task to stop.
         self.assertEqual(status['status'], records.STATUS_WAITING_FOR_TASKS)
-        self.ecs.stop_task.assert_called_once()
+        self.assertTrue(status['retryable'])
+        self.efs.tag_resource.assert_not_called()
+        self.ecs.stop_task.assert_not_called()
 
     def test_an_idle_investigation_may_be_closed_by_any_eligible_requester(self):
         status = self.finalize(request=self.request(requester_sub='sre-c'))
@@ -451,8 +451,7 @@ class TestDraining(FinalizerCase):
 
     def test_consent_for_one_task_does_not_stop_another(self):
         other = 'b' * 32
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER,
-                                         [running_task(), running_task(other)])]
+        self.observations = [observation(records.STATE_IDLE, tasks=[running_task(), running_task(other)])]
         status = self.finalize(request=self.request(stop_scope=records.STOP_SESSION_TASK,
                                                     stop_task_ids=[TASK_ID]))
         self.assertEqual(status['status'], records.STATUS_WAITING_FOR_TASKS)
@@ -461,8 +460,7 @@ class TestDraining(FinalizerCase):
 
     def test_whole_investigation_consent_stops_every_task(self):
         other = 'b' * 32
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER,
-                                         [running_task(), running_task(other)])]
+        self.observations = [observation(records.STATE_IDLE, tasks=[running_task(), running_task(other)])]
         self.finalize(request=self.request(stop_scope=records.STOP_INVESTIGATION))
         stopped = {call.kwargs['task'] for call in self.ecs.stop_task.call_args_list}
         self.assertEqual(stopped, {TASK_ID, other})

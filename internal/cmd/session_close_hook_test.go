@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
@@ -136,6 +137,15 @@ func TestFailedCloseRequestLeavesTheInvestigationOpen(t *testing.T) {
 	outcome := runHook(service, false)
 	if outcome.Requested || outcome.Note == "" {
 		t.Fatalf("failed request reported as a close: %+v", outcome)
+	}
+}
+
+func TestSessionCallbackReportsDefinitiveConflict(t *testing.T) {
+	service := withHookState(t, true, false, false)
+	service.acceptErr = &lambda.ResponseError{StatusCode: 409, Message: "disconnect and retry close"}
+	outcome := runHook(service, true)
+	if outcome.Requested || !strings.Contains(outcome.Note, "rejected") || !strings.Contains(outcome.Note, "disconnect and retry close") || strings.Contains(outcome.Note, "--status") {
+		t.Fatalf("expected callback refusal, got %+v", outcome)
 	}
 }
 

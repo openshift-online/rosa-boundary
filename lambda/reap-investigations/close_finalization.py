@@ -505,12 +505,11 @@ class Finalizer:
                 # A handover is a real answer: this requester is no longer
                 # eligible and an eligible SRE has to ask again.
                 raise Retained(records.STATUS_RETAINED, superseded, 'authorize')
-            if (initial['state'] == records.STATE_ACTIVE
-                    and initial['holder_sub'] != request['requester_sub']):
-                # Explicit close is not permission to interrupt another shell,
-                # even if the requester supplied investigation-wide stop consent.
+            if initial['state'] == records.STATE_ACTIVE:
+                # A shell may have attached after the request was accepted.
+                # Stop consent never overrides the shell check, even for its owner.
                 raise Retained(records.STATUS_WAITING_FOR_TASKS,
-                               'another SRE is attached; waiting for detachment',
+                               'an SSM shell is active; waiting for detachment',
                                'authorize', retryable=True)
         elif initial['state'] != records.STATE_IDLE:
             raise Retained(records.STATUS_WAITING_FOR_TASKS,

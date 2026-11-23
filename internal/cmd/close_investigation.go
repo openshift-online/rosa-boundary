@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"regexp"
@@ -218,6 +219,19 @@ func closeStopScope() string {
 	return lambda.StopScopeNone
 }
 
+// closeRequestFailure distinguishes an explicit refusal from a request that
+// may have been recorded before the client lost confirmation.
+func closeRequestFailure(clusterID, investigationID string, err error) error {
+	var response *lambda.ResponseError
+	if errors.As(err, &response) {
+		switch response.StatusCode {
+		case http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict:
+			return fmt.Errorf("close request rejected for %s/%s: %w", clusterID, investigationID, err)
+		}
+	}
+	return fmt.Errorf("close request outcome is unknown for %s/%s; look it up with 'rosa-boundary investigation close %s %s --status' before retrying: %w", clusterID, investigationID, clusterID, investigationID, err)
+}
+
 func submitCloseRequest(ctx context.Context, service closeService, clusterID, investigationID string) error {
 	accepted, err := service.client.RequestClose(ctx, service.idToken, lambda.CloseActionRequest{
 		ClusterID:       clusterID,
@@ -226,10 +240,7 @@ func submitCloseRequest(ctx context.Context, service closeService, clusterID, in
 		Trigger:         lambda.TriggerCLIClose,
 	})
 	if err != nil {
-		// A transport or timeout failure leaves the outcome unknown. The
-		// request may already be persisted; looking it up is safe, resubmitting
-		// blindly is not.
-		return fmt.Errorf("close request outcome is unknown for %s/%s; look it up with 'rosa-boundary investigation close %s %s --status' before retrying: %w", clusterID, investigationID, clusterID, investigationID, err)
+		return closeRequestFailure(clusterID, investigationID, err)
 	}
 	status := &lambda.CloseStatusResponse{
 		Status:            accepted.Status,

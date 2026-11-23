@@ -250,20 +250,17 @@ def test_authorization_matrix(state, holder, requester, allowed):
 # ---------------------------------------------------------------------------
 
 
-def test_the_current_holder_may_request_close():
+@pytest.mark.parametrize('trigger', close_requests.TRIGGERS)
+@pytest.mark.parametrize('requester', [HOLDER, OTHER_SRE, CREATOR])
+def test_attached_shell_refuses_close_without_recording(trigger, requester):
     harness = held_by(HOLDER)
-    result = harness.dispatch('request_close', sub=HOLDER)
-    assert result['status'] == close_requests.STATUS_ACCEPTED
-    assert re.fullmatch(close_requests.REQUEST_TOKEN_PATTERN, result['request_token'])
-    key = harness.request_key_for(result['request_token'])
-    record = harness.s3.json_at(key)
-    assert record['requester_sub'] == HOLDER
-    assert record['authorization_basis'] == 'holder'
-    # Provenance stays separate from transferable ownership.
-    assert record['original_creator_sub'] == CREATOR
-    assert record['observed_holder_sub'] == HOLDER
-    assert record['observation']['task_owner_subs'] == [HOLDER]
-    assert record['observation']['active_sessions'] == 1
+    with pytest.raises(close_requests.CloseRequestError) as error:
+        harness.dispatch('request_close', {'trigger': trigger, 'stop_scope': 'investigation'},
+                         sub=requester)
+    assert error.value.status_code == 409
+    assert error.value.extra['state'] == close_requests.STATE_ACTIVE
+    assert harness.s3.put_calls == []
+    harness.ecs.stop_task.assert_not_called()
 
 
 def test_an_idle_record_names_the_running_tasks_owner_without_making_them_holder():
@@ -277,6 +274,8 @@ def test_an_idle_record_names_the_running_tasks_owner_without_making_them_holder
     result = harness.dispatch('request_close', sub=OTHER_SRE)
     assert result['status'] == close_requests.STATUS_ACCEPTED
     record = harness.s3.json_at(harness.request_key_for(result['request_token']))
+    assert re.fullmatch(close_requests.REQUEST_TOKEN_PATTERN, result['request_token'])
+    assert record['original_creator_sub'] == CREATOR
     assert record['authorization_basis'] == close_requests.STATE_IDLE
     assert record['requester_sub'] == OTHER_SRE
     assert record['observed_holder_sub'] == ''
@@ -286,39 +285,11 @@ def test_an_idle_record_names_the_running_tasks_owner_without_making_them_holder
     assert record['observation']['nonterminal_task_ids'] == [TASK_ID]
 
 
-@pytest.mark.parametrize('requester', [OTHER_SRE, CREATOR])
-def test_explicit_non_holder_request_records_actor_and_activity_without_stopping(requester):
-    harness = held_by(HOLDER)
-    result = harness.dispatch('request_close', sub=requester)
-    assert result['status'] == close_requests.STATUS_ACCEPTED
-    record = harness.s3.json_at(harness.request_key_for(result['request_token']))
-    assert record['requester_sub'] == requester
-    assert record['observed_holder_sub'] == HOLDER
-    assert record['stop_scope'] == 'none'
-    assert record['authorization_basis'] == 'authorized_sre'
-    harness.ecs.stop_task.assert_not_called()
-
-
-@pytest.mark.parametrize('trigger', ['auto_close', 'session_exit_prompt'])
-def test_session_callback_from_a_former_holder_is_refused(trigger):
-    harness = held_by(HOLDER)
-    with pytest.raises(close_requests.CloseRequestError) as error:
-        harness.dispatch('request_close', {'trigger': trigger}, sub=OTHER_SRE)
-    assert error.value.status_code == 403
-    assert harness.s3.put_calls == []
-
-
 def test_explicit_request_does_not_reuse_a_session_callback_token():
-    harness = held_by(HOLDER)
+    harness = Harness(tasks=[task()])
     callback = harness.dispatch('request_close', {'trigger': 'auto_close'})
     explicit = harness.dispatch('request_close')
     assert explicit['request_token'] != callback['request_token']
-
-
-def test_after_handover_the_new_holder_may_close():
-    harness = held_by(OTHER_SRE)
-    result = harness.dispatch('request_close', sub=OTHER_SRE)
-    assert result['status'] == close_requests.STATUS_ACCEPTED
 
 
 def test_an_idle_investigation_may_be_closed_by_any_authorized_sre():
@@ -326,6 +297,29 @@ def test_an_idle_investigation_may_be_closed_by_any_authorized_sre():
     result = harness.dispatch('request_close', sub='sre-c')
     record = harness.s3.json_at(harness.request_key_for(result['request_token']))
     assert record['authorization_basis'] == close_requests.STATE_IDLE
+
+
+def test_reattachment_blocks_duplicate_request_before_token_reuse():
+    harness = Harness(tasks=[task()])
+    harness.dispatch('request_close')
+    writes = list(harness.s3.put_calls)
+    harness.ssm.describe_sessions.side_effect = [
+        {'Sessions': [], 'NextToken': 'more'}, {'Sessions': [{'SessionId': 'new'}]}]
+    with pytest.raises(close_requests.CloseRequestError) as error:
+        harness.dispatch('request_close')
+    assert error.value.status_code == 409
+    assert harness.s3.put_calls == writes
+
+
+@pytest.mark.parametrize('trigger', close_requests.TRIGGERS)
+def test_incomplete_session_scan_refuses_close_without_a_record(trigger):
+    harness = Harness(tasks=[task()])
+    harness.ssm.describe_sessions.side_effect = [{'Sessions': [], 'NextToken': 'more'}, {}]
+    with pytest.raises(close_requests.CloseRequestError) as error:
+        harness.dispatch('request_close', {'trigger': trigger})
+    assert error.value.status_code == 409
+    assert error.value.extra['state'] == close_requests.STATE_UNKNOWN
+    assert harness.s3.put_calls == []
 
 
 def test_an_unknown_state_is_retryable_not_a_permission_denial():
@@ -338,7 +332,7 @@ def test_an_unknown_state_is_retryable_not_a_permission_denial():
 
 
 def test_stop_consent_must_name_tasks_of_this_investigation():
-    harness = held_by(HOLDER)
+    harness = Harness(tasks=[task()])
     with pytest.raises(close_requests.CloseRequestError) as error:
         harness.dispatch('request_close', {'stop_scope': 'session_task',
                                            'stop_task_ids': [OTHER_TASK]}, sub=HOLDER)
@@ -380,7 +374,7 @@ def test_the_request_key_leads_with_the_request_time():
 def test_a_terminal_outcome_lets_the_same_sre_ask_again():
     """After a retained close the SRE must be able to resubmit; answering with
     the old token would leave the close with no way forward."""
-    harness = held_by(HOLDER)
+    harness = Harness(tasks=[task()])
     first = harness.dispatch('request_close', sub=HOLDER)
     harness.s3.objects[close_requests.status_key(CLUSTER, INVESTIGATION)] = json.dumps({
         'kind': close_requests.KIND_STATUS, 'status': close_requests.STATUS_RETAINED,
@@ -406,7 +400,7 @@ def test_consent_naming_a_different_task_is_a_new_request():
 
 
 def test_a_duplicate_request_returns_the_existing_one_without_widening_consent():
-    harness = held_by(HOLDER)
+    harness = Harness(tasks=[task()])
     first = harness.dispatch('request_close', sub=HOLDER)
     second = harness.dispatch('request_close', sub=HOLDER)
     assert second['duplicate'] is True
@@ -416,14 +410,14 @@ def test_a_duplicate_request_returns_the_existing_one_without_widening_consent()
 
 def test_a_request_with_wider_consent_is_recorded_separately():
     """Consent is per request: a narrow one never silently becomes a wide one."""
-    harness = held_by(HOLDER)
+    harness = Harness(tasks=[task()])
     harness.dispatch('request_close', sub=HOLDER)
     harness.dispatch('request_close', {'stop_scope': 'investigation'}, sub=HOLDER)
     assert len([key for key in harness.s3.objects if '/requests/' in key]) == 2
 
 
 def test_the_request_handler_never_seals_or_writes_status():
-    harness = held_by(HOLDER)
+    harness = Harness(tasks=[task()])
     harness.dispatch('request_close', sub=HOLDER)
     harness.efs.tag_resource.assert_not_called()
     assert all('/requests/' in key for key in harness.s3.put_calls)
@@ -625,7 +619,7 @@ def test_a_deployment_without_an_audit_bucket_cannot_take_requests():
 
 
 def test_a_transport_failure_never_reads_as_a_persisted_request():
-    harness = held_by(HOLDER)
+    harness = Harness(tasks=[task()])
     with patch.object(harness.s3, 'put_object', side_effect=ClientError(
             {'Error': {'Code': 'AccessDenied'}}, 'PutObject')):
         with pytest.raises(close_requests.CloseRequestError) as error:

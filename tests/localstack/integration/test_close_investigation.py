@@ -308,8 +308,8 @@ def test_close_command_surface_matches_the_request_protocol(tmp_path, localstack
     # The help states the authorization rule the service enforces, including
     # that a running task does not reserve the investigation.
     assert 'Any authorized Boundary SRE may request close' in help_text.stdout
-    assert 'waits for that SRE to detach, even with --force' in help_text.stdout
-    assert 'Without stop consent it also waits for running tasks to stop' in help_text.stdout
+    assert 'any shell is attached is rejected, even with --force' in help_text.stdout
+    assert 'without stop consent it also waits for running tasks to stop' in help_text.stdout
     # And that a recorded request is not a finished close.
     assert 'not a completed close' in help_text.stdout
 
@@ -522,9 +522,8 @@ def test_close_investigation_requires_cluster_and_closes_exact_target(ecs_client
     _assert_nothing_was_mutated(efs_client, ecs_client, test_efs, [ap_id], every_definition)
 
     # Ownership is no longer decided here. The access point's `oidc_sub` tag is
-    # provenance. Another authorized SRE can explicitly request close even
-    # while the original holder is attached. The command must
-    # therefore carry the request to the service rather than refusing locally.
+    # provenance. The service, not the CLI, checks for attached shells before
+    # accepting a close; a different creator tag is not a reason to refuse.
     efs_client.tag_resource(ResourceId=ap_id, Tags=[{'Key': 'oidc_sub', 'Value': 'another-sre'}])
     not_creator = _close(bin_path, env, cluster_id, investigation_id, '--yes')
     assert not_creator.returncode != 0

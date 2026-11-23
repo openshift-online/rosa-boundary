@@ -283,12 +283,7 @@ rosa-boundary --profile PROFILE investigation close ROSA_CLUSTER_ID INCIDENT_ID 
 rosa-boundary --profile PROFILE investigation close ROSA_CLUSTER_ID INCIDENT_ID
 ```
 
-This:
-1. Resolves and previews the target; requires confirmation before changes, and refuses active tasks unless `--force` is set
-2. Deregisters all per-investigation task definitions
-3. Deletes the EFS access point
-
-Only the access point's creator (`oidc_sub`) can use the CLI close action. This client-side check does not replace IAM enforcement; see [investigations and tasks](investigations-and-tasks.md) for limitations. The accepted CLI contract is tracked in [proposal PR #354](https://github.com/openshift-online/rosa-boundary/pull/354).
+The CLI previews the target and asks for confirmation before submitting a close request. Any authorized Boundary SRE may request close, but the service refuses a new request while any shell is attached. Disconnect and retry; `--force` only consents to stopping tasks. If a shell is observed after acceptance, the reaper waits for detachment, then proceeds within the request's stop scope. The reaper verifies its backup before cleanup. Use `investigation close ... --status` to distinguish acceptance from completion. See [automated investigation close](investigation-close.md).
 
 Data in S3 is retained per the bucket's lifecycle policy. Deleting the EFS access point does **not** remove the underlying EFS directory; verify CloudWatch and S3 audit evidence separately before close.
 
@@ -399,9 +394,9 @@ rosa-boundary --profile personal-dev session join "$SESSION_ID"
 rosa-boundary --profile personal-dev session close "$SESSION_ID" --wait
 
 # 6. Close the investigation completely
-#    (preview, confirm, then deregister task defs and delete access point)
+#    (preview, confirm the request, then wait for verified cleanup)
 rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$INVESTIGATION_ID" --dry-run
-rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$INVESTIGATION_ID"
+rosa-boundary --profile personal-dev investigation close "$TARGET_CLUSTER_ID" "$INVESTIGATION_ID" --wait
 ```
 
 ### Custom Options

@@ -22,8 +22,8 @@ questions, and only one of them decides who holds the investigation:
 Idle is not a licence to destroy anything. Being eligible to *request* close is
 separate from consenting to stop a running task: the finalizer stops only tasks
 the request's ``stop_scope`` consented to, and will not measure, copy or delete
-a workspace while any task is non-terminal. An explicit request from a
-non-holder waits while another SRE is attached.
+a workspace while any task is non-terminal. A new request requires a confirmed
+shell-free observation, and an admitted request waits if a shell later appears.
 
 Anything incomplete, contradictory or unavailable is reported as ``unknown``:
 a scan that failed, a non-terminal task whose owner tag or session target
@@ -71,13 +71,7 @@ def _list_task_arns(ecs, ecs_cluster, started_by):
 
 
 def _active_session_count(ssm, ecs_cluster, task_id, containers):
-    """Count active ECS Exec sessions attached to one task.
-
-    A container without a runtime ID has no session target yet; it is reported
-    through ``incomplete`` rather than silently counted as zero. A task with
-    no containers at all is reported the same way: nothing about its sessions
-    was observed, which is not the same as observing that none are attached.
-    """
+    """Scan every runtime target and page; partial evidence cannot prove idle."""
     total = 0
     incomplete = not containers
     for container in containers:
@@ -85,12 +79,24 @@ def _active_session_count(ssm, ecs_cluster, task_id, containers):
         if not runtime_id:
             incomplete = True
             continue
-        target = f'ecs:{ecs_cluster}_{task_id}_{runtime_id}'
-        sessions = ssm.describe_sessions(
-            State='Active',
-            Filters=[{'key': 'Target', 'value': target}],
-        ).get('Sessions', [])
-        total += len(sessions)
+        params = {'State': 'Active', 'Filters': [
+            {'key': 'Target', 'value': f'ecs:{ecs_cluster}_{task_id}_{runtime_id}'}]}
+        seen = set()
+        while True:
+            page = ssm.describe_sessions(**params)
+            sessions = page.get('Sessions') if isinstance(page, dict) else None
+            if not isinstance(sessions, list):
+                incomplete = True
+                break
+            total += len(sessions)
+            if 'NextToken' not in page:
+                break
+            token = page['NextToken']
+            if not isinstance(token, str) or not token or token in seen:
+                incomplete = True
+                break
+            seen.add(token)
+            params['NextToken'] = token
     return total, incomplete
 
 
@@ -184,7 +190,7 @@ def observe_investigation(ecs, ssm, ecs_cluster, started_by):
         if incomplete:
             # Without a session target there is no way to tell an unattached
             # task from an unobserved one. Fail closed rather than guess idle.
-            return _unknown('a non-terminal task exposes no session target; '
+            return _unknown('a non-terminal task has incomplete session evidence; '
                             'investigation state is unknown', tasks=observed,
                             active_sessions=active_sessions)
         entry['active_sessions'] = count
@@ -236,8 +242,8 @@ def authorize_close(observation, requester_sub, *, explicit=False):
 
     Returns ``(allowed, basis, reason)``. ``basis`` is ``holder`` when the
     requester is the SRE whose session is attached and ``idle`` when no session
-    is attached. A fresh explicit request can also be recorded on the
-    ``authorized_sre`` basis while a different holder is attached.
+    is attached. An explicit requester does not lose standing on handover. Actor eligibility
+    alone does not admit a new request or authorize sealing with a shell attached.
 
     ``task_owner_subs`` is deliberately not consulted: having launched a task,
     like having created the workspace, is provenance and not authority.

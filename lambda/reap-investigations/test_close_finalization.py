@@ -291,14 +291,14 @@ class TestAuthorization(FinalizerCase):
         self.efs.tag_resource.assert_not_called()
         self.efs.delete_access_point.assert_not_called()
 
-    def test_the_current_holder_may_still_close_while_holding(self):
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER, [running_task()]),
-                             observation(records.STATE_IDLE)]
+    def test_even_the_requesters_own_shell_blocks_sealing_and_stopping(self):
+        self.observations = [observation(records.STATE_ACTIVE, HOLDER, [attached_task()])]
         status = self.finalize(request=self.request(stop_scope=records.STOP_SESSION_TASK,
                                                     stop_task_ids=[TASK_ID]))
-        # Stopping is requested; the pass ends waiting for the task to stop.
         self.assertEqual(status['status'], records.STATUS_WAITING_FOR_TASKS)
-        self.ecs.stop_task.assert_called_once()
+        self.assertTrue(status['retryable'])
+        self.efs.tag_resource.assert_not_called()
+        self.ecs.stop_task.assert_not_called()
 
     def test_an_idle_investigation_may_be_closed_by_any_eligible_requester(self):
         status = self.finalize(request=self.request(requester_sub='sre-c'))
@@ -451,8 +451,7 @@ class TestDraining(FinalizerCase):
 
     def test_consent_for_one_task_does_not_stop_another(self):
         other = 'b' * 32
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER,
-                                         [running_task(), running_task(other)])]
+        self.observations = [observation(records.STATE_IDLE, tasks=[running_task(), running_task(other)])]
         status = self.finalize(request=self.request(stop_scope=records.STOP_SESSION_TASK,
                                                     stop_task_ids=[TASK_ID]))
         self.assertEqual(status['status'], records.STATUS_WAITING_FOR_TASKS)
@@ -461,8 +460,7 @@ class TestDraining(FinalizerCase):
 
     def test_whole_investigation_consent_stops_every_task(self):
         other = 'b' * 32
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER,
-                                         [running_task(), running_task(other)])]
+        self.observations = [observation(records.STATE_IDLE, tasks=[running_task(), running_task(other)])]
         self.finalize(request=self.request(stop_scope=records.STOP_INVESTIGATION))
         stopped = {call.kwargs['task'] for call in self.ecs.stop_task.call_args_list}
         self.assertEqual(stopped, {TASK_ID, other})
@@ -755,16 +753,166 @@ class TestCleanup(FinalizerCase):
         self.assertEqual(verified[0]['access_point_path'], f'/{CLUSTER}/{INVESTIGATION}')
 
     def test_only_this_investigations_task_definitions_are_deregistered(self):
-        paginator = MagicMock()
-        paginator.paginate.return_value = [{'taskDefinitionArns': [
-            f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-20260101T000000:1',
-            f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-extra-20260101T000000:1',
-            f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-20260101T000000',
-        ]}]
-        self.ecs.get_paginator.return_value = paginator
+        family = f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}'
+        launched = f'{family}-20260101T000000:1'
+        collision = f'{family}-20260101T000000:2'
+        adjacent = f'{family}-extra-20260101T000000:1'
+        states = dict.fromkeys([launched, collision, adjacent], 'ACTIVE')
+
+        def pages(*, status, familyPrefix=None):
+            # AWS accepts only a complete family, not a partial name.
+            matched = [arn for arn in states if states[arn] == status and
+                       (not familyPrefix or arn.split('/')[-1].rsplit(':', 1)[0] == familyPrefix)]
+            return [{'taskDefinitionArns': [arn]} for arn in reversed(matched)]
+
+        def describe(taskDefinition):  # noqa: N803
+            ap = ACCESS_POINT if taskDefinition == launched else 'fsap-other'
+            return {'taskDefinition': {'taskDefinitionArn': taskDefinition, 'status': states[taskDefinition],
+                    'volumes': [{'name': 'sre-home', 'efsVolumeConfiguration': {
+                        'fileSystemId': 'fs-1', 'authorizationConfig': {'accessPointId': ap}}}]}}
+
+        def deregister(taskDefinition):  # noqa: N803
+            states[taskDefinition] = 'INACTIVE'
+            return describe(taskDefinition)
+
+        self.ecs.get_paginator.return_value.paginate.side_effect = pages
+        self.ecs.describe_task_definition.side_effect = describe
+        self.ecs.deregister_task_definition.side_effect = deregister
         status = self.finalize()
         self.assertEqual(status['task_definitions_removed'], 1)
-        self.assertEqual(self.ecs.deregister_task_definition.call_count, 1)
+        self.assertEqual(states, {launched: 'INACTIVE', collision: 'ACTIVE', adjacent: 'ACTIVE'})
+        self.ecs.deregister_task_definition.assert_called_once_with(taskDefinition=launched)
+
+    def test_unconfirmed_deregistration_retains_access_point(self):
+        arn = f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-20260101T000000:1'
+        self.ecs.get_paginator.return_value.paginate.return_value = [{'taskDefinitionArns': [arn]}]
+        td = {'taskDefinitionArn': arn, 'status': 'ACTIVE', 'volumes': [{'name': 'sre-home',
+              'efsVolumeConfiguration': {'fileSystemId': 'fs-1', 'authorizationConfig': {'accessPointId': ACCESS_POINT}}}]}
+        self.ecs.describe_task_definition.return_value = {'taskDefinition': td}
+        self.ecs.deregister_task_definition.return_value = {'taskDefinition': td}
+        self.assertEqual(self.finalize()['status'], records.STATUS_CLEANUP_INCOMPLETE)
+        self.efs.delete_access_point.assert_not_called()
+
+
+class TestRecovery(FinalizerCase):
+    def retry(self, ap, mode):
+        # Exercise the production dispatch, including an AP that no longer
+        # exists. No in-process progress from the previous pass is required.
+        with patch('boto3.client'):
+            import handler
+        with patch.object(self.finalizer, 'find_access_point', return_value=ap):
+            return handler.finalize_one(self.finalizer, CLUSTER, INVESTIGATION,
+                                        self.request(), mode, FakeContext())
+
+    def interrupted(self, stage, mode):
+        ap = self.access_point()
+        if stage == 'directory':
+            obj, method = close_finalization.shutil, 'rmtree'
+        elif stage == 'ap':
+            obj, method = self.efs, 'delete_access_point'
+        else:
+            obj, method = self.finalizer, 'publish_receipt'
+        original = getattr(obj, method)
+
+        def crash_after(*args, **kwargs):
+            original(*args, **kwargs)
+            raise RuntimeError('simulated runtime exit')
+
+        with patch.object(obj, method, side_effect=crash_after):
+            with self.assertRaisesRegex(RuntimeError, 'runtime exit'):
+                self.finalize(mode, access_point=ap)
+        self.finalizer._attempt_id = ''
+        self.finalizer._cleanup = None
+        self.finalizer._verification_digest = None
+        return ap if stage == 'directory' else None
+
+    def check_recovery(self, stage, mode):
+        ap = self.interrupted(stage, mode)
+        status_key = records.status_key(CLUSTER, INVESTIGATION)
+        attempt = self.s3.json_at(status_key)['attempt_id']
+        prefix = records.attempt_workspace_prefix(ACCESS_POINT, attempt)
+        original = {k: self.s3.objects[k].copy() for k in self.s3.keys_under(prefix)}
+        self.assertEqual(len(original), 2)
+        if stage == 'receipt':
+            receipt_key = self.s3.keys_under(f'{records.CONTROL_PREFIX}/{ACCESS_POINT}/')[0]
+            receipt_version = self.s3.objects[receipt_key]['version']
+        self.assertTrue(self.retry(ap, mode))
+        status = self.s3.json_at(status_key)
+        self.assertEqual(status['status'], records.STATUS_COMPLETED)
+        self.assertEqual(status['attempt_id'], attempt)
+        self.assertEqual(self.receipt()['attempt_id'], attempt)
+        self.assertEqual(status['directory_retained'], mode == 'request')
+        self.assertEqual(self.workspace.exists(), mode == 'request')
+        self.assertTrue(status['access_point_deleted'])
+        self.assertEqual(self.receipt()['object_versions'], 2)
+        self.assertTrue(self.receipt()['cleanup_complete'])
+        if stage == 'receipt':
+            self.assertEqual(self.s3.objects[receipt_key]['version'], receipt_version)
+        for k, v in original.items():
+            self.assertEqual(self.s3.objects[k], v)
+        version = self.s3.version
+        self.assertTrue(self.retry(None, mode))
+        self.assertEqual(self.s3.version, version, 'second retry rewrote completion')
+
+    def test_crash_after_stale_directory_removal(self):
+        self.check_recovery('directory', 'stale')
+
+    def test_crash_after_ap_deletion(self):
+        self.check_recovery('ap', 'request')
+
+    def test_crash_after_receipt_publication(self):
+        self.check_recovery('receipt', 'stale')
+
+    def test_partial_rmtree_is_not_verified_as_a_new_smaller_workspace(self):
+        ap = self.access_point()
+
+        def partial_removal(_directory):
+            (self.workspace / 'notes.txt').unlink()
+            raise OSError('interrupted during removal')
+
+        with patch('close_finalization.shutil.rmtree', side_effect=partial_removal):
+            status = self.finalize('stale', access_point=ap)
+        self.assertEqual(status['status'], records.STATUS_CLEANUP_INCOMPLETE)
+        version = self.s3.version
+        for _ in range(2):
+            self.assertFalse(self.retry(ap, 'stale'))
+        self.assertEqual(self.s3.version, version)
+        self.assertTrue((self.workspace / 'nested' / 'log').exists())
+        self.efs.delete_access_point.assert_not_called()
+
+    def test_late_write_after_ap_deletion_blocks_completion(self):
+        self.interrupted('ap', 'request')
+        (self.workspace / 'notes.txt').write_text('updated since verification')
+        version = self.s3.version
+        self.assertFalse(self.retry(None, 'request'))
+        self.assertEqual(self.s3.version, version)
+        self.assertEqual((self.workspace / 'notes.txt').read_text(), 'updated since verification')
+
+    def test_recovery_requires_the_original_managed_seal(self):
+        ap = self.interrupted('directory', 'stale')
+        del ap['tags'][records.TAG_MANAGED]
+        self.assertFalse(self.retry(ap, 'stale'))
+        self.efs.delete_access_point.assert_not_called()
+
+    def test_changed_backup_version_cannot_authorize_cleanup(self):
+        ap = self.interrupted('directory', 'stale')
+        status = self.s3.json_at(records.status_key(CLUSTER, INVESTIGATION))
+        key = records.attempt_workspace_prefix(ACCESS_POINT, status['attempt_id']) + 'notes.txt'
+        self.s3._store(key, self.s3.objects[key]['body'])
+        version = self.s3.version
+        for _ in range(2):
+            self.assertFalse(self.retry(ap, 'stale'))
+        self.assertEqual(self.s3.version, version)
+        self.efs.delete_access_point.assert_not_called()
+
+    def test_missing_evidence_cannot_authorize_cleanup(self):
+        ap = self.interrupted('directory', 'stale')
+        status = self.s3.json_at(records.status_key(CLUSTER, INVESTIGATION))
+        del self.s3.objects[records.attempt_evidence_key(
+            ACCESS_POINT, status['attempt_id'], 'verification.json')]
+        self.assertFalse(self.retry(ap, 'stale'))
+        self.assertEqual(status, self.s3.json_at(records.status_key(CLUSTER, INVESTIGATION)))
+        self.efs.delete_access_point.assert_not_called()
 
 
 class TestRuntimeBudget(FinalizerCase):

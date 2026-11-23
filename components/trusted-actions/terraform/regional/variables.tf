@@ -275,7 +275,7 @@ variable "db_instance_count" {
 variable "db_engine_version" {
   description = "Aurora PostgreSQL engine version, pinned explicitly (never a floating major-only prefix)."
   type        = string
-  default     = "16.8"
+  default     = "16.15"
 }
 
 variable "db_backup_retention_period" {

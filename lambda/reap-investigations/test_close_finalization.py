@@ -291,14 +291,14 @@ class TestAuthorization(FinalizerCase):
         self.efs.tag_resource.assert_not_called()
         self.efs.delete_access_point.assert_not_called()
 
-    def test_the_current_holder_may_still_close_while_holding(self):
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER, [running_task()]),
-                             observation(records.STATE_IDLE)]
+    def test_even_the_requesters_own_shell_blocks_sealing_and_stopping(self):
+        self.observations = [observation(records.STATE_ACTIVE, HOLDER, [attached_task()])]
         status = self.finalize(request=self.request(stop_scope=records.STOP_SESSION_TASK,
                                                     stop_task_ids=[TASK_ID]))
-        # Stopping is requested; the pass ends waiting for the task to stop.
         self.assertEqual(status['status'], records.STATUS_WAITING_FOR_TASKS)
-        self.ecs.stop_task.assert_called_once()
+        self.assertTrue(status['retryable'])
+        self.efs.tag_resource.assert_not_called()
+        self.ecs.stop_task.assert_not_called()
 
     def test_an_idle_investigation_may_be_closed_by_any_eligible_requester(self):
         status = self.finalize(request=self.request(requester_sub='sre-c'))
@@ -451,8 +451,7 @@ class TestDraining(FinalizerCase):
 
     def test_consent_for_one_task_does_not_stop_another(self):
         other = 'b' * 32
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER,
-                                         [running_task(), running_task(other)])]
+        self.observations = [observation(records.STATE_IDLE, tasks=[running_task(), running_task(other)])]
         status = self.finalize(request=self.request(stop_scope=records.STOP_SESSION_TASK,
                                                     stop_task_ids=[TASK_ID]))
         self.assertEqual(status['status'], records.STATUS_WAITING_FOR_TASKS)
@@ -461,8 +460,7 @@ class TestDraining(FinalizerCase):
 
     def test_whole_investigation_consent_stops_every_task(self):
         other = 'b' * 32
-        self.observations = [observation(records.STATE_ACTIVE, HOLDER,
-                                         [running_task(), running_task(other)])]
+        self.observations = [observation(records.STATE_IDLE, tasks=[running_task(), running_task(other)])]
         self.finalize(request=self.request(stop_scope=records.STOP_INVESTIGATION))
         stopped = {call.kwargs['task'] for call in self.ecs.stop_task.call_args_list}
         self.assertEqual(stopped, {TASK_ID, other})
@@ -755,16 +753,45 @@ class TestCleanup(FinalizerCase):
         self.assertEqual(verified[0]['access_point_path'], f'/{CLUSTER}/{INVESTIGATION}')
 
     def test_only_this_investigations_task_definitions_are_deregistered(self):
-        paginator = MagicMock()
-        paginator.paginate.return_value = [{'taskDefinitionArns': [
-            f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-20260101T000000:1',
-            f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-extra-20260101T000000:1',
-            f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-20260101T000000',
-        ]}]
-        self.ecs.get_paginator.return_value = paginator
+        family = f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}'
+        launched = f'{family}-20260101T000000:1'
+        collision = f'{family}-20260101T000000:2'
+        adjacent = f'{family}-extra-20260101T000000:1'
+        states = dict.fromkeys([launched, collision, adjacent], 'ACTIVE')
+
+        def pages(*, status, familyPrefix=None):
+            # AWS accepts only a complete family, not a partial name.
+            matched = [arn for arn in states if states[arn] == status and
+                       (not familyPrefix or arn.split('/')[-1].rsplit(':', 1)[0] == familyPrefix)]
+            return [{'taskDefinitionArns': [arn]} for arn in reversed(matched)]
+
+        def describe(taskDefinition):  # noqa: N803
+            ap = ACCESS_POINT if taskDefinition == launched else 'fsap-other'
+            return {'taskDefinition': {'taskDefinitionArn': taskDefinition, 'status': states[taskDefinition],
+                    'volumes': [{'name': 'sre-home', 'efsVolumeConfiguration': {
+                        'fileSystemId': 'fs-1', 'authorizationConfig': {'accessPointId': ap}}}]}}
+
+        def deregister(taskDefinition):  # noqa: N803
+            states[taskDefinition] = 'INACTIVE'
+            return describe(taskDefinition)
+
+        self.ecs.get_paginator.return_value.paginate.side_effect = pages
+        self.ecs.describe_task_definition.side_effect = describe
+        self.ecs.deregister_task_definition.side_effect = deregister
         status = self.finalize()
         self.assertEqual(status['task_definitions_removed'], 1)
-        self.assertEqual(self.ecs.deregister_task_definition.call_count, 1)
+        self.assertEqual(states, {launched: 'INACTIVE', collision: 'ACTIVE', adjacent: 'ACTIVE'})
+        self.ecs.deregister_task_definition.assert_called_once_with(taskDefinition=launched)
+
+    def test_unconfirmed_deregistration_retains_access_point(self):
+        arn = f'arn:aws:ecs:us-east-1:1:task-definition/boundary-{CLUSTER}-{INVESTIGATION}-20260101T000000:1'
+        self.ecs.get_paginator.return_value.paginate.return_value = [{'taskDefinitionArns': [arn]}]
+        td = {'taskDefinitionArn': arn, 'status': 'ACTIVE', 'volumes': [{'name': 'sre-home',
+              'efsVolumeConfiguration': {'fileSystemId': 'fs-1', 'authorizationConfig': {'accessPointId': ACCESS_POINT}}}]}
+        self.ecs.describe_task_definition.return_value = {'taskDefinition': td}
+        self.ecs.deregister_task_definition.return_value = {'taskDefinition': td}
+        self.assertEqual(self.finalize()['status'], records.STATUS_CLEANUP_INCOMPLETE)
+        self.efs.delete_access_point.assert_not_called()
 
 
 class TestRecovery(FinalizerCase):

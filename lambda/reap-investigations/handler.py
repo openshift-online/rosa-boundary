@@ -573,6 +573,10 @@ def activate_auto_close_intents(finalizer, context: Any) -> int:
                                          cancelled_at=records.now_iso(),
                                          cancelled_reason=superseded))
             continue
+        if observation['state'] != records.STATE_IDLE:
+            # Intent is not pending closure: even stop-all consent cannot
+            # activate it while the requester has another shell attached.
+            continue
         if remaining and intent['stop_scope'] != records.STOP_INVESTIGATION:
             # Another task is still running and this intent was not consent to
             # stop it. Wait for it rather than seal around work in progress.
@@ -808,6 +812,12 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
         logger.error("S3_AUDIT_BUCKET is not configured; refusing to reap %s", access_point_id)
         return False
     finalizer = build_finalizer()
+    # The stale scan lists desired-RUNNING tasks. A task already asked to
+    # stop can still host a shell; do not retire the ID on that scan alone.
+    observation = finalizer.observe(cluster_id, investigation_id)
+    if observation['state'] != records.STATE_IDLE or sessions.nonterminal_task_ids(observation):
+        logger.info("Workspace %s is not confirmed quiet; deferring stale close", access_point_id)
+        return False
     request_token = str(uuid.uuid4())
     requested_at = records.now_iso()
     request = {

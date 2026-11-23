@@ -76,8 +76,10 @@ type InvestigationResponse struct {
 // mirror the Python contract in lambda/create-investigation/close_requests.py
 // and lambda/reap-investigations/boundary_close_records.py.
 const (
-	actionRequestClose = "request_close"
-	actionCloseStatus  = "close_status"
+	actionRequestClose     = "request_close"
+	actionCloseStatus      = "close_status"
+	actionRegisterAutoClos = "register_auto_close"
+	actionCancelAutoClose  = "cancel_auto_close"
 
 	// StopScopeNone withholds consent to stop anything: the close waits while
 	// tasks are running. StopScopeSessionTask consents to stopping only the
@@ -87,7 +89,9 @@ const (
 	StopScopeSessionTask   = "session_task"
 	StopScopeInvestigation = "investigation"
 
-	TriggerCLIClose = "cli_close"
+	TriggerCLIClose          = "cli_close"
+	TriggerSessionExitPrompt = "session_exit_prompt"
+	TriggerAutoClose         = "auto_close"
 
 	// Close status values are deliberately distinguishable: an accepted
 	// request is not a completed close, and a retained workspace is not a
@@ -123,7 +127,8 @@ type CloseActionRequest struct {
 	TaskID          string   `json:"task_id,omitempty"`
 }
 
-// CloseActionResponse is returned by request_close.
+// CloseActionResponse is returned by request_close, register_auto_close and
+// cancel_auto_close.
 type CloseActionResponse struct {
 	Action        string `json:"action"`
 	RequestToken  string `json:"request_token"`
@@ -133,6 +138,8 @@ type CloseActionResponse struct {
 	AccessPointID string `json:"access_point_id"`
 	StopScope     string `json:"stop_scope"`
 	TaskID        string `json:"task_id"`
+	Registered    bool   `json:"registered"`
+	Cancelled     bool   `json:"cancelled"`
 	Message       string `json:"message"`
 }
 
@@ -178,6 +185,16 @@ type lambdaEventPayload struct {
 type lambdaAPIResponse struct {
 	StatusCode int    `json:"statusCode"`
 	Body       string `json:"body"`
+}
+
+// ResponseError is a structured error returned by the handler, not by the SDK.
+type ResponseError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *ResponseError) Error() string {
+	return fmt.Sprintf("lambda returned %d: %s", e.StatusCode, e.Message)
 }
 
 // truncate returns s truncated to n bytes with "..." appended if longer.
@@ -246,7 +263,7 @@ func (c *Client) invokeRaw(ctx context.Context, headers map[string]string, body 
 	if apiResp.StatusCode != http.StatusOK {
 		var errResp errorResponse
 		if jsonErr := json.Unmarshal([]byte(apiResp.Body), &errResp); jsonErr == nil && errResp.Error != "" {
-			return "", fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, errResp.Error)
+			return "", &ResponseError{StatusCode: apiResp.StatusCode, Message: errResp.Error}
 		}
 		return "", fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, truncate(apiResp.Body, 200))
 	}
@@ -331,6 +348,28 @@ func (c *Client) RequestClose(ctx context.Context, idToken string, req CloseActi
 	}
 	if result.RequestToken == "" {
 		return nil, fmt.Errorf("close service accepted the request without returning its identity; look up the status before retrying")
+	}
+	return &result, nil
+}
+
+// RegisterAutoClose persists auto-close intent for one session's task before
+// the CLI attaches, so a lost CLI still leaves the intent recorded.
+func (c *Client) RegisterAutoClose(ctx context.Context, idToken string, req CloseActionRequest) (*CloseActionResponse, error) {
+	var result CloseActionResponse
+	if err := c.invokeClose(ctx, idToken, actionRegisterAutoClos, req, &result); err != nil {
+		return nil, err
+	}
+	if !result.Registered {
+		return nil, fmt.Errorf("close service did not confirm the auto-close intent")
+	}
+	return &result, nil
+}
+
+// CancelAutoClose withdraws a previously recorded auto-close intent.
+func (c *Client) CancelAutoClose(ctx context.Context, idToken string, req CloseActionRequest) (*CloseActionResponse, error) {
+	var result CloseActionResponse
+	if err := c.invokeClose(ctx, idToken, actionCancelAutoClose, req, &result); err != nil {
+		return nil, err
 	}
 	return &result, nil
 }

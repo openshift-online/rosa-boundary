@@ -24,8 +24,9 @@ flowchart TD
     EXIT --> STOP["session close &lt;session-id&gt; --wait"]
     STOP --> AUDIT["Verify CloudWatch logs, container sync and S3 evidence separately"]
     AUDIT --> PLAN["investigation close &lt;cluster-id&gt; &lt;investigation-id&gt; --dry-run"]
-    PLAN --> CLOSE["Creator confirms close; CLI rechecks plan and removes access point"]
-    CLOSE --> IDLEDONE["EFS data remains; workspace no longer accessible via access point"]
+    PLAN --> CLOSE["Authorized SRE confirms request after all shells detach"]
+    CLOSE --> VERIFY["Reaper waits for quiet and verifies backup before cleanup"]
+    VERIFY --> IDLEDONE["EFS data remains; workspace no longer accessible via access point"]
 ```
 
-The `session close --wait` result proves only STOPPED, not S3 sync; the investigation remains open. `investigation close` without `--force` refuses active or still-stopping sessions; with `--force`, it waits for STOPPED before deleting the access point. The CLI checks the creator's `oidc_sub` tag, but regional IAM does not enforce that owner boundary for other AWS clients. Creation racing with close remains possible. A background reaper stops sessions past their tagged deadline; it does not replace explicit audit verification.
+The `session close --wait` result proves only STOPPED, not S3 sync; the investigation remains open. An attached shell blocks a new investigation close request, even the requester's own: disconnect and retry. A running task without a shell does not block acceptance. If a shell is observed after acceptance, the reaper waits without a new request. `--force` grants consent to stop tasks, not to interrupt shells or skip backup verification. A background reaper stops sessions past their tagged deadline; it does not replace explicit audit verification.

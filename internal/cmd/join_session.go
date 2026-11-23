@@ -69,12 +69,13 @@ func joinSession(cmd *cobra.Command, args []string,
 			return renewal
 		}
 	}
-	// Check durable close state before opening ECS Exec.
+	// Check durable close state before registering intent or opening ECS Exec.
 	target, err := resolveTarget(cmd.Context(), ecsClient, sessionID)
 	if err != nil {
 		return err
 	}
-	service, err := serviceFor(cmd, authRes)
+	newService := func() (closeService, error) { return serviceFor(cmd, authRes) }
+	service, err := newService()
 	if err != nil {
 		return fmt.Errorf("cannot verify close status; session was not joined: %w", err)
 	}
@@ -82,17 +83,32 @@ func joinSession(cmd *cobra.Command, args []string,
 	if err := attachment.admit(cmd.Context()); err != nil {
 		return err
 	}
+	if autoCloseRequested {
+		if err := registerAutoCloseIntent(cmd.Context(), service, target); err != nil {
+			return err
+		}
+	}
 	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait, attachment); err != nil {
+		if autoCloseRequested {
+			withdrawAutoCloseIntent(cmd.Context(), service, target)
+		}
 		return err
 	}
-	return disconnectedSessionResult(cmd, sessionID)
+
+	format, _ := commandOutput(cmd)
+	outcome := afterAttachedSession(cmd.Context(), newService, func() (sessionCloseTarget, error) { return target, nil }, format == "json")
+	return disconnectedSessionResult(cmd, sessionID, outcome)
 }
 
 // disconnectedSessionResult is only printed after the ECS Exec shell exits
-// successfully. Disconnecting does not close the task or investigation.
-func disconnectedSessionResult(cmd *cobra.Command, sessionID string) error {
+// successfully. Disconnecting does not close the task, and a recorded close
+// request is not a completed close.
+func disconnectedSessionResult(cmd *cobra.Command, sessionID string, outcome sessionCloseOutcome) error {
 	if format, _ := commandOutput(cmd); format == "json" {
-		return output.JSONTo(cmd.OutOrStdout(), map[string]any{"profile": selectedProfile, "session_id": sessionID, "status": "disconnected", "task_closed": false, "investigation_closed": false})
+		return output.JSONTo(cmd.OutOrStdout(), applyCloseOutcome(map[string]any{
+			"profile": selectedProfile, "session_id": sessionID, "status": "disconnected",
+			"task_closed": false,
+		}, outcome))
 	}
 	return nil
 }

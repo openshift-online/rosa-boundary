@@ -63,9 +63,7 @@ There is no additional unconditional task `username` tag: it appears when that
 is the selected ABAC key. Access-point `username` and `oidc_sub` identify the
 **original workspace creator**. Reuse does not retag the access point or reset
 `CreatedAt`. Those tags are provenance and do **not** decide who may close: the
-close service derives the current holder from the sessions attached to the
-investigation's tasks, so the reaper can defer an explicit request from a different SRE
-without interrupting the attached session. A task's own `oidc_sub` tag is provenance for
+close service rejects a new request if any shell is attached, including the requester's own. If the reaper observes a shell after acceptance, the request waits; stop consent does not override this check. Handover supersedes session-bound callbacks. A task's own `oidc_sub` tag is provenance for
 the same reason: a task still RUNNING after its SRE detached leaves the
 investigation idle, not held. A successor's task can therefore
 have a different subject from its access point. Investigation age-based cleanup
@@ -110,10 +108,7 @@ claim it covers every unknown-state case (for example a missing runtime ID).
 Coordinate with the preceding SRE, disconnect their Exec shell, and verify their
 audit evidence before replacing their task. The workspace persists, but OCM and
 kubeconfig credential mounts are task-scoped and must be configured afresh.
-After handover the successor, not the original creator, is the SRE who may
-close the investigation; when no sessions are active, any authorized Boundary
-SRE may. An earlier holder's close request is superseded
-rather than inherited. [ROSAENG-75946](https://redhat.atlassian.net/browse/ROSAENG-75946)
+After handover, any authorized SRE may request close once all shells detach. An accepted explicit request waits; a session-exit callback or auto-close intent from the previous holder is superseded, not inherited. [ROSAENG-75946](https://redhat.atlassian.net/browse/ROSAENG-75946)
 tracks the separate IAM-level close-ownership work.
 
 ## Exec environment and AWS CLI

@@ -115,6 +115,10 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		} else {
 			required = append(required, "ecs_cluster_name")
 		}
+		if cmd.Name() == "join" && cmd.Parent().Name() == "session" && flagBool(cmd, "auto-close") {
+			// Fail on configuration before an interactive sign-in, not after.
+			required = append(required, "invoker_role_arn", "lambda_function_name")
+		}
 		if cmd.Name() == "close" && cmd.Parent().Name() == "investigation" {
 			// Close is a request to the close service: the CLI previews with
 			// the SRE role and submits through the invoker role.
@@ -172,6 +176,29 @@ func commandLeaf(use, short string, args cobra.PositionalArgs, run func(*cobra.C
 	}), RunE: run}
 	addOutputFlag(cmd)
 	return cmd
+}
+
+// addAutoCloseFlags registers the attached-session close flags shared by
+// session create and session join.
+func addAutoCloseFlags(cmd *cobra.Command) {
+	cmd.Flags().Bool("auto-close", false, "Request investigation close when this session ends, without an exit prompt")
+	cmd.Flags().Bool("auto-close-stop-all", false, "With --auto-close, also consent to stopping the investigation's other tasks")
+}
+
+// validateAutoCloseFlags rejects combinations whose behaviour is not defined.
+// --auto-close only makes sense for a normal attached session, and consent to
+// stop other people's tasks has to be asked for explicitly.
+func validateAutoCloseFlags(cmd *cobra.Command, incompatible bool, message string) error {
+	if !flagBool(cmd, "auto-close") {
+		if flagBool(cmd, "auto-close-stop-all") {
+			return fmt.Errorf("--auto-close-stop-all requires --auto-close")
+		}
+		return nil
+	}
+	if incompatible {
+		return errors.New(message)
+	}
+	return nil
 }
 
 func deploymentFlags(cmd *cobra.Command, ecs, efs bool) {
@@ -265,7 +292,7 @@ func buildInvestigationCommand() *cobra.Command {
 		closeOutputFormat = flagString(cmd, "output")
 		return runCloseInvestigation(cmd, nil)
 	})
-	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --status, to see the current status.\n\nAny authorized Boundary SRE may request close, even while another SRE is attached. The reaper waits for that SRE to detach, even with --force. Without stop consent it also waits for running tasks to stop."
+	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --status, to see the current status.\n\nAny authorized Boundary SRE may request close once all ECS Exec shells disconnect. A request while any shell is attached is rejected, even with --force. Once accepted, the reaper waits if a shell appears; without stop consent it also waits for running tasks to stop."
 	close.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(2)(cmd, args); err != nil {
 			return err
@@ -325,6 +352,7 @@ func buildSessionCommand() *cobra.Command {
 		startNoWait = flagBool(cmd, "no-wait")
 		startConnect = !flagBool(cmd, "no-connect") && !startNoWait
 		startCredentials = flagString(cmd, "with-credentials")
+		autoCloseRequested, autoCloseStopAll = flagBool(cmd, "auto-close"), flagBool(cmd, "auto-close-stop-all")
 		startOCMURL, startOCMFlow, startOutputFormat = flagString(cmd, "ocm-url"), flagString(cmd, "ocm-auth-flow"), flagString(cmd, "output")
 		return runStartSession(cmd, nil)
 	})
@@ -336,6 +364,7 @@ func buildSessionCommand() *cobra.Command {
 	start.Flags().Bool("no-ocm-renewal", false, "Configure OCM once without retaining an attachment refresh grant")
 	start.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	start.Flags().String("ocm-auth-flow", "", "OCM-only sign-in override: auth-code or device")
+	addAutoCloseFlags(start)
 	deploymentFlags(start, true, false)
 	start.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
@@ -360,6 +389,10 @@ func buildSessionCommand() *cobra.Command {
 			if _, err := ocmcredentials.ResolveEnvironment(flagString(cmd, "ocm-url")); err != nil {
 				return err
 			}
+		}
+		if err := validateAutoCloseFlags(cmd, flagBool(cmd, "no-connect") || flagBool(cmd, "no-wait"),
+			"--auto-close needs an attached session; it cannot be combined with --no-connect or --no-wait"); err != nil {
+			return err
 		}
 		if !flagBool(cmd, "no-connect") && !flagBool(cmd, "no-wait") {
 			if err := requireTerminal(); err != nil {
@@ -387,6 +420,7 @@ func buildSessionCommand() *cobra.Command {
 	})
 	join := commandLeaf("join <session-id>", "Open a shell in a running session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		joinContainer, joinCommand, joinNoWait = flagString(cmd, "container"), flagString(cmd, "command"), flagBool(cmd, "no-wait")
+		autoCloseRequested, autoCloseStopAll = flagBool(cmd, "auto-close"), flagBool(cmd, "auto-close-stop-all")
 		return runJoinSession(cmd, args)
 	})
 	join.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
@@ -394,6 +428,10 @@ func buildSessionCommand() *cobra.Command {
 			return err
 		}
 		if _, err := commandOutput(cmd); err != nil {
+			return err
+		}
+		if err := validateAutoCloseFlags(cmd, flagBool(cmd, "no-wait") || cmd.Flags().Changed("command"),
+			"--auto-close needs a normal attached session; it cannot be combined with --no-wait or a custom --command"); err != nil {
 			return err
 		}
 		if err := validateJoinOCM(cmd); err != nil {
@@ -407,6 +445,7 @@ func buildSessionCommand() *cobra.Command {
 	join.Flags().Bool("renew-ocm", false, "Authorize and replace OCM credentials, then renew while attached")
 	join.Flags().String("ocm-url", "", "OCM environment or approved canonical URL (requires --renew-ocm)")
 	join.Flags().String("ocm-auth-flow", "", "OCM-only sign-in override: auth-code or device (requires --renew-ocm)")
+	addAutoCloseFlags(join)
 	deploymentFlags(join, true, false)
 	stop := commandLeaf("close [session-id]", "Close a session without closing its investigation", cobra.ArbitraryArgs, func(cmd *cobra.Command, args []string) error {
 		stopReason, stopWait, stopYes = flagString(cmd, "reason"), flagBool(cmd, "wait"), flagBool(cmd, "yes")

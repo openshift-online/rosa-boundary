@@ -21,7 +21,7 @@ task-definition registration, ECS RunTask, and task tagging. It does not mean
 the task reached RUNNING, became ready for ECS Exec, or completed audit sync.
 `failure` means that workflow raised an exception, including AWS errors during
 handover, setup, launch, or tagging. `blocked` means handover was rejected with
-HTTP 409 because an existing task has an active session.
+HTTP 409, for example because the caller already owns a task or an existing task has an active session.
 
 Configuration discovery (`get_config`), requests rejected before creation
 (including invalid input, authentication, authorization, or configuration), and

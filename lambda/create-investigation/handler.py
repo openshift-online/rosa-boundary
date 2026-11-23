@@ -814,6 +814,65 @@ def register_investigation_task_definition(
     return task_def_arn
 
 
+def verify_handover(cluster, investigation_id, task_arns, oidc_sub, abac_tag_key, abac_tag_value):
+    """Require a known different owner and no active sessions on every candidate."""
+    candidates = []
+    for arn in task_arns:
+        try:
+            result = ecs.describe_tasks(cluster=cluster, tasks=[arn], include=['TAGS'])
+        except (ClientError, BotoCoreError) as error:
+            logger.error(f"Failed to describe task {arn}: {error}")
+            raise HandoverFailedError(
+                "Cannot verify task ownership due to AWS API error", failed_tasks=[arn]
+            ) from error
+
+        tasks = result.get('tasks', [])
+        if result.get('failures') or len(tasks) != 1 or tasks[0].get('taskArn') != arn:
+            raise HandoverFailedError(
+                f"Cannot verify session state for task {arn}: describe_tasks returned no matching details",
+                failed_tasks=[arn]
+            )
+
+        task = tasks[0]
+        tags = {tag['key']: tag.get('value') for tag in task.get('tags', [])}
+        owner = tags.get(abac_tag_key)
+        subject = tags.get('oidc_sub')
+        # The configured ABAC tag determines who can join. A matching subject
+        # also rules out replacement if the same caller's ABAC value changed.
+        if owner == abac_tag_value or subject == oidc_sub:
+            raise HandoverFailedError(
+                f"You already have a task for investigation '{investigation_id}'. "
+                "Use 'rosa-boundary session list' to find it, then "
+                "'rosa-boundary session join <session-id>' with the same profile.",
+                failed_tasks=[arn], status_code=409
+            )
+        candidates.append((arn, task, owner, subject))
+
+    for arn, task, owner, subject in candidates:
+        if not all(isinstance(value, str) and value.strip() for value in (owner, subject)):
+            raise HandoverFailedError("Cannot verify existing task ownership", failed_tasks=[arn])
+
+        try:
+            active, incomplete = close_requests.active_session_count(
+                ssm, cluster, arn.rsplit('/', 1)[-1], task.get('containers', []))
+        except (ClientError, BotoCoreError) as error:
+            logger.error(f"Failed to describe sessions for {arn}: {error}")
+            raise HandoverFailedError(
+                f"Cannot verify active sessions for investigation '{investigation_id}' due to AWS API error",
+                failed_tasks=[arn]
+            ) from error
+        if active:
+            raise HandoverFailedError(
+                f"Investigation '{investigation_id}' is currently locked by an active session.",
+                failed_tasks=[arn], status_code=409
+            )
+        if incomplete:
+            raise HandoverFailedError(
+                "Cannot verify session state for existing task: incomplete session evidence",
+                failed_tasks=[arn]
+            )
+
+
 def create_investigation_task(
     cluster: str,
     task_def: str,
@@ -859,64 +918,15 @@ def create_investigation_task(
     existing_ap = find_existing_access_point(efs_filesystem_id, cluster_id, investigation_id)
     ap_newly_created = False
 
-    # Stop any already-running tasks for this investigation before proceeding.
-    # We fail closed if the stop action fails or the task doesn't terminate.
+    # Preflight the entire set before issuing any stop.
     if not skip_task:
         existing_tasks = find_running_tasks_for_investigation(cluster, cluster_id, investigation_id)
         if existing_tasks:
-            logger.warning(f"Investigation {investigation_id} already has {len(existing_tasks)} running task(s): {existing_tasks}. Stopping them for handover.")
+            verify_handover(cluster, investigation_id, existing_tasks,
+                            oidc_sub, abac_tag_key, abac_tag_value)
+            logger.info(f"Stopping existing tasks for investigation {investigation_id} handover: {existing_tasks}")
             failed_stops = []
             tasks_to_wait_for = []
-
-            # Preflight check: ensure no task has an active SSM session before stopping any
-            for existing_task in existing_tasks:
-                try:
-                    task_id = existing_task.split('/')[-1]
-                    task_details = ecs.describe_tasks(cluster=cluster, tasks=[existing_task])
-                    tasks = task_details.get('tasks', [])
-
-                    if not tasks:
-                        # Task was listed as RUNNING but describe_tasks returned no details.
-                        # This could be eventual consistency, permissions issue, or API error.
-                        # Fail closed rather than skip the active session check.
-                        logger.error(
-                            f"Task {existing_task} listed as RUNNING but describe_tasks returned no details. "
-                            f"Investigation: {investigation_id}, Cluster: {cluster_id}. "
-                            f"Failing handover to prevent interrupting potentially active session."
-                        )
-                        raise HandoverFailedError(
-                            f"Cannot verify session state for task {existing_task}: describe_tasks returned no details",
-                            failed_tasks=[existing_task],
-                            status_code=500
-                        )
-
-                    containers = tasks[0].get('containers', [])
-
-                    for container in containers:
-                        runtime_id = container.get('runtimeId')
-                        if runtime_id:
-                            target = f"ecs:{cluster}_{task_id}_{runtime_id}"
-                            sessions = ssm.describe_sessions(
-                                State='Active',
-                                Filters=[{'key': 'Target', 'value': target}]
-                            ).get('Sessions', [])
-
-                            if sessions:
-                                logger.warning(f"Task {existing_task} has an active SSM session, blocking handover.")
-                                raise HandoverFailedError(
-                                    f"Investigation '{investigation_id}' is currently locked by an active session.",
-                                    failed_tasks=[existing_task],
-                                    status_code=409
-                                )
-                except HandoverFailedError:
-                    raise
-                except (ClientError, BotoCoreError) as e:
-                    logger.error(f"Failed to describe task or sessions for {existing_task}: {str(e)}")
-                    raise HandoverFailedError(
-                        f"Cannot verify active sessions for investigation '{investigation_id}' due to AWS API error: {str(e)}",
-                        failed_tasks=[existing_task],
-                        status_code=500
-                    )
 
             for existing_task in existing_tasks:
                 try:

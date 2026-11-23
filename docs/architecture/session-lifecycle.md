@@ -44,9 +44,8 @@ escrow. See [audit verification](../runbooks/investigation-workflow.md#verify-au
 ### Unresolved policy decisions
 
 - [ROSAENG-75948 — Resolve strict task deadlines versus active-session reaper exemption](https://redhat.atlassian.net/browse/ROSAENG-75948): strict-deadline policy remains unresolved. The scheduled, active-session-aware reaper described here is **not** a hard maximum task lifetime.
-- [ROSAENG-75947 — Prevent same-user handover and define active-session takeover policy](https://redhat.atlassian.net/browse/ROSAENG-75947): takeover policy remains unresolved. Same-user recreation is currently possible; Lambda does not reject handover merely because the new caller also created the old task. Current checks are implementation observations, not a settled definition of activity, grace period, or authorization to interrupt an SRE.
 
-Do not change deployment settings or infer a policy decision from this documentation.
+The handover policy below does not change the timeout or reaper policy.
 
 ## Actual resource tags: creator versus actor
 
@@ -94,16 +93,24 @@ replacement session in the same workspace; `session join <session-id>` connects
 to a particular task subject to its ABAC identity. Handover does not grant a
 successor access to the predecessor's task or credentials.
 
-On task creation, Lambda finds RUNNING tasks by the deterministic `startedBy`
-value, whether or not it found an existing access point. This includes same-user
-recreation; there is no distinct-user requirement. Before stopping any, it describes them and checks Active SSM
-sessions for containers with runtime IDs. An active session blocks replacement
-with 409; missing task details and AWS lookup errors fail the handover. It then
-stops the old tasks and waits for STOPPED before reusing the AP, registering a
-new definition and launching the caller's task. Stop/wait failure aborts the
-replacement, but already initiated stops are not rolled back. This preflight
-is not an atomic lock against concurrent starts or new Exec connections; do not
-claim it covers every unknown-state case (for example a missing runtime ID).
+On task creation, Lambda finds existing tasks by the deterministic `startedBy`
+value (ECS desired status RUNNING), whether or not it found an access point.
+The [ROSAENG-75947 policy](https://redhat.atlassian.net/browse/ROSAENG-75947?focusedCommentId=19713772)
+applies before any stop:
+
+| Existing candidate | Create response |
+| --- | --- |
+| Caller's task (matching configured ABAC tag or OIDC subject) | **409** regardless of shell state; leave the task unchanged. Use `rosa-boundary session list` and then `rosa-boundary session join <session-id>` with the same profile. Join still requires matching ABAC identity. |
+| Different owner with any active SSM session | **409**; no takeover. Coordinate with the current SRE and retry after they disconnect. |
+| Unknown owner or session state | **500**; no takeover. Missing task details, owner tags, runtime IDs, incomplete SSM results, and AWS lookup errors are not evidence that a task is idle. |
+| Every candidate has a known different owner and all checked targets are inactive | Stop the candidates, wait for STOPPED, then launch the caller's task in the same workspace. |
+
+The task's configured ABAC tag and `oidc_sub` identify the previous caller;
+the EFS access point's creator tags do not. The preflight checks every
+candidate before any stop. Stop/wait failure aborts replacement without
+rolling back stops already issued. This is not an atomic lock against concurrent
+starts or new Exec connections; distributed race work is tracked separately
+in [ROSAENG-67463](https://redhat.atlassian.net/browse/ROSAENG-67463).
 
 Coordinate with the preceding SRE, disconnect their Exec shell, and verify their
 audit evidence before replacing their task. The workspace persists, but OCM and

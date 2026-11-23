@@ -31,8 +31,8 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_ecs" {
       },
       {
         Effect   = "Allow"
-        Action   = "ecs:ListTaskDefinitions"
-        Resource = "*" # ListTaskDefinitions requires wildcard resource
+        Action   = ["ecs:ListTaskDefinitions", "ecs:DescribeTaskDefinition"]
+        Resource = "*" # List and describe do not support resource-level permissions
       },
       {
         Effect   = "Allow"

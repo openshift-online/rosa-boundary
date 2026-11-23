@@ -487,3 +487,43 @@ func TestCLIDiscoveryCannotSwitchIssuerOrRegion(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// --auto-close has to be rejected before anything is created: silently
+// ignoring it would attach a session that records no intent at all.
+func TestAutoCloseFlagCombinationsAreRejectedBeforeAuthentication(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	previousTerminal := requireTerminal
+	requireTerminal = func() error { return nil }
+	t.Cleanup(func() { requireTerminal = previousTerminal })
+	for _, tc := range []struct {
+		name    string
+		args    []string
+		wantErr string
+	}{
+		{"create with no-connect", []string{"session", "create", "cluster", "--auto-close", "--no-connect"},
+			"cannot be combined with --no-connect"},
+		{"create with no-wait", []string{"session", "create", "cluster", "--auto-close", "--no-wait"},
+			"cannot be combined with --no-connect"},
+		{"stop-all without auto-close", []string{"session", "create", "cluster", "--auto-close-stop-all"},
+			"requires --auto-close"},
+		{"join with no-wait", []string{"session", "join", "task-1", "--auto-close", "--no-wait"},
+			"cannot be combined with --no-wait"},
+		{"join with a custom command", []string{"session", "join", "task-1", "--auto-close", "--command", "/bin/sh"},
+			"custom --command"},
+		{"join stop-all without auto-close", []string{"session", "join", "task-1", "--auto-close-stop-all"},
+			"requires --auto-close"},
+		{"close wait with dry run", []string{"investigation", "close", "cluster", "inv", "--dry-run", "--wait"},
+			"no meaning with --dry-run"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := buildRootCommand()
+			root.SetArgs(tc.args)
+			root.SetOut(io.Discard)
+			root.SetErr(io.Discard)
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("err = %v, want %q", err, tc.wantErr)
+			}
+		})
+	}
+}

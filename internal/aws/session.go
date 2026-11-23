@@ -80,12 +80,10 @@ const stdinPumpStopTimeout = 2 * time.Second
 // permits complete subprocess testing without replacing the test process.
 //
 // An *os.File stdin is passed to the plugin directly, preserving terminal
-// handling. Any other reader is forwarded through a pipe and is owned by this
-// call: if it implements io.Closer it is closed when the plugin exits, which
-// stops forwarding before return. A reader that cannot be interrupted is left
-// blocked and may consume one more read after return, so callers must not reuse
-// it. Unexpected forwarding errors are reported only when they are visible by
-// the time the plugin has exited and the reader has been released.
+// handling. Any other reader must be an io.ReadCloser whose Close unblocks a
+// pending Read (as io.PipeReader does); it is forwarded through a pipe, owned by
+// this call, and closed when the plugin exits so forwarding stops before return.
+// A reader that cannot be interrupted is rejected before the plugin starts.
 func RunSessionManagerPluginWithStreams(ctx context.Context, region string, session *ExecuteCommandSession, creds *TemporaryCredentials, stdin io.Reader, stdout, stderr io.Writer) error {
 	pluginPath, err := exec.LookPath(sessionManagerPlugin)
 	if err != nil {
@@ -129,6 +127,10 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 	// A caller-owned io.Reader that stays open would otherwise be copied by an
 	// exec goroutine that Wait cannot interrupt. Hand the plugin an *os.File so
 	// Wait returns when the process exits.
+	closer, ok := stdin.(io.ReadCloser)
+	if !ok {
+		return errors.New("plugin stdin must be an *os.File or an io.ReadCloser whose Close unblocks Read")
+	}
 	stdinRead, stdinWrite, err := os.Pipe()
 	if err != nil {
 		return fmt.Errorf("create plugin stdin pipe: %w", err)
@@ -149,22 +151,12 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 	// closed is closed here so the forwarding goroutine stops before return.
 	_ = stdinRead.Close()
 	_ = stdinWrite.Close()
-	closer, interruptible := stdin.(io.Closer)
-	if interruptible {
-		_ = closer.Close()
-	}
+	_ = closer.Close()
 	var pumpErr error
-	if interruptible {
-		select {
-		case pumpErr = <-pumpDone:
-		case <-time.After(stdinPumpStopTimeout):
-			pumpErr = errors.New("stdin forwarding did not stop after its reader was closed")
-		}
-	} else {
-		select {
-		case pumpErr = <-pumpDone:
-		default:
-		}
+	select {
+	case pumpErr = <-pumpDone:
+	case <-time.After(stdinPumpStopTimeout):
+		pumpErr = errors.New("stdin forwarding did not stop after its reader was closed")
 	}
 	if runErr != nil {
 		return runErr

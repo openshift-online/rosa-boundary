@@ -78,7 +78,7 @@ printf ':__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__'
 		"us-east-1",
 		&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
 		&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
-		strings.NewReader("stream-payload\n"),
+		io.NopCloser(strings.NewReader("stream-payload\n")),
 		&stdout,
 		&stderr,
 	)
@@ -328,28 +328,22 @@ func TestRunSessionManagerPluginWithStreamsReturnsWhenReaderStaysOpen(t *testing
 
 type readOnly struct{ io.Reader }
 
-func TestRunSessionManagerPluginWithStreamsReturnsForUnclosableReader(t *testing.T) {
+func TestRunSessionManagerPluginWithStreamsRejectsUninterruptibleReader(t *testing.T) {
 	pluginDir := t.TempDir()
-	writePlugin(t, pluginDir, `printf done`)
+	marker := filepath.Join(pluginDir, "started")
+	writePlugin(t, pluginDir, `touch "`+marker+`"`)
 	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	reader, writer := io.Pipe()
-	defer func() { _ = writer.Close(); _ = reader.Close() }()
 
-	result := make(chan error, 1)
-	go func() {
-		result <- RunSessionManagerPluginWithStreams(
-			context.Background(), "us-east-1",
-			&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
-			&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
-			readOnly{reader}, io.Discard, io.Discard,
-		)
-	}()
-	select {
-	case err := <-result:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("plugin wrapper hung on a reader it cannot close")
+	err := RunSessionManagerPluginWithStreams(
+		context.Background(), "us-east-1",
+		&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+		&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+		readOnly{strings.NewReader("x")}, io.Discard, io.Discard,
+	)
+	if err == nil {
+		t.Fatal("a reader that cannot be closed was accepted")
+	}
+	if _, statErr := os.Stat(marker); statErr == nil {
+		t.Fatal("plugin started before the reader was rejected")
 	}
 }

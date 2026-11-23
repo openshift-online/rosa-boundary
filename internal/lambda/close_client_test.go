@@ -3,6 +3,7 @@ package lambda
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -59,6 +60,16 @@ func TestRequestCloseSendsTheAuthenticatedAction(t *testing.T) {
 	}
 	if ids, ok := body["stop_task_ids"].([]any); !ok || len(ids) != 1 || ids[0] != "task-1" {
 		t.Fatalf("stop consent not sent: %v", body["stop_task_ids"])
+	}
+}
+
+func TestRequestCloseReturnsTypedConflict(t *testing.T) {
+	const reason = "An ECS Exec shell is attached; disconnect and retry close."
+	client := newTestClient(&mockLambdaInvoker{payload: buildLambdaResponse(http.StatusConflict, map[string]string{"error": reason, "state": "active"})})
+	result, err := client.RequestClose(context.Background(), "id-token", CloseActionRequest{})
+	var refusal *ResponseError
+	if result != nil || !errors.As(err, &refusal) || refusal.StatusCode != http.StatusConflict || refusal.Message != reason {
+		t.Fatalf("expected handler conflict, got result=%v err=%v", result, err)
 	}
 }
 

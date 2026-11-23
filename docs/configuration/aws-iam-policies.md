@@ -74,16 +74,7 @@ tags; the ECS ExecuteCommand policy enforces the ECS ABAC comparison. This
 inventory describes existing grants, not a recommendation to broaden them.
 There is no IAM-user `${aws:username}` session model to configure.
 
-**Close ownership remains unresolved:**
-[ROSAENG-75946](https://redhat.atlassian.net/browse/ROSAENG-75946) tracks the
-conflict between shared-SRE management and the
-[CLI close check](../../internal/cmd/close_investigation.go).
-Today the CLI requires the access point's creator `oidc_sub` to match the
-authenticated ID token's `sub`, including during dry-run. This is an
-application check, **not** an IAM owner restriction on other AWS clients.
-Do not remove it, promise group-wide CLI close, or prescribe bypassing it based
-on this guide. `--force` does not bypass it and stopping tasks still requires
-the task ABAC match.
+**Investigation close is authorized by the close service.** Any authorized Boundary SRE may submit a request once all ECS Exec shells detach. The creator tag is not an owner check. If a shell is observed after acceptance, the reaper waits. `--force` grants task-stop consent, not an exception to the shell check. These are service controls, not IAM restrictions on direct AWS clients. See [automated investigation close](../architecture/investigation-close.md).
 
 Access-point creator tags remain creation provenance when another SRE reuses
 the workspace; task tags identify the creator of each new task. They do not
@@ -122,7 +113,7 @@ policies from this guide.
 For ordinary setup, follow [CLI authentication](../architecture/cli-authentication.md)
 and the [user access guide](../runbooks/user-access-guide.md).
 Review account trust, regional grants, Lambda claim checks and the close
-owner check together. Source and policy tests describe the intended controls;
+service's authorization together. Source and policy tests describe the intended controls;
 they do not prove deployed IAM, SCPs, or audit-reader access.
 
 A real enforcement test requires separate personal-dev authorization and

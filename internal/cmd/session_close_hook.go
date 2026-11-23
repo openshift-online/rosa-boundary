@@ -219,9 +219,9 @@ func afterAttachedSession(ctx context.Context, newService closeServiceFactory, r
 	if requestErr != nil {
 		// The session itself succeeded; say exactly what is unresolved rather
 		// than turning a close failure into a session failure.
-		output.Warning("close request outcome is unknown for %s/%s: %v; before retrying check 'rosa-boundary investigation close %s %s --status'",
-			target.ClusterID, target.InvestigationID, requestErr, target.ClusterID, target.InvestigationID)
-		return sessionCloseOutcome{Note: "close request outcome unknown; check status before retrying"}
+		note := closeRequestFailure(target.ClusterID, target.InvestigationID, requestErr).Error()
+		output.Warning("%s", note)
+		return sessionCloseOutcome{Note: note}
 	}
 	output.Status("Close request recorded for %s/%s. Boundary will wait for all sessions to stop and verify the backup before closing the investigation.\nRequest ID: %s",
 		target.ClusterID, target.InvestigationID, accepted.RequestToken)

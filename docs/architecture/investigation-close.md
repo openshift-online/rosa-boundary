@@ -17,9 +17,9 @@ receipt or delete anything.
 
 ```
 SRE (CLI)                 create-investigation Lambda        reap-investigations Lambda
-  investigation close ──▶  authenticate (OIDC + groups)
-  session exit prompt      apply the authorization matrix
-  --auto-close             record an immutable request  ──▶   (on its schedule)
+  --auto-close        ──▶  record intent before attach
+  investigation close ──▶  authenticate and check for shells
+  session exit request ─▶  record request if eligible   ──▶   (on its schedule)
                            answer status questions             revalidate authorization
                                                                seal, drain, copy
                                                                verify independently
@@ -41,13 +41,12 @@ involved. The storage is the audit bucket that already exists.
 ## Who may close
 
 Any authenticated SRE authorized to use this Boundary deployment may explicitly
-request close. Neither creating the workspace nor holding its attached session
-is required. The access point's `oidc_sub` is provenance only.
+request close. The service must observe **no attached ECS Exec shells** anywhere in the investigation before accepting a request, including one from the shell's own SRE. The access point's `oidc_sub` is provenance only.
 
 | Observed state | Who may request seal/close |
 | --- | --- |
-| Held by SRE A | Any authorized SRE may explicitly request close. If someone other than A asks, the reaper waits for A to detach before sealing or draining, even with stop consent. |
-| Handed over from A to B | An explicit request remains pending. A session-exit callback or auto-close intent from A is superseded, not inherited consent. |
+| Any shell attached | No new request is recorded (409). Disconnect all shells and retry. If a shell appears after acceptance, the reaper waits before sealing or draining, even with stop consent. |
+| Handed over from A to B | An explicit request remains pending. When B is observed attached, a session-exit callback or auto-close intent from A is superseded, not inherited consent. |
 | No active sessions | Any authenticated SRE authorized to use Boundary. No creator match and no handover is required to close an idle investigation, and a task left running does not reserve it for whoever launched it. |
 | Incomplete, contradictory or unavailable | Unknown. A new request is refused as retryable; the reaper defers an already recorded request. Unknown is never treated as idle. |
 
@@ -64,7 +63,8 @@ A RUNNING task is **not** proof that a shell is attached. An investigation
 whose SRE detached but whose task is still running is **idle**. The task's
 owner is still reported in `task_owner_subs` for provenance, not permission.
 
-Anything that could not be read completely is `unknown`: a scan that failed, a
+The service checks all session targets and result pages. Anything that could
+not be read completely is `unknown`: a scan that failed, a
 description that came back short, a non-terminal task with no owner tag or no
 session target — where "no session attached" cannot be distinguished from "not
 observed" — or two SREs attached at once.
@@ -89,15 +89,14 @@ Being allowed to close is separate from being allowed to stop someone's work:
 | `session_task` | Stop only the named tasks. Other tasks keep the close waiting. This is what the exit prompt and `--auto-close` ask for. |
 | `investigation` | Stop every task of the investigation. `investigation close --force` and `--auto-close-stop-all` ask for this. |
 
-For example, B requests close without stop consent while A is attached. The
-service records B’s request; the reaper reports `waiting_for_tasks`. When A
-detaches, the reaper may seal, but it still waits for A’s task to stop. Once
+For example, B requests close without stop consent after A detaches. If a shell
+is observed on revalidation, the reaper reports `waiting_for_tasks`. After all
+shells detach it may seal, but it still waits for A’s task to stop. Once
 quiet, it processes **the same request** through backup verification and normal
-close. The scheduled stale sweep has no stop consent and waits for running
-tasks to stop before it seals.
+close. The scheduled stale sweep has no stop consent: it must observe no attached shells and no non-terminal tasks before recording a stale request.
 
 Consent travels with the request that carried it. A second request cannot widen
-an earlier one, and `--force` is not an authorization override: it does not permit the reaper to interrupt a different attached holder.
+an earlier one, and `--force` is not an authorization override: it does not permit the reaper to interrupt any attached shell.
 
 ## What a seal means, and what it does not
 
@@ -207,8 +206,7 @@ Every route — an explicit request, an activated auto-close intent, and the
 stale sweep — runs the same pipeline. There is no second, less-verified path to
 deletion.
 
-1. **Revalidate.** Re-derive the observation and reapply the matrix. A different holder
-   defers an explicit request but supersedes a session callback. Unknown state defers both.
+1. **Revalidate.** Re-derive the observation and reapply the matrix. Any attached shell defers an accepted explicit request; a handover to a different holder supersedes a session callback. Unknown state defers both.
 2. **Seal.** Apply a fresh managed marker, or reuse an existing managed one.
    Never replace a manual or legacy seal.
 3. **Drain.** Stop only the consented tasks. Anything outside that scope leaves
@@ -340,7 +338,9 @@ One shared hook serves `session create` and `session join`.
   rather than from the command line; on `session create` it uses the identity
   the service just returned for the task it launched.
 * `--auto-close` persists the intent through the request service **before**
-  attaching, tied to the selected task. A normal disconnect then requests close
+  attaching, tied to the selected task. The service can record intent while the
+  requester holds a shell; intent does not mean close is pending or block join.
+  A normal disconnect then requests close
   immediately and suppresses the prompt. If the intent cannot be persisted the
   command fails rather than attaching without the promised behaviour, and if
   the session then fails to attach at all the intent is withdrawn — the SRE
@@ -350,8 +350,7 @@ One shared hook serves `session create` and `session join`.
 
 **No heartbeat is added.** If the laptop disappears while the task keeps
 running, there is no immediate disconnect detection and no short grace timer.
-The reaper activates the persisted intent once that task is observed stopped,
-and the existing staleness policy provides eventual sealing. A handover to
+To activate the persisted intent, the reaper must observe that task stopped and no shells attached, including the requester's other shells. Without stop-all consent it also waits for other tasks to stop. A handover to
 another active SRE supersedes the intent instead of closing the new holder's
 session.
 
@@ -360,7 +359,8 @@ session.
 | Symptom | Meaning | Action |
 | --- | --- | --- |
 | `accepted` for several schedules | the reaper has not reached it yet, or it keeps checkpointing | check the reaper's logs and runtime; raise `investigation_close_requests_per_run` if requests are backing up |
-| `waiting_for_tasks` | another SRE is attached, or a task outside the consented stop scope is running | wait for detachment and for tasks to stop; no resubmission is required |
+| Close refused (409, shell attached) | no request was recorded | disconnect all shells, then retry close |
+| `waiting_for_tasks` | a shell is attached, or a task outside the consented stop scope is running | wait for detachment and for tasks to stop; no resubmission is required |
 | `retained` after a handover | a session callback was superseded | submit a fresh explicit request |
 | `retained` with a verification reason | the attempt could not be trusted | the data is intact and the status is marked retryable; the next pass starts a new attempt. Investigate repeated failures before forcing anything |
 | `retained` because the directory is missing | the reaper could not measure a source at the expected EFS path | investigate the mount and workspace disposition before requesting close again; a missing directory is not a verified empty directory |

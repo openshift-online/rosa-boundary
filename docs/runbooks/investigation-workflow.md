@@ -20,7 +20,8 @@ stateDiagram-v2
     UserConnected --> Investigation: Work in container
     Investigation --> UserDisconnected: exit
     UserDisconnected --> TaskStopped: rosa-boundary session close --wait
-    TaskStopped --> InvestigationClosed: rosa-boundary investigation close
+    TaskStopped --> CloseRequested: rosa-boundary investigation close
+    CloseRequested --> InvestigationClosed: reaper verifies backup and completes cleanup
     InvestigationClosed --> [*]
 
     note right of LoggedIn
@@ -49,8 +50,8 @@ stateDiagram-v2
     end note
 
     note right of InvestigationClosed
-        - Owner-only CLI operation; requires independent verified receipt
-        - --force permits stopping tasks, not bypassing audit verification
+        - Any authorized Boundary SRE may request close after all shells detach
+        - --force permits stopping tasks, not bypassing shell checks or audit verification
         - Task definitions deregistered
         - EFS access point deleted
     end note
@@ -211,8 +212,7 @@ before launching the replacement; stop/wait failures abort replacement, not
 already initiated stops. Verify predecessor audit evidence independently.
 This is not an atomic concurrency lock. See [handover details and limitations](../architecture/session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
 The new task belongs to the caller, but the access point keeps its original
-creator tags and creation time. CLI investigation-close ownership does not
-transfer; see the separate [ROSAENG-75946 close-ownership work](https://redhat.atlassian.net/browse/ROSAENG-75946).
+creator tags and creation time. These tags do not determine who can request close.
 Same-user recreation is also currently possible, subject to the same active-session
 checks; [ROSAENG-75947](https://redhat.atlassian.net/browse/ROSAENG-75947) tracks its
 prevention and takeover policy. Credential mounts do not persist: configure fresh OCM credentials on
@@ -482,12 +482,12 @@ Who may ask:
 
 | Observed state | Who may request close |
 | --- | --- |
-| Held by SRE A | A only — including against whoever created the investigation |
-| Handed over to B | B only; A's earlier request is superseded |
+| Any shell attached | Nobody, including the attached SRE. Disconnect all shells and retry. |
+| Shell observed after acceptance | The accepted explicit request waits. A handover to another active SRE supersedes session-bound callbacks and intents. |
 | No active sessions | any authenticated SRE authorized to use Boundary |
-| Unclear or unavailable | nobody; the request is deferred and retried |
+| Unclear or unavailable | No new request is recorded; retry when the service can confirm no shells are attached. The reaper defers an already accepted request. |
 
-What the reaper then does, in order: apply a managed close marker, stop only
+After rechecking that no shell is attached, the reaper will apply a managed close marker, stop only
 the tasks the request consented to stop, observe the workspace quiet twice with
 a configured interval between, measure every eligible file itself, copy into an
 attempt prefix of its own, compare that copy against its own measurements
@@ -548,9 +548,7 @@ What it does:
    service decides eligibility: the CLI cannot observe attached sessions and
    does not pretend to. The access point's creator tag is provenance, not
    permission.
-3. Records the request even when tasks are running. Without `--force`, the
-   reaper waits for them to stop. With it, the reaper still waits for a
-   different attached SRE to detach; it does not waive backup verification.
+3. If any ECS Exec shell is attached (including yours), the service refuses the request with 409. Disconnect all shells and retry. A running task alone does not block acceptance. If a shell appears after acceptance, the reaper waits for detachment without a new request. Without `--force` it also waits for tasks to stop; `--force` consents to stopping tasks, not bypassing the shell check or backup verification.
 4. With `--wait`, polls until the service reports an outcome it will not leave
    by itself, bounded in wall-clock time. Stopping the wait does not cancel the
    request. A `retained` or `cleanup_incomplete` result is reported as a
@@ -589,7 +587,7 @@ leaves it recorded; if the intent cannot be recorded, the command fails instead
 of attaching without it, and if the session then fails to attach the intent is
 withdrawn. There is no heartbeat: a laptop that disappears while
 its task keeps running is not detected immediately. The reaper activates the
-intent once that task is observed stopped, and a handover to another active SRE
+intent only after that task stops and no shell is attached. Unless `--auto-close-stop-all` was set, other tasks must also stop. Intent alone does not block joins. A handover to another active SRE
 supersedes it rather than closing the new holder's session.
 
 Both positional IDs are required for `investigation close`. Ensure the selected
@@ -645,7 +643,7 @@ The deployment's shared SRE role is scoped at runtime by ABAC:
 
 Investigation close has its own authorization, enforced service-side rather
 than by ABAC: any authorized Boundary SRE may explicitly request close,
-including while another SRE is attached. A task left running after its SRE detached does not keep the investigation
+but only after all shells detach. A task left running after its SRE detached does not keep the investigation
 held — but stopping that task still needs the explicit consent of whoever
 requests the close. Creating an investigation confers no standing authority
 over it. See

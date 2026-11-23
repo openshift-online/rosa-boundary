@@ -252,12 +252,23 @@ func TestCloseRequestSubmission(t *testing.T) {
 		}
 	})
 
+	t.Run("an attached shell is a definitive conflict", func(t *testing.T) {
+		refusal := &lambda.ResponseError{StatusCode: 409, Message: "disconnect and retry close"}
+		service := &fakeCloseService{acceptErr: refusal}
+		err := submitCloseRequest(context.Background(), service.service(), "cluster", "inv")
+		if !errors.Is(err, refusal) || !strings.Contains(err.Error(), "rejected for cluster/inv") || !strings.Contains(err.Error(), refusal.Message) || strings.Contains(err.Error(), "--status") {
+			t.Fatalf("expected definitive refusal with service guidance, got %v", err)
+		}
+	})
+
 	t.Run("an unknown outcome is not reported as persisted", func(t *testing.T) {
 		closeForce, closeWait = false, false
-		service := &fakeCloseService{acceptErr: errors.New("timeout")}
-		err := submitCloseRequest(context.Background(), service.service(), "cluster", "inv")
-		if err == nil || !strings.Contains(err.Error(), "outcome is unknown") {
-			t.Fatalf("expected an unknown-outcome error, got %v", err)
+		for _, cause := range []error{errors.New("timeout"), &lambda.ResponseError{StatusCode: 503, Message: "service unavailable"}} {
+			service := &fakeCloseService{acceptErr: cause}
+			err := submitCloseRequest(context.Background(), service.service(), "cluster", "inv")
+			if !errors.Is(err, cause) || !strings.Contains(err.Error(), "outcome is unknown") || !strings.Contains(err.Error(), "--status") {
+				t.Fatalf("expected status lookup guidance, got %v", err)
+			}
 		}
 	})
 

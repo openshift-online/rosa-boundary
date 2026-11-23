@@ -185,12 +185,7 @@ def _task_owner_subs(tasks):
 
 
 def _active_session_count(ssm, ecs_cluster, task_id, containers):
-    """Count active ECS Exec sessions attached to one task.
-
-    Mirrors the reaper helper of the same name, including the order of its
-    checks: every container is scanned before ``incomplete`` is reported, so
-    both implementations make the same API calls and record the same reason.
-    """
+    """Scan every runtime target and page; partial evidence cannot prove idle."""
     total = 0
     incomplete = not containers
     for container in containers:
@@ -198,12 +193,24 @@ def _active_session_count(ssm, ecs_cluster, task_id, containers):
         if not runtime_id:
             incomplete = True
             continue
-        sessions = ssm.describe_sessions(
-            State='Active',
-            Filters=[{'key': 'Target',
-                      'value': f'ecs:{ecs_cluster}_{task_id}_{runtime_id}'}],
-        ).get('Sessions', [])
-        total += len(sessions)
+        params = {'State': 'Active', 'Filters': [
+            {'key': 'Target', 'value': f'ecs:{ecs_cluster}_{task_id}_{runtime_id}'}]}
+        seen = set()
+        while True:
+            page = ssm.describe_sessions(**params)
+            sessions = page.get('Sessions') if isinstance(page, dict) else None
+            if not isinstance(sessions, list):
+                incomplete = True
+                break
+            total += len(sessions)
+            if 'NextToken' not in page:
+                break
+            token = page['NextToken']
+            if not isinstance(token, str) or not token or token in seen:
+                incomplete = True
+                break
+            seen.add(token)
+            params['NextToken'] = token
     return total, incomplete
 
 
@@ -286,7 +293,7 @@ def observe_investigation(ecs, ssm, ecs_cluster, started_by):
             return _unknown('session scan failed; investigation state is unknown',
                             tasks=observed, active_sessions=active_sessions)
         if incomplete:
-            return _unknown('a non-terminal task exposes no session target; '
+            return _unknown('a non-terminal task has incomplete session evidence; '
                             'investigation state is unknown', tasks=observed,
                             active_sessions=active_sessions)
         entry['active_sessions'] = count
@@ -522,6 +529,9 @@ def handle_request_close(body, identity, config, clients):
     observation = observe_investigation(
         clients['ecs'], clients['ssm'], config['ecs_cluster'],
         config['started_by'](cluster_id, investigation_id))
+    if observation['state'] == STATE_ACTIVE:
+        raise CloseRequestError(409, 'An ECS Exec shell is attached; disconnect and retry close.',
+                                state=STATE_ACTIVE)
     allowed, basis, reason = authorize_close(
         observation, identity['sub'], explicit=trigger == 'cli_close')
     if not allowed:

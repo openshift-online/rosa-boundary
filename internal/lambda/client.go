@@ -187,6 +187,16 @@ type lambdaAPIResponse struct {
 	Body       string `json:"body"`
 }
 
+// ResponseError is a structured error returned by the handler, not by the SDK.
+type ResponseError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *ResponseError) Error() string {
+	return fmt.Sprintf("lambda returned %d: %s", e.StatusCode, e.Message)
+}
+
 // truncate returns s truncated to n bytes with "..." appended if longer.
 func truncate(s string, n int) string {
 	if len(s) <= n {
@@ -253,7 +263,7 @@ func (c *Client) invokeRaw(ctx context.Context, headers map[string]string, body 
 	if apiResp.StatusCode != http.StatusOK {
 		var errResp errorResponse
 		if jsonErr := json.Unmarshal([]byte(apiResp.Body), &errResp); jsonErr == nil && errResp.Error != "" {
-			return "", fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, errResp.Error)
+			return "", &ResponseError{StatusCode: apiResp.StatusCode, Message: errResp.Error}
 		}
 		return "", fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, truncate(apiResp.Body, 200))
 	}

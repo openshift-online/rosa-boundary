@@ -567,6 +567,18 @@ class TestStaleReapRoute(unittest.TestCase):
         self.enterContext(patch('handler.build_finalizer', return_value=self.finalizer))
         self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit-bucket'))
 
+        self.finalizer.observe.return_value = {'state': records.STATE_IDLE, 'tasks': []}
+
+    def test_a_stopping_task_with_a_shell_blocks_the_stale_request_itself(self):
+        self.finalizer.observe.return_value = {
+            'state': records.STATE_ACTIVE,
+            'tasks': [{'task_id': 'a' * 32, 'last_status': 'STOPPING'}],
+        }
+        self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
+                                                    self.context))
+        self.finalizer.put_json.assert_not_called()
+        self.finalizer.finalize.assert_not_called()
+
     def test_the_stale_route_carries_no_stop_consent(self):
         self.assertTrue(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
                                                    self.context))
@@ -663,6 +675,14 @@ class TestAutoCloseIntents(unittest.TestCase):
         cancelled = self.finalizer.put_json.call_args.args[1]
         self.assertTrue(cancelled['cancelled'])
         self.assertIn('superseded', cancelled['cancelled_reason'])
+
+    def test_stop_all_intent_defers_while_requester_has_another_shell(self):
+        self.finalizer.get_json.return_value = self.intent(stop_scope=records.STOP_INVESTIGATION)
+        self.finalizer.observe.return_value = self.observation(
+            records.STATE_ACTIVE, 'sre-a',
+            [{'task_id': 'b' * 32, 'last_status': 'RUNNING', 'oidc_sub': 'sre-a'}])
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context), 0)
+        self.finalizer.put_json.assert_not_called()
 
     def test_unknown_state_defers_rather_than_closing(self):
         self.finalizer.get_json.return_value = self.intent()

@@ -222,7 +222,7 @@ investigation and its reusable workspace open until `investigation close`.
 - `--with-credentials ocm` — configure OCM before returning or connecting; incompatible with `--no-wait`
 - `--ocm-url` — `production`, `staging`, `integration`, or an approved canonical URL
 - `--ocm-auth-flow` — `auth-code` (default) or `device`
-- `--auto-close` — request investigation close when the attached session ends, without an exit prompt; needs an attached session
+- `--auto-close` — record task-specific intent before attaching and request close on normal disconnect without prompting. Intent is not an accepted request; recovery waits for the selected task to stop and for no shells to be attached
 - `--auto-close-stop-all` — with `--auto-close`, also consent to stopping the investigation's other tasks
 - `--output text|json`
 
@@ -234,7 +234,7 @@ investigation and its reusable workspace open until `investigation close`.
 
 **`session close`**: `--reason`, `--wait`, `--yes` (required without a terminal). Use `session close --all` to close all your active sessions in the selected deployment, including sessions still starting; other users\' sessions and investigations are left alone. `--all` cannot be combined with a session ID. All targets are shown before one confirmation; `--wait` requests all stops before waiting. Partial failures return a nonzero exit status and identify affected sessions; verify status and audit evidence before retrying.
 
-**`investigation close`**: `--status` (read the service record, including after access-point deletion), `--dry-run` (preview only), `--force` (consent to stopping this investigation's active sessions), `--yes` (required without a terminal unless previewing or checking status), `--wait` (follow the close service to a terminal status). Close is a request: the close service verifies its own backup of the workspace before removing the access point, and the EFS directory is retained. Any authorized Boundary SRE may request close. If a different SRE is attached, the reaper waits for detachment even with `--force`. Accepted is not closed, and stopping is not proof of audit sync. See [automated investigation close](docs/architecture/investigation-close.md).
+**`investigation close`**: `--status` (read the service record, including after access-point deletion), `--dry-run` (preview only), `--force` (consent to stopping this investigation's tasks after all shells detach), `--yes` (required without a terminal unless previewing or checking status), `--wait` (follow the close service to a terminal status). Close is a request: the close service verifies its own backup of the workspace before removing the access point, and the EFS directory is retained. Any authorized Boundary SRE may request close once all ECS Exec shells detach. If any shell is attached (including yours), the service refuses the request; disconnect and retry. If a shell is observed after acceptance, the reaper waits without needing a new request. `--force` cannot override either check. Accepted is not closed, and stopping is not proof of audit sync. See [automated investigation close](docs/architecture/investigation-close.md).
 
 **`login`**: `--force`
 

@@ -292,7 +292,7 @@ func buildInvestigationCommand() *cobra.Command {
 		closeOutputFormat = flagString(cmd, "output")
 		return runCloseInvestigation(cmd, nil)
 	})
-	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --status, to see the current status.\n\nAny authorized Boundary SRE may request close, even while another SRE is attached. The reaper waits for that SRE to detach, even with --force. Without stop consent it also waits for running tasks to stop."
+	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --status, to see the current status.\n\nAny authorized Boundary SRE may request close once all ECS Exec shells disconnect. A request while any shell is attached is rejected, even with --force. Once accepted, the reaper waits if a shell appears; without stop consent it also waits for running tasks to stop."
 	close.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(2)(cmd, args); err != nil {
 			return err

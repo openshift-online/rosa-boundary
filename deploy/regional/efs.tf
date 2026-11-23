@@ -122,6 +122,29 @@ resource "aws_efs_file_system_policy" "sre_home" {
             "elasticfilesystem:AccessPointArn" = aws_efs_access_point.reaper.arn
           }
         }
+      },
+      {
+        # The task role's allow above is satisfied by any access point, which
+        # would include the reaper's root-mounted one. Close finalization reads
+        # workspaces and writes evidence through that mount, so a workload must
+        # never be able to use it: deny it explicitly rather than relying on
+        # the task not knowing the access point ID.
+        Sid    = "DenyWorkloadUseOfTheServiceAccessPoint"
+        Effect = "Deny"
+        Principal = {
+          AWS = data.aws_iam_role.task.arn
+        }
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:ClientRootAccess",
+        ]
+        Resource = aws_efs_file_system.sre_home.arn
+        Condition = {
+          StringEquals = {
+            "elasticfilesystem:AccessPointArn" = aws_efs_access_point.reaper.arn
+          }
+        }
       }
     ]
   })

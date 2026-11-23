@@ -206,7 +206,7 @@ test-lambda-reap-investigations: ## Run reap-investigations Lambda unit tests
 
 test-lambda-create-investigation: ## Run create-investigation Lambda unit tests
 	@echo "Running create-investigation unit tests..."
-	cd lambda/create-investigation && uv run pytest test_handler.py -v
+	cd lambda/create-investigation && uv run pytest test_handler.py test_close_requests.py -v
 
 # Build helper unit tests
 test-github-dl: ## Run all build-helper unit and contract tests (venv auto-created in /tmp)

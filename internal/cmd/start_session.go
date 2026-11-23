@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -201,8 +202,11 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		}
 	}
 
+	// Build the service again after shell exit: a session may
+	// outlive the credentials and ID token this command started with.
+	closeServiceFor := func() (closeService, error) { return newCloseService(cmd, authRes) }
 	return finishStartSession(cmd, ecsClient, creds, ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion,
-		lambdaResp, roleARN, configureOCM, credentialWarning, timings, renewal)
+		lambdaResp, roleARN, configureOCM, credentialWarning, timings, renewal, closeServiceFor)
 }
 
 func startOCMRenewalEnabled(configure, connect, noWait, optedOut bool) bool {
@@ -213,24 +217,58 @@ func startOCMRenewalEnabled(configure, connect, noWait, optedOut bool) bool {
 // The task may remain RUNNING after the shell disconnects.
 func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, creds *awsclient.TemporaryCredentials,
 	ecsCluster, clusterID, investigationID, sessionID, region string, lambdaResp *lambda.InvestigationResponse,
-	roleARN string, configureOCM bool, credentialWarning string, timings sessionStartupTimings, renewal *ocmRenewal) error {
+	roleARN string, configureOCM bool, credentialWarning string, timings sessionStartupTimings,
+	renewal *ocmRenewal, newService closeServiceFactory) error {
+	// Also release the grant if intent registration fails before attachment.
+	if renewal != nil {
+		defer renewal.grant.Release()
+	}
+	target := sessionCloseTarget{ClusterID: clusterID, InvestigationID: investigationID, SessionID: sessionID, AccessPointID: lambdaResp.AccessPointID}
+	outcome := sessionCloseOutcome{}
 	// Auto-connect after the credential attempt; a warning leaves the task
 	// usable even when OCM credentials could not be configured.
 	if startConnect && !startNoWait {
+		var registeredWith closeService
+		if autoCloseRequested {
+			service, err := newService()
+			if err != nil {
+				return fmt.Errorf("--auto-close could not be set up: %w", err)
+			}
+			if err := registerAutoCloseIntent(cmd.Context(), service, target); err != nil {
+				return err
+			}
+			registeredWith = service
+		}
 		step := 4
 		if configureOCM {
 			step = 5
 		}
 		output.Status("\n=== Step %d: Connecting to session ===", step)
-		if err := openInteractiveSession(cmd.Context(), ecsClient, region, creds, sessionID, credentialContainer, defaultExecCommand, false, attachOCM{renewal: renewal}); err != nil {
+		// A close may be accepted while this new task waits for its Exec agent.
+		admit := func(ctx context.Context) error {
+			service, err := newService()
+			if err != nil {
+				return fmt.Errorf("cannot verify close status before attaching: %w", err)
+			}
+			return requireOpenForJoin(ctx, service, target)
+		}
+		if err := openInteractiveSession(cmd.Context(), ecsClient, region, creds, sessionID, credentialContainer, defaultExecCommand, false, attachOCM{renewal: renewal, admit: admit}); err != nil {
+			if autoCloseRequested {
+				// The SRE asked to close when their session ended, not when it
+				// failed to start.
+				withdrawAutoCloseIntent(cmd.Context(), registeredWith, target)
+			}
 			return err
 		}
-	} else if renewal != nil {
-		renewal.grant.Release()
+		outcome = afterAttachedSession(cmd.Context(), newService,
+			func() (sessionCloseTarget, error) { return target, nil }, startOutputFormat == "json")
 	}
 
 	if startOutputFormat == "json" {
 		result := startSessionJSONResult(clusterID, investigationID, sessionID, ecsCluster, lambdaResp.TaskARN, sessionTimeoutSeconds, lambdaResp.AccessPointID, roleARN, configureOCM, startNoWait, startConnect)
+		if startConnect && !startNoWait {
+			result = applyCloseOutcome(result, outcome)
+		}
 		if output.Verbose {
 			result["startup_timings"] = timings
 		}
@@ -239,7 +277,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 		}
 		return output.JSON(result)
 	}
-	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, startNoWait, startConnect); err != nil {
+	if err := printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region, startNoWait, startConnect, outcome); err != nil {
 		return err
 	}
 	return nil
@@ -346,7 +384,15 @@ func noWaitCredentialWarning(sessionID, ecsCluster, region string) string {
 	return fmt.Sprintf("--no-wait launched session %q without OCM credentials; once RUNNING, configure them with: %s", sessionID, (ocmSetup{}).configureCommand(region, ecsCluster, sessionID))
 }
 
-func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait, connected bool) error {
+func printStartSessionSummary(ecsCluster, clusterID, investigationID, sessionID, region string, noWait, connected bool, outcome sessionCloseOutcome) error {
+	if outcome.Requested || outcome.Note != "" {
+		message := outcome.Note
+		if outcome.Requested {
+			message = "Investigation close requested; finalization is pending."
+		}
+		_, err := fmt.Fprintf(os.Stdout, "\nInteractive shell disconnected.\nCluster: %s\nInvestigation: %s\nSession ID: %s\n%s\n", clusterID, investigationID, sessionID, message)
+		return err
+	}
 	_, saved, err := config.ReadSavedProfile(selectedProfile)
 	if err != nil {
 		return fmt.Errorf("read saved profile for join suggestion: %w", err)

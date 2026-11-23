@@ -243,7 +243,7 @@ RUN mkdir --parents /opt/codex \
 FROM tools-base AS pi-builder
 
 # renovate: datasource=github-releases depName=earendil-works/pi
-ENV PI_VERSION="1.5.2"
+ENV PI_VERSION="1.6.0"
 ENV PI_URL_SLUG="earendil-works/pi"
 ENV PI_URL="https://api.github.com/repos/${PI_URL_SLUG}/releases/tags/v${PI_VERSION}"
 ENV PI_CHECKSUM_FILE="SHA256SUMS"

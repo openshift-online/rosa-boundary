@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -14,6 +15,31 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
+
+func TestSessionCreateInvokeError(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  *lambda.ResponseError
+		want string
+	}{
+		{"own task", &lambda.ResponseError{StatusCode: http.StatusConflict, ExistingSessionID: "existing-task"},
+			"\n  rosa-boundary --profile 'stage-east' session join 'existing-task' --region 'us-west-2' --ecs-cluster 'override-ecs'"},
+		{"no joinable task", &lambda.ResponseError{StatusCode: http.StatusConflict},
+			"session list --status all"},
+		{"non-conflict", &lambda.ResponseError{StatusCode: http.StatusInternalServerError, ExistingSessionID: "existing-task"},
+			"session list --status all"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := sessionCreateInvokeError(tc.err, "stage-east", "rosa", "INV-001", "us-west-2", "override-ecs")
+			if !errors.Is(err, tc.err) || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("got %v, want wrapped error with %q", err, tc.want)
+			}
+			if strings.Contains(err.Error(), "session join") != (tc.err.StatusCode == http.StatusConflict && tc.err.ExistingSessionID != "") {
+				t.Fatalf("unexpected join guidance: %v", err)
+			}
+		})
+	}
+}
 
 func captureStartSummary(t *testing.T, ecsCluster, clusterID, investigationID, sessionID, region string, noWait bool, outcome sessionCloseOutcome) string {
 	t.Helper()

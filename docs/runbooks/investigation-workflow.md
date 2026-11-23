@@ -214,9 +214,11 @@ independently. The new task belongs to the caller, but the access point keeps it
 original creator tags and creation time.
 
 If you already have a task, repeat create returns HTTP 409 and leaves it unchanged.
-Use [`session list`](#phase-3-list-tasks) to find it and
-[`session join <session-id>`](#phase-4-connect-to-container) with the same profile
-to reconnect. Credential mounts do not persist across replacement: configure fresh
+When the task matches your current ABAC identity, the CLI prints a copy-pasteable
+[`session join`](#phase-4-connect-to-container) command with the existing session ID
+and the current profile, region, and ECS cluster. If no command is shown, use
+[`session list`](#phase-3-list-tasks) to find the task; joining still requires matching
+ABAC identity. Credential mounts do not persist across replacement: configure fresh
 OCM credentials on the new task. See [actual task/AP tags](../architecture/session-lifecycle.md#actual-resource-tags-creator-versus-actor).
 
 ## Phase 3: List Tasks

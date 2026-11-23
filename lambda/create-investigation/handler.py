@@ -27,10 +27,12 @@ import close_requests
 
 class HandoverFailedError(Exception):
     """Raised when an existing investigation task cannot be stopped for handover."""
-    def __init__(self, message: str, failed_tasks: list = None, status_code: int = 500):
+    def __init__(self, message: str, failed_tasks: list = None, status_code: int = 500,
+                 existing_session_id: Optional[str] = None):
         super().__init__(message)
         self.failed_tasks = failed_tasks or []
         self.status_code = status_code
+        self.existing_session_id = existing_session_id
 
 def investigation_started_by(cluster_id: str, investigation_id: str) -> str:
     """
@@ -301,10 +303,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if task_creation_outcome is not None and e.status_code == 409:
             task_creation_outcome = 'blocked'
         logger.error(f"Investigation handover failed: {str(e)}")
-        return response(e.status_code, {
-            'error': str(e),
-            'failed_tasks': e.failed_tasks
-        })
+        body = {'error': str(e), 'failed_tasks': e.failed_tasks}
+        if e.existing_session_id:
+            body['existing_session_id'] = e.existing_session_id
+        return response(e.status_code, body)
 
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}", exc_info=True)
@@ -844,7 +846,8 @@ def verify_handover(cluster, investigation_id, task_arns, oidc_sub, abac_tag_key
                 f"You already have a task for investigation '{investigation_id}'. "
                 "Use 'rosa-boundary session list' to find it, then "
                 "'rosa-boundary session join <session-id>' with the same profile.",
-                failed_tasks=[arn], status_code=409
+                failed_tasks=[arn], status_code=409,
+                existing_session_id=arn.rsplit('/', 1)[-1] if owner == abac_tag_value else None
             )
         candidates.append((arn, task, owner, subject))
 

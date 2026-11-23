@@ -3,6 +3,7 @@ package lambda
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -46,6 +47,17 @@ func buildLambdaResponse(statusCode int, body interface{}) []byte {
 	}
 	payload, _ := json.Marshal(resp)
 	return payload
+}
+
+func TestCreateInvestigationConflictIncludesExistingSession(t *testing.T) {
+	client := newTestClient(&mockLambdaInvoker{payload: buildLambdaResponse(http.StatusConflict, map[string]string{
+		"error": "you already have a task", "existing_session_id": "existing-task",
+	})})
+	_, err := client.CreateInvestigation(context.Background(), "test-token", InvestigationRequest{})
+	var responseErr *ResponseError
+	if !errors.As(err, &responseErr) || responseErr.StatusCode != http.StatusConflict || responseErr.ExistingSessionID != "existing-task" {
+		t.Fatalf("expected conflict with existing session ID, got %#v", err)
+	}
 }
 
 func TestGetConfig_Success(t *testing.T) {

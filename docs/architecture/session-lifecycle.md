@@ -100,7 +100,7 @@ applies before any stop:
 
 | Existing candidate | Create response |
 | --- | --- |
-| Caller's task (matching configured ABAC tag or OIDC subject) | **409** regardless of shell state; leave the task unchanged. Use `rosa-boundary session list` and then `rosa-boundary session join <session-id>` with the same profile. Join still requires matching ABAC identity. |
+| Caller's task (matching configured ABAC tag or OIDC subject) | **409** regardless of shell state; leave the task unchanged. The CLI prints an exact `rosa-boundary session join` command if the ABAC identity matches; otherwise use `session list` to locate the task. Join still requires matching ABAC identity. |
 | Different owner with any active SSM session | **409**; no takeover. Coordinate with the current SRE and retry after they disconnect. |
 | Unknown owner or session state | **500**; no takeover. Missing task details, owner tags, runtime IDs, incomplete SSM results, and AWS lookup errors are not evidence that a task is idle. |
 | Every candidate has a known different owner and all checked targets are inactive | Stop the candidates, wait for STOPPED, then launch the caller's task in the same workspace. |

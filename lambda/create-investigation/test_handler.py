@@ -1416,6 +1416,7 @@ class TestDuplicateInvestigationDetection:
             assert result['statusCode'] == 409
             assert 'rosa-boundary session list' in body['error']
             assert 'rosa-boundary session join <session-id>' in body['error']
+            assert body['existing_session_id'] == 'existing-task-id'
             mock_ssm.describe_sessions.assert_not_called()
             mock_ecs.stop_task.assert_not_called()
             mock_ecs.run_task.assert_not_called()
@@ -1663,6 +1664,7 @@ class TestDuplicateInvestigationDetection:
                     assert exc_info.value.failed_tasks == [task_2_arn]
                     assert exc_info.value.status_code == status
                     assert message in str(exc_info.value)
+                    assert exc_info.value.existing_session_id == ('task-2' if owner == 'sre-user' else None)
                     if owner == 'sre-user' or subject == 'sub-123':
                         mock_ssm.describe_sessions.assert_not_called()
                     mock_ecs.describe_tasks.assert_called_with(

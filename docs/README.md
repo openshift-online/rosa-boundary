@@ -30,6 +30,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 
 ## Configuration Guides
 
+- [**Keycloak Realm Setup for Development**](configuration/keycloak-realm-setup.md) - Configure a realm and OIDC client on an existing development instance
 - [**AWS IAM Policies**](configuration/aws-iam-policies.md) - IAM roles and policies for ECS Exec access
 - [**Bedrock Model Agreements**](configuration/bedrock-model-agreements.md) - Account-level subscription manifest and lifecycle
 - [**Coding Agents on Bedrock**](configuration/coding-agent-bedrock.md) - Task-role defaults for Claude Code, pi, OpenCode and Codex

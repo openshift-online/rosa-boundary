@@ -6,12 +6,15 @@ This document explains how to set up a local development environment for the ROS
 
 | Tool          | Version | Purpose               |
 |---------------|---------|-----------------------|
-| Go            | 1.24+   | Primary language      |
+| Go            | 1.27.4+ | Primary language      |
 | Node.js       | 16+     | OpenAPI spec bundling |
 | Make          | any     | Build automation      |
 | Git           | any     | Version control       |
 | golangci-lint | 1.61+   | Go linting            |
 | pre-commit    | any     | Git hook management   |
+
+The minimum Go version is declared in [`go.mod`](go.mod). The repository-root
+[`mise.toml`](../../mise.toml) selects the contributor Go version.
 
 ## Initial Setup
 

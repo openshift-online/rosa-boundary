@@ -3,6 +3,7 @@ package aws
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -265,5 +266,58 @@ func writePlugin(t *testing.T, directory, body string) {
 	plugin := filepath.Join(directory, sessionManagerPlugin)
 	if err := os.WriteFile(plugin, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
 		t.Fatalf("write test plugin: %v", err)
+	}
+}
+
+func TestRunSessionManagerPluginWithStreamsPassesFileStdinDirectly(t *testing.T) {
+	pluginDir := t.TempDir()
+	writePlugin(t, pluginDir, `
+if [ -p /dev/stdin ]; then printf 'stdin=pipe'; else printf 'stdin=file'; fi
+`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	input, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = input.Close() }()
+
+	var stdout bytes.Buffer
+	err = RunSessionManagerPluginWithStreams(
+		context.Background(), "us-east-1",
+		&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+		&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+		input, &stdout, io.Discard,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != "stdin=file" {
+		t.Fatalf("plugin stdin = %q, want the caller's file passed through", stdout.String())
+	}
+}
+
+func TestRunSessionManagerPluginWithStreamsReturnsWhenReaderStaysOpen(t *testing.T) {
+	pluginDir := t.TempDir()
+	writePlugin(t, pluginDir, `printf done`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	reader, writer := io.Pipe()
+	defer func() { _ = writer.Close() }()
+
+	result := make(chan error, 1)
+	go func() {
+		result <- RunSessionManagerPluginWithStreams(
+			context.Background(), "us-east-1",
+			&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+			&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+			reader, io.Discard, io.Discard,
+		)
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("plugin wrapper hung on an open caller reader after the plugin exited")
 	}
 }

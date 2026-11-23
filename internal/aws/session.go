@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -98,29 +99,61 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 		paramsJSON,
 		ssmEndpoint,
 	)
-	// Hand the plugin an *os.File so Wait returns when the process exits. A
-	// caller-owned io.Reader that stays open would otherwise be copied by an
-	// exec goroutine that Wait cannot interrupt.
-	stdinRead, stdinWrite, err := os.Pipe()
-	if err != nil {
-		return fmt.Errorf("create plugin stdin pipe: %w", err)
-	}
-	defer func() { _ = stdinRead.Close(); _ = stdinWrite.Close() }()
-	go func() {
-		_, _ = io.Copy(stdinWrite, stdin)
-		_ = stdinWrite.Close()
-	}()
-	cmd.Stdin = stdinRead
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	cmd.WaitDelay = 5 * time.Second
 	env, err := sessionManagerPluginEnv(creds)
 	if err != nil {
 		return err
 	}
 	cmd.Env = env
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
-	return cmd.Run()
+	// Pass a real file straight through: the plugin configures the terminal
+	// with stty against its own stdin, which fails on a pipe.
+	if file, ok := stdin.(*os.File); ok {
+		cmd.Stdin = file
+		return cmd.Run()
+	}
+
+	// A caller-owned io.Reader that stays open would otherwise be copied by an
+	// exec goroutine that Wait cannot interrupt. Hand the plugin an *os.File so
+	// Wait returns when the process exits.
+	stdinRead, stdinWrite, err := os.Pipe()
+	if err != nil {
+		return fmt.Errorf("create plugin stdin pipe: %w", err)
+	}
+	pumpDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(stdinWrite, stdin)
+		if closeErr := stdinWrite.Close(); copyErr == nil {
+			copyErr = closeErr
+		}
+		pumpDone <- copyErr
+	}()
+	cmd.Stdin = stdinRead
+	cmd.WaitDelay = 5 * time.Second
+
+	runErr := cmd.Run()
+	// Releasing both ends stops the pump on exit, cancellation, or failure. A
+	// pump blocked reading the caller's reader ends when that reader is closed.
+	_ = stdinRead.Close()
+	_ = stdinWrite.Close()
+	if runErr != nil {
+		return runErr
+	}
+	select {
+	case pumpErr := <-pumpDone:
+		if pumpErr != nil && !expectedStdinShutdown(pumpErr) {
+			return fmt.Errorf("forward plugin stdin: %w", pumpErr)
+		}
+	default:
+	}
+	return nil
+}
+
+// expectedStdinShutdown reports errors that only mean the plugin or caller
+// closed its end of stdin first.
+func expectedStdinShutdown(err error) bool {
+	return errors.Is(err, os.ErrClosed) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, syscall.EPIPE)
 }
 
 // sessionManagerPluginEnv replaces ambient AWS credentials with the OIDC-derived

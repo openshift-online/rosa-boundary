@@ -195,8 +195,12 @@ STUB
     fifo="${TEST_ROOT}/stdin.fifo"
     mkfifo "${fifo}"
 
-    run env PATH="${STUBS}:${PATH}" timeout 1 bash -c '
-        { printf "%s\n" "$5"; sleep 5; } >"$1" &
+    # The helper must return as soon as it has read one line, even though the
+    # writer keeps stdin open. Give generous headroom for the configure path
+    # (jq/base64/sourcing) under load while staying well below the writer's
+    # hold time, so a timeout still proves the helper did not block on EOF.
+    run env PATH="${STUBS}:${PATH}" timeout 10 bash -c '
+        { printf "%s\n" "$5"; sleep 30; } >"$1" &
         writer=$!
         bash -c '\''
             source "$1"

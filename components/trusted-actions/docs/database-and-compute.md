@@ -55,53 +55,20 @@ deliberate PR.
 >   --engine aurora-postgresql --engine-version <ver> --region us-east-1
 > ```
 
-### The password is authored in Vault; the application composes the DSN
+### The password is RDS-managed; the application composes the DSN
 
-The cluster deliberately does **not** set `manage_master_user_password`. RDS
-would generate and own the password — nothing in configuration or state — but
-it also rotates that secret every seven days, and rotation cannot be switched
-off while keeping it. See
-[Rotation is disabled](#rotation-is-disabled-deliberately).
+`aws_rds_cluster.main` sets `manage_master_user_password = true` — RDS generates
+the master password and stores it in a Secrets Manager secret it owns
+(`aws_rds_cluster.main.master_user_secret[0].secret_arn`, JSON
+`{"username", "password"}`). The password never appears in Terraform
+configuration or state, and no Vault entry or `db_password` variable exists.
+Each region's cluster gets its own generated value.
 
-Instead the password is generated and held in our external Vault, supplied to
-the regional workspace as the sensitive variable `db_password`
-(`terraform/regional/variables.tf`), and written to a Secrets Manager secret of
-our own — `<APP_NAME>/db`, in `terraform/regional/secrets.tf` — holding JSON
-`{"username": ..., "password": ...}`. That is the same shape an RDS-managed
-secret produces, so adopting one later changes nothing downstream.
-
-**The password therefore appears in Terraform state**, both in the regional
-workspace and in the local state of the workspace-management root under
-`hcp-terraform/`. This is accepted rather than overlooked; the reasoning is in
-[Rotation is disabled](#rotation-is-disabled-deliberately).
-
-**Generating it.** Nothing ever types this password, so generate it rather than
-choosing one. Aurora PostgreSQL rejects `/`, `"`, `'`, `@` and spaces in a
-master password; `db_password` is validated against exactly those, so a bad
-value fails at plan time rather than at apply time. The set below also omits
-characters that are hazardous to paste into a shell (`$`, `` ` ``, `\`, `!`,
-`&`, `|`, `<`, `>`, parentheses), which `-var="db_password=…"` makes a real
-risk:
-
-```bash
-LC_ALL=C tr -dc 'A-Za-z0-9#%*+,-.:;=?^_~' </dev/urandom | head -c 32; echo
-```
-
-`%` and `:` are safe in the DSN despite their meaning in a URL — `config.go`
-uses `url.UserPassword()`, which escapes them.
-
-**Retrieving it.** Vault is the system of record and the only place a human can
-read this password. The Secrets Manager copy is not reachable by hand: nobody
-holds AWS credentials for the account (see
-[Rotation is disabled](#rotation-is-disabled-deliberately)). Storing it only in
-Terraform state would make it unreadable by anyone, which is why Vault was
-chosen over `random_password`.
-
-> **Vault path: TBD.** Fill in the mount and path before the first apply —
-> a credential whose location is undocumented is not recoverable.
-
-**One password per cluster.** Each region has its own Aurora cluster and must
-get its own generated value; do not reuse one across regions.
+Rotation is parked in `aws_secretsmanager_secret_rotation.db` with
+`rotation_enabled = false`. Enabling rotation is a one-line flip plus wiring the
+Lambda/ECS redeployment hook — see
+[Rotation is disabled](#rotation-is-disabled-deliberately). The secret ARN is
+stable, so enabling rotation touches only that resource.
 
 The application takes a single `DATABASE_URL`
 (`internal/config/config.go`, `cmd/server/main.go`), so the DSN has to be
@@ -110,28 +77,24 @@ assembled somewhere. It is assembled **in the application**:
 | Source             | Variables                                                                  |
 |--------------------|----------------------------------------------------------------------------|
 | `environment`      | `ROSA_TA_DB_HOST`, `ROSA_TA_DB_PORT`, `ROSA_TA_DB_NAME`, `ROSA_TA_DB_USER`, `ROSA_TA_DB_SSLMODE`, `ROSA_TA_DB_SSLROOTCERT` |
-| `secrets`          | `ROSA_TA_DB_PASSWORD` from `"<APP_NAME>/db:password::"`                     |
+| `secrets`          | `ROSA_TA_DB_PASSWORD` from `master_user_secret[0].secret_arn:password::`   |
 
 `config.go` builds the DSN from these when `DATABASE_URL` is unset, using
 `url.UserPassword()` rather than string concatenation — the password is a long
 random string containing punctuation, and a raw `%` or `:` in a hand-built URL
-corrupts the DSN silently. `db_password` is validated in
-`terraform/regional/variables.tf` against the characters Aurora PostgreSQL
-itself rejects in a master password (`/`, `"`, `'`, `@`, space), so a bad value
-fails at plan time rather than at apply time.
-
-Two alternatives were rejected:
+corrupts the DSN silently. Two alternatives were rejected:
 
 - **Terraform composes the whole DSN** into a secret, rather than passing only
   the password. The application already assembles the DSN from components
   (ROSAENG-67173), and a composed DSN would duplicate the host, port and
   database name that Terraform already passes as plain environment variables.
-- **`random_password` instead of a Vault-authored value**, matching the
-  existing pattern in `terraform/global/secrets.tf`. It avoids a manual step,
-  but a generated password exists *only* in Terraform state — nobody can
-  retrieve it. Combined with the fact that no human holds credentials for the
-  AWS account, that would leave the database credential unreadable by anyone.
-  Vault keeps it recoverable, which is the whole reason to prefer it.
+- **A Vault-authored `db_password` variable** (`terraform/regional/variables.tf`
+  + `hcp-terraform/` passthrough + `terraform/regional/secrets.tf`) instead of
+  the RDS-managed secret. It was the initial implementation and avoided the
+  managed secret's mandatory 7-day rotation, but it put the password in
+  Terraform state in two workspaces and required a manual Vault step per
+  region. The managed secret removes both costs; its rotation is parked via
+  `aws_secretsmanager_secret_rotation` with `rotation_enabled = false`.
 
 ### Rotation is disabled, deliberately
 
@@ -139,7 +102,7 @@ There is no automatic rotation of the Aurora master password. This is a
 deliberate interim position with a ticket against it:
 [ROSAENG-74839](https://redhat.atlassian.net/browse/ROSAENG-74839).
 
-**Why rotation had to go.** The ECS agent resolves a task's `secrets` once, at
+**Why rotation is parked.** The ECS agent resolves a task's `secrets` once, at
 launch, and injects them as process environment — there is no live re-read. A
 rotation therefore leaves running tasks holding a dead password, and because
 `ROSA_TA_DB_CONN_MAX_LIFETIME` defaults to 5 minutes the pool recycles and
@@ -149,26 +112,27 @@ tasks stay healthy to the ALB while every request reaching the store fails, and
 ECS does not replace them. Recovery would be a human running
 `aws ecs update-service --force-new-deployment`.
 
-**Why it is disabled rather than handled.** Three routes were examined:
+The managed secret's default rotation would hit this immediately, so rotation
+is parked with `aws_secretsmanager_secret_rotation.db` —
+`rotation_enabled = false` — which is the Terraform-native way to keep the
+managed secret without its 7-day rotation (requires AWS provider ≥ 6.62;
+both roots now pin `~> 6.0`). Enabling it is a one-line flip plus the
+redeployment hook below.
 
-- **An EventBridge rule driving a forced ECS deployment.** EventBridge has no
-  native "update ECS service" target — ECS targets run tasks, they do not
-  update services — so this needs a Lambda calling `ecs:UpdateService`, the
-  first in this repository. It also cannot close the window: between the
-  password changing and replacement tasks passing health checks there are two
-  to four minutes in which any new connection fails.
-- **Turning rotation off while keeping `manage_master_user_password`.** AWS
-  documents no way to do this. The Terraform-native route —
-  `aws_secretsmanager_secret_rotation` with `rotation_enabled = false` —
-  requires AWS provider **≥ 6.62**, and both roots pin `~> 5.0`. The CLI route,
-  `aws secretsmanager cancel-rotate-secret`, cannot be used at all: the HCP
-  workspaces authenticate with AWS dynamic credentials minted per run and, by
-  design, no human holds credentials for the account. **Anything that is not a
-  Terraform resource cannot be executed against this infrastructure.**
-- **Stretching the rotation schedule** to a long interval. Rejected: it is
-  managed rotation in name only, it leaves a scheduled outage armed behind a
-  config value that someone will one day tidy up, and it provides no feedback
-  that anything is outstanding.
+**Enabling rotation** requires:
+
+- Flip `rotation_enabled` to `true` and wire the rotation Lambda (lifecycle
+  managed outside this repo, or via `rotation_rules` on the resource).
+- **An EventBridge/Lambda hook driving a forced ECS deployment.** EventBridge
+  has no native "update ECS service" target — ECS targets run tasks, they do
+  not update services — so this needs a Lambda calling `ecs:UpdateService`,
+  the first in this repository. It also cannot close the window fully:
+  between the password changing and replacement tasks passing health checks
+  there are two to four minutes in which any new connection fails.
+- **Stretching the rotation schedule** to a long interval was considered and
+  rejected: it is managed rotation in name only, it leaves a scheduled outage
+  armed behind a config value that someone will one day tidy up, and it
+  provides no feedback that anything is outstanding.
 
 **IAM database authentication is the intended fix.** It removes the password
 from the application path entirely rather than managing its rotation. It is
@@ -179,11 +143,9 @@ the master user cannot also be the IAM user. Tracked on ROSAENG-74839.
 
 **Consequences to know about.**
 
-- **Changing `db_password` rotates the master password** on the next apply and
-  breaks every running task. A forced ECS deployment must follow. The cluster
-  and the Secrets Manager copy are deliberately *not* decoupled with
-  `ignore_changes`: divergence between them would crash-loop every new task on
-  a password the database never accepted, which is worse than a known restart.
+- **A rotation, when enabled, breaks every running task until redeployed.**
+  The secret and cluster stay coupled — divergence would crash-loop every new
+  task on a password the database never accepted.
 - **No human network path to the database exists.** Aurora is in private
   subnets, deleting the EC2 configuration removed the only in-VPC host anyone
   could have reached, and the runtime image (`core-runtime`) ships no `psql`.
@@ -297,26 +259,25 @@ The `Containerfile` fetches the RDS CA bundle to a documented path.
 New `terraform/regional/rds.tf`:
 
 - `aws_rds_cluster` — `aurora-postgresql`, pinned engine version,
-  `master_password = var.db_password`, `master_username = var.db_username`,
+  `manage_master_user_password = true`, `master_username = var.db_username`,
   `database_name = var.db_name`, `storage_encrypted = true`, backup retention
   and window, deletion protection and final-snapshot flags from variables.
 - `aws_rds_cluster_instance` — `count = var.db_instance_count` (2), spread
   across both private subnets.
 - `aws_db_subnet_group` — both private subnets.
 
-New `terraform/regional/secrets.tf` — `aws_secretsmanager_secret` named
-`<APP_NAME>/db` and its version, holding `{username, password}`. No
-`ignore_changes` on the version; it must track `master_password`.
+`aws_secretsmanager_secret_rotation.db` — `rotation_enabled = false` against
+`master_user_secret[0].secret_arn`; flip to `true` to enable rotation.
 
 `terraform/regional/variables.tf` gains the `db_*` variables listed under
-[Decisions](#aurora-provisioned-not-serverless-v2), plus the sensitive,
-validated `db_password`.
+[Decisions](#aurora-provisioned-not-serverless-v2) (no `db_password` — the
+password is RDS-managed).
 
 `terraform/global/iam.tf` — add the `<APP_NAME>/db-*` Resource to
 `aws_iam_policy.read_secrets`.
 
-`hcp-terraform/rosa-trusted-actions/` — `db_password` as a sensitive workspace
-variable on the regional workspace, alongside the existing three.
+`hcp-terraform/rosa-trusted-actions/` — no `db_password` passthrough; the
+regional workspace has no password variable.
 
 The security groups already exist: `aws_security_group.aurora` and
 `aws_security_group.ecs_task` in `terraform/regional/security_groups.tf`, with
@@ -371,7 +332,7 @@ database failure therefore leaves both tasks in the load balancer serving
 errors indefinitely. A check that fails specifically on Postgres authentication
 error `28P01` — not on general database unavailability, which would cascade
 every task out of service during an Aurora failover — would close that gap and
-would also surface a wrong `db_password` rather than leaving it to crash-loops
+would also surface a wrong database password rather than leaving it to crash-loops
 at task start.
 
 **Aurora observability.** Nothing in `cloudwatch.tf` watches a database.

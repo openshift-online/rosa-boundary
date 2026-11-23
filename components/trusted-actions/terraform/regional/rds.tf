@@ -11,12 +11,7 @@ resource "aws_rds_cluster" "main" {
   database_name      = var.db_name
   master_username    = var.db_username
 
-  # Deliberately NOT manage_master_user_password. An RDS-managed secret rotates
-  # every seven days and rotation cannot be switched off while keeping it, which
-  # would break every running task — see docs/database-and-compute.md. The
-  # password is authored in Vault and supplied as a sensitive variable instead,
-  # so it never rotates. ROSAENG-74839 tracks a real rotation mechanism.
-  master_password = var.db_password
+  manage_master_user_password = true
 
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.aurora.id]
@@ -30,6 +25,14 @@ resource "aws_rds_cluster" "main" {
   final_snapshot_identifier = var.db_skip_final_snapshot ? null : "${var.app_name}-final"
 
   tags = { Name = "${var.app_name}-aurora", Environment = var.environment }
+}
+
+# Rotation is disabled until the ECS redeployment hook is ready. Flipping
+# rotation_enabled to true and wiring the Lambda (ROSAENG-74839) enables it
+# without touching the cluster itself — the secret ARN is stable.
+resource "aws_secretsmanager_secret_rotation" "db" {
+  secret_id        = aws_rds_cluster.main.master_user_secret[0].secret_arn
+  rotation_enabled = false
 }
 
 resource "aws_rds_cluster_instance" "main" {

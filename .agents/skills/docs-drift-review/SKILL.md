@@ -64,7 +64,7 @@ Read all Makefiles (root, `deploy/*/Makefile`, `lambda/*/Makefile`). Cross-refer
 
 ### Phase 6: Auth & Identity
 
-Check `internal/auth/`, `deploy/keycloak/`, OIDC-related Terraform, Lambda OIDC validation, and Go config defaults for auth values. Cross-reference against every `.md` file that mentions Keycloak, OIDC, realm names, client IDs, group names, or token caching. Flag any inconsistency in naming across files.
+Check `internal/auth/`, OIDC-related Terraform, Lambda OIDC validation, and Go config defaults for auth values. Cross-reference against every `.md` file that mentions Keycloak, OIDC, realm names, client IDs, group names, or token caching. Flag any inconsistency in naming across files.
 
 ### Phase 7: Repository Layout
 

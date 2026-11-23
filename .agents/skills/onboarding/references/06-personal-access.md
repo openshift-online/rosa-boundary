@@ -46,7 +46,7 @@ configuration into this skill or a PR.
 | --- | --- |
 | Deployment scope | Boundary personal dev, approved account and explicit Region(s), source revision/working-tree fingerprint; not Trusted Actions or HCP staging/production. |
 | State and network | New versus existing account/network/regional roots, backend/workspace ownership, shared role prefix and legacy policy Region; existing VPC/private subnets and routing, or approved new-network configuration. |
-| Keycloak identity | Approved issuer/base URL, realm, public client ID, independently verified TLS thumbprint, and non-admin SRE access. Reuse a confirmed issuer rather than deploying Keycloak again. |
+| Keycloak identity | Approved issuer/base URL, realm, public client ID, independently verified TLS thumbprint, and non-admin SRE access. Use an approved existing issuer; this repository does not deploy one. |
 | ABAC mapping | Exact principal-tag key emitted by this realm and consumed by `abac_tag_key`. `username` and `uuid` are examples, not interchangeable defaults. |
 | Group and role claims | Actual `required_groups` and the separate `required_oidc_role`/role-tag mapping used by account trust enforcement. `ai-sd-sre` is an example, not proof of realm configuration; do not disable enforcement to make login work. |
 | Task image | User-approved existing image or approved build/publication scope; resolve platform and registry digest, and record source provenance. Do not silently select `latest` or assume the infrastructure and image revisions match. |

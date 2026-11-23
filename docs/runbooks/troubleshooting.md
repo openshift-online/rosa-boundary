@@ -2,18 +2,20 @@
 
 ## Overview
 
-This guide provides solutions to common issues when using the Keycloak + AWS Lambda + ECS Fargate access system.
+This guide provides solutions to common issues when using Boundary with an external OIDC provider, AWS Lambda, and ECS Fargate.
+Before running any command that uses `KEYCLOAK_ISSUER_URL`, set it for the
+profile you are troubleshooting (see [OIDC issuer diagnostics](#oidc-issuer-diagnostics)).
 
 ## Troubleshooting Decision Tree
 
 ```mermaid
 flowchart TD
-    Start[Connection Failed] --> Auth{Can you get<br/>OIDC token from<br/>Keycloak?}
+    Start[Connection Failed] --> Auth{Can the CLI obtain<br/>an OIDC token?}
 
-    Auth -->|No| KC{Can you log in<br/>to Keycloak?}
+    Auth -->|No| KC{Can you sign in<br/>to your identity provider?}
     Auth -->|Yes| Lambda{Can you invoke<br/>Lambda function?}
 
-    KC -->|No| KC_Fix[Fix Keycloak Login]
+    KC -->|No| KC_Fix[Check identity provider login]
     KC -->|Yes| OIDC_Fix[Fix OIDC Client Config]
 
     Lambda -->|No| Lambda_Fix[Fix Lambda Auth/Permissions]
@@ -31,80 +33,73 @@ flowchart TD
 
 ## Common Issues by Component
 
-### 1. Keycloak Authentication Issues
+### 1. OIDC Sign-In Issues
 
 #### "Invalid username or password"
 
 **Symptoms:**
-- Keycloak login page shows error
-- Cannot log into admin console
+- The identity provider's login page rejects your credentials
+- The browser flow never returns to the CLI callback
 
 **Solutions:**
 
-1. Verify credentials:
+1. Confirm the profile points at the intended issuer and realm:
    ```bash
-   # Get admin credentials
-   oc get secret keycloak-initial-admin -n keycloak \
-     -o jsonpath='{.data.username}' | base64 -d
-   oc get secret keycloak-initial-admin -n keycloak \
-     -o jsonpath='{.data.password}' | base64 -d
+   ./bin/rosa-boundary config get keycloak_url
+   ./bin/rosa-boundary config get keycloak_realm
    ```
 
-2. Check Keycloak pod status:
+2. Confirm the issuer serves OIDC discovery:
    ```bash
-   oc get pods -n keycloak
-   oc logs -n keycloak keycloak-0
+   curl -fsS "$KEYCLOAK_ISSUER_URL/.well-known/openid-configuration"
    ```
 
-3. Verify database connection:
-   ```bash
-   oc exec keycloak-db-1 -n keycloak -- \
-     psql -U postgres -d keycloak -c "SELECT 1"
-   ```
+3. Retry `./bin/rosa-boundary login --force`. Account and password problems
+   belong to the identity provider's operator — for Red Hat EmployeeIDP, the
+   identity team. See [Getting Access](user-access-guide.md#getting-access).
 
 #### "Realm not found"
 
 **Symptoms:**
-- Keycloak shows "Realm does not exist"
-- OIDC discovery URL returns 404
+- The provider reports that the realm does not exist
+- OIDC discovery returns 404
 
 **Solutions:**
 
-1. Check RealmImport status:
+1. Compare the configured realm with the operator-supplied value:
    ```bash
-   oc get keycloakrealmimport boundary-realm -n keycloak
-   oc describe keycloakrealmimport boundary-realm -n keycloak
+   ./bin/rosa-boundary config get keycloak_realm
+   ```
+   The issuer is the base URL plus `/realms/<realm>`; `keycloak_url` must not
+   already include the realm path.
+
+2. Verify discovery resolves for that realm:
+   ```bash
+   curl -fsS "$KEYCLOAK_ISSUER_URL/.well-known/openid-configuration"
    ```
 
-2. Verify realm exists via API:
-   ```bash
-   KEYCLOAK_URL="https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')"
-   curl -I "$KEYCLOAK_URL/realms/rosa-boundary/.well-known/openid-configuration"
-   ```
-
-3. Reapply RealmImport:
-   ```bash
-   oc delete keycloakrealmimport boundary-realm -n keycloak
-   oc apply -k deploy/keycloak/overlays/dev
-   ```
+3. If discovery works for a different issuer than the one you configured, the
+   CLI and the deployment disagree. Ask the deployment operator which issuer the
+   Lambda and the IAM OIDC provider trust (`keycloak_issuer_url`).
 
 #### "User not found in group"
 
 **Symptoms:**
-- Can log in to Keycloak but Lambda denies access
-- Lambda returns "User is not a member of sre-team group"
+- Authentication succeeds but Lambda denies access
+- Lambda returns "User is not a member of ... group"
 
 **Solutions:**
 
-1. Check user's group membership in Keycloak admin console
-2. Verify groups claim in ID token:
+1. Ask the deployment operator which groups are configured in `required_groups`.
+2. Request membership upstream. EmployeeIDP group memberships are LDAP-synced and
+   managed through app-interface or Rover rather than in a provider admin console;
+   see [Getting Access](user-access-guide.md#getting-access). For personal dev,
+   contact the administrator of the approved realm.
+3. After membership propagates, force a fresh login so the new claim is in the
+   token:
    ```bash
-   cd tools/sre-auth
-   TOKEN=$(./get-oidc-token.sh)
-   echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq '.groups'
+   ./bin/rosa-boundary login --force
    ```
-
-3. Add user to `sre-team` group in Keycloak
 
 ### 2. OIDC Token Issues
 
@@ -121,18 +116,8 @@ flowchart TD
    curl "$KEYCLOAK_ISSUER_URL/protocol/openid-connect/certs"
    ```
 
-2. Verify issuer URL matches:
-   ```bash
-   # Check token issuer claim
-   TOKEN=$(tools/sre-auth/get-oidc-token.sh)
-   echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq '.iss'
-   ```
-
-3. Regenerate token:
-   ```bash
-   cd tools/sre-auth
-   ./get-oidc-token.sh --force
-   ```
+2. Confirm the profile's issuer and client ID match what the deployment trusts.
+3. Retry with a fresh token: `./bin/rosa-boundary login --force`.
 
 #### "Token expired"
 
@@ -142,35 +127,21 @@ flowchart TD
 
 **Solutions:**
 
-1. Clear token cache:
-   ```bash
-   rm -f ~/.sre-auth/id-token.cache
-   ```
-
-2. Get fresh token:
-   ```bash
-   cd tools/sre-auth
-   ./get-oidc-token.sh --force
-   ```
+Refresh the token for the selected profile: `./bin/rosa-boundary login --force`.
 
 ### 3. Lambda Function Issues
 
 #### "AccessDenied" when invoking Lambda
 
 **Symptoms:**
-- Cannot invoke Lambda function URL
-- HTTP 403 Forbidden
+- AWS denies the CLI's `lambda:InvokeFunction` request.
 
 **Solutions:**
 
-1. Verify Lambda function URL:
-   ```bash
-   aws lambda get-function-url-config \
-     --function-name rosa-boundary-dev-create-investigation
-   ```
-
-2. Check OIDC token is valid and has correct audience
-3. Verify Lambda auth type is `AWS_IAM_OIDC`
+1. Confirm the profile points to the intended Lambda and invoker role.
+2. Ask the deployment operator to confirm that the invoker role grants
+   `lambda:InvokeFunction` for that function in the selected region. See
+   [CLI authentication](../architecture/cli-authentication.md).
 
 #### "User is not a member of required group"
 
@@ -180,9 +151,7 @@ flowchart TD
 
 **Solutions:**
 
-1. Verify you're in `sre-team` group (see "User not found in group" above)
-2. Check Lambda code for required group name
-3. Contact administrator to add you to the group
+Follow [User not found in group](#user-not-found-in-group) above.
 
 #### "Lambda timeout" or "No response"
 
@@ -316,7 +285,7 @@ flowchart TD
 
 ### 6. Network and Connectivity Issues
 
-#### "Cannot reach Keycloak"
+#### "Cannot reach the OIDC issuer"
 
 **Symptoms:**
 - Timeout connecting to Keycloak
@@ -324,22 +293,18 @@ flowchart TD
 
 **Solutions:**
 
-1. Check Keycloak route:
+1. Check the issuer responds:
    ```bash
-   oc get route keycloak -n keycloak
-   curl -I https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')
+   curl -fsS "$KEYCLOAK_ISSUER_URL/.well-known/openid-configuration"
    ```
 
-2. Verify DNS resolves:
+2. Verify DNS resolves for the issuer host:
    ```bash
-   nslookup keycloak-keycloak.apps.rosa.dev.dyee.p3.openshiftapps.com
+   nslookup "$(printf '%s' "$KEYCLOAK_ISSUER_URL" | awk -F/ '{print $3}')"
    ```
 
-3. Check OpenShift cluster is accessible:
-   ```bash
-   oc whoami
-   oc cluster-info
-   ```
+3. If the host resolves but connections hang, check local egress (proxy, VPN, or
+   corporate network policy) for HTTPS to that host.
 
 #### "SSM session failed to start"
 
@@ -364,21 +329,28 @@ flowchart TD
 
 ## Diagnostic Commands
 
-### Keycloak Diagnostics
+### OIDC issuer diagnostics
+
+Select the intended CLI profile first. If you use environment overrides, use
+the effective base URL and realm rather than the saved values shown below.
 
 ```bash
-# Get Keycloak status
-oc get pods -n keycloak
-oc get keycloak -n keycloak
+# Show the saved base URL and realm; config get reports saved values only and
+# ignores ROSA_BOUNDARY_* overrides, so compare them with your environment too
+./bin/rosa-boundary config get keycloak_url
+./bin/rosa-boundary config get keycloak_realm
 
-# Check database
-oc get cluster -n keycloak
-oc exec keycloak-db-1 -n keycloak -- psql -U postgres -l
+# Derive the issuer from the base URL and realm
+base_url="$(./bin/rosa-boundary config get keycloak_url)"
+realm="$(./bin/rosa-boundary config get keycloak_realm)"
+KEYCLOAK_ISSUER_URL="${base_url%/}/realms/$realm"
 
-# Test OIDC endpoints
-KEYCLOAK_URL="https://$(oc get route keycloak -n keycloak -o jsonpath='{.spec.host}')"
-curl "$KEYCLOAK_URL/realms/rosa-boundary/.well-known/openid-configuration"
-curl "$KEYCLOAK_URL/realms/rosa-boundary/protocol/openid-connect/certs"
+# Test OIDC endpoints of the configured issuer
+curl "$KEYCLOAK_ISSUER_URL/.well-known/openid-configuration"
+curl "$KEYCLOAK_ISSUER_URL/protocol/openid-connect/certs"
+
+# Compare with the issuer AWS trusts for role assumption
+aws iam list-open-id-connect-providers
 ```
 
 ### Lambda Diagnostics
@@ -388,18 +360,8 @@ curl "$KEYCLOAK_URL/realms/rosa-boundary/protocol/openid-connect/certs"
 aws lambda get-function-configuration \
   --function-name rosa-boundary-dev-create-investigation
 
-# Get Lambda URL
-aws lambda get-function-url-config \
-  --function-name rosa-boundary-dev-create-investigation
-
 # Check Lambda logs
 aws logs tail /aws/lambda/rosa-boundary-dev-create-investigation --follow
-
-# Test Lambda invocation (requires valid token)
-curl -X POST "<lambda-url>" \
-  -H "Authorization: Bearer $(tools/sre-auth/get-oidc-token.sh)" \
-  -H "Content-Type: application/json" \
-  -d '{"cluster_id":"test","investigation_id":"test"}'
 ```
 
 ### IAM Diagnostics
@@ -458,8 +420,7 @@ aws ecs execute-command \
 
 **Solution:**
 ```bash
-cd tools/sre-auth
-./get-oidc-token.sh --force
+./bin/rosa-boundary login --force
 ```
 
 ### "Unauthorized: Invalid token"
@@ -505,9 +466,9 @@ cd tools/sre-auth
 BUNDLE_DIR="rosa-boundary-diagnostics-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BUNDLE_DIR"
 
-# Keycloak logs
-oc logs -n keycloak keycloak-0 > "$BUNDLE_DIR/keycloak.log"
-oc get keycloak -n keycloak -o yaml > "$BUNDLE_DIR/keycloak-cr.yaml"
+# OIDC issuer discovery metadata (no provider-side logs are available to users)
+curl -sS "$KEYCLOAK_ISSUER_URL/.well-known/openid-configuration" \
+  > "$BUNDLE_DIR/oidc-discovery.json"
 
 # Lambda logs (last 1 hour)
 aws logs filter-log-events \
@@ -534,13 +495,14 @@ echo "Diagnostic bundle: $BUNDLE_DIR.tar.gz"
 ### "Slow OIDC authentication"
 
 **Causes:**
-- Network latency to Keycloak
-- Keycloak database performance
+- Network latency to the identity provider
+- Slow responses from the provider itself
 
 **Solutions:**
-1. Check Keycloak pod CPU/memory
-2. Scale PostgreSQL if needed
-3. Use token caching (automatic in get-oidc-token.sh)
+1. Time the discovery endpoint: `time curl -so /dev/null "$KEYCLOAK_ISSUER_URL/.well-known/openid-configuration"`
+2. Check local egress (proxy or VPN) for added latency
+3. Reuse the cached token rather than forcing a login on every command
+4. If the provider itself is slow, raise it with the team that operates it
 
 ### "Slow Lambda invocation"
 
@@ -568,10 +530,11 @@ echo "Diagnostic bundle: $BUNDLE_DIR.tar.gz"
 
 ## Escalation Paths
 
-### Keycloak Issues
-1. Check Keycloak operator logs
-2. Review RHBK documentation
-3. Contact OpenShift support
+### Identity Provider Issues
+1. Confirm the issuer's discovery and JWKS endpoints respond
+2. Confirm the required group/claim is present for your account
+3. Contact the team that operates the provider — the identity team for Red Hat
+   EmployeeIDP; this repository does not operate it
 
 ### Lambda Issues
 1. Check CloudWatch Logs
@@ -598,7 +561,7 @@ echo "Diagnostic bundle: $BUNDLE_DIR.tar.gz"
 
 ## Additional Resources
 
-- [Keycloak Realm Setup](../configuration/keycloak-realm-setup.md) - OIDC client configuration
+- [Architecture Overview](../architecture/overview.md) - OIDC issuer, claims, and provider configuration
 - [AWS IAM Policies](../configuration/aws-iam-policies.md) - IAM role policies
 - [User Access Guide](user-access-guide.md) - End-user workflow
 - [Investigation Workflow](investigation-workflow.md) - Admin workflow

@@ -71,9 +71,21 @@ func RunSessionManagerPlugin(ctx context.Context, region string, session *Execut
 	return RunSessionManagerPluginWithStreams(ctx, region, session, creds, os.Stdin, os.Stdout, os.Stderr)
 }
 
+// stdinPumpStopTimeout bounds the wait for the stdin forwarding goroutine after
+// its reader has been closed.
+const stdinPumpStopTimeout = 2 * time.Second
+
 // RunSessionManagerPluginWithStreams runs the plugin as a child with caller-owned
 // streams. The separate entry point lets credential transfers control stdin and
 // permits complete subprocess testing without replacing the test process.
+//
+// An *os.File stdin is passed to the plugin directly, preserving terminal
+// handling. Any other reader is forwarded through a pipe and is owned by this
+// call: if it implements io.Closer it is closed when the plugin exits, which
+// stops forwarding before return. A reader that cannot be interrupted is left
+// blocked and may consume one more read after return, so callers must not reuse
+// it. Unexpected forwarding errors are reported only when they are visible by
+// the time the plugin has exited and the reader has been released.
 func RunSessionManagerPluginWithStreams(ctx context.Context, region string, session *ExecuteCommandSession, creds *TemporaryCredentials, stdin io.Reader, stdout, stderr io.Writer) error {
 	pluginPath, err := exec.LookPath(sessionManagerPlugin)
 	if err != nil {
@@ -133,19 +145,32 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 	cmd.WaitDelay = 5 * time.Second
 
 	runErr := cmd.Run()
-	// Releasing both ends stops the pump on exit, cancellation, or failure. A
-	// pump blocked reading the caller's reader ends when that reader is closed.
+	// Releasing both ends stops writes to the plugin. A reader that can be
+	// closed is closed here so the forwarding goroutine stops before return.
 	_ = stdinRead.Close()
 	_ = stdinWrite.Close()
+	closer, interruptible := stdin.(io.Closer)
+	if interruptible {
+		_ = closer.Close()
+	}
+	var pumpErr error
+	if interruptible {
+		select {
+		case pumpErr = <-pumpDone:
+		case <-time.After(stdinPumpStopTimeout):
+			pumpErr = errors.New("stdin forwarding did not stop after its reader was closed")
+		}
+	} else {
+		select {
+		case pumpErr = <-pumpDone:
+		default:
+		}
+	}
 	if runErr != nil {
 		return runErr
 	}
-	select {
-	case pumpErr := <-pumpDone:
-		if pumpErr != nil && !expectedStdinShutdown(pumpErr) {
-			return fmt.Errorf("forward plugin stdin: %w", pumpErr)
-		}
-	default:
+	if pumpErr != nil && !expectedStdinShutdown(pumpErr) {
+		return fmt.Errorf("forward plugin stdin: %w", pumpErr)
 	}
 	return nil
 }

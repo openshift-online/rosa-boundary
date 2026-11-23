@@ -3,6 +3,7 @@ package aws
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -319,5 +320,36 @@ func TestRunSessionManagerPluginWithStreamsReturnsWhenReaderStaysOpen(t *testing
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatal("plugin wrapper hung on an open caller reader after the plugin exited")
+	}
+	if _, err := writer.Write([]byte("late input")); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("a closable reader was left open after return: write error = %v", err)
+	}
+}
+
+type readOnly struct{ io.Reader }
+
+func TestRunSessionManagerPluginWithStreamsReturnsForUnclosableReader(t *testing.T) {
+	pluginDir := t.TempDir()
+	writePlugin(t, pluginDir, `printf done`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	reader, writer := io.Pipe()
+	defer func() { _ = writer.Close(); _ = reader.Close() }()
+
+	result := make(chan error, 1)
+	go func() {
+		result <- RunSessionManagerPluginWithStreams(
+			context.Background(), "us-east-1",
+			&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+			&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+			readOnly{reader}, io.Discard, io.Discard,
+		)
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("plugin wrapper hung on a reader it cannot close")
 	}
 }

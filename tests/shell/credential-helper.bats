@@ -343,14 +343,21 @@ STUB
     [[ "${output}" != *"SUCCESS"* ]]
 }
 
-@test "backplane login requires OCM credentials and a valid cluster ID" {
+@test "backplane login requires OCM credentials" {
     stub_backplane 0
     run_login
     [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+}
+
+@test "backplane login passes the cluster ID to Backplane unmodified" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$3" >"${OCM_ARGS_FILE}"
+STUB
+    chmod 0755 "${STUBS}/ocm"
     printf '{}' >"${OCM_DIR}/ocm.json"
-    for id in '-x' 'a b' 'a;b' ''; do
-        CLUSTER_ID="${id}" run_login
-        [ "${status}" -ne 0 ]
-        [[ "${output}" != *"SUCCESS"* ]]
-    done
+    CLUSTER_ID='my-cluster.1' run_login OCM_ARGS_FILE="${TEST_ROOT}/args"
+    [ "${status}" -eq 0 ]
+    [ "$(cat "${TEST_ROOT}/args")" = 'my-cluster.1' ]
 }

@@ -738,7 +738,8 @@ def test_durable_admission_precedes_workspace_lookup_and_all_mutations(skip, rec
 
 
 def test_close_accepted_during_handover_preflight_does_not_stop_the_old_task():
-    existing = task()
+    existing = task(sub=OTHER_SRE)
+    existing['tags'].append({'key': 'username', 'value': 'previous-user'})
     with patch.object(handler, 'require_durable_admission', side_effect=[
             None, handler.HandoverFailedError('Close accepted', status_code=409)]), \
             patch.object(handler, 'find_existing_access_point', return_value={'AccessPointId': ACCESS_POINT}), \

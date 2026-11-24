@@ -184,7 +184,7 @@ def _task_owner_subs(tasks):
                    if task['last_status'] != 'STOPPED' and task['oidc_sub']})
 
 
-def _active_session_count(ssm, ecs_cluster, task_id, containers):
+def active_session_count(ssm, ecs_cluster, task_id, containers):
     """Scan every runtime target and page; partial evidence cannot prove idle."""
     total = 0
     incomplete = not containers
@@ -287,7 +287,7 @@ def observe_investigation(ecs, ssm, ecs_cluster, started_by):
             return _unknown('a non-terminal task has no owner tag; investigation state is unknown',
                             tasks=observed)
         try:
-            count, incomplete = _active_session_count(
+            count, incomplete = active_session_count(
                 ssm, ecs_cluster, task_id, task.get('containers', []))
         except (ClientError, BotoCoreError):
             return _unknown('session scan failed; investigation state is unknown',

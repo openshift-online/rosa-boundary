@@ -196,7 +196,7 @@ The CLI defaults `--session-timeout` to **1h** and sends it explicitly; Terrafor
 `--timeout` is a separate local command deadline, and explicit `--timeout 0s`
 is invalid. Read the [timeout matrix](../architecture/session-lifecycle.md#timeout-matrix)
 before selecting a value. A deadline is not a guaranteed stop time:
-[strict-deadline and active-session policies remain unresolved](../architecture/session-lifecycle.md#unresolved-policy-decisions).
+[strict-deadline policy remains unresolved](../architecture/session-lifecycle.md#unresolved-policy-decisions).
 
 To hand over a workspace, coordinate with its current SRE and have them disconnect
 Exec. The successor uses their own profile/identity to request a replacement:
@@ -206,17 +206,20 @@ Exec. The successor uses their own profile/identity to request a replacement:
   --investigation-id <existing-investigation-id>
 ```
 
-Lambda checks existing RUNNING tasks for active SSM connections before stopping
-any; a detected active connection returns 409. It waits for old tasks to STOP
-before launching the replacement; stop/wait failures abort replacement, not
-already initiated stops. Verify predecessor audit evidence independently.
-This is not an atomic concurrency lock. See [handover details and limitations](../architecture/session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
-The new task belongs to the caller, but the access point keeps its original
-creator tags and creation time. These tags do not determine who can request close.
-Same-user recreation is also currently possible, subject to the same active-session
-checks; [ROSAENG-75947](https://redhat.atlassian.net/browse/ROSAENG-75947) tracks its
-prevention and takeover policy. Credential mounts do not persist: configure fresh OCM credentials on
-the new task. See [actual task/AP tags](../architecture/session-lifecycle.md#actual-resource-tags-creator-versus-actor).
+Lambda stops and replaces existing tasks only when every candidate has a known
+different owner and no active SSM sessions. An active session returns HTTP 409;
+unknown ownership or session state blocks replacement. Lambda waits for tasks to
+stop before launching the replacement. Verify predecessor audit evidence
+independently. The new task belongs to the caller, but the access point keeps its
+original creator tags and creation time.
+
+If you already have a task, repeat create returns HTTP 409 and leaves it unchanged.
+When the task matches your current ABAC identity, the CLI prints a copy-pasteable
+[`session join`](#phase-4-connect-to-container) command with the existing session ID
+and the current profile, region, and ECS cluster. If no command is shown, use
+[`session list`](#phase-3-list-tasks) to find the task; joining still requires matching
+ABAC identity. Credential mounts do not persist across replacement: configure fresh
+OCM credentials on the new task. See [actual task/AP tags](../architecture/session-lifecycle.md#actual-resource-tags-creator-versus-actor).
 
 ## Phase 3: List Tasks
 

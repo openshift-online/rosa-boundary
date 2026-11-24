@@ -203,7 +203,7 @@ What happens:
 
 The CLI joins the task by default after readiness and credential configuration. Pass `--no-connect` to create without joining; `--no-wait` also skips joining.
 
-**Handover:** On task creation, Lambda preflights existing RUNNING tasks for active SSM sessions (409 if detected), stops the old tasks, and waits for STOPPED before replacement. The AP's creator tags stay unchanged; new task tags identify the caller. This is not an atomic concurrency lock. See [handover behavior and failure limits](session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
+**Handover:** Lambda only replaces tasks with a known different owner and verified inactive SSM sessions. Same-user create returns 409 with discovery and join guidance; active shells also return 409, and unknown ownership or session state blocks replacement. The AP's creator tags stay unchanged; new task tags identify the caller. This is not an atomic concurrency lock. See [handover behavior and failure limits](session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
 
 ### Step 3: Connect to a Running Task
 

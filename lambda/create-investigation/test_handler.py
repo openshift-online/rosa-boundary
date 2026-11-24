@@ -31,6 +31,14 @@ def mock_aws_client_construction(monkeypatch):
         yield
 
 
+def described_handover_task(arn, runtime='runtime-123', subject='previous-sub', owner='previous-user'):
+    return {'tasks': [{
+        'taskArn': arn,
+        'tags': [{'key': 'oidc_sub', 'value': subject}, {'key': 'username', 'value': owner}],
+        'containers': [{'runtimeId': runtime}] if runtime else [{}],
+    }]}
+
+
 class TestTaskCreationMetrics:
     """Verify outcome semantics, log format, privacy, and telemetry isolation."""
 
@@ -1169,11 +1177,7 @@ class TestDuplicateInvestigationDetection:
                     }
                 }
 
-                mock_ecs.describe_tasks.return_value = {
-                    'tasks': [{
-                        'containers': [{'runtimeId': 'runtime-123'}]
-                    }]
-                }
+                mock_ecs.describe_tasks.return_value = described_handover_task(existing_task_arn)
 
                 with patch('handler.sts') as mock_sts, patch('handler.ssm') as mock_ssm:
                     mock_ssm.describe_sessions.return_value = {'Sessions': []}
@@ -1336,9 +1340,10 @@ class TestDuplicateInvestigationDetection:
                 mock_ecs.register_task_definition.assert_not_called()
                 mock_ecs.run_task.assert_not_called()
 
+    @pytest.mark.parametrize('same_user', [True, False])
     @patch.dict('os.environ', ENV_VARS)
-    def test_lambda_handler_stops_duplicate_and_creates_new(self):
-        """Test that lambda_handler returns 200 with the replacement task ARN."""
+    def test_lambda_handler_handover_response(self, same_user):
+        """Only a different caller gets a replacement task ARN."""
         import importlib
         importlib.reload(handler)
 
@@ -1371,11 +1376,8 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
-                    mock_ecs.describe_tasks.return_value = {
-                        'tasks': [{
-                            'containers': [{'runtimeId': 'runtime-123'}]
-                        }]
-                    }
+                    mock_ecs.describe_tasks.return_value = described_handover_task(
+                        existing_task_arn, owner='sre-user' if same_user else 'previous-user')
 
                     mock_ecs.run_task.return_value = {
                         'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'}]
@@ -1409,8 +1411,18 @@ class TestDuplicateInvestigationDetection:
                         mock_sts.get_caller_identity.return_value = {'Account': '123456789012'}
                         result = handler.lambda_handler(event, None)
 
-        assert result['statusCode'] == 200
         body = json.loads(result['body'])
+        if same_user:
+            assert result['statusCode'] == 409
+            assert 'rosa-boundary session list' in body['error']
+            assert 'rosa-boundary session join <session-id>' in body['error']
+            assert body['existing_session_id'] == 'existing-task-id'
+            mock_ssm.describe_sessions.assert_not_called()
+            mock_ecs.stop_task.assert_not_called()
+            mock_ecs.run_task.assert_not_called()
+            return
+
+        assert result['statusCode'] == 200
         assert body['message'] == 'Investigation task created successfully'
         assert body['task_arn'] == 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'
         assert body['access_point_id'] == 'fsap-existing'
@@ -1486,11 +1498,7 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
-                    mock_ecs.describe_tasks.return_value = {
-                        'tasks': [{
-                            'containers': [{'runtimeId': 'runtime-123'}]
-                        }]
-                    }
+                    mock_ecs.describe_tasks.return_value = described_handover_task(existing_task_arn)
 
                     # Mock stop_task to raise Exception
                     mock_ecs.stop_task.side_effect = ClientError({'Error': {'Code': 'Mock', 'Message': 'mock'}}, 'mock')
@@ -1527,11 +1535,7 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator = MagicMock()
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
-                    mock_ecs.describe_tasks.return_value = {
-                        'tasks': [{
-                            'containers': [{'runtimeId': 'runtime-123'}]
-                        }]
-                    }
+                    mock_ecs.describe_tasks.return_value = described_handover_task(existing_task_arn)
 
                     # Mock waiter to raise Exception
                     mock_waiter = MagicMock()
@@ -1571,11 +1575,7 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
 
-                    mock_ecs.describe_tasks.return_value = {
-                        'tasks': [{
-                            'containers': [{'runtimeId': 'runtime-123'}]
-                        }]
-                    }
+                    mock_ecs.describe_tasks.return_value = described_handover_task(existing_task_arn)
 
                     # Mock active session
                     mock_ssm.describe_sessions.return_value = {'Sessions': [{'SessionId': 'session-123'}]}
@@ -1600,8 +1600,21 @@ class TestDuplicateInvestigationDetection:
                     mock_ecs.stop_task.assert_not_called()
                     mock_ecs.run_task.assert_not_called()
 
-    def test_handover_fails_without_partial_stops_if_second_task_has_active_session(self):
-        """Test that if a second task has an active SSM session, no task is stopped."""
+    @pytest.mark.parametrize('owner,subject,runtime,session_state,status,message', [
+        ('sre-user', 'sub-123', 'runtime-2', 'active', 409, 'rosa-boundary session list'),
+        ('sre-user', 'sub-123', 'runtime-2', 'inactive', 409, 'rosa-boundary session list'),
+        ('sre-user', 'sub-123', None, 'unknown', 409, 'rosa-boundary session list'),
+        ('sre-user', 'other-issuer-sub', 'runtime-2', 'inactive', 409, 'session join'),
+        ('changed-user', 'sub-123', 'runtime-2', 'inactive', 409, 'session join'),
+        (None, 'other-sub', 'runtime-2', 'inactive', 500, 'Cannot verify existing task ownership'),
+        ('other-user', None, 'runtime-2', 'inactive', 500, 'Cannot verify existing task ownership'),
+        ('other-user', 'other-sub', None, 'unknown', 500, 'incomplete session evidence'),
+        ('other-user', 'other-sub', 'runtime-2', 'unknown', 500, 'incomplete session evidence'),
+        ('other-user', 'other-sub', 'runtime-2', 'active', 409, 'locked by an active session'),
+    ])
+    def test_handover_checks_all_candidates_before_stopping_any(
+        self, owner, subject, runtime, session_state, status, message,
+    ):
         task_1_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/task-1'
         task_2_arn = 'arn:aws:ecs:us-east-1:123:task/test-cluster/task-2'
 
@@ -1614,20 +1627,21 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator.paginate.return_value = [{'taskArns': [task_1_arn, task_2_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
 
-                    def describe_tasks_side_effect(cluster, tasks):
-                        if tasks[0] == task_1_arn:
-                            return {'tasks': [{'containers': [{'runtimeId': 'runtime-1'}]}]}
-                        elif tasks[0] == task_2_arn:
-                            return {'tasks': [{'containers': [{'runtimeId': 'runtime-2'}]}]}
-                        return {'tasks': []}
+                    mock_ecs.describe_tasks.side_effect = [
+                        described_handover_task(task_1_arn, runtime='runtime-1'),
+                        described_handover_task(task_2_arn, runtime, subject, owner),
+                    ]
 
-                    mock_ecs.describe_tasks.side_effect = describe_tasks_side_effect
-
-                    # Mock active session only for task 2
-                    def describe_sessions_side_effect(State, Filters):
-                        target = Filters[0]['value']
-                        if 'task-2' in target:
+                    def describe_sessions_side_effect(State, Filters, NextToken=None):
+                        if Filters[0]['value'] != 'ecs:test-cluster_task-2_runtime-2':
+                            return {'Sessions': []}
+                        # A first empty page does not prove inactivity.
+                        if NextToken is None:
+                            return {'Sessions': [], 'NextToken': 'next-page'}
+                        if session_state == 'active':
                             return {'Sessions': [{'SessionId': 'session-2'}]}
+                        if session_state == 'unknown':
+                            return {}
                         return {'Sessions': []}
 
                     mock_ssm.describe_sessions.side_effect = describe_sessions_side_effect
@@ -1647,10 +1661,20 @@ class TestDuplicateInvestigationDetection:
                             efs_filesystem_id='fs-1',
                         )
 
-                    assert task_2_arn in exc_info.value.failed_tasks
-                    assert "locked by an active session" in str(exc_info.value)
+                    assert exc_info.value.failed_tasks == [task_2_arn]
+                    assert exc_info.value.status_code == status
+                    assert message in str(exc_info.value)
+                    assert exc_info.value.existing_session_id == ('task-2' if owner == 'sre-user' else None)
+                    if owner == 'sre-user' or subject == 'sub-123':
+                        mock_ssm.describe_sessions.assert_not_called()
+                    mock_ecs.describe_tasks.assert_called_with(
+                        cluster='test-cluster', tasks=[task_2_arn], include=['TAGS'])
                     mock_ecs.stop_task.assert_not_called()
+                    mock_ecs.get_waiter.assert_not_called()
+                    mock_efs.create_access_point.assert_not_called()
+                    mock_ecs.register_task_definition.assert_not_called()
                     mock_ecs.run_task.assert_not_called()
+                    mock_ecs.tag_resource.assert_not_called()
 
     def test_handover_fails_closed_on_ssm_client_error(self):
         """Test that handover fails closed when SSM describe_sessions raises ClientError."""
@@ -1665,11 +1689,7 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
 
-                    mock_ecs.describe_tasks.return_value = {
-                        'tasks': [{
-                            'containers': [{'runtimeId': 'runtime-123'}]
-                        }]
-                    }
+                    mock_ecs.describe_tasks.return_value = described_handover_task(existing_task_arn)
 
                     # Mock SSM describe_sessions to raise ClientError
                     mock_ssm.describe_sessions.side_effect = ClientError(

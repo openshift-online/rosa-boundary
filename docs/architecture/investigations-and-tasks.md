@@ -11,7 +11,7 @@ Rosa-boundary uses two core abstractions to manage SRE access to clusters. The C
 - **Investigation**: A persistent workspace tied to a specific cluster incident.
 - **Task**: An ephemeral container session launched within an investigation.
 
-An investigation is the parent; tasks are its children. One investigation can have many tasks over its lifetime. Lambda attempts serial handover by stopping existing RUNNING tasks before replacement, unless an active SSM connection blocks it (409). This is not an atomic one-task lock. Every task within the same investigation shares the same persistent filesystem. See the [implemented lifecycle reference](session-lifecycle.md) for the timeout matrix, exact tags, handover limitations and unresolved policy decisions.
+An investigation is the parent; tasks are its children. One investigation can have many tasks over its lifetime. Lambda attempts serial handover only when every candidate belongs to a known different owner and has no active SSM sessions. Same-user create and active shells return 409; unknown ownership or session state also blocks replacement. This is not an atomic one-task lock. Every task within the same investigation shares the same persistent filesystem. See the [implemented lifecycle reference](session-lifecycle.md) for the timeout matrix, exact tags, handover limitations and unresolved timeout policy.
 
 ## What Is an Investigation?
 
@@ -97,7 +97,7 @@ Every task is tagged with:
 
 ### Handover (Best-Effort Serial Replacement)
 
-Before launching a task, Lambda checks existing RUNNING tasks using the ECS `startedBy` field — the first 36 hex characters of SHA-256 of `{cluster_id}:{investigation_id}`. This lookup is user-agnostic. It preflights active SSM sessions before stopping any tasks; an active connection blocks handover with 409. Otherwise it stops old tasks and waits for STOPPED before replacement. Stop/wait failures abort replacement without rolling back stops already issued. `session join` is subject to the existing task's ABAC identity; it is not a cross-user handover mechanism. See [handover limits](session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
+Before launching a task, Lambda checks existing RUNNING tasks using the ECS `startedBy` field — the first 36 hex characters of SHA-256 of `{cluster_id}:{investigation_id}`. This lookup is user-agnostic. Before any stop, Lambda requires a known different owner and verified inactive SSM state for every candidate. Same-user create returns 409 with list/join guidance; active shells also return 409. Unknown ownership or session state blocks replacement. If preflight passes, Lambda stops the old tasks and waits for STOPPED. Stop/wait failures abort replacement without rolling back stops already issued. `session join` is subject to the existing task's ABAC identity; it is not a cross-user handover mechanism. See [handover limits](session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
 
 Using `startedBy` for this check (rather than a tag scan) avoids a cluster-wide `describe_tasks` call and sidesteps tag propagation race conditions, since `startedBy` is set atomically at task launch time.
 
@@ -219,6 +219,6 @@ This is by design. The investigation ID represents a **shared workspace** for a 
 
 ### If multiple SREs create a task against the same investigation at the same time, are they sharing a filesystem at `/home/sre`?
 
-Yes, if concurrent requests escape the best-effort handover check, they mount the same workspace. Lambda normally looks up RUNNING tasks by the user-agnostic `startedBy` hash, checks Active SSM sessions, then stops and waits for old tasks before replacement. An active connection returns 409 rather than authorizing cross-user Exec. SREs should coordinate handover; the new task mounts the same workspace but not predecessor credentials.
+Yes, if concurrent requests escape the best-effort handover check, they mount the same workspace. Lambda looks up existing tasks by the user-agnostic `startedBy` hash and can only replace known different owners' inactive tasks. It never grants cross-user Exec access. SREs should coordinate handover; the new task mounts the same workspace but not predecessor credentials.
 
 There is a narrow TOCTOU race: if two SREs invoke the Lambda at the exact same moment before either task reaches `RUNNING` state (visible in `list_tasks`), both could pass the duplicate check. In that unlikely case, yes — both containers would mount the same EFS directory as `/home/sre` with the same POSIX UID (1000), and concurrent writes could conflict. There is no distributed lock to prevent this.

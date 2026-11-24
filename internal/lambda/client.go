@@ -170,7 +170,8 @@ type CloseStatusResponse struct {
 
 // errorResponse is returned by the Lambda on error.
 type errorResponse struct {
-	Error string `json:"error"`
+	Error             string `json:"error"`
+	ExistingSessionID string `json:"existing_session_id"`
 }
 
 // lambdaEventPayload mimics the API Gateway / function URL event format that the
@@ -191,6 +192,8 @@ type lambdaAPIResponse struct {
 type ResponseError struct {
 	StatusCode int
 	Message    string
+	// ExistingSessionID is set for a create conflict with an ABAC-matching task.
+	ExistingSessionID string
 }
 
 func (e *ResponseError) Error() string {
@@ -263,7 +266,9 @@ func (c *Client) invokeRaw(ctx context.Context, headers map[string]string, body 
 	if apiResp.StatusCode != http.StatusOK {
 		var errResp errorResponse
 		if jsonErr := json.Unmarshal([]byte(apiResp.Body), &errResp); jsonErr == nil && errResp.Error != "" {
-			return "", &ResponseError{StatusCode: apiResp.StatusCode, Message: errResp.Error}
+			return "", &ResponseError{
+				StatusCode: apiResp.StatusCode, Message: errResp.Error, ExistingSessionID: errResp.ExistingSessionID,
+			}
 		}
 		return "", fmt.Errorf("lambda returned %d: %s", apiResp.StatusCode, truncate(apiResp.Body, 200))
 	}

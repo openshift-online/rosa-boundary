@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -18,6 +20,16 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
+
+func sessionCreateInvokeError(err error, profile, clusterID, investigationID, region, ecsCluster string) error {
+	var responseErr *lambda.ResponseError
+	if errors.As(err, &responseErr) && responseErr.StatusCode == http.StatusConflict && responseErr.ExistingSessionID != "" {
+		return fmt.Errorf("%w\n\nTo join the existing session, run:\n  rosa-boundary --profile %s session join %s --region %s --ecs-cluster %s",
+			err, shellArgument(profile), shellArgument(responseErr.ExistingSessionID), shellArgument(region), shellArgument(ecsCluster))
+	}
+	return fmt.Errorf("lambda call failed (outcome may be unknown for %s/%s; inspect with rosa-boundary --profile %q session list --status all --region %q --ecs-cluster %q before retrying): %w",
+		clusterID, investigationID, profile, region, ecsCluster, err)
+}
 
 var (
 	startClusterID        string
@@ -77,7 +89,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		TaskTimeoutSet:  true,
 	})
 	if err != nil {
-		return fmt.Errorf("lambda call failed (outcome may be unknown for %s/%s; inspect with rosa-boundary --profile %q session list --status all --region %q --ecs-cluster %q before retrying): %w", clusterID, investigationID, selectedProfile, cfg.AWSRegion, cfg.ClusterName, err)
+		return sessionCreateInvokeError(err, selectedProfile, clusterID, investigationID, cfg.AWSRegion, cfg.ClusterName)
 	}
 
 	timings := sessionStartupTimings{LambdaRoundTripMS: time.Since(invokeStart).Milliseconds()}

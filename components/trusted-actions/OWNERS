@@ -8,6 +8,11 @@ approvers:
   - zmird-r
   - gvnnn
   - xiaoyu74
+  - Nanyte25
+  - vittico
+  - austincunningham
+  - AlexSmithGH
+  - erdii
 reviewers:
   - bergmannf
   - Makdaam
@@ -18,6 +23,11 @@ reviewers:
   - zmird-r
   - gvnnn
   - xiaoyu74
+  - Nanyte25
+  - vittico
+  - austincunningham
+  - AlexSmithGH
+  - erdii
 maintainers:
   - bergmannf
   - Makdaam
@@ -28,5 +38,10 @@ maintainers:
   - zmird-r
   - gvnnn
   - xiaoyu74
+  - Nanyte25
+  - vittico
+  - austincunningham
+  - AlexSmithGH
+  - erdii
 labels:
   - component/trusted-actions

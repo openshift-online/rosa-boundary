@@ -25,7 +25,6 @@ Place design proposals in [`docs/design-proposals/`](design-proposals/). These d
 - [**Regional Lambda Image Delivery**](design-proposals/lambda-image-regional-delivery.md) - Proposed Konflux-to-ECR publication and regional replication design
 - [**Proposed `rosa-boundary` CLI contract**](design-proposals/rosa-boundary-cli-contract.md) - Proposed user-facing command interface
 - [**Trusted Actions CLI configuration**](design-proposals/trusted-actions-cli-configuration.md) - Endpoint configuration decision and remaining rollout/CLI-hardening work for the bundled `rta` CLI
-- [**EFS Size Metrics**](design-proposals/efs-size-metrics.md) - Planned CloudWatch export, shared dashboard views, ownership, and growth alerting
 
 The accepted CLI contract is tracked separately in [proposal PR #354](https://github.com/openshift-online/rosa-boundary/pull/354). Use this repository's runbooks and the installed CLI's `--help` for the implementation available in your checkout.
 

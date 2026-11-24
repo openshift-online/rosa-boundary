@@ -62,6 +62,13 @@ type Config struct {
 	OCMClientID     string
 	OCMClientSecret string
 	OCMToken        string
+	// OCMScopes are the OpenID scopes requested when obtaining a token, for
+	// the OCM connection and the backplane one alike. Empty leaves the SDK's
+	// own default of "openid" in place; a value here replaces that default
+	// rather than adding to it, so "openid" has to be listed to be kept.
+	// Settable from the config file's ocm.scopes as well as the environment,
+	// unlike the credentials beside it, because scopes are not secret.
+	OCMScopes []string
 
 	// Database Configuration (environment variables)
 	DatabaseURL       string
@@ -146,9 +153,13 @@ type configFile struct {
 		ProxyURL    string `yaml:"proxy_url"`
 	} `yaml:"aws"`
 
+	// OCM holds the settings for the OCM connection. Only settings that are
+	// safe to commit belong here: credentials (client secret, token) stay
+	// environment-only, because the config file is committed.
 	OCM struct {
-		BaseURL  string `yaml:"base_url"`
-		ClientID string `yaml:"client_id"`
+		BaseURL  string   `yaml:"base_url"`
+		ClientID string   `yaml:"client_id"`
+		Scopes   []string `yaml:"scopes"`
 	} `yaml:"ocm"`
 
 	Backplane struct {
@@ -252,6 +263,7 @@ func Load(configFilePath string) (*Config, error) {
 		OCMClientID:     getEnv("ROSA_TA_OCM_CLIENT_ID", configFile.OCM.ClientID),
 		OCMClientSecret: getEnv("ROSA_TA_OCM_CLIENT_SECRET", ""),
 		OCMToken:        getEnv("ROSA_TA_OCM_TOKEN", ""),
+		OCMScopes:       getStringSliceEnv("ROSA_TA_OCM_SCOPES", configFile.OCM.Scopes),
 
 		// Database Configuration
 		DatabaseURL:       getEnv("DATABASE_URL", ""),

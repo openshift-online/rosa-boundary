@@ -7,6 +7,7 @@ Tests the periodic task timeout enforcement using mocked boto3 clients.
 import os
 import json
 import unittest
+from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch, call
 
@@ -24,10 +25,6 @@ class TestReaperLambda(unittest.TestCase):
 
     def setUp(self):
         """Set up test fixtures"""
-        # Keep reload(handler) isolated from real AWS client construction too.
-        client_patcher = patch("boto3.client")
-        client_patcher.start()
-        self.addCleanup(client_patcher.stop)
         self.mock_ecs = MagicMock()
         self.patcher = patch('handler.ecs', self.mock_ecs)
         self.patcher.start()
@@ -274,27 +271,126 @@ class TestReaperLambda(unittest.TestCase):
         self.mock_ecs.stop_task.assert_not_called()
 
     def test_missing_ecs_cluster_env_var(self):
-        """Test error handling when ECS_CLUSTER is not set"""
-        # Temporarily remove ECS_CLUSTER env var
-        original_cluster = os.environ.get('ECS_CLUSTER')
-        if 'ECS_CLUSTER' in os.environ:
-            del os.environ['ECS_CLUSTER']
+        with patch.object(handler, 'ECS_CLUSTER', None):
+            with self.assertRaisesRegex(RuntimeError, 'ECS_CLUSTER'):
+                handler.lambda_handler({}, None)
+        self.mock_ecs.list_tasks.assert_not_called()
 
-        # Reload handler module to pick up env change
-        import importlib
-        importlib.reload(handler)
+    def test_listing_later_page_fails(self):
+        from botocore.exceptions import ClientError
 
+        self.mock_ecs.list_tasks.side_effect = [
+            {'taskArns': ['first'], 'nextToken': 'next'},
+            ClientError({'Error': {'Code': 'AccessDeniedException'}}, 'ListTasks'),
+        ]
+        with self.assertRaises(ClientError):
+            handler.lambda_handler({}, None)
+        self.mock_ecs.list_tasks.assert_called_with(
+            cluster='test-cluster', desiredStatus='RUNNING', nextToken='next')
+        self.mock_ecs.describe_tasks.assert_not_called()
+
+    def test_first_listing_failure(self):
+        self.mock_ecs.list_tasks.side_effect = ConnectionError('offline')
+        with self.assertRaises(ConnectionError):
+            handler.lambda_handler({}, None)
+        self.mock_ecs.describe_tasks.assert_not_called()
+
+    def test_all_describe_batches_fail(self):
+        tasks = [f'task-{i}' for i in range(101)]
+        self.mock_ecs.list_tasks.return_value = {'taskArns': tasks}
+        cause = ConnectionError('offline')
+        self.mock_ecs.describe_tasks.side_effect = cause
+        with self.assertRaises(ConnectionError) as caught:
+            handler.lambda_handler({}, None)
+        self.assertIs(caught.exception, cause)
+        self.assertEqual(self.mock_ecs.describe_tasks.call_count, 2)
+        self.mock_ecs.stop_task.assert_not_called()
+
+    def test_describe_returns_only_resource_failures(self):
+        self.mock_ecs.list_tasks.return_value = {'taskArns': ['missing']}
+        self.mock_ecs.describe_tasks.return_value = {
+            'failures': [{'arn': 'missing', 'reason': 'MISSING'}],
+        }
         result = handler.lambda_handler({}, None)
+        self.assertEqual(result, dict(checked=0, skipped=0, protected=0, stopped=0, errors=1))
+        self.mock_ecs.stop_task.assert_not_called()
 
-        assert 'error' in result
-        assert 'ECS_CLUSTER' in result['error']
-        assert result['checked'] == 0
-        assert result['stopped'] == 0
+    def test_partial_describe_failure_processes_later_batch(self):
+        tasks = [f'task-{i}' for i in range(102)]
+        self.mock_ecs.list_tasks.return_value = {'taskArns': tasks}
+        self.mock_ecs.describe_tasks.side_effect = [
+            ConnectionError('offline'),
+            {'tasks': [{'taskArn': tasks[-1]}],
+             'failures': [{'arn': tasks[-2], 'reason': 'MISSING'}]},
+        ]
+        result = handler.lambda_handler({}, None)
+        self.assertEqual(result, dict(checked=1, skipped=1, protected=0, stopped=0, errors=101))
 
-        # Restore env var
-        if original_cluster:
-            os.environ['ECS_CLUSTER'] = original_cluster
-        importlib.reload(handler)
+    def test_partial_describe_with_no_returned_tasks(self):
+        tasks = [f'task-{i}' for i in range(101)]
+        self.mock_ecs.list_tasks.return_value = {'taskArns': tasks}
+        missing = {'failures': [{'arn': tasks[-1], 'reason': 'MISSING'}]}
+        for code in ['AccessDeniedException', 'ClusterNotFoundException']:
+            with self.subTest(code=code):
+                cause = ClientError({'Error': {'Code': code}}, 'DescribeTasks')
+                self.mock_ecs.describe_tasks.side_effect = [cause, missing]
+                if code == 'ClusterNotFoundException':
+                    with self.assertRaises(ClientError) as caught:
+                        handler.lambda_handler({}, None)
+                    self.assertIs(caught.exception, cause)
+                else:
+                    self.assertEqual(handler.lambda_handler({}, None)['errors'], 101)
+                self.mock_ecs.stop_task.assert_not_called()
+
+    def _expired_and_skipped(self, n):
+        tasks = [self._exec_task(f'expired-{i}', '2000-01-01') for i in range(n)]
+        tasks.append({'taskArn': 'other'})
+        self.mock_ecs.list_tasks.return_value = {'taskArns': [t['taskArn'] for t in tasks]}
+        self.mock_ecs.describe_tasks.return_value = {'tasks': tasks}
+
+    def test_ssm_outcomes(self):
+        for codes, systemic in [
+            (['InternalServerError'], False),
+            (['InternalServerError', 'ThrottlingException'], False),
+            (['InvalidFilter', 'InvalidFilter'], False),
+            (['InternalServerError', 'InternalServerError'], True),
+            (['InternalServerError', 'InternalServerError', None], False),
+            (['AccessDeniedException', None], True),
+        ]:
+            with self.subTest(codes=codes):
+                self._expired_and_skipped(len(codes))
+                responses = [ClientError({'Error': {'Code': c}}, 'DescribeSessions')
+                             if c else {'Sessions': []} for c in codes]
+                self.mock_ssm.describe_sessions.side_effect = responses
+                self.mock_ecs.stop_task.reset_mock()
+                if systemic:
+                    with self.assertRaises(ClientError) as caught:
+                        handler.lambda_handler({}, None)
+                    self.assertIs(caught.exception, responses[0])
+                else:
+                    result = handler.lambda_handler({}, None)
+                    self.assertEqual(result['errors'], len(codes) - codes.count(None))
+                if None in codes:
+                    self.mock_ecs.stop_task.assert_called_once_with(
+                        cluster='test-cluster', task=f'expired-{codes.index(None)}',
+                        reason='Task deadline exceeded (deadline: 2000-01-01)')
+                else:
+                    self.mock_ecs.stop_task.assert_not_called()
+
+    def test_single_stop_failure_scope(self):
+        self._expired_and_skipped(1)
+        for code in ['TaskNotFound', 'AccessDeniedException', 'ClusterNotFoundException']:
+            with self.subTest(code=code):
+                cause = ClientError({'Error': {'Code': code}}, 'StopTask')
+                self.mock_ecs.stop_task.side_effect = cause
+                if code == 'ClusterNotFoundException':
+                    with self.assertRaises(ClientError) as caught:
+                        handler.lambda_handler({}, None)
+                    self.assertIs(caught.exception, cause)
+                else:
+                    result = handler.lambda_handler({}, None)
+                    self.assertEqual(result, dict(checked=2, protected=0, skipped=1,
+                                                  stopped=0, errors=1))
 
     def test_pagination_with_multiple_pages(self):
         """Test that pagination works correctly for large task lists"""

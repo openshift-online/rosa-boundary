@@ -101,6 +101,35 @@ zero denominators, and missing telemetry must not become 100% availability.
 This ratio excludes pre-creation failures and timeouts and is not an end-to-end
 availability SLI.
 
+## Reaper invocation errors
+
+The regional deployment creates one CloudWatch alarm per reaper, each on the
+native `AWS/Lambda` `Errors` series for that Lambda's `FunctionName`. One
+failed invocation in a five-minute period triggers the alarm. A logged error
+followed by a normal return does not count. Missing data is not breaching:
+these alarms do not detect missed schedules. Lambda asynchronous retries can
+produce multiple error datapoints for one scheduled event. Check `Invocations`
+for the same function to see whether it ran; `AWS/Events` `FailedInvocations`
+indicates a target-delivery problem, not a handler exception.
+
+On ALARM, the deployment operator should inspect the failed invocation's logs
+for the configuration or AWS operation that failed. An empty inventory is a
+normal outcome; a failed inventory is not. Isolated resource failures remain
+in the invocation logs and counters, not in this alarm. Before intervening,
+check subsequent invocations and durable close status for resumed work.
+
+By default both alarms track state without notifying anyone. To route their
+transitions into ALARM, set `reaper_alarm_sns_topic_arn` through approved
+deployment configuration to an existing standard SNS topic in the deployment
+account and region. The topic owner must allow CloudWatch to publish (and use
+the encryption key if applicable) and confirm the intended subscription. This
+module does not create a topic, subscription, or permission grant.
+
+Mock plans verify the metric and action wiring, not delivery. After an approved
+deployment, correlate a failed invocation with its function's Errors datapoint,
+alarm state and action history, and receipt by the intended subscriber. Until
+then, end-to-end delivery is unverified; logs alone are not an alert.
+
 ## Remaining dashboard signals
 
 | Requested signal | Current evidence / remaining work |

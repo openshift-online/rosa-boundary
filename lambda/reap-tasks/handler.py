@@ -12,7 +12,10 @@ from datetime import datetime
 
 import boto3
 from botocore.config import Config as BotocoreConfig
-from botocore.exceptions import BotoCoreError, ClientError
+from botocore.exceptions import (
+    BotoCoreError, ClientError, ConnectionError as SDKConnectionError,
+    HTTPClientError, NoCredentialsError, PartialCredentialsError,
+)
 
 # Configure logging
 logger = logging.getLogger()
@@ -45,6 +48,41 @@ class SessionCheckError(Exception):
     """
 
 
+class SessionAPIError(SessionCheckError):
+    """SSM lookup failed, as distinct from incomplete task metadata."""
+
+
+def _error_code(error):
+    if isinstance(error, ClientError):
+        return error.response.get('Error', {}).get('Code')
+    return None
+
+
+def _deployment_failure(operation, error):
+    if isinstance(error, (NoCredentialsError, PartialCredentialsError)):
+        return True
+    code = _error_code(error)
+    if code in {'ExpiredToken', 'ExpiredTokenException', 'InvalidClientTokenId',
+                'UnrecognizedClientException'}:
+        return True  # All calls use the same execution credentials.
+    if operation == 'DescribeSessions':
+        # The target is a filter; authorization is not scoped to its task ARN.
+        return code in {'AccessDenied', 'AccessDeniedException'}
+    # Both ECS operations use the configured cluster. In contrast, IAM
+    # denial on DescribeTasks or StopTask can be specific to the task ARN.
+    return code == 'ClusterNotFoundException'
+
+
+def _ssm_dependency_reason(error):
+    code = _error_code(error)
+    if code in {'InternalServerError', 'InternalServerException', 'Throttling',
+                'ThrottlingException', 'ServiceUnavailable', 'ServiceUnavailableException'}:
+        return code
+    if isinstance(error, (ConnectionError, SDKConnectionError, HTTPClientError)):
+        return type(error)
+    return None
+
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Main Lambda handler for reaping expired ECS tasks.
@@ -54,148 +92,142 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         context: Lambda context object
 
     Returns:
-        Summary with checked, stopped, skipped, and error counts
+        Summary for a no-op, successful, or partially successful run.
+
+    Raises:
+        Configuration and listing failures propagate. After processing all batches,
+        raise for deployment-wide failures, total DescribeTasks call failure,
+        or repeated uniform SSM dependency failures. Inconclusive task
+        metadata is local: leave the task running for the next scheduled check.
     """
     if not ECS_CLUSTER:
-        logger.error("Missing required environment variable: ECS_CLUSTER")
-        return {
-            'error': 'Lambda configuration error: ECS_CLUSTER not set',
-            'checked': 0,
-            'stopped': 0,
-            'skipped': 0,
-            'protected': 0,
-            'errors': 0
-        }
+        raise RuntimeError("ECS_CLUSTER not set")
 
-    logger.info(f"Checking for expired tasks in cluster: {ECS_CLUSTER}")
-
-    checked = 0
-    stopped = 0
-    skipped = 0
-    protected = 0
-    errors = 0
     now = datetime.utcnow()
+    task_arns = list_running_tasks(ECS_CLUSTER)
+    logger.info("Found %d running tasks", len(task_arns))
 
-    try:
-        # Get all RUNNING tasks
-        task_arns = list_running_tasks(ECS_CLUSTER)
-        logger.info(f"Found {len(task_arns)} running tasks")
+    checked = stopped = skipped = protected = errors = 0
+    describe_succeeded = False
+    describe_failure = deployment_failure = None
+    session_check_succeeded = False
+    session_failure_count = 0
+    session_failure = None
+    session_failure_reasons = set()
+    batch_size = 100  # DescribeTasks API limit
+    for i in range(0, len(task_arns), batch_size):
+        batch = task_arns[i:i + batch_size]
+        try:
+            response = ecs.describe_tasks(cluster=ECS_CLUSTER, tasks=batch, include=['TAGS'])
+        except (ClientError, BotoCoreError, ConnectionError) as e:
+            describe_failure = e
+            if _deployment_failure('DescribeTasks', e):
+                deployment_failure = e
+            logger.exception("Failed to describe tasks batch starting at offset %d", i)
+            errors += len(batch)
+            continue
 
-        if not task_arns:
-            return {
-                'checked': 0,
-                'stopped': 0,
-                'skipped': 0,
-                'protected': 0,
-                'errors': 0
-            }
+        describe_succeeded = True  # A successful call can return only per-ARN failures.
+        for task in response.get('tasks', []):
+            checked += 1
+            task_arn = task['taskArn']
+            task_id = task_arn.split('/')[-1]
 
-        # Describe tasks in batches of 100 (AWS API limit)
-        batch_size = 100
-        for i in range(0, len(task_arns), batch_size):
-            batch = task_arns[i:i + batch_size]
+            # Extract deadline tag
+            deadline_str = None
+            for tag in task.get('tags', []):
+                if tag['key'] == 'deadline':
+                    deadline_str = tag['value']
+                    break
 
+            # Skip tasks without deadline tag
+            if not deadline_str:
+                skipped += 1
+                logger.debug(f"Task {task_id} has no deadline tag, skipping")
+                continue
+
+            # Parse deadline as ISO 8601
             try:
-                response = ecs.describe_tasks(
-                    cluster=ECS_CLUSTER,
-                    tasks=batch,
-                    include=['TAGS']
-                )
+                deadline = datetime.fromisoformat(deadline_str.replace('Z', '+00:00'))
+            except (ValueError, AttributeError) as e:
+                logger.warning(f"Invalid deadline format for task {task_id}: {deadline_str} - {str(e)}")
+                skipped += 1
+                continue
 
-                for task in response.get('tasks', []):
-                    checked += 1
-                    task_arn = task['taskArn']
-                    task_id = task_arn.split('/')[-1]
+            # Remove timezone info for comparison (both are UTC)
+            if deadline.tzinfo is not None:
+                deadline = deadline.replace(tzinfo=None)
 
-                    # Extract deadline tag
-                    deadline_str = None
-                    for tag in task.get('tags', []):
-                        if tag['key'] == 'deadline':
-                            deadline_str = tag['value']
-                            break
+            # Check if deadline has passed
+            if now > deadline:
+                logger.info(f"Task {task_id} deadline exceeded: {deadline_str}")
 
-                    # Skip tasks without deadline tag
-                    if not deadline_str:
-                        skipped += 1
-                        logger.debug(f"Task {task_id} has no deadline tag, skipping")
+                # Protect tasks with an active ECS Exec / SSM session: an SRE
+                # may still be working in the task when the deadline expires.
+                # Fail closed - if session state cannot be determined, skip
+                # reaping so a potentially active session is not interrupted.
+                try:
+                    active = has_active_ssm_session(ECS_CLUSTER, task_id, task)
+                    if task.get('enableExecuteCommand') is True:
+                        session_check_succeeded = True
+                    if active:
+                        protected += 1
+                        logger.info(
+                            "Task %s deadline exceeded but has an active ECS Exec "
+                            "session; skipping reap this run", task_id
+                        )
                         continue
-
-                    # Parse deadline as ISO 8601
-                    try:
-                        deadline = datetime.fromisoformat(deadline_str.replace('Z', '+00:00'))
-
-                        # Remove timezone info for comparison (both are UTC)
-                        if deadline.tzinfo is not None:
-                            deadline = deadline.replace(tzinfo=None)
-
-                        # Check if deadline has passed
-                        if now > deadline:
-                            logger.info(f"Task {task_id} deadline exceeded: {deadline_str}")
-
-                            # Protect tasks with an active ECS Exec / SSM session: an SRE
-                            # may still be working in the task when the deadline expires.
-                            # Fail closed - if session state cannot be determined, skip
-                            # reaping so a potentially active session is not interrupted.
-                            try:
-                                if has_active_ssm_session(ECS_CLUSTER, task_id, task):
-                                    protected += 1
-                                    logger.info(
-                                        "Task %s deadline exceeded but has an active ECS Exec "
-                                        "session; skipping reap this run", task_id
-                                    )
-                                    continue
-                            except SessionCheckError as e:
-                                errors += 1
-                                logger.error(
-                                    "Could not verify ECS Exec session state for task %s; "
-                                    "skipping reap (fail-closed): %s", task_id, e
-                                )
-                                continue
-
-                            try:
-                                ecs.stop_task(
-                                    cluster=ECS_CLUSTER,
-                                    task=task_arn,
-                                    reason=f'Task deadline exceeded (deadline: {deadline_str})'
-                                )
-                                stopped += 1
-                                logger.info(f"Stopped task {task_id} (deadline: {deadline_str})")
-
-                            except (ClientError, BotoCoreError, ConnectionError) as e:
-                                logger.error("Failed to stop task %s: %s", task_id, e, exc_info=True)
-                                errors += 1
-                        else:
-                            skipped += 1
-                            logger.debug(f"Task {task_id} deadline not yet reached: {deadline_str}")
-
-                    except (ValueError, AttributeError) as e:
-                        logger.warning(f"Invalid deadline format for task {task_id}: {deadline_str} - {str(e)}")
-                        skipped += 1
-
-                for failure in response.get('failures', []):
-                    logger.warning("Could not describe task %s: %s (%s)",
-                                   failure.get('arn'), failure.get('reason'), failure.get('detail', ''))
+                except SessionCheckError as e:
+                    if isinstance(e, SessionAPIError):
+                        cause = e.__cause__
+                        session_failure_count += 1
+                        if session_failure is None:
+                            session_failure = cause
+                        session_failure_reasons.add(_ssm_dependency_reason(cause))
+                        if _deployment_failure('DescribeSessions', cause):
+                            deployment_failure = cause
                     errors += 1
+                    logger.error(
+                        "Could not verify ECS Exec session state for task %s; "
+                        "skipping reap (fail-closed): %s", task_id, e
+                    )
+                    continue
 
-            except (ClientError, BotoCoreError) as e:
-                logger.error("Failed to describe tasks batch: %s", e, exc_info=True)
-                errors += len(batch)
+                try:
+                    ecs.stop_task(
+                        cluster=ECS_CLUSTER,
+                        task=task_arn,
+                        reason=f'Task deadline exceeded (deadline: {deadline_str})'
+                    )
+                    stopped += 1
+                    logger.info(f"Stopped task {task_id} (deadline: {deadline_str})")
 
-    except Exception as e:
-        logger.error(f"Unexpected error during task reaping: {str(e)}", exc_info=True)
-        return {
-            'error': 'Unexpected error during task reaping',
-            'checked': checked,
-            'stopped': stopped,
-            'skipped': skipped,
-            'protected': protected,
-            'errors': errors
-        }
+                except (ClientError, BotoCoreError, ConnectionError) as e:
+                    if _deployment_failure('StopTask', e):
+                        deployment_failure = e
+                    logger.error("Failed to stop task %s: %s", task_id, e, exc_info=True)
+                    errors += 1
+            else:
+                skipped += 1
+                logger.debug(f"Task {task_id} deadline not yet reached: {deadline_str}")
+
+        for failure in response.get('failures', []):
+            logger.warning("Could not describe task %s: %s (%s)",
+                           failure.get('arn'), failure.get('reason'), failure.get('detail', ''))
+            errors += 1
 
     logger.info(
-        f"Reaper completed: checked={checked}, stopped={stopped}, "
+        f"Reaper summary: checked={checked}, stopped={stopped}, "
         f"skipped={skipped}, protected={protected}, errors={errors}"
     )
+
+    if deployment_failure is not None:
+        raise deployment_failure
+    if not describe_succeeded and describe_failure is not None:
+        raise describe_failure
+    if (not session_check_succeeded and session_failure_count > 1
+            and len(session_failure_reasons) == 1 and None not in session_failure_reasons):
+        raise session_failure
 
     return {
         'checked': checked,
@@ -358,4 +390,4 @@ def _target_has_active_session(target: str) -> bool:
             if not next_token:
                 return False
     except (ClientError, BotoCoreError, ConnectionError) as e:
-        raise SessionCheckError(f"SSM DescribeSessions failed: {e}") from e
+        raise SessionAPIError(f"SSM DescribeSessions failed: {e}") from e

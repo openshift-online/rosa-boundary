@@ -143,6 +143,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.error("Missing required environment variable: EFS_FILESYSTEM_ID")
         raise ValueError("Lambda configuration error: EFS_FILESYSTEM_ID not set")
 
+    if not S3_AUDIT_BUCKET or not AWS_ACCOUNT_ID:
+        raise ValueError("Lambda configuration error: S3_AUDIT_BUCKET and AWS_ACCOUNT_ID are required")
+
     logger.info("Checking for stale investigations (grace period: %dh)", GRACE_PERIOD_HOURS)
 
     checked = 0
@@ -158,10 +161,12 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Explicit requests run first, under their own per-run cap, so neither they
     # nor the stale sweep can starve the other.
-    close_summary = process_close_work(context)
+    discovery_errors = []
+    close_summary = process_close_work(context, discovery_errors)
 
     try:
-        # List all access points with investigation tags
+        # Do not enter the stale loop unless both shared inventories completed.
+        # A partial task list is not evidence that a workspace is idle.
         access_points = list_investigation_access_points()
         logger.info("Found %d investigation access point(s)", len(access_points))
 
@@ -238,7 +243,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                cluster_id, investigation_id, staleness['reason'])
                     skipped += 1
                     continue
-            except Exception as e:
+            except (ValueError, TypeError) as e:
                 logger.error("Error checking staleness for %s/%s: %s",
                             cluster_id, investigation_id, e, exc_info=True)
                 errors += 1
@@ -261,26 +266,32 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 errors += 1
                 continue
 
-            reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context)
+            try:
+                reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context)
+            except (ValueError, ClientError, BotoCoreError):
+                logger.exception("Stale close failed for %s/%s", cluster_id, investigation_id)
+                errors += 1
+                continue
 
             if reap_success:
                 reaped += 1
             else:
                 errors += 1
 
-    except (ClientError, BotoCoreError) as e:
-        logger.error("AWS API error during investigation reaping: %s", e, exc_info=True)
-        return {
-            'error': f'AWS API error: {str(e)}',
-            'checked': checked,
-            'reaped': reaped,
-            'skipped': skipped,
-            'errors': errors,
-            **close_summary,
-        }
     except Exception as e:
-        logger.error("Unexpected error during investigation reaping: %s", e, exc_info=True)
-        raise  # Re-raise for Lambda to fail properly
+        logger.exception("Stale sweep failed: checked=%d reaped=%d skipped=%d errors=%d close=%s",
+                         checked, reaped, skipped, errors, close_summary)
+        if discovery_errors:
+            raise ExceptionGroup("Multiple reaper phases failed", [*discovery_errors, e]) from None
+        raise
+
+    if discovery_errors:
+        logger.error("Close discovery incomplete: checked=%d reaped=%d skipped=%d errors=%d close=%s",
+                     checked, reaped, skipped, errors, close_summary)
+    if len(discovery_errors) == 1:
+        raise discovery_errors[0]
+    if discovery_errors:
+        raise ExceptionGroup("Close discovery failed", discovery_errors)
 
     logger.info("Reaper completed: checked=%d, reaped=%d, skipped=%d, errors=%d",
                checked, reaped, skipped, errors)
@@ -310,28 +321,26 @@ def build_finalizer() -> close_finalization.Finalizer:
     )
 
 
-def process_close_work(context: Any) -> Dict[str, int]:
+def process_close_work(context: Any, discovery_errors: List[Exception]) -> Dict[str, int]:
     """Finalize explicit close requests and activate eligible auto-close intents.
 
-    Failures here never abort the stale sweep: each investigation's outcome is
-    recorded in its own status record, and the next invocation resumes.
+    Discovery/configuration failures invalidate the run and propagate to Lambda.
+    Once a record is identified, isolate its failure and continue with its peers.
     """
     # requests_processed counts passes, not successes: a pass that retained the
     # workspace also increments close_errors.
     summary = {'requests_processed': 0, 'intents_activated': 0, 'close_errors': 0}
-    if not S3_AUDIT_BUCKET:
-        logger.warning("S3_AUDIT_BUCKET is not configured; close requests cannot be processed")
-        return summary
     finalizer = build_finalizer()
-    try:
-        summary['intents_activated'] = activate_auto_close_intents(finalizer, context)
-        summary['requests_processed'] = finalize_close_requests(finalizer, context, summary)
-    except (ClientError, BotoCoreError, ValueError) as error:
-        # Close work must never abort the stale sweep, and a malformed record
-        # must never stop the schedule for the whole deployment.
-        logger.error("Close request processing could not run: %s", type(error).__name__,
-                     exc_info=True)
-        summary['close_errors'] += 1
+    # The inventories are independent. Fail the invocation after safe work,
+    # not at the first unavailable prefix. Record-level exceptions are handled
+    # inside each processor and never turn into a discovery failure by count.
+    for field, process in (('intents_activated', activate_auto_close_intents),
+                           ('requests_processed', finalize_close_requests)):
+        try:
+            summary[field] = process(finalizer, context, summary)
+        except (ClientError, BotoCoreError) as error:
+            logger.exception("Could not discover close work for %s", field)
+            discovery_errors.append(error)
     return summary
 
 
@@ -416,6 +425,7 @@ def finalize_close_requests(finalizer, context: Any, summary: Dict[str, int]) ->
     """
     statuses: Dict[Any, Optional[Dict[str, Any]]] = {}
     candidates: Dict[Any, Any] = {}
+    unreadable = set()
     for key in finalizer.list_keys(f'{records.CONTROL_PREFIX}/requests/'):
         if work_seconds(context) < CLOSE_MIN_SECONDS:
             break
@@ -424,9 +434,18 @@ def finalize_close_requests(finalizer, context: Any, summary: Dict[str, int]) ->
             continue
         cluster_id, investigation_id, stamp, token = identity
         investigation = (cluster_id, investigation_id)
+        if investigation in unreadable:
+            continue
         if investigation not in statuses:
-            statuses[investigation] = finalizer.get_json(
-                records.status_key(cluster_id, investigation_id), records.KIND_STATUS)
+            try:
+                statuses[investigation] = finalizer.get_json(
+                    records.status_key(cluster_id, investigation_id), records.KIND_STATUS)
+            except (ValueError, ClientError, BotoCoreError):
+                # Unknown is not absent: never start fresh over a possible checkpoint.
+                logger.exception("Cannot read close status for %s/%s", *investigation)
+                unreadable.add(investigation)
+                summary['close_errors'] += 1
+                continue
         if _answered(statuses[investigation], token, stamp):
             continue
         # One attempt per investigation per run: a second request for the same
@@ -453,7 +472,7 @@ def finalize_close_requests(finalizer, context: Any, summary: Dict[str, int]) ->
             request = records.validate_request(
                 finalizer.get_json(key, records.KIND_REQUEST) or {})
         except (ValueError, ClientError, BotoCoreError):
-            logger.warning("Ignoring unreadable or malformed close request")
+            logger.exception("Cannot read close request for %s/%s", *investigation)
             summary['close_errors'] += 1
             continue
         if (request['cluster_id'] != cluster_id
@@ -463,8 +482,13 @@ def finalize_close_requests(finalizer, context: Any, summary: Dict[str, int]) ->
             summary['close_errors'] += 1
             continue
         mode = 'stale' if request['trigger'] == records.TRIGGER_STALE else 'request'
-        if not finalize_one(finalizer, cluster_id, investigation_id, request, mode, context,
-                            existing=statuses[investigation]):
+        try:
+            complete = finalize_one(finalizer, cluster_id, investigation_id, request, mode,
+                                    context, existing=statuses[investigation])
+        except (ValueError, ClientError, BotoCoreError):
+            logger.exception("Close pass failed for %s/%s", *investigation)
+            complete = False
+        if not complete:
             summary['close_errors'] += 1
         finalized += 1
     return finalized
@@ -523,7 +547,7 @@ def finalize_one(finalizer, cluster_id: str, investigation_id: str,
     return status.get('status') == records.STATUS_COMPLETED
 
 
-def activate_auto_close_intents(finalizer, context: Any) -> int:
+def activate_auto_close_intents(finalizer, context: Any, summary=None) -> int:
     """Turn eligible auto-close intents into recorded close requests.
 
     An intent is activated only once its own task is observed stopped and the
@@ -550,64 +574,69 @@ def activate_auto_close_intents(finalizer, context: Any) -> int:
             continue
         cluster_id, investigation_id, _task = parts
         try:
-            intent = records.validate_intent(
-                finalizer.get_json(key, records.KIND_INTENT) or {})
+            if activate_one_intent(finalizer, key, cluster_id, investigation_id):
+                activated += 1
         except (ValueError, ClientError, BotoCoreError):
-            logger.warning("Ignoring unreadable or malformed auto-close intent")
-            continue
-        if intent.get('cancelled') or intent.get('activated_request_token'):
-            continue
-        observation = finalizer.observe(cluster_id, investigation_id)
-        if observation['state'] == records.STATE_UNKNOWN:
-            logger.info("Auto-close intent deferred: investigation state is unknown")
-            continue
-        remaining = sessions.nonterminal_task_ids(observation)
-        if intent['task_id'] in remaining:
-            continue
-        # Supersession is decided before the wait below, so a handover still
-        # cancels a stale intent instead of leaving it deferred forever.
-        superseded = sessions.request_superseded(intent, observation)
-        if superseded:
-            logger.info("Auto-close intent superseded for %s/%s", cluster_id, investigation_id)
-            finalizer.put_json(key, dict(intent, cancelled=True,
-                                         cancelled_at=records.now_iso(),
-                                         cancelled_reason=superseded))
-            continue
-        if observation['state'] != records.STATE_IDLE:
-            # Intent is not pending closure: even stop-all consent cannot
-            # activate it while the requester has another shell attached.
-            continue
-        if remaining and intent['stop_scope'] != records.STOP_INVESTIGATION:
-            # Another task is still running and this intent was not consent to
-            # stop it. Wait for it rather than seal around work in progress.
-            logger.info("Auto-close intent deferred: another task is still running")
-            continue
-        request_token = str(uuid.uuid4())
-        requested_at = records.now_iso()
-        request = {
-            'schema_version': records.REQUEST_SCHEMA_VERSION,
-            'kind': records.KIND_REQUEST,
-            'request_token': request_token,
-            'cluster_id': cluster_id,
-            'investigation_id': investigation_id,
-            'access_point_id': intent['access_point_id'],
-            'requester_sub': intent['requester_sub'],
-            'requester_username': intent.get('requester_username', ''),
-            'stop_scope': intent['stop_scope'],
-            'stop_task_ids': ([intent['task_id']]
-                              if intent['stop_scope'] == records.STOP_SESSION_TASK else []),
-            'trigger': 'auto_close',
-            'requested_at': requested_at,
-            'activated_from_intent': intent['task_id'],
-            'deployment': ECS_CLUSTER,
-        }
-        finalizer.put_json(
-            records.request_key(cluster_id, investigation_id, request_token, requested_at),
-            request)
-        finalizer.put_json(key, dict(intent, activated_request_token=request_token,
-                                     activated_at=records.now_iso()))
-        activated += 1
+            logger.exception("Cannot process auto-close intent for %s/%s", cluster_id, investigation_id)
+            if summary is not None:
+                summary['close_errors'] += 1
     return activated
+
+
+def activate_one_intent(finalizer, key, cluster_id, investigation_id) -> bool:
+    intent = records.validate_intent(finalizer.get_json(key, records.KIND_INTENT) or {})
+    if intent.get('cancelled') or intent.get('activated_request_token'):
+        return False
+    observation = finalizer.observe(cluster_id, investigation_id)
+    if observation['state'] == records.STATE_UNKNOWN:
+        logger.info("Auto-close intent deferred: investigation state is unknown")
+        return False
+    remaining = sessions.nonterminal_task_ids(observation)
+    if intent['task_id'] in remaining:
+        return False
+    # Supersession is decided before the wait below, so a handover still
+    # cancels a stale intent instead of leaving it deferred forever.
+    superseded = sessions.request_superseded(intent, observation)
+    if superseded:
+        logger.info("Auto-close intent superseded for %s/%s", cluster_id, investigation_id)
+        finalizer.put_json(key, dict(intent, cancelled=True,
+                                     cancelled_at=records.now_iso(),
+                                     cancelled_reason=superseded))
+        return False
+    if observation['state'] != records.STATE_IDLE:
+        # Intent is not pending closure: even stop-all consent cannot
+        # activate it while the requester has another shell attached.
+        return False
+    if remaining and intent['stop_scope'] != records.STOP_INVESTIGATION:
+        # Another task is still running and this intent was not consent to
+        # stop it. Wait for it rather than seal around work in progress.
+        logger.info("Auto-close intent deferred: another task is still running")
+        return False
+    request_token = str(uuid.uuid4())
+    requested_at = records.now_iso()
+    request = {
+        'schema_version': records.REQUEST_SCHEMA_VERSION,
+        'kind': records.KIND_REQUEST,
+        'request_token': request_token,
+        'cluster_id': cluster_id,
+        'investigation_id': investigation_id,
+        'access_point_id': intent['access_point_id'],
+        'requester_sub': intent['requester_sub'],
+        'requester_username': intent.get('requester_username', ''),
+        'stop_scope': intent['stop_scope'],
+        'stop_task_ids': ([intent['task_id']]
+                          if intent['stop_scope'] == records.STOP_SESSION_TASK else []),
+        'trigger': 'auto_close',
+        'requested_at': requested_at,
+        'activated_from_intent': intent['task_id'],
+        'deployment': ECS_CLUSTER,
+    }
+    finalizer.put_json(
+        records.request_key(cluster_id, investigation_id, request_token, requested_at),
+        request)
+    finalizer.put_json(key, dict(intent, activated_request_token=request_token,
+                                 activated_at=records.now_iso()))
+    return True
 
 
 def is_investigation_stale(cluster_id: str, investigation_id: str,
@@ -709,7 +738,10 @@ def list_all_running_tasks() -> List[Dict[str, str]]:
                     include=['TAGS']
                 )
 
-                for task in described.get('tasks', []):
+                if (described.get('failures') or
+                        {task['taskArn'] for task in described['tasks']} != set(response['taskArns'])):
+                    raise RuntimeError("Incomplete ECS task inventory")
+                for task in described['tasks']:
                     tags = {tag['key']: tag['value'] for tag in task.get('tags', [])}
                     tasks.append({
                         'arn': task['taskArn'],

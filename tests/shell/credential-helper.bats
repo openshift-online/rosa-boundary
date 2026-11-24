@@ -478,3 +478,36 @@ STUB
     run_clear
     [ "$(cat "${OCM_DIR}/.rosa-boundary-credential-clear-epoch")" != "${first}" ]
 }
+
+@test "terminated backplane login removes a kubeconfig written after a clear" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+: >"${STUB_STATE}/started"
+while [[ ! -e "${STUB_STATE}/go" ]]; do sleep 0.1; done
+printf 'late' >"${STUB_KUBE_DIR}/config"
+: >"${STUB_STATE}/written"
+sleep 30
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    state="${TEST_ROOT}/state"
+    mkdir -p "${state}"
+    PATH="${STUBS}:${PATH}" STUB_STATE="${state}" STUB_KUBE_DIR="${KUBE_DIR}" setsid bash -c '
+        source "$1"
+        OCM_CONFIG_DIR="$2"
+        KUBECONFIG_DIR="$3"
+        login_backplane 2abc
+    ' bash "${HELPER}" "${OCM_DIR}" "${KUBE_DIR}" >/dev/null 2>&1 &
+    pid=$!
+    for _ in $(seq 1 100); do [[ -e "${state}/started" ]] && break; sleep 0.1; done
+    [ -e "${state}/started" ]
+    run_clear
+    [ "${status}" -eq 0 ]
+    : >"${state}/go"
+    for _ in $(seq 1 100); do [[ -e "${state}/written" ]] && break; sleep 0.1; done
+    [ -e "${state}/written" ]
+    [ -e "${KUBE_DIR}/config" ]
+    kill -TERM -- "-${pid}"
+    wait "${pid}" || true
+    [ ! -e "${KUBE_DIR}/config" ]
+}

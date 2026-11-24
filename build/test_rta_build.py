@@ -71,6 +71,10 @@ def test_resolved_clone_commit_is_forwarded(pipeline):
     ('components/trusted-actions/go.mod.backup', False),
     ('docs/testing.md', False),
     ('Containerfile', True),
+    ('utils/rosa-boundary-credential-helper', True),
+    ('utils/rosa-boundary-skill-sync.sh', True),
+    ('utils/rosa-boundary-agent-defaults.py', True),
+    ('utils/rosa-boundary-agent-defaults.py.backup', False),
 ])
 def test_boundary_trigger_includes_cli_build_inputs(pipeline, path, expected):
     # files.all is PaC's changed-path list; exists(x, ...) matches ANY path.

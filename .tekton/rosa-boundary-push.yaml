@@ -23,6 +23,7 @@ metadata:
         || x.matches('^\\.containerignore$')
         || x.matches('^build/')
         || x.matches('^skel/')
+        || x.matches('^utils/(rosa-boundary-credential-helper|rosa-boundary-skill-sync\\.sh|rosa-boundary-agent-defaults\\.py)$')
         || x.matches('^components/trusted-actions/(cmd/rta/|internal/|go\\.(mod|sum)$|VERSION$)')
         || x.matches('^\\.tekton/rosa-boundary-')
       )

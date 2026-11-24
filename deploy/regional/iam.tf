@@ -392,6 +392,17 @@ resource "aws_iam_role_policy" "reap_tasks_lambda_ecs" {
         Condition = { "ForAnyValue:StringLike" = { "ecs:ResourceTag/deadline" = "*" } }
       },
       {
+        # Sessions launched without a deadline still have an eight-hour cap.
+        # Match the identity pair used by reap_reason, including pre-marker tasks.
+        Effect   = "Allow"
+        Action   = ["ecs:StopTask"]
+        Resource = "arn:${data.aws_partition.current.partition}:ecs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:task/${aws_ecs_cluster.main.name}/*"
+        Condition = { StringLike = {
+          "ecs:ResourceTag/investigation_id" = "?*"
+          "ecs:ResourceTag/oidc_sub"         = "?*"
+        } }
+      },
+      {
         # DescribeSessions cannot be scoped to an SSM resource ARN. Check active
         # ECS Exec sessions before reaping expired tasks (main #323).
         Effect   = "Allow"

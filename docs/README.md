@@ -15,7 +15,7 @@ The ROSA Boundary system provides secure, audited access to ephemeral SRE contai
 - [**CLI Authentication**](architecture/cli-authentication.md) - How the CLI exchanges an OIDC token for temporary AWS credentials
 - [**Configuration discovery decision**](architecture/config-discovery.md) - What `get_config` discloses and who can invoke it
 - [**Investigations and Tasks**](architecture/investigations-and-tasks.md) - Conceptual model, lifecycle, state recording, and FAQ
-- [**Session Lifecycle Reference**](architecture/session-lifecycle.md) - Timeout matrix, task/AP tags, creator versus actor, handover, Exec environment, and network endpoints
+- [**Session Lifecycle Reference**](architecture/session-lifecycle.md) - Session vs. shell, actor permissions, handover, timeout and expiry clocks, estimated investigation idle time, admission cutoff, and closure states
 - [**Automated Investigation Close**](architecture/investigation-close.md) - When all shells must detach, how accepted requests and auto-close intents differ, best-effort sealing, observed-quiescence receipts, control records, and retention
 
 ## Design Proposals

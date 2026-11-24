@@ -47,7 +47,7 @@ request close. The service must observe **no attached ECS Exec shells** anywhere
 | --- | --- |
 | Any shell attached | No new request is recorded (409). Disconnect all shells and retry. If a shell appears after acceptance, the reaper waits before sealing or draining, even with stop consent. |
 | Handed over from A to B | An explicit request remains pending. When B is observed attached, a session-exit callback or auto-close intent from A is superseded, not inherited consent. |
-| No active sessions | Any authenticated SRE authorized to use Boundary. No creator match and no handover is required to close an idle investigation, and a task left running does not reserve it for whoever launched it. |
+| No attached shells | Any authenticated SRE authorized to use Boundary. No creator match and no handover is required to close an idle investigation, and a task left running does not reserve it for whoever launched it. |
 | Incomplete, contradictory or unavailable | Unknown. A new request is refused as retryable; the reaper defers an already recorded request. Unknown is never treated as idle. |
 
 ### What "held" is observed from
@@ -93,7 +93,7 @@ For example, B requests close without stop consent after A detaches. If a shell
 is observed on revalidation, the reaper reports `waiting_for_tasks`. After all
 shells detach it may seal, but it still waits for A’s task to stop. Once
 quiet, it processes **the same request** through backup verification and normal
-close. The scheduled stale sweep has no stop consent: it must observe no attached shells and no non-terminal tasks before recording a stale request.
+close. The scheduled sweep has no stop consent. At expiry it may record a request while a shell is attached; this closes admission, not the shell. Idle-based closure requires confirmed shell absence. Neither route can verify the final workspace until every task has stopped.
 
 Consent travels with the request that carried it. A second request cannot widen
 an earlier one, and `--force` is not an authorization override: it does not permit the reaper to interrupt any attached shell.
@@ -102,8 +102,13 @@ an earlier one, and `--force` is not an authorization override: it does not perm
 
 A managed seal is an access-point tag set by the reaper:
 `AuditCloseSeal=<uuid>` plus `AuditCloseManagedBy=rosa-boundary-reaper` and
-`AuditCloseRequest=<request token>`. Once it is observed, Boundary's own create,
-reconnect and handover paths reject the investigation.
+`AuditCloseRequest=<request token>`. It marks the drain/finalization phase. Boundary Create (including handover)
+and Join already refuse admission at investigation expiry or recorded closure
+intent, whichever comes first. A session-bound `--auto-close` instruction for
+a future exit is distinct from an activated close request. Admission stays
+closed while a shell drains or its state is unknown. Only after confirming no
+shell is attached can the investigation enter PENDING_CLOSURE; late activity
+makes the finalizer wait, not roll back that state.
 
 That is **best effort**. There is still a check-to-launch race: a launch that
 already passed its marker check can appear after a reaper observation. The

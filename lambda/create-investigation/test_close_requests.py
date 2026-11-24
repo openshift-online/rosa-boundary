@@ -11,6 +11,7 @@ consent, or reporting a persisted request when nothing was written.
 import io
 import json
 import re
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -681,7 +682,8 @@ def test_close_marker_distinguishes_managed_from_legacy_seals():
     base = {'ClusterID': CLUSTER, 'InvestigationID': INVESTIGATION,
             'ManagedBy': 'rosa-boundary-lambda'}
     cases = [
-        ({'CreatedAt': '2026-01-01T00:00:00Z'}, None),
+        ({'CreatedAt': datetime.now(timezone.utc).isoformat()}, None),
+        ({close_requests.TAG_REQUEST: 'token'}, 'close request recorded'),
         ({}, 'Legacy investigation workspace is retiring'),
         ({close_requests.TAG_SEAL: 'x'}, 'sealed for audit verification'),
         ({close_requests.TAG_SEAL: 'x',
@@ -695,6 +697,59 @@ def test_close_marker_distinguishes_managed_from_legacy_seals():
             assert reason is None
         else:
             assert expected in reason
+
+
+def test_configured_expiry_is_inclusive(monkeypatch):
+    monkeypatch.setenv('INVESTIGATION_EXPIRY_HOURS', '2')
+    created = datetime.now(timezone.utc)
+    tags = {'CreatedAt': created.isoformat()}
+    boundary = created + timedelta(hours=2)
+    assert not close_requests.workspace_admission_block(tags, boundary - timedelta(microseconds=1))
+    assert 'expired' in close_requests.workspace_admission_block(tags, boundary)
+
+
+@pytest.mark.parametrize('stamp', ['2000-01-01T00:00:00Z', 'not a timestamp'])
+def test_expired_or_unknown_expiry_blocks_create_and_join_without_disrupting_shell(stamp):
+    page = access_point_page()
+    page['AccessPoints'][0]['Tags'].append({'Key': 'CreatedAt', 'Value': stamp})
+    h = Harness(tasks=[task()], sessions=1, pages=[page])
+    assert not h.dispatch('close_status')['join_access_point_id']
+    with patch.object(handler, 'efs', h.efs), patch.object(handler, 'ecs', h.ecs), \
+            patch.object(handler, 'require_durable_admission'):
+        with pytest.raises(handler.HandoverFailedError) as exc:
+            handler.create_investigation_task(
+                cluster='test-cluster', task_def='boundary', oidc_sub=OTHER_SRE,
+                username='bob', abac_tag_key='username', abac_tag_value='bob',
+                investigation_id=INVESTIGATION, cluster_id=CLUSTER, subnets=['subnet'],
+                security_group='sg', efs_filesystem_id='fs-1')
+        assert exc.value.status_code == 409
+    h.ecs.stop_task.assert_not_called()
+    h.ecs.run_task.assert_not_called()
+
+
+@pytest.mark.parametrize('scenario', ['idle', 'young', 'zero', 'attached', 'unknown', 'wrong_workspace'])
+def test_authorized_peer_can_close_only_a_verified_idle_session(scenario):
+    target = task(runtime=None if scenario == 'unknown' else 'runtime')
+    target['createdAt'] = datetime.now(timezone.utc) - timedelta(
+        seconds=5 if scenario == 'young' else 3600)
+    target['startedBy'] = 'started-by'
+    target['tags'].extend({'key': k, 'value': v} for k, v in {
+        'cluster_id': CLUSTER, 'investigation_id': INVESTIGATION,
+        'task_timeout': '0' if scenario == 'zero' else '3600',
+        'access_point_id': 'fsap-other' if scenario == 'wrong_workspace' else ACCESS_POINT,
+    }.items())
+    h = Harness(tasks=[target], sessions=int(scenario == 'attached'))
+    if scenario == 'idle':
+        result = h.dispatch('close_session', {'task_id': TASK_ID}, sub=OTHER_SRE)
+        assert result['status'] == 'stop_requested'
+        h.ecs.stop_task.assert_called_once_with(cluster='test-cluster', task=TASK_ID,
+            reason=f'Idle session close requested by {OTHER_SRE}')
+        assert not h.s3.objects
+    else:
+        with pytest.raises(close_requests.CloseRequestError) as exc:
+            h.dispatch('close_session', {'task_id': TASK_ID}, sub=OTHER_SRE)
+        assert exc.value.status_code == 409
+        h.ecs.stop_task.assert_not_called()
 
 
 def test_a_retiring_workspace_cannot_be_reused_for_handover():
@@ -802,13 +857,14 @@ def test_close_racing_creation_retains_the_ap_named_by_the_request(accepted_afte
 def test_join_proof_requires_the_current_available_dated_ap_and_no_records():
     page = access_point_page()
     ap = page['AccessPoints'][0]
-    harness = Harness(pages=[page])
+    # A shell attached before the intent was recorded must not reopen Join.
+    harness = Harness(tasks=[task()], sessions=1, pages=[page])
 
     def proof():
         return harness.dispatch('close_status')['join_access_point_id']
 
     assert not proof()  # retiring, undated AP
-    ap['Tags'].append({'Key': 'CreatedAt', 'Value': '2026-01-01T00:00:00Z'})
+    ap['Tags'].append({'Key': 'CreatedAt', 'Value': datetime.now(timezone.utc).isoformat()})
     assert proof() == ACCESS_POINT
     ap['LifeCycleState'] = 'deleting'
     assert not proof()

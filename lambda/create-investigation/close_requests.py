@@ -14,7 +14,8 @@ What this module does own is narrow and deliberate:
   service-only ``_boundary-close/`` prefix of the audit bucket; and
 * report the finalizer's status, including after the access point is gone.
 
-What it must never do is seal, stop tasks, copy data, verify a backup, publish
+A separate close_session action may stop a verified idle session. Investigation
+close actions must never seal, stop tasks, copy data, verify a backup, publish
 a receipt or delete anything. Those are the investigation reaper's work, and
 keeping them there is what stops an SRE's request from also being its own
 audit evidence. A recorded request is a request, not a decision.
@@ -28,10 +29,11 @@ authorization matrix are declared in both and pinned together by
 
 import json
 import logging
+import os
 import re
 import uuid
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
@@ -88,11 +90,35 @@ TASK_ID_PATTERN = re.compile(r'^[0-9a-f]{32}$|^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0
 MAX_RECORD_BYTES = 16 << 10
 DESCRIBE_CHUNK = 100
 
-ACTIONS = ('request_close', 'close_status', 'register_auto_close', 'cancel_auto_close')
+ACTIONS = ('close_session', 'request_close', 'close_status', 'register_auto_close', 'cancel_auto_close')
 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def workspace_admission_block(tags, now=None):
+    """Workspace-level reasons Create and Join must refuse admission."""
+    if TAG_SEAL in tags:
+        if tags.get(TAG_MANAGED) == MANAGED_BY:
+            return 'Workspace is closing: an automated close is in progress for audit finalization'
+        return 'Workspace sealed for audit verification; contact the operator'
+    if TAG_REQUEST in tags:
+        return 'Workspace is closing: close request recorded'
+    created = tags.get('CreatedAt')
+    if not created:
+        return ('Legacy investigation workspace is retiring; start a new investigation ID'
+                if tags.get('ManagedBy') == MANAGED_BY_LAMBDA else None)
+    try:
+        instant = datetime.fromisoformat(created.replace('Z', '+00:00'))
+        if instant.tzinfo is None:
+            raise ValueError('missing offset')
+        lifetime = timedelta(hours=float(os.environ.get('INVESTIGATION_EXPIRY_HOURS', '168')))
+        if (now or datetime.now(timezone.utc)) >= instant + lifetime:
+            return 'Investigation has expired; start a new investigation ID'
+    except (AttributeError, ValueError, OverflowError):
+        return 'Cannot verify investigation expiry; admission refused'
+    return None
 
 
 def safe_segment(value: str) -> str:
@@ -230,10 +256,16 @@ def _list_task_arns(ecs, ecs_cluster, started_by):
     paginator = ecs.get_paginator('list_tasks')
     # startedBy must be the only ECS filter. Its default desired status is
     # RUNNING; also look for tasks asked to stop but not yet terminal.
-    matching = {arn for page in paginator.paginate(cluster=ecs_cluster, startedBy=started_by)
-                for arn in page.get('taskArns', [])}
-    stopping = {arn for page in paginator.paginate(cluster=ecs_cluster, desiredStatus='STOPPED')
-                for arn in page.get('taskArns', [])}
+    def inventory(**filters):
+        arns = set()
+        for page in paginator.paginate(cluster=ecs_cluster, **filters):
+            if not isinstance(page.get('taskArns'), list):
+                raise ValueError('missing ECS task inventory')
+            arns.update(page['taskArns'])
+        return arns
+
+    matching = inventory(startedBy=started_by)
+    stopping = inventory(desiredStatus='STOPPED')
     return matching, sorted(matching | stopping)
 
 
@@ -246,7 +278,7 @@ def observe_investigation(ecs, ssm, ecs_cluster, started_by):
     """
     try:
         matching, arns = _list_task_arns(ecs, ecs_cluster, started_by)
-    except (ClientError, BotoCoreError):
+    except (ValueError, ClientError, BotoCoreError):
         return _unknown('task scan failed; investigation state is unknown')
 
     described = []
@@ -516,6 +548,50 @@ def _existing_equivalent_request(s3, bucket, account_id, cluster_id, investigati
     return None
 
 
+def handle_close_session(body, identity, config, clients):
+    """Mediate a single idle-task stop; never close its investigation."""
+    cluster_id, investigation_id = body['cluster_id'], body['investigation_id']
+    task_id = body.get('task_id')
+    if not identity.get('sub'):
+        raise CloseRequestError(403, 'authenticated subject required')
+    if not isinstance(task_id, str) or not TASK_ID_PATTERN.fullmatch(task_id):
+        raise CloseRequestError(400, 'task_id must be an ECS task identifier')
+
+    ap = _require_investigation(config, clients, cluster_id, investigation_id)
+    ecs, cluster = clients['ecs'], config['ecs_cluster']
+    result = ecs.describe_tasks(cluster=cluster, tasks=[task_id], include=['TAGS'])
+    tasks = result.get('tasks', [])
+    if result.get('failures') or len(tasks) != 1:
+        raise CloseRequestError(409, 'session could not be verified')
+    task = tasks[0]
+    tags = {t['key']: t['value'] for t in task.get('tags', [])}
+    if (task.get('taskArn', '').rsplit('/', 1)[-1] != task_id
+            or task.get('startedBy') != config['started_by'](cluster_id, investigation_id)
+            or tags.get('cluster_id') != cluster_id or tags.get('investigation_id') != investigation_id
+            or tags.get('access_point_id') != ap['access_point_id'] or not tags.get('oidc_sub')):
+        raise CloseRequestError(409, 'session is not linked to the requested workspace')
+    if task.get('lastStatus') != 'RUNNING' or task.get('desiredStatus') != 'RUNNING':
+        raise CloseRequestError(409, 'session is not running')
+    try:
+        timeout = int(tags['task_timeout'])
+        created = task['createdAt']
+        if not isinstance(created, datetime) or created.tzinfo is None or timeout < 0:
+            raise ValueError
+        # Zero disables the configurable timer, not the independent 8h cap.
+        idle_after = created + timedelta(seconds=timeout or 8 * 3600)
+    except (KeyError, TypeError, ValueError, OverflowError):
+        raise CloseRequestError(409, 'session age or timeout could not be verified')
+    if datetime.now(timezone.utc) < idle_after:
+        raise CloseRequestError(409, 'session timeout has not elapsed')
+    count, incomplete = active_session_count(clients['ssm'], cluster, task_id,
+                                              task.get('containers', []))
+    if count or incomplete:
+        raise CloseRequestError(409, 'cannot confirm that no shell is attached')
+    ecs.stop_task(cluster=cluster, task=task_id,
+                  reason=f"Idle session close requested by {identity['sub']}")
+    return {'action': 'close_session', 'task_id': task_id, 'status': 'stop_requested'}
+
+
 def handle_request_close(body, identity, config, clients):
     """Record an authenticated, authorized close request."""
     cluster_id = body['cluster_id']
@@ -783,8 +859,8 @@ def handle_close_status(body, identity, config, clients):
         # Positive proof for newer CLI clients: never join an old task on the
         # strength of a different AP now occupying its investigation path.
         'join_access_point_id': (investigation['access_point_id'] if investigation
-                                 and investigation['available'] and tags.get('CreatedAt')
-                                 and seal_state == 'none' and status_record is None
+                                 and investigation['available'] and not workspace_admission_block(tags)
+                                 and status_record is None
                                  and not request_keys else ''),
         'seal': seal_state,
     })
@@ -806,6 +882,7 @@ def _require_investigation(config, clients, cluster_id, investigation_id):
 
 
 _HANDLERS = {
+    'close_session': handle_close_session,
     'request_close': handle_request_close,
     'register_auto_close': handle_register_auto_close,
     'cancel_auto_close': handle_cancel_auto_close,

@@ -2,13 +2,14 @@
 AWS Lambda handler for periodic reaping of expired ECS tasks.
 
 This Lambda runs on a schedule (default: every 15 minutes) to check all
-RUNNING ECS tasks and stop any that have exceeded their deadline tag.
+RUNNING sessions. A configured timeout requires confirmed shell absence;
+at eight hours of session age, even an attached shell is eligible.
 """
 
 import os
 import logging
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 import boto3
 from botocore.config import Config as BotocoreConfig
@@ -83,6 +84,51 @@ def _ssm_dependency_reason(error):
     return None
 
 
+MAX_SESSION_AGE = timedelta(hours=8)
+
+
+def reap_reason(task, now):
+    tags = {tag['key']: tag.get('value') for tag in task.get('tags', [])}
+    # This cluster also runs maintenance tasks. Only apply the independent
+    # age cap to sessions launched for an investigation, including those
+    # launched with the optional deadline disabled.
+    created = task.get('createdAt')
+    identified = bool(tags.get('investigation_id') and tags.get('oidc_sub'))
+    dated = isinstance(created, datetime) and created.tzinfo is not None
+    if 'task_timeout' in tags and not (identified and dated):
+        # Do not substitute a pre-launch deadline for an unknown task age.
+        return None, False
+    if identified and dated:
+        age = now - created
+        if age >= MAX_SESSION_AGE:
+            return 'Session reached maximum age (8 hours)', True
+        if 'task_timeout' in tags:
+            try:
+                seconds = int(tags['task_timeout'])
+                if seconds < 0:
+                    raise ValueError
+            except (ValueError, TypeError):
+                logger.warning("Invalid task_timeout for task %s", task['taskArn'])
+                return None, False
+            if seconds and age.total_seconds() >= seconds:
+                return f'IDLE session reached configured timeout ({seconds}s)', False
+            return None, False
+
+    # Older tasks can have a deadline but no configured timeout metadata.
+
+    value = tags.get('deadline')
+    if value:
+        try:
+            deadline = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+            if now >= deadline:
+                return f'Task deadline exceeded (deadline: {value})', False
+        except (ValueError, AttributeError):
+            logger.warning("Invalid deadline for task %s: %r", task['taskArn'], value)
+    return None, False
+
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Main Lambda handler for reaping expired ECS tasks.
@@ -103,7 +149,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if not ECS_CLUSTER:
         raise RuntimeError("ECS_CLUSTER not set")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     task_arns = list_running_tasks(ECS_CLUSTER)
     logger.info("Found %d running tasks", len(task_arns))
 
@@ -133,35 +179,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             task_arn = task['taskArn']
             task_id = task_arn.split('/')[-1]
 
-            # Extract deadline tag
-            deadline_str = None
-            for tag in task.get('tags', []):
-                if tag['key'] == 'deadline':
-                    deadline_str = tag['value']
-                    break
-
-            # Skip tasks without deadline tag
-            if not deadline_str:
-                skipped += 1
-                logger.debug(f"Task {task_id} has no deadline tag, skipping")
-                continue
-
-            # Parse deadline as ISO 8601
-            try:
-                deadline = datetime.fromisoformat(deadline_str.replace('Z', '+00:00'))
-            except (ValueError, AttributeError) as e:
-                logger.warning(f"Invalid deadline format for task {task_id}: {deadline_str} - {str(e)}")
+            reason, hard_limit = reap_reason(task, now)
+            if not reason:
                 skipped += 1
                 continue
-
-            # Remove timezone info for comparison (both are UTC)
-            if deadline.tzinfo is not None:
-                deadline = deadline.replace(tzinfo=None)
-
-            # Check if deadline has passed
-            if now > deadline:
-                logger.info(f"Task {task_id} deadline exceeded: {deadline_str}")
-
+            if not hard_limit:
                 # Protect tasks with an active ECS Exec / SSM session: an SRE
                 # may still be working in the task when the deadline expires.
                 # Fail closed - if session state cannot be determined, skip
@@ -173,8 +195,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     if active:
                         protected += 1
                         logger.info(
-                            "Task %s deadline exceeded but has an active ECS Exec "
-                            "session; skipping reap this run", task_id
+                            "Session %s is ACTIVE: deadline reached with an attached shell; skipping this sweep", task_id
                         )
                         continue
                 except SessionCheckError as e:
@@ -193,23 +214,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     )
                     continue
 
-                try:
-                    ecs.stop_task(
-                        cluster=ECS_CLUSTER,
-                        task=task_arn,
-                        reason=f'Task deadline exceeded (deadline: {deadline_str})'
-                    )
-                    stopped += 1
-                    logger.info(f"Stopped task {task_id} (deadline: {deadline_str})")
+            try:
+                ecs.stop_task(
+                    cluster=ECS_CLUSTER,
+                    task=task_arn,
+                    reason=reason
+                )
+                stopped += 1
+                logger.info("Stopped task %s: %s", task_id, reason)
 
-                except (ClientError, BotoCoreError, ConnectionError) as e:
-                    if _deployment_failure('StopTask', e):
-                        deployment_failure = e
-                    logger.error("Failed to stop task %s: %s", task_id, e, exc_info=True)
-                    errors += 1
-            else:
-                skipped += 1
-                logger.debug(f"Task {task_id} deadline not yet reached: {deadline_str}")
+            except (ClientError, BotoCoreError, ConnectionError) as e:
+                if _deployment_failure('StopTask', e):
+                    deployment_failure = e
+                logger.error("Failed to stop task %s: %s", task_id, e, exc_info=True)
+                errors += 1
 
         for failure in response.get('failures', []):
             logger.warning("Could not describe task %s: %s (%s)",
@@ -373,6 +391,7 @@ def _target_has_active_session(target: str) -> bool:
         SessionCheckError: when the SSM DescribeSessions call fails.
     """
     next_token = None
+    seen = set()
     try:
         while True:
             kwargs = {
@@ -383,11 +402,17 @@ def _target_has_active_session(target: str) -> bool:
                 kwargs['NextToken'] = next_token
 
             resp = ssm.describe_sessions(**kwargs)
-            if resp.get('Sessions'):
+            sessions = resp.get('Sessions') if isinstance(resp, dict) else None
+            if not isinstance(sessions, list):
+                raise SessionCheckError('SSM DescribeSessions returned incomplete session evidence')
+            if sessions:
                 return True
 
-            next_token = resp.get('NextToken')
-            if not next_token:
+            if 'NextToken' not in resp:
                 return False
+            next_token = resp['NextToken']
+            if not isinstance(next_token, str) or not next_token or next_token in seen:
+                raise SessionCheckError('SSM DescribeSessions returned invalid pagination')
+            seen.add(next_token)
     except (ClientError, BotoCoreError, ConnectionError) as e:
         raise SessionAPIError(f"SSM DescribeSessions failed: {e}") from e

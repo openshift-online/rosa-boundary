@@ -19,6 +19,7 @@ data "archive_file" "reap_tasks_lambda" {
 resource "aws_lambda_function" "reap_tasks" {
   filename         = data.archive_file.reap_tasks_lambda.output_path
   function_name    = "${var.project}-${var.stage}-reap-tasks"
+  description      = "Stop eligible Boundary sessions (ECS tasks) at their shell-less timeout or eight-hour age limit."
   role             = data.aws_iam_role.reap_tasks_lambda.arn
   handler          = "handler.lambda_handler"
   source_code_hash = data.archive_file.reap_tasks_lambda.output_base64sha256
@@ -43,7 +44,7 @@ resource "aws_lambda_function" "reap_tasks" {
 # EventBridge Rule for periodic invocation
 resource "aws_cloudwatch_event_rule" "reap_tasks_schedule" {
   name                = "${var.project}-${var.stage}-reap-tasks"
-  description         = "Trigger task reaper Lambda every ${var.reaper_schedule_minutes} minutes"
+  description         = "Check Boundary sessions for reaping every ${var.reaper_schedule_minutes} minutes"
   schedule_expression = "rate(${var.reaper_schedule_minutes} minutes)"
 
   tags = local.common_tags

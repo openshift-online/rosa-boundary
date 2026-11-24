@@ -248,6 +248,7 @@ data "archive_file" "reap_investigations_lambda" {
 resource "aws_lambda_function" "reap_investigations" {
   filename         = data.archive_file.reap_investigations_lambda.output_path
   function_name    = "${var.project}-${var.stage}-reap-investigations"
+  description      = "Drain sessions and finalize investigation closure after independent workspace backup verification."
   role             = data.aws_iam_role.reap_investigations_lambda.arn
   handler          = "handler.lambda_handler"
   source_code_hash = data.archive_file.reap_investigations_lambda.output_base64sha256
@@ -264,15 +265,15 @@ resource "aws_lambda_function" "reap_investigations" {
 
   environment {
     variables = {
-      ECS_CLUSTER            = aws_ecs_cluster.main.name
-      EFS_FILESYSTEM_ID      = aws_efs_file_system.sre_home.id
-      GRACE_PERIOD_HOURS     = var.investigation_grace_period_hours
-      S3_AUDIT_BUCKET        = aws_s3_bucket.audit.id
-      AWS_ACCOUNT_ID         = data.aws_caller_identity.current.account_id
-      TASK_DEFINITION_FAMILY = aws_ecs_task_definition.rosa_boundary.family
-      CLOSE_QUIET_SECONDS    = tostring(var.investigation_close_quiet_seconds)
-      CLOSE_REQUESTS_PER_RUN = tostring(var.investigation_close_requests_per_run)
-      CLOSE_STALE_RECLAIM    = tostring(var.investigation_stale_reclaim_directories)
+      ECS_CLUSTER                = aws_ecs_cluster.main.name
+      EFS_FILESYSTEM_ID          = aws_efs_file_system.sre_home.id
+      INVESTIGATION_EXPIRY_HOURS = var.investigation_grace_period_hours
+      S3_AUDIT_BUCKET            = aws_s3_bucket.audit.id
+      AWS_ACCOUNT_ID             = data.aws_caller_identity.current.account_id
+      TASK_DEFINITION_FAMILY     = aws_ecs_task_definition.rosa_boundary.family
+      CLOSE_QUIET_SECONDS        = tostring(var.investigation_close_quiet_seconds)
+      CLOSE_REQUESTS_PER_RUN     = tostring(var.investigation_close_requests_per_run)
+      CLOSE_STALE_RECLAIM        = tostring(var.investigation_stale_reclaim_directories)
     }
   }
 

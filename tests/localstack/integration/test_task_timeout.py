@@ -260,8 +260,7 @@ def test_reaper_skips_task_without_deadline(ecs_client, test_vpc, ecs_cleanup):
     )
 )
 def test_reaper_iam_policy_simulation(iam_client):
-    """Use simulate_principal_policy to verify the reaper deadline condition enforces
-    that StopTask is only allowed on tasks tagged with a deadline.
+    """Exercise the legacy deadline grant in isolation (not the full regional policy).
 
     Currently skipped due to LocalStack not supporting ecs:ResourceTag/* in simulation
     context (see skip reason above). Re-enable once LocalStack fixes this.
@@ -377,11 +376,10 @@ def test_reaper_iam_policy_simulation(iam_client):
 
 @pytest.mark.integration
 def test_reaper_iam_policy_deadline_condition_structure(iam_client):
-    """Test that the reaper Lambda IAM policy restricts StopTask to tasks with a deadline tag.
+    """Round-trip the legacy deadline grant through LocalStack IAM.
 
-    The ecs:ResourceTag/deadline = '*' condition on StopTask means the reaper can only
-    stop tasks that were tagged with a deadline at creation — preventing the reaper from
-    accidentally stopping tasks that were not launched via the rosa-boundary workflow.
+    The regional Terraform IAM ownership test checks the actual policy,
+    including its separate session-identity grant for tasks without a deadline.
     """
     role_name = f'test-reaper-policy-{int(datetime.now().timestamp())}'
     cluster_arn = 'arn:aws:ecs:us-east-1:123456789012:cluster/test-cluster'

@@ -63,10 +63,16 @@ def _list_task_arns(ecs, ecs_cluster, started_by):
     paginator = ecs.get_paginator('list_tasks')
     # startedBy must be the only ECS filter. Its default desired status is
     # RUNNING; also look for tasks asked to stop but not yet terminal.
-    matching = {arn for page in paginator.paginate(cluster=ecs_cluster, startedBy=started_by)
-                for arn in page.get('taskArns', [])}
-    stopping = {arn for page in paginator.paginate(cluster=ecs_cluster, desiredStatus='STOPPED')
-                for arn in page.get('taskArns', [])}
+    def inventory(**filters):
+        arns = set()
+        for page in paginator.paginate(cluster=ecs_cluster, **filters):
+            if not isinstance(page.get('taskArns'), list):
+                raise ValueError('missing ECS task inventory')
+            arns.update(page['taskArns'])
+        return arns
+
+    matching = inventory(startedBy=started_by)
+    stopping = inventory(desiredStatus='STOPPED')
     return matching, sorted(matching | stopping)
 
 
@@ -132,7 +138,7 @@ def observe_investigation(ecs, ssm, ecs_cluster, started_by):
     """
     try:
         matching, arns = _list_task_arns(ecs, ecs_cluster, started_by)
-    except (ClientError, BotoCoreError) as error:
+    except (ValueError, ClientError, BotoCoreError) as error:
         logger.warning('Cannot list investigation tasks: %s', type(error).__name__)
         return _unknown('task scan failed; investigation state is unknown')
 

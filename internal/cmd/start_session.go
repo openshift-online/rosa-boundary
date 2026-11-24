@@ -77,7 +77,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	output.Status("=== Step 1: Starting investigation session via Lambda ===")
 	output.Status("Cluster:        %s", clusterID)
 	output.Status("Investigation:  %s", investigationID)
-	output.Status("Session lifetime: %d seconds", sessionTimeoutSeconds)
+	output.Status("Shell-less session timeout: %d seconds (8h maximum age even with a shell attached)", sessionTimeoutSeconds)
 
 	invokerCredProvider := awsclient.StaticCredentialsProvider(authRes.Credentials)
 	lambdaClient := lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, invokerCredProvider)

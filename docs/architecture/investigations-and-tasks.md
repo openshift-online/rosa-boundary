@@ -11,7 +11,7 @@ Rosa-boundary uses two core abstractions to manage SRE access to clusters. The C
 - **Investigation**: A persistent workspace tied to a specific cluster incident.
 - **Task**: An ephemeral container session launched within an investigation.
 
-An investigation is the parent; tasks are its children. One investigation can have many tasks over its lifetime. Lambda attempts serial handover only when every candidate belongs to a known different owner and has no active SSM sessions. Same-user create and active shells return 409; unknown ownership or session state also blocks replacement. This is not an atomic one-task lock. Every task within the same investigation shares the same persistent filesystem. See the [implemented lifecycle reference](session-lifecycle.md) for the timeout matrix, exact tags, handover limitations and unresolved timeout policy.
+An investigation is the parent; tasks are its children. One investigation can have many tasks over its lifetime. Lambda attempts serial handover only when every candidate belongs to a known different owner and has no active SSM sessions. Same-user create and active shells return 409; unknown ownership or session state also blocks replacement. This is not an atomic one-task lock. Every task within the same investigation shares the same persistent filesystem. See the [implemented lifecycle reference](session-lifecycle.md) for the timeout matrix, exact tags, handover limitations and closure rules.
 
 ## What Is an Investigation?
 
@@ -23,7 +23,7 @@ An investigation is created implicitly by `session create <cluster-id>` or expli
 
 ## What Is a Task?
 
-A task is an **ECS Fargate container** that provides an interactive SRE terminal session. CLI-created tasks request 1 hour by default; Terraform configures an 8-hour fallback for requests omitting the timeout. Reaping is periodic and defers for active or uncertain SSM session state, not a strict lifetime limit. A new `session create` can stop and replace a previous task through handover; it is not unconditionally rejected just because a task is running.
+A task is an **ECS Fargate container** that provides an interactive SRE terminal session. CLI-created tasks request 1 hour by default; Terraform configures an 8-hour fallback for requests omitting the timeout. Before eight hours of task age, deadline reaping requires confirmed shell absence; at eight hours, an attached shell no longer exempts the task. A new `session create` can stop and replace a previous task through handover; it is not unconditionally rejected just because a task is running.
 
 Each task launch:
 
@@ -160,23 +160,21 @@ If an investigation is left open, the same reaper eventually reaps it as a stale
 
 ### Timeout Enforcement
 
-The task reaper runs every 15 minutes by default. It checks RUNNING tasks' deadline tags and stops expired tasks only after confirming no active SSM session. Active or uncertain session state defers reaping; missing deadlines are skipped. Zero is rejected by the default 30-second minimum, but if the minimum is disabled an accepted zero omits the deadline. See the [timeout matrix](session-lifecycle.md#timeout-matrix). [ROSAENG-75947 and ROSAENG-75948 remain unresolved policy work](session-lifecycle.md#unresolved-policy-decisions).
+The task reaper runs every 15 minutes by default. A shell-less session is eligible once task age reaches its configured timeout. At eight hours of task age it is eligible regardless of attachment. Neither threshold guarantees an exact stop time. See the [timeout matrix](session-lifecycle.md#timeout-matrix).
 
 The reaper only stops **tasks** — it does not close investigations or clean up EFS access points.
 
 ### Stale Investigation Cleanup
 
-The investigation reaper runs on a separate EventBridge schedule (default: every 8 hours). It checks managed EFS access points for running tasks and a `CreatedAt` tag; an investigation without running tasks becomes eligible once its configured grace period (default: 168 hours) has elapsed. Age is measured from original creation, not idle duration or handover. The current legacy-backfill path treats missing `CreatedAt` as stale when no tasks are running; it does not enforce the age grace period for those access points. Before recording a stale request it must observe no attached shells and no non-terminal tasks (including stopping tasks). It rechecks activity before cleanup, then runs the same verified finalization pipeline an explicit close runs — seal, observe quiet twice, measure, copy, verify independently — and only then removes the EFS directory, access point and associated task definitions. There is no backup-only route around that gate. Failures are logged; remaining tagged access points can be retried on a later run. See the [Lambda implementation](../../lambda/reap-investigations/handler.py) and [regional Terraform](../../deploy/regional/lambda-reap-investigations.tf) for current behavior and configuration.
+The investigation sweep runs separately (default: every 8 hours). Do not confuse its schedule with the eight-hour idle threshold or the seven-day default expiry. See [idle-time estimation](session-lifecycle.md#how-investigation-idle-time-is-estimated) and [drain and verification](investigation-close.md).
 
 ## Known Gaps
 
 **Normal close retains EFS directories, deliberately.** `investigation close` removes the access point but keeps the underlying files; reclaiming them is a stricter, separate decision. Only the stale route may reclaim a directory. Because close removes the tagged access point the reaper uses for discovery, a retained directory's path is recorded in the close status record instead, which stays readable after the access point is gone. Do not recreate a closed investigation over a retained directory.
 
-**No guaranteed final sync.** The S3 audit sync happens on task exit, not on investigation close. If a task was force-killed or the sync timed out, the latest EFS state may not be in S3 before the access point is deleted.
+**Task exit does not prove backup.** If a task was force-killed or its sync timed out, the task snapshot may be incomplete. Finalization verifies final workspace coverage independently before removing the access point.
 
 **TOCTOU race in duplicate detection.** The one-task-per-investigation constraint relies on `ecs.list_tasks(desiredStatus='RUNNING')`. If two requests arrive simultaneously before either task reaches `RUNNING` state, both can pass the duplicate check. There is no distributed lock; the `startedBy` check is best-effort. In this unlikely case, both tasks would mount the same EFS directory with the same POSIX UID, and concurrent writes could conflict.
-
-The investigation reaper does not guarantee a final S3 sync before deleting a stale investigation. Verify task audit evidence before manual close or relying on automatic cleanup.
 
 ---
 
@@ -201,7 +199,7 @@ Two things:
 
 ### Are investigations automatically cleaned up?
 
-Expired tasks are eligible for periodic reaping subject to active-session protection; a separate investigation reaper can also clean up eligible investigations with no running tasks after its creation-age grace period. Do not assume an open investigation persists indefinitely.
+Yes. The investigation reaper checks idle duration and expiry independently of task reaping. It cannot finalize until shells have drained, tasks have stopped and the final workspace backup is independently verified.
 
 ### What does `investigation close` actually delete?
 

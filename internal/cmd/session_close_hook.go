@@ -39,6 +39,7 @@ type sessionCloseTarget struct {
 	InvestigationID string
 	SessionID       string
 	AccessPointID   string
+	CreatorSubject  string
 }
 
 func (t sessionCloseTarget) valid() bool {
@@ -57,6 +58,7 @@ func resolveSessionCloseTarget(ctx context.Context, ecsClient *awsclient.ECSClie
 		InvestigationID: task.Tags["investigation_id"],
 		SessionID:       sessionID,
 		AccessPointID:   task.Tags["access_point_id"],
+		CreatorSubject:  task.Tags["oidc_sub"],
 	}
 	if !target.valid() {
 		return sessionCloseTarget{}, fmt.Errorf("session %s has no investigation identity tags; close cannot be requested for it", sessionID)

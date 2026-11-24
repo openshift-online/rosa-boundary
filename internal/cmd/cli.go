@@ -357,7 +357,7 @@ func buildSessionCommand() *cobra.Command {
 		return runStartSession(cmd, nil)
 	})
 	start.Flags().String("investigation-id", "", "Investigation to use (generated if omitted)")
-	start.Flags().Duration("session-timeout", time.Hour, "Session lifetime (default 1h; policy controls minimum and maximum)")
+	start.Flags().Duration("session-timeout", time.Hour, "Age at which a shell-less session is eligible for reaping (maximum 8h; at 8h even an attached shell is eligible)")
 	start.Flags().Bool("no-connect", false, "Do not join the session after it starts (connecting is the default)")
 	start.Flags().Bool("no-wait", false, "Return without waiting for RUNNING; skip connecting and OCM credential injection")
 	start.Flags().String("with-credentials", "ocm", "Configure credentials after startup: ocm (default), none (opt out)")
@@ -370,8 +370,8 @@ func buildSessionCommand() *cobra.Command {
 		if err := nonEmptyArgs(1)(cmd, args); err != nil {
 			return err
 		}
-		if d := flagDuration(cmd, "session-timeout"); d < 0 || d > 24*time.Hour || d%time.Second != 0 {
-			return fmt.Errorf("--session-timeout must be whole seconds between 0 and 24h")
+		if d := flagDuration(cmd, "session-timeout"); d < 0 || d > 8*time.Hour || d%time.Second != 0 {
+			return fmt.Errorf("--session-timeout must be whole seconds between 0 and 8h")
 		}
 		if flagBool(cmd, "no-wait") && cmd.Flags().Changed("with-credentials") && flagString(cmd, "with-credentials") == "ocm" {
 			return fmt.Errorf("--no-wait cannot be combined with explicit --with-credentials ocm; omit the flag to skip injection")
@@ -406,7 +406,7 @@ func buildSessionCommand() *cobra.Command {
 		listStatus, listOutputFormat = flagString(cmd, "status"), flagString(cmd, "output")
 		return runListSessions(cmd, args)
 	})
-	list.Flags().String("status", "RUNNING", "RUNNING, STOPPED, or all")
+	list.Flags().String("status", "RUNNING", "ECS desired status: RUNNING, STOPPED, or all")
 	deploymentFlags(list, true, false)
 	list.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := cobra.NoArgs(cmd, args); err != nil {
@@ -418,7 +418,7 @@ func buildSessionCommand() *cobra.Command {
 		_, err := commandOutput(cmd)
 		return err
 	})
-	join := commandLeaf("join <session-id>", "Open a shell in a running session", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
+	join := commandLeaf("join <session-id>", "Open a shell in a session you created", nonEmptyArgs(1), func(cmd *cobra.Command, args []string) error {
 		joinContainer, joinCommand, joinNoWait = flagString(cmd, "container"), flagString(cmd, "command"), flagBool(cmd, "no-wait")
 		autoCloseRequested, autoCloseStopAll = flagBool(cmd, "auto-close"), flagBool(cmd, "auto-close-stop-all")
 		return runJoinSession(cmd, args)
@@ -454,7 +454,7 @@ func buildSessionCommand() *cobra.Command {
 		}
 		return runStopSession(cmd, args)
 	})
-	stop.Long = "Close a session without closing its investigation, or use --all to close all your active sessions in the selected deployment. Investigations remain open."
+	stop.Long = "Close a session without closing its investigation. You can stop your own session, or ask the service to stop another creator's IDLE session once its timeout has elapsed and no shell is attached. --all targets only your sessions in the selected deployment."
 	stop.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if flagBool(cmd, "all") {
 			if len(args) != 0 {
@@ -471,7 +471,7 @@ func buildSessionCommand() *cobra.Command {
 		_, err := commandOutput(cmd)
 		return err
 	})
-	stop.Flags().String("reason", "Investigation complete", "Audit reason")
+	stop.Flags().String("reason", "Investigation complete", "Audit reason for stopping your own sessions (the service records requester identity for cross-user idle close)")
 	stop.Flags().Bool("wait", false, "Wait for STOPPED state")
 	stop.Flags().Bool("yes", false, "Skip confirmation")
 	stop.Flags().Bool("all", false, "Close all your active sessions in the selected deployment")

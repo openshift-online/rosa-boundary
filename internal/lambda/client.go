@@ -19,15 +19,16 @@ type ConfigRequest struct {
 
 // ConfigResponse is the config returned by the Lambda's get_config action.
 type ConfigResponse struct {
-	LambdaFunctionName string `json:"lambda_function_name"`
-	InvokerRoleARN     string `json:"invoker_role_arn"`
-	SRERoleARN         string `json:"sre_role_arn"`
-	EFSFilesystemID    string `json:"efs_filesystem_id"`
-	ECSClusterName     string `json:"ecs_cluster_name"`
-	AWSRegion          string `json:"aws_region"`
-	KeycloakURL        string `json:"keycloak_url"`
-	KeycloakRealm      string `json:"keycloak_realm"`
-	OIDCClientID       string `json:"oidc_client_id"`
+	SupportsCloseSession bool   `json:"supports_close_session"`
+	LambdaFunctionName   string `json:"lambda_function_name"`
+	InvokerRoleARN       string `json:"invoker_role_arn"`
+	SRERoleARN           string `json:"sre_role_arn"`
+	EFSFilesystemID      string `json:"efs_filesystem_id"`
+	ECSClusterName       string `json:"ecs_cluster_name"`
+	AWSRegion            string `json:"aws_region"`
+	KeycloakURL          string `json:"keycloak_url"`
+	KeycloakRealm        string `json:"keycloak_realm"`
+	OIDCClientID         string `json:"oidc_client_id"`
 }
 
 // getConfigBody is the intermediate struct to unwrap the config field from
@@ -339,6 +340,27 @@ func (c *Client) invokeClose(ctx context.Context, idToken, action string, req Cl
 	}
 	if err := json.Unmarshal([]byte(respBody), out); err != nil {
 		return fmt.Errorf("cannot decode %s response body: %w", action, err)
+	}
+	return nil
+}
+
+// CloseIdleSession delegates a non-owner's stop request to the service. Older
+// handlers treat unknown actions as Create, so never probe them by sending
+// close_session itself.
+func (c *Client) CloseIdleSession(ctx context.Context, idToken string, req CloseActionRequest) error {
+	cfg, err := c.GetConfig(ctx)
+	if err != nil {
+		return fmt.Errorf("cannot verify idle session close support: %w", err)
+	}
+	if !cfg.SupportsCloseSession {
+		return fmt.Errorf("this deployment does not advertise idle session close support")
+	}
+	var result CloseActionResponse
+	if err := c.invokeClose(ctx, idToken, "close_session", req, &result); err != nil {
+		return err
+	}
+	if result.Action != "close_session" || result.TaskID != req.TaskID || result.Status != "stop_requested" {
+		return fmt.Errorf("service did not confirm a stop request for session %s; check session status before retrying", req.TaskID)
 	}
 	return nil
 }

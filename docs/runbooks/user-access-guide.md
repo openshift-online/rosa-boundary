@@ -254,7 +254,8 @@ This will:
    it does not report credentials as configured. After OCM is configured, the
    CLI runs `ocm backplane login <cluster-id>` in the task before connecting. If
    that fails (for example an invalid cluster ID or missing access), a warning
-   gives the session ID, `ocm backplane login <cluster-id>` to retry inside the
+   shows Backplane's last output lines (at most 3 lines and 400 characters;
+   the ID is passed to Backplane unchanged) and gives the session ID, `ocm backplane login <cluster-id>` to retry inside the
    session, and the close command; JSON reports `backplane_login: false`. The login
    is skipped with `--with-credentials none`, `--no-wait`, or an OCM failure. The
    Backplane kubeconfig lives in the task-scoped `~/.kube`, not the audit escrow.

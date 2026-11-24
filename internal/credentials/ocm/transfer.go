@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 )
@@ -20,6 +21,9 @@ const (
 	readyMarker                 = "__ROSA_BOUNDARY_CREDENTIAL_OCM_READY__"
 	renewalMarker               = "__ROSA_BOUNDARY_CREDENTIAL_OCM_GENERATIONS_V1__"
 	successMarker               = "__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"
+	backplaneMessageMarker      = "__ROSA_BOUNDARY_BACKPLANE_MESSAGE__"
+	maxClusterIDLength          = 512
+	maxHelperMessageRunes       = 400
 	defaultMaxOutput            = 1024 * 1024
 	backplaneLoginCommandPrefix = "runuser --user=sre -- /usr/local/bin/rosa-boundary-credential-helper login backplane "
 )
@@ -80,15 +84,55 @@ func encodeRequest(request []byte) (string, error) {
 	return base64.StdEncoding.EncodeToString(request) + "\n", nil
 }
 
-var clusterIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
-
-// BackplaneLoginCommand returns the fixed helper command for a validated ID.
+// BackplaneLoginCommand returns the helper command for a cluster ID. Backplane
+// decides whether the ID is valid; this only rejects values that cannot be
+// carried safely in one command-line argument and quotes the rest.
 func BackplaneLoginCommand(clusterID string) (string, error) {
-	if !clusterIDPattern.MatchString(clusterID) {
-		return "", fmt.Errorf("cluster ID %q is not a valid Backplane login target", clusterID)
+	if clusterID == "" || len(clusterID) > maxClusterIDLength || strings.ContainsFunc(clusterID, unicode.IsControl) {
+		return "", fmt.Errorf("cluster ID must be 1-%d characters without control characters", maxClusterIDLength)
 	}
-	return backplaneLoginCommandPrefix + clusterID, nil
+	return backplaneLoginCommandPrefix + "'" + strings.ReplaceAll(clusterID, "'", `'\''`) + "'", nil
 }
+
+// HelperMessageError reports a failed helper operation together with the
+// sanitized, size-limited message the helper chose to share (for Backplane
+// login, the last lines of Backplane's own output).
+type HelperMessageError struct {
+	Message string
+}
+
+func (e *HelperMessageError) Error() string {
+	return "credential helper did not confirm success: " + e.Message
+}
+
+// helperMessage extracts marker-prefixed lines from helper output.
+func helperMessage(received string) string {
+	var lines []string
+	for _, line := range strings.Split(received, "\n") {
+		line = strings.TrimRight(line, "\r")
+		_, text, found := strings.Cut(line, backplaneMessageMarker)
+		if !found {
+			continue
+		}
+		text = ansiEscape.ReplaceAllString(text, "")
+		text = strings.Map(func(r rune) rune {
+			if unicode.IsControl(r) {
+				return -1
+			}
+			return r
+		}, text)
+		if text = strings.TrimSpace(text); text != "" {
+			lines = append(lines, text)
+		}
+	}
+	message := strings.Join(lines, " | ")
+	if runes := []rune(message); len(runes) > maxHelperMessageRunes {
+		message = string(runes[:maxHelperMessageRunes]) + "..."
+	}
+	return message
+}
+
+var ansiEscape = regexp.MustCompile("\x1b\\[[0-9;?]*[A-Za-z]")
 
 // Login requires helper success but sends no credential payload.
 func (t *Transfer) Login(ctx context.Context, region string, session *awsclient.ExecuteCommandSession, credentials *awsclient.TemporaryCredentials) error {
@@ -246,6 +290,11 @@ func (t *Transfer) run(ctx context.Context, region string, session *awsclient.Ex
 	}
 	if protocolErr != nil {
 		return protocolErr
+	}
+	if successCount != 1 {
+		if message := helperMessage(received.String()); message != "" {
+			return &HelperMessageError{Message: message}
+		}
 	}
 	if protocolCtx.Err() != nil {
 		return fmt.Errorf("credential operation timed out or was canceled: %w", protocolCtx.Err())

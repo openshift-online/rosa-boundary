@@ -256,15 +256,53 @@ func TestTransferClearRequiresOnlySuccess(t *testing.T) {
 	}
 }
 
-func TestBackplaneLoginCommand(t *testing.T) {
-	command, err := BackplaneLoginCommand("2abc.d-e_1")
-	if err != nil || command != backplaneLoginCommandPrefix+"2abc.d-e_1" {
-		t.Fatalf("command = %q, %v", command, err)
+func TestBackplaneLoginCommandQuotesAnyID(t *testing.T) {
+	for id, want := range map[string]string{
+		"2abc.d-e_1": "'2abc.d-e_1'",
+		"1":          "'1'",
+		"a b":        "'a b'",
+		"foo;bar":    "'foo;bar'",
+		"$(x)":       "'$(x)'",
+		"it's":       `'it'\''s'`,
+		"-x":         "'-x'",
+	} {
+		command, err := BackplaneLoginCommand(id)
+		if err != nil || command != backplaneLoginCommandPrefix+want {
+			t.Errorf("%q: command = %q, %v", id, command, err)
+		}
 	}
-	for _, bad := range []string{"", "-x", "a b", "a;rm", "a'b", "$(x)", "a\nb", strings.Repeat("a", 129)} {
+	for _, bad := range []string{"", "a\nb", "a\x00b", "a\x1bb", strings.Repeat("a", maxClusterIDLength+1)} {
 		if _, err := BackplaneLoginCommand(bad); err == nil {
 			t.Errorf("accepted %q", bad)
 		}
+	}
+}
+
+func TestHelperMessageSanitizesAndLimits(t *testing.T) {
+	received := "noise\r\n" + backplaneMessageMarker + " \x1b[31mcluster \"1\" not found\x1b[0m\r\n" +
+		backplaneMessageMarker + " second\x07 line\n" + backplaneMessageMarker + " " + strings.Repeat("x", 1000) + "\n"
+	got := helperMessage(received)
+	if !strings.HasPrefix(got, `cluster "1" not found | second line | xxx`) {
+		t.Fatalf("message = %q", got)
+	}
+	if strings.ContainsAny(got, "\x1b\x07\r") || len([]rune(got)) > maxHelperMessageRunes+3 {
+		t.Fatalf("message not sanitized or limited: %q", got)
+	}
+	if helperMessage("no markers here") != "" {
+		t.Fatal("message without marker")
+	}
+}
+
+func TestTransferLoginSurfacesHelperMessage(t *testing.T) {
+	runner := func(_ context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, _ io.Reader, out, _ io.Writer) error {
+		_, _ = io.WriteString(out, backplaneMessageMarker+" cluster not found\n")
+		return errors.New("exit status 1")
+	}
+	transfer := &Transfer{RunPlugin: runner, Timeout: time.Second, MaxOutput: 1024}
+	err := transfer.Login(context.Background(), "us-east-1", &awsclient.ExecuteCommandSession{}, &awsclient.TemporaryCredentials{})
+	var helperErr *HelperMessageError
+	if !errors.As(err, &helperErr) || helperErr.Message != "cluster not found" {
+		t.Fatalf("err = %v", err)
 	}
 }
 

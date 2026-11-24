@@ -311,13 +311,31 @@ STUB
     [[ "${output}" != *"sensitive"* ]]
 }
 
-@test "backplane login fails without leaking output when login fails" {
+@test "backplane login failure reports Backplane's last lines" {
     stub_backplane 1
     printf '{}' >"${OCM_DIR}/ocm.json"
     run_login
     [ "${status}" -ne 0 ]
     [[ "${output}" != *"SUCCESS"* ]]
-    [[ "${output}" != *"sensitive"* ]]
+    [[ "${output}" == *"__ROSA_BOUNDARY_BACKPLANE_MESSAGE__ sensitive cluster detail"* ]]
+}
+
+@test "backplane login failure message is capped and sanitized" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+for n in 1 2 3 4 5; do printf 'line %s\n' "${n}"; done
+printf '\033[31mred\033[0m bell\a %0400d\n' 0
+exit 1
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -ne 0 ]
+    [ "$(grep -c '__ROSA_BOUNDARY_BACKPLANE_MESSAGE__' <<<"${output}")" -eq 3 ]
+    [[ "${output}" != *"line 1"* && "${output}" != *"line 2"* ]]
+    [[ "${output}" == *"line 5"* ]]
+    [[ "${output}" != *$'\033'* && "${output}" != *$'\a'* ]]
+    ! grep -E "MESSAGE__ .{301,}" <<<"${output}"
 }
 
 @test "backplane login failure removes partial kubeconfig" {
@@ -353,11 +371,26 @@ STUB
 @test "backplane login passes the cluster ID to Backplane unmodified" {
     cat >"${STUBS}/ocm" <<'STUB'
 #!/bin/bash
-printf '%s\n' "$3" >"${OCM_ARGS_FILE}"
+printf '%s|%s\n' "$3" "$4" >"${OCM_ARGS_FILE}"
 STUB
     chmod 0755 "${STUBS}/ocm"
     printf '{}' >"${OCM_DIR}/ocm.json"
     CLUSTER_ID='my-cluster.1' run_login OCM_ARGS_FILE="${TEST_ROOT}/args"
     [ "${status}" -eq 0 ]
-    [ "$(cat "${TEST_ROOT}/args")" = 'my-cluster.1' ]
+    [ "$(cat "${TEST_ROOT}/args")" = '--|my-cluster.1' ]
+}
+
+@test "backplane login passes IDs that look like options or shell syntax unmodified after --" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf '%s|%s\n' "$3" "$4" >"${OCM_ARGS_FILE}"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    for id in '--help' 'a b' 'foo;bar' '$(touch pwned)' "it's"; do
+        CLUSTER_ID="${id}" run_login OCM_ARGS_FILE="${TEST_ROOT}/args"
+        [ "${status}" -eq 0 ]
+        [ "$(cat "${TEST_ROOT}/args")" = "--|${id}" ]
+    done
+    [ ! -e pwned ]
 }

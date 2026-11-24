@@ -103,32 +103,19 @@ availability SLI.
 
 ## Reaper invocation errors
 
-The regional deployment creates one CloudWatch alarm per reaper, each on the
-native `AWS/Lambda` `Errors` series for that Lambda's `FunctionName`. One
-failed invocation in a five-minute period triggers the alarm. A logged error
-followed by a normal return does not count. Missing data is not breaching:
-these alarms do not detect missed schedules. Lambda asynchronous retries can
-produce multiple error datapoints for one scheduled event. Check `Invocations`
-for the same function to see whether it ran; `AWS/Events` `FailedInvocations`
-indicates a target-delivery problem, not a handler exception.
+For external alerting, export the native `AWS/Lambda` `Errors` metric (`Sum`)
+for each reaper separately. Use the `FunctionName` dimension for
+`<project>-<stage>-reap-tasks` and `<project>-<stage>-reap-investigations`
+in each deployment account and region. Regional Terraform does not configure
+reaper alarms or notifications.
 
-On ALARM, the deployment operator should inspect the failed invocation's logs
-for the configuration or AWS operation that failed. An empty inventory is a
-normal outcome; a failed inventory is not. Isolated resource failures remain
-in the invocation logs and counters, not in this alarm. Before intervening,
-check subsequent invocations and durable close status for resumed work.
-
-By default both alarms track state without notifying anyone. To route their
-transitions into ALARM, set `reaper_alarm_sns_topic_arn` through approved
-deployment configuration to an existing standard SNS topic in the deployment
-account and region. The topic owner must allow CloudWatch to publish (and use
-the encryption key if applicable) and confirm the intended subscription. This
-module does not create a topic, subscription, or permission grant.
-
-Mock plans verify the metric and action wiring, not delivery. After an approved
-deployment, correlate a failed invocation with its function's Errors datapoint,
-alarm state and action history, and receipt by the intended subscriber. Until
-then, end-to-end delivery is unverified; logs alone are not an alert.
+A failed invocation contributes one error; asynchronous retries can contribute
+more than one for the same scheduled event. A healthy no-op or a handled
+per-resource error does not increment `Errors`. For those outcomes, inspect
+the invocation logs and work counters. To diagnose a missed run, check
+`Invocations` for the same function and `AWS/Events` `FailedInvocations` for
+target-delivery failures. A native error datapoint proves neither downstream
+ingestion nor notification delivery; verify those in the receiving system.
 
 ## Remaining dashboard signals
 

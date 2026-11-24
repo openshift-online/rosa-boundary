@@ -23,21 +23,6 @@ variable "aws_account_id" {
   }
 }
 
-variable "reaper_alarm_sns_topic_arn" {
-  description = "Approved existing regional SNS topic for both reapers' ALARM transitions. Empty leaves the alarms without notification actions."
-  type        = string
-  default     = ""
-  nullable    = false
-
-  validation {
-    condition = var.reaper_alarm_sns_topic_arn == "" || can(regex(
-      "^arn:${data.aws_partition.current.partition}:sns:${var.aws_region}:${var.aws_account_id}:[A-Za-z0-9_-]{1,256}$",
-      var.reaper_alarm_sns_topic_arn
-    ))
-    error_message = "Specify an existing standard SNS topic ARN in the deployment account and region, or leave it empty."
-  }
-}
-
 variable "aws_region" {
   description = "AWS region for all regional resources. Supplied by the HCP Terraform workspace."
   type        = string

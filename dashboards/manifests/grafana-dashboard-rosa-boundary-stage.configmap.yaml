@@ -1,0 +1,582 @@
+# Generated from dashboards/rosa-boundary-stage.json; see dashboards/README.md.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-rosa-boundary-stage
+  labels:
+    grafana_dashboard: "true"
+  annotations:
+    grafana-folder: /grafana-dashboard-definitions/ROSA Boundary
+data:
+  rosa-boundary-stage.json: |-
+    {
+      "id": null,
+      "uid": "rosa-boundary-stage",
+      "title": "ROSA Boundary — staging operations",
+      "description": "ROSAENG-68823: staging task-creation outcomes and native Lambda metrics from the App-SRE CloudWatch exporter. Collection is sampled; no totals or availability SLI are inferred.",
+      "tags": [
+        "rosa-boundary",
+        "stage",
+        "cloudwatch"
+      ],
+      "timezone": "utc",
+      "editable": true,
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "2m",
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "annotations": {
+        "list": []
+      },
+      "links": [
+        {
+          "title": "ROSAENG-68823",
+          "type": "link",
+          "url": "https://redhat.atlassian.net/browse/ROSAENG-68823",
+          "targetBlank": true
+        },
+        {
+          "title": "Exporter onboarding",
+          "type": "link",
+          "url": "https://gitlab.cee.redhat.com/service/app-interface/-/merge_requests/220268",
+          "targetBlank": true
+        }
+      ],
+      "templating": {
+        "list": [
+          {
+            "name": "datasource",
+            "label": "Datasource",
+            "type": "datasource",
+            "query": "prometheus",
+            "regex": "/^aws-resources-exporter-stage$/",
+            "refresh": 1,
+            "description": "Existing App-SRE datasource for staging AWS resource metrics. Select the provisioned datasource; its UID is not hardcoded.",
+            "options": []
+          },
+          {
+            "name": "function",
+            "label": "Lambda function",
+            "type": "query",
+            "datasource": {
+              "type": "prometheus",
+              "uid": "${datasource}"
+            },
+            "definition": "label_values(aws_lambda_invocations_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"rosa-boundary-stage-.*\"}, function_name)",
+            "query": {
+              "query": "label_values(aws_lambda_invocations_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"rosa-boundary-stage-.*\"}, function_name)",
+              "refId": "LambdaFunctions"
+            },
+            "refresh": 2,
+            "sort": 1,
+            "multi": true,
+            "includeAll": true,
+            "allValue": "rosa-boundary-stage-.*",
+            "current": {
+              "selected": true,
+              "text": "All",
+              "value": "$__all"
+            },
+            "options": []
+          }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "text",
+          "title": "ROSA Boundary staging",
+          "gridPos": {
+            "h": 5,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "options": {
+            "mode": "markdown",
+            "content": "**Account:** rosa-boundary-stage (150100906299) · **Region:** us-east-1\n\nCloudWatch graphs show **sampled 60-second buckets, shifted forward 10 minutes** for collection delay. A bucket may appear at multiple query steps; these graphs do not give whole-range totals. No samples can mean idle traffic or missing telemetry. Check collection health below.\n\nTask-creation `success` means the launch workflow returned; it does not establish task readiness. `blocked` is a rejected handover (HTTP 409). Pre-creation rejections and timeouts may emit no outcome. These metrics do not measure end-to-end availability, EFS growth, or actual task lifetime."
+          }
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Prometheus → exporter scrape",
+          "description": "Current Prometheus scrape status, without a CloudWatch offset. Up does not prove CloudWatch datapoints are present.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 12,
+            "x": 0,
+            "y": 5
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "up{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\"}",
+              "legendFormat": "{{instance}}",
+              "range": false,
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "No samples",
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "Down",
+                      "color": "red"
+                    },
+                    "1": {
+                      "text": "Up",
+                      "color": "green"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Exporter → CloudWatch collection",
+          "description": "Current exporter error gauge, without an offset. Zero means no reported collection error; it does not prove activity or complete bucket coverage.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 12,
+            "x": 12,
+            "y": 5
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "cloudwatch_exporter_scrape_error{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\"}",
+              "legendFormat": "{{instance}}",
+              "range": false,
+              "instant": true,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "noValue": "No samples",
+              "mappings": [
+                {
+                  "type": "value",
+                  "options": {
+                    "0": {
+                      "text": "No reported error",
+                      "color": "green"
+                    },
+                    "1": {
+                      "text": "Collection error",
+                      "color": "red"
+                    }
+                  }
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            }
+          }
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Task-creation outcomes · sampled 1m buckets",
+          "description": "Latest observed 60-second CloudWatch bucket at each query step, shifted forward by 10 minutes using offset 10m for the exporter delay. Buckets can repeat; 120-second scraping can omit intervening buckets. These are sampled period values, not a time-range total or a counter. Missing data is not converted to zero. Counts attempts, including retries, not unique tasks or investigations. Success, failure and blocked are distinct outcomes.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 24,
+            "x": 0,
+            "y": 9
+          },
+          "interval": "2m",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "rosaboundary_task_creation_requests_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",ecscluster=\"rosa-boundary-stage\"} offset 10m",
+              "legendFormat": "{{ecscluster}} · {{outcome}}",
+              "range": true,
+              "instant": false,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "noValue": "No samples",
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "showPoints": "always",
+                "pointSize": 4,
+                "spanNulls": false
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": ".* · success$"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "green"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": ".* · failure$"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "red"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byRegexp",
+                  "options": ".* · blocked$"
+                },
+                "properties": [
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "orange"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Lambda invocations · sampled 1m buckets",
+          "description": "Latest observed 60-second CloudWatch bucket at each query step, shifted forward by 10 minutes using offset 10m for the exporter delay. Buckets can repeat; 120-second scraping can omit intervening buckets. These are sampled period values, not a time-range total or a counter. Missing data is not converted to zero.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 18
+          },
+          "interval": "2m",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "aws_lambda_invocations_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
+              "legendFormat": "{{function_name}}",
+              "range": true,
+              "instant": false,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "noValue": "No samples",
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "showPoints": "always",
+                "pointSize": 4,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Lambda invocation errors · sampled 1m buckets",
+          "description": "Latest observed 60-second CloudWatch bucket at each query step, shifted forward by 10 minutes using offset 10m for the exporter delay. Buckets can repeat; 120-second scraping can omit intervening buckets. These are sampled period values, not a time-range total or a counter. Missing data is not converted to zero. Handled HTTP errors and per-resource reaper failures may return normally and do not necessarily increment native Lambda Errors.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 18
+          },
+          "interval": "2m",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "aws_lambda_errors_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
+              "legendFormat": "{{function_name}}",
+              "range": true,
+              "instant": false,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "min": 0,
+              "noValue": "No samples",
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "showPoints": "always",
+                "pointSize": 4,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 7,
+          "type": "timeseries",
+          "title": "Lambda duration · bucket average",
+          "description": "Latest observed 60-second CloudWatch bucket at each query step, shifted forward by 10 minutes using offset 10m for the exporter delay. Buckets can repeat; 120-second scraping can omit intervening buckets. These are sampled period values, not a time-range total or a counter. Missing data is not converted to zero. CloudWatch Average for each observed bucket, in milliseconds; not an average over the dashboard time range.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 0,
+            "y": 27
+          },
+          "interval": "2m",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "aws_lambda_duration_average{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
+              "legendFormat": "{{function_name}}",
+              "range": true,
+              "instant": false,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "min": 0,
+              "noValue": "No samples",
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "showPoints": "always",
+                "pointSize": 4,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 8,
+          "type": "timeseries",
+          "title": "Lambda duration · bucket maximum",
+          "description": "Latest observed 60-second CloudWatch bucket at each query step, shifted forward by 10 minutes using offset 10m for the exporter delay. Buckets can repeat; 120-second scraping can omit intervening buckets. These are sampled period values, not a time-range total or a counter. Missing data is not converted to zero. CloudWatch Maximum for each observed bucket, in milliseconds; not a percentile.",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "gridPos": {
+            "h": 9,
+            "w": 12,
+            "x": 12,
+            "y": 27
+          },
+          "interval": "2m",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "${datasource}"
+              },
+              "editorMode": "code",
+              "expr": "aws_lambda_duration_maximum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
+              "legendFormat": "{{function_name}}",
+              "range": true,
+              "instant": false,
+              "refId": "A"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "ms",
+              "min": 0,
+              "noValue": "No samples",
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "drawStyle": "line",
+                "lineWidth": 0,
+                "fillOpacity": 0,
+                "showPoints": "always",
+                "pointSize": 4,
+                "spanNulls": false
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        }
+      ]
+    }

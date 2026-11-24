@@ -3,6 +3,8 @@
 The first metric for [ROSAENG-68823](https://redhat.atlassian.net/browse/ROSAENG-68823)
 measures task-creation workflow outcomes. Exporter onboarding and Grafana delivery
 are separate changes; emitting this metric does not prove Prometheus ingestion.
+The [staging dashboard guide](operations-dashboard.md) records the current
+App-SRE exporter configuration, dashboard JSON, and proposed delivery/ownership.
 
 ## Task-creation contract
 
@@ -40,8 +42,8 @@ multi-valued claims omit this property without changing task creation. OIDC
 
 `ActorUUID` is **not a metric dimension**: it is searchable in CloudWatch Logs
 Insights under the Lambda log group's access controls, but is not exposed by
-YACE or available as a Prometheus label. For example, select the intended Lambda
-log group and time range and query:
+the metrics exporter or available as a Prometheus label. For example, select the
+intended Lambda log group and time range and query:
 
 ```text
 filter ispresent(TaskCreationRequests) and ispresent(ActorUUID)
@@ -122,11 +124,12 @@ ingestion nor notification delivery; verify those in the receiving system.
 | Requested signal | Current evidence / remaining work |
 |------------------|-----------------------------------|
 | Lambda failures | Native `AWS/Lambda` Errors, Invocations, Duration; handled HTTP errors can return normally and are not necessarily Lambda Errors |
-| Task-creation outcomes | This metric; stage CloudWatch extraction and Prometheus ingestion remain unverified |
+| Task-creation outcomes | Included in the merged App-SRE exporter config; live Prometheus/Grafana validation remains to be recorded |
 | ECS launch failures | This metric includes broader setup/handover failures; add a separate launch-specific signal and account for asynchronous ECS startup failures |
 | Task lifetime | Needs actual lifecycle timestamps and coverage of all stop paths; configured timeout is not observed lifetime |
 | Investigation creation | Needs a signal at newly created access points; access-point reuse and `skip_task` must be distinguished |
 | Task-creation availability | Define the SLI boundary and timeout/missing-data treatment before presenting an availability claim |
+| EFS growth | `StorageBytes` is not in the current exporter config; add collection and agree growth alerting with App-SRE |
 | Actor-level views | `ActorUUID` supports Logs Insights queries under existing log access controls; Grafana log-source access/delivery needs separate agreement; no identity metric labels |
 
 ## Stage validation evidence

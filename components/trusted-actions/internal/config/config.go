@@ -216,6 +216,15 @@ func Load(configFilePath string) (*Config, error) {
 		}
 	}
 
+	// A nonempty override that parses to no entries (e.g. "," or " ") must not
+	// silently discard a restrictive config file value: that would reopen
+	// every region the file had closed off. An already-open file has nothing
+	// to lose, so only the former case is rejected.
+	allowedClusterRegions := getStringSliceEnv("ROSA_TA_ALLOWED_CLUSTER_REGIONS", configFile.Actions.AllowedClusterRegions)
+	if raw := os.Getenv("ROSA_TA_ALLOWED_CLUSTER_REGIONS"); raw != "" && len(allowedClusterRegions) == 0 && len(configFile.Actions.AllowedClusterRegions) > 0 {
+		return nil, fmt.Errorf("ROSA_TA_ALLOWED_CLUSTER_REGIONS is set but contains no region names, which would discard the config file's allowed_cluster_regions: %q", raw)
+	}
+
 	return &Config{
 		// Server config (set via CLI flags, defaults here for reference)
 		ListenAddr: getEnv("ROSA_TA_LISTEN_ADDR", ":8080"),
@@ -276,7 +285,7 @@ func Load(configFilePath string) (*Config, error) {
 		// Unset means every region's clusters stay reachable, which is what a
 		// deployment that has not been told to confine itself should do. See
 		// AllowedClusterRegions.
-		AllowedClusterRegions: getStringSliceEnv("ROSA_TA_ALLOWED_CLUSTER_REGIONS", configFile.Actions.AllowedClusterRegions),
+		AllowedClusterRegions: allowedClusterRegions,
 		// Unset means empty, and empty is the whole protection: the default is
 		// to permit no writes.
 		AWSAllowedOperations: getStringSliceEnv("ROSA_TA_AWS_ALLOWED_OPERATIONS", configFile.Actions.AWSAllowedOperations),

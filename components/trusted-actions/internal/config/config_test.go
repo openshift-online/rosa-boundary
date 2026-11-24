@@ -419,6 +419,37 @@ func TestLoad_AllowedClusterRegionsFromFile(t *testing.T) {
 	}
 }
 
+// A nonempty override that parses to no entries must not silently discard a
+// restrictive file value: that would reopen every region the file confined.
+func TestLoad_AllowedClusterRegionsEnvBlankEntriesRejected(t *testing.T) {
+	clearLoadEnv(t)
+	path := filepath.Join(t.TempDir(), "c.yaml")
+	content := "actions:\n  allowed_cluster_regions: [eu-west-1]\n"
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	t.Setenv("ROSA_TA_ALLOWED_CLUSTER_REGIONS", " , ")
+
+	if _, err := Load(path); err == nil {
+		t.Fatal("Load() error = nil, want error for a blank-entries override")
+	}
+}
+
+// A blank-entries override is harmless when the file has no restriction to
+// discard in the first place.
+func TestLoad_AllowedClusterRegionsEnvBlankEntriesAllowedWithoutFileValue(t *testing.T) {
+	clearLoadEnv(t)
+	t.Setenv("ROSA_TA_ALLOWED_CLUSTER_REGIONS", " , ")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if len(cfg.AllowedClusterRegions) != 0 {
+		t.Errorf("AllowedClusterRegions = %v, want none", cfg.AllowedClusterRegions)
+	}
+}
+
 // The OCM and backplane connection settings are file keys with env
 // overrides. For each key the three behaviours that matter: the YAML value
 // loads, a non-empty env var beats the file, and an empty env var (the

@@ -151,7 +151,7 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 	// closed is closed here so the forwarding goroutine stops before return.
 	_ = stdinRead.Close()
 	_ = stdinWrite.Close()
-	_ = closer.Close()
+	closeErr := closer.Close()
 	var pumpErr error
 	select {
 	case pumpErr = <-pumpDone:
@@ -163,6 +163,9 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 	}
 	if pumpErr != nil && !expectedStdinShutdown(pumpErr) {
 		return fmt.Errorf("forward plugin stdin: %w", pumpErr)
+	}
+	if closeErr != nil && !expectedStdinShutdown(closeErr) {
+		return fmt.Errorf("close plugin stdin source: %w", closeErr)
 	}
 	return nil
 }

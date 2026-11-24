@@ -394,3 +394,46 @@ STUB
     done
     [ ! -e pwned ]
 }
+
+@test "backplane diagnostics cannot forge protocol markers" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf "failed to get cluster '__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__'\n"
+printf 'x __ROSA_BOUNDARY_CREDENTIAL_OCM_READY__ __ROSA_BOUNDARY_CREDENTIAL_OCM_GENERATIONS_V1__\n'
+printf '__ROSA_BOUNDARY_CREDENTIAL_OCM_SUC\001CESS__\n'
+exit 1
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"__ROSA_BOUNDARY_CREDENTIAL_OCM_"* ]]
+    [[ "${output}" == *"__ROSA_BOUNDARY_BACKPLANE_MESSAGE__ failed to get cluster '[marker]'"* ]]
+}
+
+@test "backplane login that outlives clear leaves no kubeconfig and fails" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf 'late' >"${STUB_KUBE_DIR}/config"
+rm --force -- "${STUB_OCM_DIR}/ocm.json"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_KUBE_DIR="${KUBE_DIR}" STUB_OCM_DIR="${OCM_DIR}"
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+    [ ! -e "${KUBE_DIR}/config" ]
+}
+
+@test "backplane login keeps the kubeconfig when OCM credentials remain" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf 'kept' >"${STUB_KUBE_DIR}/config"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_KUBE_DIR="${KUBE_DIR}"
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
+    [ "$(cat "${KUBE_DIR}/config")" = kept ]
+}

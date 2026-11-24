@@ -295,7 +295,9 @@ func TestHelperMessageSanitizesAndLimits(t *testing.T) {
 
 func TestTransferLoginSurfacesHelperMessage(t *testing.T) {
 	runner := func(_ context.Context, _ string, _ *awsclient.ExecuteCommandSession, _ *awsclient.TemporaryCredentials, _ io.Reader, out, _ io.Writer) error {
-		_, _ = io.WriteString(out, backplaneMessageMarker+" cluster not found\n")
+		if _, err := io.WriteString(out, backplaneMessageMarker+" cluster not found\n"); err != nil {
+			return fmt.Errorf("write fixture output: %w", err)
+		}
 		return errors.New("exit status 1")
 	}
 	transfer := &Transfer{RunPlugin: runner, Timeout: time.Second, MaxOutput: 1024}

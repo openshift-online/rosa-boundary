@@ -347,3 +347,31 @@ func TestRunSessionManagerPluginWithStreamsRejectsUninterruptibleReader(t *testi
 		t.Fatal("plugin started before the reader was rejected")
 	}
 }
+
+type closeErrReader struct {
+	io.Reader
+	closeErr error
+}
+
+func (r closeErrReader) Close() error { return r.closeErr }
+
+func TestRunSessionManagerPluginWithStreamsReportsSourceCloseError(t *testing.T) {
+	pluginDir := t.TempDir()
+	writePlugin(t, pluginDir, `printf done`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	run := func(closeErr error) error {
+		return RunSessionManagerPluginWithStreams(
+			context.Background(), "us-east-1",
+			&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+			&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+			closeErrReader{Reader: strings.NewReader(""), closeErr: closeErr}, io.Discard, io.Discard,
+		)
+	}
+	boom := errors.New("close failed")
+	if err := run(boom); !errors.Is(err, boom) {
+		t.Fatalf("unexpected close error was not reported: %v", err)
+	}
+	if err := run(io.ErrClosedPipe); err != nil {
+		t.Fatalf("expected shutdown close error was reported: %v", err)
+	}
+}

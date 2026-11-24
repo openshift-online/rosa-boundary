@@ -235,7 +235,7 @@ func TestBackplaneLoginFailureWarnsWithRetryAndCleanup(t *testing.T) {
 	selectedProfile = "stage-east"
 	t.Cleanup(func() { selectedProfile = previous })
 	err := backplaneLoginFailure("task-123", "2abc", "boundary", "us-east-1", errors.New("denied"))
-	for _, want := range []string{"task-123", `"2abc"`, "was not initialized", "denied", "ocm backplane login '2abc'", `--profile "stage-east" session close "task-123"`} {
+	for _, want := range []string{"task-123", `"2abc"`, "was not initialized", "denied", "ocm backplane login -- '2abc'", `--profile "stage-east" session close "task-123"`} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("missing %q: %v", want, err)
 		}

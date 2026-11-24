@@ -460,7 +460,7 @@ var backplaneLoginForStart = initializeBackplaneLogin
 
 func backplaneLoginFailure(sessionID, clusterID, ecsCluster, region string, cause error) error {
 	return fmt.Errorf(
-		"session %q is running with OCM credentials, but Backplane login for cluster %q was not initialized: %w; retry inside the session with: ocm backplane login %s; if the cluster ID is wrong, clean up with: rosa-boundary --profile %q session close %q --yes --ecs-cluster %q --region %q",
+		"session %q is running with OCM credentials, but Backplane login for cluster %q was not initialized: %w; retry inside the session with: ocm backplane login -- %s; if the cluster ID is wrong, clean up with: rosa-boundary --profile %q session close %q --yes --ecs-cluster %q --region %q",
 		sessionID, clusterID, cause, shellArgument(clusterID), selectedProfile, sessionID, ecsCluster, region,
 	)
 }

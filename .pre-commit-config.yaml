@@ -7,6 +7,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: dashboard-manifest
+        name: dashboard manifest matches source JSON
+        entry: python3 scripts/generate_dashboard_manifest.py --check
+        language: system
+        files: ^(dashboards/|scripts/generate_dashboard_manifest\.py$)
+        pass_filenames: false
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

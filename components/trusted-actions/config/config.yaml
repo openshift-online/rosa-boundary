@@ -17,12 +17,13 @@ roles:
 # actions:
 #   allowed_namespaces: []
 #   allowed_secrets: []
-#   # Which AWS regions actions may read from. Unlike the two above, this one
-#   # has no permissive mode and no built-in default: leave it out and the
-#   # server refuses to start, because which regions a deployment may reach is
-#   # that deployment's decision rather than one made here. Required whenever
-#   # AWS actions are in use.
-#   aws_allowed_regions: [us-east-1]
+#   # Which regions' clusters any action may act on, judged against the target
+#   # cluster's own region in OCM and applied to Kubernetes and AWS actions
+#   # alike. Left out, the deployment may act on clusters in every region; name
+#   # one region to pin it to the region it runs in, or several to confine it
+#   # to that group. This is the only region allowlist — an AWS action's region
+#   # is always its target cluster's own, so there is nothing separate to bound.
+#   allowed_cluster_regions: []
 #   # Which AWS mutations actions may perform: "reboot", "terminate". This one
 #   # has no built-in default to fall back to — leave it out and the server
 #   # permits no writes at all, while still permitting reads. Naming an

@@ -129,8 +129,7 @@ Summary of the recipe:
 2. `make build`, then run the server bound to loopback
    (`--listen-addr 127.0.0.1:8080`) with `ROSA_TA_AUTH=disabled`,
    `ROSA_TA_KUBECONFIG` pointed at the kind cluster, `ROSA_TA_AWS_ENDPOINT_URL`
-   at a loopback LocalStack endpoint (required when auth is disabled), and
-   `ROSA_TA_AWS_ALLOWED_REGIONS` (required unconditionally — dev-only bypass).
+   at a loopback LocalStack endpoint (required when auth is disabled).
 3. `curl` the catalog (`GET /api/v0/trusted-actions/`) and the action's describe
    endpoint (`GET /api/v0/trusted-actions/{action}`) to confirm it's wired up.
 4. `POST /{action}/run`, poll `GET /runs/{id}` to completion, and cross-check

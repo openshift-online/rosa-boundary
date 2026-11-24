@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -57,11 +59,12 @@ type Scope interface {
 }
 
 // ClusterRegionResolver reports a cluster's own AWS region, as recorded in
-// OCM. It exists so the executor can enforce the deployment-region boundary
+// OCM. It exists so the executor can enforce the cluster-region allowlist
 // without importing awsapi — awsapi.ClientProvider already has a method with
 // this exact signature, so the provider wired up for AWS actions satisfies it
-// directly, and the boundary check reuses its cached OCM lookup rather than
-// making a second one.
+// directly, and the check reuses its cached OCM lookup rather than making a
+// second one. It is only consulted when an allowlist is configured, so a
+// deployment that configures none may leave it nil.
 type ClusterRegionResolver interface {
 	DefaultRegion(ctx context.Context, clusterID string) (string, error)
 }
@@ -90,21 +93,24 @@ type Executor struct {
 	logger *logrus.Logger
 	// auditor receives one Record per Execute call, win or lose.
 	auditor audit.Logger
-	// deploymentRegion is the region this deployment is responsible for. A
-	// target cluster whose own region differs is outside the boundary.
-	deploymentRegion string
-	// regions resolves a cluster's own region for the boundary check above.
+	// allowedClusterRegions names the regions whose clusters this deployment
+	// may act on. Empty (default) means no boundary at all: a
+	// deployment reaches clusters in every region until it says otherwise.
+	allowedClusterRegions []string
+	// regions resolves a cluster's own region for the check above. Consulted
+	// only when allowedClusterRegions is non-empty, so it may be nil when it
+	// is not.
 	regions ClusterRegionResolver
 	scopes  []Scope
 }
 
-func New(logger *logrus.Logger, auditor audit.Logger, deploymentRegion string, regions ClusterRegionResolver, scopes ...Scope) *Executor {
+func New(logger *logrus.Logger, auditor audit.Logger, allowedClusterRegions []string, regions ClusterRegionResolver, scopes ...Scope) *Executor {
 	return &Executor{
-		logger:           logger,
-		auditor:          auditor,
-		deploymentRegion: deploymentRegion,
-		regions:          regions,
-		scopes:           scopes,
+		logger:                logger,
+		auditor:               auditor,
+		allowedClusterRegions: allowedClusterRegions,
+		regions:               regions,
+		scopes:                scopes,
 	}
 }
 
@@ -129,28 +135,24 @@ func (e *Executor) Execute(ctx context.Context, req Request) (result *Result) {
 		}
 	}
 
-	// Deployment-boundary gate: a cluster outside the region this deployment
-	// is responsible for is refused before authorization runs.
-	if e.deploymentRegion == "" {
-		reason := "no deployment region configured"
-		rec.Decision = audit.DecisionDenied
-		rec.DenyReason = reason
-		rec.Outcome = audit.OutcomeSkipped
-		return &Result{Allowed: false, Reason: reason}
-	}
-	region, err := e.regions.DefaultRegion(ctx, req.ClusterID)
-	if err != nil {
-		rec.Outcome = audit.OutcomeFailure
-		rec.Error = auditedCause(err).Error()
-		return &Result{Error: err}
-	}
-	rec.ClusterRegion = region
-	if region != e.deploymentRegion {
-		reason := fmt.Sprintf("cluster region %q is outside deployment boundary %q", region, e.deploymentRegion)
-		rec.Decision = audit.DecisionDenied
-		rec.DenyReason = reason
-		rec.Outcome = audit.OutcomeSkipped
-		return &Result{Allowed: false, Reason: reason}
+	// Region gate: once a deployment names the cluster regions it may act on,
+	// a cluster outside them is refused before authorization runs.
+	if len(e.allowedClusterRegions) > 0 {
+		region, err := e.regions.DefaultRegion(ctx, req.ClusterID)
+		if err != nil {
+			rec.Outcome = audit.OutcomeFailure
+			rec.Error = auditedCause(err).Error()
+			return &Result{Error: err}
+		}
+		rec.ClusterRegion = region
+		if !slices.Contains(e.allowedClusterRegions, region) {
+			reason := fmt.Sprintf("cluster region %q is outside the regions this deployment may act on (%s)",
+				region, strings.Join(e.allowedClusterRegions, ", "))
+			rec.Decision = audit.DecisionDenied
+			rec.DenyReason = reason
+			rec.Outcome = audit.OutcomeSkipped
+			return &Result{Allowed: false, Reason: reason}
+		}
 	}
 
 	if req.Target == nil {

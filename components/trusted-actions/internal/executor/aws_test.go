@@ -127,23 +127,19 @@ func (f *fakeAWSProvider) GetClients(_ context.Context, _, region string, servic
 	return clients, nil
 }
 
-// newTestAWSExecutor builds an executor permitting the given regions and no
-// writes — the posture a server has unless someone configures otherwise, which
-// is what the read tests should be running against.
-func newTestAWSExecutor(regions []string, provider awsapi.ClientProvider) (*Executor, *audit.MockLogger) {
-	return newTestAWSPolicyExecutor(authorization.AWSPolicy{AllowedRegions: regions}, provider)
+// newTestAWSExecutor builds an executor permitting reads and no writes — the
+// posture a server has unless someone configures otherwise, which is what the
+// read tests should be running against.
+func newTestAWSExecutor(provider awsapi.ClientProvider) (*Executor, *audit.MockLogger) {
+	return newTestAWSPolicyExecutor(authorization.AWSPolicy{}, provider)
 }
 
 // newTestAWSPolicyExecutor spells the whole policy out, for the write tests.
-//
-// The deployment region is fixed to match the "us-east-1" every fixture in
-// this file resolves to, so the deployment-boundary check passes
-// and the tests keep exercising the AWS region/write allowlists.
 func newTestAWSPolicyExecutor(policy authorization.AWSPolicy, provider awsapi.ClientProvider) (*Executor, *audit.MockLogger) {
 	logger := logrus.New()
 	logger.SetOutput(io.Discard)
 	auditor := audit.NewMockLogger(logger)
-	return New(logger, auditor, "us-east-1", provider, NewAWSScope(authorization.NewAWS(logger, policy), provider)), auditor
+	return New(logger, auditor, nil, nil, NewAWSScope(authorization.NewAWS(logger, policy), provider)), auditor
 }
 
 func newTestInstance(id string) ec2types.Instance {
@@ -155,7 +151,7 @@ func TestAWSScope_HappyPath_List(t *testing.T) {
 		defaultRegion: "us-east-1",
 		instances:     []ec2types.Instance{newTestInstance("i-1"), newTestInstance("i-2")},
 	}
-	exec, auditor := newTestAWSExecutor([]string{"us-east-1"}, provider)
+	exec, auditor := newTestAWSExecutor(provider)
 
 	result := exec.Execute(context.Background(), Request{
 		CallerID:  "test-user",
@@ -203,7 +199,7 @@ func TestAWSScope_HappyPath_List(t *testing.T) {
 // would hide that behind a result set they would misread.
 func TestAWSScope_CallerSuppliedRegionIsRejected(t *testing.T) {
 	provider := &fakeAWSProvider{defaultRegion: "us-east-1"}
-	exec, _ := newTestAWSExecutor([]string{"us-east-1"}, provider)
+	exec, _ := newTestAWSExecutor(provider)
 
 	result := exec.Execute(context.Background(), Request{
 		ClusterID: "cluster-123",
@@ -228,7 +224,7 @@ func TestAWSScope_CallerSuppliedRegionIsRejected(t *testing.T) {
 // would silently return another cluster's region.
 func TestAWSScope_DefaultRegionIsResolvedForTheRequestedCluster(t *testing.T) {
 	provider := &fakeAWSProvider{defaultRegion: "us-east-1"}
-	exec, _ := newTestAWSExecutor([]string{"us-east-1"}, provider)
+	exec, _ := newTestAWSExecutor(provider)
 
 	exec.Execute(context.Background(), Request{
 		ClusterID: "cluster-123",
@@ -247,7 +243,7 @@ func TestAWSScope_DefaultRegionIsResolvedForTheRequestedCluster(t *testing.T) {
 func TestAWSScope_DefaultRegionFailureIsReportedAsAFailure(t *testing.T) {
 	cause := errors.New("no cluster found")
 	provider := &fakeAWSProvider{defaultRegionErr: cause}
-	exec, auditor := newTestAWSExecutor([]string{"us-east-1"}, provider)
+	exec, auditor := newTestAWSExecutor(provider)
 
 	result := exec.Execute(context.Background(), Request{
 		CallerID:  "test-user",
@@ -284,7 +280,7 @@ func TestAWSScope_DefaultRegionFailureIsReportedAsAFailure(t *testing.T) {
 
 func TestAWSScope_OnlyRequestsDeclaredServices(t *testing.T) {
 	provider := &fakeAWSProvider{defaultRegion: "us-east-1"}
-	exec, _ := newTestAWSExecutor([]string{"us-east-1"}, provider)
+	exec, _ := newTestAWSExecutor(provider)
 
 	exec.Execute(context.Background(), Request{
 		Action: actions.NewAWSGetAction(),
@@ -296,45 +292,8 @@ func TestAWSScope_OnlyRequestsDeclaredServices(t *testing.T) {
 	}
 }
 
-func TestAWSScope_RegionNotInAllowlist(t *testing.T) {
-	provider := &fakeAWSProvider{defaultRegion: "us-east-1"}
-	exec, auditor := newTestAWSExecutor([]string{"eu-west-1"}, provider)
-
-	// The cluster resolves to us-east-1, which the allowlist does not cover.
-	result := exec.Execute(context.Background(), Request{
-		Action: actions.NewAWSGetAction(),
-		Params: map[string]string{"resource": "ec2-instances"},
-	})
-
-	if result.Allowed {
-		t.Fatal("expected denied for a region outside the allowlist, got allowed")
-	}
-	if provider.requestedServices != nil {
-		t.Error("expected no AWS clients to be built for a denied request")
-	}
-	if auditor.Records[0].Outcome != audit.OutcomeSkipped {
-		t.Errorf("expected outcome %q, got %q", audit.OutcomeSkipped, auditor.Records[0].Outcome)
-	}
-}
-
-// A caller omitting the region must not slip past a configured allowlist by
-// falling back to whatever default the provider happens to have.
-func TestAWSScope_DefaultRegionIsCheckedAgainstAllowlist(t *testing.T) {
-	provider := &fakeAWSProvider{defaultRegion: "us-east-1"}
-	exec, _ := newTestAWSExecutor([]string{"eu-west-1"}, provider)
-
-	result := exec.Execute(context.Background(), Request{
-		Action: actions.NewAWSGetAction(),
-		Params: map[string]string{"resource": "ec2-instances"},
-	})
-
-	if result.Allowed {
-		t.Fatal("expected the provider's default region to be checked against the allowlist")
-	}
-}
-
 func TestAWSScope_MissingResource(t *testing.T) {
-	exec, _ := newTestAWSExecutor([]string{"us-east-1"}, &fakeAWSProvider{defaultRegion: "us-east-1"})
+	exec, _ := newTestAWSExecutor(&fakeAWSProvider{defaultRegion: "us-east-1"})
 
 	result := exec.Execute(context.Background(), Request{
 		Action: actions.NewAWSGetAction(),
@@ -350,7 +309,7 @@ func TestAWSScope_MissingResource(t *testing.T) {
 // scope adds for the caller.
 func TestAWSScope_ProviderFailure(t *testing.T) {
 	provider := &fakeAWSProvider{defaultRegion: "us-east-1", err: fmt.Errorf("credentials unavailable")}
-	exec, auditor := newTestAWSExecutor([]string{"us-east-1"}, provider)
+	exec, auditor := newTestAWSExecutor(provider)
 
 	result := exec.Execute(context.Background(), Request{
 		Action: actions.NewAWSGetAction(),
@@ -418,7 +377,7 @@ func writeTestProvider() *fakeAWSProvider {
 func TestAWSScope_WriteDeniedByDefaultPolicy(t *testing.T) {
 	for _, action := range []actions.Action{actions.NewAWSRebootAction(), actions.NewAWSTerminateAction()} {
 		provider := writeTestProvider()
-		exec, auditor := newTestAWSExecutor([]string{"us-east-1"}, provider)
+		exec, auditor := newTestAWSExecutor(provider)
 
 		result := exec.Execute(context.Background(), Request{
 			ClusterID: "cluster-123",
@@ -442,7 +401,6 @@ func TestAWSScope_WriteDeniedByDefaultPolicy(t *testing.T) {
 func TestAWSScope_WriteAllowedWhenConfigured(t *testing.T) {
 	provider := writeTestProvider()
 	exec, auditor := newTestAWSPolicyExecutor(authorization.AWSPolicy{
-		AllowedRegions:    []string{"us-east-1"},
 		AllowedOperations: []string{"reboot"},
 	}, provider)
 
@@ -471,7 +429,6 @@ func TestAWSScope_WriteAllowedWhenConfigured(t *testing.T) {
 func TestAWSScope_PermittingOneOperationDoesNotPermitAnother(t *testing.T) {
 	provider := writeTestProvider()
 	exec, _ := newTestAWSPolicyExecutor(authorization.AWSPolicy{
-		AllowedRegions:    []string{"us-east-1"},
 		AllowedOperations: []string{"reboot"},
 	}, provider)
 
@@ -496,7 +453,6 @@ func TestAWSScope_PermittingOneOperationDoesNotPermitAnother(t *testing.T) {
 func TestAWSScope_WriteResolvesInfraIDForTheRequestedCluster(t *testing.T) {
 	provider := writeTestProvider()
 	exec, auditor := newTestAWSPolicyExecutor(authorization.AWSPolicy{
-		AllowedRegions:    []string{"us-east-1"},
 		AllowedOperations: []string{"reboot"},
 	}, provider)
 
@@ -529,7 +485,6 @@ func TestAWSScope_WriteFailsWhenInfraIDCannotBeResolved(t *testing.T) {
 	provider := writeTestProvider()
 	provider.infraIDErr = errors.New("OCM is unreachable")
 	exec, _ := newTestAWSPolicyExecutor(authorization.AWSPolicy{
-		AllowedRegions:    []string{"us-east-1"},
 		AllowedOperations: []string{"reboot"},
 	}, provider)
 
@@ -554,7 +509,6 @@ func TestAWSScope_WriteRefusedWhenInfraIDIsEmpty(t *testing.T) {
 	provider := writeTestProvider()
 	provider.infraID = ""
 	exec, _ := newTestAWSPolicyExecutor(authorization.AWSPolicy{
-		AllowedRegions:    []string{"us-east-1"},
 		AllowedOperations: []string{"reboot"},
 	}, provider)
 
@@ -577,7 +531,6 @@ func TestAWSScope_WriteRefusedWhenInfraIDIsEmpty(t *testing.T) {
 func TestAWSScope_WriteRejectsMismatchedResourceParam(t *testing.T) {
 	provider := writeTestProvider()
 	exec, _ := newTestAWSPolicyExecutor(authorization.AWSPolicy{
-		AllowedRegions:    []string{"us-east-1"},
 		AllowedOperations: []string{"reboot"},
 	}, provider)
 
@@ -602,7 +555,6 @@ func TestAWSScope_WriteRejectsMismatchedResourceParam(t *testing.T) {
 func TestAWSScope_WriteAcceptsMatchingResourceParam(t *testing.T) {
 	provider := writeTestProvider()
 	exec, _ := newTestAWSPolicyExecutor(authorization.AWSPolicy{
-		AllowedRegions:    []string{"us-east-1"},
 		AllowedOperations: []string{"reboot"},
 	}, provider)
 
@@ -621,7 +573,7 @@ func TestAWSScope_WriteAcceptsMatchingResourceParam(t *testing.T) {
 // gate standing between them and the region allowlist they already cleared.
 func TestAWSScope_ReadDoesNotResolveInfraID(t *testing.T) {
 	provider := &fakeAWSProvider{defaultRegion: "us-east-1"}
-	exec, _ := newTestAWSExecutor([]string{"us-east-1"}, provider)
+	exec, _ := newTestAWSExecutor(provider)
 
 	result := exec.Execute(context.Background(), Request{
 		ClusterID: "cluster-123",

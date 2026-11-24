@@ -111,24 +111,7 @@ func main() {
 				target actions.Target
 			)
 			if _, isAWS := act.(actions.AWSAction); isAWS {
-				// Neither allowlist is a flag. What may be read, and what may
-				// be changed, is server-side policy; a knob here would mean
-				// this CLI could exercise more than the server ever permits —
-				// so what it tests would stop matching what runs.
-				//
-				// Both read the same environment variables the server reads,
-				// rather than CLI-only switches, so exercising something
-				// locally means supplying the input a deployment would. There
-				// is no built-in region default to fall back on, for the same
-				// reason the server has none, so an unset allowlist here
-				// denies every AWS action.
-				allowedRegions := splitCSV(os.Getenv("ROSA_TA_AWS_ALLOWED_REGIONS"))
-				if len(allowedRegions) == 0 {
-					return fmt.Errorf("no AWS region allowlist configured: set ROSA_TA_AWS_ALLOWED_REGIONS, " +
-						"the same variable the server reads (e.g. ROSA_TA_AWS_ALLOWED_REGIONS=us-east-1)")
-				}
 				awsAuthz := authorization.NewAWS(logger, authorization.AWSPolicy{
-					AllowedRegions:    allowedRegions,
 					AllowedOperations: splitCSV(os.Getenv("ROSA_TA_AWS_ALLOWED_OPERATIONS")),
 				})
 				awsProvider := awsapi.NewStaticProvider(logger, awsapi.StaticConfig{
@@ -136,12 +119,7 @@ func main() {
 					EndpointURL: awsEndpointURL,
 					InfraID:     awsInfraID,
 				})
-				// The deployment-boundary gate's region is this CLI's
-				// single --aws-region, same as the static provider: it
-				// always resolves every cluster to that one region, so the
-				// boundary can never reject what the static provider itself
-				// stands in for.
-				exec = executor.New(logger, auditor, awsRegion, awsProvider, executor.NewAWSScope(awsAuthz, awsProvider))
+				exec = executor.New(logger, auditor, nil, nil, executor.NewAWSScope(awsAuthz, awsProvider))
 
 				// target is left nil so the AWS scope derives it from params,
 				// the same way the server does.
@@ -168,8 +146,7 @@ func main() {
 				}
 				authz := authorization.New(logger, nsList, splitCSV(allowedSecrets))
 				bp := backplane.NewKubeconfigProvider(logger, kubeconfig)
-				const cliDeploymentRegion = "cli-local"
-				exec = executor.New(logger, auditor, cliDeploymentRegion, fixedRegionResolver(cliDeploymentRegion), executor.NewKubeScope(authz, bp))
+				exec = executor.New(logger, auditor, nil, nil, executor.NewKubeScope(authz, bp))
 
 				target = actions.ResourceTarget{
 					Group:         group,
@@ -259,14 +236,6 @@ func main() {
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
-}
-
-// fixedRegionResolver answers the executor's deployment-boundary check with
-// a constant region, making the boundary check a no-op.
-type fixedRegionResolver string
-
-func (r fixedRegionResolver) DefaultRegion(context.Context, string) (string, error) {
-	return string(r), nil
 }
 
 // setIfNotEmpty records a flag only when it was given a value, so an unset

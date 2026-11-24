@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -314,9 +315,8 @@ func clearLoadEnv(t *testing.T) {
 		"ROSA_TA_KUBECONFIG",
 		"ROSA_TA_ALLOWED_NAMESPACES",
 		"ROSA_TA_ALLOWED_SECRETS",
-		"ROSA_TA_AWS_ALLOWED_REGIONS",
 		"ROSA_TA_AWS_ALLOWED_OPERATIONS",
-		"ROSA_TA_DEPLOYMENT_REGION",
+		"ROSA_TA_ALLOWED_CLUSTER_REGIONS",
 		"ROSA_TA_AWS_ENDPOINT_URL",
 		"ROSA_TA_AWS_PROXY_URL",
 		"ROSA_TA_BACKPLANE_ASSUME_INITIAL_ARN",
@@ -366,99 +366,45 @@ func TestLoad_Defaults(t *testing.T) {
 		t.Errorf("AuthPolicy = %v, want %v", cfg.AuthPolicy, EnabledAuthPolicy)
 	}
 
-	// An unconfigured server resolves to no regions at all. There is no
-	// built-in default, because which regions a deployment may reach is that
-	// deployment's decision; cmd/server turns this state into a refusal to
-	// start rather than a server that denies every AWS request.
-	if len(cfg.AWSAllowedRegions) != 0 {
-		t.Errorf("AWSAllowedRegions = %v, want none", cfg.AWSAllowedRegions)
-	}
-
-	// And it must come up permitting no writes at all, for the same reason: a
-	// server nobody configured for writes can read a cluster's AWS account but
-	// not change it.
+	// An unconfigured server must come up permitting no AWS writes at all: it
+	// can read a cluster's AWS account but not change it.
 	if len(cfg.AWSAllowedOperations) != 0 {
 		t.Errorf("AWSAllowedOperations = %v, want none", cfg.AWSAllowedOperations)
 	}
-}
 
-// With neither ROSA_TA_DEPLOYMENT_REGION nor AWS_REGION set, there is no
-// region to fall back to, so the boundary is left unconfigured — cmd/server
-// turns that into a startup failure.
-func TestLoad_DeploymentRegionDefaultsEmpty(t *testing.T) {
-	clearLoadEnv(t)
-
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if cfg.DeploymentRegion != "" {
-		t.Errorf("DeploymentRegion = %q, want empty", cfg.DeploymentRegion)
+	// The cluster-region allowlist goes the other way: unset means no
+	// boundary, so a deployment that has not been told which regions it is
+	// responsible for can still act on clusters in all of them.
+	if len(cfg.AllowedClusterRegions) != 0 {
+		t.Errorf("AllowedClusterRegions = %v, want none", cfg.AllowedClusterRegions)
 	}
 }
 
-// Unset, DeploymentRegion inherits AWS_REGION: a deployment that only ever
-// set AWS_REGION still gets a boundary, matching the region it already runs
-// in.
-func TestLoad_DeploymentRegionFallsBackToAWSRegion(t *testing.T) {
+// A deployment confines itself to a group of regions by naming them; the
+// value is a list, not a single region, so one deployment can cover several
+// regions rather than needing one deployment per region.
+func TestLoad_AllowedClusterRegionsFromEnv(t *testing.T) {
 	clearLoadEnv(t)
-	t.Setenv("AWS_REGION", "us-east-1")
-
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if cfg.DeploymentRegion != "us-east-1" {
-		t.Errorf("DeploymentRegion = %q, want %q", cfg.DeploymentRegion, "us-east-1")
-	}
-}
-
-// ROSA_TA_DEPLOYMENT_REGION overrides AWS_REGION, so a deployment can state a
-// boundary distinct from the region its AWS client defaults to.
-func TestLoad_DeploymentRegionFromEnvOverridesAWSRegion(t *testing.T) {
-	clearLoadEnv(t)
-	t.Setenv("AWS_REGION", "us-east-1")
-	t.Setenv("ROSA_TA_DEPLOYMENT_REGION", "eu-west-1")
-
-	cfg, err := Load("")
-	if err != nil {
-		t.Fatalf("Load() error = %v", err)
-	}
-	if cfg.DeploymentRegion != "eu-west-1" {
-		t.Errorf("DeploymentRegion = %q, want %q", cfg.DeploymentRegion, "eu-west-1")
-	}
-}
-
-// The default is a floor, not a ceiling: a deployment that genuinely runs in
-// other regions has to be able to say so.
-func TestLoad_AWSAllowedRegionsFromEnv(t *testing.T) {
-	clearLoadEnv(t)
-	t.Setenv("ROSA_TA_AWS_ALLOWED_REGIONS", "eu-west-1, ap-south-1")
+	t.Setenv("ROSA_TA_ALLOWED_CLUSTER_REGIONS", "eu-west-1, eu-central-1")
 
 	cfg, err := Load("")
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	want := []string{"eu-west-1", "ap-south-1"}
-	if len(cfg.AWSAllowedRegions) != len(want) {
-		t.Fatalf("AWSAllowedRegions = %v, want %v", cfg.AWSAllowedRegions, want)
-	}
-	for i := range want {
-		if cfg.AWSAllowedRegions[i] != want[i] {
-			t.Errorf("AWSAllowedRegions[%d] = %q, want %q", i, cfg.AWSAllowedRegions[i], want[i])
-		}
+	want := []string{"eu-west-1", "eu-central-1"}
+	if !slices.Equal(cfg.AllowedClusterRegions, want) {
+		t.Errorf("AllowedClusterRegions = %v, want %v", cfg.AllowedClusterRegions, want)
 	}
 }
 
-// config/config.yaml documents aws_allowed_regions as the way to widen the
-// allowlist without an environment variable, so the key in that file has to
-// match the one Load actually reads — a typo in either would leave a server
-// silently on the default while its config says otherwise.
-func TestLoad_AWSAllowedRegionsFromFile(t *testing.T) {
+// config/config.yaml documents allowed_cluster_regions, so the key in that
+// file has to match the one Load reads — a typo in either would leave a
+// server reaching every region while its config says it is confined.
+func TestLoad_AllowedClusterRegionsFromFile(t *testing.T) {
 	clearLoadEnv(t)
 	path := filepath.Join(t.TempDir(), "c.yaml")
-	content := "actions:\n  aws_allowed_regions: [eu-west-1]\n"
+	content := "actions:\n  allowed_cluster_regions: [eu-west-1]\n"
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
@@ -468,8 +414,8 @@ func TestLoad_AWSAllowedRegionsFromFile(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 
-	if len(cfg.AWSAllowedRegions) != 1 || cfg.AWSAllowedRegions[0] != "eu-west-1" {
-		t.Errorf("AWSAllowedRegions = %v, want [eu-west-1]", cfg.AWSAllowedRegions)
+	if !slices.Equal(cfg.AllowedClusterRegions, []string{"eu-west-1"}) {
+		t.Errorf("AllowedClusterRegions = %v, want [eu-west-1]", cfg.AllowedClusterRegions)
 	}
 }
 

@@ -30,8 +30,9 @@ type Record struct {
 	Target    actions.Target `json:"target"`
 	ClusterID string         `json:"cluster_id"`
 	// ClusterRegion is the target cluster's own AWS region, as resolved from
-	// OCM for the deployment-boundary check. Empty when resolution never ran
-	// (e.g. no execution scope matched the action).
+	// OCM to judge the cluster-region allowlist. Empty when resolution never
+	// ran — no allowlist is configured, or no execution scope matched the
+	// action.
 	ClusterRegion string   `json:"cluster_region,omitempty"`
 	Decision      Decision `json:"decision"`
 	DenyReason    string   `json:"deny_reason,omitempty"`

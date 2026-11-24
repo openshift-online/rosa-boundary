@@ -142,13 +142,9 @@ export AWS_REGION="$AWS_TEST_REGION"
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 
-# The region allowlist has no built-in default, so the server refuses to start
-# without one. Set to the same region the fixtures are seeded in.
-export ROSA_TA_AWS_ALLOWED_REGIONS="$AWS_TEST_REGION"
-
 # --- Server lifecycle ---
-# start_server/stop_server so the deployment-boundary check at the end can restart
-# the server with a different ROSA_TA_DEPLOYMENT_REGION. Both act on the SERVER_PID
+# start_server/stop_server so the cluster-region check at the end can restart
+# the server with a ROSA_TA_ALLOWED_CLUSTER_REGIONS set. Both act on the SERVER_PID
 # global; the server always listens on :8080, so only one runs at a time. The env
 # the server reads is whatever the caller has exported.
 SERVER_PID=""
@@ -370,33 +366,35 @@ read -r status execution_id <<<"$(run_action_status aws-get \
     fail "aws-get with an unaccepted param finished as '$status', expected 'failed'"
 ok "aws-get rejected an unaccepted param (execution $execution_id)"
 
-# --- 11. Deployment-region boundary: an out-of-region cluster must be denied ---
-# Prior steps left ROSA_TA_DEPLOYMENT_REGION unset (defaults to $AWS_TEST_REGION,
-# matching the provider). Restart with a mismatched region so the boundary gate
-# rejects before the scope; assert the denial in the server log (not yet in the
-# API — see worker.Pool.process) for both 'get' and 'aws-get'.
-assert_out_of_boundary() {
+# --- 11. Cluster-region allowlist: an out-of-region cluster must be denied ---
+# Every step so far ran with ROSA_TA_ALLOWED_CLUSTER_REGIONS unset — the open
+# default, where no region is judged at all and each action above was reached on
+# its own merits. Restart with an allowlist that excludes the region clusters
+# resolve to, so the region gate rejects before the scope; assert the denial in
+# the server log (not yet in the API — see worker.Pool.process) for both 'get'
+# and 'aws-get'.
+assert_out_of_region() {
     local action=$1 body=$2 status execution_id
     read -r status execution_id <<< "$(run_action_status "$action" "$body")"
     [ "$status" = "failed" ] \
-        || fail "out-of-boundary '$action' finished as '$status', expected 'failed'"
-    grep "execution_id=$execution_id" "$ACTIVE_SERVER_LOG" | grep -q "is outside deployment boundary" \
-        || fail "no deployment-boundary denial logged for execution $execution_id — check $ACTIVE_SERVER_LOG"
-    ok "out-of-boundary '$action' denied by the deployment-region gate (execution $execution_id)"
+        || fail "out-of-region '$action' finished as '$status', expected 'failed'"
+    grep "execution_id=$execution_id" "$ACTIVE_SERVER_LOG" | grep -q "is outside the regions this deployment may act on" \
+        || fail "no cluster-region denial logged for execution $execution_id — check $ACTIVE_SERVER_LOG"
+    ok "out-of-region '$action' denied by the cluster-region gate (execution $execution_id)"
 }
 
-log "Restarting server with a mismatched deployment region"
+log "Restarting server with an allowlist that excludes the clusters' region"
 stop_server
-export ROSA_TA_DEPLOYMENT_REGION="eu-west-1"
+export ROSA_TA_ALLOWED_CLUSTER_REGIONS="eu-west-1,eu-central-1"
 start_server "$BOUNDARY_SERVER_LOG"
-ok "server restarted (deployment boundary = $ROSA_TA_DEPLOYMENT_REGION, clusters resolve to $AWS_TEST_REGION)"
+ok "server restarted (allowed cluster regions = $ROSA_TA_ALLOWED_CLUSTER_REGIONS, clusters resolve to $AWS_TEST_REGION)"
 
-log "Running 'get' against an out-of-boundary cluster (must be denied)"
-assert_out_of_boundary get \
+log "Running 'get' against an out-of-region cluster (must be denied)"
+assert_out_of_region get \
     '{"target_cluster": "local", "params": {"version": "v1", "resource": "pods", "namespace": "kube-system"}}'
 
-log "Running 'aws-get' against an out-of-boundary cluster (must be denied)"
-assert_out_of_boundary aws-get \
+log "Running 'aws-get' against an out-of-region cluster (must be denied)"
+assert_out_of_region aws-get \
     '{"target_cluster": "local", "params": {"resource": "ec2-instances"}}'
 
 echo

@@ -173,7 +173,10 @@ module "rosa_trusted_actions" {
           key         = "app_config"
           value       = <<-YAML
             actions:
-              aws_allowed_regions: [${var.aws_region}]
+              # allowed_cluster_regions is deliberately unset: actions reach
+              # clusters in every region, as they did before the setting
+              # existed. Add it (e.g. [${var.aws_region}]) only as a decision
+              # to confine this deployment.
               allowed_namespaces: []
               allowed_secrets: []
             ocm:

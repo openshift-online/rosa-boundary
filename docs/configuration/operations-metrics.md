@@ -3,7 +3,7 @@
 The first metric for [ROSAENG-68823](https://redhat.atlassian.net/browse/ROSAENG-68823)
 measures task-creation workflow outcomes. Exporter onboarding and Grafana delivery
 are separate changes; emitting this metric does not prove Prometheus ingestion.
-The [staging dashboard guide](operations-dashboard.md) records the current
+The [dashboard guide](operations-dashboard.md) records the current
 App-SRE exporter configuration, dashboard JSON, and proposed delivery/ownership.
 
 ## Task-creation contract

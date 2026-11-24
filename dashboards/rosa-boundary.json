@@ -1,11 +1,10 @@
 {
   "id": null,
-  "uid": "rosa-boundary-stage",
-  "title": "ROSA Boundary — staging operations",
-  "description": "ROSAENG-68823: staging task-creation outcomes and native Lambda metrics from the App-SRE CloudWatch exporter. Collection is sampled; no totals or availability SLI are inferred.",
+  "uid": "rosa-boundary",
+  "title": "ROSA Boundary — operations",
+  "description": "ROSAENG-68823: task-creation outcomes and native Lambda metrics from the App-SRE CloudWatch exporter. Select the datasource for staging or production. Collection is sampled; no totals or availability SLI are inferred.",
   "tags": [
     "rosa-boundary",
-    "stage",
     "cloudwatch"
   ],
   "timezone": "utc",
@@ -42,9 +41,35 @@
         "label": "Datasource",
         "type": "datasource",
         "query": "prometheus",
-        "regex": "/^aws-resources-exporter-stage$/",
+        "regex": "/^aws-resources-exporter-(?:stage|production)$/",
         "refresh": 1,
-        "description": "Existing App-SRE datasource for staging AWS resource metrics. Select the provisioned datasource; its UID is not hardcoded.",
+        "description": "Select the existing App-SRE AWS resource datasource for staging or production.",
+        "options": []
+      },
+      {
+        "name": "region",
+        "label": "Region",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(up{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\"}, region)",
+        "query": {
+          "query": "label_values(up{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\"}, region)",
+          "refId": "Regions"
+        },
+        "description": "Regions discovered from Boundary exporter targets in the selected datasource.",
+        "refresh": 2,
+        "sort": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
         "options": []
       },
       {
@@ -55,16 +80,16 @@
           "type": "prometheus",
           "uid": "${datasource}"
         },
-        "definition": "label_values(aws_lambda_invocations_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"rosa-boundary-stage-.*\"}, function_name)",
+        "definition": "label_values(aws_lambda_invocations_sum{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\",function_name=~\"rosa-boundary-.*\"}, function_name)",
         "query": {
-          "query": "label_values(aws_lambda_invocations_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"rosa-boundary-stage-.*\"}, function_name)",
+          "query": "label_values(aws_lambda_invocations_sum{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\",function_name=~\"rosa-boundary-.*\"}, function_name)",
           "refId": "LambdaFunctions"
         },
         "refresh": 2,
         "sort": 1,
         "multi": true,
         "includeAll": true,
-        "allValue": "rosa-boundary-stage-.*",
+        "allValue": "rosa-boundary-.*",
         "current": {
           "selected": true,
           "text": "All",
@@ -78,7 +103,7 @@
     {
       "id": 1,
       "type": "text",
-      "title": "ROSA Boundary staging",
+      "title": "ROSA Boundary operations",
       "gridPos": {
         "h": 5,
         "w": 24,
@@ -87,7 +112,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Account:** rosa-boundary-stage (150100906299) · **Region:** us-east-1\n\nCloudWatch graphs show **sampled 60-second buckets, shifted forward 10 minutes** for collection delay. A bucket may appear at multiple query steps; these graphs do not give whole-range totals. No samples can mean idle traffic or missing telemetry. Check collection health below.\n\nTask-creation `success` means the launch workflow returned; it does not establish task readiness. `blocked` is a rejected handover (HTTP 409). Pre-creation rejections and timeouts may emit no outcome. These metrics do not measure end-to-end availability, EFS growth, or actual task lifetime."
+        "content": "**Datasource:** ${datasource:text} · **Region:** ${region:text}\n\nCloudWatch graphs show **sampled 60-second buckets, shifted forward 10 minutes** for collection delay. A bucket may appear at multiple query steps; these graphs do not give whole-range totals. No samples can mean idle traffic or missing telemetry. Check collection health below.\n\nTask-creation `success` means the launch workflow returned; it does not establish task readiness. `blocked` is a rejected handover (HTTP 409). Pre-creation rejections and timeouts may emit no outcome. These metrics do not measure end-to-end availability, EFS growth, or actual task lifetime."
       }
     },
     {
@@ -112,8 +137,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "up{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\"}",
-          "legendFormat": "{{instance}}",
+          "expr": "up{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\"}",
+          "legendFormat": "{{account}} · {{region}} · {{instance}}",
           "range": false,
           "instant": true,
           "refId": "A"
@@ -175,8 +200,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "cloudwatch_exporter_scrape_error{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\"}",
-          "legendFormat": "{{instance}}",
+          "expr": "cloudwatch_exporter_scrape_error{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\"}",
+          "legendFormat": "{{account}} · {{region}} · {{instance}}",
           "range": false,
           "instant": true,
           "refId": "A"
@@ -239,8 +264,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rosaboundary_task_creation_requests_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",ecscluster=\"rosa-boundary-stage\"} offset 10m",
-          "legendFormat": "{{ecscluster}} · {{outcome}}",
+          "expr": "rosaboundary_task_creation_requests_sum{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\",ecscluster=~\"rosa-boundary-.*\"} offset 10m",
+          "legendFormat": "{{region}} · {{ecscluster}} · {{outcome}}",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -346,8 +371,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "aws_lambda_invocations_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
-          "legendFormat": "{{function_name}}",
+          "expr": "aws_lambda_invocations_sum{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\",function_name=~\"${function:regex}\"} offset 10m",
+          "legendFormat": "{{region}} · {{function_name}}",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -407,8 +432,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "aws_lambda_errors_sum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
-          "legendFormat": "{{function_name}}",
+          "expr": "aws_lambda_errors_sum{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\",function_name=~\"${function:regex}\"} offset 10m",
+          "legendFormat": "{{region}} · {{function_name}}",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -468,8 +493,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "aws_lambda_duration_average{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
-          "legendFormat": "{{function_name}}",
+          "expr": "aws_lambda_duration_average{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\",function_name=~\"${function:regex}\"} offset 10m",
+          "legendFormat": "{{region}} · {{function_name}}",
           "range": true,
           "instant": false,
           "refId": "A"
@@ -529,8 +554,8 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "aws_lambda_duration_maximum{job=\"cloudwatch-exporter-rosa-boundary-stage\",account=\"rosa-boundary-stage\",region=\"us-east-1\",function_name=~\"${function:regex}\"} offset 10m",
-          "legendFormat": "{{function_name}}",
+          "expr": "aws_lambda_duration_maximum{job=~\"cloudwatch-exporter-rosa-boundary-.*\",account=~\"rosa-boundary-(stage|prod)\",region=~\"${region:regex}\",function_name=~\"${function:regex}\"} offset 10m",
+          "legendFormat": "{{region}} · {{function_name}}",
           "range": true,
           "instant": false,
           "refId": "A"

@@ -38,7 +38,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 - [**Code Coverage**](configuration/code-coverage.md) - Codecov integration, Prow CI jobs, and coverage reporting
 - [**UUID Allowlist**](configuration/uuid-allowlist.md) - Interim access control restricting role assumption by user UUID
 - [**Operations Metrics**](configuration/operations-metrics.md) - Task-creation metric contract, exporter semantics, and validation gaps
-- [**Operations Dashboard**](configuration/operations-dashboard.md) - Staging Grafana dashboard, App-SRE delivery, and ownership
+- [**Operations Dashboard**](configuration/operations-dashboard.md) - Shared Grafana dashboard, App-SRE delivery, and ownership
 
 ## Testing
 

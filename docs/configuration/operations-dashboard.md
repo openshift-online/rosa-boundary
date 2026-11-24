@@ -1,9 +1,9 @@
-# Staging operations dashboard: delivery and ownership
+# Operations dashboard: delivery and ownership
 
-The initial [dashboard JSON](../../dashboards/rosa-boundary-stage.json) covers
+The shared [dashboard JSON](../../dashboards/rosa-boundary.json) covers
 the metrics enabled by
 [app-interface !220268](https://gitlab.cee.redhat.com/service/app-interface/-/merge_requests/220268).
-Keep the JSON and its [deployment ConfigMap](../../dashboards/manifests/grafana-dashboard-rosa-boundary-stage.configmap.yaml)
+Keep the JSON and its [deployment ConfigMap](../../dashboards/manifests/grafana-dashboard-rosa-boundary.configmap.yaml)
 in `openshift-online/rosa-boundary`. App-SRE's current
 [dashboard guidance](https://gitlab.cee.redhat.com/service/app-interface/-/blob/master/docs/platform-users/monitoring/grafana-visualization.md#adding-dashboards)
 recommends an upstream service repository and a service-owned SaaS tracking file.
@@ -31,6 +31,21 @@ The datasource is defined in
 shared by the central Grafana instances. No new datasource or RHOBS forwarding is
 needed for this dashboard. The Thanos diagnostic URL is not a datasource name.
 
+The dashboard name, UID (`rosa-boundary`), and artifacts are shared across
+environments. Choose `aws-resources-exporter-stage` or
+`aws-resources-exporter-production` in its datasource selector. The latter is
+configured at `https://prometheus.external-resources.prod.devshift.net`.
+Queries match Boundary accounts `rosa-boundary-(stage|prod)` and exporter jobs
+`cloudwatch-exporter-rosa-boundary-.*` within the selected datasource. Region
+options come from its Boundary exporter targets, and function options refresh
+from its Lambda metrics. Both default to All, so changing the datasource is
+enough to change environments. Legends include region to distinguish deployments.
+
+The table above records the initial staging collection. Production's account
+exists as `rosa-boundary-prod`, but its CloudWatch exporter feature is disabled
+in the reviewed collection configuration. Production metric onboarding and
+validation are still required; the datasource selector does not enable collection.
+
 ## Metric and query details
 
 | CloudWatch metric / statistic | Expected Prometheus metric | Dimension labels |
@@ -50,12 +65,14 @@ dimension names to underscores. It adds no `aws_` prefix to custom namespaces;
 a mirror of `prom/cloudwatch-exporter`. Verify the running image and actual series
 before treating these source-derived names as live evidence.
 
-The dedicated config requests `period_seconds: 60`; its ServiceMonitor requests
+The dedicated staging config requests `period_seconds: 60`; its ServiceMonitor requests
 `interval: 120s`. It does not override upstream defaults of `delay_seconds: 600`,
 `range_seconds: 600`, and `set_timestamp: true`. CloudWatch panels use
 `offset 10m` to expose delayed samples within Prometheus's normal lookback. This
 plots a bucket ten minutes later than its original CloudWatch timestamp; account
 for this when comparing logs. Exporter health panels query current time.
+Production must use compatible period and delay settings when collection is
+enabled, or the shared graph descriptions and offset must be adjusted.
 
 The exporter returns the latest datapoint in its requested window. With this
 cadence, busy periods can lose intervening one-minute buckets, while sparse
@@ -65,10 +82,11 @@ values, not exact counts over the selected time range. Do not use `rate`,
 whole-range counts or ratios, agree a collection cadence with App-SRE and verify
 bucket coverage, timestamps, and deduplication against CloudWatch.
 
-Lambda discovery is limited to `rosa-boundary-stage-.*`. Terraform currently
+Lambda discovery is limited to `rosa-boundary-.*`. Terraform currently
 defines `create-investigation`, `reap-tasks`, and `reap-investigations` with that
-prefix. The function selector only affects Lambda panels. Task outcomes remain
-scoped to ECS cluster `rosa-boundary-stage`; retries count as attempts. See the
+prefix, with the environment in each name. The function selector only affects
+Lambda panels. Task outcomes match ECS clusters `rosa-boundary-.*` in the selected
+datasource and regions; retries count as attempts. See the
 [metric contract](operations-metrics.md) for exclusions and success semantics.
 
 ## App-interface changes to propose
@@ -91,7 +109,7 @@ can move the SaaS app/pipeline references to Boundary without moving the JSON.
      service: app-sre-observability
    name: saas-rosa-boundary-dashboards
    displayName: rosa-boundary-dashboards
-   description: ROSA Boundary staging operations dashboard
+   description: ROSA Boundary operations dashboard
    app:
      $ref: /services/observability/app.yml
    pipelinesProvider:
@@ -157,10 +175,11 @@ can move the SaaS app/pipeline references to Boundary without moving the JSON.
 4. After validation in Grafana stage, add a second target with namespace
    `/services/observability/namespaces/app-sre-observability-production-int.appsrep09ue1.yml`
    and `ref` set to the exact reviewed Boundary commit containing the dashboard.
-   This publishes the **staging-data dashboard** at
-   `https://grafana.app-sre.devshift.net/d/rosa-boundary-stage`;
-   it does not switch to a production AWS account or datasource. The stage
-   preview URL is `https://grafana.stage.devshift.net/d/rosa-boundary-stage`.
+   This publishes the same dashboard at
+   `https://grafana.app-sre.devshift.net/d/rosa-boundary`. Its datasource selector
+   chooses staging or production data independently of which Grafana instance
+   hosts it. The preview URL is
+   `https://grafana.stage.devshift.net/d/rosa-boundary`.
 
 Do not add this dashboard to the deprecated `saas-grafana.yaml`, or to the
 legacy shared-resources dashboard list. No change to the
@@ -183,7 +202,9 @@ were therefore not verified. Use authenticated Grafana Explore with datasource
 [ROSAENG-68823](https://redhat.atlassian.net/browse/ROSAENG-68823)
 or [APPSRE-15799](https://redhat.atlassian.net/browse/APPSRE-15799).
 
-First discover recent custom series without assuming their exact spelling:
+The following queries are staging validation examples; dashboard queries use
+the selected datasource and region filters. First discover recent custom series
+without assuming their exact spelling:
 
 ```promql
 count_over_time({__name__=~".*rosaboundary.*",account="rosa-boundary-stage",region="us-east-1"}[24h])

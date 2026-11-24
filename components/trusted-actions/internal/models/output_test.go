@@ -7,11 +7,8 @@ import (
 )
 
 func TestOutputFromActionResult_Nil(t *testing.T) {
-	out, err := OutputFromActionResult(nil)
+	out := OutputFromActionResult(nil)
 
-	if err != nil {
-		t.Errorf("err = %v, want nil", err)
-	}
 	if out != nil {
 		t.Errorf("out = %v, want nil", out)
 	}
@@ -26,11 +23,8 @@ func TestOutputFromActionResult_WithResources(t *testing.T) {
 		},
 	}
 
-	out, err := OutputFromActionResult(result)
+	out := OutputFromActionResult(result)
 
-	if err != nil {
-		t.Fatalf("err = %v, want nil", err)
-	}
 	if out.Message != "ok" {
 		t.Errorf("Message = %v, want ok", out.Message)
 	}
@@ -48,11 +42,8 @@ func TestOutputFromActionResult_WithResources(t *testing.T) {
 func TestOutputFromActionResult_EmptyResources(t *testing.T) {
 	result := &actions.ActionResult{Message: "m"}
 
-	out, err := OutputFromActionResult(result)
+	out := OutputFromActionResult(result)
 
-	if err != nil {
-		t.Fatalf("err = %v, want nil", err)
-	}
 	if len(out.Resources) != 0 {
 		t.Errorf("len(Resources) = %v, want 0", len(out.Resources))
 	}

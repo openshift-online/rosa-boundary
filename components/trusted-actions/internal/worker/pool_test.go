@@ -38,7 +38,7 @@ func (f *fakeStore) ClaimNextExecution(ctx context.Context) (*models.Execution, 
 	return exec, nil
 }
 
-func (f *fakeStore) UpdateExecutionWithResult(ctx context.Context, id uuid.UUID, status string, completedAt *time.Time, output *models.ExecutionOutput) error {
+func (f *fakeStore) UpdateExecutionWithResult(ctx context.Context, id uuid.UUID, status, reason string, completedAt *time.Time, output *models.ExecutionOutput) error {
 	return nil
 }
 
@@ -137,7 +137,7 @@ type ctxAwareStore struct {
 	updated chan struct{}
 }
 
-func (s *ctxAwareStore) UpdateExecutionWithResult(ctx context.Context, id uuid.UUID, status string, completedAt *time.Time, output *models.ExecutionOutput) error {
+func (s *ctxAwareStore) UpdateExecutionWithResult(ctx context.Context, id uuid.UUID, status, reason string, completedAt *time.Time, output *models.ExecutionOutput) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

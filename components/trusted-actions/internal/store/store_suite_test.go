@@ -51,6 +51,7 @@ func runStoreTestSuite(t *testing.T, factory func(*testing.T) Store) {
 	t.Run("ListExecutions_Limit", func(t *testing.T) { testListExecutionsLimit(t, factory(t)) })
 	t.Run("ListExecutions_Since", func(t *testing.T) { testListExecutionsSince(t, factory(t)) })
 	t.Run("UpdateExecutionStatus", func(t *testing.T) { testUpdateExecutionStatus(t, factory(t)) })
+	t.Run("UpdateExecutionWithFailedStatus", func(t *testing.T) { testUpdateExecutionWithFailedStatus(t, factory(t)) })
 	t.Run("UpdateExecutionStatusAndOutput", func(t *testing.T) { testUpdateExecutionStatusAndOutput(t, factory(t)) })
 	t.Run("UpdateExecutionStatus_NotFound", func(t *testing.T) { testUpdateExecutionStatusNotFound(t, factory(t)) })
 	t.Run("ClaimNextExecution", func(t *testing.T) { testClaimNextExecution(t, factory(t)) })
@@ -243,7 +244,7 @@ func testUpdateExecutionStatus(t *testing.T, s Store) {
 	}
 
 	completedAt := time.Now().UTC().Truncate(time.Microsecond)
-	if err := s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", &completedAt, nil); err != nil {
+	if err := s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", "", &completedAt, nil); err != nil {
 		t.Fatalf("UpdateExecutionWithResult failed: %v", err)
 	}
 
@@ -253,6 +254,46 @@ func testUpdateExecutionStatus(t *testing.T, s Store) {
 	}
 	if got.Status != "succeeded" {
 		t.Errorf("Status: got %s, want succeeded", got.Status)
+	}
+	if got.Reason != "" {
+		t.Errorf("Reason: got %v, want empty", got.Reason)
+	}
+	if got.CompletedAt == nil {
+		t.Fatal("CompletedAt: got nil, want non-nil")
+	}
+
+	out, err := s.GetExecutionOutput(ctx, exec.ID)
+	if err == nil {
+		t.Errorf("GetExecutionOutput: expected error, got nil")
+	}
+	if out != nil {
+		t.Errorf("ExecutionOutput: got %v, want nil", out)
+	}
+}
+
+func testUpdateExecutionWithFailedStatus(t *testing.T, s Store) {
+	t.Helper()
+	ctx := context.Background()
+
+	exec := testExecution("cluster-info", "cluster-1")
+	if err := s.CreateExecution(ctx, exec); err != nil {
+		t.Fatalf("CreateExecution failed: %v", err)
+	}
+
+	completedAt := time.Now().UTC().Truncate(time.Microsecond)
+	if err := s.UpdateExecutionWithResult(ctx, exec.ID, "failed", "execution failed", &completedAt, nil); err != nil {
+		t.Fatalf("UpdateExecutionWithResult failed: %v", err)
+	}
+
+	got, err := s.GetExecution(ctx, exec.ID)
+	if err != nil {
+		t.Fatalf("GetExecution failed: %v", err)
+	}
+	if got.Status != "failed" {
+		t.Errorf("Status: got %s, want failed", got.Status)
+	}
+	if got.Reason != "execution failed" {
+		t.Errorf("Reason: got %v, want 'execution failed'", got.Reason)
 	}
 	if got.CompletedAt == nil {
 		t.Fatal("CompletedAt: got nil, want non-nil")
@@ -280,7 +321,7 @@ func testUpdateExecutionStatusAndOutput(t *testing.T, s Store) {
 		{"name": "object1", "data": "some data", "some-key": "some value"},
 		{"name": "object2", "data": "some other data", "secret": "can't say"},
 	}
-	g.Expect(s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", &completedAt, &models.ExecutionOutput{
+	g.Expect(s.UpdateExecutionWithResult(ctx, exec.ID, "succeeded", "", &completedAt, &models.ExecutionOutput{
 		Message:   "execution logs",
 		Resources: resources,
 	})).To(Succeed())
@@ -298,7 +339,7 @@ func testUpdateExecutionStatusAndOutput(t *testing.T, s Store) {
 
 func testUpdateExecutionStatusNotFound(t *testing.T, s Store) {
 	t.Helper()
-	err := s.UpdateExecutionWithResult(context.Background(), uuid.New(), "succeeded", nil, nil)
+	err := s.UpdateExecutionWithResult(context.Background(), uuid.New(), "succeeded", "", nil, nil)
 	if !strings.Contains(err.Error(), ErrNotFound.Error()) {
 		t.Errorf("expected ErrNotFound in error chain, got %v", err)
 	}

@@ -14,6 +14,7 @@ type Execution struct {
 	ID               uuid.UUID
 	Action           string
 	Status           string
+	Reason           string
 	ApprovalState    *string
 	Username         *string
 	TargetCluster    string
@@ -73,6 +74,10 @@ func (e *Execution) ToOpenAPI() openapi.Execution {
 		if json.Unmarshal(*e.Params, &params) == nil {
 			out.Params = &params
 		}
+	}
+
+	if e.Reason != "" {
+		out.Reason = &e.Reason
 	}
 
 	return out

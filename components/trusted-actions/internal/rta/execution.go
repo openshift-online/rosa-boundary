@@ -115,6 +115,9 @@ func (g *commandGroup) executionGetCommand() *cobra.Command {
 			fmt.Fprintf(w, "Action:    %s\n", exec.Action)
 			fmt.Fprintf(w, "Cluster:   %s\n", exec.TargetCluster)
 			fmt.Fprintf(w, "Status:    %s\n", exec.Status)
+			if exec.Reason != nil {
+				fmt.Fprintf(w, "Reason:    %s\n", *exec.Reason)
+			}
 			fmt.Fprintf(w, "Created:   %s\n", exec.CreatedAt.Format("2006-01-02 15:04:05"))
 			if exec.CompletedAt != nil {
 				fmt.Fprintf(w, "Completed: %s\n", exec.CompletedAt.Format("2006-01-02 15:04:05"))

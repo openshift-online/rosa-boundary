@@ -36,6 +36,9 @@ properties:
     $ref: ./ApprovalState.yaml
   status:
     $ref: ./ExecutionStatus.yaml
+  reason:
+    type: string
+    description: Reason for failure, if any
   revision:
     type: string
     description: Git SHA of TA definition

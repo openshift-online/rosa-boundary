@@ -81,19 +81,19 @@ func (s *SQLiteStore) CreateExecution(ctx context.Context, exec *models.Executio
 
 	_, err := s.db.ExecContext(ctx, `
 		INSERT INTO executions (
-			id, action, status, approval_state, username, target_cluster,
+			id, action, status, reason, approval_state, username, target_cluster,
 			jira, dry_run, force, params, scope, type, revision,
 			manifest_work_name,
 			runner_seconds, upload_seconds, duration_seconds,
 			created_at, updated_at, completed_at
 		) VALUES (
-			?, ?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?, ?, ?,
 			?, ?, ?, ?, ?, ?, ?,
 			?,
 			?, ?, ?,
 			?, ?, ?
 		)`,
-		exec.ID.String(), exec.Action, exec.Status, exec.ApprovalState, exec.Username, exec.TargetCluster,
+		exec.ID.String(), exec.Action, exec.Status, exec.Reason, exec.ApprovalState, exec.Username, exec.TargetCluster,
 		exec.Jira, exec.DryRun, exec.Force, paramsStr, exec.Scope, exec.Type, exec.Revision,
 		exec.ManifestWorkName,
 		exec.RunnerSeconds, exec.UploadSeconds, exec.DurationSeconds,
@@ -175,7 +175,7 @@ func (s *SQLiteStore) ListExecutions(ctx context.Context, filter ExecutionFilter
 	return &ExecutionListResult{Items: items, Total: total, Limit: limit, Offset: offset}, nil
 }
 
-func (s *SQLiteStore) UpdateExecutionWithResult(ctx context.Context, id uuid.UUID, status string, completedAt *time.Time, output *models.ExecutionOutput) error {
+func (s *SQLiteStore) UpdateExecutionWithResult(ctx context.Context, id uuid.UUID, status, reason string, completedAt *time.Time, output *models.ExecutionOutput) error {
 	opts := &sql.TxOptions{Isolation: sql.LevelSerializable}
 
 	tx, err := s.db.BeginTx(ctx, opts)
@@ -205,8 +205,8 @@ func (s *SQLiteStore) UpdateExecutionWithResult(ctx context.Context, id uuid.UUI
 		return nil
 	}
 
-	err = txExec(`UPDATE executions SET status = ?, updated_at = ?, completed_at = ? WHERE id = ?`,
-		true, status, time.Now().UTC().Format(timeLayout), formatTimePtr(completedAt), id.String())
+	err = txExec(`UPDATE executions SET status = ?, reason = ?, updated_at = ?, completed_at = ? WHERE id = ?`,
+		true, status, reason, time.Now().UTC().Format(timeLayout), formatTimePtr(completedAt), id.String())
 	if err != nil {
 		return fmt.Errorf("updating execution status: %w", err)
 	}
@@ -342,6 +342,7 @@ type sqliteExecutionRow struct {
 	ID               string  `db:"id"`
 	Action           string  `db:"action"`
 	Status           string  `db:"status"`
+	Reason           string  `db:"reason"`
 	ApprovalState    *string `db:"approval_state"`
 	Username         *string `db:"username"`
 	TargetCluster    string  `db:"target_cluster"`
@@ -381,6 +382,7 @@ func (r *sqliteExecutionRow) toModel() (*models.Execution, error) {
 		ID:               id,
 		Action:           r.Action,
 		Status:           r.Status,
+		Reason:           r.Reason,
 		ApprovalState:    r.ApprovalState,
 		Username:         r.Username,
 		TargetCluster:    r.TargetCluster,

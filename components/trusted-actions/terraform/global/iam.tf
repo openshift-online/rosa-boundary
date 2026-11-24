@@ -31,21 +31,12 @@
 data "aws_caller_identity" "current" {}
 
 locals {
-  # Matches the bucket name built in terraform/regional/s3.tf:
-  # ACCOUNT-ENVIRONMENT-SUFFIX-REGION. The trailing wildcard covers every
-  # region's bucket without this workspace knowing which regions exist.
-  #
-  # Known limitation: AWS ARN wildcard matching is not path-aware (`*`
-  # matches `/` like any other character), so statements below that append a
-  # literal key-prefix suffix to this pattern (task_app's .../trusted-actions/*,
-  # firehose_audit_logs' .../audit-logs*/*) can't fully exclude a crafted key
-  # that embeds the suffix as a later path segment (e.g.
-  # audit-logs/trusted-actions/x). Closing this requires enumerating concrete
-  # per-region bucket ARNs, which defeats the point of this wildcard — this
-  # workspace intentionally stays region-count-agnostic. Low risk in practice:
-  # only task_app's own role can craft such a key, and it already has
-  # unrestricted GetObject/ListBucket on the whole bucket.
-  s3_bucket_arn_pattern = "arn:aws:s3:::${data.aws_caller_identity.current.account_id}-${var.environment}-${var.s3_bucket_name_suffix}-*"
+  # Bucket naming is ACCOUNT-ENVIRONMENT-SUFFIX-REGION, where ENVIRONMENT differs per
+  # deployment (prod vs stage), but the global workspace only knows its own
+  # var.environment. A region-agnostic wildcard that matches any environment
+  # keeps this workspace region-count-agnostic while still scoping to our
+  # account and suffix.
+  s3_bucket_arn_pattern = "arn:aws:s3:::${data.aws_caller_identity.current.account_id}-*-${var.s3_bucket_name_suffix}-*"
 }
 
 # ── ECS Task Execution Role ────────────────────────────────────────────────────
@@ -84,6 +75,9 @@ resource "aws_iam_policy" "read_secrets" {
         # is ours and predictable; the trailing -* covers the random suffix
         # Secrets Manager appends. See docs/database-and-compute.md.
         "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:${var.app_name}/db-*",
+        # RDS manage_master_user_password creates the secret as rds!cluster-<uuid>,
+        # which does not match the ${var.app_name}/db-* pattern above.
+        "arn:aws:secretsmanager:*:${data.aws_caller_identity.current.account_id}:secret:rds!cluster-*",
       ]
     }]
   })

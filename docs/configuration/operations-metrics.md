@@ -129,7 +129,7 @@ ingestion nor notification delivery; verify those in the receiving system.
 | Task lifetime | Needs actual lifecycle timestamps and coverage of all stop paths; configured timeout is not observed lifetime |
 | Investigation creation | Needs a signal at newly created access points; access-point reuse and `skip_task` must be distinguished |
 | Task-creation availability | Define the SLI boundary and timeout/missing-data treatment before presenting an availability claim |
-| EFS growth | `StorageBytes` is not in the current exporter config; add collection and agree growth alerting with App-SRE |
+| EFS growth | `StorageBytes` is not in the current exporter config; see the [export and monitoring plan](../design-proposals/efs-size-metrics.md) for collection, sparse-gauge queries, ownership, and alert decisions |
 | Actor-level views | `ActorUUID` supports Logs Insights queries under existing log access controls; Grafana log-source access/delivery needs separate agreement; no identity metric labels |
 
 ## Stage validation evidence

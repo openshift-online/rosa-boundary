@@ -229,6 +229,7 @@ panels, folder provisioning, and both Git-managed targets before closing out.
 
 EFS `StorageBytes`, ECS startup failures, actual task lifetimes, investigation
 creation, and an end-to-end availability SLI are not exported by the current
-config and have no panels here. EFS growth is called out in the Jira discussion
-and needs an exporter/alerting follow-up. Actor-level views require an approved
+config and have no panels here. The [EFS size metrics plan](../design-proposals/efs-size-metrics.md)
+covers the exporter, dashboard, and alerting follow-up requested in the Jira discussion.
+Actor-level views require an approved
 log datasource; do not introduce actor or username metric labels.

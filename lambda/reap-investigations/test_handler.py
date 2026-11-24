@@ -56,6 +56,8 @@ class TestReaperDiscovery(unittest.TestCase):
         self.addCleanup(client_patcher.stop)
         self.mock_ecs = MagicMock()
         self.mock_efs = MagicMock()
+        self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit-bucket'))
+        self.enterContext(patch.object(handler, 'AWS_ACCOUNT_ID', '000000000000'))
         self.mock_context = MagicMock()
         self.mock_context.get_remaining_time_in_millis.return_value = 300000
 
@@ -214,8 +216,8 @@ class TestReaperDiscovery(unittest.TestCase):
             {'taskArns': ['arn:aws:ecs:::task/c/one'], 'nextToken': 'next'},
             {'taskArns': ['arn:aws:ecs:::task/c/two']},
         ]
-        self.mock_ecs.describe_tasks.return_value = {'tasks': [{
-            'taskArn': 'arn:aws:ecs:::task/c/one',
+        self.mock_ecs.describe_tasks.side_effect = lambda **kwargs: {'tasks': [{
+            'taskArn': kwargs['tasks'][0],
             'tags': [{'key': 'cluster_id', 'value': 'test-cluster'},
                      {'key': 'investigation_id', 'value': 'inv-123'}]}]}
         result = self.run_handler()
@@ -227,15 +229,65 @@ class TestReaperDiscovery(unittest.TestCase):
         self.mock_ecs.list_tasks.return_value = {'taskArns': ['arn:aws:ecs:::task/c/one']}
         self.mock_ecs.describe_tasks.side_effect = ClientError(
             {'Error': {'Code': 'AccessDenied', 'Message': 'denied'}}, 'DescribeTasks')
-        result = self.run_handler()
-        self.assertIn('error', result)
+        with self.assertRaises(ClientError):
+            self.run_handler()
         self.reap.assert_not_called()
 
+    def test_sole_failed_task_refresh_is_a_record_error(self):
+        self.mock_efs.describe_access_points.return_value = {
+            'AccessPoints': [access_point(), access_point(age_hours=1)]}
+        self.mock_ecs.get_paginator.side_effect = ClientError(
+            {'Error': {'Code': 'AccessDenied'}}, 'ListTasks')
+        result = self.run_handler()
+        self.assertEqual((result['errors'], result['skipped']), (1, 1))
+        self.reap.assert_not_called()
+
+    def test_incomplete_task_inventory_is_not_idle(self):
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+        self.mock_ecs.list_tasks.return_value = {'taskArns': ['task']}
+        for response in ({'tasks': [], 'failures': [{'arn': 'task'}]}, {'tasks': []}):
+            with self.subTest(response=response):
+                self.mock_ecs.describe_tasks.return_value = response
+                with self.assertRaisesRegex(RuntimeError, 'inventory'):
+                    self.run_handler()
+                self.reap.assert_not_called()
+
+    def test_efs_discovery_failure_propagates(self):
+        self.mock_efs.describe_access_points.side_effect = ClientError(
+            {'Error': {'Code': 'AccessDenied'}}, 'DescribeAccessPoints')
+        with self.assertRaises(ClientError):
+            self.run_handler()
+        self.reap.assert_not_called()
+
+    def test_later_discovery_page_failure_discards_partial_inventory(self):
+        for operation, page in (
+            (self.mock_efs.describe_access_points, {'AccessPoints': [access_point()], 'NextToken': 'next'}),
+            (self.mock_ecs.list_tasks, {'taskArns': [], 'nextToken': 'next'}),
+        ):
+            with self.subTest(page=page):
+                error = ClientError({'Error': {'Code': 'ThrottlingException'}}, 'Discovery')
+                self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
+                operation.side_effect = [page, error]
+                with self.assertRaises(ClientError) as raised:
+                    self.run_handler()
+                self.assertIs(raised.exception, error)
+                self.reap.assert_not_called()
+                operation.side_effect = None
+
+    def test_one_failed_stale_pass_does_not_block_next(self):
+        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [
+            access_point(), access_point(ap_id='fsap-other', investigation='other')]}
+        self.reap.side_effect = [ClientError({'Error': {'Code': 'AccessDenied'}}, 'GetObject'), True]
+        result = self.run_handler()
+        self.assertEqual((result['errors'], result['reaped']), (1, 1))
+
     def test_missing_configuration_fails_loudly(self):
-        for variable in ('ECS_CLUSTER', 'EFS_FILESYSTEM_ID'):
+        for variable in ('ECS_CLUSTER', 'EFS_FILESYSTEM_ID', 'S3_AUDIT_BUCKET', 'AWS_ACCOUNT_ID'):
             with self.subTest(variable=variable), patch.object(handler, variable, None):
                 with self.assertRaises(ValueError):
                     handler.lambda_handler({}, None)
+                self.close_work.assert_not_called()
+                self.reap.assert_not_called()
 
 
 class TestStaleness(unittest.TestCase):
@@ -310,6 +362,12 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit-bucket'))
         self.enterContext(patch.object(handler, 'ECS_CLUSTER', 'test-cluster'))
 
+    def process(self):
+        errors = []
+        summary = handler.process_close_work(self.context, errors)
+        self.assertEqual(errors, [])
+        return summary
+
     def request_record(self, token=TOKEN, requested_at=REQUESTED_AT, **overrides):
         record = {
             'schema_version': records.REQUEST_SCHEMA_VERSION,
@@ -357,14 +415,76 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         record.update(overrides)
         return record
 
-    def test_without_an_audit_bucket_no_close_work_runs(self):
-        with patch.object(handler, 'S3_AUDIT_BUCKET', ''):
-            summary = handler.process_close_work(self.context)
-        self.assertEqual(summary['requests_processed'], 0)
+    def test_close_queue_discovery_failure_preserves_independent_work_and_cause(self):
+        self.enterContext(patch.object(handler, 'AWS_ACCOUNT_ID', '000000000000'))
+        self.enterContext(patch.object(handler, 'list_investigation_access_points',
+                                      return_value=[access_point()]))
+        self.enterContext(patch.object(handler, 'list_all_running_tasks', return_value=[]))
+        self.enterContext(patch.object(handler, 'list_tasks_by_investigation', return_value=[]))
+        reap = self.enterContext(patch.object(handler, 'reap_investigation', return_value=True))
+        for phase in ('intents', 'requests'):
+            with self.subTest(phase=phase):
+                self.finalizer.reset_mock()
+                reap.reset_mock()
+                keys = self.queue(self.request_record())
+                failure = ClientError({'Error': {'Code': 'AccessDenied'}}, 'ListObjectsV2')
+
+                def list_keys(prefix):
+                    if prefix.endswith(f'/{phase}/'):
+                        raise failure
+                    return list(keys) if prefix.endswith('/requests/') else []
+
+                self.finalizer.list_keys.side_effect = list_keys
+                with self.assertRaises(ClientError) as raised:
+                    handler.lambda_handler({}, self.context)
+                self.assertIs(raised.exception, failure)
+                self.assertEqual(self.finalizer.finalize.call_count, int(phase == 'intents'))
+                reap.assert_called_once()
+
+    def test_multiple_discovery_failures_keep_causes_and_block_unsafe_reap(self):
+        self.enterContext(patch.object(handler, 'AWS_ACCOUNT_ID', '000000000000'))
+        self.enterContext(patch.object(handler, 'list_investigation_access_points',
+                                      return_value=[access_point()]))
+        failures = [ClientError({'Error': {'Code': 'AccessDenied'}}, operation)
+                    for operation in ('ListObjectsV2', 'ListObjectsV2', 'ListTasks')]
+        self.finalizer.list_keys.side_effect = failures[:2]
+        self.enterContext(patch.object(handler, 'list_all_running_tasks', side_effect=failures[2]))
+        reap = self.enterContext(patch.object(handler, 'reap_investigation'))
+        with self.assertRaises(ExceptionGroup) as raised:
+            handler.lambda_handler({}, self.context)
+        self.assertEqual(raised.exception.exceptions, tuple(failures))
+        reap.assert_not_called()
+        self.finalizer.finalize.assert_not_called()
+
+    def test_one_denied_status_read_is_a_record_failure(self):
+        self.queue(self.request_record())
+        self.finalizer.get_json.side_effect = ClientError({'Error': {'Code': 'AccessDenied'}},
+                                                        'GetObject')
+        summary = self.process()
+        self.assertEqual(summary['close_errors'], 1)
+        self.finalizer.finalize.assert_not_called()
+        self.finalizer.write_status.assert_not_called()
+
+    def test_unreadable_status_is_not_absence_or_a_queue_failure(self):
+        self.queue(self.request_record(investigation_id='first'),
+                   self.request_record(investigation_id='second'))
+        get_record = self.finalizer.get_json.side_effect
+
+        def read_record(key, kind):
+            if key == records.status_key('cluster', 'first'):
+                raise ValueError('invalid checkpoint')
+            return get_record(key, kind)
+
+        self.finalizer.get_json.side_effect = read_record
+        summary = self.process()
+        self.assertEqual((summary['close_errors'], summary['requests_processed']), (1, 1))
+        self.finalizer.finalize.assert_called_once()
+        self.assertEqual(self.finalizer.finalize.call_args.kwargs['investigation_id'], 'second')
+        self.finalizer.write_status.assert_not_called()
 
     def test_request_is_finalized_through_the_shared_pipeline(self):
         self.queue(self.request_record())
-        summary = handler.process_close_work(self.context)
+        summary = self.process()
         self.assertEqual(summary['requests_processed'], 1)
         self.assertEqual(self.finalizer.finalize.call_args.kwargs['mode'], 'request')
 
@@ -372,12 +492,12 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         """An interrupted stale pass leaves a sealed workspace; its recorded
         request is what brings the sweep back to it."""
         self.queue(self.request_record(trigger=records.TRIGGER_STALE, requester_sub=''))
-        handler.process_close_work(self.context)
+        self.process()
         self.assertEqual(self.finalizer.finalize.call_args.kwargs['mode'], 'stale')
 
     def test_a_terminal_status_for_this_request_is_not_reprocessed(self):
         self.queue(self.request_record(), status=self.status_record())
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.finalize.assert_not_called()
 
     def test_an_older_retention_does_not_answer_a_newer_request(self):
@@ -385,27 +505,27 @@ class TestCloseWorkOrchestration(unittest.TestCase):
                                        requested_at='2026-02-01T00:00:00+00:00'),
                    status=self.status_record(status=records.STATUS_RETAINED,
                                              updated_at='2026-01-02T00:00:00+00:00'))
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.finalize.assert_called_once()
 
     def test_a_newer_outcome_answers_an_older_request(self):
         self.queue(self.request_record(token='22222222-3333-4444-8555-666666666666',
                                        requested_at='2026-01-01T00:00:00+00:00'),
                    status=self.status_record(updated_at='2026-03-01T00:00:00+00:00'))
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.finalize.assert_not_called()
 
     def test_a_retryable_retention_is_picked_up_again(self):
         """A throttled API call must not end a close request forever."""
         self.queue(self.request_record(),
                    status=self.status_record(status=records.STATUS_RETAINED, retryable=True))
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.finalize.assert_called_once()
 
     def test_a_final_retention_is_not_picked_up_again(self):
         self.queue(self.request_record(),
                    status=self.status_record(status=records.STATUS_RETAINED, retryable=False))
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.finalize.assert_not_called()
 
     def test_a_request_whose_identity_disagrees_with_its_key_is_refused(self):
@@ -415,7 +535,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
             [key] if prefix.endswith('/requests/') else [])
         self.finalizer.get_json.side_effect = lambda k, kind: (
             dict(record, cluster_id='other') if kind == records.KIND_REQUEST else None)
-        summary = handler.process_close_work(self.context)
+        summary = self.process()
         self.finalizer.finalize.assert_not_called()
         self.assertEqual(summary['close_errors'], 1)
 
@@ -425,7 +545,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
             [key] if prefix.endswith('/requests/') else [])
         self.finalizer.get_json.side_effect = lambda k, kind: (
             {'kind': records.KIND_REQUEST} if kind == records.KIND_REQUEST else None)
-        summary = handler.process_close_work(self.context)
+        summary = self.process()
         self.finalizer.finalize.assert_not_called()
         self.assertEqual(summary['close_errors'], 1)
 
@@ -437,14 +557,14 @@ class TestCloseWorkOrchestration(unittest.TestCase):
                 self.finalizer.get_json.reset_mock()
                 self.finalizer.list_keys.side_effect = lambda prefix: (
                     [key] if prefix.endswith('/requests/') else [])
-                handler.process_close_work(self.context)
+                self.process()
                 self.finalizer.finalize.assert_not_called()
 
     def test_requests_are_capped_per_run_so_the_stale_sweep_is_not_starved(self):
         self.queue(*[self.request_record(token=f'1111111{i}-2222-4333-8444-555555555555',
                                          investigation_id=f'inv{i}') for i in range(5)])
         with patch.object(handler, 'CLOSE_REQUESTS_PER_RUN', 2):
-            summary = handler.process_close_work(self.context)
+            summary = self.process()
         self.assertEqual(summary['requests_processed'], 2)
 
     def test_a_waiting_request_does_not_starve_every_later_one(self):
@@ -477,7 +597,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         self.finalizer.finalize.return_value = {'status': records.STATUS_WAITING_FOR_TASKS}
 
         with patch.object(handler, 'CLOSE_REQUESTS_PER_RUN', 3):
-            handler.process_close_work(self.context)
+            self.process()
 
         finalized = [call.kwargs['investigation_id']
                      for call in self.finalizer.finalize.call_args_list]
@@ -492,7 +612,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
             request_token=TOKEN, updated_at='2026-01-02T00:00:00+00:00'))
         self.finalizer.find_access_point.return_value = None
 
-        handler.process_close_work(self.context)
+        self.process()
 
         self.finalizer.write_status.assert_not_called()
         self.finalizer.finalize.assert_not_called()
@@ -502,7 +622,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         self.queue(*[self.request_record(token=f'1111111{i}-2222-4333-8444-555555555555',
                                          investigation_id=f'inv{i}') for i in range(5)])
         self.context.get_remaining_time_in_millis.return_value = 31000
-        summary = handler.process_close_work(self.context)
+        summary = self.process()
         self.assertEqual(summary['requests_processed'], 0)
         self.finalizer.finalize.assert_not_called()
 
@@ -511,7 +631,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         able to pass over history cheaply."""
         answered = self.request_record()
         self.queue(answered, status=self.status_record())
-        handler.process_close_work(self.context)
+        self.process()
         read_kinds = [call.args[1] for call in self.finalizer.get_json.call_args_list]
         self.assertNotIn(records.KIND_REQUEST, read_kinds)
 
@@ -520,7 +640,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
                                          requested_at=f'2026-01-0{i + 1}T00:00:00+00:00')
                      for i in range(3)])
         with patch.object(handler, 'CLOSE_REQUESTS_PER_RUN', 1):
-            handler.process_close_work(self.context)
+            self.process()
         status_reads = [call for call in self.finalizer.get_json.call_args_list
                         if call.args[1] == records.KIND_STATUS]
         self.assertEqual(len(status_reads), 1)
@@ -528,7 +648,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
     def test_a_request_does_not_follow_the_name_to_a_replacement_access_point(self):
         self.queue(self.request_record())
         self.finalizer.find_access_point.return_value = {'id': 'fsap-11111111'}
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.finalize.assert_not_called()
         status = self.finalizer.write_status.call_args
         self.assertEqual(status.args[2], records.STATUS_RETAINED)
@@ -537,7 +657,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
     def test_a_missing_workspace_records_a_terminal_status(self):
         self.queue(self.request_record())
         self.finalizer.find_access_point.return_value = None
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.finalize.assert_not_called()
         self.finalizer.write_status.assert_called_once()
         self.assertEqual(self.finalizer.write_status.call_args.args[2], records.STATUS_RETAINED)
@@ -549,7 +669,7 @@ class TestCloseWorkOrchestration(unittest.TestCase):
                                        requested_at='2026-02-01T00:00:00+00:00'),
                    status=self.status_record(updated_at='2026-01-02T00:00:00+00:00'))
         self.finalizer.find_access_point.return_value = None
-        handler.process_close_work(self.context)
+        self.process()
         self.finalizer.write_status.assert_not_called()
 
 
@@ -648,6 +768,16 @@ class TestAutoCloseIntents(unittest.TestCase):
     def observation(self, state, holder=None, tasks=()):
         return {'state': state, 'holder_sub': holder, 'active_sessions': 0,
                 'tasks': list(tasks), 'reason': '', 'observed_at': '2026-01-01T00:00:00+00:00'}
+
+    def test_unreadable_intent_does_not_block_a_healthy_peer(self):
+        self.finalizer.list_keys.return_value = [self.key.replace('/inv/', '/other/'), self.key]
+        self.finalizer.get_json.side_effect = [
+            ClientError({'Error': {'Code': 'AccessDenied'}}, 'GetObject'), self.intent()]
+        self.finalizer.observe.return_value = self.observation(records.STATE_IDLE)
+        summary = {'close_errors': 0}
+        self.assertEqual(handler.activate_auto_close_intents(self.finalizer, self.context, summary), 1)
+        self.assertEqual(summary['close_errors'], 1)
+        self.finalizer.observe.assert_called_once_with('cluster', 'inv')
 
     def test_intent_waits_while_its_own_task_runs(self):
         self.finalizer.get_json.return_value = self.intent()

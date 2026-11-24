@@ -101,6 +101,22 @@ zero denominators, and missing telemetry must not become 100% availability.
 This ratio excludes pre-creation failures and timeouts and is not an end-to-end
 availability SLI.
 
+## Reaper invocation errors
+
+For external alerting, export the native `AWS/Lambda` `Errors` metric (`Sum`)
+for each reaper separately. Use the `FunctionName` dimension for
+`<project>-<stage>-reap-tasks` and `<project>-<stage>-reap-investigations`
+in each deployment account and region. Regional Terraform does not configure
+reaper alarms or notifications.
+
+A failed invocation contributes one error; asynchronous retries can contribute
+more than one for the same scheduled event. A healthy no-op or a handled
+per-resource error does not increment `Errors`. For those outcomes, inspect
+the invocation logs and work counters. To diagnose a missed run, check
+`Invocations` for the same function and `AWS/Events` `FailedInvocations` for
+target-delivery failures. A native error datapoint proves neither downstream
+ingestion nor notification delivery; verify those in the receiving system.
+
 ## Remaining dashboard signals
 
 | Requested signal | Current evidence / remaining work |

@@ -41,6 +41,8 @@ class FakeS3:
         self.objects = {}
         self.version = 0
         self.put_failures = set()
+        self.uploads = {}
+        self.next_upload = 0
 
     # -- writes ---------------------------------------------------------
 
@@ -54,8 +56,34 @@ class FakeS3:
         self._store(Key, Body if isinstance(Body, bytes) else Body.encode())
         return {'VersionId': self.objects[Key]['version']}
 
-    def upload_fileobj(self, Fileobj, Bucket, Key, ExtraArgs=None):  # noqa: N803
-        self._store(Key, Fileobj.read())
+    def create_multipart_upload(self, ChecksumAlgorithm, **target):  # noqa: N803
+        assert ChecksumAlgorithm == 'CRC32'
+        self.next_upload += 1
+        upload_id = str(self.next_upload)
+        self.uploads[upload_id] = (target, {})
+        return {'UploadId': upload_id}
+
+    def _parts(self, upload_id, target):
+        expected_target, parts = self.uploads[upload_id]
+        assert target == expected_target
+        return parts
+
+    def upload_part(self, UploadId, PartNumber, Body, ChecksumAlgorithm, **target):  # noqa: N803
+        assert ChecksumAlgorithm == 'CRC32'
+        part = {'ETag': f'etag-{PartNumber}', 'ChecksumCRC32': f'crc-{PartNumber}'}
+        self._parts(UploadId, target)[PartNumber] = (part, Body)
+        return part
+
+    def complete_multipart_upload(self, UploadId, MultipartUpload, **target):  # noqa: N803
+        parts = self._parts(UploadId, target)
+        assert MultipartUpload['Parts'] == [
+            {'PartNumber': number, **parts[number][0]} for number in sorted(parts)]
+        self._store(target['Key'], b''.join(parts[n][1] for n in sorted(parts)))
+        del self.uploads[UploadId]
+
+    def abort_multipart_upload(self, UploadId, **target):  # noqa: N803
+        self._parts(UploadId, target)
+        del self.uploads[UploadId]
 
     # -- reads ----------------------------------------------------------
 
@@ -190,12 +218,12 @@ class FinalizerCase(unittest.TestCase):
         record.update(overrides)
         return record
 
-    def finalize(self, mode='request', access_point=None, request=None, seconds=600):
+    def finalize(self, mode='request', access_point=None, request=None, seconds=600, context=None):
         return self.finalizer.finalize(
             cluster_id=CLUSTER, investigation_id=INVESTIGATION,
             access_point=access_point or self.access_point(),
             request=request or self.request(), mode=mode,
-            context=FakeContext(seconds), sleep=self.sleep)
+            context=context if context is not None else FakeContext(seconds), sleep=self.sleep)
 
     def receipt(self):
         seal = self.efs.tag_resource.call_args.kwargs['Tags'][0]['Value']
@@ -518,39 +546,43 @@ class TestVerification(FinalizerCase):
         self.efs.delete_access_point.assert_not_called()
 
     def test_a_short_or_corrupt_destination_object_fails_verification(self):
-        real_upload = self.s3.upload_fileobj
+        real_put = self.s3.put_object
 
-        def truncate(Fileobj, Bucket, Key, ExtraArgs=None):  # noqa: N803
-            real_upload(Fileobj, Bucket, Key)
-            self.s3.objects[Key]['body'] = self.s3.objects[Key]['body'][:-1]
+        def truncate(**kwargs):
+            if '/workspace/' in kwargs['Key']:
+                kwargs['Body'] = kwargs['Body'][:-1]
+            return real_put(**kwargs)
 
-        with patch.object(self.s3, 'upload_fileobj', side_effect=truncate):
+        with patch.object(self.s3, 'put_object', side_effect=truncate):
             status = self.finalize()
         self.assertEqual(status['status'], records.STATUS_RETAINED)
         self.assertIn('verification failed', status['reason'])
         self.efs.delete_access_point.assert_not_called()
 
     def test_an_extra_object_under_the_attempt_prefix_fails_verification(self):
-        real_upload = self.s3.upload_fileobj
-        injected = []
+        real_put = self.s3.put_object
 
-        def inject(Fileobj, Bucket, Key, ExtraArgs=None):  # noqa: N803
-            real_upload(Fileobj, Bucket, Key)
-            if not injected:
-                injected.append(Key)
-                prefix = Key.rsplit('/', 1)[0]
+        def inject(**kwargs):
+            key = kwargs['Key']
+            if '/workspace/' in key:
+                prefix = key.rsplit('/', 1)[0]
                 self.s3._store(f'{prefix}/unexpected', b'extra')
+            return real_put(**kwargs)
 
-        with patch.object(self.s3, 'upload_fileobj', side_effect=inject):
+        with patch.object(self.s3, 'put_object', side_effect=inject):
             status = self.finalize()
         self.assertEqual(status['status'], records.STATUS_RETAINED)
         self.assertIn('unexpected_key', status['reason'])
 
     def test_an_interrupted_copy_never_publishes_a_receipt(self):
-        def fail(Fileobj, Bucket, Key, ExtraArgs=None):  # noqa: N803
-            raise ClientError({'Error': {'Code': 'AccessDenied'}}, 'PutObject')
+        real_put = self.s3.put_object
 
-        with patch.object(self.s3, 'upload_fileobj', side_effect=fail):
+        def fail(**kwargs):
+            if '/workspace/' in kwargs['Key']:
+                raise ClientError({'Error': {'Code': 'AccessDenied'}}, 'PutObject')
+            return real_put(**kwargs)
+
+        with patch.object(self.s3, 'put_object', side_effect=fail):
             status = self.finalize()
         self.assertEqual(status['status'], records.STATUS_RETAINED)
         self.assertFalse([k for k in self.s3.objects if k.endswith('.json')
@@ -582,6 +614,87 @@ class TestVerification(FinalizerCase):
             records.attempt_workspace_prefix(ACCESS_POINT, first['attempt_id'])))
         self.assertTrue(self.s3.keys_under(
             records.attempt_workspace_prefix(ACCESS_POINT, second['attempt_id'])))
+
+
+class TestMultipartBackup(FinalizerCase):
+    def setUp(self):
+        super().setUp()
+        self.filename = 'multipart.bin'
+        self.payload = b'x' * close_finalization.MULTIPART_THRESHOLD + b'last part'
+        (self.workspace / self.filename).write_bytes(self.payload)
+
+    def assert_retained(self, status):
+        self.assertEqual(status['status'], records.STATUS_RETAINED)
+        self.assertTrue(status['retryable'])
+        self.assertTrue(status['directory_retained'])
+        self.assertEqual((self.workspace / self.filename).read_bytes(), self.payload)
+        self.efs.delete_access_point.assert_not_called()
+        self.assertFalse(any(key.endswith('verification.json') for key in self.s3.objects))
+        self.assertFalse(status['receipt_key'])
+        self.assertFalse(self.s3.keys_under(f'_boundary-close/{ACCESS_POINT}/'))
+        self.assertFalse(any(key.endswith(self.filename) for key in self.s3.objects))
+
+    def assert_aborted(self, abort, status):
+        key = records.attempt_workspace_prefix(ACCESS_POINT, status['attempt_id']) + self.filename
+        abort.assert_called_once_with(Bucket='audit', Key=key, UploadId='1',
+                                      ExpectedBucketOwner='123456789012')
+
+    def test_part_failure_aborts_and_next_pass_verifies_a_new_attempt(self):
+        real_part = self.s3.upload_part
+
+        def fail_second(**kwargs):
+            if kwargs['PartNumber'] == 2:
+                raise ClientError({'Error': {'Code': 'AccessDenied'}}, 'UploadPart')
+            return real_part(**kwargs)
+
+        with (patch.object(self.s3, 'upload_part', side_effect=fail_second),
+              patch.object(self.s3, 'abort_multipart_upload',
+                           wraps=self.s3.abort_multipart_upload) as abort):
+            failed = self.finalize(mode='stale')
+        self.assert_retained(failed)
+        self.assert_aborted(abort, failed)
+        self.assertEqual(self.s3.uploads, {})
+
+        retried = self.finalize(mode='stale')
+        self.assertEqual(retried['status'], records.STATUS_COMPLETED)
+        self.assertNotEqual(retried['attempt_id'], failed['attempt_id'])
+        key = records.attempt_workspace_prefix(ACCESS_POINT, retried['attempt_id']) + self.filename
+        self.assertEqual(self.s3.objects[key]['body'], self.payload)
+        self.assertFalse(self.workspace.exists())
+        self.assertEqual(self.s3.uploads, {})
+
+    def test_completion_failure_is_aborted(self):
+        error = ClientError({'Error': {'Code': 'InternalError'}}, 'CompleteMultipartUpload')
+        with (patch.object(self.s3, 'complete_multipart_upload', side_effect=error),
+              patch.object(self.s3, 'abort_multipart_upload',
+                           wraps=self.s3.abort_multipart_upload) as abort):
+            status = self.finalize(mode='stale')
+        self.assert_retained(status)
+        self.assert_aborted(abort, status)
+        self.assertEqual(self.s3.uploads, {})
+
+    def test_deadline_before_completion_aborts_even_if_abort_fails(self):
+        context = FakeContext()
+        real_part = self.s3.upload_part
+
+        def exhaust_budget(**kwargs):
+            part = real_part(**kwargs)
+            if kwargs['PartNumber'] == 2:
+                context.seconds = 0
+            return part
+
+        abort_error = ClientError({'Error': {'Code': 'AccessDenied'}}, 'AbortMultipartUpload')
+        with (patch.object(self.s3, 'upload_part', side_effect=exhaust_budget),
+              patch.object(self.s3, 'complete_multipart_upload') as complete,
+              patch.object(self.s3, 'abort_multipart_upload', side_effect=abort_error) as abort,
+              self.assertLogs('close_finalization', level='WARNING') as logs):
+            status = self.finalize(mode='stale', context=context)
+        self.assert_retained(status)
+        self.assertIn('deadline reached', status['reason'])
+        self.assert_aborted(abort, status)
+        complete.assert_not_called()
+        self.assertIn('lifecycle cleanup remains the fallback', '\n'.join(logs.output))
+        self.assertIn('1', self.s3.uploads)
 
 
 class TestLargeWorkspaces(FinalizerCase):

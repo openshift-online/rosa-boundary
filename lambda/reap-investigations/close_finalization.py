@@ -53,6 +53,12 @@ EXCLUDED_NESTED = (('.config', 'ocm'),)
 # inside the invocation is not started; its progress is resumed on the next one.
 STAGE_RESERVE_SECONDS = 20
 
+# Match the SDK's usual multipart threshold. Read one part at a time and
+# bound its memory cost in the 256 MiB reaper, even for very large files.
+MULTIPART_THRESHOLD = 8 << 20
+MAX_PART_SIZE = 32 << 20
+MAX_PARTS = 10_000
+
 
 class TaskDefinitionCleanupError(Exception):
     """ECS did not confirm the exact revision or its expected state."""
@@ -195,14 +201,62 @@ class Finalizer:
             'ContentType': 'application/json',
         }))
 
-    def upload_workspace_file(self, handle, key):
-        """Copy one already-opened workspace file into the attempt prefix.
+    def upload_workspace_file(self, handle, key, length, context):
+        """Upload measured bytes, keeping the upload ID for deadline-aware cleanup."""
+        target = self._owner({'Bucket': self.audit_bucket, 'Key': key})
 
-        The bytes come from the descriptor the finalizer measured, and the
-        bucket-owner guard applies here exactly as it does to every record.
-        """
-        extra = {'ExpectedBucketOwner': self.account_id} if self.account_id else None
-        self.s3.upload_fileobj(handle, self.audit_bucket, key, ExtraArgs=extra)
+        def check_deadline():
+            if _budget(context) <= 0:
+                raise AttemptInvalid('deadline reached while copying the workspace')
+
+        def read_chunk(size):
+            check_deadline()
+            chunk = handle.read(size)
+            if len(chunk) != size:
+                raise AttemptInvalid('a measured file became shorter during copying')
+            check_deadline()
+            return chunk
+
+        if length < MULTIPART_THRESHOLD:
+            self.s3.put_object(**target, Body=read_chunk(length))
+            return
+
+        # Grow parts as necessary to respect S3's part count limit, but do
+        # not risk OOM for a file too large for this invocation to back up.
+        part_size = max(MULTIPART_THRESHOLD, (length + MAX_PARTS - 1) // MAX_PARTS)
+        if part_size > MAX_PART_SIZE:
+            raise AttemptInvalid('a workspace file exceeds the reaper multipart size limit')
+
+        # Managed transfers hide the upload ID and swallow abort failures.
+        # Serial parts let us stop before starting the next request and avoid
+        # racing the abort against other parts still running in this process.
+        check_deadline()
+        upload = self.s3.create_multipart_upload(**target, ChecksumAlgorithm='CRC32')
+        target['UploadId'] = upload['UploadId']
+        try:
+            parts = []
+            for number, offset in enumerate(range(0, length, part_size), 1):
+                part = self.s3.upload_part(**target, PartNumber=number,
+                                           Body=read_chunk(min(part_size, length - offset)),
+                                           ChecksumAlgorithm='CRC32')
+                parts.append({'PartNumber': number, 'ETag': part['ETag'],
+                              'ChecksumCRC32': part['ChecksumCRC32']})
+            check_deadline()
+            self.s3.complete_multipart_upload(**target, MultipartUpload={'Parts': parts})
+        except Exception:
+            # Preserve the original failure and never let this attempt authorize
+            # deletion, even if S3 completed the upload but lost the response.
+            # Hard termination, unknown upload IDs and failed aborts fall back
+            # to the audit bucket's incomplete multipart lifecycle rule.
+            try:
+                self.s3.abort_multipart_upload(**target)
+            except (ClientError, BotoCoreError) as error:
+                code = error.response.get('Error', {}).get('Code') if isinstance(error, ClientError) else None
+                if code != 'NoSuchUpload':
+                    logger.warning('Could not abort incomplete workspace upload (%s); '
+                                   'audit bucket lifecycle cleanup remains the fallback',
+                                   type(error).__name__)
+            raise
 
     def get_json(self, key, kind, *, evidence=False):
         try:
@@ -401,7 +455,7 @@ class Finalizer:
                 info = os.fstat(handle.fileno())
                 if not stat.S_ISREG(info.st_mode) or info.st_size != entry['length']:
                     raise AttemptInvalid('a measured file changed before it was copied')
-                self.upload_workspace_file(handle, prefix + entry['key'])
+                self.upload_workspace_file(handle, prefix + entry['key'], entry['length'], context)
             uploaded += 1
         logger.info('Copied %d file(s) into attempt %s', uploaded, attempt_id)
         return f's3://{self.audit_bucket}/{prefix}'

@@ -497,6 +497,15 @@ receipt. Any late task, read error, changed byte or ambiguous answer retains
 the data; the status says whether the reaper will start a fresh attempt by
 itself or whether the outcome needs a person.
 
+For multipart workspace backups, the reaper checks its work budget between
+parts and again before completion. If the copy fails or that budget runs out,
+the reaper attempts to abort the upload and retries in a fresh attempt; an
+incomplete backup never authorizes source deletion. An in-flight S3 request
+cannot be interrupted by the budget check. If Lambda is terminated, the
+upload ID is lost, or the abort fails, the audit bucket's existing lifecycle
+rule makes incomplete uploads eligible for cleanup seven days after
+initiation. It does not remove completed backup objects.
+
 Read a `schema_version: 2` receipt as what it says it is:
 
 ```json

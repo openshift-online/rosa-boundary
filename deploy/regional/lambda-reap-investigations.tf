@@ -146,6 +146,11 @@ resource "aws_iam_role_policy" "reap_investigations_lambda_s3" {
           "s3:PutObject"
         ]
         Resource = "${aws_s3_bucket.audit.arn}/_boundary-close/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = "s3:AbortMultipartUpload"
+        Resource = "${aws_s3_bucket.audit.arn}/_boundary-close/evidence/fsap-*/attempts/*/workspace/*"
       }
     ]
   })

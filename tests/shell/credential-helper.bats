@@ -223,7 +223,7 @@ STUB
     run_clear
     [ "${status}" -eq 0 ]
     [ "${output}" = __ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__ ]
-    [ -z "$(find "${OCM_DIR}" -type f ! -name '.rosa-boundary-credential-lock' -print -quit)" ]
+    [ -z "$(find "${OCM_DIR}" -type f ! -name '.rosa-boundary-credential-lock' ! -name '.rosa-boundary-credential-clear-epoch' -print -quit)" ]
     [ ! -e "${KUBE_DIR}/config" ]
 
     run_clear
@@ -436,4 +436,45 @@ STUB
     [ "${status}" -eq 0 ]
     [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
     [ "$(cat "${KUBE_DIR}/config")" = kept ]
+}
+
+@test "backplane login rejected when clear and reconfigure happen before it ends" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+bash -c 'source "$1"; OCM_CONFIG_DIR="$2"; KUBECONFIG_DIR="$3"; clear_ocm' bash \
+    "${STUB_HELPER}" "${STUB_OCM_DIR}" "${STUB_KUBE_DIR}" >/dev/null
+printf 'late' >"${STUB_KUBE_DIR}/config"
+printf '{}' >"${STUB_OCM_DIR}/ocm.json"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_HELPER="${HELPER}" STUB_KUBE_DIR="${KUBE_DIR}" STUB_OCM_DIR="${OCM_DIR}"
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+    [ ! -e "${KUBE_DIR}/config" ]
+}
+
+@test "backplane login survives a credential renewal that is not a clear" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf '{"renewed":true}' >"${STUB_OCM_DIR}/ocm.json"
+printf 'kept' >"${STUB_KUBE_DIR}/config"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_KUBE_DIR="${KUBE_DIR}" STUB_OCM_DIR="${OCM_DIR}"
+    [ "${status}" -eq 0 ]
+    [ "$(cat "${KUBE_DIR}/config")" = kept ]
+}
+
+@test "clear removes credentials but keeps the epoch file and advances it" {
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_clear
+    [ "${status}" -eq 0 ]
+    [ ! -e "${OCM_DIR}/ocm.json" ]
+    first="$(cat "${OCM_DIR}/.rosa-boundary-credential-clear-epoch")"
+    [ -n "${first}" ]
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_clear
+    [ "$(cat "${OCM_DIR}/.rosa-boundary-credential-clear-epoch")" != "${first}" ]
 }

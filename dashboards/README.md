@@ -26,26 +26,20 @@ rendering still need verification through an authenticated datasource.
 After editing the JSON, regenerate the ConfigMap from the repository root:
 
 ```sh
-python3 - <<'PY'
-from pathlib import Path
-
-source = Path('dashboards/rosa-boundary-stage.json')
-target = Path('dashboards/manifests/grafana-dashboard-rosa-boundary-stage.configmap.yaml')
-header = '''# Generated from dashboards/rosa-boundary-stage.json; see dashboards/README.md.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: grafana-dashboard-rosa-boundary-stage
-  labels:
-    grafana_dashboard: "true"
-  annotations:
-    grafana-folder: /grafana-dashboard-definitions/ROSA Boundary
-data:
-  rosa-boundary-stage.json: |-
-'''
-target.write_text(header + ''.join('    ' + line + '\n' for line in source.read_text().splitlines()))
-PY
+python3 scripts/generate_dashboard_manifest.py
 ```
+
+The [generator](../scripts/generate_dashboard_manifest.py) uses only the Python
+standard library and resolves paths relative to the repository, so it also works
+from another working directory. For a read-only CI check:
+
+```sh
+python3 scripts/generate_dashboard_manifest.py --check
+```
+
+Check mode exits with status 1 if the source JSON is invalid or the manifest is
+missing or stale. The repository's pre-commit configuration runs this check when
+dashboard files or the generator change.
 
 The SaaS directory provider should point at `/dashboards/manifests`, which
 contains only deployable ConfigMaps. The JSON can also be imported directly in

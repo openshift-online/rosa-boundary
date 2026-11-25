@@ -31,6 +31,7 @@ func (g *commandGroup) auditListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			ctx, cancel := g.requestContext(cmd)
 			defer cancel()

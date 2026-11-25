@@ -39,6 +39,7 @@ func (g *commandGroup) actionListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			ctx, cancel := g.requestContext(cmd)
 			defer cancel()
@@ -79,6 +80,7 @@ func (g *commandGroup) actionDescribeCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			ctx, cancel := g.requestContext(cmd)
 			defer cancel()
@@ -157,6 +159,7 @@ available parameters, their defaults, and which ones are required.`,
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			ctx, cancel := g.requestContext(cmd)
 			defer cancel()

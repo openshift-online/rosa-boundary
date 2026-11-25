@@ -54,6 +54,7 @@ The accepted CLI contract is tracked separately in [proposal PR #354](https://gi
 - [**Personal Dev Bootstrap**](runbooks/personal-dev-bootstrap.md) - Deploy and validate a contributor-owned dev environment
 - [**Seed Personal Dev Content**](runbooks/seed-dev-content.md) - Manually publish approved synthetic S3 fixtures and verify mounted content and agent skill discovery
 - [**Troubleshooting**](runbooks/troubleshooting.md) - Common issues and solutions
+- [**Recover a deleted Lambda image**](runbooks/recover-deleted-lambda-image.md) - Approved break-glass recovery when create-investigation loses its ECR image
 
 ## Development
 

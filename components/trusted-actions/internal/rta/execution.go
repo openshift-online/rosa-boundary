@@ -35,6 +35,7 @@ func (g *commandGroup) executionListCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			ctx, cancel := g.requestContext(cmd)
 			defer cancel()
@@ -97,6 +98,7 @@ func (g *commandGroup) executionGetCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			ctx, cancel := g.requestContext(cmd)
 			defer cancel()
@@ -157,6 +159,7 @@ func (g *commandGroup) executionOutputCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			ctx, cancel := g.requestContext(cmd)
 			defer cancel()

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 )
@@ -214,9 +215,33 @@ func TestCloseOutcomeNeverClaimsTheInvestigationIsClosed(t *testing.T) {
 // the SRE asked to close when their session ended, not when it failed to start.
 func TestAutoCloseIntentIsWithdrawnWhenAttachmentFails(t *testing.T) {
 	service := withHookState(t, true, false, false)
-	withdrawAutoCloseIntent(context.Background(), service.service(), hookTarget())
+	withdrawAutoCloseIntent(context.Background(), service.service(), hookTarget(), nil)
 	if len(service.cancellation) != 1 || service.cancellation[0].TaskID != "task-1" {
 		t.Fatalf("intent not withdrawn: %+v", service.cancellation)
+	}
+}
+
+func TestAutoCloseWithdrawalRefreshesExpiredInvokerCredentials(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		stale, fresh := &fakeCloseService{}, &fakeCloseService{}
+		service := stale.service()
+		service.expiry = time.Now().Add(-time.Minute)
+		withdrawAutoCloseIntent(context.Background(), service, hookTarget(), func() (closeService, error) {
+			if fail {
+				return closeService{}, errors.New("sign-in failed")
+			}
+			return fresh.service(), nil
+		})
+		if len(stale.cancellation) != 0 {
+			t.Fatal("attempted withdrawal with expired credentials")
+		}
+		if fail {
+			if len(fresh.cancellation) != 0 {
+				t.Fatal("attempted withdrawal despite failed reauthorization")
+			}
+		} else if len(fresh.cancellation) != 1 || fresh.cancellation[0].TaskID != "task-1" {
+			t.Fatalf("intent not withdrawn with fresh credentials: %+v", fresh.cancellation)
+		}
 	}
 }
 
@@ -224,8 +249,8 @@ func TestAFailedWithdrawalWarnsRatherThanFailingTheCommand(t *testing.T) {
 	service := withHookState(t, true, false, false)
 	service.cancelErr = errors.New("denied")
 	// Must not panic or return; the session error is the one that matters.
-	withdrawAutoCloseIntent(context.Background(), service.service(), hookTarget())
-	withdrawAutoCloseIntent(context.Background(), closeService{}, hookTarget())
+	withdrawAutoCloseIntent(context.Background(), service.service(), hookTarget(), nil)
+	withdrawAutoCloseIntent(context.Background(), closeService{}, hookTarget(), nil)
 }
 
 // The close service is built after the shell exits, so a long session cannot

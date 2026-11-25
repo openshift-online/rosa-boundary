@@ -117,15 +117,19 @@ func registerAutoCloseIntent(ctx context.Context, service closeService, target s
 // withdrawAutoCloseIntent removes an intent whose session never attached. The
 // SRE asked to close when their session ended; a session that never began is
 // not that, and the reaper would otherwise act on it once the task stops.
-func withdrawAutoCloseIntent(ctx context.Context, service closeService, target sessionCloseTarget) {
+func withdrawAutoCloseIntent(ctx context.Context, service closeService, target sessionCloseTarget, newService closeServiceFactory) {
 	if service.client == nil {
 		return
 	}
-	if _, err := service.client.CancelAutoClose(ctx, service.idToken, lambda.CloseActionRequest{
-		ClusterID:       target.ClusterID,
-		InvestigationID: target.InvestigationID,
-		TaskID:          target.SessionID,
-	}); err != nil {
+	service, err := service.refreshIfExpired(newService)
+	if err == nil {
+		_, err = service.client.CancelAutoClose(ctx, service.idToken, lambda.CloseActionRequest{
+			ClusterID:       target.ClusterID,
+			InvestigationID: target.InvestigationID,
+			TaskID:          target.SessionID,
+		})
+	}
+	if err != nil {
 		output.Warning("the auto-close intent for %s/%s could not be withdrawn after the session failed to attach; the intent for session %s may still take effect when its task stops: %v",
 			target.ClusterID, target.InvestigationID, target.SessionID, err)
 	}

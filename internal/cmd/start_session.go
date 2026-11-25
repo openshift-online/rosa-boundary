@@ -142,7 +142,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	sreIDToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, false, options)
+	sreIDToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, sreSTSDurationSeconds, false, options)
 	if err != nil {
 		return fmt.Errorf("role assumption failed: %w", err)
 	}
@@ -273,7 +273,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 			if autoCloseRequested {
 				// The SRE asked to close when their session ended, not when it
 				// failed to start.
-				withdrawAutoCloseIntent(cmd.Context(), registeredWith, target)
+				withdrawAutoCloseIntent(cmd.Context(), registeredWith, target, newService)
 			}
 			return err
 		}

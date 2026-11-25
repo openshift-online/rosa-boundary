@@ -225,7 +225,7 @@ func newRenewalAWS(cfg *config.Config, creds *awsclient.TemporaryCredentials, ro
 		ctx, cancel := context.WithTimeout(ctx, renewalLoginTimeout)
 		defer cancel()
 		pkce := auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}
-		idToken, fresh, err := assumeRoleWithRetryOptions(ctx, pkce, cfg.AWSRegion, role, sessionName, false, options)
+		idToken, fresh, err := assumeRoleWithRetryOptions(ctx, pkce, cfg.AWSRegion, role, sessionName, sreSTSDurationSeconds, false, options)
 		if err != nil {
 			return nil, err
 		}

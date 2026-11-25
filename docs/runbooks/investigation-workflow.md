@@ -586,15 +586,18 @@ What it does:
    permission.
 3. If any ECS Exec shell is attached (including yours), the service refuses the request with 409. Disconnect all shells and retry. A running task alone does not block acceptance. If a shell appears after acceptance, the reaper waits for detachment without a new request. Without `--force` it also waits for tasks to stop; `--force` consents to stopping tasks, not bypassing the shell check or backup verification.
 4. With `--wait`, polls until the service reports an outcome it will not leave
-   by itself, bounded in wall-clock time. Stopping the wait does not cancel the
-   request. A `retained` or `cleanup_incomplete` result is reported as a
+   by itself, credentials are expiring, or 30 minutes elapse. The CLI does not
+   prompt for another sign-in while polling. Stopping the wait does not cancel
+   the request. A `retained` or `cleanup_incomplete` result is reported as a
    failure, the data is kept, and the message says whether the reaper will
    retry it.
 
 Status values are deliberately distinguishable — `accepted`,
 `waiting_for_tasks`, `verifying`, `retained`, `cleanup_incomplete`,
 `completed`. **Accepted is not closed.** Status stays answerable after the
-access point is deleted: use `investigation close <cluster-id> <investigation-id> --status` (optionally `-o json`). This lookup never submits a request.
+access point is deleted: use `investigation close <cluster-id> <investigation-id> --status` (optionally `-o json`) to check once, or use `--status --wait` to resume polling.
+Neither status mode submits a request, and each new command obtains credentials
+before checking status.
 
 The EFS directory is retained on a normal close. Only the stale sweep may
 reclaim a directory, behind the same verified gate. Do not recreate a closed

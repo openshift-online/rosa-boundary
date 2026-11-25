@@ -170,7 +170,7 @@ func runConfigInit(cmd *cobra.Command, _ []string) error {
 			return fmt.Errorf("OIDC discovery authentication failed; check the issuer/client and complete the selected sign-in flow, or use --auto-discover=false with operator-confirmed settings: %w", err)
 		}
 		role := DeriveInvokerRoleARN(profile.AccountID, profile.Project, profile.Environment)
-		creds, err := awsclient.AssumeRoleWithWebIdentity(cmd.Context(), profile.AWSRegion, role, idToken, "rosa-boundary-config-init")
+		creds, err := assumeWebIdentity(cmd.Context(), profile.AWSRegion, role, idToken, "rosa-boundary-config-init", invokerSTSDurationSeconds)
 		if err != nil {
 			return fmt.Errorf("discovery role assumption failed; verify the account ID, project, environment, and invoker role trust for this deployment: %w", err)
 		}

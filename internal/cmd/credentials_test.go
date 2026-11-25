@@ -28,21 +28,23 @@ func TestActiveCommandsSelectInvokerAndSRERoles(t *testing.T) {
 	previous := assumeWebIdentity
 	t.Cleanup(func() { assumeWebIdentity = previous })
 	for _, tc := range []struct {
-		path    []string
-		role    string
-		session string
+		path            []string
+		role            string
+		session         string
+		durationSeconds int32
 	}{
-		{[]string{"investigation", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker"},
-		{[]string{"session", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker"},
-		{[]string{"investigation", "list"}, cfg.SRERoleARN, "rosa-boundary-session"},
-		{[]string{"session", "list"}, cfg.SRERoleARN, "rosa-boundary-session"},
-		{[]string{"session", "close"}, cfg.SRERoleARN, "rosa-boundary-session"},
-		{[]string{"session", "credentials", "configure", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session"},
-		{[]string{"session", "credentials", "clear", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session"},
+		{[]string{"investigation", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker", 900},
+		{[]string{"session", "create"}, cfg.InvokerRoleARN, "rosa-boundary-invoker", 900},
+		{[]string{"investigation", "list"}, cfg.SRERoleARN, "rosa-boundary-session", 3600},
+		{[]string{"session", "list"}, cfg.SRERoleARN, "rosa-boundary-session", 3600},
+		{[]string{"session", "close"}, cfg.SRERoleARN, "rosa-boundary-session", 3600},
+		{[]string{"session", "credentials", "configure", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session", 3600},
+		{[]string{"session", "credentials", "clear", "ocm"}, cfg.SRERoleARN, "rosa-boundary-session", 3600},
 	} {
 		var role, session string
-		assumeWebIdentity = func(_ context.Context, _, arn, _, name string) (*awsclient.TemporaryCredentials, error) {
-			role, session = arn, name
+		var durationSeconds int32
+		assumeWebIdentity = func(_ context.Context, _, arn, _, name string, seconds int32) (*awsclient.TemporaryCredentials, error) {
+			role, session, durationSeconds = arn, name, seconds
 			return &awsclient.TemporaryCredentials{}, nil
 		}
 		selectedProfile = ""
@@ -52,8 +54,8 @@ func TestActiveCommandsSelectInvokerAndSRERoles(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if role != tc.role || session != tc.session {
-			t.Fatalf("%s selected role %q session %q", command.CommandPath(), role, session)
+		if role != tc.role || session != tc.session || durationSeconds != tc.durationSeconds {
+			t.Fatalf("%s selected role %q session %q duration %ds; want %q %q %ds", command.CommandPath(), role, session, durationSeconds, tc.role, tc.session, tc.durationSeconds)
 		}
 		if commandCancel != nil {
 			commandCancel()

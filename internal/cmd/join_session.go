@@ -82,7 +82,14 @@ func joinSession(cmd *cobra.Command, args []string,
 	if err != nil {
 		return fmt.Errorf("cannot verify close status; session was not joined: %w", err)
 	}
-	attachment.admit = func(ctx context.Context) error { return requireOpenForJoin(ctx, service, target) }
+	attachment.admit = func(ctx context.Context) error {
+		current, err := service.refreshIfExpired(newService)
+		if err != nil {
+			return fmt.Errorf("cannot verify close status before attaching: %w", err)
+		}
+		service = current
+		return requireOpenForJoin(ctx, service, target)
+	}
 	if err := attachment.admit(cmd.Context()); err != nil {
 		return err
 	}
@@ -93,7 +100,7 @@ func joinSession(cmd *cobra.Command, args []string,
 	}
 	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait, attachment); err != nil {
 		if autoCloseRequested {
-			withdrawAutoCloseIntent(cmd.Context(), service, target)
+			withdrawAutoCloseIntent(cmd.Context(), service, target, newService)
 		}
 		return err
 	}

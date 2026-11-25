@@ -1,14 +1,28 @@
 package aws
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	smithy "github.com/aws/smithy-go"
 )
+
+func TestAssumeRoleWithWebIdentityRejectsInvalidDuration(t *testing.T) {
+	// In a LocalStack build, endpoint construction would panic without a
+	// configured endpoint. Invalid values must fail before reaching it.
+	t.Setenv("LOCALSTACK_ENDPOINT", "")
+	for _, seconds := range []int32{0, 899, 3601} {
+		creds, err := AssumeRoleWithWebIdentity(context.Background(), "us-east-1", "role", "token", "session", seconds)
+		if creds != nil || err == nil || !strings.Contains(err.Error(), "between 900 and 3600 seconds") {
+			t.Errorf("duration %d: expected local duration validation, got %v", seconds, err)
+		}
+	}
+}
 
 // makeJWT builds an unsigned JWT whose payload carries the given AWS session-tags
 // claim. Only the payload is meaningful for the diagnostic classification logic.

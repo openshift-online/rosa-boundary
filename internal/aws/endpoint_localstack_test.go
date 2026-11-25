@@ -5,6 +5,7 @@ package aws_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,11 +13,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/smithy-go"
 	"github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 )
 
-// Exercise the public constructors and STS exchange, not just endpoint parsing.
+// Exercise the public constructors, not just endpoint parsing.
 // Each stub speaks the SDK operation's protocol so success also proves that the
 // request reached the loopback server and its response was consumed.
 func TestIntegrationEndpointRequestDestinations(t *testing.T) {
@@ -24,14 +26,10 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 		region       = "us-east-1"
 		cluster      = "test-cluster"
 		filesystemID = "fs-0123456789abcdef0"
-		roleARN      = "arn:aws:iam::123456789012:role/test-role"
-		token        = "test-web-identity-token"
-		sessionName  = "endpoint-regression"
 	)
 	creds := &aws.TemporaryCredentials{
 		Expiry:      time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
 		AccessKeyID: "test-access-key", SecretAccessKey: "test-secret-key", SessionToken: "test-session-token",
-		Expiry: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
 	}
 	provider := aws.StaticCredentialsProvider(creds)
 
@@ -101,32 +99,6 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 				return err
 			},
 		},
-		{
-			name: "STS", method: http.MethodPost, path: "/",
-			contentType: "text/xml",
-			response:    `<AssumeRoleWithWebIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><AssumeRoleWithWebIdentityResult><Credentials><AccessKeyId>test-access-key</AccessKeyId><SecretAccessKey>test-secret-key</SecretAccessKey><SessionToken>test-session-token</SessionToken><Expiration>2030-01-01T00:00:00Z</Expiration></Credentials></AssumeRoleWithWebIdentityResult></AssumeRoleWithWebIdentityResponse>`,
-			check: func(t *testing.T, r *http.Request) {
-				if err := r.ParseForm(); err != nil {
-					t.Errorf("parse STS request: %v", err)
-					return
-				}
-				for key, want := range map[string]string{
-					"Action": "AssumeRoleWithWebIdentity", "Version": "2011-06-15",
-					"RoleArn": roleARN, "RoleSessionName": sessionName, "WebIdentityToken": token,
-				} {
-					if got := r.PostForm.Get(key); got != want {
-						t.Errorf("unexpected STS %s: got %q, want %q", key, got, want)
-					}
-				}
-			},
-			call: func(ctx context.Context) error {
-				got, err := aws.AssumeRoleWithWebIdentity(ctx, region, roleARN, token, sessionName)
-				if err == nil && (got == nil || *got != *creds) {
-					return fmt.Errorf("STS did not return the stub credentials")
-				}
-				return err
-			},
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var requests atomic.Int32
@@ -149,6 +121,76 @@ func TestIntegrationEndpointRequestDestinations(t *testing.T) {
 			}
 			if got := requests.Load(); got != 1 {
 				t.Errorf("expected one request to %s, got %d", server.URL, got)
+			}
+		})
+	}
+}
+
+func TestSTSWebIdentityDuration(t *testing.T) {
+	const (
+		roleARN     = "arn:aws:iam::123456789012:role/test-role"
+		token       = "test-web-identity-token"
+		sessionName = "endpoint-regression"
+	)
+	for _, tc := range []struct {
+		name     string
+		duration int32
+		wantWire string
+		reject   bool
+	}{
+		{"invoker", 900, "900", false},
+		{"sre", 3600, "3600", false},
+		{"sts_rejection", 3600, "3600", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				if r.Method != http.MethodPost || r.URL.Path != "/" {
+					t.Errorf("unexpected STS request: %s %s", r.Method, r.URL.Path)
+				}
+				if err := r.ParseForm(); err != nil {
+					t.Errorf("parse STS request: %v", err)
+					return
+				}
+				for key, want := range map[string]string{
+					"Action": "AssumeRoleWithWebIdentity", "Version": "2011-06-15",
+					"RoleArn": roleARN, "RoleSessionName": sessionName, "WebIdentityToken": token,
+					"DurationSeconds": tc.wantWire,
+				} {
+					if got := r.PostForm.Get(key); got != want {
+						t.Errorf("unexpected STS %s: got %q, want %q", key, got, want)
+					}
+				}
+				w.Header().Set("Content-Type", "text/xml")
+				if tc.reject {
+					w.WriteHeader(http.StatusBadRequest)
+					_, _ = w.Write([]byte(`<ErrorResponse><Error><Type>Sender</Type><Code>ValidationError</Code><Message>DurationSeconds exceeds the MaxSessionDuration</Message></Error><RequestId>test</RequestId></ErrorResponse>`))
+					return
+				}
+				_, _ = w.Write([]byte(`<AssumeRoleWithWebIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><AssumeRoleWithWebIdentityResult><Credentials><AccessKeyId>test-access-key</AccessKeyId><SecretAccessKey>test-secret-key</SecretAccessKey><SessionToken>test-session-token</SessionToken><Expiration>2030-01-01T00:00:00Z</Expiration></Credentials></AssumeRoleWithWebIdentityResult></AssumeRoleWithWebIdentityResponse>`))
+			}))
+			defer server.Close()
+			t.Setenv("LOCALSTACK_ENDPOINT", server.URL)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			got, err := aws.AssumeRoleWithWebIdentity(ctx, "us-east-1", roleARN, token, sessionName, tc.duration)
+			if tc.reject {
+				var apiErr smithy.APIError
+				if got != nil || !errors.As(err, &apiErr) || apiErr.ErrorCode() != "ValidationError" {
+					t.Fatalf("expected STS validation error with no credentials; got error %v", err)
+				}
+			} else {
+				want := aws.TemporaryCredentials{
+					AccessKeyID: "test-access-key", SecretAccessKey: "test-secret-key", SessionToken: "test-session-token",
+					Expiry: time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC),
+				}
+				if err != nil || got == nil || *got != want {
+					t.Fatalf("STS did not return the stub credentials: %v", err)
+				}
+			}
+			if got := requests.Load(); got != 1 {
+				t.Errorf("STS requests = %d, want 1", got)
 			}
 		})
 	}

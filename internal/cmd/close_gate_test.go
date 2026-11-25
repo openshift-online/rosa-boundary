@@ -6,8 +6,11 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
+	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 )
 
@@ -429,6 +432,48 @@ func TestWaitSurfacesAStatusLookupFailure(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "does not cancel it") {
 		t.Fatalf("expected the request to be described as persisting: %v", err)
 	}
+}
+
+func TestCloseServiceUsesEarlierCredentialDeadline(t *testing.T) {
+	now := time.Now().Truncate(time.Second)
+	for _, tc := range []struct {
+		name                      string
+		idExpiry, stsExpiry, want time.Time
+	}{
+		{"ID token first", now.Add(5 * time.Minute), now.Add(15 * time.Minute), now.Add(4*time.Minute + 30*time.Second)},
+		{"STS first", now.Add(time.Hour), now.Add(15 * time.Minute), now.Add(15 * time.Minute)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			service := closeServiceForAuth(&config.Config{}, &awsclient.TemporaryCredentials{Expiry: tc.stsExpiry}, testJWT(tc.idExpiry))
+			if !service.expiry.Equal(tc.want) {
+				t.Fatalf("poll deadline = %v, want %v", service.expiry, tc.want)
+			}
+		})
+	}
+}
+
+func TestCloseWaitStopsAtCredentialExpiry(t *testing.T) {
+	oldWait, oldPoll, oldLimit := closeWait, closeStatusPoll, closeWaitLimit
+	t.Cleanup(func() { closeWait, closeStatusPoll, closeWaitLimit = oldWait, oldPoll, oldLimit })
+	closeWait, closeStatusPoll, closeWaitLimit = true, 10*time.Second, 30*time.Minute
+
+	synctest.Test(t, func(t *testing.T) {
+		fake := &fakeCloseService{accept: accepted(), statuses: []*lambda.CloseStatusResponse{
+			{Status: lambda.CloseStatusVerifying},
+		}}
+		service := fake.service()
+		start := time.Now()
+		service.expiry = start.Add(25 * time.Second)
+		err := submitCloseRequest(context.Background(), service, "cluster", "inv")
+		if err == nil || !strings.Contains(err.Error(), "credentials expired") ||
+			!strings.Contains(err.Error(), testRequest+" remains recorded") ||
+			!strings.Contains(err.Error(), "--status --wait") {
+			t.Fatalf("expected expiry and read-only resume guidance, got %v", err)
+		}
+		if elapsed := time.Since(start); elapsed != 25*time.Second || fake.calls != 3 || len(fake.requests) != 1 {
+			t.Fatalf("elapsed %s, polls %d, submissions %d; want 25s, 3, 1", elapsed, fake.calls, len(fake.requests))
+		}
+	})
 }
 
 // Only a retention the service will revisit may be described as retried.

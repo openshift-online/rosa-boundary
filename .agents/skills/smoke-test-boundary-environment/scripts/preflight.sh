@@ -18,21 +18,6 @@ normalize_environment() {
     esac
 }
 
-# Test this process's controlling terminal, not merely whether stdin is a pipe.
-check_terminal() {
-    local fd
-    if ! { exec {fd}<>/dev/tty; } 2>/dev/null; then
-        block 'No controlling terminal. Stop before creating resources. Run preflight in the interactive terminal used for session join; agents: follow the terminal-tool instructions in SKILL.md, or report the run blocked.'
-        return 1
-    fi
-    if [[ ! -t "$fd" ]]; then
-        exec {fd}>&-
-        block 'The controlling terminal is not a TTY.'
-        return 1
-    fi
-    exec {fd}>&-
-}
-
 # Resolve one saved target and check installed capabilities without changing it.
 main() (
     set -euo pipefail
@@ -50,13 +35,14 @@ main() (
                 shift 2
                 ;;
             --help)
-                printf 'Usage: bash preflight.sh --environment ENV [--region REGION] [--profile NAME]\nRead-only and local; run in the terminal intended for session join. Exit 0 means local prerequisites passed, not authorization or live readiness.\n'
+                printf 'Usage: bash preflight.sh --environment ENV [--region REGION] [--profile NAME]\nRead-only and local. Exit 0 means local prerequisites passed, not authorization or live readiness.\n'
                 return 0
                 ;;
             *) block "Unknown argument: $1"; return 1 ;;
         esac
     done
     [[ -n "$environment" ]] || { block '--environment is required'; return 1; }
+    command -v python3 >/dev/null || { block 'Python 3 is required for the skill PTY helper.'; return 1; }
     cli=$(command -v rosa-boundary) || { block 'Boundary CLI not found. Use `make install-cli` to install the CLI from a local checkout, then rerun preflight.'; return 1; }
     command -v session-manager-plugin >/dev/null || { block 'Session Manager plugin not found.'; return 1; }
     printf 'CLI=%s\n' "$cli"
@@ -137,7 +123,6 @@ main() (
         block 'Installed CLI does not support the expected session join flags. Stop here. Use `make install-cli` to install the CLI from a local checkout, then rerun preflight.'
         return 1
     }
-    check_terminal || return 1
     printf 'PREFLIGHT=passed\nLocal checks only. Confirm the resolved account/region and approval; authentication, terminal interaction and deployed service compatibility remain live checks.\n'
 )
 

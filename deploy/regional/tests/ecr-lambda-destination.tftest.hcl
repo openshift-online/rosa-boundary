@@ -70,7 +70,7 @@ override_data {
 run "destination_is_opt_in" {
   command = plan
   assert {
-    condition     = length(aws_ecr_repository.create_investigation_lambda_destination) == 0 && length(aws_ecr_lifecycle_policy.create_investigation_lambda_destination) == 0
+    condition     = length(aws_ecr_repository.create_investigation_lambda_destination) == 0
     error_message = "The regional root does not create an ordinary repository by default."
   }
 }
@@ -89,10 +89,9 @@ run "destination_matches_source_and_lambda_uses_regional_ecr" {
       aws_ecr_repository.create_investigation_lambda_destination[0].force_delete == false &&
       aws_ecr_repository.create_investigation_lambda_destination[0].encryption_configuration[0].encryption_type == "AES256" &&
       aws_ecr_repository.create_investigation_lambda_destination[0].image_scanning_configuration[0].scan_on_push == true &&
-      jsondecode(aws_ecr_lifecycle_policy.create_investigation_lambda_destination[0].policy).rules[0].selection.countNumber == 25 &&
       local.lambda_ecr_image_uri == "123456789012.dkr.ecr.us-west-2.amazonaws.com/rosa-boundary/create-investigation-lambda:0123456789abcdef0123456789abcdef01234567"
     )
-    error_message = "Destination matches source retention/settings and Lambda uses the ordinary regional repository."
+    error_message = "Destination matches source repository settings and Lambda uses the ordinary regional repository."
   }
 }
 

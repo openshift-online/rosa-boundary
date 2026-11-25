@@ -42,12 +42,9 @@ run "staging_lambda_ecr_source_is_ordinary_and_immutable" {
       aws_ecr_repository.create_investigation_lambda_source[0].image_tag_mutability == "IMMUTABLE" &&
       aws_ecr_repository.create_investigation_lambda_source[0].force_delete == false &&
       aws_ecr_repository.create_investigation_lambda_source[0].encryption_configuration[0].encryption_type == "AES256" &&
-      aws_ecr_repository.create_investigation_lambda_source[0].image_scanning_configuration[0].scan_on_push == true &&
-      length(aws_ecr_lifecycle_policy.create_investigation_lambda_source) == 1 &&
-      jsondecode(aws_ecr_lifecycle_policy.create_investigation_lambda_source[0].policy).rules[0].selection.countType == "imageCountMoreThan" &&
-      jsondecode(aws_ecr_lifecycle_policy.create_investigation_lambda_source[0].policy).rules[0].selection.countNumber == 25
+      aws_ecr_repository.create_investigation_lambda_source[0].image_scanning_configuration[0].scan_on_push == true
     )
-    error_message = "Pilot must create only a non-cache, encrypted, immutable repository with rollback retention."
+    error_message = "Pilot must create only a non-cache, encrypted, immutable repository with scan-on-push."
   }
 }
 

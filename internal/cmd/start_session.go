@@ -197,6 +197,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	timings.print()
 
 	var credentialWarning string
+	backplaneLoggedIn := false
 	if startNoWait {
 		credentialWarning = noWaitCredentialWarning(sessionID, ecsCluster, cfg.AWSRegion)
 		output.Warning("%s", credentialWarning)
@@ -211,6 +212,10 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 		if ocmErr != nil {
 			credentialWarning = warnStartCredentialFailure(investigationID, sessionID, ecsCluster, cfg.AWSRegion, ocmOptions, ocmErr)
 			configureOCM = false
+		} else if loginErr := backplaneLoginForStart(cmd.Context(), ecsClient, cfg.AWSRegion, creds, sessionID, clusterID); loginErr != nil {
+			credentialWarning = warnBackplaneLoginFailure(sessionID, clusterID, ecsCluster, cfg.AWSRegion, loginErr)
+		} else {
+			backplaneLoggedIn = true
 		}
 	}
 
@@ -218,7 +223,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	// outlive the credentials and ID token this command started with.
 	closeServiceFor := func() (closeService, error) { return newCloseService(cmd, authRes) }
 	return finishStartSession(cmd, ecsClient, creds, ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion,
-		lambdaResp, roleARN, configureOCM, credentialWarning, timings, renewal, closeServiceFor)
+		lambdaResp, roleARN, configureOCM, credentialWarning, timings, renewal, closeServiceFor, backplaneLoggedIn)
 }
 
 func startOCMRenewalEnabled(configure, connect, noWait, optedOut bool) bool {
@@ -230,7 +235,7 @@ func startOCMRenewalEnabled(configure, connect, noWait, optedOut bool) bool {
 func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, creds *awsclient.TemporaryCredentials,
 	ecsCluster, clusterID, investigationID, sessionID, region string, lambdaResp *lambda.InvestigationResponse,
 	roleARN string, configureOCM bool, credentialWarning string, timings sessionStartupTimings,
-	renewal *ocmRenewal, newService closeServiceFactory) error {
+	renewal *ocmRenewal, newService closeServiceFactory, backplaneLoggedIn ...bool) error {
 	// Also release the grant if intent registration fails before attachment.
 	if renewal != nil {
 		defer renewal.grant.Release()
@@ -283,6 +288,9 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 		}
 		if output.Verbose {
 			result["startup_timings"] = timings
+		}
+		if configureOCM {
+			result["backplane_login"] = len(backplaneLoggedIn) > 0 && backplaneLoggedIn[0]
 		}
 		if credentialWarning != "" {
 			result["warnings"] = []string{credentialWarning}
@@ -458,4 +466,19 @@ func sanitizeSessionName(name string) string {
 		s += "-"
 	}
 	return s
+}
+
+var backplaneLoginForStart = initializeBackplaneLogin
+
+func backplaneLoginFailure(sessionID, clusterID, ecsCluster, region string, cause error) error {
+	return fmt.Errorf(
+		"session %q is running with OCM credentials, but Backplane login for cluster %q was not initialized: %w; retry inside the session with: ocm backplane login -- %s; if the cluster ID is wrong, clean up with: rosa-boundary --profile %q session close %q --yes --ecs-cluster %q --region %q",
+		sessionID, clusterID, cause, shellArgument(clusterID), selectedProfile, sessionID, ecsCluster, region,
+	)
+}
+
+func warnBackplaneLoginFailure(sessionID, clusterID, ecsCluster, region string, cause error) string {
+	warning := backplaneLoginFailure(sessionID, clusterID, ecsCluster, region, cause).Error()
+	output.Warning("%s", warning)
+	return warning
 }

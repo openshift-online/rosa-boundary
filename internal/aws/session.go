@@ -3,12 +3,14 @@ package aws
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // sessionManagerPlugin is the binary name for the AWS SSM Session Manager plugin.
@@ -69,9 +71,19 @@ func RunSessionManagerPlugin(ctx context.Context, region string, session *Execut
 	return RunSessionManagerPluginWithStreams(ctx, region, session, creds, os.Stdin, os.Stdout, os.Stderr)
 }
 
+// stdinPumpStopTimeout bounds the wait for the stdin forwarding goroutine after
+// its reader has been closed.
+const stdinPumpStopTimeout = 2 * time.Second
+
 // RunSessionManagerPluginWithStreams runs the plugin as a child with caller-owned
 // streams. The separate entry point lets credential transfers control stdin and
 // permits complete subprocess testing without replacing the test process.
+//
+// An *os.File stdin is passed to the plugin directly, preserving terminal
+// handling. Any other reader must be an io.ReadCloser whose Close unblocks a
+// pending Read (as io.PipeReader does); it is forwarded through a pipe, owned by
+// this call, and closed when the plugin exits so forwarding stops before return.
+// A reader that cannot be interrupted is rejected before the plugin starts.
 func RunSessionManagerPluginWithStreams(ctx context.Context, region string, session *ExecuteCommandSession, creds *TemporaryCredentials, stdin io.Reader, stdout, stderr io.Writer) error {
 	pluginPath, err := exec.LookPath(sessionManagerPlugin)
 	if err != nil {
@@ -97,16 +109,71 @@ func RunSessionManagerPluginWithStreams(ctx context.Context, region string, sess
 		paramsJSON,
 		ssmEndpoint,
 	)
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
 	env, err := sessionManagerPluginEnv(creds)
 	if err != nil {
 		return err
 	}
 	cmd.Env = env
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
-	return cmd.Run()
+	// Pass a real file straight through: the plugin configures the terminal
+	// with stty against its own stdin, which fails on a pipe.
+	if file, ok := stdin.(*os.File); ok {
+		cmd.Stdin = file
+		return cmd.Run()
+	}
+
+	// A caller-owned io.Reader that stays open would otherwise be copied by an
+	// exec goroutine that Wait cannot interrupt. Hand the plugin an *os.File so
+	// Wait returns when the process exits.
+	closer, ok := stdin.(io.ReadCloser)
+	if !ok {
+		return errors.New("plugin stdin must be an *os.File or an io.ReadCloser whose Close unblocks Read")
+	}
+	stdinRead, stdinWrite, err := os.Pipe()
+	if err != nil {
+		return fmt.Errorf("create plugin stdin pipe: %w", err)
+	}
+	pumpDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(stdinWrite, stdin)
+		if closeErr := stdinWrite.Close(); copyErr == nil {
+			copyErr = closeErr
+		}
+		pumpDone <- copyErr
+	}()
+	cmd.Stdin = stdinRead
+	cmd.WaitDelay = 5 * time.Second
+
+	runErr := cmd.Run()
+	// Releasing both ends stops writes to the plugin. A reader that can be
+	// closed is closed here so the forwarding goroutine stops before return.
+	_ = stdinRead.Close()
+	_ = stdinWrite.Close()
+	closeErr := closer.Close()
+	var pumpErr error
+	select {
+	case pumpErr = <-pumpDone:
+	case <-time.After(stdinPumpStopTimeout):
+		pumpErr = errors.New("stdin forwarding did not stop after its reader was closed")
+	}
+	if runErr != nil {
+		return runErr
+	}
+	if pumpErr != nil && !expectedStdinShutdown(pumpErr) {
+		return fmt.Errorf("forward plugin stdin: %w", pumpErr)
+	}
+	if closeErr != nil && !expectedStdinShutdown(closeErr) {
+		return fmt.Errorf("close plugin stdin source: %w", closeErr)
+	}
+	return nil
+}
+
+// expectedStdinShutdown reports errors that only mean the plugin or caller
+// closed its end of stdin first.
+func expectedStdinShutdown(err error) bool {
+	return errors.Is(err, os.ErrClosed) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, syscall.EPIPE)
 }
 
 // sessionManagerPluginEnv replaces ambient AWS credentials with the OIDC-derived

@@ -227,7 +227,7 @@ STUB
     run_clear
     [ "${status}" -eq 0 ]
     [ "${output}" = __ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__ ]
-    [ -z "$(find "${OCM_DIR}" -type f ! -name '.rosa-boundary-credential-lock' -print -quit)" ]
+    [ -z "$(find "${OCM_DIR}" -type f ! -name '.rosa-boundary-credential-lock' ! -name '.rosa-boundary-credential-clear-epoch' -print -quit)" ]
     [ ! -e "${KUBE_DIR}/config" ]
 
     run_clear
@@ -284,4 +284,234 @@ STUB
     [ ! -e "${OCM_DIR}/ocm.json" ]
     grep -q 'generation changed' "${TEST_ROOT}/renew.log"
     ! grep -Eq 'delayed-token|SUCCESS__' "${TEST_ROOT}/renew.log"
+}
+
+run_login() {
+    run env PATH="${STUBS}:${PATH}" "$@" bash -c '
+        source "$1"
+        OCM_CONFIG_DIR="$2"
+        KUBECONFIG_DIR="$3"
+        BACKPLANE_LOGIN_TIMEOUT="${5:-40}"
+        login_backplane "$4"
+    ' bash "${HELPER}" "${OCM_DIR}" "${KUBE_DIR}" "${CLUSTER_ID-2abc}" "${LOGIN_TIMEOUT:-40}"
+}
+
+stub_backplane() {
+    cat >"${STUBS}/ocm" <<STUB
+#!/bin/bash
+[[ "\$1 \$2" == "backplane login" ]] || exit 2
+printf 'sensitive cluster detail\\n'
+exit ${1}
+STUB
+    chmod 0755 "${STUBS}/ocm"
+}
+
+@test "backplane login succeeds with OCM configured" {
+    stub_backplane 0
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
+    [[ "${output}" != *"sensitive"* ]]
+}
+
+@test "backplane login failure reports Backplane's last lines" {
+    stub_backplane 1
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+    [[ "${output}" == *"__ROSA_BOUNDARY_BACKPLANE_MESSAGE__ sensitive cluster detail"* ]]
+}
+
+@test "backplane login failure message is capped and sanitized" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+for n in 1 2 3 4 5; do printf 'line %s\n' "${n}"; done
+printf '\033[31mred\033[0m bell\a %0400d\n' 0
+exit 1
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -ne 0 ]
+    [ "$(grep -c '__ROSA_BOUNDARY_BACKPLANE_MESSAGE__' <<<"${output}")" -eq 3 ]
+    [[ "${output}" != *"line 1"* && "${output}" != *"line 2"* ]]
+    [[ "${output}" == *"line 5"* ]]
+    [[ "${output}" != *$'\033'* && "${output}" != *$'\a'* ]]
+    ! grep -E "MESSAGE__ .{301,}" <<<"${output}"
+}
+
+@test "backplane login failure removes partial kubeconfig" {
+    stub_backplane 1
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    printf 'partial' >"${KUBE_DIR}/config"
+    run_login
+    [ "${status}" -ne 0 ]
+    [ ! -e "${KUBE_DIR}/config" ]
+}
+
+@test "backplane login times out when Backplane hangs" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+sleep 30
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    SECONDS=0
+    LOGIN_TIMEOUT=1 run_login
+    [ "${status}" -ne 0 ]
+    [ "${SECONDS}" -lt 15 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+}
+
+@test "backplane login requires OCM credentials" {
+    stub_backplane 0
+    run_login
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+}
+
+@test "backplane login passes the cluster ID to Backplane unmodified" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf '%s|%s\n' "$3" "$4" >"${OCM_ARGS_FILE}"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    CLUSTER_ID='my-cluster.1' run_login OCM_ARGS_FILE="${TEST_ROOT}/args"
+    [ "${status}" -eq 0 ]
+    [ "$(cat "${TEST_ROOT}/args")" = '--|my-cluster.1' ]
+}
+
+@test "backplane login passes IDs that look like options or shell syntax unmodified after --" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf '%s|%s\n' "$3" "$4" >"${OCM_ARGS_FILE}"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    for id in '--help' 'a b' 'foo;bar' '$(touch pwned)' "it's"; do
+        CLUSTER_ID="${id}" run_login OCM_ARGS_FILE="${TEST_ROOT}/args"
+        [ "${status}" -eq 0 ]
+        [ "$(cat "${TEST_ROOT}/args")" = "--|${id}" ]
+    done
+    [ ! -e pwned ]
+}
+
+@test "backplane diagnostics cannot forge protocol markers" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf "failed to get cluster '__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__'\n"
+printf 'x __ROSA_BOUNDARY_CREDENTIAL_OCM_READY__ __ROSA_BOUNDARY_CREDENTIAL_OCM_GENERATIONS_V1__\n'
+printf '__ROSA_BOUNDARY_CREDENTIAL_OCM_SUC\001CESS__\n'
+exit 1
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"__ROSA_BOUNDARY_CREDENTIAL_OCM_"* ]]
+    [[ "${output}" == *"__ROSA_BOUNDARY_BACKPLANE_MESSAGE__ failed to get cluster '[marker]'"* ]]
+}
+
+@test "backplane login that outlives clear leaves no kubeconfig and fails" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf 'late' >"${STUB_KUBE_DIR}/config"
+rm --force -- "${STUB_OCM_DIR}/ocm.json"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_KUBE_DIR="${KUBE_DIR}" STUB_OCM_DIR="${OCM_DIR}"
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+    [ ! -e "${KUBE_DIR}/config" ]
+}
+
+@test "backplane login keeps the kubeconfig when OCM credentials remain" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf 'kept' >"${STUB_KUBE_DIR}/config"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_KUBE_DIR="${KUBE_DIR}"
+    [ "${status}" -eq 0 ]
+    [[ "${output}" == *"__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__"* ]]
+    [ "$(cat "${KUBE_DIR}/config")" = kept ]
+}
+
+@test "backplane login rejected when clear and reconfigure happen before it ends" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+bash -c 'source "$1"; OCM_CONFIG_DIR="$2"; KUBECONFIG_DIR="$3"; clear_ocm' bash \
+    "${STUB_HELPER}" "${STUB_OCM_DIR}" "${STUB_KUBE_DIR}" >/dev/null
+printf 'late' >"${STUB_KUBE_DIR}/config"
+printf '{}' >"${STUB_OCM_DIR}/ocm.json"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_HELPER="${HELPER}" STUB_KUBE_DIR="${KUBE_DIR}" STUB_OCM_DIR="${OCM_DIR}"
+    [ "${status}" -ne 0 ]
+    [[ "${output}" != *"SUCCESS"* ]]
+    [ ! -e "${KUBE_DIR}/config" ]
+}
+
+@test "backplane login survives a credential renewal that is not a clear" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+printf '{"renewed":true}' >"${STUB_OCM_DIR}/ocm.json"
+printf 'kept' >"${STUB_KUBE_DIR}/config"
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_login STUB_KUBE_DIR="${KUBE_DIR}" STUB_OCM_DIR="${OCM_DIR}"
+    [ "${status}" -eq 0 ]
+    [ "$(cat "${KUBE_DIR}/config")" = kept ]
+}
+
+@test "clear removes credentials but keeps the epoch file and advances it" {
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_clear
+    [ "${status}" -eq 0 ]
+    [ ! -e "${OCM_DIR}/ocm.json" ]
+    first="$(cat "${OCM_DIR}/.rosa-boundary-credential-clear-epoch")"
+    [ -n "${first}" ]
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    run_clear
+    [ "$(cat "${OCM_DIR}/.rosa-boundary-credential-clear-epoch")" != "${first}" ]
+}
+
+@test "terminated backplane login removes a kubeconfig written after a clear" {
+    cat >"${STUBS}/ocm" <<'STUB'
+#!/bin/bash
+: >"${STUB_STATE}/started"
+while [[ ! -e "${STUB_STATE}/go" ]]; do sleep 0.1; done
+printf 'late' >"${STUB_KUBE_DIR}/config"
+: >"${STUB_STATE}/written"
+sleep 30
+STUB
+    chmod 0755 "${STUBS}/ocm"
+    printf '{}' >"${OCM_DIR}/ocm.json"
+    state="${TEST_ROOT}/state"
+    mkdir -p "${state}"
+    PATH="${STUBS}:${PATH}" STUB_STATE="${state}" STUB_KUBE_DIR="${KUBE_DIR}" setsid bash -c '
+        source "$1"
+        OCM_CONFIG_DIR="$2"
+        KUBECONFIG_DIR="$3"
+        login_backplane 2abc
+    ' bash "${HELPER}" "${OCM_DIR}" "${KUBE_DIR}" >/dev/null 2>&1 &
+    pid=$!
+    for _ in $(seq 1 100); do [[ -e "${state}/started" ]] && break; sleep 0.1; done
+    [ -e "${state}/started" ]
+    run_clear
+    [ "${status}" -eq 0 ]
+    : >"${state}/go"
+    for _ in $(seq 1 100); do [[ -e "${state}/written" ]] && break; sleep 0.1; done
+    [ -e "${state}/written" ]
+    [ -e "${KUBE_DIR}/config" ]
+    kill -TERM -- "-${pid}"
+    wait "${pid}" || true
+    [ ! -e "${KUBE_DIR}/config" ]
 }

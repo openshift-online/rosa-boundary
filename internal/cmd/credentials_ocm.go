@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -29,6 +30,7 @@ type ocmCredentialTransfer interface {
 	ConfigureAttachment(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials, func(bool) ([]byte, error)) (bool, error)
 	Configure(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials, []byte) error
 	Clear(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials) error
+	Login(context.Context, string, *awsclient.ExecuteCommandSession, *awsclient.TemporaryCredentials) error
 }
 
 var newOCMTokenAcquirer = func() ocmTokenAcquirer {
@@ -418,4 +420,27 @@ func defaultOCMFlow(device bool) ocmcredentials.Flow {
 		return ocmcredentials.FlowDevice
 	}
 	return ocmcredentials.FlowAuthCode
+}
+
+// initializeBackplaneLogin runs the fixed helper login inside the task. The
+// cluster ID is not secret and is quoted, not validated; Backplane decides
+// whether it is valid and its last output lines are shown on failure.
+func initializeBackplaneLogin(ctx context.Context, ecsClient *awsclient.ECSClient, region string, credentials *awsclient.TemporaryCredentials, sessionID, clusterID string) error {
+	command, err := ocmcredentials.BackplaneLoginCommand(clusterID)
+	if err != nil {
+		return err
+	}
+	session, err := ecsClient.ExecuteCommand(ctx, sessionID, credentialContainer, command)
+	if err != nil {
+		return fmt.Errorf("could not start Backplane login session: %w", err)
+	}
+	if err := newOCMCredentialTransfer().Login(ctx, region, session, credentials); err != nil {
+		var helperErr *ocmcredentials.HelperMessageError
+		if errors.As(err, &helperErr) {
+			return fmt.Errorf("backplane login for cluster %q failed; Backplane said: %s", clusterID, helperErr.Message)
+		}
+		return fmt.Errorf("backplane login for cluster %q did not complete (no message from Backplane; access may be missing or Backplane unreachable from the task): %w", clusterID, err)
+	}
+	output.Status("Initialized Backplane login for cluster %s", clusterID)
+	return nil
 }

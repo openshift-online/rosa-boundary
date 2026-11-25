@@ -3,6 +3,8 @@ package aws
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -76,7 +78,7 @@ printf ':__ROSA_BOUNDARY_CREDENTIAL_OCM_SUCCESS__'
 		"us-east-1",
 		&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
 		&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
-		strings.NewReader("stream-payload\n"),
+		io.NopCloser(strings.NewReader("stream-payload\n")),
 		&stdout,
 		&stderr,
 	)
@@ -265,5 +267,111 @@ func writePlugin(t *testing.T, directory, body string) {
 	plugin := filepath.Join(directory, sessionManagerPlugin)
 	if err := os.WriteFile(plugin, []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
 		t.Fatalf("write test plugin: %v", err)
+	}
+}
+
+func TestRunSessionManagerPluginWithStreamsPassesFileStdinDirectly(t *testing.T) {
+	pluginDir := t.TempDir()
+	writePlugin(t, pluginDir, `
+if [ -p /dev/stdin ]; then printf 'stdin=pipe'; else printf 'stdin=file'; fi
+`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	input, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = input.Close() }()
+
+	var stdout bytes.Buffer
+	err = RunSessionManagerPluginWithStreams(
+		context.Background(), "us-east-1",
+		&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+		&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+		input, &stdout, io.Discard,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stdout.String() != "stdin=file" {
+		t.Fatalf("plugin stdin = %q, want the caller's file passed through", stdout.String())
+	}
+}
+
+func TestRunSessionManagerPluginWithStreamsReturnsWhenReaderStaysOpen(t *testing.T) {
+	pluginDir := t.TempDir()
+	writePlugin(t, pluginDir, `printf done`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	reader, writer := io.Pipe()
+	defer func() { _ = writer.Close() }()
+
+	result := make(chan error, 1)
+	go func() {
+		result <- RunSessionManagerPluginWithStreams(
+			context.Background(), "us-east-1",
+			&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+			&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+			reader, io.Discard, io.Discard,
+		)
+	}()
+	select {
+	case err := <-result:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("plugin wrapper hung on an open caller reader after the plugin exited")
+	}
+	if _, err := writer.Write([]byte("late input")); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("a closable reader was left open after return: write error = %v", err)
+	}
+}
+
+type readOnly struct{ io.Reader }
+
+func TestRunSessionManagerPluginWithStreamsRejectsUninterruptibleReader(t *testing.T) {
+	pluginDir := t.TempDir()
+	marker := filepath.Join(pluginDir, "started")
+	writePlugin(t, pluginDir, `touch "`+marker+`"`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	err := RunSessionManagerPluginWithStreams(
+		context.Background(), "us-east-1",
+		&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+		&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+		readOnly{strings.NewReader("x")}, io.Discard, io.Discard,
+	)
+	if err == nil {
+		t.Fatal("a reader that cannot be closed was accepted")
+	}
+	if _, statErr := os.Stat(marker); statErr == nil {
+		t.Fatal("plugin started before the reader was rejected")
+	}
+}
+
+type closeErrReader struct {
+	io.Reader
+	closeErr error
+}
+
+func (r closeErrReader) Close() error { return r.closeErr }
+
+func TestRunSessionManagerPluginWithStreamsReportsSourceCloseError(t *testing.T) {
+	pluginDir := t.TempDir()
+	writePlugin(t, pluginDir, `printf done`)
+	t.Setenv("PATH", pluginDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	run := func(closeErr error) error {
+		return RunSessionManagerPluginWithStreams(
+			context.Background(), "us-east-1",
+			&ExecuteCommandSession{RawSession: []byte(`{"sessionId":"session-id"}`)},
+			&TemporaryCredentials{AccessKeyID: "key", SecretAccessKey: "secret", SessionToken: "token"},
+			closeErrReader{Reader: strings.NewReader(""), closeErr: closeErr}, io.Discard, io.Discard,
+		)
+	}
+	boom := errors.New("close failed")
+	if err := run(boom); !errors.Is(err, boom) {
+		t.Fatalf("unexpected close error was not reported: %v", err)
+	}
+	if err := run(io.ErrClosedPipe); err != nil {
+		t.Fatalf("expected shutdown close error was reported: %v", err)
 	}
 }

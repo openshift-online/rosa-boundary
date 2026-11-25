@@ -133,6 +133,18 @@ is RUNNING; explicitly combining `--no-wait` and `--with-credentials ocm` is
 rejected. If OCM authorization or injection fails after task creation, the
 session remains usable, and the CLI warns with the session ID, a retry command,
 and a profile-qualified cleanup command; OCM credentials are **not confirmed**.
+
+After OCM is configured, `session create` runs `ocm backplane login <cluster-id>`
+in the task before connecting. The cluster ID goes to Backplane unchanged
+(quoted, not pattern-checked); Backplane decides whether it is valid. A failed
+login (invalid ID, missing access, Backplane unreachable from the task, or a
+timeout) warns with the session ID, Backplane's last output lines (at most 3
+lines and 400 characters, control characters removed), a retry command to run
+inside the session, and a cleanup command; JSON reports
+`backplane_login: false` and the same warning. Backplane's text can contain
+cluster or account details; it appears in the CLI output and the ECS Exec
+session log. It is skipped with
+`--with-credentials none`, `--no-wait`, or an OCM failure.
 A RUNNING wait failure still returns nonzero; the session may already be
 STOPPED. Inspect `session list --status all` before retrying. `--no-wait`
 reports launch only. By default, the CLI separately requests a fresh OCM access

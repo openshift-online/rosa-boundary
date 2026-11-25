@@ -15,9 +15,9 @@ import (
 )
 
 func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
-	previousOpen, previousAuth, previousProfile := openInteractiveSession, cachedAuthResult, selectedProfile
+	previousOpen, previousAuth, previousProfile, previousAuto := openInteractiveSession, cachedAuthResult, selectedProfile, autoCloseRequested
 	t.Cleanup(func() {
-		openInteractiveSession, cachedAuthResult, selectedProfile = previousOpen, previousAuth, previousProfile
+		openInteractiveSession, cachedAuthResult, selectedProfile, autoCloseRequested = previousOpen, previousAuth, previousProfile, previousAuto
 	})
 	selectedProfile = "stage"
 	cachedAuthResult = &AuthResult{IDToken: credentialGuidanceToken("user-1"), Config: testJoinConfig(), Credentials: &awsclient.TemporaryCredentials{}}
@@ -31,6 +31,10 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := commandAtPath(t, buildRootCommand(), "session", "join")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			cmd.SetContext(ctx)
+			autoCloseRequested = tc.err != nil
 			selectedProfile = "stage"
 			if err := cmd.Flags().Set("output", "json"); err != nil {
 				t.Fatal(err)
@@ -49,17 +53,26 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 				if stdout.Len() != 0 {
 					t.Fatal("JSON emitted before shell exit")
 				}
+				if tc.err != nil {
+					cancel()
+				}
 				return tc.err
 			}
 			target := hookTarget()
 			target.CreatorSubject = "user-1"
 			service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{{ClusterID: target.ClusterID, InvestigationID: target.InvestigationID, Status: lambda.CloseStatusNone, Seal: "none", AccessPointPresent: true, JoinAccessPointID: target.AccessPointID}}}
+			service.cancelErr = errors.New("withdrawal rejected")
 			err := joinSession(cmd, []string{target.SessionID},
 				func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error) { return target, nil },
-				func(*cobra.Command, *AuthResult) (closeService, error) { return service.service(), nil })
+				func(context.Context, *cobra.Command, *AuthResult) (closeService, error) {
+					return service.service(), nil
+				})
 			if tc.err != nil {
-				if err == nil || !strings.Contains(err.Error(), tc.err.Error()) || stdout.Len() != 0 {
+				if !errors.Is(err, tc.err) || stdout.Len() != 0 {
 					t.Fatalf("error=%v stdout=%q", err, stdout.String())
+				}
+				if len(service.cancellation) != 1 || service.cancelCtxErr != nil {
+					t.Fatalf("expected withdrawal after cancellation, got %d attempts and context error %v", len(service.cancellation), service.cancelCtxErr)
 				}
 				return
 			}

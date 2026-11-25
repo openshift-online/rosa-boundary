@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
 
@@ -29,7 +30,9 @@ var (
 // It is deliberately called late: a session may run for hours, and the close
 // service validates the ID token's expiry, so a token minted before the shell
 // started would be rejected after a long session.
-type closeServiceFactory func() (closeService, error)
+type closeServiceFactory func(context.Context) (closeService, error)
+
+const autoCloseWithdrawalTimeout = 15 * time.Second
 
 // sessionCloseTarget identifies what a close request would act on. The
 // investigation is taken from the service's own task tags, not from whatever
@@ -117,15 +120,23 @@ func registerAutoCloseIntent(ctx context.Context, service closeService, target s
 // withdrawAutoCloseIntent removes an intent whose session never attached. The
 // SRE asked to close when their session ended; a session that never began is
 // not that, and the reaper would otherwise act on it once the task stops.
-func withdrawAutoCloseIntent(ctx context.Context, service closeService, target sessionCloseTarget) {
+func withdrawAutoCloseIntent(ctx context.Context, service closeService, target sessionCloseTarget, newService closeServiceFactory) {
 	if service.client == nil {
 		return
 	}
-	if _, err := service.client.CancelAutoClose(ctx, service.idToken, lambda.CloseActionRequest{
-		ClusterID:       target.ClusterID,
-		InvestigationID: target.InvestigationID,
-		TaskID:          target.SessionID,
-	}); err != nil {
+	// A canceled attachment still needs cleanup. Share one deadline between
+	// reauthorization and withdrawal so neither can block the exit indefinitely.
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), autoCloseWithdrawalTimeout)
+	defer cancel()
+	service, err := service.refreshIfExpired(cleanupCtx, newService)
+	if err == nil {
+		_, err = service.client.CancelAutoClose(cleanupCtx, service.idToken, lambda.CloseActionRequest{
+			ClusterID:       target.ClusterID,
+			InvestigationID: target.InvestigationID,
+			TaskID:          target.SessionID,
+		})
+	}
+	if err != nil {
 		output.Warning("the auto-close intent for %s/%s could not be withdrawn after the session failed to attach; the intent for session %s may still take effect when its task stops: %v",
 			target.ClusterID, target.InvestigationID, target.SessionID, err)
 	}
@@ -196,7 +207,7 @@ func afterAttachedSession(ctx context.Context, newService closeServiceFactory, r
 			return sessionCloseOutcome{}
 		}
 	}
-	service, serviceErr := newService()
+	service, serviceErr := newService(ctx)
 	if serviceErr != nil {
 		output.Warning("close was not requested for %s/%s: the close service is unavailable (%v)",
 			target.ClusterID, target.InvestigationID, serviceErr)

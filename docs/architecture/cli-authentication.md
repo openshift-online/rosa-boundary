@@ -16,6 +16,40 @@ AWS STS derives session tags from the token's `https://aws.amazon.com/tags` clai
 
 Task identity is the current task creator's identity; the reused EFS access point retains its original creator tags. Handover creates a replacement task, not permission to join the predecessor's task. See [actual tags and creator-versus-actor semantics](session-lifecycle.md#actual-resource-tags-creator-versus-actor) and [handover](session-lifecycle.md#handover-is-replacement-not-joining-another-users-task).
 
+### STS credential lifetimes
+
+| Role | CLI STS request | IAM role ceiling |
+|---|---|---|
+| Lambda invoker | 900 seconds (15 minutes), including profile discovery and close-service calls | 3,600 seconds |
+| Shared SRE | 3,600 seconds (1 hour), including new OCM helper connections that require re-assumption | `oidc_session_duration` in the account IAM deployment (defaults to 3,600 seconds; range 3,600–43,200) |
+
+The CLI requests these fixed durations explicitly and rejects values outside
+900–3,600 seconds before calling STS. They fit even the lowest IAM role ceiling;
+changing the SRE ceiling does not change the CLI request. The invoker's shorter
+lifetime is for request/response calls, not for the time a provisioned task runs.
+`investigation close --wait` stops polling when its invoker credentials or ID
+token are no longer usable, or after 30 minutes at most. The close continues
+server-side; use `investigation close <cluster-id> <investigation-id> --status --wait`
+to resume polling with fresh STS credentials without submitting another request.
+
+When STS credentials expire, they can no longer authorize new AWS API calls.
+The CLI does not use expiry as a timer to disconnect an attached shell or stop
+its task, and it does not replace the credentials of an already-running
+Session Manager plugin. If the connection drops and cannot resume, run
+`session join` to obtain fresh SRE credentials and reconnect to the task if
+it is still running. Post-exit close actions assume the invoker role again,
+as do join admission rechecks and auto-close withdrawals if their invoker
+credentials have expired. Scheduled OCM renewal re-assumes the SRE role as
+needed for a **new** helper connection. Re-assuming either role may need
+another Boundary sign-in. Continuous attachment and reconnect across expiry
+are not guaranteed by the STS setting.
+
+These durations are independent of the Boundary ID token, OCM access token,
+task deadline, and ECS Exec connection lifetime. See the
+[timeout matrix](session-lifecycle.md#timeout-matrix): eight hours is the
+Terraform fallback task timeout when a request omits it, not a hard maximum;
+AWS documents a fixed 20-minute ECS Exec idle timeout.
+
 ## Flow selection and headless approvals
 
 For ordinary authenticated commands, explicit `--use-device-code=true|false` (bare flag means true) overrides `ROSA_BOUNDARY_OIDC_USE_DEVICE_CODE`, then the selected profile's saved `oidc_use_device_code`, then default `false`. Invalid booleans fail. The `config init` bootstrap exception is described above. This flag selects a flow, not an issuer or an unattended credential.

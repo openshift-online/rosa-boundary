@@ -142,7 +142,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	sreIDToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, false, options)
+	sreIDToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, roleARN, sessionName, sreSTSDurationSeconds, false, options)
 	if err != nil {
 		return fmt.Errorf("role assumption failed: %w", err)
 	}
@@ -221,7 +221,7 @@ func runStartSession(cmd *cobra.Command, args []string) (resultErr error) {
 
 	// Build the service again after shell exit: a session may
 	// outlive the credentials and ID token this command started with.
-	closeServiceFor := func() (closeService, error) { return newCloseService(cmd, authRes) }
+	closeServiceFor := func(ctx context.Context) (closeService, error) { return newCloseService(ctx, cmd, authRes) }
 	return finishStartSession(cmd, ecsClient, creds, ecsCluster, clusterID, investigationID, sessionID, cfg.AWSRegion,
 		lambdaResp, roleARN, configureOCM, credentialWarning, timings, renewal, closeServiceFor, backplaneLoggedIn)
 }
@@ -247,7 +247,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 	if startConnect && !startNoWait {
 		var registeredWith closeService
 		if autoCloseRequested {
-			service, err := newService()
+			service, err := newService(cmd.Context())
 			if err != nil {
 				return fmt.Errorf("--auto-close could not be set up: %w", err)
 			}
@@ -263,7 +263,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 		output.Status("\n=== Step %d: Connecting to session ===", step)
 		// A close may be accepted while this new task waits for its Exec agent.
 		admit := func(ctx context.Context) error {
-			service, err := newService()
+			service, err := newService(ctx)
 			if err != nil {
 				return fmt.Errorf("cannot verify close status before attaching: %w", err)
 			}
@@ -273,7 +273,7 @@ func finishStartSession(cmd *cobra.Command, ecsClient *awsclient.ECSClient, cred
 			if autoCloseRequested {
 				// The SRE asked to close when their session ended, not when it
 				// failed to start.
-				withdrawAutoCloseIntent(cmd.Context(), registeredWith, target)
+				withdrawAutoCloseIntent(cmd.Context(), registeredWith, target, newService)
 			}
 			return err
 		}

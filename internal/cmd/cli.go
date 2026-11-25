@@ -101,9 +101,10 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 	required := []string{"account_id", "aws_region", "keycloak_url"}
 	role := cfg.SRERoleARN
 	session := "rosa-boundary-session"
+	durationSeconds := sreSTSDurationSeconds
 	statusOnly := cmd.Name() == "close" && cmd.Parent().Name() == "investigation" && flagBool(cmd, "status")
 	if statusOnly || (cmd.Name() == "create" && (cmd.Parent().Name() == "session" || cmd.Parent().Name() == "investigation")) {
-		role, session = cfg.InvokerRoleARN, "rosa-boundary-invoker"
+		role, session, durationSeconds = cfg.InvokerRoleARN, "rosa-boundary-invoker", invokerSTSDurationSeconds
 		required = append(required, "invoker_role_arn", "lambda_function_name")
 		if cmd.Parent().Name() == "session" {
 			required = append(required, "ecs_cluster_name")
@@ -138,7 +139,7 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	pkce := auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}
-	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, role, session, false, auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode})
+	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, role, session, durationSeconds, false, auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode})
 	if err != nil {
 		return err
 	}
@@ -292,7 +293,7 @@ func buildInvestigationCommand() *cobra.Command {
 		closeOutputFormat = flagString(cmd, "output")
 		return runCloseInvestigation(cmd, nil)
 	})
-	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --status, to see the current status.\n\nAny authorized Boundary SRE may request close once all ECS Exec shells disconnect. A request while any shell is attached is rejected, even with --force. Once accepted, the reaper waits if a shell appears; without stop consent it also waits for running tasks to stop."
+	close.Long = "Request close of an investigation workspace.\n\nThe close service seals the workspace, waits for tasks to stop, copies the workspace to audit storage, verifies that copy independently and only then removes the access point. The EFS directory is retained. A recorded request is not a completed close: use --wait, or rerun with --status to check once or --status --wait to keep polling without submitting another request.\n\nAny authorized Boundary SRE may request close once all ECS Exec shells disconnect. A request while any shell is attached is rejected, even with --force. Once accepted, the reaper waits if a shell appears; without stop consent it also waits for running tasks to stop."
 	close.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := nonEmptyArgs(2)(cmd, args); err != nil {
 			return err
@@ -312,8 +313,8 @@ func buildInvestigationCommand() *cobra.Command {
 	close.Flags().Bool("force", false, "Consent to stopping this investigation's running tasks")
 	close.Flags().Bool("yes", false, "Skip confirmation")
 	close.Flags().Bool("dry-run", false, "Show complete plan without making changes")
-	close.Flags().Bool("wait", false, "Wait for the close service to finish (stopping the wait does not cancel the request)")
-	for _, other := range []string{"dry-run", "yes", "force", "wait"} {
+	close.Flags().Bool("wait", false, "Poll until close finishes, credentials expire, or the wait limit is reached")
+	for _, other := range []string{"dry-run", "yes", "force"} {
 		close.MarkFlagsMutuallyExclusive("status", other)
 	}
 	deploymentFlags(close, true, true)

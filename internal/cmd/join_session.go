@@ -26,7 +26,7 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 
 func joinSession(cmd *cobra.Command, args []string,
 	resolveTarget func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error),
-	serviceFor func(*cobra.Command, *AuthResult) (closeService, error)) error {
+	serviceFor func(context.Context, *cobra.Command, *AuthResult) (closeService, error)) error {
 	if _, err := commandOutput(cmd); err != nil {
 		return err
 	}
@@ -77,12 +77,19 @@ func joinSession(cmd *cobra.Command, args []string,
 	if err := requireSessionCreator(authRes.IDToken, target.CreatorSubject); err != nil {
 		return err
 	}
-	newService := func() (closeService, error) { return serviceFor(cmd, authRes) }
-	service, err := newService()
+	newService := func(ctx context.Context) (closeService, error) { return serviceFor(ctx, cmd, authRes) }
+	service, err := newService(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("cannot verify close status; session was not joined: %w", err)
 	}
-	attachment.admit = func(ctx context.Context) error { return requireOpenForJoin(ctx, service, target) }
+	attachment.admit = func(ctx context.Context) error {
+		current, err := service.refreshIfExpired(ctx, newService)
+		if err != nil {
+			return fmt.Errorf("cannot verify close status before attaching: %w", err)
+		}
+		service = current
+		return requireOpenForJoin(ctx, service, target)
+	}
 	if err := attachment.admit(cmd.Context()); err != nil {
 		return err
 	}
@@ -93,7 +100,7 @@ func joinSession(cmd *cobra.Command, args []string,
 	}
 	if err := openInteractiveSession(cmd.Context(), ecsClient, authRes.Config.AWSRegion, authRes.Credentials, sessionID, joinContainer, joinCommand, joinNoWait, attachment); err != nil {
 		if autoCloseRequested {
-			withdrawAutoCloseIntent(cmd.Context(), service, target)
+			withdrawAutoCloseIntent(cmd.Context(), service, target, newService)
 		}
 		return err
 	}

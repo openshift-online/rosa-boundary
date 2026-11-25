@@ -149,7 +149,10 @@ func TestSTSCacheRejectionRetriesWithDeviceFlow(t *testing.T) {
 	old := assumeWebIdentity
 	t.Cleanup(func() { assumeWebIdentity = old })
 	tries := 0
-	assumeWebIdentity = func(_ context.Context, _, _, _, _ string) (*awsclient.TemporaryCredentials, error) {
+	assumeWebIdentity = func(_ context.Context, _, _, _, _ string, durationSeconds int32) (*awsclient.TemporaryCredentials, error) {
+		if durationSeconds != 900 {
+			t.Errorf("STS duration = %d, want 900 (including on retry)", durationSeconds)
+		}
 		tries++
 		if tries == 1 {
 			return nil, fmt.Errorf("ExpiredToken")
@@ -165,7 +168,7 @@ func TestSTSCacheRejectionRetriesWithDeviceFlow(t *testing.T) {
 	oldStderr := os.Stderr
 	os.Stderr = write
 	t.Cleanup(func() { os.Stderr = oldStderr; _ = read.Close(); _ = write.Close() })
-	_, _, err := assumeRoleWithRetryOptions(context.Background(), pkce, "us-east-1", "role", "session", false, auth.Options{UseDeviceCode: true})
+	_, _, err := assumeRoleWithRetryOptions(context.Background(), pkce, "us-east-1", "role", "session", invokerSTSDurationSeconds, false, auth.Options{UseDeviceCode: true})
 	_ = write.Close()
 	events, readErr := io.ReadAll(read)
 	if readErr != nil {

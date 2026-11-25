@@ -75,8 +75,7 @@ func cachedTokenForIssuer(issuer, clientID string) (string, error) {
 		return "", nil
 	}
 
-	// Parse JWT expiration from the token
-	expiration, err := parseTokenExpiration(token)
+	refreshAt, err := TokenRefreshTime(token)
 	if err != nil {
 		// Invalid token format — clean up corrupted cache so it does not keep failing.
 		if debugErr := output.Debug("Cached token invalid"); debugErr != nil {
@@ -88,15 +87,14 @@ func cachedTokenForIssuer(issuer, clientID string) (string, error) {
 		return "", nil
 	}
 
-	// Check if token is expired (with buffer)
-	if time.Now().Add(expirationBuffer).After(expiration) {
+	if !time.Now().Before(refreshAt) {
 		if debugErr := output.Debug("Cached token expired"); debugErr != nil {
 			return "", fmt.Errorf("debug output failed: %w", debugErr)
 		}
 		return "", nil
 	}
 
-	remaining := time.Until(expiration)
+	remaining := time.Until(refreshAt) + expirationBuffer
 	if debugErr := output.Debug("Using cached token (%d seconds remaining)", int(remaining.Seconds())); debugErr != nil {
 		return "", fmt.Errorf("debug output failed: %w", debugErr)
 	}
@@ -148,6 +146,16 @@ func ClearToken() error {
 		return fmt.Errorf("cannot remove token cache: %w", err)
 	}
 	return nil
+}
+
+// TokenRefreshTime reports when the token should no longer be reused, using
+// the same expiry buffer as the token cache. It does not validate the token.
+func TokenRefreshTime(token string) (time.Time, error) {
+	expiry, err := parseTokenExpiration(token)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return expiry.Add(-expirationBuffer), nil
 }
 
 // parseTokenExpiration extracts the expiration time from a JWT token.

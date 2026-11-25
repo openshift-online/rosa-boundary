@@ -149,7 +149,7 @@ func TestPrintStartSessionSummary_OverridesAndNoWait(t *testing.T) {
 
 // noCloseService stands in for a profile without a close service; the hook
 // must never build one unless a close is actually going to be requested.
-func noCloseService() (closeService, error) { return closeService{}, nil }
+func noCloseService(context.Context) (closeService, error) { return closeService{}, nil }
 
 func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 	savedStartProfile(t)
@@ -200,7 +200,7 @@ func TestFinishStartSessionConnectReportsOnlyAfterShellExit(t *testing.T) {
 				cmd := commandAtPath(t, buildRootCommand(), "session", "create")
 				selectedProfile = "stage-east" // Normally resolved by commandPreRun.
 				err = finishStartSession(cmd, nil, nil, "rosa-boundary-dev", "rosa", "inv", "task-123", "us-east-1",
-					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123", AccessPointID: "fsap-1"}, "role", false, "", sessionStartupTimings{}, nil, func() (closeService, error) {
+					&lambda.InvestigationResponse{TaskARN: "arn:aws:ecs:us-east-1:123:task/task-123", AccessPointID: "fsap-1"}, "role", false, "", sessionStartupTimings{}, nil, func(context.Context) (closeService, error) {
 						service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{{ClusterID: "rosa", InvestigationID: "inv", AccessPointPresent: true, JoinAccessPointID: "fsap-1", Status: lambda.CloseStatusNone, Seal: "none"}}}
 						return service.service(), nil
 					})

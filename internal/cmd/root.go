@@ -97,9 +97,15 @@ func debugf(format string, args ...any) error {
 	return output.Debug(format, args...)
 }
 
+// Short Lambda calls need less exposure than interactive ECS/SSM work.
+const (
+	invokerSTSDurationSeconds int32 = 900
+	sreSTSDurationSeconds     int32 = 3600
+)
+
 // assumeRoleWithRetryOptions fetches an OIDC token and assumes the given role.
 // If STS rejects a cached token, retry once with the selected fresh-login flow.
-func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, region, roleARN, sessionName string, forceLogin bool, options auth.Options) (string, *awsclient.TemporaryCredentials, error) {
+func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, region, roleARN, sessionName string, durationSeconds int32, forceLogin bool, options auth.Options) (string, *awsclient.TemporaryCredentials, error) {
 	// First attempt: use cached token if available (unless forceLogin)
 	var cached string
 	if !forceLogin {
@@ -110,7 +116,7 @@ func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, regio
 		return "", nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
-	creds, err := assumeWebIdentity(ctx, region, roleARN, idToken, sessionName)
+	creds, err := assumeWebIdentity(ctx, region, roleARN, idToken, sessionName, durationSeconds)
 
 	// Auto-retry once if we got an auth error (token expired server-side)
 	if err != nil && isAuthError(err) && !forceLogin && cached != "" && idToken == cached {
@@ -128,7 +134,7 @@ func assumeRoleWithRetryOptions(ctx context.Context, pkce auth.PKCEConfig, regio
 			return "", nil, fmt.Errorf("authentication failed on retry: %w", err)
 		}
 
-		creds, err = assumeWebIdentity(ctx, region, roleARN, idToken, sessionName)
+		creds, err = assumeWebIdentity(ctx, region, roleARN, idToken, sessionName, durationSeconds)
 	}
 
 	if err != nil {

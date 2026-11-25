@@ -57,7 +57,7 @@ func runStopSession(cmd *cobra.Command, args []string) error {
 	output.Status("  Session: %s", sessionID)
 	output.Status("  ECS Cluster: %s", clusterName)
 
-	if err := stopOneSession(cmd.Context(), authRes.IDToken, task, ecsClient.StopTask, func() (closeService, error) { return newCloseService(cmd, authRes) }); err != nil {
+	if err := stopOneSession(cmd.Context(), authRes.IDToken, task, ecsClient.StopTask, func(ctx context.Context) (closeService, error) { return newCloseService(ctx, cmd, authRes) }); err != nil {
 		return fmt.Errorf("stop session failed: %w", err)
 	}
 
@@ -104,7 +104,7 @@ func stopOneSession(ctx context.Context, token string, task *awsclient.TaskSumma
 	if req.ClusterID == "" || req.InvestigationID == "" {
 		return fmt.Errorf("session does not identify its investigation")
 	}
-	service, err := serviceFor()
+	service, err := serviceFor(ctx)
 	if err != nil {
 		return err
 	}

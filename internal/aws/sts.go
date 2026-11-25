@@ -45,7 +45,13 @@ type TemporaryCredentials struct {
 // IAM policy conditions. The OIDC role trust policy must include sts:TagSession permission for
 // session tags to be applied. See the architecture overview documentation for Keycloak mapper
 // configuration details.
-func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, sessionName string) (*TemporaryCredentials, error) {
+func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, sessionName string, durationSeconds int32) (*TemporaryCredentials, error) {
+	// Stay within the minimum supported IAM role ceiling. Boundary does not
+	// depend on an operator raising MaxSessionDuration above one hour.
+	if durationSeconds < 900 || durationSeconds > 3600 {
+		return nil, fmt.Errorf("requested STS duration must be between 900 and 3600 seconds (got %d)", durationSeconds)
+	}
+
 	// Use anonymous credentials since AssumeRoleWithWebIdentity doesn't require them.
 	client := sts.New(sts.Options{
 		BaseEndpoint: integrationEndpoint(),
@@ -57,6 +63,7 @@ func AssumeRoleWithWebIdentity(ctx context.Context, region, roleARN, idToken, se
 		RoleArn:          aws.String(roleARN),
 		RoleSessionName:  aws.String(sessionName),
 		WebIdentityToken: aws.String(idToken),
+		DurationSeconds:  aws.Int32(durationSeconds),
 	})
 	if err != nil {
 		// Translate only the known missing-role authorization failure; preserve

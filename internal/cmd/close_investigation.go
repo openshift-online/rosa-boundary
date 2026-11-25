@@ -22,6 +22,7 @@ import (
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/config"
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
@@ -82,7 +83,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 
 	authRes := cachedAuthResult
 	if flagBool(cmd, "status") {
-		service := closeService{client: lambda.New(authRes.Config.LambdaFunctionName, authRes.Config.AWSRegion, awsclient.StaticCredentialsProvider(authRes.Credentials)), idToken: authRes.IDToken}
+		service := closeServiceForAuth(authRes.Config, authRes.Credentials, authRes.IDToken)
 		return showRecordedCloseStatus(cmd.Context(), cmd.OutOrStdout(), service, closeClusterID, closeInvestigationID)
 	}
 
@@ -115,7 +116,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	service, err := newCloseService(cmd, authRes)
+	service, err := newCloseService(cmd.Context(), cmd, authRes)
 	if err != nil {
 		return err
 	}
@@ -162,12 +163,22 @@ func confirmCloseOnTerminal(plan closePlan) (bool, error) {
 type closeService struct {
 	client  closeServiceAPI
 	idToken string
+	expiry  time.Time
+}
+
+// refreshIfExpired replaces both credentials and the paired ID token when
+// either is due to expire.
+func (s closeService) refreshIfExpired(ctx context.Context, newService closeServiceFactory) (closeService, error) {
+	if !s.expiry.IsZero() && !time.Now().Before(s.expiry) {
+		return newService(ctx)
+	}
+	return s, nil
 }
 
 // newCloseService assumes the invoker role so the close service is called with
 // the identity the deployment already uses for Lambda work, and returns the ID
 // token minted alongside those credentials rather than an older one.
-func newCloseService(cmd *cobra.Command, authRes *AuthResult) (closeService, error) {
+func newCloseService(ctx context.Context, cmd *cobra.Command, authRes *AuthResult) (closeService, error) {
 	cfg := authRes.Config
 	if cfg.LambdaFunctionName == "" || cfg.InvokerRoleARN == "" {
 		return closeService{}, fmt.Errorf("this profile has no close service configured; set lambda_function_name and invoker_role_arn (see 'rosa-boundary config init --help')")
@@ -177,24 +188,50 @@ func newCloseService(cmd *cobra.Command, authRes *AuthResult) (closeService, err
 		return closeService{}, err
 	}
 	pkce := auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}
-	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, cfg.InvokerRoleARN, "rosa-boundary-invoker", false, options)
+	idToken, creds, err := assumeRoleWithRetryOptions(ctx, pkce, cfg.AWSRegion, cfg.InvokerRoleARN, "rosa-boundary-invoker", invokerSTSDurationSeconds, false, options)
 	if err != nil {
 		return closeService{}, fmt.Errorf("cannot reach the close service: %w", err)
+	}
+	return closeServiceForAuth(cfg, creds, idToken), nil
+}
+
+func closeServiceForAuth(cfg *config.Config, creds *awsclient.TemporaryCredentials, idToken string) closeService {
+	expiry := creds.Expiry
+	// The JWT expiry is only a client-side scheduling hint, not authorization.
+	if refreshAt, err := auth.TokenRefreshTime(idToken); err == nil && (expiry.IsZero() || refreshAt.Before(expiry)) {
+		expiry = refreshAt
 	}
 	return closeService{
 		client:  lambda.New(cfg.LambdaFunctionName, cfg.AWSRegion, awsclient.StaticCredentialsProvider(creds)),
 		idToken: idToken,
-	}, nil
+		expiry:  expiry,
+	}
 }
 
 // Look up the durable record, without requiring an access point or planning a close.
 func showRecordedCloseStatus(ctx context.Context, out io.Writer, service closeService, clusterID, investigationID string) error {
-	status, err := service.client.CloseStatus(ctx, service.idToken, lambda.CloseActionRequest{
-		ClusterID: clusterID, InvestigationID: investigationID,
-	})
-	if err != nil {
-		return fmt.Errorf("cannot read close status for %s/%s (no request submitted): %w", clusterID, investigationID, err)
+	var status *lambda.CloseStatusResponse
+	var err error
+	if closeWait {
+		status, err = waitForCloseStatus(ctx, service, clusterID, investigationID, "")
+		if err != nil {
+			return err
+		}
+	} else {
+		status, err = service.client.CloseStatus(ctx, service.idToken, lambda.CloseActionRequest{
+			ClusterID: clusterID, InvestigationID: investigationID,
+		})
+		if err != nil {
+			return fmt.Errorf("cannot read close status for %s/%s (no request submitted): %w", clusterID, investigationID, err)
+		}
 	}
+	if err := writeRecordedCloseStatus(out, clusterID, investigationID, status); err != nil {
+		return err
+	}
+	return closeWaitOutcome(clusterID, investigationID, status)
+}
+
+func writeRecordedCloseStatus(out io.Writer, clusterID, investigationID string, status *lambda.CloseStatusResponse) error {
 	if closeOutputFormat == "json" {
 		return json.NewEncoder(out).Encode(status)
 	}
@@ -207,7 +244,7 @@ func showRecordedCloseStatus(ctx context.Context, out io.Writer, service closeSe
 		fmt.Fprintf(&message, "Request: %s\n", status.RequestToken)
 	}
 	fmt.Fprintln(&message, status.Reason)
-	_, err = io.WriteString(out, message.String())
+	_, err := io.WriteString(out, message.String())
 	return err
 }
 
@@ -259,6 +296,10 @@ func submitCloseRequest(ctx context.Context, service closeService, clusterID, in
 	if err := reportCloseStatus(clusterID, investigationID, accepted, status); err != nil {
 		return err
 	}
+	return closeWaitOutcome(clusterID, investigationID, status)
+}
+
+func closeWaitOutcome(clusterID, investigationID string, status *lambda.CloseStatusResponse) error {
 	if closeWait && status.Status != lambda.CloseStatusCompleted {
 		retry := "it will not be retried automatically; investigate before requesting close again"
 		if status.Retryable {
@@ -269,38 +310,61 @@ func submitCloseRequest(ctx context.Context, service closeService, clusterID, in
 	return nil
 }
 
-// waitForCloseStatus polls until the service reports an outcome it will not
-// leave on its own. It is bounded by closeWaitLimit as well as the context:
-// an interactive command has no deadline, and a status the client does not
-// recognize must not turn into an endless loop.
+// waitForCloseStatus only reads status. A wait never reauthenticates or
+// submits a request; it ends at the outcome, wait limit, or credential deadline.
 func waitForCloseStatus(ctx context.Context, service closeService, clusterID, investigationID, token string) (*lambda.CloseStatusResponse, error) {
-	give := func(reason string) error {
-		return fmt.Errorf("stopped waiting for close of %s/%s: %s; request %s remains recorded and the scheduled reaper continues it", clusterID, investigationID, reason, token)
-	}
 	deadline := time.Now().Add(closeWaitLimit)
+	limitReason := fmt.Sprintf("the %s wait limit was reached", closeWaitLimit)
+	if !service.expiry.IsZero() && !service.expiry.After(deadline) {
+		deadline = service.expiry
+		limitReason = "close status credentials expired or are about to expire"
+	}
+	waitCtx, cancel := context.WithDeadline(ctx, deadline)
+	defer cancel()
+	stopped := func(reason string) error {
+		if token == "" {
+			return fmt.Errorf("stopped waiting for close of %s/%s: %s; no request submitted", clusterID, investigationID, reason)
+		}
+		return fmt.Errorf("stopped waiting for close of %s/%s: %s; request %s remains recorded; stopping this wait does not cancel it", clusterID, investigationID, reason, token)
+	}
+	resume := func() error {
+		return fmt.Errorf("%w; to resume polling without submitting a request, run: %s --wait", stopped(limitReason), closeStatusCommand(clusterID, investigationID))
+	}
+	stopReason := func() error {
+		if ctx.Err() != nil {
+			return fmt.Errorf("%w: %w", stopped("the command was cancelled"), ctx.Err())
+		}
+		if !time.Now().Before(deadline) {
+			return resume()
+		}
+		return nil
+	}
 	for {
-		status, err := service.client.CloseStatus(ctx, service.idToken, lambda.CloseActionRequest{
+		if err := stopReason(); err != nil {
+			return nil, err
+		}
+		status, err := service.client.CloseStatus(waitCtx, service.idToken, lambda.CloseActionRequest{
 			ClusterID: clusterID, InvestigationID: investigationID,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("cannot read close status for %s/%s (request %s persists; stopping this wait does not cancel it): %w", clusterID, investigationID, token, err)
+			if stop := stopReason(); stop != nil {
+				return nil, stop
+			}
+			return nil, fmt.Errorf("%w: %w", stopped("could not read close status"), err)
 		}
 		if slices.Contains(lambda.CloseWaitEndStatuses, status.Status) {
 			return status, nil
 		}
 		if status.Status == lambda.CloseStatusNone || status.Status == lambda.CloseStatusUnknown {
-			// The service cannot see the request this wait is about. Say so
-			// rather than polling a status that will never change.
-			return nil, give(fmt.Sprintf("the service reports status %q", status.Status))
+			return nil, stopped(fmt.Sprintf("the service reports status %q", status.Status))
+		}
+		if token == "" {
+			token = status.RequestToken
 		}
 		output.Status("Close is %s (%s); waiting…", status.Status, status.Phase)
 		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("%w: %w", give("the command was cancelled"), ctx.Err())
+		case <-waitCtx.Done():
 		case <-time.After(closeStatusPoll):
-		}
-		if time.Now().After(deadline) {
-			return nil, give(fmt.Sprintf("it is still %s after %s", status.Status, closeWaitLimit))
 		}
 	}
 }
@@ -341,7 +405,13 @@ func closeStatusGuidance(clusterID, investigationID string, status *lambda.Close
 	if status.Status == lambda.CloseStatusCompleted {
 		return "Close completed."
 	}
-	return fmt.Sprintf("Accepted is not closed. Check progress with: rosa-boundary --profile %q investigation close %q %q --status", selectedProfile, clusterID, investigationID)
+	return "Accepted is not closed. Check progress with: " + closeStatusCommand(clusterID, investigationID)
+}
+
+func closeStatusCommand(clusterID, investigationID string) string {
+	// Quote these as shell literals so copy-pasting cannot expand substitutions.
+	quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
+	return fmt.Sprintf("rosa-boundary --profile %s investigation close %s %s --status", quote(selectedProfile), quote(clusterID), quote(investigationID))
 }
 
 // The reaper issues a lowercase UUIDv4 as the seal. It becomes one S3 key

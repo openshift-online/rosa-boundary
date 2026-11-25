@@ -75,7 +75,7 @@ func setupCredentialGuidance(t *testing.T, subject string) {
 		t.Fatal(err)
 	}
 	previous := assumeWebIdentity
-	assumeWebIdentity = func(_ context.Context, _, role, _, _ string) (*awsclient.TemporaryCredentials, error) {
+	assumeWebIdentity = func(_ context.Context, _, role, _, _ string, _ int32) (*awsclient.TemporaryCredentials, error) {
 		if role != cfg.SRERoleARN {
 			t.Errorf("wrong role: %q", role)
 		}

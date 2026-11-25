@@ -458,7 +458,7 @@ module "rosa_boundary" {
         },
         {
           key      = "container_image"
-          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:d4f788af264e5a4eedf6d53bcfeb1edd98610138"
+          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:5b4fe743aad668fb6f007c7dfe4cba90501c0be5"
           category = "terraform"
         },
         {
@@ -511,7 +511,7 @@ module "rosa_boundary" {
         },
         {
           key      = "lambda_image_tag"
-          value    = "b62d9ee8547ff204348cc8b2d1bce5449542abea"
+          value    = "5b4fe743aad668fb6f007c7dfe4cba90501c0be5"
           category = "terraform"
         },
         {
@@ -673,7 +673,7 @@ module "rosa_boundary" {
         },
         {
           key      = "container_image"
-          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:d4f788af264e5a4eedf6d53bcfeb1edd98610138"
+          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-boundary:5b4fe743aad668fb6f007c7dfe4cba90501c0be5"
           category = "terraform"
         },
         {
@@ -726,7 +726,7 @@ module "rosa_boundary" {
         },
         {
           key      = "lambda_image_tag"
-          value    = "b62d9ee8547ff204348cc8b2d1bce5449542abea"
+          value    = "5b4fe743aad668fb6f007c7dfe4cba90501c0be5"
           category = "terraform"
         },
         {

@@ -8,7 +8,7 @@ Can an SRE start a fresh Boundary session, read the Trusted Actions (TA) catalog
 
 **Before starting:** Have a terminal, the Session Manager plugin installed, and an SRE available for private Boundary and OCM sign-in prompts. Confirm the named profile (`$PROFILE`), account, region, approved test cluster (`$CLUSTER`), OCM environment (`$OCM`), and permission to create and close one disposable investigation. Confirm whether TA is expected and which catalog action should be available. Substitute these values in the commands; workstation variables are not inherited by the joined shell.
 
-**Budget: five minutes total.** Reserve the last minute for cleanup. Cap blocking calls with the CLI's `--timeout` set to the remaining step budget, and disconnect when the test budget ends. Do not retry creation or wait for expiry, renewal, or a reaper cycle.
+These steps should generally take five minutes or less. Do not retry session creation or wait for expiry, renewal, or a reaper cycle.
 
 ### 1. Workstation: open and join one session
 

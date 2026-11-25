@@ -1,48 +1,32 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:e816bc4dd8e749ff806cd1f05223964b99d3ab898c61eedfdfc2e444f6dc56a9",
+  "pageVersion": "sha256:8cd0c2ddae792392f7f1ce0aa2772acb9cd47adcf2558c17cd00aeece4ef3a49",
   "claims": [
     {
       "id": "claim_dcc0df2d8d304d71876fefca31c6744e",
-      "statement": "The root Containerfile uses a digest-pinned UBI9 base and nine stages — tools-base, sre-tools, claude-builder, opencode-builder, codex-builder, pi-builder, search-builder, tmux-builder, and final — where only final ships and copies its selected outputs from the eight builder stages; sre-tools and the four coding-agent builders depend on tools-base while tmux-builder depends only on BASE_IMAGE, so stages 2-8 can build in parallel under BuildKit/podman --layers once their dependencies are ready. The root Makefile's build-amd64/build-arm64 targets build separate AMD64/ARM64 images with Podman and the manifest target assembles their tags into one multi-architecture manifest list.",
+      "statement": "The root image has ten stages, including a Go builder for the bundled rta client; only the final operator image ships.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L1-L22",
-          "version": "repo-lines-v1:sha256:e32b09dd2f7cf4399f20994141f5b2e3554c7aa5467a8e202006918d3af0f28e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3OWRjY2NhNTUwMzA4ODYwNDcyZDUxMTIzYjE5YzVkZWU1MGVjMTkzMDJjZDFiYWU5MTVmOTY4ZWVkZmI1MWYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmZGM1NmUzZGQxNzdlNmU4NTczZGI2Zjc3ODBhM2I5OTQ2OTAwMjg4M2NmNjZlN2FmZjc1NDhhYWU4MGZhNzgifQ"
+          "resource": "repo://Containerfile#L1-L28",
+          "version": "repo-lines-v1:sha256:2c1b3014b55f26d0609eadeb078b2eb810bc1799883567f3b369aa3c6a40f0e8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
         },
         {
-          "resource": "repo://Containerfile#L353-L456",
-          "version": "repo-lines-v1:sha256:33a7b8ef61d1b2268f8b0e82a40d982cdf10d0f96f702e807e079171bb144fea:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI1MTkwYWJiNjExNzYwMTc0MTZmOTkyOTliNzQ3Zjg0MTBkMjFkZjAwOGQzNGVjNjI3OGY2NWJlNDE3NWM0YjgwIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJiMDJmNTkzNTRhMTdmYjY4MGU5YzIxNmJmZDBkNjY1MTRjYzkzNGVhZWZlODE1NzBjZDdlNmY0MDVkODc0NGMzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxZThkYzA2ZWYzZTViOGFjZjBjY2RhOWRiMzNjZGE1ZGY5NzE5ZWJlYTMwZjE0Njg0OGQ0NTIwNThlOTFlMjNlIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MCwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1In0"
+          "resource": "repo://Containerfile#L354-L387",
+          "version": "repo-lines-v1:sha256:24a7c3859b12cb7d3dd59f08f0a7387fdf0106f4cad11ec3a05f89a3b912f174:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3ZjgyNjFkYzQwYzI2YTFmMjBiZjExOTlmNmYyNjY1Y2Q2ZTBhZDg2YWUxN2I1ZWZhZjM2NTZiZjI3YWQ3Y2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0M2E2ZGMzMDE3NjZhMjU0NGIyMTAyOTZmN2YxNzY0OTI4MDllYTUyN2U0MWNmZmMyMWI0OGVmNTZjNzg3ZTYifQ"
         },
         {
-          "resource": "repo://Makefile#L30-L50",
-          "version": "repo-lines-v1:sha256:ed2844e813d564f71588cc140c33213f53a5755ba5f59cec767e5bca94375b02:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4M2EwMzQwYWIyOWIxYmE3N2IzYzJjOTc2OTI4ZTgxNzhjOTYxMTExMmE5ZWNlMmYzZTYzNDQzMTkwNTAzMTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhZjZmZGI3NGU2YzFmYzIwMzJjMTM5NTc3ODY0NTFiNmY4N2M3MmNlMmYzZTFmMjczNTY3ZGYzMjBmZWUwNmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjNTk0ODk4NmIwNjNjNmZlMDlmMjRjYTcyN2FkNjMxYjdkODVlNjFiY2JjZjFhMGZhZGM5Yzk2YzNmNTE4NDIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzMDQyNzk1NDFiMmFkZmUwYjIyZmE0MWExYzA1MDg1NWM5OTRlZjU4Yjc0NmZmOTAxODZjYzllYmVlNzUyZjMifQ"
-        },
-        {
-          "resource": "repo://Makefile#L67-L75",
-          "version": "repo-lines-v1:sha256:1a1a049be4287e4c00b08d7febab8f0016b000163f7c8687dc5404fe4d206757:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjYzZjkxNWRiYWQ5NTZhZGEwMThmMDk1ZTY5YTMwYjk2MGQ1YTgyZTliMTk0NTI4MWNiMmU3YjQxMzVjMjViMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjE5ZGVjZTk5M2MyOTMwN2IwMTI1YjIyMmVhM2IxYzUxMDI2MmE5ZjQ2ZDY4MjJkOGYwY2M5ZjU5ZmZlNGVlZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWQ1YWE0Mzk5YzdiZTVjMTc0MjA5MGFhM2U0MDMwNmZhM2U5ZTA4MGQ1ZTkwM2NhZmU4MThhZWFjZDc4MWY4MSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODNjYWVhOTYxMGY3MWVjMmYyZTMwNTU5OWJkYTdiYzE4OGU3NmExMGE2NjViMDM1Y2MzZTAwY2Y1N2VlYzk3MCJ9"
+          "resource": "repo://Containerfile#L440-L452",
+          "version": "repo-lines-v1:sha256:346f1e430cae5a4f49c6c535339733a1d8a1b6d870ecb6090271eede22c35927:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZTM5YTUzMzY3ODIxNjkwMTYxZmZhZWJiYmE4Yzg1NDkwYzdlMzdhZTI5NjhlNWM4MTI0NTFiY2ZhM2E4NjUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3M2Q4MDM1ODM0ODU5YTZkODMyOWQ5YzVhYTE1YTM2ZjY2NWU5MWY0MTc5YjFiMGVhOTUxZTcwNjM2ODQ4NWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFmMThiOTE0YmYxNDVlMzdmMjQ0NDk4YWMwMzU0ZTY0MzNhZjM4NWE0YzRkNzAyYmVlMGRmYWQyYWU4NzVlZTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA4MGVlMjgyNThkOGY2NTZhZDdmM2I4YmRkOTFlMzE3ZTU5N2U3ZmYwYzg1OWQ1MmI0ZDFkMDkyYWZkNDcyZmMifQ"
         }
       ]
     },
     {
       "id": "claim_e7155a2db30d4f658204f4639291bb01",
-      "statement": "The sre-tools stage installs ocm, ocm-backplane, osdctl and yq via github_dl exact-asset checksum verification, oc via a GPG-signed OpenShift checksum manifest, and the AWS CLI via a detached publisher signature, each re-validated offline (--network=none --validate-installed) before verify_sre_tools.py combine merges the six per-tool records into /opt/tool-versions.json. Claude Code, OpenCode, the Codex CLI and the pi coding agent each have their own tools-base-derived builder stage that fetches one pinned release through github_dl against a published SHA256 checksum file or exact asset; search-builder adds fd (hard-coded SHA256 constants, no upstream checksum asset) and ripgrep (checksum file) the same way, and tmux-builder independently builds tmux from a SHA256-checked source tarball. The final stage's last network-isolated RUN re-verifies the shipped filesystem offline as sre — architecture, pinned versions/signers for the six SRE tools, and version probes for the four coding agents and two search tools — before the image is tagged.",
+      "statement": "SRE tool installation verifies downloaded artifacts, with offline validation in the image build.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L127-L310",
-          "version": "repo-lines-v1:sha256:ef4e041b17f16226f755ebb9b66dcd42cfc3b7b4bd8d2dfa17f3563fff152654:eyJzZWxlY3RlZExpbmVDb3VudCI6MTg0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYzE2MjkyMDdlMmI2OTg0OGMyZTUxZGZkNzdhZThiMjM3OTEzOWJmYzg4NmE2YmIyZGY3ZmU1ZWE5YjAwZTIyIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJhZGU4NjdhZjI3ZTI1YjBhMjdkOGJlYzI1MTRhMGM1NTA0ZDc1N2M1NDE4M2Q2ZmNkNjAyZDU0NTE0YTk2YzkzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1NWNkZjc0YWYxNGZkYjBlNTZmYWNiMDBmOWNhZWNlMDVmM2MzZGI1NDUzNTc4N2U5YWY1ZWVlY2U4NTI5YzYxIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5NjI3OGRlYmU2NTU4NWIxOWQ0ODA0NDEwNWFmYjEyYTAzYTZkZWRhYTg0ODRjNTYwOGQzZjk3YzhkNjJiMDNmIn0"
-        },
-        {
-          "resource": "repo://Containerfile#L313-L350",
-          "version": "repo-lines-v1:sha256:f61a07cd09dde8b2ec0027221ea719f4db5952085afbb469d19bef7bf9c218cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwMDUzYzA3ODU0YzhlZGZiZDQ4MjU3YzBmZGMyNWI2N2RiZGY0MTVmY2IwY2I2ZGRmZmJjZGI5YTYzMGEwM2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY1ZWI2NmZkODRhZTc3NmQxMTdkZTZiZGExNjI4OWZjODJiYWQxOGM2MjA2ZTgxOWIwNDdlNjY0ZmM5MjBhZWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI5NjU0Y2E3MTUyMzc5OTBjMWI4OWE4OGRlNDMxNjc5NDMyNzc0YTQyODZiZDFjMzBjM2RjMDA2M2NjN2Q3ZjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMxYWZlNjAxNjQwODEyNjgwMzI3NDc1OWM4MWNkOWVlOTc3YTY4YzhlZjY0NzZjNjY3MzViODQ1OGE2Nzk4ZDQifQ"
-        },
-        {
-          "resource": "repo://Containerfile#L445-L450",
-          "version": "repo-lines-v1:sha256:0118566d00a89bf7113c493b9296b9d46c19f92bbbe59ea598d915195649fb43:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzNlNTA2MjNiN2QzNGFhMWUyNDQzM2EzYjZhZjllZjc0YTM1N2I4YzBlMjNhYjIzYzNjYzExYTY0ZjJjOTNjNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZmRhMWI0NmRmZjhmZWIzOWJiYmQ4YjYxOTIwNDkzMDJiMTVkYjEyNWM4YTJhYWIyNTI3NWM5YjlhNmMyNDRkNCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTQxNTQ0MDE1MzgxZGZkY2E0NWJjYWUzYjZiMTE5MzFmYzY5NmUxOTJkM2U4MmQyZmY0MmUzYTNmMGI3ZTRjNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTMxYjY2ZTM4YTc0YmI3NTk1ZTFkNzY5MjQ1NzAwNTdlNDQxNTI1MGVmMTJlYzYzNTc3N2IzM2RkZWNjN2JmNyJ9"
-        },
-        {
-          "resource": "repo://Containerfile#L56-L124",
-          "version": "repo-lines-v1:sha256:a4016a16d5b726de4d42213652e4bd0f94e003365d82d5220b0dfa39d1e9eb12:eyJzZWxlY3RlZExpbmVDb3VudCI6NjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmYWZmNGY3ZWE4OTZlOWRmYjg0YjFmNGVkNTM0ZjEzYWQxOTE4OWFmMTA3NmY4MzU5MzA3ODcyM2ZkYjFmN2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkMGQ0MWRiMDYwNDJkZmVkNjBjNTViNjY0NWUwM2NmOTdkZDRlNzlhMTUwYWU0YmMyMzU5M2FhZTRlYTc0ZDYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiMmM5NDJlZTNiYjExNWI4MGFlODkzNmNhNmI2ZWUxYTBlNjNiMmY5NGY1YzY1MTY1YTIyMDczMzBjZjA4ZTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjNGZlZTIyZmE0ZTE5OWVjYWM4OTRiZDRkNDQ2MTIyNjkzZDM5MGY3Y2MzOGFkMTc2NTU3MjAyN2MwZDQ5N2UifQ"
+          "resource": "repo://Containerfile#L59-L128",
+          "version": "repo-lines-v1:sha256:093e3351bd9c355d378fe7a078775e2acff475b3c7e02309b3344373ef589ade:eyJzZWxlY3RlZExpbmVDb3VudCI6NzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwOTk2YzQ5ZmExMDVmYzQ5ZTI0MGJiMGQxMWQ2NTYzNTY0YjdmYjAzYWRjMzliZGU1ODlkZTcxZGM5M2M1YTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjMTYyOTIwN2UyYjY5ODQ4YzJlNTFkZmQ3N2FlOGIyMzc5MTM5YmZjODg2YTZiYjJkZjdmZTVlYTliMDBlMjIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE0YzQ2ZmYyZTEwMGNjMmNmOGY2MWZlNDA2MmVkMjgyZTgyOGU1ZDViMWJhMzYwZjZiMWQ0MmE1NTA0Zjg2NjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQzZWIxYzg1MmUxZTUyMGRkZjk5YzY5YmRlMGM4MjdlNWY3MzE4YTQ3YTYwMDY0NzI4NTQzZjAzMmFmNjhiMTgifQ"
         },
         {
           "resource": "repo://build/sre_tools.py",
@@ -50,7 +34,7 @@
         },
         {
           "resource": "repo://build/verify_sre_tools.py",
-          "version": "repo-file-v1:sha256:8d538b1cf234c7a09f6c7cb4325c9093e86b3bd6456d65fe74128926662ad38a"
+          "version": "repo-file-v1:sha256:160e884ea6837b0e4cdb1db780b6ac044be786d1dffda0c32e3343b423b310f3"
         }
       ]
     },
@@ -75,46 +59,22 @@
           "version": "repo-lines-v1:sha256:e452a7bd0c0f7260b7a919da018de93c5919b9be5cac4502ccf9a816ec9b06e2:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjY4YTJjMzI2Y2E5M2IyMzQzMzZhNTAyYjlmMjhhZjVlNWEyYTMzNzFiNTIxZDQ3MDgzNGY3N2Y5ODdiMDQwMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNGRlMDM4NjBlYzk4MGIwNGQ2NzIwM2NlMzUxMDQ5ODAwZDY2NzI3ODUwYTZlNjIxYjc2MjYyZTVhY2ZkYzYwOSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzhlOWI5ZjVhMTllYWQwNmZmNmMxMGViYTAyNTYxZmMxZjkxYzAzMDIzMjY5YmUyYzBmZDQ3ZTg3NzQ3ZmNhYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYWQ3NTViYmU5MDE5OWI4NDA4NzgyYWExZjY5YjBjMDY4ZTY4NjI3OTU1ZGEyZGIyZGY0YzFiOTQ4MGYxMjZmZSJ9"
         },
         {
-          "resource": "repo://entrypoint.sh#L246-L252",
+          "resource": "repo://entrypoint.sh#L248-L254",
           "version": "repo-lines-v1:sha256:ab2b661ad0c363d7fac749dd71d84b4c17b7b1670f4a6c8ea838486c82ebbc94:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDYyOGYxOGRlYjQyMjg3ZmM0OTliNTY4ODQ2ZDZmYzQ3ZGU0YTI3NTQ3ODE4ZjVhYTQwM2VmMzc0NzdkYmNiNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTcyNDFjNDVmOWVlZjMxNjg4NGVkNTZlNGYzYTg2YzJlM2ZjNTE4NzYyODJkYWQ0Yzg1Nzk5ODlhZDRjY2U2ZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzM0Y2I2MjVkNDJiZDQ5ZWY3OTU0Yzg5NDg5NWI5ZjMwOWFiNTIwMGYwNWFlN2FmYmE0NzNhYzBmNzVjNjAyOCJ9"
         }
       ]
     },
     {
       "id": "claim_85879380fa8944fd9af8d21fb3f7b5f2",
-      "statement": "entrypoint.sh unifies the normal-exit and signal-shutdown paths into a single cleanup() function (trapped on EXIT and on SIGTERM/SIGINT/SIGHUP): it immediately re-arms TERM/INT/HUP to a no-op and disarms the EXIT trap to prevent re-entry, sends SIGTERM to CHILD_PID and to the skill-reconciler helper via stop_skill_reconciler, waits up to roughly three seconds for both to actually exit (await_writers), and then runs sync_to_s3 under an outer timeout bounded by SHUTDOWN_SECONDS=105 (with a KILL_GRACE_SECONDS=2 forced kill), sized so METADATA_SECONDS=3 metadata lookups and a MAX_SYNC_SECONDS=85 aws s3 sync fit inside the ECS task's configured stop timeout; the resulting S3 object and its report.json are always marked status unverified because other tasks or ECS Exec sessions can keep writing throughout the window.",
+      "statement": "Shutdown traps converge on cleanup: suppress re-entry, signal managed writers, wait briefly, and run a bounded unverified sync. Workload failure takes precedence over transfer status.",
       "evidence": [
         {
-          "resource": "repo://entrypoint.sh#L1-L19",
-          "version": "repo-lines-v1:sha256:333d8321b7c9ed60ba336e52ad2deb63cdb4189e53420acefd380a452e59f475:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NzVmOTI4NTQ2YWVlNzg1NWNiMWRiOWFmYzhhYjNmMWE4YTM0ZDQzZGU1YmJkNjJmNzA3NmQ3YmE5ZjM5MTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg3ZTdiOGNlZDJkZTdmNzlhMWZhMGIzMDZlYjc3Nzc2NDVmMWEyOGU0ODhhZDcxMDBhMzA5OTdhZjE1ODEzZDMifQ"
-        },
-        {
           "resource": "repo://entrypoint.sh#L185-L252",
-          "version": "repo-lines-v1:sha256:f47bb52b87555a5791a30e46d3a9a7d65e59e41042d971e649bd3217204d9c6f:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmZWE5YjA0NjVmZjZkYmZkMGNlMWY0YzVhZDZmZWI0NmVkZTMwOWMyNzRlOWI1NDU0OTliNDFlMWViNTM3MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyNDUwNzhhYWU3ODY3NzZlMDI0ZWNmMzZmZTFhYWQ5ZjZhZjM3NTkwZWVmMWM3MWExNWFmN2FlNDQyMWE5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMzNGNiNjI1ZDQyYmQ0OWVmNzk1NGM4OTQ4OTViOWYzMDlhYjUyMDBmMDVhZTdhZmJhNDczYWMwZjc1YzYwMjgifQ"
+          "version": "repo-lines-v1:sha256:9894aeb9c1c41608574b5f6fc52db8415694c9c1e52f39ac8d423244a4268427:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmZWE5YjA0NjVmZjZkYmZkMGNlMWY0YzVhZDZmZWI0NmVkZTMwOWMyNzRlOWI1NDU0OTliNDFlMWViNTM3MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRmMjFkOGNlNGIwMWY4NDdkOGI4MWViMzFmMDllM2UxOGQ2NjFkZDAwNTg4OTNlYzE5MjJhNGI4YWVmNTA3YTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyNDUwNzhhYWU3ODY3NzZlMDI0ZWNmMzZmZTFhYWQ5ZjZhZjM3NTkwZWVmMWM3MWExNWFmN2FlNDQyMWE5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhhOWIzNDdjYTRiZGMzNTUxOGU5Mjk5MTQyM2E1MWRlOTllOGJiYjE2YWU5YWE1MzU3YTU2ZGQwNDkxMzI5MDYifQ"
         },
         {
-          "resource": "repo://entrypoint.sh#L21-L56",
-          "version": "repo-lines-v1:sha256:c070f86494f79e1f6ef90efe88c78a2281ac6a5eee606e133a7ca331db363c19:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5ZGEzZmIyOTY1MzAwMjllZTRjYTI1NjJmNTdmNWQ2ZDc2YzcyZTg2ZWNiZWZiZGJlOTJiZDc3MzI5NjYxZjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyNDUwNzhhYWU3ODY3NzZlMDI0ZWNmMzZmZTFhYWQ5ZjZhZjM3NTkwZWVmMWM3MWExNWFmN2FlNDQyMWE5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlOGIyMjY5OTUxNDQ4MzUwODdlYjNjMTNhZTFjN2ZmZGE4NjI1ZGY5YzE0OGY5OGNiY2E3MGJhYzMwZjNiZmYifQ"
-        },
-        {
-          "resource": "repo://entrypoint.sh#L58-L83",
-          "version": "repo-lines-v1:sha256:335685a20eb64b979ea7d923c5ae3268d0be032df125deaf06e3f5e686775e15:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYzNDA2MDljZDQxMzJhMmY1YTUwNzNiNmQ5ZGVlM2UwNzFjMDIwNTAxMzlmZmEzYzYzMTBiOTRmNWY1OGE3NDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJkM2JhNWRlM2NjNWYzOGM2ZDRjMGQ2ZDUxZGJhMzk4NTM0YTJhZjI4NzMyOTY4YjVlZTNhMmM1YjViOTVjYzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1ZTk4MmU4MGNkNzUxOTNlMzhmMjYwZmVhZTU0NTBjY2FlZGIwOGNmOGQ1ZTFjOTljODQ4MDNmYTE3M2ZmYmQifQ"
-        },
-        {
-          "resource": "repo://entrypoint.sh#L85-L101",
-          "version": "repo-lines-v1:sha256:cb6101c037132640236d61037bdba8cf3ecc88f930c23bef0860538fd0a5abd6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM2MjgzMjU1ZjI4OTBiMWU5NjNlOTAwNDA2NjU4NDIwZDc3NTUwM2JlZjMxNjYwMjZmZmIyMDE4YTgwOWZiNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNiODliYzg3NjY4MWY5MzllMjQ1NTZmN2FjZGI0MmRiOTA0YmRiNWYyNjE3NzMzNWY0NDA5MjQ2ZWU1NjgxOTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlmOWU0MTliZjk0MmY0OGFhZjc0YmRmMWYwZjBmNGZjNjc0ODI2ZDA0ZGRhMzE5NDMxMzYxNTExMTQyMjhmOGMifQ"
-        },
-        {
-          "resource": "repo://tests/shell/entrypoint.bats#L178-L230",
-          "version": "repo-lines-v1:sha256:8dec0a1e17b28e31713cf963ab52d6525bad2a1a169e50f921117c34f9212be4:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU2MGI4MTg4MmM1NTVhZTg5YjQxYWI3MWM5NTkyMDU5YTYyMWRmODBhZTQ5MWYzM2I3MDEwMzhjOWIyZDlmNjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE0N2UyOTJlYzhjM2UyZDBlZDQwMGYyODRkMjk5ZjczMDRhOTMyNDU5NjU1MWIyZjI4ZGMzNGRlNjVmODg3OTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzY3N2Y4YmRlODdlNjM4MjgyMTM2OTk0Mzg4ZTA5NzNmZTJlYjE3MGFjN2ZmOGExN2VlY2JkMjJiOWMxZjEifQ"
-        },
-        {
-          "resource": "repo://tests/shell/entrypoint.bats#L262-L287",
-          "version": "repo-lines-v1:sha256:11736be983273920681801bc6f67548065defcdf4ead02a55bbcd1768f6682e9:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYxZDAxNTFkY2I4Njc1YmMzMTQzNDllNzM4MDkxNjJjMmU4YTJlZTFhY2RjNDAzZTNjMzBhY2ZkNDVjN2RlNjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ4MDBmM2E4YWI0ZDJiYzg1MDlhYTUyOWMyZGE3Mjc4ODk2Y2EyZTlmMmNjMTQwNGE5NWY0MTdmNzNmNjU5YTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYyYjA3ODlmNTkzNjEzNWMxODJmZWU2NzljMGI3MDIwZGU1MTRmY2E2MWZhMWE3ZjQ5ODI0NGU2ODhhZmM4NjcifQ"
-        },
-        {
-          "resource": "repo://tests/shell/entrypoint.bats#L317-L351",
-          "version": "repo-lines-v1:sha256:67689024d6240877cef75fba0635c7c3e8b5af50c4c5d85ee61f508caf738c5f:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNlYjhmMzFkYWFkMjgyOTM4YzcwMTMwOGJmMWYzMjgwYjU1ODhkNjkxMmU5YjNiODhlZTMxMzE4M2JmZWY5ZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUxOWU4NzQ3Njk3NzQwZTZhNzBkNTc5NDkyODYwOTM0OWQwYjgyMDRhYWZjZGNmZGUwYjA2ZTI5NDZjNzYwMGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://entrypoint.sh#L21-L84",
+          "version": "repo-lines-v1:sha256:8f991f517c25f8b771099388935dc92d16a2e679b4262c2a86d9bf510882fa66:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5ZGEzZmIyOTY1MzAwMjllZTRjYTI1NjJmNTdmNWQ2ZDc2YzcyZTg2ZWNiZWZiZGJlOTJiZDc3MzI5NjYxZjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyNDUwNzhhYWU3ODY3NzZlMDI0ZWNmMzZmZTFhYWQ5ZjZhZjM3NTkwZWVmMWM3MWExNWFmN2FlNDQyMWE5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVlNWU1ZTcyNmU0Zjg3MjFiYWJiYTg2MzZhM2Q0NzcxOGIxMWVkNWM4NWY5ZDAwMzI5Yjc1MjNmNTBkNWJlZjQifQ"
         }
       ]
     },
@@ -123,20 +83,8 @@
       "statement": "The ECS task definition configures persistent EFS home with task-scoped OCM and kubeconfig overlays and optionally gates the main container on a healthy kube-proxy sidecar.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/ecs.tf#L122-L136",
-          "version": "repo-lines-v1:sha256:ececde17c9b26445015902936aa95b3dac8031110687c4510e5d3b1ccae65139:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5YTBiNmM3MjA1OTBhZTZmNTA2MTBhOWY4YzlhNzIwZmUyOTMwYTMzZWViZWRiMDFlNTIzMGI0ODNiZGI2MmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJmMGQ3OTU1OGIyNjg4NTNjOGIxMzdjNTdiY2FjY2FmNDZlYzk2ODIwZjkyMGM5NDlmNzA0YzU1NTA4MDA0NzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZjYTM5ZmFiOGMxNDlkNWZkZTdhY2EyZDhjNzJhNDU2YzE2ZjgyZGY2MjYzOTJjYTdjMmVjZmI0OGQwYTBmOWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdlYWE0NWYzNzkzOTlkMWEwNTAxY2Q1YjIzOGE0NzZiZGM3M2NlZmQxMzU1MjYxOTliOGNmZWE4YmY1NGExNmQifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/ecs.tf#L178-L198",
-          "version": "repo-lines-v1:sha256:9dea1135e773481d06a18f07f063f9d03a9b2d4b031d0e909a11fdb8626e5434:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmOGExOGE4ZmJlMjIyMzdlMTg1OGRkZWNiODc3NzI2NWYwYTgwYzlhN2RiYTY4Y2Y5Y2Q1NjMwMjZkMGM2OWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNiOGZhNjMzYTVkYTA2NDhkZDM4NTMyY2IwNjEwZjkwN2Q1MjE1MTMzOGU5NDRjMjQzYzM3ODA5MzNmMWY1NjkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkzZDU0MTRiNTA3YTkxYjFkYjgxOTc2YzkyMzRhNDNjMjA2MjUyMDIxMzMzMTY2NThhNGNlYTJhMTYxZGI4MGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ3OTE3ZWUwZDNlODM4MGFlMmFiMzNjN2YwNzNkZjE1MWUzNzE1Njk5ZGRlMzY3YzgwZDkwYzMxMmY1ZjU5OWQifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/ecs.tf#L207-L254",
-          "version": "repo-lines-v1:sha256:e94a4f553f118db3d08b51748e5d749fe70b7cf0347a4f2697345656f614cac7:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNjJmNjBkODU5MGE1NzljZjQ2ZjhkNjczNzhjNGM1NzJiOTYyY2VjY2RiOTBjN2E1ZjdiNDJiOTYwNzgyYTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlhZmFhODRkOWU0OTdiYzU3ODM4OTU1ZTYwNjlmMDY2NGNkYzVmZDk5MjIyY2I0NzA3N2U0NTc3NzgzZmNlM2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlhZmFhODRkOWU0OTdiYzU3ODM4OTU1ZTYwNjlmMDY2NGNkYzVmZDk5MjIyY2I0NzA3N2U0NTc3NzgzZmNlM2EifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/ecs.tf#L88-L111",
-          "version": "repo-lines-v1:sha256:1ba1a92e0ad3c230c4ffb014cd39cf9d723e5dcfd4e2c51e76a65f84432b9bf2:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRjNGQxM2FhNDk4NDQ2ODYwOGIyZjgyMjQ3ZmEwMjc1NmVmNTVmMzJhNWUxMWNjOGZmMTQ2ODk0ODQ2Nzk1MTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ZTc3MDY3MzhkMjJiNjk2ODY0ZWYxOTJiMzZjYzk5ODRhMzg5OWQ3ZTkxZGU2M2MzODc4NDA0YzU2N2IxOTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNiMzZjZmE5YmEwYmQwOTVlMDc5NWE5YTBjOTZlOTJjODc3NDYzOGY4MzhkMDIwYzc5Y2Y1MWQ2NzI5ZTg4ZTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM4OThlYjU2ZTA3Y2RjODU1MTk4MTVhNWY1MjlmM2I3MTBiMTlhYWViNGRhOWU0OGU4YWZmZmExNjc5OWIwYjMifQ"
+          "resource": "repo://deploy/regional/ecs.tf",
+          "version": "repo-file-v1:sha256:3e5c6a7ac1b97113654b458e0c7fc82f4ffee666f52119a229b5efe107b11458"
         }
       ]
     },
@@ -164,7 +112,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-19T16:04:15.171Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

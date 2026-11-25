@@ -4,8 +4,8 @@ title: Testing and verification
 description: Guide to choosing among ROSA Boundary's Go unit tests, Lambda Python unit tests, Terraform tftest suites, LocalStack integration tests, and shell/bats suites; explains scripts/test_all.py as the aggregating entry point, the LocalStack-vs-Prow CI split, and documented test-boundary limitations.
 tags: [testing, terraform, tftest, localstack, go, bats, ci, mock-provider, lambda]
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-19T16:04:15.171Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 sources:
   - id: openwiki-source-7afccf6bb50a66b861c2b750
     resource: repo://deploy/account/Makefile
@@ -27,8 +27,6 @@ sources:
     resource: repo://deploy/account/tests/shared-iam.tftest.hcl
   - id: openwiki-source-45c9b8ed543efe3e46e09b07
     resource: repo://deploy/account/tests/test_replication_topology.py
-  - id: openwiki-source-24fedbdafcbd69ef0dd59e6c
-    resource: repo://deploy/regional/iam-content-files.tf
   - id: openwiki-source-d176128a85129af793772942
     resource: repo://deploy/regional/lambda-create-investigation.tf
   - id: openwiki-source-b1c5e619d9ef5b51db452442
@@ -43,7 +41,9 @@ sources:
     resource: repo://deploy/regional/tests/ecr-lambda-destination.tftest.hcl
   - id: openwiki-source-1599d372a558b44029d5589b
     resource: repo://deploy/regional/tests/iam-ownership.tftest.hcl
-generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+  - id: openwiki-source-13a9df7e50feb98129809599
+    resource: repo://lambda/reap-investigations/test_close_finalization.py
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 ---
 
 # Testing and verification
@@ -166,6 +166,8 @@ builds. `scripts/test_all.py` runs it explicitly with `-run
 ^TestIntegrationEndpoint`.
 
 ## Lambda unit tests
+
+Close-finalization tests distinguish a verified empty workspace from a missing workspace, check receipt binding to the attempt, and ensure attached shells block sealing. They exercise the finalizer locally, not live Fargate or IAM.
 
 Each Lambda (`create-investigation`, `reap-tasks`, `reap-investigations`) has a
 `test_handler.py` co-located with its `handler.py`:

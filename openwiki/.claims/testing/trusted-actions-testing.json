@@ -1,22 +1,18 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:d159139482ebe72bf8831c34f5b5222fea29a16508020e607e25dfa7cc523060",
+  "pageVersion": "sha256:4500a2d302a982ab51362e27b18cc91d4de47b4a22c218f7b709be946fbf9025",
   "claims": [
     {
       "id": "claim_7aded801f04d4338a2dd5e812a077099",
-      "statement": "Trusted Actions is an independent Go module (module github.com/openshift-online/rosa-trusted-actions) under components/trusted-actions/ with its own go.mod and Makefile; root-level `go test ./...` and root Makefile targets do not exercise it, so Trusted Actions commands must be run from components/trusted-actions/ (e.g. `make -C components/trusted-actions test`), as stated directly in docs/trusted-actions-monorepo-migration.md: \"Run Trusted Actions builds and tests from components/trusted-actions/; Boundary's root Go and Make commands do not cover its separate module.\"",
+      "statement": "Run TA tests in its nested Go module; root Go tests do not traverse it.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L1-L20",
-          "version": "repo-lines-v1:sha256:1b9093d34b01c9d1f993ae36fa2464b3d5d17084770084d133950016c9c70c96:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcwOTFmNDE1YjJlN2IzZDI0M2UyZDBiYzc3ZTI5MzlmZTc0NzBjMTkwZjhmOGRmYjgzNzM3MzE3YTRmMzQ3ZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmMjEyOGZhM2NiMmEwM2E3ZTdmOWRiZmJlODM2MmQ1YzY4ZTU3MDU3ZmQ2ZTI0OWZiZWVkZTI0NjA2OGJkMWYifQ"
+          "resource": "repo://components/trusted-actions/Makefile",
+          "version": "repo-file-v1:sha256:8d746e8b2f531255adc11d6ae5ac23fa6ea149335c913c9525bb3b079f7b616f"
         },
         {
-          "resource": "repo://components/trusted-actions/go.mod#L1-L5",
-          "version": "repo-lines-v1:sha256:f13267c6d4b4c5f55f97e7d32cf5819046b2858e3389d3d240fbfd1459381b7c:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDM4NWNlZDlmNjhhZjE1OTJiZTZiMzFjNDgyZDY0NmMwYzBjN2ZkOTEzZTA1YjI3MzhiOTRkOWYzZTk1ZmQ1NiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmM4NzlmZTM3MjE1NDUzMWU0N2NjNTEwYzczYTg0ZjgzOGMxZDdmODI1NzQ4MzdmNGY1MWQ2MzM4MjkzMTA1YiJ9"
-        },
-        {
-          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L22-L24",
-          "version": "repo-lines-v1:sha256:5c301886c2b8694a504ca6eec89a7a61361798182a1a8ce2155460244a1fd06c:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOTMxMTJmYWE1MGMzMWVmMWQwNTA4MzIxZDg3ZmM3OGY0NDMxYWY5ZGJlYjUxMTFiY2UxN2FjZTBiMDIwZDI3OCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWRmNjE5NzJiMjA5YTljMTQ3MWYxOTIyMmRhODdiZmJhMmI2ODBhZGNkNjJmZDlhOWIyNmVlMzNmM2I3MTY5YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiM2FjYmJhMjZmM2FjYjUwYjIxMzRlMDNiOThkM2JkZGJkOTExNmZlZDk1MjAxZjVhZWQ2NzFlYjJlNjllMzYxNiJ9"
+          "resource": "repo://components/trusted-actions/go.mod#L1-L3",
+          "version": "repo-lines-v1:sha256:412f7a178c4873667fc93cd7eab283144ea25844eaefa650d7604ee0e54c24b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNzRhMWYyMzRjMDc1YzU2ODBiN2JiYzZlZjBlYzFlNTAzNzY4MDk5MWJjYzI2ZDUzZjk5OTFiNGE0MjE3MzE0MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmJiZGRhZjYzZTZiMjlhYTZiOTQ0Y2JmZWU3OGRhZjQ0NmIwN2QzMDdlNDAzYWQxZWJkNzFmZTdhMDlmZGM2YiJ9"
         }
       ]
     },
@@ -126,23 +122,15 @@
     },
     {
       "id": "claim_e59d3fb8de3a4bd588c393f08ed595bb",
-      "statement": "components/trusted-actions/integration/ is a podman-compose-based, disposable end-to-end test harness driven by itest-up.sh, itest-run.sh, and itest-down.sh (also exposed as make itest-up/itest-run/itest-down) that exercises a real HTTP -> auth middleware -> executor -> disposable kind cluster -> response path using mock auth (ROSA_TA_AUTH=disabled) and a local Kubernetes cluster, with no OCM or Backplane dependency.",
+      "statement": "itest-up provisions kind and starts LocalStack via podman-compose. itest-run exercises both scopes against these dependencies, not a managed ROSA cluster.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L184-L195",
-          "version": "repo-lines-v1:sha256:0a3ac2d2e394ad5d0fa7d05a4236715017143b1189a78dfb145955a366a58ec6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwY2UwMWQ5Y2I2YzA5MjcwN2QwZmIwMDJiM2NhNGI1YTkyNTc1ZjgxZDMxMDgwMzJlNjJhNzRkMmFhZDZmNWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFkMmVmY2M2MTIyNDY3OTJhNWE4OWIxZjljODgyZjFkNTBlYThkODhjOTg4OGQzMDJkMTQ1MDUxZTNkMzAwMDUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5MmIxZjZmNGI3OTZlZGVmODQ2ZDI3ZDFiNDMyYzQzNGZiMjJlM2ZkNjEzOGFhY2Y5MjMwODk5MmU3ZDExMzMifQ"
+          "resource": "repo://components/trusted-actions/integration/itest-run.sh#L126-L188",
+          "version": "repo-lines-v1:sha256:213c451b730656254a84cc64c5d0c2f19af4fe9cdc2ac285d5df5d9c63dd4a8c:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY4NTdkNmEwOThlZGFlODZjYzU4NzQ1ZTI3YTUyMzIxM2FmY2ZmODdkNjBkOWRkZTkzMGZjYTY2MDU2OGRkZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjMzNiMGUzYjE2NDdkZDNlNTY5NTk4MzUwM2EyMjMzZDY2ZmUwZmYwNjAwZDdmNzk0ZTg0ZTRmYTc3ODNiZDAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRlZWFiNTYxOTY2YjZiOGYzODA0OTllZmRlYTgyNTU1M2Y1MDliZmZkMWFkYjFkYWVkYjU0NzIzOTYxYjZhNzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImExMTkwOTIxYzQzYzc3MGM0ZTQwNjQxODY1NmI2ZDRjMGI3ZGY3MTk1NjA2ODQyMjBhNjE1YjhhODZkMzg5ZTEifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/integration/itest-down.sh",
-          "version": "repo-file-v1:sha256:f58c4ab30c1489c557068056a09a956b6573b8c7e28a2377bdcec8257106eba6"
-        },
-        {
-          "resource": "repo://components/trusted-actions/integration/itest-run.sh#L1-L20",
-          "version": "repo-lines-v1:sha256:ac5058886ac39cb72e86e610134373026a8fed53273684132fb670b92bf45cf8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NzVmOTI4NTQ2YWVlNzg1NWNiMWRiOWFmYzhhYjNmMWE4YTM0ZDQzZGU1YmJkNjJmNzA3NmQ3YmE5ZjM5MTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4MWMxMDVhOTM5ZTlmMzM1OWEzZGY5NGQ1ODQxNzMxY2VjNWQzZTk5MzdkOWJjYzgxOGM0N2M1ZjNiODljNGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImEwMTBiODMwNmIzMGY2OTI5MzMxZGM3NjVhNmFhZDM2OTY2ZTAzOTAwYjAwZTA0OWE5OGFiMjAyNDA0MjkwNjQifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/integration/itest-up.sh",
-          "version": "repo-file-v1:sha256:d7f6ca6d61b3de376e2c5c5c6cbe81d7fd40cff30826ca28cf318669825f20fe"
+          "resource": "repo://components/trusted-actions/integration/itest-up.sh#L29-L74",
+          "version": "repo-lines-v1:sha256:098899d3e088afb63d4e46758e79e57cae8104a92d485f0733935c088236e8bf:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2MDBhMjAxNzE1MGQ2MTRjY2E5YTJhNTExMjZlZDJlMTBmOGQ3NzY1MzJlNzg1YzEzMTEzNWFiZGQzYzI3ZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzZTYzMTdlZGZiOGE0MzE4ZmI5ZjUyZjg1Mzc3ZDViMDI2YWIzNDhkY2I4YTU1YzRlZjdmODZhMDE0ZWRjZDMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIwMWQwNWZmNjYxZmM3NzZlNjIyOWRkODMzNzFiMDQ0ZmY5NzAyMDRkNjgyMTAwZDkyZjU0MmMzOTk3ZWFlOGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg3ZjAxN2I3OWFiMWJiYmU3MzI5ZDJiNmFkNjZiMzg0ZTE1OTAzZmVjZWExM2ZhYjQ3OWIzMTg4YzFhYzBkYzkifQ"
         }
       ]
     },
@@ -158,15 +146,15 @@
     },
     {
       "id": "claim_e84e7ce946194531849290ac6587d399",
-      "statement": "itest-run.sh retrieves a fresh kubeconfig, exports ROSA_TA_AUTH=disabled/ROSA_TA_KUBECONFIG/DATABASE_URL and the AWS emulator endpoint/region/credential variables, builds and starts the server, waits for /health, then runs a sequence of real actions polling GET /runs/{id} until status: succeeded: a kube-api `get` listing kube-system pods; `describe-nodes` across all nodes and then a single named node (asserting conditions/capacity/pods fields); `get-pull-secret-email`; `list-alerts` with and without a severity filter; and an aws-api `aws-get` sweep seeding/reading an EC2 instance plus every other aws-get resource LocalStack's community image supports (ec2-vpcs, ec2-subnets, ec2-route-tables, ec2-security-groups, ec2-dhcp-options, route53-hosted-zones, route53-record-sets), seeding a DHCP option set and hosted zone first. It finishes by asserting an aws-get request with an unaccepted param fails. The server is stopped on exit either way. Five aws-get resources requiring LocalStack Pro are not covered and are instead covered only by unit tests against fakes in internal/actions.",
+      "statement": "itest-run uses a refreshed kubeconfig, disabled authentication and SQLite, waits for server health, and exercises both positive and negative cases. The integration run restarts the server with an allowlist excluding the test cluster's region, then checks both scopes for a denied execution rather than treating any failure as a passing test.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/integration/README.md#L67-L73",
-          "version": "repo-lines-v1:sha256:769f3eb2b847f8115275bdc3ac1263d0b2c451129d750ade90c6e18a232e310e:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTU0NTYxZGNhNTg5Yjk2OGUwNWRmM2Y4MjFlYjdjMmVjZWFlN2U5ODc5YTRiNDdkYmU1NjNhNjE0YjgwZDJhOSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOTkwZDExNzQxZjUxMjQzODViZGY3ZjhhMzZiNzdhNDhlZTc2YWY3NGJlYmMxN2M2NDBkZTZiNjYzM2FhYjA1NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWJjNThiYjM1NjUxOGY5MThjMzM2OGI3YjgwNjVjODQxMTk1N2I5ODZkNmQ1YmQ4ODdhMGFlZTEwZmQwMzQ2YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmYzZTM2ODI1NmQxNjU0NGU2M2MxMzMxYTU0N2FjOTgzNTc5NDFmOGM0MGVhZWFhOWFiNTIyNmY4OTQ0ZWNkNyJ9"
+          "resource": "repo://components/trusted-actions/integration/itest-run.sh#L126-L188",
+          "version": "repo-lines-v1:sha256:213c451b730656254a84cc64c5d0c2f19af4fe9cdc2ac285d5df5d9c63dd4a8c:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY4NTdkNmEwOThlZGFlODZjYzU4NzQ1ZTI3YTUyMzIxM2FmY2ZmODdkNjBkOWRkZTkzMGZjYTY2MDU2OGRkZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhjMzNiMGUzYjE2NDdkZDNlNTY5NTk4MzUwM2EyMjMzZDY2ZmUwZmYwNjAwZDdmNzk0ZTg0ZTRmYTc3ODNiZDAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRlZWFiNTYxOTY2YjZiOGYzODA0OTllZmRlYTgyNTU1M2Y1MDliZmZkMWFkYjFkYWVkYjU0NzIzOTYxYjZhNzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImExMTkwOTIxYzQzYzc3MGM0ZTQwNjQxODY1NmI2ZDRjMGI3ZGY3MTk1NjA2ODQyMjBhNjE1YjhhODZkMzg5ZTEifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/integration/itest-run.sh",
-          "version": "repo-file-v1:sha256:4ae7baf7d387ad0e59dcbe64fe3ff5640a725ce90468db6698903bbe8157c372"
+          "resource": "repo://components/trusted-actions/integration/itest-run.sh#L369-L394",
+          "version": "repo-lines-v1:sha256:a29081ce444d31157d16ca0223f297d2e28a9343858870d7c6ab770149b83442:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1NzcyYjdkZDcxYjI5NzIxNTY1NjE4MWEyYjg3NGQ5MGQ3MjZhMGFkNWQ0MDlhNjIwYWQzZGU4NTkzYjY0MjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwZTVkMDg3ZmFkODI2NDYyZDA4MzBlOWRhZGIxOWI5M2M4N2FkNjEzYWIyZjZiY2M1YTZlYTY1ZmE2YWZhZjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjliM2QyY2MwYjQ0OTNlZjA1YjVlMzkxZWRjMmJhNDYxMzQ3NGU5MGYxMjY1MmJlOGZmMGM0Njg1NWFlMjY0N2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImEwZDljOWIyYWMxZDA3MjcyNmE4ODFkNjgyYmU3MTUwYzhhZDkyNWFjNjdiNmFlNTFmNjMyZDcyY2Q2Y2FiODYifQ"
         }
       ]
     },
@@ -234,23 +222,15 @@
     },
     {
       "id": "claim_38a34b597d4b42ca9acfc95c7f760e8f",
-      "statement": "components/trusted-actions/internal/config/config_test.go and internal/rta/command_test.go are representative of the component's stdlib-only, table-driven test style applied to two different surfaces: config_test.go table-tests environment-variable parsing helpers (getEnv, getBoolEnv, getIntEnv, getDurationEnv, getPositiveIntEnv, getPositiveDurationEnv, getStringSliceEnv) and the Load() config-merge path (file vs. env precedence, AWS allowed regions/operations, OCM Backplane settings, auth policy) including file-read/parse error cases, while command_test.go drives the `rta` CLI's Cobra command tree via NewCommand() with captured stdout/stderr buffers to assert on text/JSON output and user-facing error paths (unknown subcommand with suggestion, unknown flag, missing arguments, missing server).",
+      "statement": "Configuration and CLI tests exercise independent surfaces without requiring a running deployment.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config_test.go#L15-L80",
-          "version": "repo-lines-v1:sha256:1e6d6563c6e03ca5928e4955e34f81f9d4e0bbdc2e577fd1341b24aea8f9a52d:eyJzZWxlY3RlZExpbmVDb3VudCI6NjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjMjVhNjQ4MTUzODViNTE0ODkzMzc4MGRjZmFlN2JkNmE4ZDIxNTlkNjFmNzI2MDU5NjkxNTIyMGMwNDFmOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlNmZjM2E2YTg5OGU1NDY0Mzg5NGNiYTExMTYxMjE5MmUwYzUyNGIwZjY5ZGVkMzI1N2U5ZjQyN2QwYTgzNDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImExODhhZDQ4MTA1ZTJhNTU5ZTE5MDYyNmY2NmYxNzIxMjI0MGQxYTQzYWY0OTYwMTJmM2Y5NWE0NzI2Mjk3NDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNkZmNiNjA5YTlmMTc1MDZmMjFlYTFlZDExODBkYmZkOWM3ODZkYjVkNTg4ZjVjODUwNTIzYjkwYzQzOWY0NzEifQ"
+          "resource": "repo://components/trusted-actions/internal/config/config_test.go#L16-L62",
+          "version": "repo-lines-v1:sha256:b8450d17d5b82d4c2af1d2d593f973c94949556974537d90f51db078495f9697:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdjMjVhNjQ4MTUzODViNTE0ODkzMzc4MGRjZmFlN2JkNmE4ZDIxNTlkNjFmNzI2MDU5NjkxNTIyMGMwNDFmOWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImExODhhZDQ4MTA1ZTJhNTU5ZTE5MDYyNmY2NmYxNzIxMjI0MGQxYTQzYWY0OTYwMTJmM2Y5NWE0NzI2Mjk3NDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNjcwZDdjYjY0ZThkOTA4MzBjNjY0ZmEwMDIxY2MwZmU4OGEzYjU3NTIyN2M2YTQwNGRmYmNjZTMyYjRmNzMifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config_test.go#L216-L330",
-          "version": "repo-lines-v1:sha256:5d1ef8a77462322c713b18623aa8a9cd68c59ce73a5ec48cf2c340c9ad90b67d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMTg5ODcyNWJlN2YwMTZiY2FhNjE1NDUxMzFhMjIwMDFmZjRlZDQ0YzQ2YzRhMWE3OWVlYjhjOTU0ODlkMGZjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkMDYzOTA5NTQ5OTEzYzJlZWJiYjJmNjY0YzEyMTYwMGIxMmU4ODdkY2Y2ZmUzOTA1MTFiZTgxMzEwNjAwNGY2IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI5M2M4Yzg3ZTU3ODRmN2JjNmQ0YTUyZDU0OWE3ZGY0NzBmOTJhMTRjYmE3ZDc5MTViOWVhY2VjOTNmNjY1MTcxIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4ZjI0Njg4MzMyYjVlOGZmZGNhMjVlOGY5N2Q3YmFlMDdlYWM4ZGMxMmU2NmM5Yzg1MzM5Yjg5NTZiZGE0NjA4In0"
-        },
-        {
-          "resource": "repo://components/trusted-actions/internal/rta/command_test.go#L16-L67",
-          "version": "repo-lines-v1:sha256:3e9250f14a92379dff48a27906ced4f06222761d456aee6851b8e7766c4aba80:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBhOTk0MmFiMDA3M2E3NmQxODRjZTM3MmJlNWI2YTY3OWQyZTQ2OGRlNTcxNGZjYTBmMWE4Y2JhYzM0OWJhODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4M2NiMWZjZDBmMzNhNjM0NjFhYjYzYjkyYjY2ZTYyOTNlOTRmNTgxZjliZTc5Yjc3MzNmMjdhOWI0ZjE1MmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI0NWVlN2VlOTA3NDc0YmJlNzNiMTlkY2U4Njk3MjE3Y2EwMDJiZDIxZWY3ZWU3NGI4ZmVkOWIxMjVkZTRkNWIifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/internal/rta/command_test.go#L297-L324",
-          "version": "repo-lines-v1:sha256:fbd35c4e862b4981cbd53c535b286a18a3997e17038e690379425c71839d8164:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNmNjI1Y2JkZmU3Yzg2MzM3YmZkNmNlOTI0NjQwNjcxOTA3MjYxYWFhNDI4Mzk0Mzc3YTU4MWY3ODlhNzhiMTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJlNWZmNzBkZDllMzA2YTYyMTQwZTMwZmNmYzQ3Mjg3YTIzY2ZkNmYzZmE3YzBmMjY2MTNhMjZmMDdhYjBiNmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRlMGQ1MDRkM2Q4NjcxODlkZTUyODEzZmNhMzI1ZWQ4M2FlZjFhNTNmN2Y1NjhjYmZjMWY5YWEyZDI3YjZlYTcifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/command_test.go",
+          "version": "repo-file-v1:sha256:7b7b18b57040ab58f4ae9486180a862619a9b29f03a632ca261161ef825a74df"
         }
       ]
     },
@@ -274,21 +254,25 @@
     },
     {
       "id": "claim_e80adcb508104bbf8a0138dcf0edb032",
-      "statement": "The integration/ end-to-end harness (itest-up.sh/itest-run.sh) is unrelated to the component's Postgres Compose tooling: the server it starts runs SQLite-backed (DATABASE_URL set to a local .db file by itest-run.sh), and the harness's own podman-compose.yml is used solely to run the localstack AWS emulator, not Postgres.",
+      "statement": "The kind/LocalStack execution harness uses a local SQLite database, separate from the Postgres Compose test setup.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/integration/itest-run.sh",
-          "version": "repo-file-v1:sha256:4ae7baf7d387ad0e59dcbe64fe3ff5640a725ce90468db6698903bbe8157c372"
+          "resource": "repo://components/trusted-actions/compose.postgres.yml",
+          "version": "repo-file-v1:sha256:1057573c9e04974aebe9c31d453e129b17cc4a8adf5c578b8b7282a6dec68a11"
         },
         {
-          "resource": "repo://components/trusted-actions/integration/itest-up.sh",
-          "version": "repo-file-v1:sha256:d7f6ca6d61b3de376e2c5c5c6cbe81d7fd40cff30826ca28cf318669825f20fe"
+          "resource": "repo://components/trusted-actions/integration/itest-run.sh#L126-L144",
+          "version": "repo-lines-v1:sha256:3f405a1a7bf9a548ac0129096b19251038ca3aba4fd73cf7bbc2ae2393256c12:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY4NTdkNmEwOThlZGFlODZjYzU4NzQ1ZTI3YTUyMzIxM2FmY2ZmODdkNjBkOWRkZTkzMGZjYTY2MDU2OGRkZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRlZWFiNTYxOTY2YjZiOGYzODA0OTllZmRlYTgyNTU1M2Y1MDliZmZkMWFkYjFkYWVkYjU0NzIzOTYxYjZhNzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk1YmQ1ODUwNThkODU3ZjllOGU4OTFlODI0M2ZjMTA2YmEwMTE1MDQ5YWEyZGQ2NTYwOTMxZTVlNjk5ZDRhNzAifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/integration/podman-compose.yml",
+          "version": "repo-file-v1:sha256:5f3c240aa5c79f794236693027b42bfa274fccc80691bf4a280ae66040345af3"
         }
       ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-19T16:04:15.171Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

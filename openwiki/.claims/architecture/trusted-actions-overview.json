@@ -1,40 +1,32 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:06a015125a5cd5b80a094b0c949ef4f40d559f4c8f6377b0e25d897bf37b12a7",
+  "pageVersion": "sha256:40d2839dac13c4f80e0899465dd7a283ee96766bc28bab4f30d3371c0af15cc0",
   "claims": [
     {
       "id": "claim_4275808ba78f45a3a7efb3aa5a6a2cfe",
-      "statement": "Trusted Actions' intended callers are the rosa-boundary CLI running inside the SRE investigation container, plus external consumers CAD and the ROSA AI agent, all reaching Trusted Actions over HTTP; Trusted Actions validates callers against OCM/AMS and reaches managed clusters only through a short-lived, RBAC-scoped Backplane session. A second execution scope reaches AWS directly using per-cluster credentials resolved through OCM and Backplane's cloud-credentials flow (or a static/local-emulator provider for local development); both the Kubernetes-scoped (KubeApi) and AWS-scoped (AwsApi) execution paths are implemented in the catalog and executor today, not merely planned.",
+      "statement": "Operators can call Trusted Actions from Boundary. The executor dispatches to Kubernetes or AWS scopes with separately configured providers.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L276-L343",
-          "version": "repo-lines-v1:sha256:b7deb271cf57430cff0ccfa5043c1706731f2e7f1cda70fae0151868d8b5f49b:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNhODQxNzE4NThkMDBjNTk4MmEwOGE5NjkxZWVlMWYyOGE4NTVkY2QyNWEyZjFlNGIzOGQ3YmZlMTAwNTdlMDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmYWMxOGEzYjU0OTg2OTA0YzI3NzhhNDBjZjVkZWM0ZmViYzU2MmNlNWRhOThlNTY3MmMxZWM2NzY5YWI2MTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMzNDE1OTI1ZWZkYjgwZWFmYzFkNzE5MjZiMWQzOTQ3ZDI5YWE5OGZjNjE3Yjk0MjliYzc2NDc5NTkyY2Q4YzEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhmY2VjZjUzMjNiOWE0N2NjZmE1MGQ3N2M2ZDllMjk3NTNiYTFjOGVlNWJlYzU0NjRjZjljNWE2ZGY4MTNjODQifQ"
+          "resource": "repo://Containerfile#L440-L447",
+          "version": "repo-lines-v1:sha256:10b08b2615c554899303ef063189fe5bbd63af0087574ddd36c6aec99b420e25:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmFlMzlhNTMzNjc4MjE2OTAxNjFmZmFlYmJiYThjODU0OTBjN2UzN2FlMjk2OGU1YzgxMjQ1MWJjZmEzYTg2NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWYxOGI5MTRiZjE0NWUzN2YyNDQ0OThhYzAzNTRlNjQzM2FmMzg1YTRjNGQ3MDJiZWUwZGZhZDJhZTg3NWVlOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTdiNjU1MzhkZGZiMDlkMGIyMTFiMzgxZWE2M2JlYmZlYzVkYWVlNDQzNzk2NWE1ZjQ1MjEwNzc2ZjA2Mjk3NSJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/catalog/catalog.go#L120-L176",
-          "version": "repo-lines-v1:sha256:32d80aa6c816fb5474df7b8f2dd2548449cd0cc23626058c310a61c34f99afde:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4YzM0ZDEzNGUxOTlhZTRlM2ZlOGQyMDNhNmM0ODBiNDI1ZGE2NmQ3ZWYyYzM0MTY0MjA5MjUyNjIyMzE4NjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmMTU5Yzk2ZWIwMzUwNjQ0ZTMyOThjNGM0NzgwMDVmNDg0NzJlZmY4NDFmZjNiMTM2N2YwYzMzZmU5ZTRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNiMDQ1ZDQzZTU1YjFmZjE5MzNlOTEzOWVmNTQwZGJmOTM5NGExMmM5OWExYjJmMjkzZmE1MmVjZWMwMmQ3MWIifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L1-L54",
-          "version": "repo-lines-v1:sha256:48804c2f0d21d8575bde7ff64a582e034f28a002d83aa0b3754bb6d322871b20:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4MDZlZjg3ZWY4ODk5MGE2YjNkYzdhMzliNjMwODU3ZTg4MmQ4MjY5NDdmNDg4OThhY2U5ZDlmYTFjMzk2OWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdkZTcyOGM5YWZhZmY3ODg4NzJlODFmOGZhODU0OTY4OGI4NTk2YWI1OTMzMTcxZjgxOWQ3Yjk2NmUxMTg3NjYifQ"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L284-L356",
+          "version": "repo-lines-v1:sha256:b7f66b96251da2d2cc341a8e9c11eb5e7c593dd2db5a66d0df9b7b5273b5310f:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiZTI5ZmJjZjlmODUwN2MzOGRhMzkyNjJkYTEzN2Y4NWE3N2E1N2ZkYzM1MzVjOGVlOGVlYjI0MTQyOGIwY2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNkNDBlNWY2ZGM2YzM3NThlNWZjMmUyOGQxOWZlMzc0YjU2NGQ3NzE4ZDE1ZTQ5YTE2MThiODU0ZDI4MGE5MTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE0NjI4ZTU2YmVhM2NjYTcxNDRjNzMwMjg4YjZiYTc2MTlhZjM2MmRjNmVlMWY2MmY0YmZiYjc3NWIzMDNlZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2OGQwZWM5ODBiMmIwOGQxMDgzNjU2MDA2OTgwN2MxY2Y3YzExZWFiZjZmNjdkNzAyNTA0MGFmMWNmMWNlOTAifQ"
         }
       ]
     },
     {
       "id": "claim_4393b0fcfe4f4e0ea7dd76dec15b39dd",
-      "statement": "Nothing in the Boundary root Containerfile (which builds the unrelated SRE-tools investigation image, not Trusted Actions) or in internal/cmd (the rosa-boundary CLI's command package) currently invokes the Trusted Actions HTTP API or an rta client; the architectural edge from the investigation container to Trusted Actions is not yet wired into the rosa-boundary CLI's own code, though an SRE can still reach Trusted Actions manually via the standalone rta CLI.",
+      "statement": "Boundary packages the `rta` client from the same checkout and can set `RTA_SERVER` in the investigation task. Operators invoke this client from the shell; creating a Boundary task does not itself submit a Trusted Actions execution.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L1-L64",
-          "version": "repo-lines-v1:sha256:9be4db34928b1a3e3af201c908513ed08928355a3cb837144ab9d54877d7d017:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhMzdmY2JiMDM5ZDVlZTg4MjgyZWM1ZmE1OTkwNjQ5MGNlODg0NzUxZDBhNGVmMDE4MWZjNTAwZmQ2ZmEyMzIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMzA5YjBlYWMwM2M2ZThkMTQ4ZjVmYTUzOTE3MTFmM2I2NTdhMTczNTMxNGE5NTE1Yzc1ZmNmNTJhZmYyY2QifQ"
+          "resource": "repo://Containerfile#L354-L377",
+          "version": "repo-lines-v1:sha256:0ce8f56a1d117e0a1bc94b3808b584002cf5808b2c8de3a02b6cdc9571122c25:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4NzY0Zjg4NTIwMDU4YTY3OGNhMWM2MTEzYWY5NDcxYWU1YTg0MmE5MTc4N2Q5NWVmYjhhMmZlZTdkNjViNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJiMzFmOGI1YTdiNjQ2MDkwMjlmMmUwNmEwNDUyMmY3ZTYwM2MyMGFhMWJkOTc1OTczM2JhNTI5ODVlMzAyZjkifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/rta/client.go#L1-L53",
-          "version": "repo-lines-v1:sha256:94a1a0b9555757e660c170d636b1336d5d9b39a050bb8a70fd9e49273d04645a:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyMjFiOWUwOGRjYzUxODgyMTY2YmNjYTA5ZDcyNWFmNTg3NDIyN2VhNDczYzQxZTRmMTM0MTRhNmM0NzE1OGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU3NzFiMmVmOGFmYTY3NjcyNDU5ZDEzMGFlMDUwYTU3MzQ5Mjk2YjkyNzg2OGRiMjYwMzhlMzdjMjBmZWFjZmIifQ"
-        },
-        {
-          "resource": "repo://internal/cmd/root.go",
-          "version": "repo-file-v1:sha256:67f4522490257dc906ce08107a6c900484c3cf6749b65861371d9d8a0cf09f21"
+          "resource": "repo://deploy/regional/ecs.tf#L168-L179",
+          "version": "repo-lines-v1:sha256:178456857ee218b6a84158e68e645d729c6bf4da94e8b54b1e64c3955859242c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4MDA1ZDU3MTA2YTM2MmViMDAwZGFmM2RhNDY3NGM4MmI1MThmZjVhMmUyZjY3ZWU4ZTc1N2EzMzNjMmFmNjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYwMjQwNDdmN2E5ZTc3OTc0MWRhNDUyZGFhYTMwN2MwNWI5MmNmYjYxYzdmMGIzYzUyYjYyOWE3ZGI2MmU3YzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhlNGM3ZTJjYmIzZjVhMmIzYmExNzYxZjYyMDA0NDFmN2I2MjBiMWQ4Yzc3MDcwMGEzNmM4MDU5YzMwZWJmMTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjljMTVjZWQxZjc4NGM1MDQ4MmJkOTQwNjYyMjM2MTk2NTc3ZmZkOGFhMzI0ZTU2MzQ0MmI5OGQ0MDg5MTVhZjEifQ"
         }
       ]
     },
@@ -53,8 +45,12 @@
       "statement": "cmd/server/main.go is the composition root: it loads config, wires authn/authz middleware (real OCM-backed or mock depending on ROSA_TA_AUTH), constructs the Backplane client provider (real Backplane-CLI-backed or kubeconfig-backed for local dev), builds the catalog, and starts the HTTP server and worker pool together.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L70-L264",
-          "version": "repo-lines-v1:sha256:2da699d0a0bdc75fc057e29f9fe91d0a18f1a2fc943e65fb320238f0182ea13d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTk1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYjk2NGRjZDM5NjViNTNkZWM5YzNmNTIzNTY5YWZjYzU5NTk2MTRmNWZlNDZmMDVhZDUzN2RiMDk5NTFiNmY0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYWExOGJjYjQxN2UyZGU1ZjExZjkxMzRmOTRjYmYxMWZkMjcyNjA2MzlkNGU4ODU2YmQ3NTU2NTk4ODU2Y2FkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxNmJhNzFhN2JlMzljMzcxM2QzNDQ3Mjc2YTIxOTBjN2I5MzgyNTRkOWVhYjE1MTBjYTA3ZTUzNjY0ZTg5NzViIn0"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L248-L376",
+          "version": "repo-lines-v1:sha256:41ccbfcfcabef42022f68e68fdfa7c673b2f8f367d786afa773117728e736fff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2ZDkyMmQ2ZGZlOWNiZDRjZTdhZmIyODliNWQwOGZkMGYyZmVjMWZjODBmYWMxM2JhZTY5ZTA5NjQyNzVjYzI3IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYWRmYTQxYzlmOThjYmY3OTU2ZDM0YjUzM2I3Mjk3Y2YwN2IyN2Y2YWY1NzU4MzViMThiMTRjMDMxZTRmYjQ3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlNzUxZmE5NTlhNDlmOTVkM2QwMDk2YTM3ZjY2OTllZGZiYjJkMGJhMTdkNTU0ZjAwYjI0OGIzMDg4OGEwZjhmIn0"
+        },
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L376-L466",
+          "version": "repo-lines-v1:sha256:9029947ed06bc660a472b3b06530c17dd7392c7afbe993ec98aa94a9747a4a29:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkOTIyZDZkZmU5Y2JkNGNlN2FmYjI4OWI1ZDA4ZmQwZjJmZWMxZmM4MGZhYzEzYmFlNjllMDk2NDI3NWNjMjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4MzBkNTRhMGJmYjE5ZjFkZTRjYThhOTBiZjFjYmM5YTBhMzMzNDZlM2U0ZjFhMWU5MjYwOWNmZjc4ZGJiZjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdlMWY3MThlZjMxN2NjZTA5MjViODUxMjRiZjQ4NDYzYzU4YTQ5NzIyMThkOTA2NzYxNWU0OTNiMTk1MzZlM2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk0OWRlZmJiZTIwMjA2NjczYThjNzAwOGE4NWY4MDZlM2M1YWY4Yjg5NTBmYjAzYjhhN2FiYTdmNmJmMzczZWEifQ"
         }
       ]
     },
@@ -86,7 +82,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/internal/openapi/api.go#L1-L4",
-          "version": "repo-lines-v1:sha256:b3a28a96e46b59d4393bb0b9c6bf8584644028d211d21f645725d8eb0d7bd316:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzlmNjdkNWZlMWY0MDJmODI3NjMzYzNkNjUyZDIwYjgwNTA3ODdmOWMxNzQ5ODdhYzEyM2QwM2EzNDlmZWM3NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNmM1MmVlZmNiMDFmYzM4ZGRhZTAzMzU1NjY3MWY4N2RlMWFkYzRhYWIyNDllYjA2YWNjYzE0ZmM5YjBjMTRkYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDI3YmRmNzA1ODQyNWUxYjFiNGZkMDk5MDkxODIwNzdjMTJlZDIzZTBhNTc5MTJjOTc4Y2JkOWM0YmMzMDg3MCJ9"
+          "version": "repo-lines-v1:sha256:906d5af2260f53f6b5a1dbe4f7d08f88be044b6c73fc7456f6e6b12813a6ce0a:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzlmNjdkNWZlMWY0MDJmODI3NjMzYzNkNjUyZDIwYjgwNTA3ODdmOWMxNzQ5ODdhYzEyM2QwM2EzNDlmZWM3NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNmM1MmVlZmNiMDFmYzM4ZGRhZTAzMzU1NjY3MWY4N2RlMWFkYzRhYWIyNDllYjA2YWNjYzE0ZmM5YjBjMTRkYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDI3YmRmNzA1ODQyNWUxYjFiNGZkMDk5MDkxODIwNzdjMTJlZDIzZTBhNTc5MTJjOTc4Y2JkOWM0YmMzMDg3MCJ9"
         }
       ]
     },
@@ -137,24 +133,16 @@
       "statement": "Trusted Actions' server, the rta CLI, action-cli, and test-client are four distinct cmd/ entrypoints in the same Go module (github.com/openshift-online/rosa-trusted-actions); only cmd/server (packaged into the component's Containerfile as rosa-trusted-actions-server) and cmd/rta (a thin wrapper around internal/rta.NewCommand()) are built by the GoReleaser release path, while cmd/action-cli and cmd/test-client are unreleased development tools built only via the Makefile's build-cli/build-test-client targets.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Containerfile#L1-L20",
-          "version": "repo-lines-v1:sha256:50c494a09f6b08bbaed9da3f2ca83672733ed7db7452a89a688f00161ce7cdbb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5OTc0NzYwYTY5ZGZlMjMzYzkyYjFkYmRhYmYwMGM4Mjc4NWU1ODMyOWNhZTc3ZDBhOTc3ZDJhNWI0MmMzYjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjYWYyYzUyYmE5YjkzOWQ0MjI0MTM2MDVhOWVmMWVkZGNhZDZjNzE0NDlkYjEyZWRiMzE3ZWI3MjgzYWNjNmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://components/trusted-actions/.goreleaser.yaml#L9-L30",
+          "version": "repo-lines-v1:sha256:e35942c35fb9eb714fde0459021cd03a46db86abea861f723ee38b181bc13d9b:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ2ZDQxZmVjMmI3ZmNmNDljNmY5NjIxYTlhZGRlMWVkODIwZTBkZDAxOWI2YTE1Y2Y4MDBlNGU3MjQ5ZTdjZTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5NTViZjMzZGI4N2M4MmY5NzM2MWQ5NmYyZjBlMzJkY2EyYTY1ZmUxMTJiNDA3YmI4YThkMjc5M2E2MDk5MGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyODJlYzA5MjM1YzQ1ZmUyMGYwNWU0ZjYyYjM4ZGM5Zjg1N2I5MDMzNWM3ZjIwODkxM2FmYmFlNjVhMWQwMjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxNDBkODEwZDVmODRjMjkyMDZiZGVmYmFlNmQyYTZmMzIwNmI5ODU2Y2U5Zjg2NGE0OGQzNzJjYzBhNDk0ZWIifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/Makefile#L1-L10",
-          "version": "repo-lines-v1:sha256:83d6ab3ed18350f1daf72c23b3979ebe70c5d403343d32c933b118733a5bbe6c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcwOTFmNDE1YjJlN2IzZDI0M2UyZDBiYzc3ZTI5MzlmZTc0NzBjMTkwZjhmOGRmYjgzNzM3MzE3YTRmMzQ3ZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjZjVjNDBkMTA4OWQ3YzU4M2NiMGJiYTI2Mzg0ZmFjMzNiMjNkY2MwNGViOTA0NzZhZjQ4NTg1YWQyMzI1ZDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc1OWI3ZmFkY2MwNzAzMTdjZGE1YzljMDMxYzEwNDMwYjBiZTY5NjczNThiYzA2N2RjYmM2MTIzYjc5N2YwYWQifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/Makefile#L66-L99",
-          "version": "repo-lines-v1:sha256:4924e25dc19f245492b3f4564dcc875f37f303bc448e743ba8e848093624b068:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI2NTVhN2U0ZGUzNzc5Y2M3YWQzYTE4M2MxMmQyNzdiNjcxOWZkODMwMmFmZGUxZjllODNiMmUzMGNjMjIyNGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYyMmYwYmQwNjI4MDI0ZmNjYzE5NjJlNWIxYjIxYjAzZjY4YjllZjYwODA0ZjJlZTU3OGM1YTNiZTQzMjk0OGYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAyNTIzOGRlNjg4OTEyNTU3MzVhYmYwNGJiYzRjNDVmMzQ5ODA4Y2YzYzVhMTA1YzIwYzJhMTZlOGRkODkzNjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI5YzFiYjI3ZWQxNzY3MDFmMGZjMWM0NmMwZmI1YTY2MzFlZWE2NzU2NmVkZjhhMDE0OTZjM2UwZGY0NmJkMTcifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/cmd/rta/main.go",
-          "version": "repo-file-v1:sha256:ea6782bac9d30ab01d782d99a4e34a5e072da2987fe4afaf54f788ce135f9cab"
+          "resource": "repo://components/trusted-actions/Makefile#L68-L78",
+          "version": "repo-lines-v1:sha256:f5dec3d8645dc1dd2a34790374211ad238eb6702276ab920c1875d74d40d732d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMwMWZmMmU5NTQzMzNlYTVmNmUwZDRiZjg3ZmQyNzM4NjUyNDljNDE2ZGNlN2U3MTVmN2QyMGQ1YzIwOTdhN2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmMGZmOGExNGI4MjcyMTYxMDVlODkxYzBiOTFmYWY0MjY4ODIyNmJkODhjNDZlZjI0NWRhMDU4NGFiZDcxMTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjMTU3OWM3MjQ4N2ZiZmNkYzJiM2ZlMzZmZDFhM2M4ZmVmZGM0YjU0ZTc2MDJmZmRiODU3ZTg5Y2EyYmQzMjUifQ"
         },
         {
           "resource": "repo://components/trusted-actions/go.mod#L1-L3",
-          "version": "repo-lines-v1:sha256:64a9cccb71c111d0be4705eae9ee72a1d1e34f07e0cc6fa9614287a87a523727:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjE2MTE0ZTI3MDE5ZTNhZTIyM2ZlMDY1ODMyYWVhYTQ4YTU4ZWI5ZWZmNWIwZDIxNjEwYzlhMjRhNDVhMjg5NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWQwYzdjNDM1OTVhYmQ2YjRkODczZDIwNWJhYzIzYWMzODQ2OTI0ODcwNWNjODUzZDZmMWE3YTNkOWY1ZWYzNSJ9"
+          "version": "repo-lines-v1:sha256:412f7a178c4873667fc93cd7eab283144ea25844eaefa650d7604ee0e54c24b4:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNzRhMWYyMzRjMDc1YzU2ODBiN2JiYzZlZjBlYzFlNTAzNzY4MDk5MWJjYzI2ZDUzZjk5OTFiNGE0MjE3MzE0MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYmJiZGRhZjYzZTZiMjlhYTZiOTQ0Y2JmZWU3OGRhZjQ0NmIwN2QzMDdlNDAzYWQxZWJkNzFmZTdhMDlmZGM2YiJ9"
         }
       ]
     },
@@ -163,12 +151,12 @@
       "statement": "The rta CLI (internal/rta, invoked via cmd/rta) is an HTTP client for the deployed Trusted Actions server: its Client type issues requests against the server's /api/v0/trusted-actions base path and decodes responses using the same generated internal/openapi types the server itself uses, and it refuses to send a bearer token over plain HTTP unless the target is localhost/loopback and rejects HTTPS-to-HTTP downgrade redirects, preventing silent token leakage from a misconfigured --server value.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/rta/client.go#L16-L75",
-          "version": "repo-lines-v1:sha256:cc244eda10a0fd392842c1875330a8872fc5ea2eb2386593205ca97913af3947:eyJzZWxlY3RlZExpbmVDb3VudCI6NjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU1ZGJlOTAxYzRjMDdmNjY2OWFkMmFmMTE1YzU2NTdmOTIxODI2OWI5Njg5Y2Y5MWQ0YjZiNWNhNTkzYzE0YTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4M2NiMWZjZDBmMzNhNjM0NjFhYjYzYjkyYjY2ZTYyOTNlOTRmNTgxZjliZTc5Yjc3MzNmMjdhOWI0ZjE1MmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzNDNmMzJiOThhODM2NTIwNzk0MTM4OThiNWYxOGFiNTVkMGVmNmZiN2Q5MGY3YmI5ODM5OTU5NGFkMjM5NDgifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L48-L88",
+          "version": "repo-lines-v1:sha256:5608b7f4a4e72949176344f804293d2b4f69e76de4b7db046ca5691dcb20d885:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0NTNmYjM4NDlmODNmMDQzZGJmNGRiYzE1Y2I3MjBlZTIzYjhhMThkNjVkMzMzZDc3NzllMTllMWM3YmVhOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjViMzJiMGUxMGQxOTlhOTQ1MmQ2YjU2ZWQwYTdkMzgyMDcwODE1YTY2MTYzNGE3YzUzNWM0ZTkwYWUzZjRkZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzNDNmMzJiOThhODM2NTIwNzk0MTM4OThiNWYxOGFiNTVkMGVmNmZiN2Q5MGY3YmI5ODM5OTU5NGFkMjM5NDgifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/rta/command.go#L1-L67",
-          "version": "repo-lines-v1:sha256:2cb943697d672218a4e37291e44ab5845ca6a26530ce3657126ab773bd534975:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkNDFhOTE5NzE3M2I0YjM0NzcyNDdkNzQ1Zjg3Njg3NTExNDAwYWEwNDBjMDU5ZDAyNWMzYjA3YzgzM2E3NGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRkYjRjZmYyMzQ1NmI2MGFlMmEwN2Q3ZTVhNWQ4ZTAyYmRiYzU4YzZkZDgyNzU5ODI4Y2UzMjAzZjg4YzYwZjgifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L95-L150",
+          "version": "repo-lines-v1:sha256:400e6aace9b0239143682e560549c3eef1c49b4c21515cf96a88319d7614af7f:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzMmVkYjdkZjgwMDg4ZmUxYzQ4Y2Q4YzFjNDE2Yzk0Zjg0ZDE1YjQ4ZjA4MWUzYTEwNWQyODZiMGYwOGRmNWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE0ZWE2MzhhYzQ5NWE3M2UzNTAxMGNiMzhlM2U4NmFkNGQxNmM4MmUwNWE4YzE1MWY2ZmZiYjRmZGExMTMyNjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiYzk5MGViNmYzYzU5M2Q2MWRmYWI3OTU3MDAyYjQxNDExMzg5Y2I5ZTQ3MDU0NjZhOWEwMmVmY2JmZjJkZjIifQ"
         }
       ]
     },
@@ -188,15 +176,15 @@
     },
     {
       "id": "claim_6ce096cc28f2480e8643b73491783659",
-      "statement": "Trusted Actions' own Containerfile at components/trusted-actions/Containerfile is a distinct, much simpler image from the repository-root Containerfile: a two-stage build (registry.access.redhat.com/hi/go builder stage running `go build ./cmd/server`, then a registry.access.redhat.com/hi/core-runtime runtime stage pinned by digest) that copies in only the compiled rosa-trusted-actions-server binary, EXPOSEs port 8080, and runs as non-root USER 1001 with ENTRYPOINT [\"rosa-trusted-actions-server\"]; the root Containerfile instead builds Boundary's multi-stage SRE-tools investigation container and has no stage, binary, or purpose in common with it.",
+      "statement": "TA's two-stage server image runs the compiled server as UID 1001 on port 8080. Boundary packages the separate rta client, not that server.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L1-L27",
-          "version": "repo-lines-v1:sha256:bd4887c78c1ffcc9e02a888edb9ccf5beb6d7fcee56cd64b67b0137fc76838c3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
+          "resource": "repo://Containerfile#L440-L447",
+          "version": "repo-lines-v1:sha256:10b08b2615c554899303ef063189fe5bbd63af0087574ddd36c6aec99b420e25:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmFlMzlhNTMzNjc4MjE2OTAxNjFmZmFlYmJiYThjODU0OTBjN2UzN2FlMjk2OGU1YzgxMjQ1MWJjZmEzYTg2NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWYxOGI5MTRiZjE0NWUzN2YyNDQ0OThhYzAzNTRlNjQzM2FmMzg1YTRjNGQ3MDJiZWUwZGZhZDJhZTg3NWVlOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTdiNjU1MzhkZGZiMDlkMGIyMTFiMzgxZWE2M2JlYmZlYzVkYWVlNDQzNzk2NWE1ZjQ1MjEwNzc2ZjA2Mjk3NSJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/Containerfile#L1-L20",
-          "version": "repo-lines-v1:sha256:50c494a09f6b08bbaed9da3f2ca83672733ed7db7452a89a688f00161ce7cdbb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5OTc0NzYwYTY5ZGZlMjMzYzkyYjFkYmRhYmYwMGM4Mjc4NWU1ODMyOWNhZTc3ZDBhOTc3ZDJhNWI0MmMzYjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjYWYyYzUyYmE5YjkzOWQ0MjI0MTM2MDVhOWVmMWVkZGNhZDZjNzE0NDlkYjEyZWRiMzE3ZWI3MjgzYWNjNmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://components/trusted-actions/Containerfile",
+          "version": "repo-file-v1:sha256:a2bfedd13fd36d5d9760c72ca66d564f85e5e68fc411d534e53d510dd24123ad"
         }
       ]
     },
@@ -209,7 +197,7 @@
           "version": "repo-lines-v1:sha256:4fb645f9b60f8c19d1e488925b1ea793455858e1e747c77ac0b990613e127bd6:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUyNzAwMTdkNzAxNjYyMzhmMDkzOWUzZTI4NWE2NjQ5MDI2ZDZiM2QwNWRkNmFhZWJkYTZjYzYyOTJlMmI3N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVmNWI2MzQzMWZjMDA0ODc4YWVlNzlmYThmZDQ1OGM1YTU4Y2Q5MjhmODAxY2UxYzMyZDA1ZWM0MDkzYjk0MzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiNTg1ZGI5MTM4NDA0MjQwYmUxODZiZjY0OWU1MTViMTFmMzdlZWIxNmM1N2IzZGFlNTYwZmFmMWZhZmU2MWEifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L34-L57",
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L36-L59",
           "version": "repo-lines-v1:sha256:54ec93c29d8f83a7c3dd2ce9075624a3060afc41bc8c815b91a9e30febd0e711:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkODRiYjI5YzMxMTIyYmZkM2Y2NTRjYTA1ODAyNWQ3NTZjNjA1ZjFiMTU5ZmM0NTgwNmRhNjQwMzA4MWE4ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiM2Q1OTI2ODFkMjBlNjhkMTE2N2Y3ZjBjYTBkZGYzNWJkYmVjYTkxZDM1NjJiMDI0NDExYjYyOWMwNmRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVjNDQ2NjMyNjQxMzIwZGY4NmUzMTQzNjBkNThiYmNlNjA5YTMxNWNhNjUzMmM0MTdhNzYyYTE3NWQ3ODY4NjkifQ"
         }
       ]
@@ -219,22 +207,32 @@
       "statement": "Among Trusted Actions' internal packages, openapi, handlers, catalog, auth, middleware, store, and config sit on the synchronous HTTP request path (router -> middleware -> handlers -> store), while worker, executor, actions, backplane, awsapi, authorization, and audit sit on the asynchronous execution path that a worker drives after claiming a pending execution; models supplies domain types (Execution, Audit, Output) shared by both paths, ocm is a shared OCM SDK client used by authentication and by both the Backplane and AWS credential providers, and rta is a standalone client CLI outside the server process entirely.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L1-L36",
-          "version": "repo-lines-v1:sha256:7048d01e10e2894b5c877fa76e41597e935d0f2a0a8f49913452d4e0227eb8e9:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRmMWQwMzZjYmJmM2RmNDZlMjA0NTA3MWUwODIyNDVlY2UyMDRjN2Y1M2VjZjBhNGUwMjJiZmY5YmIyMjhmNDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg0ZTI2N2M5MTljMjdjZmVhYjVkYzFkYmM1MWU3YjgzMmUyYzk4ZTAyYzljZWI1MDIzM2RkY2Y5OTQ3NDI3NDMifQ"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L284-L421",
+          "version": "repo-lines-v1:sha256:7db57bfc90bad05d5a3389a30f790a4ae2b86e4d365a05a41b1befc6f1c406d8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTM4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3YmUyOWZiY2Y5Zjg1MDdjMzhkYTM5MjYyZGExMzdmODVhNzdhNTdmZGMzNTM1YzhlZThlZWIyNDE0MjhiMGNiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyNzk0ZTIxNGEwMmNkODU2NTU4MDRkOTE1MDVkOWRlYzk0MzllMjZlY2RjNDJhNjIyY2Q1MDQxMjc1YmY5M2U5IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhNDYyOGU1NmJlYTNjY2E3MTQ0YzczMDI4OGI2YmE3NjE5YWYzNjJkYzZlZTFmNjJmNGJmYmI3NzViMzAzZWRjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3ODcyZDBlMTFlOWVjZDZkMTlmYzJkZTU0MTNhMzNkNjU4Njc5ZmE2NjE1Nzc4ZTliMGRlZWEzZDY0OWRjZTAwIn0"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L1-L14",
-          "version": "repo-lines-v1:sha256:5ca5ed65e91545ca8c07948b6debf0c4958bba90822ac92e22741decdf00500f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4MDZlZjg3ZWY4ODk5MGE2YjNkYzdhMzliNjMwODU3ZTg4MmQ4MjY5NDdmNDg4OThhY2U5ZDlmYTFjMzk2OWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwY2EwMTBmOThkYjM2NmU3OGEyZDBiNWZlY2NlMWExMWJiZWNmM2U5YmI5MTAyZWZmMmY0MzgxNDIzZWY5ZDMifQ"
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L118-L189",
+          "version": "repo-lines-v1:sha256:aa7641b920d7fc4ec056531df9c589a274aa84624fcda129de3c09420026ab59:eyJzZWxlY3RlZExpbmVDb3VudCI6NzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU4YWQwZDY0Nzg0MjhlMjQyODlmNjYxNjU3ZTBlZDc3ZmFkZWZiMmUxYjBhNzQ1N2MzMmU3ZDVjZTY1NGM4M2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmY2VlMDkzZDZjYTM2MDdjZDIyYmNlOTc1N2U4NDNjMTQ1OGJiMWMyYzE3OTU5YWRlOWU3YzMwMWNlN2MxMWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY0MTk5NGQ2YTU5ZjIxYjEwNThiZmFkY2E2YWE3YjBmOGYzYzM4MDA1N2EyZWU0ZjNmYzVlNjMwMGNhNWVlYjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFlZmU0ZmNlZWVmM2I3M2JlZDJjOTAyYmQ2Y2IwMmI4NGI4YjI5YzIwMmU4NzY0ZmQ0MGJhMTdiY2MzNTY2NGMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ab32cbb9566b49c3b5c995515b84f50b",
+      "statement": "An explicit `--token` takes precedence. Otherwise `rta` loads OCM configuration and uses the SDK token provider to obtain an access token at request time, including refresh when credentials permit.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/rta/auth.go#L14-L52",
+          "version": "repo-lines-v1:sha256:a0612348763546aaf57c7bcdb1ff36e29af89493bc4162177f8685e7f850a23e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiZjEyOGEzMWQzNjYwN2E5MTI5NTY4YjY0YzFlMzRmYzI3ZDFiNGVkYzlkZjhkZmQyMTU0Zjg5OTEwYWNmZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNDIwNWM4ZGRhODI2NTk3OWMyODQ5OGY1ZmNkYjYxNDcyMjcyYjZmOWM1ODk2ZWU5ODk3ZmZlMGI0YzhhNjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L1-L16",
-          "version": "repo-lines-v1:sha256:3bbeec54758022a3ea2cf09acb5deaa074333caab7f0cf4ef447da4406d650ff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJiZjczYTZhNTA3YWQ5YmJmMzBiZDAxMDNiYWVhYTgxODI3NDk1ODE1MzJlZGY4YzQ2NDQyOWMxNGM4ZDI1YTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZhZmJhMDUyN2MzOTUzYzRiNmUwZTViNTczOWJhODM2MTJmODA1M2JjZGM5NDY2NzMwMTkzY2QxZDU5MGI0MDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNkZTI1YmYyOGRkYjgzY2M5MGIyMTI4YjQ5ZjliMjdlYTc5ZWNkNTE4NmVmOGVmYWZhNDQ4MWEwZjlmNWRlNzkifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L176-L199",
+          "version": "repo-lines-v1:sha256:d023d5eef662d700bf18267e742faa5ec6cfd475fcde0becf482f3efb7edfc62:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ0MjI5YjliZmU1ZTA5N2IxMzBiZWEyM2Y1ZjhmNDU5M2VmNDkyYjNlNWI4M2I1ZWY5ZTFkMzNhYTY3NGQ2N2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRiNTUzYWFiYzlmYmNmMGU4ODIwNDNjNDZiN2NmZGY4MTEzNzVlMDQ5NDg5YjFhODk4ZWVlODg5OWY1ZjdkMGUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRmOWVkYmI5ZTkyOGM3OWU0YTM1YzUxNTFkOTJkMDc2NDgyOGRhOWU1MzdmZjhlMjk4OWUyYmFjNmEzY2YwZGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU0NTBlOGVlYTQxYjg5NGJlMmU4NWZjOTgxZmI1MjIyZmUwMTJiZDU2NDc4MGExNjBiMTY1ZWZiZWY1YTAwODkifQ"
         }
       ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-19T16:04:15.171Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

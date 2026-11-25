@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:405bb95b22ac3dac3d33a08bc977ea0b71204846c6d8556d8eb3f5fab36510c6",
+  "pageVersion": "sha256:7b3f8cdf96578125fed916bb39c6549f71a80cd09eaccd7202aa93acf479267d",
   "claims": [
     {
       "id": "claim_3cdf4a9b1fee4625859a5a2ef10e5ef9",
@@ -11,7 +11,7 @@
           "version": "repo-lines-v1:sha256:f389c59320278e37643dbc04fdd5a7f6ad34c826815a555a4e7bdc89659e3f09:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5ZGQ4ZDY3MmIyYTE3NDZiOGM3NzRjYmQxNWFiOWU3ZWU1OGE3ZGEyNzA1MjVkMDM3ZTRlNDY2YjljYTNhZDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1NWQxNzExNTFmY2MxMzYyZDA3NzRhNTRmOTBlNTY0NGQ5MzBlMGQ3NWFkNmViYTdmNDVmZmRkOTk1MDcyMGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmYjk3NmExMTIxMjkzYWY4NWEzM2EyZWM5YzczMTBhMWYwYWExYjk4NjE1YWZmNjA1ZTNhNDVjYmI3ZGJhYTkifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/models/execution.go#L81-L108",
+          "resource": "repo://components/trusted-actions/internal/models/execution.go#L86-L113",
           "version": "repo-lines-v1:sha256:e79c8afc8fed3f59cc41c44b10aa0987d30a4fd726e92d84a722c03729647dae:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJmOGQxNjc2ZGVkZjlhZjI4ZTNkZDVjZjAzZGZlOGIwNDdhOTE0MmYxNGI0YWQ1YTQ0MmFkNDg5MzJiYTVhMjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJmZWRiMmE5YmI5OWM5MDFkNzc2NzY0OTJiM2FjOTRmNzI2YmQzNDc5NGUxMjJiOTVmNjhhNGM5MTgzYjI0YjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
@@ -63,7 +63,7 @@
       "statement": "worker.Pool.New clamps concurrency to at least 1 and a non-positive pollInterval to a 5s default; production defaults are WorkerConcurrency=4, WorkerPollInterval=5s, WorkerExecutionTimeout=2m, each overridable via ROSA_TA_WORKER_CONCURRENCY / ROSA_TA_WORKER_POLL_INTERVAL / ROSA_TA_WORKER_EXECUTION_TIMEOUT.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L167-L169",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L168-L170",
           "version": "repo-lines-v1:sha256:e79a1d00d562a14bd9e80ad3ed4356595724041f8d2023f99da4b16d30b58420:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjI3MDg0NzZhMWFhOWVmYmU3YzcyNDYzZjFjMGU5NDkyNTdjODUwMmM4MjRlZWZiY2U2MWQ2OTA1OTc0OTA3ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDU5NGI5MzJjYTI4NTQ0ZGU4Y2YzMWZkOWM0NjEwYmIyNmNiMDA0YjRmMTIzYzAwZTdlMzc2NGJhNzNkMmJkMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGQ0NGVlZjQ5YjZlODgzYTdjODUzNmI0MTZjZWUyNGRjNTJmOWM2YzdiYTk4Y2JhOWVkNzkzYWI5MGY1MTMwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzY5Y2UxYWRkMmRjNTBjZmMzOThiYTRmYmVlZGI5ODg3NjIzNGY0MTNkOWZhZGJiMjNjOTNiYWEwNjc2YmQ5MSJ9"
         },
         {
@@ -71,7 +71,7 @@
           "version": "repo-lines-v1:sha256:67b0f47f42cd5d194a8cd431331e635d773e156526ac1d7be7fbc5ad713c1735:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTgxMTVkYTk4ZWNkYzI0ZDRiNzFhMDgyNGNiN2QzODhmMTk0YzYwODllMTEzNjhiNDY3Yzg2Y2RmZjhlYzkwNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTYyNDhiZDI3MmE0YjkzNWIwYTUwMWMxZTM3NTUzZWYyZmJhZjcyMzFiYTZjOGJiNDZiNzZjMGJlZWE1M2Y0NiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzg2Y2VkMjk2NzMyMzlhZDkyNTEyNTAwZWViZTAzMDBkOTRkMmNiMzA1NTZjYTcwMGZhOTM3MTI5NDNmZTcyYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTFhZjcwMzZkMTNlMmZlNzdiYjViOWYyZTcwM2UyNWJmMWU1YzI5MTk5MTgzZGJkY2VjNWFiZDQ0NWZiNmY5NCJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L72-L82",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L70-L80",
           "version": "repo-lines-v1:sha256:12eb46962cda147c8c59b7541a0774655577ad814fb2a639e42231a521646581:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1MTAxMDM5ZmU3ODBhNmVhZTNhMDJiMGM4NzdlNzA2MDA5NmY3ZGM3OWQyYTJhMWE2YTk1OTM0ZTRhZWMzNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAyNmY1NmQzYWJmMTYxNzk3MTliOWQwMmQ4N2FlYWM4ZDRmMWQ5MmNkZmQ4MDk3ZjRmNmQ3OGQzYmRmYzRmYzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1MjlmODczNjE0MDIzMjI3ZmMxNzNmZTRiOWNlM2RkYzg4OWM4Mjk5M2VmYzEzNjg5N2ZjYjQxYjU1ODMzNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ2YTUwMzNmNDA1MDEzZjcxODc2YmE5OGU4YmE0MGRmYjk2NWUwZTI0MmQ5NGZlMjY1NWU3OTQ5MzdiYjU5ZjgifQ"
         },
         {
@@ -82,21 +82,29 @@
     },
     {
       "id": "claim_e22510669d724921ae76b055cee3178e",
-      "statement": "Pool.process maps a Runner's RunResult to a terminal status, converts the action result via models.OutputFromActionResult (forcing status to 'failed' on conversion error), and persists it with store.UpdateExecutionWithResult using a context detached from cancellation (context.WithoutCancel) but bounded by its own timeout, so a shutdown-time cancellation cannot leave an execution stuck at 'running'.",
+      "statement": "Terminal persistence uses a context detached from worker cancellation with a five-second timeout.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L126-L161",
-          "version": "repo-lines-v1:sha256:52d667c6015b12e0b78bf219e417241cc17586dbc58b731bb7e8ac1433ffb4a8:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjcxOTcwZTU2OTQxNDhmYTcxNWJmZmFlOTJlN2RiNTg3OWZkZWI5YjExMDRiNmFhNzJiMjkxZjk3M2FkNTY5ZjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYyOTY0MDc5YzNjNWM4MTUyMGVmMzNhMmI5ZDJlMTVhMWI4NGQ3MjgwZGI4NTkwZGNkNjU3NDdlM2UwMTJhNDAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L128-L151",
+          "version": "repo-lines-v1:sha256:b001ce6a207a024a83c7060598f94d05da3bb90933626270ac87df83b0f0170a:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg1ZWViZjNlYzYwZGM1MThiOWJjOTg0MTM4NTQxZDNhMDUzZmFiNDkyNDE4ODU0NGY5ZmNiOGE2NDBjYWQ2YzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVlNzk2MTk0MWM3YzA0YzVjMTk3Nzg4NTAwNmI4MGU1NGQ3YjJjM2E0MzJmNjhlOTE0YWJlOGU3ODlhMjQ3NWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
     {
       "id": "claim_036f9d166c734c4987b1ad2ecafe3afb",
-      "statement": "The failure reason (RunResult.Reason) is only surfaced via structured logging today; neither the executions table nor the generated openapi.Execution type has a column/field to persist or return it to API callers.",
+      "statement": "The worker persists the reason, which is exposed in execution metadata and displayed by rta when present.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L131-L142",
-          "version": "repo-lines-v1:sha256:7f86fe1a56a1bd9a65a29309aeea104efa90bc829cf9690ae527a9c43f6864d4:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5Nzk2NjY1YjU2YzJjZWI4NGMwYjk1ZjJmNTU5NWUyYTVmOWY3ZTIyNmNlMDgzZmNhMjA3YjNhYmNmNDJmMGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAwMDAxYjMzMTFmNjUyMDI1MWMwYzY2YzRjODUwM2IyNDM1NjFjNGNiYTg3MWE4Y2JiYmQzY2RjNGZiZDY5MmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0MTVjYjRkZWMxNDYyMzYyMzk5ZmRiOWQyNzQxYzJkYzFjNWUwM2I5ZTFiNWUzNjM1MWM0OTlmYjk4MTY2MGIifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/execution.go#L116-L123",
+          "version": "repo-lines-v1:sha256:de2bb8865f67dd873159cc049b8a9c3ab95cc634c9ea358cd68fbf5515cec595:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOGQzNGQxYTdiOTFkYzM0NGIzNmMxNjllODdhYzI2YmZmMmIwZWRlNmJjZTRjYTI5N2EzMmFjM2ZkYzYwZjY0YyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZGMxMjlhNTg5Yjg2YjU5YWU1ZGZlZTYzNDE1ODI4OGVmMDJjNmEwOTc3OWYzYjZlZTZmMjk3ZjZmNjZiOTFlMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYjE4OTEwZjAyNWU0MTljNzc4ZDg5OWY3MmRjMDYwOGQ5YTRmMzc4OTI1ZTg5ZGU4MTBiYTYxNGIzZjdiZTYxYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZThhNzJmZDc0NzNjNjk0YWVmMzhmNGM0NzgyODEzMjU4Yjg0NzFjODVjNTViZTg3ZThkOTI0YWVmNWM3MmJhNiJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/worker/pool.go#L128-L151",
+          "version": "repo-lines-v1:sha256:b001ce6a207a024a83c7060598f94d05da3bb90933626270ac87df83b0f0170a:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg1ZWViZjNlYzYwZGM1MThiOWJjOTg0MTM4NTQxZDNhMDUzZmFiNDkyNDE4ODU0NGY5ZmNiOGE2NDBjYWQ2YzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVlNzk2MTk0MWM3YzA0YzVjMTk3Nzg4NTAwNmI4MGU1NGQ3YjJjM2E0MzJmNjhlOTE0YWJlOGU3ODlhMjQ3NWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/openapi/components/schemas/Execution.yaml",
+          "version": "repo-file-v1:sha256:3ff9aa32c12dedccd83cc7f66f9355c0e4df9ab3fc40d026575791ddc4a09f96"
         }
       ]
     },
@@ -105,7 +113,7 @@
       "statement": "On SIGINT/SIGTERM, cmd/server cancels the worker pool's context, gives the HTTP server up to 30s to drain, then waits up to the remainder of that same 30s window for in-flight worker executions (Pool.Wait) before exiting, warning if that wait times out.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L440-L465",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L468-L493",
           "version": "repo-lines-v1:sha256:0b5e75814d34f0bebaf895c054f5d303be213a01e3d13a6cae1acb50d72186d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiNzJlYTZkYWZhM2QzNTE4NTA4ZTdmN2RlOTg1YWUzYTU2ODg5YjA1MjI3OGI5MTgxMGQ1ZTZkNzY2Yzg1MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIzMzZjNWZiYTNlZjNmYmQ0ODRmMGQwODAxNDBjZTgyMjkzMjJmYWQzNDY2Y2E0ZDliOGRiYjA1YmJkYWI0ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNDI2NWEyY2JiYmU2NzFjNjBlZjYyMzFiYmMzYjZjNzE2MTE0OGNmNDkxNmUzZDYyMDI3ZTM5OWIwNDRhNDkifQ"
         }
       ]
@@ -161,18 +169,18 @@
       "statement": "Executor.Execute builds an audit.Record and logs it via a deferred call registered before any scope resolution, target derivation, authorization, or run logic executes, guaranteeing exactly one audit entry per execution regardless of outcome.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L93-L100",
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L117-L124",
           "version": "repo-lines-v1:sha256:7e95ffa19584ab68c6941bb6178fb1e2e01fc71550a83c61ba46b7a561ec8005:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDE4MmMwYTIwNGU5MDcyNTVlZDU0NDNhNWFjYzgzNTk3YWEyOWMwYzdmZDEyYThiNWQ1MDNjYjBkNjgwMDA3MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWIxYjdiMDNkMjE3ODE0NTNkMTdkNTMzYzMxZTJiNjc3YzYzNDllOTM5NDE1NzhkMGFiYzcxMzI4NDZhZTQyMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjI5NjQwNzljM2M1YzgxNTIwZWYzM2EyYjlkMmUxNWExYjg0ZDcyODBkYjg1OTBkY2Q2NTc0N2UzZTAxMmE0MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzkyOGM0N2UyMzNjOTYwMmE2MmRmYjA5MWQzZjMyYzIwZDE0MmRmYWU5OGY3M2UxMDg4ZWVhZmZjNjMwMThiNiJ9"
         }
       ]
     },
     {
       "id": "claim_f336d17e9ee84ce2ad989c8b492eee88",
-      "statement": "Executor.Execute treats three terminal states as distinct and audits each differently: no scope configured or authorization denial (DecisionDenied/OutcomeSkipped, Result.Allowed=false, no Error), target-derivation failure before authorization ran (OutcomeFailure, Result.Error set, Allowed left false, explicitly not reported as a denial), and a post-authorization Scope.Run failure (OutcomeFailure with the audited cause, Result.Allowed=true but Error set).",
+      "statement": "The executor distinguishes denial/skipped, lookup or target derivation failure, and execution failure after authorization.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L101-L159",
-          "version": "repo-lines-v1:sha256:b3d9117ee3501a1c6605e1d4eda1a9686d13879c2556ac73e341f6d8eb491e47:eyJzZWxlY3RlZExpbmVDb3VudCI6NTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlNTBiM2U4OWIwY2E4ZmNmZTZjMzgxZGQ3NmYwZjQ3NWZhYmIzN2U5ZjI5YmYwZjI1YjY4MWZhOGZmNDYyYzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdiZjNiNWU4ZTk3NGFhMTBhZmE1NmY5NzMyYWE4MzIyZTY0OWRkN2QzYWMwNDI0MmJiODg0YTY2ODA5ZTQ1MDIifQ"
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L119-L199",
+          "version": "repo-lines-v1:sha256:2f10f5641e8598515195e0a1dd8fecca2282a2804f04f698d95d3ee7e60df716:eyJzZWxlY3RlZExpbmVDb3VudCI6ODEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIxYmNlMTc5MzFjMTk2YTcwYTE4MzM2N2U1ODBjNDAzMDMxZWM5NzY4NTRjMTEzNmU2YjVjOTM3MDRjZTJmYTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5NDc3NGI3NWE0NTRiZTM1NzY0OGYzZDE2OWFiNjU0ODU1ZDJhOGNlMWNiYzQ3NzQzZDgzODYzZGU3ZWU0NzgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIyZTg5NzhkMjJmOWQxNzAxNTM4ZmQ0NGEzM2ViODIzNzFhYWRlMzZhZThiZGQxYmMxMDE0NTAyOWE3NWU1YmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQyNzZiMmRkZTM3YzUwMTY4ZGFkNWYwMTQ5YmJhYTE2MDg1ZTAyZDAzYmQxMWI1MzdhZjhlZGJjNWI5MTJkMjgifQ"
         }
       ]
     },
@@ -181,11 +189,11 @@
       "statement": "executor.Failure separates a caller-facing Message from an underlying Cause; Executor.auditedCause unwraps a *Failure via errors.As and records Cause (not the Failure's combined Error() string) in the audit trail, so the audited cause stays independent of a scope's caller-facing wording, while Cause is optional and Error() falls back to Message alone when nil.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L170-L178",
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L214-L222",
           "version": "repo-lines-v1:sha256:19414eb2867868ea0fa93f944a5fa2cfe7755de5fb9a57d46e9cc8b9819d0ffa:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDgwYTg3ZmMxZTcwNGE3YzllMGQwZTEwMGQwNTBlMTQ5NWI0YTI4ZWZmODkyNDU0ZjE1NGY3MDZhMTI2NzUzNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTYzMWI2ZTJjYTA3ZDhiYWYwZWI0NGU3NDlkYmY0OTBiMzkyZTNhNTM0ZWY2MTAyMjc3MTE0NmNkZjlhZjFhMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L59-L77",
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L72-L90",
           "version": "repo-lines-v1:sha256:f397a2bd68b59b5e4e722879284f182fbebf93d2ccecaa43c176b117645c3415:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwZTI1MWRkYmZhMDJmZTk1NDM1NWY4ZGZkOGRhMDg3ODFlMmY1ZmZjMWRmYjhiZjUwNDZkYjlmY2YwOTgzNjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM3ZTJkMmFkOTY2MDg0N2M4MmY4NWE2YTYyODRlNDc0NjY0YWE3MDI4OGJjZjMwNWUxNDA0NDE0M2MwZTZkZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAzM2U5OTU5ODFhNDBiNDRmZTJjZGY1MGQ1NTAwODQzYTkwZWFiZDcyMzIyZWFlM2RhNGNiMThmOGIyOWU0NTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNlZDE0MjcyNTQ2Y2YxOWM3MDY3NDVhMzJhOTU0N2UyOWJiN2VjMDk4NDE3NjhhMTZiMTRiMTE3YmVlYjU5MDgifQ"
         }
       ]
@@ -195,30 +203,26 @@
       "statement": "executor.Scope is the interface boundary that keeps Executor domain-agnostic (Supports, DeriveTarget, Authorize, Run); its doc comment states a new scope cannot be added without separately deciding how it authorizes, and Executor.scopeFor dispatches to the first registered scope whose Supports(action) returns true.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L161-L168",
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L205-L212",
           "version": "repo-lines-v1:sha256:c185e9121ef8d2b317bdef2c63d580ac5e752b2591063358697ae969aabbcd4d:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNDg2MWUzODM3MmFkOTE4NWY3OGMwMmY0ZTZjYzM0OTZmMmI0YWI1MzZiOTEyM2I1NWI2MjcxMWZhOTZlZGFlNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjI5NjQwNzljM2M1YzgxNTIwZWYzM2EyYjlkMmUxNWExYjg0ZDcyODBkYjg1OTBkY2Q2NTc0N2UzZTAxMmE0MCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGEyZWI5YTYzMDVjZjQyM2YzZjIxNTU4ODgwZjQ0Mzc1ODc2MDE1Y2I3OGYzYzFiZDZhZjAzNmNiNTk1MTNhYiJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L34-L57",
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L36-L59",
           "version": "repo-lines-v1:sha256:54ec93c29d8f83a7c3dd2ce9075624a3060afc41bc8c815b91a9e30febd0e711:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkODRiYjI5YzMxMTIyYmZkM2Y2NTRjYTA1ODAyNWQ3NTZjNjA1ZjFiMTU5ZmM0NTgwNmRhNjQwMzA4MWE4ZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiM2Q1OTI2ODFkMjBlNjhkMTE2N2Y3ZjBjYTBkZGYzNWJkYmVjYTkxZDM1NjJiMDI0NDExYjYyOWMwNmRkZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVjNDQ2NjMyNjQxMzIwZGY4NmUzMTQzNjBkNThiYmNlNjA5YTMxNWNhNjUzMmM0MTdhNzYyYTE3NWQ3ODY4NjkifQ"
         }
       ]
     },
     {
       "id": "claim_0210054ac3dd4236a49c525192f70358",
-      "statement": "KubeScope and AWSScope are both implemented and both registered with the executor in cmd/server/main.go and cmd/action-cli/main.go; AWS is not an unimplemented or undecided extension point but a working second scope with its own authorization story.",
+      "statement": "The server registers Kubernetes and AWS scopes; the development action CLI selects the relevant scope in-process.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L323-L328",
-          "version": "repo-lines-v1:sha256:34ba078fbf379b9686b26b10ba3bfc14e4c045fcb3fc003c3fbb5dc5d204f4cd:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWQzNDdlZTk1ZGMzNDM4MmRlNjBiZjgxYmRlM2Y1ZWZlZmZmNzg2MGQ0ZTg4YzcwZDA3NDg2OGNiMjgwN2Q3YSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2Q0MGU1ZjZkYzZjMzc1OGU1ZmMyZTI4ZDE5ZmUzNzRiNTY0ZDc3MThkMTVlNDlhMTYxOGI4NTRkMjgwYTkxMSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNWM2YjQ3NDNiOTliZTM3N2YzMDJlNWM3ZTc5YjM0ZTdiOTY3MjM0YTcwMzk2NWUwZWZiMjJmZjc5MGM5Njk0ZCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzY4ZDBlYzk4MGIyYjA4ZDEwODM2NTYwMDY5ODA3YzFjZjdjMTFlYWJmNmY2N2Q3MDI1MDQwYWYxY2YxY2U5MCJ9"
+          "resource": "repo://components/trusted-actions/cmd/action-cli/main.go#L112-L165",
+          "version": "repo-lines-v1:sha256:10b7abe5e254ed7c510107183b6bc2e4dde44aafcdca950cf98fa1110c5cedb4:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBhMTQzNjE0OTYzYTQxMDE2YWE1NjVlYzM4YThjYWIyYjI2MzkxMmZhYTkzMzRkYjkwOWQzNzk0ZDllYmMzNGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4OGUzMzQ4ZDljOTJjMTkxZGRmMzg4NzdmMTNmMGNhOTVkNzRjNjdlZTUwMjU5MmY2NWNjNjhkMWJlYTBlZjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkZTY3NGZlYWM3YTQ0ODFmNjdkNTc4NTc3ZWIxMDdiY2FkNDE5MDAyZjhjNWQ5YmIwOTZlMjZkOGVkMjJmMTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5MmMxYjE4Y2EyYzE3NWM2MjQyMzM3YzEyNzE3MmVkZmE2MTA4ZDc2ODE5NWY4N2FlMTExODM5YWEzYjQyOTAifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L1-L31",
-          "version": "repo-lines-v1:sha256:18cc499cf443c03b1528f093a88cdae7680b84e1e3585020b082070c6b586193:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4MDZlZjg3ZWY4ODk5MGE2YjNkYzdhMzliNjMwODU3ZTg4MmQ4MjY5NDdmNDg4OThhY2U5ZDlmYTFjMzk2OWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUyMWM1YzU3ZWVlNzY5MTRiNDUyMDlhZDVjNWU1NGJkMGIxMTNjOTE5ZmY2MDZiZTBkOWEzODJjMDRmOTcxN2QifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/internal/executor/kube.go#L12-L26",
-          "version": "repo-lines-v1:sha256:2c0b7c8bfacf6b801172662ab4b9c75e8ed5083a58d0c9882c45578425df22cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJiMzQ1MmM5NjdjNDE3OWJiM2VhNTFiZTRkYTRlYjM3OWFlZmI0NGVhZTk1YTMzY2U1Yzk4ODUzYmRlZjUxZTYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE1MWMxODYyNDc0ZGRmNWExMzQ1MjkzMjAyNmE5OWNjMTJjODljYTAzNGY3MGI2NGU0Zjc4YWQwOWU2YmJiYzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZlYWYxYWVkMGE0ZGNhODFhZTI2Y2E5NzhiNmJhYzZkNTE5YTUzMjIxYTc3YzAwMmViMzlkZGRhN2I2ZTc3YmMifQ"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L350-L357",
+          "version": "repo-lines-v1:sha256:9c714e8c0d679a41702e4348c07d177f9644f0d7ff2892638b8f677f0ec03f17:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTAzZmExNjRhYjc3YWUzMDgwZTljNDVmODhjZmZmNTI4M2Y1MjQ2YjBiOGVhNWY2NTRkNjNkODU5NmIzMjBlOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2ZhYzE4YTNiNTQ5ODY5MDRjMjc3OGE0MGNmNWRlYzRmZWJjNTYyY2U1ZGE5OGU1NjcyYzFlYzY3NjlhYjYxOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTEwYjNhZWM0ZGFkNTZhMGRmODNmYThhYjQxMzdiYzA5ODJmZTRmMWEwOTA0MWFjYmY5OTdiNjc2MmUwZDFkNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGZjZWNmNTMyM2I5YTQ3Y2NmYTUwZDc3YzZkOWUyOTc1M2JhMWM4ZWU1YmVjNTQ2NGNmOWM1YTZkZjgxM2M4NCJ9"
         }
       ]
     },
@@ -258,15 +262,15 @@
     },
     {
       "id": "claim_f1622cfe709645a5ab1de7818980eca1",
-      "statement": "AWSScope.Authorize checks the resolved region against a region allowlist and, for write actions, the action's self-declared Operation() against a separately configured operation allowlist; both AWS allowlists (AllowedRegions and AllowedOperations) default to empty, so an unconfigured deployment can neither read nor write any AWS resource.",
+      "statement": "The optional cluster-region gate runs before scope authorization. AWS writes additionally require a permitted operation.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L18-L49",
-          "version": "repo-lines-v1:sha256:284bf0a192c12a1c38d9a29c50246d1949358c471f20b984373d75d8a2ffc560:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI0NjM0ODFjOTY2M2JkNDk1MTNjN2VkNTMwNmFlZDIxNWFjNTk0MWQyM2Y0YjZjN2QzZmMzMzU5MmIyMTJiNzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM5ZmZlM2IyM2QyNDFmOGUyNzgxNTljN2E3MmEyNWZmZTI1MjY3NjNmNjhhNTdlZTRlMjUxYTY1ZmYwODRhZDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU0NmRkM2IzMDMwNDY4YjQ1ZDQ4ZWU3NTcxYzgxMmRmZTZjOWExZmUwMjNhZDI5MDFkMTQxMzhiM2MxOWE2MDQifQ"
+          "resource": "repo://components/trusted-actions/internal/authorization/aws.go#L66-L90",
+          "version": "repo-lines-v1:sha256:cf29f1390c7aa9184eaeeb113c159af3d783503098cf5906c2c0ad903207183f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzNDdkZTY4ZTdjYjBjODRkYzhhMzk4ODY3ZjkzYTE2ZmExMzJjOGE2ZDQzYTU3ZWI1NWJkNGE4MDA2NmM5NzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhMzUxYzY4NWIwNGEyNmRjNzNmZjc3NjQ4ZjRmNDc2YzdkYmQ5ZDM3MzVjNmU0MDYwM2Y0OWM5MjIwMGUzNWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ5YWM0YTg4ZGJhMzJlYTU1NzQ2NzUwYmRlNDZiMzk0MDk0ZGZlM2ZjZGY1ZGYyNDRjZmNkNjNlMmJkYTBlNzgifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/executor/aws.go#L91-L114",
-          "version": "repo-lines-v1:sha256:d53c581a8b1af850ae71f766cab0aa33d7f210d009bffb011d0121cf990fc600:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMxZmVmOGFkZjI0MTgyNDhjNjE1NzZiYjY3YTkyNTVjZDliZjdjZDBmMTkwNDI4ZjM3Y2NiMmZkZjNjYzlkYzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI2YjhlNGQxNGIwYTAzYTY4YzA4ODhjZGRjMTc4NGY0ODU2ODZkZmYwMmJmYTE1MzIwY2E0MzE5ZTg1MTUwMzUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRmZGY5NjVmMGQzZWZiNjc2YThiODg0MDQ3YmExZjQ0ZTQ1NzVkYjEyZmEyMGNhYzc2ZDcxMTBiMmRhY2IwYmUifQ"
+          "resource": "repo://components/trusted-actions/internal/executor/executor.go#L138-L157",
+          "version": "repo-lines-v1:sha256:d245862d5af83b0f0397f72e00ee18d6877f502ff1d5beb1de7ae9ffb218997e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1YzI1M2FhYmMxOWQ1NmNlOGZiOWNhODc3ZjE1ZTMyYmE4MzlhMWYyZGI3Y2M5M2U1YmQwYjM3NjRlMzQxZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIyZjJmZjVmZWVjNjBmNTg3YzhmYWU0ZTg3ZjgwOWE2NjFjZmZlZDZiNDdhYWU1ZjZkNmEyNjUzYWE4OTUyZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJkZDAzODRiNTJiMThmYTY4NzYyMzYxYjNmZjc4NWZmZjdkNzFiOTEzNWEzNzZjOGY0OTMxZWZlZWUwMDUyMjAifQ"
         }
       ]
     },
@@ -298,61 +302,53 @@
     },
     {
       "id": "claim_037e5fb85937430fadfd6ba11515a0a1",
-      "statement": "GET /runs/{id} returns execution metadata and separately probes store.GetExecutionOutput only to decide whether to attach an output HAL link, without inlining the output; GET /runs/{exec_id}/output returns the persisted ExecutionOutput (Message plus a Resources list that is always serialized as an empty list rather than null) once a run reaches a terminal status.",
+      "statement": "Execution metadata links to available output rather than embedding it; the separate output handler reads persisted output.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L315-L381",
-          "version": "repo-lines-v1:sha256:01f3fe0e48fb2d608543646cc5cc26338818a30400e4bc31baa7afc1f1d68044:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE0MzhjYjVjZGVlM2IzZTQwMTBiOWZkNjc5N2E0NzhlYTc5YTIxYTk0NDM4NTQxZTI2NjEyNDdkNTQ3NzQ3OTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzMDMxYzgxODViMWY2ODZlZDIzZmM4OTRkYzZmZjBlN2M0YTMzNWVjZGEyZmE2N2ZlN2Q3Y2I0MDNlZTJjNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkNmIxYzEzODEzYmYyY2YzNmZlNGEwNTk1MTA1YmNiNTE2NGVjYTExZDZiMjg0OTViZDAxNGRiYjNlNDBjZmEifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/internal/models/output.go#L13-L29",
-          "version": "repo-lines-v1:sha256:0ab7bc5c2f468acbcb6cb0a091cbba35a1bd260e57a5e5a9382a338334cf7388:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3MGNlNWI5Y2I1YmJhMmUzNDRhOTRmOWE5NWY1ZjRkY2Y3ZmNiNjI2ODFlZDRlNDI1NWNlMjE5MTgyYTY5MmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNkNmFmNDRiZGJkMmZlZTBiM2NkZDA3NjZjNGI0YmYxNzhjMDRhMThjMGEwMGI2NjBlY2MwYWNlNDZjNjdkMzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYwZTdlMTI5MTlkZmZiOGRmMmNjZDZkY2ViMTdmYTA0MjlmMzIzOGNlZTZhOTFjOTFkOTI4ODFlODJjOGQwODkifQ"
+          "resource": "repo://components/trusted-actions/internal/handlers/api.go#L324-L375",
+          "version": "repo-lines-v1:sha256:6e4c2575f81ef847734c5612c8fd886dc87cfbefa1cb82ef30b6361c53b65714:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2MGU5YTc1YjRiMDFkZmRkYzZkMTU5MGQzOWIyZGExZTg0ODFjYzM4ZWJhZTI1MWU3ODE2ODU2NWM0YzdhNGQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIyNjk1M2E2NTEyYzU1OGJjY2E0MGZjMTVkYzM5NDBiNjRiZDhhZjg5OGEwMWRjYjJmMzU4NDAzYzBkZTNhOGUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQ3YmVmMWI1YTJmNGRjZjJhZTZhN2ZjZjg0MTZmNTdiN2QxNDc2MGZkNDYzMDAwYzA0YjI4ODUzOWQ0ZjY5MjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVmN2ViZDZlZDdjYjUzZmNjZjBjMjYzMTIxYmQ1YjhkMDEwN2Q3OWY2OGQ0ODYxZTU3MGZmNGFiYzJiMTk3MDYifQ"
         }
       ]
     },
     {
       "id": "claim_6bb34489756a4fc9971dc7ba153dc298",
-      "statement": "The rta CLI (cmd/rta main + internal/rta.NewCommand) is purely an HTTP client of the Trusted Actions API: rta action list/describe call GET / and GET /{action} for discovery, and rta action run builds an openapi.ExecutionRequest from --cluster/--jira/--param/--dry-run/--force flags and calls Client.CreateExecution, a plain POST /{action}/run with no client-side authorization or validation beyond flag parsing.",
+      "statement": "The rta CLI discovers actions and submits HTTP execution requests; resource authorization is server-side.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/rta/action.go#L27-L172",
-          "version": "repo-lines-v1:sha256:a516196f5ddf7b059b7651029879032832c21d4d021a6b0269fa7876f1dfd322:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQ2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJhYjNmZGI4MTdjNmYzY2M3NmE3Y2UyMWRmODQxOWViMTA4N2Y3NTE1YTc3NjNhZWE0ODZjYWMyMmQ1NjY5MmM0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlNjgwNmYxNTVjNWFjMWFlMjcyMmNhMDZmMmFjOWNhZGNiODgxYjkxMjNjYjYyNGEzYzEwNDc1YjQ0NDlkYzJlIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNGFlZDM1ODI4MTNiMmRkODRlODgxODY5NDRlYWQ2OWY0MzJiZjg2ODk4OWY2Y2FjZmI3Y2VkMTQzY2UyMGI5IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJmZjBiM2M5N2I3YjI2YzZjMTRlZmMzYmFjMTc0OWMzMmYzOGJkMzMxY2YxZjUxY2JjNDU0MjBkYmQ4YjViNDNhIn0"
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L145-L195",
+          "version": "repo-lines-v1:sha256:5cbf970b701bae0430493706754d00643626cdf0819b42dcae30ac78069459d6:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE0ZTgyY2IwMTEyN2ZlM2Q4MWMzZmEzYmFhOTk0ZTNjZmU0ZGE4ODNlMjliOTNhZGU5ODVjZThlMTU4NWMxNTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0MTRjOTMxMTBmNmEzZmYyZjkxNWQ3ZmJiMjcxYWViNTZkMWNkMzc4OGZkYmI4NWIxNmJiODRmZWMzZDhiZmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI0NjBhNTkwYTYxOWRlYTJkZTg3ODc5YjU2ZTVmYTI5YjNjZjU2N2Q3Mjk2MjM5NThmZTBkNTI3ODA3N2E2NGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNmMzViM2I4Mzc0MGQxOTZhNTliZmIzMTBmYzJhZGQzZTdkMDRkN2U2ODQ2MDQ4NzI3MmUyNDc1Nzc0YmIyMGUifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/rta/command.go#L59-L67",
-          "version": "repo-lines-v1:sha256:d139589506d840f262ac7e5cbb797cc1ba4ce3993fc5f63dfe8a0dadcfb82b13:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTUwYmQxNTY2Y2MwNzVjZGM5OTUyYTcyNTc4Y2YzMjJlNmY4M2ZlMTViOTBjZjQwODBmNmQwMWNmYTBjNTU0MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWEzZTEwYjZkNTE3NGExMDUzMGE0Mjc5OTVhYzg3YjVmZDJiMGIxYjhjZmIyMDQ4NTBlN2IyNjc0Yzk1MmMyMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGRiNGNmZjIzNDU2YjYwYWUyYTA3ZDdlNWE1ZDhlMDJiZGJjNThjNmRkODI3NTk4MjhjZTMyMDNmODhjNjBmOCJ9"
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L95-L119",
+          "version": "repo-lines-v1:sha256:e25b2c9050ebc0a97d04c87e8e084a0035a84c242a6f026b29d4651ce999752c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzMmVkYjdkZjgwMDg4ZmUxYzQ4Y2Q4YzFjNDE2Yzk0Zjg0ZDE1YjQ4ZjA4MWUzYTEwNWQyODZiMGYwOGRmNWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzOTdhZGEyYzExZjg3YTJkZjhlYzcwNWU0YWU4MTlhNDc2NDE5YTg1MGVhNTZlN2FmYWE2YTUzZTdmZDEwODQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE0ZWE2MzhhYzQ5NWE3M2UzNTAxMGNiMzhlM2U4NmFkNGQxNmM4MmUwNWE4YzE1MWY2ZmZiYjRmZGExMTMyNjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjUyOTk5MjQ2NmFiMzgxMTEzOWE1NmMxNzg4ODY4NWNhYjBiNjE4M2MzZmNhNTdiZGViZDdjODczMTAyOTJlMjAifQ"
         }
       ]
     },
     {
       "id": "claim_d3bd5e6765b342d4a5f2602bf0848926",
-      "statement": "rta action run without --no-wait calls waitForCompletion, which polls Client.GetExecution (GET /runs/{id}) on a 2-second ticker until the execution reaches a terminal status (succeeded, failed, or timed_out) or the command's --timeout (default 5 minutes) elapses, then fetches Client.GetExecutionOutput (GET /runs/{exec_id}/output) to print the result; --no-wait instead prints the 202-accepted pending Execution immediately.",
+      "statement": "Without --no-wait the client polls for completion on a two-second ticker and can fetch output separately.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/rta/action.go#L164-L247",
-          "version": "repo-lines-v1:sha256:3a13b48f0b2389b7f447c17731c23c33f5ab9457a182d6201b302cdff9675a95:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk3ZjI0YTkwY2JmMDgyMDMzNmZhMjVlN2ViYjAwYTA0ZjAxYzFiOTY4OTU0MmZhZjA2MTM4YWYwMzcyNDRhNWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjViYWQ3Y2MyZGZhZmMyMTc1ZmEyZDk3MDRlMDIwMmY5NDA4M2E5ZGE2OWE1ODViMGIxOGM0OGJlYTIzNjI3NWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4MjBjYTNjYWJlNzgxMGY2ZjljN2IyYWJkNmMwODgyOTg0MTZjYzM1MTBlMDZmYTU5Njg4ZTM3OTM4ZmYyMGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdmNjk4ZTI5NTBkM2JmZDM1NTU5NGNkYzgyMWQ0ZmYxNDI0YzNiYzRkMDhmYWIyMjViZWRmMzhjMTU1YTYzMjMifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L182-L248",
+          "version": "repo-lines-v1:sha256:b98b9de800f5e9a4481b2c3264c66c20e1b7552ae1e09c868d3b711ac16a74ad:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA1MGEyYmE0ODNjMDVhODhiOWFkMGE3YzRiMzg1ODM0ZDc1OGRjZmRlYjhlM2FlMDc4NTY1OTk1ZTA0OWU1YjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkYzc2MDIwYmFlNzA1NzdlNjRiMzMwZGNhODNmZGYyNGYzZDc1OTNhMDE1NGQ4YWJlYzZkYzYzZjU4OTdmZDkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg4ZjQ0NTZjM2NkNjE2NTJlZGQ3Yzg4MDUyNDYxZDNiZmQ4ZjQ4MWE1NjkwZDc3NjI4NjFiZWYxZmMwNTMyNWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjllZGNjNjE4ZDMwNGZmYzk5Mjc3ODBiY2VkZmJkYzRhNjQ0MWZmYzI5ZTkxYTc1MmIxZDJmNzQ1MmNhYjg5YzcifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/rta/action.go#L287-L317",
-          "version": "repo-lines-v1:sha256:50dc66b288f4f5fc7dcdc1b23e407059fa4916461ecf70c2f789c26976114e9d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI1YzMzMGJiYTYwMGY5ZTNjZjgwOWI5ODQxZGIwODYyY2I4NzdkN2EyZDY3ZWRhMTFhMjM0ODFmZTA0MjhkYjYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjlkYjJmZGU3NzIwNzVhMjllM2U0YzBhMzY4ZmFjZGQ3NDE0MGRiOThiMWVhM2E5NjExZDNhMmM0ZDdmNTliMmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/internal/rta/command.go#L12-L21",
-          "version": "repo-lines-v1:sha256:a2a8c7cdf7576949ccff5e26fc50a418fb5108678d6022d0983a9b96ec5c706a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3ZmVjYjgwZmU0MDhmNTBhODQ2ZGM0NTk3MzI3OTI2OGFhMTQwMjViMjJmZDkxYzVlMDY2ZTQwMDhmZjc2YjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkwZjgzNDg0NjVjNWQ0MDgwYTVlNGZlMDVhMDFiZDNjNzk1Njk2M2IxZmRjY2I3NjM3ZDBhY2IwYWE0ZDJjM2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5ZTZiYmYwNWFjNWNiMDI3MzQwY2Q3NTc0YmExZjJkMmFlNTA5NDg3ZmJiN2VkYjVjMGU2MjgxNzc5OGE4MTAifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L289-L312",
+          "version": "repo-lines-v1:sha256:3f2a21999a8011c26afbed78920cc079241c961b50236d2b085da013ca63f93c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM1Y2ZkODQzOTNhYjNmYmU2Y2Q5M2ZlNzc4NzM5NzE3NzA1ODJhYjJhYjhiZDU0ZDE5ZDAwYTdjYmMxNTNjM2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5Y2VkN2U1MWQ3YWIyYjM4OWJiNGM4MTA3MTk0NDQxMDc0NzU2Yzc4NDc0OTM0NmU4NDM5NDZmYzEyMTIyNWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzNGY0NDYwZTk0MTg3Y2JjYWQwZTgwNjAyNDU3YzdmMzU4YWJmYjc4ODAxNDBiOWFhZjA1ZmMxYjg4ZGE5ZDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY5OWFiM2VkMzZhZjRhZTQ1NjhiY2IzMzkxNWRmNTNmOGFjZjJiMTA5YzkzNTA0ZDU5NzlhZDY5Zjg1ZGM1MzkifQ"
         }
       ]
     },
     {
       "id": "claim_76b0fd4c81754f92a93264e56e005ea4",
-      "statement": "internal/rta.Client prefixes every request with /api/v0/trusted-actions, resolves its bearer token from --token or an OCM CLI config file's access token (refusing to proceed if the OCM token is missing, empty, or expired), refuses to send a token over a non-HTTPS/non-loopback server URL, and rejects any redirect that would downgrade an HTTPS connection to plain HTTP.",
+      "statement": "The client prefers --token, otherwise obtains tokens through the OCM SDK. Credentialed requests require HTTPS or loopback, with HTTPS downgrade redirects rejected.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/rta/auth.go#L10-L40",
-          "version": "repo-lines-v1:sha256:d908758459df2c48ae288c09f412d0b003cd720437f1dbdb8bd93893e9f6d0cb:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3ZGFiZDUwMDk4NjA5ZDZhNWRkNzQ0NmJhYzMzMTk3MjE2ZDE2ZGVlZjI2M2EzOGViZDUwNWViZWIwZTRlMDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk0NDg0ZGIwNzE2OTc4OGNlM2UwNzVjMGVhOGM5ZDVmMDI0OTdlMzQxN2Y0OWFmMWI0NmU1MjNkYWE3MzA1MDQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/auth.go#L14-L51",
+          "version": "repo-lines-v1:sha256:a5709f0a45450f41eb43fd15ef95fe03978535147c2fb5d372c3ee7de816312e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFiZjEyOGEzMWQzNjYwN2E5MTI5NTY4YjY0YzFlMzRmYzI3ZDFiNGVkYzlkZjhkZmQyMTU0Zjg5OTEwYWNmZTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljOWJiNmZmNmJjMGE2MDlkMmUzYzFmMDg2ZDMxYmFlZTNjYjAwNGVlZGZkNjA3NmFmOGI2MzY5NzBhY2Q2ZmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNDIwNWM4ZGRhODI2NTk3OWMyODQ5OGY1ZmNkYjYxNDcyMjcyYjZmOWM1ODk2ZWU5ODk3ZmZlMGI0YzhhNjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/rta/client.go#L35-L75",
-          "version": "repo-lines-v1:sha256:d5f1c43223993cb8d6a01169ba6f7852c9cadea3782e01a98e5fb7a08c371c71:eyJzZWxlY3RlZExpbmVDb3VudCI6NDEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0NTNmYjM4NDlmODNmMDQzZGJmNGRiYzE1Y2I3MjBlZTIzYjhhMThkNjVkMzMzZDc3NzllMTllMWM3YmVhOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhkM2ViNjdiN2JkMTBjM2ZiODEwYTM2YzkxZWI2OWRjMTZhNmJkYWU1NTZiNDI0ZDA5ODZiOWY3MWRiZmRjY2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzNDNmMzJiOThhODM2NTIwNzk0MTM4OThiNWYxOGFiNTVkMGVmNmZiN2Q5MGY3YmI5ODM5OTU5NGFkMjM5NDgifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L48-L89",
+          "version": "repo-lines-v1:sha256:487c6268cd529b7a34364d3ac88b131854ee9d8094dab55828a1ab9cf30102d4:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0NTNmYjM4NDlmODNmMDQzZGJmNGRiYzE1Y2I3MjBlZTIzYjhhMThkNjVkMzMzZDc3NzllMTllMWM3YmVhOWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjViMzJiMGUxMGQxOTlhOTQ1MmQ2YjU2ZWQwYTdkMzgyMDcwODE1YTY2MTYzNGE3YzUzNWM0ZTkwYWUzZjRkZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE0YjYxNWUzYzZiNGUzNjhlMjhjMjMwNjU4ZGQyNzA2MDdiNGY3MjFhMTFmNjYzY2E5OGFlM2FkYjU1MDYzZDMifQ"
         }
       ]
     },
@@ -361,7 +357,7 @@
       "statement": "A non-2xx response from the Trusted Actions API is decoded by internal/rta.Client into an *APIError carrying the request method/path, HTTP status code, and the server's structured code/reason from openapi.Error when present (falling back to a truncated raw response body), so rta surfaces the same denial/failure reasons the server produced rather than a generic HTTP error.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/rta/client.go#L193-L229",
+          "resource": "repo://components/trusted-actions/internal/rta/client.go#L216-L252",
           "version": "repo-lines-v1:sha256:26d907b7900e98192625f9f052c1a9f7b87b5d79ae4dd8b8eff65ef41c383a08:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA5NjNiZmUzYTg2OWQ5ZGRmYjBhZDc4NWNmNjY4NTcxNzAyODFiMTUxZDdjZDQ5NjZhOWFjMWMxZTQ5NDU3ZTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE2MzFiNmUyY2EwN2Q4YmFmMGViNDRlNzQ5ZGJmNDkwYjM5MmUzYTUzNGVmNjEwMjI3NzExNDZjZGY5YWYxYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
@@ -382,7 +378,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-12T16:02:44.301Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

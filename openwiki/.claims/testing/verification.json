@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:93e8b3d9ea2b95358e9152bf9f8345b48aadcb04c76a2778a89c58852129bf80",
+  "pageVersion": "sha256:e2351650ea6684f7e4a3ec775be379b5a97191002717537500061b238904e0ef",
   "claims": [
     {
       "id": "claim_20f7ff5a69cd43e8aa9ad2bbc0f4f2ee",
@@ -22,23 +22,15 @@
     },
     {
       "id": "claim_ab537d442b0d4834b387d3aaa8ec29da",
-      "statement": "The mocked regional IAM ownership suite requires shared IAM identities and managed attachments to remain account-owned, permits the dedicated locally owned content-files service role as an exception, verifies shared-role inline grants attach to account-role lookups, and checks policy suffixes and dedicated reaper access-point restrictions without contacting live AWS. Re-reading lines 180-242 confirms these assertions cover exact legacy inline-policy JSON scopes (task_s3, s3_replication, task_kms, task_ssm_logging, bedrock_invocation_logging, execution_secrets, task_bedrock, sre_shared_ecs_exec, lambda invocation/EFS grants) and that the investigation reaper's EFS mount/write/root-access grant in both the Lambda policy and the EFS file-system policy is conditioned on its own dedicated aws_efs_access_point.reaper rather than a file-system-wide grant.",
+      "statement": "Mocked regional IAM tests enforce account ownership of shared roles, allow the regional content-files exception, and verify inline policy scopes, access-point restrictions and non-colliding regional policy names.",
       "evidence": [
         {
-          "resource": "repo://deploy/regional/iam-content-files.tf#L1-L43",
-          "version": "repo-lines-v1:sha256:708169b0f7d0fee4376d116e436a7ec2645836ed9163ef4e12e51b1a33ad41bd:eyJzZWxlY3RlZExpbmVDb3VudCI6NDMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVkYzM2OGUzYWQ2Mzk4NThiZTU3ZWIxYzBmMTU0ZTc0OTNmOWMzMzk1NGYzNTk5ZTdmMGM5ZDUzOTgxYjhhMmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU1MDMzNWU1MjIyNDBjMjU3Y2JlOGIwZGU0NDQzOGMzYjk1MDI0YTE2YjI0ZTRjMDhkNTZiMTUwNTExOTMwM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5YzNjYTQ3MDlmNzc5NjQ2M2Q1MTM3ZGQ0YzU2NzNlZTJmZGFkN2ZhZjMyNjkyYjEzOTVlYTQ1N2RkZDdmYTAifQ"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L105-L314",
+          "version": "repo-lines-v1:sha256:d8989ed42b4029e32902bd4e92f1a93558165ba5fea8d259cb016ead5bd52b4d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4ZWNjMjE3MmIzYTNkZjNiZjE1ZjYxZDdjMjdmNTNlMWMxNjIyZjQ3MDg3YjdmNDQ4NDhhMzI2ZTgyMzVmZWQzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxMDUyZWNjNzFlMDZmMDIwM2YyM2MyYWU5ZDMwNTQyYmE2NTYzZDZjZjI4NjIzNWI3Yzg1YWRiN2ViODA3Yzg3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxNTc2ZjE2ZGYyYThlYjIyODQ5ZjI5NWZhODU2NzQxZmE4OGUzMmIxNzIxZGZjODUyMDMyMDVlMzQ5OTEyYTkxIn0"
         },
         {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L1-L73",
-          "version": "repo-lines-v1:sha256:d40b69129c644bb6dd99869cfa585714d3ab3a59287f90001c010ad734b84f8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2MzllNzBjNTEwYTk0NWVhM2UzODIwYjAwY2EzM2U2ZjdjMWE2OGY1ZmFmODJiYjc2YmM2ZTQyYWEwMTI2MzAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3OTIyYWY1MzA0MTk3MzEyMTZlMTg2MGI5MWY5YmQyMWI5MzYyMTcyOTJiM2EwZGI3MGUxZTljNWFkMzQ5ZDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFkYjY1MzA4MWMzZjcxNjk0MDM2OTM2ZWIzZDFhYWFlYjg4Yjg5YmY3MzYxODEzMzdhYTEyNjFhZGZkOTQzOGMifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L105-L149",
-          "version": "repo-lines-v1:sha256:e5498f9277c5c94f22929ad392760fe62c8a8a41c7fae81d7b4d52b9feefc10d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlY2MyMTcyYjNhM2RmM2JmMTVmNjFkN2MyN2Y1M2UxYzE2MjJmNDcwODdiN2Y0NDg0OGEzMjZlODIzNWZlZDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjNzc4MzViYzhiNTAzNmZiZmI4YmE0NmM5OTJkN2FmODAyODU2YjQ3YmE2MjdhNTA3MDlkOTAxNzczZjQwYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEwNTJlY2M3MWUwNmYwMjAzZjIzYzJhZTlkMzA1NDJiYTY1NjNkNmNmMjg2MjM1YjdjODVhZGI3ZWI4MDdjODciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjYwYmM4NjA0OWYyZmUyNGIwYzhhZjI2YzgzOTY0Zjk1NWI5N2FlYTJhYjA0MzRlZDQ2ZDczYzY5ZGY5M2Y3YTIifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L180-L242",
-          "version": "repo-lines-v1:sha256:2582ee99552e3110b84869fd9fc905e0ba4d743b4ce5153a89b98d49e9b43f07:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxZGZmZTg3NzZmOTA1MDEwNWRhZTgwZjVkNThhNjZlYTE2Y2RkMTY3ZmI3ODU4YmViMjFkMmUzYTViNWFlZmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZiNWIxN2RmNDliYTI4Yjg0MGYwZmQ1OTVlNTZjMzk2MzM5Mzk0NDgzM2YwMjlkMWRhMDRkNWFiYjA0NzQ4MTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU3OTRhYjA3MGYyODJkYjczMmZmNTYxZDIzYTU1MTMyYjk0MjhiMjdhNzljOWRjOTRjNjMyM2ZjZDQ2OGNlMjcifQ"
+          "resource": "repo://deploy/regional/tests/iam-ownership.tftest.hcl#L315-L371",
+          "version": "repo-lines-v1:sha256:b97be0dc9cd008aa4776e6825a1488c16abe83245d404d866fb36e5b3d84b823:eyJzZWxlY3RlZExpbmVDb3VudCI6NTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliOWFiYjUwMDhhYjgxYjNjNGI3YmY4OGVhMjE3MGVhNThiNjEwMThjYWE0MmNjMGUxMzY2ZGRlNTY1MWMzMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFiNTAzMDQwMmU3Nzg1M2Q5MDgwZTkzNmEwMDViZjI5NGRmY2Q3ODEwMjg4MDFkNmM2YzhkYjczZjM3NjNjYTEifQ"
         }
       ]
     },
@@ -177,10 +169,20 @@
           "version": "repo-lines-v1:sha256:33ad0f6d03d0924b0ca0a8ca99788daaa1d769774b4d4322af79b81109aab7f0:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5ZjFhNDdjOTI0YTlhOGJjNjcwZTk4ZDEyYWU4N2EwNGY3MTdhZDE4MDgxZmExZmY5MGE2NzZhZTdlY2UxNzFjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI1M2QzMDgyMTlhNjAyMjY1YjBiMGJiZmE1MWYwZTU3YWE2ZWRlNjdiYmVmYzAwOWRjMmVkNTQxOTAwMzgzOTYzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIwOWY5MzA4M2MxOTcxMjFiOTgyNzAwYmE4YWZhYmQxNzIyY2YxZDNlNzQwNDUwOWU4MGVmYTI3MjQ3ZjYyZjA3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4NzJmMWZiYTVkNjY1NjRmZmNhM2UwNmEwNDk5ZjFkMzczYmMwYzI3NmUyOGY5NDk0NWM3OTE4ODYwZTQ0Y2RkIn0"
         }
       ]
+    },
+    {
+      "id": "claim_34d9bd5cb31748e389d4f3693ad28fc1",
+      "statement": "Close-finalization tests distinguish a verified empty workspace from a missing workspace, check receipt binding to the attempt, and ensure attached shells block sealing. They exercise the finalizer locally, not live Fargate or IAM.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-investigations/test_close_finalization.py#L248-L335",
+          "version": "repo-lines-v1:sha256:b88f8f7a51307c5fa05a33a2e9cf552624b653c838697542da8ba59fe901b06f:eyJzZWxlY3RlZExpbmVDb3VudCI6ODgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0NjQ0MGNkOTI2NWFiNGFmNzg0M2QzMTVlNzVlN2E1MWYxNmRjMDZmNDJlY2M4NmU4YTAyYzcxZDJlOGMyMjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ZTYzMjRkMjRkNWNjYmE1ZmYwYmNjMThjOGYyODU4OTZkNDM4OTQ2MTQwMDg3NWQ4N2M2YjZjOTQ1YzRmY2UiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNhNzdhYTE2NTQwMTI4YmJhYTQwY2IzMzViOGJiNDNkYmYzZWFlY2ViM2QxZDc4ZjIyNzk5M2YxOTcwYWNkZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlZjg4ZDlmMjM2MmFjMWFiOTdlNWFjYjM4Nzg1ZjEzZjI1MmFkYmY5MzYzNzdjOTBhNjU1YWQyMmFmNzcwNTMifQ"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-19T16:04:15.171Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

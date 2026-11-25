@@ -1,53 +1,7 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:212fe2ac90abf40b2c46427df0fbac437efa6b2e9a1c5114107899b5d3b392f2",
+  "pageVersion": "sha256:2831931e8930fd4eb07ef7eebc6044daaa3b6fb545671b1580f256363f2e75b0",
   "claims": [
-    {
-      "id": "claim_0fd54466e61444af8b0cc04be2e11a4f",
-      "statement": "The dev Kustomize overlay combines the namespace base, a ClusterSecretStore, and the CNPG and Keycloak components.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/keycloak/base/kustomization.yaml#L1-L4",
-          "version": "repo-lines-v1:sha256:f84e68e7ff348e3194a38eec13d9833d92a4df72912743f4393af2d9c2dfb949:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMThkMjMyMzFmMTI2ZjE1YjNjMzY2MTRhMzQ1ZjU4Yzg1OTA3ZDQyZjc2NWZmZGJlN2MwMWY0YTBmMmZmYjk0NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMmI5ZjcyNDEzMjQ0YzI3NmU4MGE3NzEyYjllMjJmZTAwZjg5ZDMzZGJmNTgzNzVjNTExNWIzNGM2MDJkZWIzZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
-        },
-        {
-          "resource": "repo://deploy/keycloak/overlays/dev/kustomization.yaml#L1-L10",
-          "version": "repo-lines-v1:sha256:84a98d4c78c64112d3a092235889f67001a08c6f0c78be093cab8364790e283e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4ZDIzMjMxZjEyNmYxNWIzYzM2NjE0YTM0NWY1OGM4NTkwN2Q0MmY3NjVmZmRiZTdjMDFmNGEwZjJmZmI5NDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzYmUxZWM0MzMxZDVmOTlhOTk4NGViMTBmZTZlNGE4YTY4OGM2MjZjN2NmMWJkMTllZjhiOTQwZDJmOTk3ZWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_8571f0dc1334411c9a45f9066b86e51a",
-      "statement": "The Keycloak database ExternalSecret reads username and password from two AWS Parameter Store keys into keycloak-db-app, which is referenced by both CNPG bootstrap and the Keycloak database configuration.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/keycloak/components/cnpg/cluster.yaml#L1-L17",
-          "version": "repo-lines-v1:sha256:90a023ec6fedc4ea886b77e74bb9f592a270fe6582a1dd58114391199ee3e82a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3ZTQzNzY2MzYwNmFhNzNlNThhMTFmMjAxYjllMWVkOWE4ZTQwZWZjYWI3YmMxMzI4NzIzY2NiOGFlNTRkZWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2NzBlYWY0ZjA5MTY1ZDQzNTQxYzY4ZmIzMDE0NjY2NWFiNDFjMDE0NjJjYzcyMjAxZDAwZjRmMTg5NjlhM2EiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        },
-        {
-          "resource": "repo://deploy/keycloak/components/cnpg/external-secret-db.yaml#L1-L25",
-          "version": "repo-lines-v1:sha256:70acbe85bfae36bf9d4102107a3dd825990b02863b866ef1b8fbbac3e4da6d39:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4MGFmZjAyYjFiZWQyMmQzMmU2MWFkNzhhMGI2NzZiMWQwYTM3Mzk0ZGFkNTFhMjY5OTM4MzBhZGMzMDY0MTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhhMTk5MmQ2NTYwODEzNGZjY2Q3OTY4NzdkYjcxYjhjZjBmY2Q3MjQ1YjgyN2EzNTViNDAxZWY0N2Q4MmZkMzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        },
-        {
-          "resource": "repo://deploy/keycloak/components/keycloak/keycloak.yaml#L1-L20",
-          "version": "repo-lines-v1:sha256:c2b5a7c79ae092e6e7b66be2305a9bc6a14ebdbf408f9fa4e5e723f6c4042f2e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmNDliNTExNmM2NTNmZmFjMzlkNTk0YzI3ZDRkNmRmZmY3ZWNmYjE5OTQzY2ZjZTcyNWU2YzhlNmNhMjU1YzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE0YTRiZDc3MmRkZGFjZmU4YmZkZDkxNzQyYzQ1ZDZmZjBiYWQzNDZiZDFiZWRhNzM0ZDZkMDM1NWRmMjI2MDMifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_6eae1122365a4bd59467508234da19c6",
-      "statement": "The Keycloak custom resource enables HTTP and X-Forwarded proxy headers, and the OpenShift Route terminates TLS at the edge while redirecting insecure traffic.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/keycloak/components/keycloak/keycloak.yaml#L21-L28",
-          "version": "repo-lines-v1:sha256:a39bf895c51ea9ed5123c208f60c74c0eb1e367c7d3e1ea341b5be85e3d3275f:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2E3NDgyNDljYmI5YTVmOGE2YjJiM2YyZTgzOTdhMDk1OGE0ZjFjZDM5NzgxNjdiZjA1MDcxMWM3MmJjNGJlMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjkzMDJjODI5ZjJjNWI2OWMyZjYyNTM4ZTNjNTY2ZmJmYWU4N2I5NzYxY2M1YmEzM2I1MWUyOWRhMzIxYzJmNSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYzE3ZmYyMmNmNTg1Y2M0NjVhODk1NWYwNjI0ZWQxYmI4MGYxODA1OWEzM2Q2MDE4MmM0MDAxOGFlYmI0MDhiMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
-        },
-        {
-          "resource": "repo://deploy/keycloak/components/keycloak/route.yaml#L1-L14",
-          "version": "repo-lines-v1:sha256:3a359ac8d8360a42b6f8c3202454ca15202e56d13a443821a9742b8caf187547:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlkZWZlZTEzMzRlNzgyNjk1NGIwNWMxNzkxZWNjOWJhMTY0Y2Q1ZGZkMzFmYWQ1OTNkN2ZmZjZkODNjYTMzNDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk2ODNmNWM4Y2U3ZGZlMzc0YjMzYmU5M2NlMGI1ODkyZjkyZDY0NTkzYTk1M2I2ODAzMGIwZjY5NDhlNWY1OTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        }
-      ]
-    },
     {
       "id": "claim_9c25b28042004bb4a794fb98fb6e8f33",
       "statement": "Account Terraform creates up to three OIDC providers (dev keycloak, optional stage_keycloak, optional prod_keycloak), with the stage and prod providers gated by count on their issuer URL and failing their plan via lifecycle.precondition if their matching client ID or thumbprint is left blank while enabled; the investigation Lambda routes tokens to configured issuer JWKS endpoints and verifies signature, expiration and audience.",
@@ -57,7 +11,7 @@
           "version": "repo-lines-v1:sha256:e6e94d6fedf53417fae87c255f5383c417f9a8cdd4116b19d9586bce52d7cc8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNzI4NDkzMzJkODc2MjEzZGFhNTM2ZGI2NWQwN2NlMjNkZjEzOGI3NTVkYWIxN2UwNDQ2OGI1M2M2OGU0NDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L363-L399",
+          "resource": "repo://lambda/create-investigation/handler.py#L485-L521",
           "version": "repo-lines-v1:sha256:90112a555d520284f410a74d0a440c7c1049c69d615e36593ce4a1c2262dfb2e:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMyZTI2MTQyYjA3N2MwMjE2NWY1MThhYmZkZWNlNWE4ODFkYjdlNTA4ZjFjZWUyYzc5YjQyODYwZWIyOTdkYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjczM2U4NDg3Yzg1ZGZkY2Y5ZmE3YjkzYzc0NmM5NDYyNWFlNDdlMTIwYzc5N2U3OTFlNzM3ZjllZDdmZmM3M2QifQ"
         }
       ]
@@ -67,16 +21,12 @@
       "statement": "The Lambda dispatches its get_config action before extracting or validating any OIDC token, and the CLI's corresponding GetConfig call invokes the Lambda via the AWS SDK without attaching an OIDC token, relying solely on the invoker role's IAM/SigV4-authorized invocation permission, so CLI configuration discovery works before OIDC login completes.",
       "evidence": [
         {
-          "resource": "repo://internal/lambda/client.go#L212-L234",
-          "version": "repo-lines-v1:sha256:ce0be7bb88fa9da992b0896f32d2491160b84bcc6763985ffedf0468431e9f36:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI5NjQ2ZGI0NjU4ZTUwNTYxZDExMDA1NWNhMDg5OGU2OTI0YTQ3MmU1ZDZmNzhiMWRjMDRjY2U5OGFjZGQzMGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhmOGMxZDViZjYwYjU2YzE1NjdjOTlkN2YxMTlkM2Q5OWU0MjM1YzU1ZGVjZmE4MTRlZGMwNjc3MDM1ZTRmZGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://internal/lambda/client.go",
+          "version": "repo-file-v1:sha256:ceab2177442b0b8b0a042296a9e7505f3e0d22ad0c520d6bb2632b5ce6657765"
         },
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L1091-L1111",
-          "version": "repo-lines-v1:sha256:59fe7c8394dc38de16da51331b775d9fe7eb6a41bea21383a07ed857f8a12b3c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhYzg2NDA4NWZlNTg4MTVmNDgzZTE1ZGUzODRjOWQwY2MyM2U1MDY4NDhjNDQxMDZiZDA1MDVkMDVmNTAxNDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0NzVlOTRhOTA0YWM0OWIzMTU0ZDQ2NzJhNjZlODYyOWI4NmRhYzc0ZTNlMjkzN2JlNjkyN2FlM2RhMTFjNTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM5ZWZkOWUxNzJlNTE2NDhjYzY1N2RiZWEwNDYxM2ZiNzc5M2Q2ZjZjYmViOTIyZjE2YWVkYTZmZDRhMTlmNTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzMjcxOTUwMzc3MzE1ZDRjNzA1YzMyY2FhZmMxYjU0MDgxOTk2OTQ4Mzc3NmNhMmIyZThhNTZlOGE0MDBhYTEifQ"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L92-L121",
-          "version": "repo-lines-v1:sha256:49ce52941b62ed11fa28ee7b3a6ced077fdce2507c7c80ca80a805f8d799a627:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTVjNjZlMTdiMTQ1Mzk3ODM0YjhjODU0ZGM0MTkzZTIxMjUxODBhODk5NmExNGMzMTg4MzMyNmIyZWZiY2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk1NzQyZTgxZTBmM2EzOWJmYmRiOGE1ZTRkM2U4NjA1ZjE5ZGZkZWI3Y2VlNDdjODY5MjYwNzM2ZDM0ZTM0YzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmOGRkY2FhMmI5MDJjYjRhMWVjMDAzYWEwYTdiYzhjYjZjMTk2NmY2M2Y2MmIzYjViNDM2OThhYTY1ZmM3ZGQifQ"
+          "resource": "repo://lambda/create-investigation/handler.py#L83-L126",
+          "version": "repo-lines-v1:sha256:f22385af5e6fe53213d092f2a16cc8d36712de568aea500536a969ee236c34a6:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExZmJkZjk2NzBmMzk3Nzc1NTExNTQ0N2VmNTJjODhmZjYyOGQ3NWM1OTEyOWIxYTlmNWMzN2Y5YzBiYTFkZjgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMzOWRhM2Q5ZTM3MmY1ZTBlZTA2Mzg5Y2U1NzFiMzA5YzMwYzY5MDRkZmZiYzlkOTQwZDkwMzMzY2I0MGFjMGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNhMjI0NzEyYTFkNzNiMzQ0ZGY4YWRmMWNjM2FiM2FiMjJiMTU5MTA1MTcyMGFmZWJhYTRjZTQ0M2U3ZGRhZTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIxOTQyZWEwMGVmYWY0N2QwODI3MWM5Y2I4NzBkMTI1NWI0ZTY4YTYyZTUzYmJmOTY4MTU2NzU0ZDRhNzcxYzQifQ"
         }
       ]
     },
@@ -131,25 +81,11 @@
       ]
     },
     {
-      "id": "claim_c232c7a2f6544e63922338c35ad55b7e",
-      "statement": "Neither the deploy/keycloak Kustomize base nor its dev overlay defines any Keycloak realm, client, group, or protocol mapper; those are created separately by an optional KeycloakRealmImport custom resource documented in docs/configuration/keycloak-realm-setup.md and layered on top of the Kustomize-deployed Keycloak instance.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/keycloak/components/keycloak/kustomization.yaml",
-          "version": "repo-file-v1:sha256:3c2e1841b54cb091865d42f146f9114201a25904af040f7d49208fc3cfbac2a0"
-        },
-        {
-          "resource": "repo://docs/configuration/keycloak-realm-setup.md#L32-L48",
-          "version": "repo-lines-v1:sha256:77f993530c10cf4825c26b3923de89cfcf342642ce8ee4622b5b86af197e1b8d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZmODQyYTFlZmIwZmNjNDJmMTlhYjVhNGIzNDAwNmQ1MTczYjE3MjA2MDU1MGVjNjViNGFjZmNiMjBlZGJhZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4Y2RjY2Y0Y2UxOGM3ZmJjY2JjOGMwYmU0MmFjMTRhNzQ2NjEwOGM0OGIzMmUyZjQ4MWJjODU4Yjc2OWU1ZTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYxNTJjZDYyYjI3NjA1ZWRiOGFkYTViMzc4MDc0YWRmZWI0NjQ5YzUyNGIwMTA0OGZjM2MzZjlkZTYzYzQ0NmMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ0YzRiMTU2YTlhMzUwOWVmNTMyMzczNGUxNzhlZjc2ODk3MmU5Y2MzZmZlODJjZGNkODU4NGYzZWQwY2NmZjEifQ"
-        }
-      ]
-    },
-    {
       "id": "claim_7cbbacaf96e24f5a9466144acefde8e6",
       "statement": "The create-investigation Lambda requires the validated token's groups claim (or, when absent, realm_access.roles) to intersect its configured REQUIRED_GROUPS before authorizing investigation creation, rejecting non-matching tokens with a 403 response.",
       "evidence": [
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L183-L228",
+          "resource": "repo://lambda/create-investigation/handler.py#L196-L241",
           "version": "repo-lines-v1:sha256:b61238d7b7d2156a7c24ad9d8f48a8d3cd7a755bda42097acb39c90646ce7265:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRhZGIzMTBmNTdjYmQwMGZkY2FlYjQwM2ViZGVjMzIyNTc3ZjNhZGE5OTEwNTQyOTVkYTgxN2I5ZWIzZjU1MDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVmNjA3ODI4ZDQxZDU5YjhjM2Y0YmZmOWQ0ZWQyZDRkODYyMzRlOGZmOGE4M2U5OTQ4OGYyMjhjNWQzMzMzZWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFkYzIxZDU1MDFlYTIyNGMwZjg0OTUyNGRhYTUzOTg5MTI2ZTQwYzVjYzA0NWQ0MTkxZTRhMjY4N2JhNDAyNzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjlhNWIyMDdkMGVmMzk2Y2NmMzEyMzEzZjFlYzFiNWNiZGNhMzJlNGM3Y2U1OTRhMzIwZmY5ZWQ1MjZlZjg1MjYifQ"
         }
       ]
@@ -159,50 +95,34 @@
       "statement": "The Lambda extracts its ABAC session-tag value from the token's https://aws.amazon.com/tags principal_tags claim at a configurable key (ABAC_TAG_KEY); it falls back to the preferred_username claim only when the configured key is the default 'username', and otherwise returns 403 if that principal tag is absent rather than silently substituting a different identity.",
       "evidence": [
         {
-          "resource": "repo://lambda/create-investigation/handler.py#L192-L217",
+          "resource": "repo://lambda/create-investigation/handler.py#L205-L230",
           "version": "repo-lines-v1:sha256:5b79147007a3f218fafc6801098d0b69cc5aa68d139754c288aeb871066cafbb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwNDc1ZTZiYjAxMjc4NjQ0ZmNmMTE4Njk4NjNjMDBkMTc4MWRlMTQ0MmVlMDRjNWVhZGJmYjBjOGU3MmYyNWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc1MDk3ZDliZjU3OThlMzlhOTg3MzI3YzBiMWJlNzdiN2U1ZTc0OTliOGQ2MDgxNThkNWZmOTFjODcxZjFiYzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMDQ4MjYxNDA3MGM3OTg1NDU2OTQ4YWQ4NmIzNTM3MjNiNjgxNzNmMDNmYWI5OGRhZGVjMGQ1OThhMmI2YmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIxM2M0MmJjZTQzMzRjZmMzYjM2MWVhZTAxMzYwNTgzNjc5ZDIyMzBiMzI1ZjMzM2EwOGQ1ZmZmYTY0MGI3Y2EifQ"
         }
       ]
     },
     {
-      "id": "claim_dcf51619b0734e4285bd530f343673c1",
-      "statement": "The realm-setup walkthrough's example KeycloakRealmImport configures an audience mapper consistent with the root README's 'aud must match rosa-boundary-sre' requirement, but its example groups (sre-admins/sre-operators/sre-viewers) do not include the 'sre-team' group that the README and the Lambda's default required_groups/REQUIRED_GROUPS configuration expect, so a realm built exactly as documented issues tokens whose groups claim will not satisfy the Lambda's default group check unless the deployer reconciles the group names or REQUIRED_GROUPS value.",
+      "id": "claim_543ab3784aa94a7e9635baae077b4b83",
+      "statement": "Boundary configures trust in an external OIDC provider; it does not operate Keycloak. Personal development uses an approved existing instance. Staging and production use Red Hat EmployeeIDP.",
       "evidence": [
         {
-          "resource": "repo://README.md#L82-L99",
-          "version": "repo-lines-v1:sha256:cda8eaa34bae15f0dc7841bb4888ab273cd57d0064daa5629872fc3e6a414d20:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUyY2NkMWRmYTI3NmQwNmNhZWJlNzhlMjQzNzE2ZjY0ZjQ1MmE3ZjA4NWIxMTM3ODQ4YjliOTg5ZTYxMDk3MjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3OGFjOWNiY2I2ZmI3MjFlNGJiNDU1ZDI1M2E4NmJmMjJhMTAyNGU5MzUyY2U0ZTZkMjI3ZDNhNzI0MmJmYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNmNDg0MGU5NzhkNTY5MTQ0ODdlNTY3NGZlOTI1YTBkNmIzMDc0ZmZjNTk4MDRlNzE5NDI1ODRiOTcxNWY0MjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNiZGUyODFjOTg5MDZmZDEyNmE4NmFjNzg4YzUzYTM3MmIzOGYxOTM4NGUxYjQzMWU3ODJlODIxZmUyYTA2MzMifQ"
-        },
-        {
-          "resource": "repo://docs/configuration/keycloak-realm-setup.md#L51-L167",
-          "version": "repo-lines-v1:sha256:cfc345e8ba8186615ecff21ef5e02529e596984d924c7f4aef53baf8818728bd:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0YjRkMzZjMGJjOGIyYmIxYWRkNzdhYzg1OWYzZjJlNWU2ZDI5NjNjNjc0MzQ0MzljYzZmMjY4ZWNmZjMzNTIyIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1Yjk4ZmY4ZWM4OGIwZmM3NGU0MmYwOWJjNDJlZTRmNjc1MzAzYjFmZGMxNzhmOWQwYTdlM2Q3MmJkOWEwOWU5IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3ZDI2YWQzZTNhMmViYjgyMDMyZTkxY2IyY2ZjYzc3ZmI0ZGU0MGVhNTUyNmMxZTBiOTQ5YmQyNDZhNDQ4MWRmIn0"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L221-L228",
-          "version": "repo-lines-v1:sha256:2c192964183a17874e608e026dd6500e9a00e9e3824866c5a2e11ede48244122:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYWVmYTZiZWNmYzJiODk4ODBhMjM3ZTczYzM4NzU4OTZhYWMyMGQwZjVhNTEwMDNjNTlkZjVlYWEzMTUwZWI0NiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZWY2MDc4MjhkNDFkNTliOGMzZjRiZmY5ZDRlZDJkNGQ4NjIzNGU4ZmY4YTgzZTk5NDg4ZjIyOGM1ZDMzMzNlYSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYjEzYzQyYmNlNDMzNGNmYzNiMzYxZWFlMDEzNjA1ODM2NzlkMjIzMGIzMjVmMzMzYTA4ZDVmZmZhNjQwYjdjYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWE1YjIwN2QwZWYzOTZjY2YzMTIzMTNmMWVjMWI1Y2JkY2EzMmU0YzdjZTU5NGEzMjBmZjllZDUyNmVmODUyNiJ9"
+          "resource": "repo://docs/configuration/keycloak-realm-setup.md#L1-L24",
+          "version": "repo-lines-v1:sha256:b28a467c8ed8f8c4741895b85b7264259e03fb39eb64313c4c2d43c82a2147eb:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4ZDg5MjcwOWEyZjk0MjRiNTQ0NGM5NjY4MmZkYzliZjE4YTk0MjEwNTAxODI0M2NkOGEyOWRiNjIyNjU4MGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlhNTI3NTQzY2FkNmZhNGVjZDgxYWZkMzI2MDAzZDU4ZGQ2OWU5YmU3YWVkYWExZWFhNTRiMzA2ODQ2MmJlMTIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU5Y2Y2YTlkMTY1M2I2Y2UyY2QyZDdkY2M1YmFiM2Q2ZThkY2NlYTg0ZDU3YmY1ZTFkZDNhYmE3YzI4ZDg4ZjQifQ"
         }
       ]
     },
     {
-      "id": "claim_bbe716e4b1f74e53921f66b43a0cca70",
-      "statement": "The realm-setup walkthrough's example KeycloakRealmImport protocolMappers list (groups, email, name, audience) omits any AWS session-tags mapper for the https://aws.amazon.com/tags claim that the README's OIDC identity requirements, the shared-iam module's aws:RequestTag/uuid and aws:RequestTag/roles trust conditions, and the regional ECS Exec ABAC policy all depend on, so a realm built exactly from this example issues tokens with no principal session tags and cannot satisfy UUID-allowlist, group-enforcement, or ECS Exec resource-tag conditions even though Lambda-side investigation creation may still succeed via its preferred_username fallback.",
+      "id": "claim_79259b0ee8ff416ca741b2b60b239c23",
+      "statement": "The development guide requires a matching client audience, group or realm role, and identity-specific AWS principal tags; IAM role enforcement needs a separate role tag.",
       "evidence": [
         {
-          "resource": "repo://README.md#L82-L99",
-          "version": "repo-lines-v1:sha256:cda8eaa34bae15f0dc7841bb4888ab273cd57d0064daa5629872fc3e6a414d20:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUyY2NkMWRmYTI3NmQwNmNhZWJlNzhlMjQzNzE2ZjY0ZjQ1MmE3ZjA4NWIxMTM3ODQ4YjliOTg5ZTYxMDk3MjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3OGFjOWNiY2I2ZmI3MjFlNGJiNDU1ZDI1M2E4NmJmMjJhMTAyNGU5MzUyY2U0ZTZkMjI3ZDNhNzI0MmJmYmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNmNDg0MGU5NzhkNTY5MTQ0ODdlNTY3NGZlOTI1YTBkNmIzMDc0ZmZjNTk4MDRlNzE5NDI1ODRiOTcxNWY0MjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNiZGUyODFjOTg5MDZmZDEyNmE4NmFjNzg4YzUzYTM3MmIzOGYxOTM4NGUxYjQzMWU3ODJlODIxZmUyYTA2MzMifQ"
-        },
-        {
-          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L1-L109",
-          "version": "repo-lines-v1:sha256:09a3a81619b2a11dff652e17b1ed3dc4470969fc90b97f235e4beec4a75c6b2a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMGIzODNiMTU0M2I5MWFkZTcyNTJjMDk2Y2YwZTQ0OTAxMDg0OTc3MzBlYTZjZDEwMjNhY2YwMmYyN2ZmNGZkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyN2U1Nzg4ZDVkOWQ3M2QyNGE4MWRiYzBhNWE3NGJmYTgyYzljM2IzYWY5OWU1MmFmNzk2ZTkwYjQ2OGE4YTNkIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MCwicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2IwYzQ0Mjk4ZmMxYzE0OWFmYmY0Yzg5OTZmYjkyNDI3YWU0MWU0NjQ5YjkzNGNhNDk1OTkxYjc4NTJiODU1IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwZDI2ZjNlNTZmOTM1NmNhMzRkODk2ZWY1OWMyNzRlOGNjZmJhYjUyZGJmNDBhMDFhZWNhYjg0YjNjMzRjMjJkIn0"
-        },
-        {
-          "resource": "repo://docs/configuration/keycloak-realm-setup.md#L79-L128",
-          "version": "repo-lines-v1:sha256:67108606d26cdc5beb55d9624e1f866c0accd8988a00086a5a3ff8b54769010d:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE3ODQxMDRkMmRlMDM0ODEzN2FjOTI5NTQ4YmRjMWZlN2RhOTc1MzEyZDM5ZWZlNjVlNGJiMjZhZTYzYmUzOTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI3ZTA0YjA0MDVlMzE4OGYxMzljMzkwODEzNzljZGE3YWVlZThkNmM5ZmQ0ODRkNjRiNWIyZDE3NDkxZTI4YjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI4NWI4MGNhZjZmNjA2OGIyNDVkNzRkMzY5NWU1MDViOTZiOTE1MDk0NDNiOGQ4OGI5OWFmNzg3YTE2YmEwYWIifQ"
+          "resource": "repo://docs/configuration/keycloak-realm-setup.md#L26-L39",
+          "version": "repo-lines-v1:sha256:57f8ff8fa9765cc881372b7fa658282ef60eecd72e9d42ceb312c7772ce1d820:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA2NzA2NzE1OWU3NzQ0NDIyODljZTUyMzk1MzBjYjJmOGYwMjMwN2FhNWYwNmRhODFjMjQ4MzZmMDE5MzZiZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4MmJkY2ZmNTRhMDQ5NTgyYWFlYmJiOWZlZGNhNmFhNDkyNjJhZjM3MTdlYWNmOWFhMjU0NWU3Y2UyNmExNjgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRkNjU0MzkzYjY1YjA0NTc1Zjc4MThkMjI4NDUzMWYwZDJkMjk4YjU1OGNkYWYxMDdhMTBiYTQ1ZDZiNTVmZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNjNTI0ZDgwZDdmZDBjMmI5MjM5YjQ1MDI4YjQyOGI0MWVjY2ZiNTczODJiOWNkMzk0NjIyY2U5Zjc0YWYwZmQifQ"
         }
       ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-19T16:04:15.171Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

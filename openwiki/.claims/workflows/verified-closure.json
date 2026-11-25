@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "pageVersion": "sha256:d9418f1083dab882de122caea1fb29023bce27267bb4f35f5d0198db9cb688cc",
+  "claims": [
+    {
+      "id": "claim_01107c8c9b1145bbbffe7f73348035ba",
+      "statement": "An accepted close records a request and its stop consent. It is not authority to stop an attached shell: the service rejects an explicit request while a shell is attached, and the finalizer waits if one attaches after acceptance.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/create-investigation/close_requests.py#L595-L689",
+          "version": "repo-lines-v1:sha256:d9d1fe19df2fab2830c3f8f0fda182207ff26f974efe8451279e0e32cc5d5615:eyJzZWxlY3RlZExpbmVDb3VudCI6OTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNjNWU2ZDJlZjQ4ZjVmOGI1ZjI5Mzk3MTk2ODEyYzc3NTViZTI5ZTI4YjIwMjVjZWNhNWFkYzA1NTllZjI3YzMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlNDI0OTczMGZlZjk4MWRhNGQ0NTQwYTkxMTdkMzA2YTlmNGNjOWYxMDhkY2QyNzhlZmMyODRmNDM1ODFhNDkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlMWVkODYyMjEzODMzYmNiY2FiMGUxYzE2M2ZmZTY0ZjA3OTliNTNlNTUyN2JlOTczNjNiMjg4OGY4YzNiMTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ4MzdlN2NiMDJlZGExZjVjNzUzYjhkYWE4OWQ3ZmY2MmJlNmQzM2UxOTk1ZGYzOGRkYWUwMjQ0Y2ZhOTIwOWIifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-investigations/close_finalization.py#L541-L584",
+          "version": "repo-lines-v1:sha256:60472155a490e103bd5ab073a3f8ae3214678f3e7eb873513c94375e9f8b8274:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwNjQ0MGVhNWM3YzkwY2M1NzNkZWUyNzM4ZWIxNzc3ZGNkYzJlMWZiN2Q2NTAwOWU0NjJkNDhmZTMwZmU3NTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZiZTU5M2NlMmVmMGYxZjM4MDIzNGZiMjk0MWViMmFhYmJkNDI0NmM4NzNjNDcxMmJkMDk2YzUzMjU1YTgzM2MiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ0NjQ4ZjAxMDViOTlmODQ2YWE4NmUxZDk2Mzc1YjkyOTQ4NTljNWQ2Njc3NWFmMzBiNDcyMDVhMWU4M2E4NzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZjNjJjMGZmOTAzYzE4MWU2YWE1ODQ1YTk5MWU1ODVjMTExODk3MDFkYTQ4Y2Q2NTY2NTVlMTU3NDViMGE0MDIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_1b34e48149cf4541b54634ab5671979c",
+      "statement": "The finalizer seals, drains within the consented scope and requires two quiet observations before measuring. Unknown state or a missing workspace cannot establish a verified empty copy.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-investigations/close_finalization.py#L380-L440",
+          "version": "repo-lines-v1:sha256:2bd358814bd1f025f75dbfcb76a2134758a5a583960cb6429bdbfe645c4d8e65:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJmOGE1NGQzYzE4NjQzZDM4Njk4YTM0NWExYzQyNWYwNDI3NDk2ZWUzMGIxYjE4MWQwYzY4ZGM3MWI4N2M5MDciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNlNGMyZmQ2YmYxODE4ZGE3MmU5N2MwNmQ4NWQxZGRlY2QxMGJiOGE4ZTViYjQ4Mzg3NjNlM2UzNWFlMDgxYTciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ3MTQzOWVlYTljMzAwNTdmZjQ3YWM2MjQwODM0NmFmZTU1ZGFjMWY3M2VjYzM4ZDc5NzA4YWRiOTY4NzQ1ZGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQzZWU0ZGNhZDFjMTAwNDRiNjhlZWI1ZjQzYzNjMDU3MTY1YzJmZjg0ZWRlMzYwNTMzNDQ4YmIyZTM3ZmE5YjcifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-investigations/close_finalization.py#L541-L614",
+          "version": "repo-lines-v1:sha256:4136c9ef330c706ba1dcce68324797eed90e83b39bdb3635e84f384769d924df:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwNjQ0MGVhNWM3YzkwY2M1NzNkZWUyNzM4ZWIxNzc3ZGNkYzJlMWZiN2Q2NTAwOWU0NjJkNDhmZTMwZmU3NTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjliNDMwMjU3NGI5MzQyMjRkN2ZjNjQyYjlmMjI3ODdkZDA3Yzc0NmUxYTg1NmNlZDNhOGY2YWU3OWMwNjZiZDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ0NjQ4ZjAxMDViOTlmODQ2YWE4NmUxZDk2Mzc1YjkyOTQ4NTljNWQ2Njc3NWFmMzBiNDcyMDVhMWU4M2E4NzQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk2ODk1Y2QwYmI5NDgzZGE2NTQ2ZmJmNjIzOWZlZWMwMDYwZjEzN2E2ZmIwMzM2YjQ2ODhhZmVhZDBlMjA2ZDEifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_235090cf4951431ca48f54dea9d28726",
+      "statement": "Each verification attempt binds its source manifest, destination copy and verification evidence to the attempt. A task's shutdown sync is not this verification.",
+      "evidence": [
+        {
+          "resource": "repo://entrypoint.sh#L21-L56",
+          "version": "repo-lines-v1:sha256:c070f86494f79e1f6ef90efe88c78a2281ac6a5eee606e133a7ca331db363c19:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE5ZGEzZmIyOTY1MzAwMjllZTRjYTI1NjJmNTdmNWQ2ZDc2YzcyZTg2ZWNiZWZiZGJlOTJiZDc3MzI5NjYxZjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyNDUwNzhhYWU3ODY3NzZlMDI0ZWNmMzZmZTFhYWQ5ZjZhZjM3NTkwZWVmMWM3MWExNWFmN2FlNDQyMWE5NmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlOGIyMjY5OTUxNDQ4MzUwODdlYjNjMTNhZTFjN2ZmZGE4NjI1ZGY5YzE0OGY5OGNiY2E3MGJhYzMwZjNiZmYifQ"
+        },
+        {
+          "resource": "repo://lambda/reap-investigations/close_finalization.py#L611-L695",
+          "version": "repo-lines-v1:sha256:29ac344ea86fe83f98c8c54dfa3372c2cfd2182930eb2ae88f463a5372afd2dd:eyJzZWxlY3RlZExpbmVDb3VudCI6ODUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFjYzhkOGMzYzY3NTVlNWU2OTg0NTFmM2MxNmY0OGU1N2VmMDU5MmFmNWZhNGUxYjk3NTNiN2UyMzJhNGE2NTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRjZmJkM2M2M2ViMjJiY2Q1ZWYwYWI0NDVmMTAzZWMzZGM1MmU5ZGNhZjg4YmJjZTkyZTQ5NDI0ZTAwMjgxN2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwOWJkMjM0ZjIyOTc1YTM2ZTY0MzJiYjQ3NzMxNmQ2ZWExN2I4NzgyOTIxYjhkMDE5OWI0NmI4ODI2OGI3ZjQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI3ZTk1NGYwMTYyYzAxNGQwMDg4M2FmZDUwNWYzZTY1OTA1OTIzZDI1NGQ3NTkxYzkxZGJjNWJjNWU2MWY0YWQifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_497f8244296343d8b589dd1de1e5a3d3",
+      "statement": "A verified receipt records cleanup separately: normal closure retains the EFS directory, and incomplete cleanup remains retryable rather than being reported as completed.",
+      "evidence": [
+        {
+          "resource": "repo://lambda/reap-investigations/close_finalization.py#L787-L883",
+          "version": "repo-lines-v1:sha256:07bfafe49d7affe8bafe601ef651db95c8a367ec563264e258a8e3d9747510da:eyJzZWxlY3RlZExpbmVDb3VudCI6OTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiMmRkNDIzOGQ0ZTg2NWM5ODJjOTQxYTIyZmNlYjUxOTJjZGIxYTEwOWVjZGE4ODM0ZjRjOGQ1ZWRjZDNkZDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFhNDU5YmIyODYzMjdlMGNhZDI1ZDBmNDA0OTE3ZjBhMmM1MWNkNGYxMzU4NzZhMjViMDk5M2M1YmI3MGZlMDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVhZTFjZTA2N2FjZDVmYjEzZWM1OTNiMjQyNDZhNzliNTA3YzI1OWYwNTE2OGNmZDhhYzNiNDQ3YzU5ZTlhZWEifQ"
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
+  }
+}

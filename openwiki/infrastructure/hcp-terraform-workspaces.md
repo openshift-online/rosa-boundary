@@ -38,10 +38,10 @@ sources:
     resource: repo://hcp-terraform/rosa-boundary/main.tf
   - id: openwiki-source-37ce5ca787d481a0d0fc0453
     resource: repo://hcp-terraform/rosa-trusted-actions/main.tf
-generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.0
-    at: 2026-11-13T18:18:24.408Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 # HCP Terraform workspace integration
@@ -93,7 +93,7 @@ Each box is a separate HCP Terraform workspace with its **own state and run hist
 | Layer | Configuration authority | Workspace and runtime | Inputs required before runs |
 |---|---|---|---|
 | L1 | [infra-platform tenant config](https://github.com/openshift-online/infra-platform/blob/main/hcp-terraform/tenants/rosa/main.tf) and its [bootstrap module](https://github.com/openshift-online/infra-platform/blob/main/hcp-terraform/modules/terraform-tfe-bootstrap/main.tf) | `rosa-bootstrap`, `infra-platform` VCS, Terraform `1.13.4`; its `import` block adopts its own workspace | Platform admin and notification variable sets; initial run bootstrapped manually by platform admin |
-| L2 | [`hcp-terraform/rosa-boundary/main.tf`](../../hcp-terraform/rosa-boundary/main.tf) and upstream [workspaces module](https://github.com/openshift-online/infra-platform/blob/main/hcp-terraform/modules/terraform-tfe-workspaces/main.tf) pinned at `0.0.23` ([L36-L37](../../hcp-terraform/rosa-boundary/main.tf#L36-L37)) | `meta-rosa-rosa-boundary`, `rosa-boundary` VCS, Terraform `1.16.0` | `rosa-admin-creds` (`TFE_TOKEN`) and `rosa-notification-url`, attached by L1; the module's own `notification` block ([L44-L52](../../hcp-terraform/rosa-boundary/main.tf#L44-L52)) fires on `run:needs_attention`, `run:errored`, and check/drift/assessment failures |
+| L2 | [`hcp-terraform/rosa-boundary/main.tf`](../../hcp-terraform/rosa-boundary/main.tf) and upstream [workspaces module](https://github.com/openshift-online/infra-platform/blob/main/hcp-terraform/modules/terraform-tfe-workspaces/main.tf) pinned at `0.0.23` ([module declaration](../../hcp-terraform/rosa-boundary/main.tf#L39-L56)) | `meta-rosa-rosa-boundary`, `rosa-boundary` VCS, Terraform `1.16.0` | `rosa-admin-creds` (`TFE_TOKEN`) and `rosa-notification-url`, attached by L1; the module's own `notification` block ([L44-L52](../../hcp-terraform/rosa-boundary/main.tf#L44-L52)) fires on `run:needs_attention`, `run:errored`, and check/drift/assessment failures |
 | L3: staging AWS credentials | [`hcp-terraform/aws-creds/rosa-boundary-stage/main.tf`](../../hcp-terraform/aws-creds/rosa-boundary-stage/main.tf) | `rosa-boundary-stage-aws-creds`, Terraform `1.16.0`, **manual apply** (`auto_apply = false` / `auto_apply_run_trigger = false`, [L167-L168](../../hcp-terraform/rosa-boundary/main.tf#L167-L168)) | `rosa-boundary-tfe-creds` for TFE API plus AWS credentials; after bootstrap, its **own** generated dynamic-credentials set |
 | L3: staging networks | [`deploy/network/`](../../deploy/network/) | `rosa-boundary-stage-network` (**manual apply**: `auto_apply = false` / `auto_apply_run_trigger = false`, [L60-L61](../../hcp-terraform/rosa-boundary/main.tf#L60-L61)), `rosa-boundary-stage-network-us-west-2` (auto-applies, [L97-L98](../../hcp-terraform/rosa-boundary/main.tf#L97-L98)), Terraform `1.16.0` | Generated `rosa-boundary-rosa-boundary-stage-default-aws-dynamic-creds` set; region-specific network inputs/defaults |
 | L3: staging account | [`deploy/account/`](../../deploy/account/) | `rosa-boundary-stage-account`, Terraform `1.16.0`, auto-apply ([L181-L182](../../hcp-terraform/rosa-boundary/main.tf#L181-L182)) | Same staging generated AWS set; shared identity, trust, budget, and model-agreement inputs |

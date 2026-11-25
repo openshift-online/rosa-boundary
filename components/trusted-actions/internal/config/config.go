@@ -62,7 +62,21 @@ type Config struct {
 	OCMToken        string
 
 	// Database Configuration (environment variables)
-	DatabaseURL       string
+	// DatabaseURL is the legacy password-DSN path (expand phase): a
+	// postgres:// URL with credentials, or a SQLite file path. It remains
+	// supported unchanged; the IAM-token path below supersedes it in
+	// production (ticket 02) and replaces it entirely later (ticket 04).
+	DatabaseURL string
+	// DBHost/DBPort/DBName/DBUser are the IAM-token database contract: no
+	// URL and no password — the server mints a short-lived RDS IAM token
+	// per physical connection instead. DBSSLMode defaults to verify-full;
+	// only the LocalStack development env file lowers it to disable.
+	DBHost    string
+	DBPort    string
+	DBName    string
+	DBUser    string
+	DBSSLMode string
+	// Pool tuning applies to both database paths.
 	DBMaxOpenConns    int
 	DBMaxIdleConns    int
 	DBConnMaxLifetime time.Duration
@@ -255,6 +269,11 @@ func Load(configFilePath string) (*Config, error) {
 
 		// Database Configuration
 		DatabaseURL:       getEnv("DATABASE_URL", ""),
+		DBHost:            getEnv("ROSA_TA_DB_HOST", ""),
+		DBPort:            getEnv("ROSA_TA_DB_PORT", ""),
+		DBName:            getEnv("ROSA_TA_DB_NAME", ""),
+		DBUser:            getEnv("ROSA_TA_DB_USER", ""),
+		DBSSLMode:         getEnv("ROSA_TA_DB_SSLMODE", "verify-full"),
 		DBMaxOpenConns:    getPositiveIntEnv("ROSA_TA_DB_MAX_OPEN_CONNS", 10),
 		DBMaxIdleConns:    getPositiveIntEnv("ROSA_TA_DB_MAX_IDLE_CONNS", 5),
 		DBConnMaxLifetime: getPositiveDurationEnv("ROSA_TA_DB_CONN_MAX_LIFETIME", 5*time.Minute),

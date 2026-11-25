@@ -108,7 +108,10 @@ build-server: generate download-goreleaser ## Build only the server binary (snap
 
 # Run
 .PHONY: run
-run: generate ## Run the server using DATABASE_URL from the environment
+run: generate ## Run the server; sources .env.localstack-db (make localstack-db) when present
+	@if [ -f .env.localstack-db ]; then \
+		set -a; . ./.env.localstack-db; set +a; \
+	fi; \
 	go run $(MAIN_PATH)
 
 .PHONY: run-postgres
@@ -120,6 +123,17 @@ run-postgres: generate postgres-up ## Run the server backed by the local compose
 run-sqlite: generate ## Run the server backed by a local SQLite file (trusted_actions.db)
 	DATABASE_URL="trusted_actions.db" \
 		go run $(MAIN_PATH)
+
+.PHONY: localstack-db
+localstack-db: ## Provision the LocalStack RDS Postgres dev database (needs LOCALSTACK_AUTH_TOKEN)
+	./scripts/localstack-db.sh
+
+.PHONY: localstack-db-down
+localstack-db-down: ## Stop and remove the LocalStack RDS dev database and its volume
+	$(COMPOSE) -p rosa-ta-localstack-db -f compose.localstack-db.yml down -v
+
+.PHONY: run-localstack-db
+run-localstack-db: run ## Alias of run; the env file already carries the local-dev contract
 
 .PHONY: dev
 dev: ## Run in development mode with auto-reload (requires air)

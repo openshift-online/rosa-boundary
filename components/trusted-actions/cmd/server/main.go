@@ -64,6 +64,8 @@ func newRootCmd() *cobra.Command {
 	cmd.Flags().String("log-level", "info", "log level (debug, info, warn, error)")
 	cmd.Flags().Bool("log-json", false, "enable JSON logging")
 
+	cmd.AddCommand(newBootstrapCmd())
+
 	return cmd
 }
 
@@ -94,8 +96,17 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// Setup logging
 	logger := setupLogging(cfg)
 
-	// Initialize database
-	dataStore, err := store.New(cmd.Context(), cfg.DatabaseURL, store.PostgresConfig{
+	// Initialize database. NewWithIAM gives the IAM-token path (no URL, no
+	// password — ROSA_TA_DB_HOST et al.) precedence over the legacy
+	// DATABASE_URL schemes during the expand phase.
+	dataStore, err := store.NewWithIAM(cmd.Context(), cfg.DatabaseURL, store.IAMDBConfig{
+		Host:    cfg.DBHost,
+		Port:    cfg.DBPort,
+		DBName:  cfg.DBName,
+		User:    cfg.DBUser,
+		Region:  cfg.AWSRegion,
+		SSLMode: cfg.DBSSLMode,
+	}, store.PostgresConfig{
 		MaxOpenConns:    cfg.DBMaxOpenConns,
 		MaxIdleConns:    cfg.DBMaxIdleConns,
 		ConnMaxLifetime: cfg.DBConnMaxLifetime,

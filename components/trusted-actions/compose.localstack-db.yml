@@ -1,0 +1,23 @@
+# Licensed LocalStack with RDS (a Pro feature). The auth token is supplied
+# via the LOCALSTACK_AUTH_TOKEN environment variable and never committed —
+# see the localstack-db target in the Makefile.
+services:
+  localstack-db:
+    image: docker.io/localstack/localstack-pro:latest
+    container_name: rosa-ta-localstack-db
+    environment:
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:?set LOCALSTACK_AUTH_TOKEN (Pro license required for RDS)}
+      - LOCALSTACK_ACCOUNT_ID=123456789012
+      - ENFORCE_IAM=0
+    ports:
+      - "127.0.0.1:4567:4566"
+    volumes:
+      - localstack-db-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4566/_localstack/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+volumes:
+  localstack-db-data:

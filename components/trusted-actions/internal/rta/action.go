@@ -141,14 +141,17 @@ func (g *commandGroup) actionRunCommand() *cobra.Command {
   rta action run get --cluster 1234 --jira OHSS-1234 --param resource=pods --no-wait
 
 Parameters are action-specific. Use 'rta action describe <action>' to see
-available parameters, their defaults, and which ones are required.`,
+available parameters, their defaults, and which ones are required. For get,
+patch, and delete on core resources (no group), the CLI sends version=v1
+unless a non-empty --param version is given. Resources in a named group must
+set version explicitly.`,
 		Args: requiredArgs("action name"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateFormat(cmd); err != nil {
 				return err
 			}
 
-			params, err := parseParams(cmd)
+			params, err := parseParams(cmd, args[0])
 			if err != nil {
 				return err
 			}
@@ -263,18 +266,44 @@ func boolFlag(cmd *cobra.Command, name string) bool {
 	return v
 }
 
-func parseParams(cmd *cobra.Command) (*map[string]string, error) {
-	raw, _ := cmd.Flags().GetStringSlice("param")
-	if len(raw) == 0 {
-		return nil, nil
+// defaultKubeAPIVersion is the Kubernetes API version sent when the user does
+// not pass one for an action that operates on a core-group resource.
+const defaultKubeAPIVersion = "v1"
+
+// takesDefaultVersion reports whether action defaults its version param. This
+// mirrors the catalog registrations in internal/catalog/catalog.go, where get,
+// patch, and delete declare version with a default of "v1"; the server never
+// applies catalog defaults itself. TestTakesDefaultVersion_MatchesCatalog
+// fails if the two drift apart.
+func takesDefaultVersion(action string) bool {
+	switch action {
+	case "get", "patch", "delete":
+		return true
 	}
-	params := make(map[string]string, len(raw))
+	return false
+}
+
+func parseParams(cmd *cobra.Command, action string) (*map[string]string, error) {
+	raw, _ := cmd.Flags().GetStringSlice("param")
+	params := make(map[string]string, len(raw)+1)
 	for _, kv := range raw {
 		parts := strings.SplitN(kv, "=", 2)
 		if len(parts) != 2 {
 			return nil, invalidUsage(cmd, "invalid --param %q: expected key=value", kv)
 		}
 		params[parts[0]] = parts[1]
+	}
+
+	// An empty version is never a valid Kubernetes API version, so
+	// --param version= counts as omitted rather than reaching the server.
+	// v1 is only assumed for the core group: named groups version
+	// independently, so guessing could target the wrong API.
+	if params["version"] == "" && params["group"] == "" && takesDefaultVersion(action) {
+		params["version"] = defaultKubeAPIVersion
+	}
+
+	if len(params) == 0 {
+		return nil, nil
 	}
 	return &params, nil
 }

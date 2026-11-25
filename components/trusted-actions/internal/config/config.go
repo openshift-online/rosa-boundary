@@ -108,10 +108,6 @@ type Config struct {
 	// one or more regions confines it to them — a list rather than a single
 	// region so one deployment can serve a group of them, not only the
 	// region it runs in.
-	//
-	// This is the only region allowlist. An AWS action's region is always its
-	// target cluster's own, so the AWS-specific list this replaced was asking
-	// the same question of the same value, one scope later.
 	AllowedClusterRegions []string
 	// AWSAllowedOperations names the AWS mutations actions may perform
 	// ("reboot", "terminate"). It has no default to fall back to: unset means

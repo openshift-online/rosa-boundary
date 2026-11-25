@@ -1,7 +1,3 @@
----
-updated_at: 11-25-2026
-created_at: 11-25-2026
----
 # Environment readiness smoke test
 
 Test both ways to start a Boundary session in one deployed region: start one in an existing investigation, then let session creation open a new investigation. Expect exactly two successful sessions. Read the Trusted Actions (TA) catalog from the second. Create and close resources **only in Boundary**. Do not log in to the target cluster or submit any Trusted Action, including a dry run.

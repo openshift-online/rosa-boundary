@@ -26,7 +26,7 @@ func runJoinSession(cmd *cobra.Command, args []string) error {
 
 func joinSession(cmd *cobra.Command, args []string,
 	resolveTarget func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error),
-	serviceFor func(*cobra.Command, *AuthResult) (closeService, error)) error {
+	serviceFor func(context.Context, *cobra.Command, *AuthResult) (closeService, error)) error {
 	if _, err := commandOutput(cmd); err != nil {
 		return err
 	}
@@ -77,13 +77,13 @@ func joinSession(cmd *cobra.Command, args []string,
 	if err := requireSessionCreator(authRes.IDToken, target.CreatorSubject); err != nil {
 		return err
 	}
-	newService := func() (closeService, error) { return serviceFor(cmd, authRes) }
-	service, err := newService()
+	newService := func(ctx context.Context) (closeService, error) { return serviceFor(ctx, cmd, authRes) }
+	service, err := newService(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("cannot verify close status; session was not joined: %w", err)
 	}
 	attachment.admit = func(ctx context.Context) error {
-		current, err := service.refreshIfExpired(newService)
+		current, err := service.refreshIfExpired(ctx, newService)
 		if err != nil {
 			return fmt.Errorf("cannot verify close status before attaching: %w", err)
 		}

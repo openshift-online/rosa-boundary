@@ -116,7 +116,7 @@ func runCloseInvestigation(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	service, err := newCloseService(cmd, authRes)
+	service, err := newCloseService(cmd.Context(), cmd, authRes)
 	if err != nil {
 		return err
 	}
@@ -168,9 +168,9 @@ type closeService struct {
 
 // refreshIfExpired replaces both credentials and the paired ID token when
 // either is due to expire.
-func (s closeService) refreshIfExpired(newService closeServiceFactory) (closeService, error) {
+func (s closeService) refreshIfExpired(ctx context.Context, newService closeServiceFactory) (closeService, error) {
 	if !s.expiry.IsZero() && !time.Now().Before(s.expiry) {
-		return newService()
+		return newService(ctx)
 	}
 	return s, nil
 }
@@ -178,7 +178,7 @@ func (s closeService) refreshIfExpired(newService closeServiceFactory) (closeSer
 // newCloseService assumes the invoker role so the close service is called with
 // the identity the deployment already uses for Lambda work, and returns the ID
 // token minted alongside those credentials rather than an older one.
-func newCloseService(cmd *cobra.Command, authRes *AuthResult) (closeService, error) {
+func newCloseService(ctx context.Context, cmd *cobra.Command, authRes *AuthResult) (closeService, error) {
 	cfg := authRes.Config
 	if cfg.LambdaFunctionName == "" || cfg.InvokerRoleARN == "" {
 		return closeService{}, fmt.Errorf("this profile has no close service configured; set lambda_function_name and invoker_role_arn (see 'rosa-boundary config init --help')")
@@ -188,7 +188,7 @@ func newCloseService(cmd *cobra.Command, authRes *AuthResult) (closeService, err
 		return closeService{}, err
 	}
 	pkce := auth.PKCEConfig{KeycloakURL: cfg.KeycloakURL, Realm: cfg.KeycloakRealm, ClientID: cfg.OIDCClientID}
-	idToken, creds, err := assumeRoleWithRetryOptions(cmd.Context(), pkce, cfg.AWSRegion, cfg.InvokerRoleARN, "rosa-boundary-invoker", invokerSTSDurationSeconds, false, options)
+	idToken, creds, err := assumeRoleWithRetryOptions(ctx, pkce, cfg.AWSRegion, cfg.InvokerRoleARN, "rosa-boundary-invoker", invokerSTSDurationSeconds, false, options)
 	if err != nil {
 		return closeService{}, fmt.Errorf("cannot reach the close service: %w", err)
 	}

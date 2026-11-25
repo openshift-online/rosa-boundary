@@ -78,7 +78,7 @@ func TestSessionStopActorRouting(t *testing.T) {
 		task := &awsclient.TaskSummary{TaskID: "task", Tags: map[string]string{"oidc_sub": tc.owner, "cluster_id": "cluster", "investigation_id": "inv"}}
 		err := stopOneSession(context.Background(), token, task,
 			func(context.Context, string, string) error { direct = true; return nil },
-			func() (closeService, error) { return service.service(), nil })
+			func(context.Context) (closeService, error) { return service.service(), nil })
 		if (err != nil) != tc.denied || direct != tc.direct || (len(service.requests) == 1) != tc.mediated {
 			t.Fatalf("owner=%q direct=%v requests=%v err=%v", tc.owner, direct, service.requests, err)
 		}

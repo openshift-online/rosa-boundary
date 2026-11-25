@@ -82,7 +82,7 @@ func TestJoinRequiresOpenInvestigation(t *testing.T) {
 
 func runHook(service *fakeCloseService, jsonOutput bool) sessionCloseOutcome {
 	return afterAttachedSession(context.Background(),
-		func() (closeService, error) { return service.service(), nil },
+		func(context.Context) (closeService, error) { return service.service(), nil },
 		resolvesTo(hookTarget()), jsonOutput)
 }
 
@@ -167,7 +167,7 @@ func TestSessionCallbackReportsDefinitiveConflict(t *testing.T) {
 func TestUnresolvableInvestigationDoesNotRequestClose(t *testing.T) {
 	service := withHookState(t, true, false, true)
 	outcome := afterAttachedSession(context.Background(),
-		func() (closeService, error) { return service.service(), nil },
+		func(context.Context) (closeService, error) { return service.service(), nil },
 		func() (sessionCloseTarget, error) { return sessionCloseTarget{}, errors.New("no tags") }, false)
 	if outcome.Requested || len(service.requests) != 0 {
 		t.Fatalf("closed without a trusted investigation identity: %+v", outcome)
@@ -226,7 +226,15 @@ func TestAutoCloseWithdrawalRefreshesExpiredInvokerCredentials(t *testing.T) {
 		stale, fresh := &fakeCloseService{}, &fakeCloseService{}
 		service := stale.service()
 		service.expiry = time.Now().Add(-time.Minute)
-		withdrawAutoCloseIntent(context.Background(), service, hookTarget(), func() (closeService, error) {
+		parent, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+		cancel()
+		var refreshCtx context.Context
+		withdrawAutoCloseIntent(parent, service, hookTarget(), func(ctx context.Context) (closeService, error) {
+			refreshCtx = ctx
+			deadline, bounded := ctx.Deadline()
+			if ctx.Err() != nil || !bounded || time.Until(deadline) > autoCloseWithdrawalTimeout {
+				t.Fatalf("refresh got a canceled or unbounded context: deadline=%v, err=%v", deadline, ctx.Err())
+			}
 			if fail {
 				return closeService{}, errors.New("sign-in failed")
 			}
@@ -239,8 +247,12 @@ func TestAutoCloseWithdrawalRefreshesExpiredInvokerCredentials(t *testing.T) {
 			if len(fresh.cancellation) != 0 {
 				t.Fatal("attempted withdrawal despite failed reauthorization")
 			}
-		} else if len(fresh.cancellation) != 1 || fresh.cancellation[0].TaskID != "task-1" {
-			t.Fatalf("intent not withdrawn with fresh credentials: %+v", fresh.cancellation)
+		} else if len(fresh.cancellation) != 1 || fresh.cancellation[0].TaskID != "task-1" ||
+			fresh.cancelCtx != refreshCtx || fresh.cancelCtxErr != nil {
+			t.Fatalf("withdrawal did not use the live refresh context: requests=%+v, context error=%v", fresh.cancellation, fresh.cancelCtxErr)
+		}
+		if refreshCtx.Err() != context.Canceled {
+			t.Fatal("cleanup context was not released")
 		}
 	}
 }
@@ -263,7 +275,7 @@ func TestTheHookBuildsItsServiceOnlyWhenACloseIsRequested(t *testing.T) {
 	} {
 		service := withHookState(t, tc.auto, false, tc.answer)
 		built := 0
-		afterAttachedSession(context.Background(), func() (closeService, error) {
+		afterAttachedSession(context.Background(), func(context.Context) (closeService, error) {
 			built++
 			return service.service(), nil
 		}, resolvesTo(hookTarget()), false)
@@ -284,7 +296,7 @@ func TestTheHookSendsTheServicesOwnToken(t *testing.T) {
 func TestAnUnavailableCloseServiceLeavesTheInvestigationOpen(t *testing.T) {
 	withHookState(t, true, false, false)
 	outcome := afterAttachedSession(context.Background(),
-		func() (closeService, error) { return closeService{}, errors.New("no credentials") },
+		func(context.Context) (closeService, error) { return closeService{}, errors.New("no credentials") },
 		resolvesTo(hookTarget()), false)
 	if outcome.Requested || outcome.Note == "" {
 		t.Fatalf("an unavailable service must not look like a close: %+v", outcome)

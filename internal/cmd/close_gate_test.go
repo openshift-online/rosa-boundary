@@ -144,6 +144,8 @@ type fakeCloseService struct {
 	accept       *lambda.CloseActionResponse
 	acceptErr    error
 	cancelErr    error
+	cancelCtx    context.Context
+	cancelCtxErr error
 	statuses     []*lambda.CloseStatusResponse
 	statusErr    error
 	calls        int
@@ -160,7 +162,8 @@ func (f *fakeCloseService) CloseIdleSession(_ context.Context, _ string, req lam
 	return f.acceptErr
 }
 
-func (f *fakeCloseService) CancelAutoClose(_ context.Context, _ string, req lambda.CloseActionRequest) (*lambda.CloseActionResponse, error) {
+func (f *fakeCloseService) CancelAutoClose(ctx context.Context, _ string, req lambda.CloseActionRequest) (*lambda.CloseActionResponse, error) {
+	f.cancelCtx, f.cancelCtxErr = ctx, ctx.Err()
 	f.cancellation = append(f.cancellation, req)
 	if f.cancelErr != nil {
 		return nil, f.cancelErr

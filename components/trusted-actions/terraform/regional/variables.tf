@@ -131,14 +131,14 @@ variable "app_config" {
 
   # Default reproduces the values previously spread across the roles,
   # worker_* and allowed_* variables, so an unconfigured deployment behaves
-  # as before. aws_allowed_regions is present because the server refuses to
-  # start without it (no built-in default) and matches the variable default
-  # for aws_region. allowed_namespaces is deliberately explicit: an empty
-  # list puts the authorizer in permissive mode, so the deployed config must
-  # state what it wants rather than inherit a silent "allow all".
+  # as before. allowed_cluster_regions is deliberately absent: unset, actions
+  # reach clusters in every region, which is how this deployment behaved
+  # before the setting existed. allowed_namespaces is deliberately explicit
+  # for the opposite reason: an empty list puts the authorizer in permissive
+  # mode, so the deployed config must state what it wants rather than inherit
+  # a silent "allow all".
   default = <<-YAML
     actions:
-      aws_allowed_regions: [us-east-1]
       allowed_namespaces: []
       allowed_secrets: []
     roles:

@@ -26,7 +26,7 @@ variable "backplane_client_secret" {
 }
 
 variable "aws_region" {
-  description = "Deployment AWS region — interpolated into the regional workspace's app_config (actions.aws_allowed_regions) and set as its aws_region workspace variable."
+  description = "Deployment AWS region — set as the regional workspace's aws_region workspace variable."
   type        = string
   default     = "us-east-1"
 }

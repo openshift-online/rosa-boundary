@@ -295,7 +295,7 @@ func newTestExecutor(t *testing.T, allowedNS []string, allowedSecrets []string) 
 	authorizer := authorization.New(logger, allowedNS, allowedSecrets)
 	auditor := audit.NewMockLogger(logger)
 	provider := newMockBackplaneProvider(t)
-	return executor.New(logger, auditor, executor.NewKubeScope(authorizer, provider)), auditor
+	return executor.New(logger, auditor, nil, nil, executor.NewKubeScope(authorizer, provider)), auditor
 }
 
 // mockBackplaneProvider implements backplane.ClientProvider by talking to the
@@ -536,5 +536,5 @@ func newTestExecutorWithProxy(t *testing.T, allowedNS []string, allowedSecrets [
 	authorizer := authorization.New(logger, allowedNS, allowedSecrets)
 	auditor := audit.NewMockLogger(logger)
 	provider := newProxyBackplaneProvider(t)
-	return executor.New(logger, auditor, executor.NewKubeScope(authorizer, provider)), auditor
+	return executor.New(logger, auditor, nil, nil, executor.NewKubeScope(authorizer, provider)), auditor
 }

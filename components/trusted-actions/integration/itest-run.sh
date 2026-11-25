@@ -12,6 +12,11 @@ CLUSTER_NAME=${ROSA_TA_KIND_CLUSTER_NAME:-"rosa-ta"}
 KUBECONFIG_PATH="$SCRIPT_DIR/.kind-kubeconfig"
 DB_PATH="$SCRIPT_DIR/.trusted_actions.db"
 SERVER_LOG="$SCRIPT_DIR/.server.log"
+BOUNDARY_SERVER_LOG="$SCRIPT_DIR/.server-boundary.log"
+# ACTIVE_SERVER_LOG is the log of the process currently listening on :8080.
+# Helpers point failure messages at it so a post-restart flake does not send
+# the reader to a stale file from the previous server.
+ACTIVE_SERVER_LOG="$SERVER_LOG"
 SERVER_BIN="$SCRIPT_DIR/.server-bin"
 SERVER_URL="http://localhost:8080"
 API_BASE="$SERVER_URL/api/v0/trusted-actions"
@@ -51,7 +56,7 @@ run_action() {
     response=$(curl -sf -X POST "$API_BASE/$action/run" \
         -H 'Content-Type: application/json' \
         -d "$body") ||
-        fail "POST $API_BASE/$action/run failed — check $SERVER_LOG"
+        fail "POST $API_BASE/$action/run failed — check $ACTIVE_SERVER_LOG"
 
     EXEC_ID=$(echo "$response" | jq -r '.id')
     [ -n "$EXEC_ID" ] && [ "$EXEC_ID" != "null" ] || fail "no execution id in response: $response"
@@ -65,7 +70,7 @@ run_action() {
         sleep 1
         elapsed=$((elapsed + 1))
         EXEC_RESPONSE=$(curl -sf "$API_BASE/runs/$EXEC_ID") ||
-            fail "GET $API_BASE/runs/$EXEC_ID failed — check $SERVER_LOG"
+            fail "GET $API_BASE/runs/$EXEC_ID failed — check $ACTIVE_SERVER_LOG"
         status=$(echo "$EXEC_RESPONSE" | jq -r '.status')
     done
 
@@ -84,7 +89,7 @@ run_action_status() {
 
     response=$(curl -sf -X POST "$API_BASE/$action/run" \
         -H 'Content-Type: application/json' -d "$body") ||
-        fail "POST $API_BASE/$action/run failed — check $SERVER_LOG"
+        fail "POST $API_BASE/$action/run failed — check $ACTIVE_SERVER_LOG"
 
     execution_id=$(echo "$response" | jq -r '.id')
     [ -n "$execution_id" ] && [ "$execution_id" != "null" ] ||
@@ -98,7 +103,7 @@ run_action_status() {
         sleep 1
         elapsed=$((elapsed + 1))
         response=$(curl -sf "$API_BASE/runs/$execution_id") ||
-            fail "GET $API_BASE/runs/$execution_id failed — check $SERVER_LOG"
+            fail "GET $API_BASE/runs/$execution_id failed — check $ACTIVE_SERVER_LOG"
         status=$(echo "$response" | jq -r '.status')
     done
 
@@ -110,7 +115,7 @@ run_action_status() {
 # Sets: EXEC_OUTPUT
 get_output() {
     EXEC_OUTPUT=$(curl -sf "$API_BASE/runs/$1/output") ||
-        fail "GET $API_BASE/runs/$1/output failed — check $SERVER_LOG"
+        fail "GET $API_BASE/runs/$1/output failed — check $ACTIVE_SERVER_LOG"
 }
 
 # --- 1. Retrieve a kubeconfig from kind ---
@@ -137,36 +142,49 @@ export AWS_REGION="$AWS_TEST_REGION"
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 
-# The region allowlist has no built-in default, so the server refuses to start
-# without one. Set to the same region the fixtures are seeded in.
-export ROSA_TA_AWS_ALLOWED_REGIONS="$AWS_TEST_REGION"
-
-# --- 3. Start the server ---
-log "Starting server"
+# --- Server lifecycle ---
+# start_server/stop_server so the cluster-region check at the end can restart
+# the server with a ROSA_TA_ALLOWED_CLUSTER_REGIONS set. Both act on the SERVER_PID
+# global; the server always listens on :8080, so only one runs at a time. The env
+# the server reads is whatever the caller has exported.
 SERVER_PID=""
-cleanup() {
+
+start_server() {
+    local log_file=$1
+    ACTIVE_SERVER_LOG="$log_file"
+    "$SERVER_BIN" --log-level debug --listen-addr ":8080" > "$log_file" 2>&1 &
+    SERVER_PID=$!
+
+    local elapsed=0
+    until curl -sf "$SERVER_URL/health" > /dev/null 2>&1; do
+        kill -0 "$SERVER_PID" 2> /dev/null || fail "server exited early — check $ACTIVE_SERVER_LOG"
+        if [ "$elapsed" -ge "$WAIT_TIMEOUT" ]; then
+            fail "server did not become healthy within ${WAIT_TIMEOUT}s — check $ACTIVE_SERVER_LOG"
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+}
+
+stop_server() {
     if [ -n "$SERVER_PID" ]; then
         kill "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
+        SERVER_PID=""
     fi
+}
+
+cleanup() {
+    stop_server
     rm -f "$SERVER_BIN"
 }
 trap cleanup EXIT
 
+# --- 3. Build and start the server ---
 go build -C "$REPO_ROOT" -o "$SERVER_BIN" ./cmd/server || fail "failed to build server binary"
 
-"$SERVER_BIN" --log-level debug --listen-addr ":8080" >"$SERVER_LOG" 2>&1 &
-SERVER_PID=$!
-
-elapsed=0
-until curl -sf "$SERVER_URL/health" >/dev/null 2>&1; do
-    kill -0 "$SERVER_PID" 2>/dev/null || fail "server exited early — check $SERVER_LOG"
-    if [ "$elapsed" -ge "$WAIT_TIMEOUT" ]; then
-        fail "server did not become healthy within ${WAIT_TIMEOUT}s — check $SERVER_LOG"
-    fi
-    sleep 1
-    elapsed=$((elapsed + 1))
-done
+log "Starting server"
+start_server "$SERVER_LOG"
 ok "server is healthy"
 
 # --- 4. Test: get action (list pods in kube-system) ---
@@ -347,6 +365,37 @@ read -r status execution_id <<<"$(run_action_status aws-get \
 [ "$status" = "failed" ] ||
     fail "aws-get with an unaccepted param finished as '$status', expected 'failed'"
 ok "aws-get rejected an unaccepted param (execution $execution_id)"
+
+# --- 11. Cluster-region allowlist: an out-of-region cluster must be denied ---
+# Every step so far ran with ROSA_TA_ALLOWED_CLUSTER_REGIONS unset — the open
+# default, where no region is judged at all and each action above was reached on
+# its own merits. Restart with an allowlist that excludes the region clusters
+# resolve to, so the region gate rejects before the scope; assert the denial in
+# the server log (not yet in the API — see worker.Pool.process) for both 'get'
+# and 'aws-get'.
+assert_out_of_region() {
+    local action=$1 body=$2 status execution_id
+    read -r status execution_id <<< "$(run_action_status "$action" "$body")"
+    [ "$status" = "failed" ] \
+        || fail "out-of-region '$action' finished as '$status', expected 'failed'"
+    grep "execution_id=$execution_id" "$ACTIVE_SERVER_LOG" | grep -q "is outside the regions this deployment may act on" \
+        || fail "no cluster-region denial logged for execution $execution_id — check $ACTIVE_SERVER_LOG"
+    ok "out-of-region '$action' denied by the cluster-region gate (execution $execution_id)"
+}
+
+log "Restarting server with an allowlist that excludes the clusters' region"
+stop_server
+export ROSA_TA_ALLOWED_CLUSTER_REGIONS="eu-west-1,eu-central-1"
+start_server "$BOUNDARY_SERVER_LOG"
+ok "server restarted (allowed cluster regions = $ROSA_TA_ALLOWED_CLUSTER_REGIONS, clusters resolve to $AWS_TEST_REGION)"
+
+log "Running 'get' against an out-of-region cluster (must be denied)"
+assert_out_of_region get \
+    '{"target_cluster": "local", "params": {"version": "v1", "resource": "pods", "namespace": "kube-system"}}'
+
+log "Running 'aws-get' against an out-of-region cluster (must be denied)"
+assert_out_of_region aws-get \
+    '{"target_cluster": "local", "params": {"resource": "ec2-instances"}}'
 
 echo
 ok "All integration tests passed."

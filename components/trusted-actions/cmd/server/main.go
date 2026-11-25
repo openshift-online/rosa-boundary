@@ -262,19 +262,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Refused at startup rather than denied per request. There is no built-in
-	// region default, so an unconfigured server could reach no region at all —
-	// it would start cleanly, serve the catalog, and fail every AWS execution
-	// with a policy error. Saying so here makes the missing setting obvious to
-	// whoever deployed it instead of to whoever first used it.
-	if len(cfg.AWSAllowedRegions) == 0 {
-		logger.Fatal("No AWS region allowlist configured; set ROSA_TA_AWS_ALLOWED_REGIONS " +
-			"or actions.aws_allowed_regions in the config file. There is no default: " +
-			"which regions a deployment may reach has to be stated explicitly")
-	}
-
 	awsAuthorizer := authorization.NewAWS(logger, authorization.AWSPolicy{
-		AllowedRegions:    cfg.AWSAllowedRegions,
 		AllowedOperations: cfg.AWSAllowedOperations,
 	})
 	if len(cfg.AWSAllowedOperations) > 0 {
@@ -284,6 +272,16 @@ func runServer(cmd *cobra.Command, args []string) error {
 		// log, without reading its own configuration back.
 		logger.WithField("operations", cfg.AWSAllowedOperations).
 			Warn("AWS write operations are enabled")
+	}
+
+	// The static AWS provider (selected below by the endpoint override)
+	// returns the same region for every cluster, so a cluster-region
+	// allowlist judged through it would decide every cluster alike — a
+	// verdict about the emulator, not about the real clusters the backplane
+	// still reaches when no kubeconfig is set.
+	if len(cfg.AllowedClusterRegions) > 0 && cfg.AWSEndpointURL != "" && cfg.Kubeconfig == "" {
+		logger.Fatal("ROSA_TA_ALLOWED_CLUSTER_REGIONS with ROSA_TA_AWS_ENDPOINT_URL requires " +
+			"ROSA_TA_KUBECONFIG to be set; otherwise the allowlist can't tell clusters apart")
 	}
 
 	// Two ways to reach AWS, chosen the same way the Kubernetes path chooses
@@ -334,10 +332,24 @@ func runServer(cmd *cobra.Command, args []string) error {
 		}, ocmClient.Clusters, ocmClient.Connection)
 	}
 
+	if len(cfg.AllowedClusterRegions) > 0 {
+		// Logged because an unset allowlist and a set one are the same server
+		// from the outside until a request is denied. Which clusters a
+		// deployment has been confined to should be readable from its startup
+		// log, the same way enabled AWS writes are.
+		logger.WithField("regions", cfg.AllowedClusterRegions).
+			Info("Actions are confined to clusters in these regions")
+	}
+
 	// One scope per execution domain; the executor dispatches each action to
 	// the scope that claims it. Every registered action must be claimed by one
 	// of these — see TestScopes_CoverEveryRegisteredAction.
-	actionExecutor := executor.New(logger, actionAuditor,
+	//
+	// awsProvider doubles as the cluster-region resolver the allowlist is
+	// judged with (executor.ClusterRegionResolver): it already has a
+	// DefaultRegion method, the same cache-backed OCM lookup AWS actions use
+	// for their own region resolution, so the check costs no extra OCM call.
+	actionExecutor := executor.New(logger, actionAuditor, cfg.AllowedClusterRegions, awsProvider,
 		executor.NewKubeScope(actionAuthorizer, bp),
 		executor.NewAWSScope(awsAuthorizer, awsProvider),
 	)

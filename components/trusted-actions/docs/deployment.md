@@ -216,7 +216,7 @@ terraform apply \
   -var="container_image=quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:<digest>" \
   -var="internal_fqdn=rosa-trusted-actions.internal.company.com" \
   -var='app_config=actions:
-  aws_allowed_regions: [us-east-1]
+  allowed_namespaces: []
   ocm:
     base_url: https://api.stage.openshift.com
     client_id: <ocm_client_id>
@@ -243,7 +243,7 @@ container_image       = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-
 internal_fqdn         = "rosa-trusted-actions.internal.company.com"
 app_config            = <<-YAML
   actions:
-    aws_allowed_regions: [us-east-1]
+    allowed_namespaces: []
   ocm:
     base_url: https://api.stage.openshift.com
     client_id: <ocm_client_id>
@@ -340,3 +340,34 @@ steps with the appropriate `aws_region`, `vpc_id`, and subnet variables for
 that region. The same `local_override.tf` file works unchanged — it points to
 the shared `terraform/global/terraform.tfstate` regardless of which region is
 being tested.
+
+A deployment can also be confined to the clusters of particular regions,
+through `actions.allowed_cluster_regions` in `app_config` (or
+`ROSA_TA_ALLOWED_CLUSTER_REGIONS`). The target cluster's own OCM region is
+judged against that list before authorization, for both Kubernetes and AWS
+actions. It is a list rather than a single region so one deployment can serve
+a group of them:
+
+```yaml
+actions:
+  allowed_cluster_regions: [us-east-1, us-east-2]
+```
+
+**Every deployment leaves it unset**, including the regional roots and the HCP
+workspace definitions, so actions reach clusters in every region — the way
+they behaved before the setting existed. Confining a deployment is a decision
+to take deliberately, not a default to inherit: the boundary applies to
+Kubernetes actions as well, and those have never been region-bounded, so
+turning it on denies cross-region `get`, `describe-nodes` and the rest along
+with the AWS reads.
+
+This replaced `actions.aws_allowed_regions` / `ROSA_TA_AWS_ALLOWED_REGIONS`,
+which asked the same question of the same value — an AWS action's region is
+always its target cluster's own — but only for AWS actions, and refused to
+start when unset. A deployment that still sets the old key will start and
+ignore it. Note the net effect for AWS: the old key pinned each region's
+deployment to its own region, and leaving the new one unset lifts that, so a
+deployment that wants the old AWS behaviour has to say
+`allowed_cluster_regions: [<its region>]` and accept that Kubernetes actions
+are confined too. `actions.aws_allowed_operations` is unchanged and still the
+gate on AWS writes.

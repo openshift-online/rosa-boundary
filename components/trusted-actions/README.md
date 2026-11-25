@@ -97,7 +97,6 @@ In an other shell:
 ```bash
 ROSA_TA_AUTH=ocmconfig \
 ROSA_TA_BACKPLANE_URL=https://localhost:8001 \
-ROSA_TA_AWS_ALLOWED_REGIONS=us-east-1 \
 go run ./cmd/server/ --config-file=config/config.yaml --log-level debug
 ```
 

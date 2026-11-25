@@ -40,7 +40,6 @@ export ROSA_TA_AWS_ENDPOINT_URL=http://127.0.0.1:4566   # LocalStack started by 
 export AWS_REGION=us-east-1
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
-export ROSA_TA_AWS_ALLOWED_REGIONS=us-east-1            # required at startup; no default
 export DATABASE_URL=integration/.trusted_actions.db
 
 nohup ./bin/rosa-trusted-actions-server --listen-addr 127.0.0.1:8080 --log-level debug > integration/.server.log 2>&1 &
@@ -56,9 +55,7 @@ step 6.
 `ROSA_TA_AUTH=disabled` injects a hardcoded `dev-user` identity with the SREP
 role — never set this outside local/CI. With auth disabled the server also
 requires `ROSA_TA_AWS_ENDPOINT_URL` (a guard against reaching real AWS); point it
-at LocalStack even for Kubernetes-only actions. `ROSA_TA_AWS_ALLOWED_REGIONS`
-is required unconditionally (there's no default region allowlist) — the server
-exits at startup without it even when the action under test never touches AWS.
+at LocalStack even for Kubernetes-only actions.
 The default listen address (`:8080`) binds all interfaces;
 `--listen-addr 127.0.0.1:8080` keeps this unauthenticated, kubeconfig-backed
 server off the network.

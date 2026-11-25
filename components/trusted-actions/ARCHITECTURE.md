@@ -166,8 +166,11 @@ actions:
     allowed_secrets:
       - openshift-logging/collector-config
       - openshift-monitoring/alertmanager-config
-    aws_allowed_regions:
-      - us-east-1
+    # Optional, and omitted by every deployment: unset, actions reach
+    # clusters in every region. Naming regions confines the deployment to
+    # their clusters, for Kubernetes actions as well as AWS ones.
+    # allowed_cluster_regions:
+    #   - us-east-1
 ocm:
     base_url: https://api.openshift.com
     client_id: ""

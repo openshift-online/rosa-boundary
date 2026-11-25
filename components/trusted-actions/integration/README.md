@@ -60,6 +60,15 @@ Setup:
     localstack, so the script seeds one of each first. Finally it submits a request with a
     param the resource does not accept and asserts the execution *fails* — the input
     validation is only worth having if it survives the whole HTTP path.
+  - **cluster-region allowlist** — every step above runs with
+    `ROSA_TA_ALLOWED_CLUSTER_REGIONS` unset, the open default under which no cluster region
+    is judged. The server is then restarted with it set to two regions the clusters are not
+    in (`eu-west-1,eu-central-1`) while the static provider still resolves every cluster to
+    `AWS_REGION` (`us-east-1`). A kube `get` and an `aws-get` are each submitted and must end
+    `failed`: the executor's cross-cutting region gate rejects any cluster outside the allowed
+    regions, for both scopes. The denial reason is not persisted or exposed via the API yet
+    (see `worker.Pool.process`), so it is asserted against the restarted server's log
+    (`.server-boundary.log`) for each execution id.
 
   The server is stopped on exit either way. Requires `kind`, `go`, `curl`, `jq`, and `podman`
   on `PATH`.
@@ -85,7 +94,7 @@ implementation, so a green `itest-run` does not mean the whole AWS read surface 
   ```
 - `make itest-down` (or `./integration/itest-down.sh` directly) stops localstack, deletes the kind
   cluster, and removes the generated local artifacts (`.kind-kubeconfig`, `.trusted_actions.db`,
-  `.server.log`). Safe to run even if nothing is up.
+  `.server.log`, `.server-boundary.log`). Safe to run even if nothing is up.
 
 Reuse the existing `scripts/test-api.sh` / `make test-integration` pattern for broader API
 coverage rather than inventing a second, parallel integration-test concept.
@@ -128,26 +137,19 @@ tests can catch:
 The region a request reads differs accordingly: `StaticProvider` returns its one configured
 region for every cluster, while `BackplaneProvider` returns the target cluster's own region.
 Callers cannot choose — `aws-get` has no `region` param and rejects one if sent, because a
-cluster's AWS resources live where the cluster does. The region allowlist
-(`ROSA_TA_AWS_ALLOWED_REGIONS`) still judges the resolved region in both cases, so it must
-cover every region the fleet runs in or reads against those clusters will be denied.
+cluster's AWS resources live where the cluster does. Because that region is always the
+cluster's, bounding it is bounding which clusters are reachable — which is the cluster-region
+allowlist (`ROSA_TA_ALLOWED_CLUSTER_REGIONS`) the executor applies to every scope, not an
+AWS-specific setting. It is server-side only: there is no client or CLI flag, so nothing a
+caller sends can widen it. Unset it draws no boundary, and every region the fleet runs in stays
+reachable.
 
-That allowlist is server-side only — there is no client or CLI flag for it, so nothing a caller
-sends can widen it. It has **no default**: `authorization.DefaultAllowedRegions` is empty, and a
-server started without `ROSA_TA_AWS_ALLOWED_REGIONS` (or `actions.aws_allowed_regions`) exits at
-startup rather than running and denying every AWS request. Configured empty it denies everything
-rather than allowing everything, unlike the Kubernetes namespace allowlist. Which regions a
-deployment may read is therefore always an explicit decision, never an inherited one.
-
-`action-cli` reads the same variable for the same reason, so running an AWS action locally needs
-`ROSA_TA_AWS_ALLOWED_REGIONS` set too.
-
-**The AWS write actions are behind a second, separate allowlist.** `aws-reboot` and
+**The AWS write actions are behind their own allowlist.** `aws-reboot` and
 `aws-terminate` change a cluster's EC2 instances, and clearing the region gate says nothing
 about being allowed to do that — being permitted to look at a region is not being permitted to
 change what is in it. They are judged against `ROSA_TA_AWS_ALLOWED_OPERATIONS` (config key
 `aws_allowed_operations`), a comma-separated list of operation names: `reboot`, `terminate`.
-Unlike the region allowlist this one has no default to fall back to, so an unconfigured server
+Unlike the region allowlist this one fails closed, so an unconfigured server
 performs no AWS writes while still serving every read. The operation is taken from the action
 itself, never from the request, so a caller cannot describe a terminate as a reboot to land on
 a permitted entry.
@@ -165,8 +167,8 @@ only. Localstack does implement `RebootInstances` and `TerminateInstances`, so a
 possible, but it would also need the server started with `ROSA_TA_AWS_ALLOWED_OPERATIONS` set
 and the seeded instance tagged with the static provider's infra ID
 (`awsapi.StaticConfig.InfraID`, set from `--aws-infra-id` in `action-cli`). Until that exists,
-the writes are covered by unit tests only — including the ownership check and both allowlist
-gates — and a green `itest-run` is not evidence that they work end to end.
+the writes are covered by unit tests only — including the ownership check and the operation
+allowlist — and a green `itest-run` is not evidence that they work end to end.
 
 ### Phase 2 — OCM mocking (not Phase 1)
 

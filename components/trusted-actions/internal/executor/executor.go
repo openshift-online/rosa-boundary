@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -56,6 +58,17 @@ type Scope interface {
 	Run(ctx context.Context, req Request) (*actions.ActionResult, error)
 }
 
+// ClusterRegionResolver reports a cluster's own AWS region, as recorded in
+// OCM. It exists so the executor can enforce the cluster-region allowlist
+// without importing awsapi — awsapi.ClientProvider already has a method with
+// this exact signature, so the provider wired up for AWS actions satisfies it
+// directly, and the check reuses its cached OCM lookup rather than making a
+// second one. It is only consulted when an allowlist is configured, so a
+// deployment that configures none may leave it nil.
+type ClusterRegionResolver interface {
+	DefaultRegion(ctx context.Context, clusterID string) (string, error)
+}
+
 // Failure is returned by a Scope when a stage of the execution fails. Message
 // frames the failure for the caller, while Cause is the underlying error and
 // is what the audit trail records.
@@ -77,16 +90,27 @@ func (f *Failure) Error() string {
 func (f *Failure) Unwrap() error { return f.Cause }
 
 type Executor struct {
-	logger  *logrus.Logger
+	logger *logrus.Logger
+	// auditor receives one Record per Execute call, win or lose.
 	auditor audit.Logger
+	// allowedClusterRegions names the regions whose clusters this deployment
+	// may act on. Empty (default) means no boundary at all: a
+	// deployment reaches clusters in every region until it says otherwise.
+	allowedClusterRegions []string
+	// regions resolves a cluster's own region for the check above. Consulted
+	// only when allowedClusterRegions is non-empty, so it may be nil when it
+	// is not.
+	regions ClusterRegionResolver
 	scopes  []Scope
 }
 
-func New(logger *logrus.Logger, auditor audit.Logger, scopes ...Scope) *Executor {
+func New(logger *logrus.Logger, auditor audit.Logger, allowedClusterRegions []string, regions ClusterRegionResolver, scopes ...Scope) *Executor {
 	return &Executor{
-		logger:  logger,
-		auditor: auditor,
-		scopes:  scopes,
+		logger:                logger,
+		auditor:               auditor,
+		allowedClusterRegions: allowedClusterRegions,
+		regions:               regions,
+		scopes:                scopes,
 	}
 }
 
@@ -108,6 +132,26 @@ func (e *Executor) Execute(ctx context.Context, req Request) (result *Result) {
 		return &Result{
 			Allowed: false,
 			Reason:  reason,
+		}
+	}
+
+	// Region gate: once a deployment names the cluster regions it may act on,
+	// a cluster outside them is refused before authorization runs.
+	if len(e.allowedClusterRegions) > 0 {
+		region, err := e.regions.DefaultRegion(ctx, req.ClusterID)
+		if err != nil {
+			rec.Outcome = audit.OutcomeFailure
+			rec.Error = auditedCause(err).Error()
+			return &Result{Error: err}
+		}
+		rec.ClusterRegion = region
+		if !slices.Contains(e.allowedClusterRegions, region) {
+			reason := fmt.Sprintf("cluster region %q is outside the regions this deployment may act on (%s)",
+				region, strings.Join(e.allowedClusterRegions, ", "))
+			rec.Decision = audit.DecisionDenied
+			rec.DenyReason = reason
+			rec.Outcome = audit.OutcomeSkipped
+			return &Result{Allowed: false, Reason: reason}
 		}
 	}
 

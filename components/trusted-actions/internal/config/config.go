@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/openshift-online/rosa-trusted-actions/internal/authorization"
 )
 
 type AuthPolicy string
@@ -103,11 +101,14 @@ type Config struct {
 	// Actions Configuration
 	AllowedNamespaces []string
 	AllowedSecrets    []string
-	// AWSAllowedRegions restricts which AWS regions actions may read from, the
-	// AWS counterpart of AllowedNamespaces. Unlike that one, empty denies
-	// everything rather than allowing it; left unconfigured it defaults to
-	// authorization.DefaultAllowedRegions.
-	AWSAllowedRegions []string
+	// AllowedClusterRegions names the regions whose clusters any action may
+	// act on, judged against the target cluster's own OCM region and applied
+	// to both Kubernetes and AWS actions. Empty — the default — draws no
+	// boundary: the deployment may act on clusters in every region. Naming
+	// one or more regions confines it to them — a list rather than a single
+	// region so one deployment can serve a group of them, not only the
+	// region it runs in.
+	AllowedClusterRegions []string
 	// AWSAllowedOperations names the AWS mutations actions may perform
 	// ("reboot", "terminate"). It has no default to fall back to: unset means
 	// empty, and empty refuses every write while still permitting reads. A
@@ -130,10 +131,10 @@ type configFile struct {
 	} `yaml:"workers"`
 
 	Actions struct {
-		AllowedNamespaces    []string `yaml:"allowed_namespaces"`
-		AllowedSecrets       []string `yaml:"allowed_secrets"`
-		AWSAllowedRegions    []string `yaml:"aws_allowed_regions"`
-		AWSAllowedOperations []string `yaml:"aws_allowed_operations"`
+		AllowedNamespaces     []string `yaml:"allowed_namespaces"`
+		AllowedSecrets        []string `yaml:"allowed_secrets"`
+		AllowedClusterRegions []string `yaml:"allowed_cluster_regions"`
+		AWSAllowedOperations  []string `yaml:"aws_allowed_operations"`
 	} `yaml:"actions"`
 
 	// AWS and Backplane hold the connection settings for the two AWS client
@@ -192,16 +193,6 @@ func Load(configFilePath string) (*Config, error) {
 		return nil, err
 	}
 
-	// The default lives in the package that enforces the allowlist rather than
-	// here, so config cannot be pointed at a wider set of regions than the
-	// authorizer would permit. It is empty, so configuring nothing yields
-	// nothing — which cmd/server turns into a startup failure rather than a
-	// server that denies every AWS request.
-	awsAllowedRegions := configFile.Actions.AWSAllowedRegions
-	if len(awsAllowedRegions) == 0 {
-		awsAllowedRegions = authorization.DefaultAllowedRegions
-	}
-
 	envAuthPolicy := getEnv("ROSA_TA_AUTH", "")
 	authPolicy := EnabledAuthPolicy
 	if len(envAuthPolicy) > 0 {
@@ -219,6 +210,15 @@ func Load(configFilePath string) (*Config, error) {
 		if !getBoolEnv("ROSA_TA_ENABLE_AUTH", true) {
 			authPolicy = DisabledAuthPolicy
 		}
+	}
+
+	// A nonempty override that parses to no entries (e.g. "," or " ") must not
+	// silently discard a restrictive config file value: that would reopen
+	// every region the file had closed off. An already-open file has nothing
+	// to lose, so only the former case is rejected.
+	allowedClusterRegions := getStringSliceEnv("ROSA_TA_ALLOWED_CLUSTER_REGIONS", configFile.Actions.AllowedClusterRegions)
+	if raw := os.Getenv("ROSA_TA_ALLOWED_CLUSTER_REGIONS"); raw != "" && len(allowedClusterRegions) == 0 && len(configFile.Actions.AllowedClusterRegions) > 0 {
+		return nil, fmt.Errorf("ROSA_TA_ALLOWED_CLUSTER_REGIONS is set but contains no region names, which would discard the config file's allowed_cluster_regions: %q", raw)
 	}
 
 	return &Config{
@@ -278,9 +278,12 @@ func Load(configFilePath string) (*Config, error) {
 		// Actions Configuration
 		AllowedNamespaces: getStringSliceEnv("ROSA_TA_ALLOWED_NAMESPACES", configFile.Actions.AllowedNamespaces),
 		AllowedSecrets:    getStringSliceEnv("ROSA_TA_ALLOWED_SECRETS", configFile.Actions.AllowedSecrets),
-		AWSAllowedRegions: getStringSliceEnv("ROSA_TA_AWS_ALLOWED_REGIONS", awsAllowedRegions),
-		// No fallback to a built-in default, unlike the regions above: there is
-		// nothing to fall back to, because the default is to permit no writes.
+		// Unset means every region's clusters stay reachable, which is what a
+		// deployment that has not been told to confine itself should do. See
+		// AllowedClusterRegions.
+		AllowedClusterRegions: allowedClusterRegions,
+		// Unset means empty, and empty is the whole protection: the default is
+		// to permit no writes.
 		AWSAllowedOperations: getStringSliceEnv("ROSA_TA_AWS_ALLOWED_OPERATIONS", configFile.Actions.AWSAllowedOperations),
 
 		// Development flags

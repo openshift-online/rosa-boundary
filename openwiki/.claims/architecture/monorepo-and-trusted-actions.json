@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:a8a9d7e2461188ff8f1f3c2777719462296cc4a63987469d97356f2ffa44d8af",
+  "pageVersion": "sha256:6719b711c1fae8eeda9d5888efc3994668559a263e7f58b6ea73256bf83f213b",
   "claims": [
     {
       "id": "claim_bb99a71168ed4f4ba678e9a32dbd25fd",
@@ -14,27 +14,19 @@
     },
     {
       "id": "claim_7a6b9007f2514ffc9fb60c2eccf4c86d",
-      "statement": "Boundary and Trusted Actions are built independently: Boundary's root go.mod (module github.com/openshift-online/rosa-boundary, go 1.26.0 with toolchain go1.27.4 pinned)/Makefile/Containerfile/lambda/ and deploy/{account,network,regional} Terraform roots are fully separate from Trusted Actions' components/trusted-actions/go.mod (module github.com/openshift-online/rosa-trusted-actions, go 1.26.0, no toolchain directive)/Makefile/Containerfile and terraform/{global,regional} roots; neither go.mod has a replace directive or shared go.work, overlapping third-party dependencies (e.g. golang.org/x/oauth2, golang.org/x/sys, golang.org/x/term, spf13/pflag) are pinned to independently resolved and sometimes differing versions, Trusted Actions additionally depends on packages the root module does not (k8s.io/client-go, github.com/jackc/pgx/v5, github.com/jmoiron/sqlx, github.com/go-chi/chi/v5, github.com/openshift-online/ocm-sdk-go, github.com/openshift/backplane-cli), and root Go/Make commands do not exercise the nested TA module.",
+      "statement": "Boundary and TA are separate Go modules declaring Go 1.27.4. Root Go tests do not traverse the nested module; run TA tests from its own module.",
       "evidence": [
-        {
-          "resource": "repo://Makefile",
-          "version": "repo-file-v1:sha256:bbcb6ef3581f1d208c1230d9632762c1da8e5499acf08bbdc4d807e94dd9c9e6"
-        },
         {
           "resource": "repo://components/trusted-actions/Makefile",
           "version": "repo-file-v1:sha256:8d746e8b2f531255adc11d6ae5ac23fa6ea149335c913c9525bb3b079f7b616f"
         },
         {
-          "resource": "repo://components/trusted-actions/go.mod",
-          "version": "repo-file-v1:sha256:b022ef80cff618f8055e47a1e2e8fe376d4a8223a5b67ee70fbfa92df58305e5"
+          "resource": "repo://components/trusted-actions/go.mod#L1-L4",
+          "version": "repo-lines-v1:sha256:46a5c64358b04d5963c3c3a1979d227162ffca8db6eacb43c30ac22c27a5925f:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjNjZmZlZjQwNTAxZTBiNTk1N2Y4YzhlOWMyYmI2ZmY5ODNmNTIzOGU5ZTkyYzBhZTE5NDAwMjI0MjE3OTBiOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGU2MDc5ZTgxN2ViZGM4ZjM4ZDEwYmNkMjc1ZmVkMDRmYjlkNWY5ZDE2Mjk1NzM2NzM3ZWRiNTg3ZTZmNTYzZSJ9"
         },
         {
-          "resource": "repo://docs/trusted-actions-monorepo-migration.md#L50-L63",
-          "version": "repo-lines-v1:sha256:637eb8f5f74db25f8d14327d243de355fd28b52548def21f55eafacd7be37c08:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1MmIwYWY3NzBiZTE1OTY5MTkwNDFiYzMxNGJiNzIzN2IwZjRmYTkwZjdmMjMyOTYyODJjZmQ5NzlkOThkYjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjgwMzk3M2Q4ZTMwZWEzMDg1N2QyMjYzYjJjNTQ2MzczYzQ5ZTBhYmQ0NDlmNGZlNTNlOTRkYjNjYTgwOTBhOGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBmODAwMzNkNGVjNDUzMDAxMTM2MmFiOTA3YzRkNzJmODE1YzA1YzIyOGZiNTA1YjFjZTUwOTk2Y2IzMWZiNzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzNThkOTYzYTQyOGE4ZDdlNTU2MjNlNmE2ZmI2YTkyODA0NDk4ZjUzMDVmY2ZlNmMyMzA2NjVhOGY2Y2JlMDMifQ"
-        },
-        {
-          "resource": "repo://go.mod",
-          "version": "repo-file-v1:sha256:7e12272bf5010c42c450e817e20874e7eeba02d5db259e9727bc2be1e8a44969"
+          "resource": "repo://go.mod#L1-L4",
+          "version": "repo-lines-v1:sha256:86d48356dd3a561142697d06954c6fc6c844340a75d1ae167b7026d8f17d7449:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjQxOTI0MGUxMjZjZTNlMDRmOWZiNTAzMjdmYzBmMDk0ZWU3YzRhN2ZlYmZkNTQzZjgxYTRjYmNjZmUyNTQyYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjczNzBhN2JiMjU3NjZhYjY5MjMwMzA1OGZkN2YxOGRhNjk5YmVjNjUyZDY2OGMyN2ViZDBjZGQzZGRhNGJiZCJ9"
         }
       ]
     },
@@ -52,7 +44,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/OWNERS",
-          "version": "repo-file-v1:sha256:a033f183b468798a8cabd3243db2bcc675467090330008eacc956e9114a606b9"
+          "version": "repo-file-v1:sha256:aec66c7422e3c1d7449a6560ea88fefabb4f37e41b1131bd98cb9f75b8a67f6a"
         },
         {
           "resource": "repo://docs/trusted-actions-monorepo-migration.md#L57-L63",
@@ -130,17 +122,31 @@
         },
         {
           "resource": "repo://components/trusted-actions/OWNERS",
-          "version": "repo-file-v1:sha256:a033f183b468798a8cabd3243db2bcc675467090330008eacc956e9114a606b9"
+          "version": "repo-file-v1:sha256:aec66c7422e3c1d7449a6560ea88fefabb4f37e41b1131bd98cb9f75b8a67f6a"
         },
         {
           "resource": "repo://hcp-terraform/rosa-trusted-actions/OWNERS",
           "version": "repo-file-v1:sha256:a033f183b468798a8cabd3243db2bcc675467090330008eacc956e9114a606b9"
         }
       ]
+    },
+    {
+      "id": "claim_6d855bab23564c79b4f999d5eb2d51c8",
+      "statement": "Boundary builds the rta client from component sources in the same checkout and installs the binary in its runtime image.",
+      "evidence": [
+        {
+          "resource": "repo://Containerfile#L354-L377",
+          "version": "repo-lines-v1:sha256:0ce8f56a1d117e0a1bc94b3808b584002cf5808b2c8de3a02b6cdc9571122c25:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4NzY0Zjg4NTIwMDU4YTY3OGNhMWM2MTEzYWY5NDcxYWU1YTg0MmE5MTc4N2Q5NWVmYjhhMmZlZTdkNjViNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJiMzFmOGI1YTdiNjQ2MDkwMjlmMmUwNmEwNDUyMmY3ZTYwM2MyMGFhMWJkOTc1OTczM2JhNTI5ODVlMzAyZjkifQ"
+        },
+        {
+          "resource": "repo://Containerfile#L445-L447",
+          "version": "repo-lines-v1:sha256:bda4faed335eba0ca552f4f0340927c7abedaa6dcc137d958c76250df3810ee0:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNmQyN2ZlY2EzMDUxZmIwNWZlNTQ0NWE2N2QxMGZhZDljZDI4NTUwMzE5OTZmODlkYTc5MmRhZDBlZDBjNThiNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjg0NTc2MjAyM2ZjYjZlOGU5YTg1NjU4YTQ1YzQ2OWU0MDM2NTUwNDY2ZjVkZTlmMTYxODBjZTU5OGNmOTg1MiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTdiNjU1MzhkZGZiMDlkMGIyMTFiMzgxZWE2M2JlYmZlYzVkYWVlNDQzNzk2NWE1ZjQ1MjEwNzc2ZjA2Mjk3NSJ9"
+        }
+      ]
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-19T16:04:15.171Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

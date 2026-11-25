@@ -1,34 +1,26 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:fbd1bcc6e479d1dab14b186a7cbfda461f4c613d5eb0c48bb0b2e72d9b7948f9",
+  "pageVersion": "sha256:79ef36a05309912674a4328381745d889b26377ef86a76fe323c0077703eaa33",
   "claims": [
     {
       "id": "claim_c181865b5dad40e786ee778b4d6833b8",
-      "statement": "Trusted Actions' Terraform is split into two roots: terraform/global (applied once per AWS account; owns IAM roles/policies, a Secrets Manager secret for OCM/Backplane credentials, and an optional ACM validation CNAME) and terraform/regional (applied once per region; owns VPC, internal ALB, ECS cluster with an EC2 host and EBS volume, task definition/service, a per-region S3 bucket, a CloudWatch-to-Firehose audit pipeline, and a private hosted zone with regional ACM certificate). The current components/trusted-actions/docs/deployment.md runbook (local testing steps, HCP workspace variables, and the global-before-regional apply order) still matches today's Terraform variable names (aws_region, environment, s3_bucket_name_suffix, internal_fqdn, vpc_id, private_subnet_ids, public_subnet_ids, container_image, app_config, backplane_client_secret, ocm_client_secret, ocm_token) and workspace order.",
+      "statement": "The global root owns IAM, shared secrets and validation DNS; regional state consumes those outputs and defines the application, storage, internal ALB, and audit delivery pipeline.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/docs/deployment.md",
-          "version": "repo-file-v1:sha256:bac46999fe8eeb0331f960e4a2ebfd403a64546a94b1be05020baa185fc18d6c"
+          "resource": "repo://components/trusted-actions/terraform/global/outputs.tf",
+          "version": "repo-file-v1:sha256:9346b4ef05f762647fd266444a3326784f4a4dbeb615a7abb7aa0dd96463858d"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/global/iam.tf#L1-L22",
-          "version": "repo-lines-v1:sha256:e885f90b8d5e90531d370309a017dad0d99f5fbbc43b6f27df9f8e5bca1284a1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExNzY4Y2RhNmQwOTc0ZTI5NWFlZDcyYWY4Nzk3YzYyODQ5YmI2OGM3YzU3ZmY3ZDIxMTRiODFiMjhhMzA3MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMxZDgzYTY0OTcxN2VmZWE2MmUwOTU2MjZlMzYyZDFkY2FjMjJhNDZhYjQ2NzRlNzkxYTFmNWZjZjg5Y2E2NWEifQ"
+          "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf",
+          "version": "repo-file-v1:sha256:477c25f478e509057eac5e4cbadb3498dc8acb9d42eed85654f2ecb63318c4e5"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/global/secrets.tf",
-          "version": "repo-file-v1:sha256:65bda7a95c0aabc497b8ff33bde8d7c7851765e29be50dd55abea02abddb8c52"
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf",
+          "version": "repo-file-v1:sha256:53a7ea6a50847b1db1e7f4292202ef79b532e7c40e83b01accf8056c4b046eab"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/global/variables.tf",
-          "version": "repo-file-v1:sha256:45285f122336801bd4e46285dbf902a7e3f2ae4af34bb24e4b634e08b5a1f0ca"
-        },
-        {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L1-L10",
-          "version": "repo-lines-v1:sha256:ff8a020c529cf111a27b3491512642cb1ac1b277a5229d6ccb1e49ea6f3476ff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBmYmRjZWJmZTkyYjZkOTAxOWM5MzAwMDRkYWEwNzJkMzlmM2QwMjUzMWRmNDU0MDNjOWUyY2FmNmM1NDBmYmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk5MmIxOThhMDZhNGVlYzE4NzE4MTkzMTg3YmNjZjRiMGYxZDhhOWEwNGUyMzE0OWIxYjViNjllMjZlNDQ4YWMifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/terraform/regional/variables.tf#L1-L45",
-          "version": "repo-lines-v1:sha256:57d76a74aab2a83ceeabfd496595d00d35c0551bc7ea4705ddc1283567e46fc6:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ2Yjg5MGI4YTNiMzJhNDRkOTFiY2Q0ZjFmYzAyODJkYzI0YTU4ZDEyMzFmZGFjYWZlZTgwNWZiOTE3OTUxY2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI4OGZhYjhjMzRkOTA2MjgzNGU3MzZlNzJkMDNiNjAxNDA5MWEwNjcxN2VkMGM2YjUyMDA5MzAwMjY0M2I0NDIifQ"
+          "resource": "repo://components/trusted-actions/terraform/regional/remote_state.tf",
+          "version": "repo-file-v1:sha256:97a83ef3c4e3896719232c1c04505c0741cf2004a6a83bfecc56bbac50e8f625"
         }
       ]
     },
@@ -134,12 +126,8 @@
     },
     {
       "id": "claim_97bdb3d2e08044b0b426e852d87afb90",
-      "statement": "Trusted Actions' Store abstraction dispatches on the DATABASE_URL scheme: postgres:// or postgresql:// selects PostgresStore (sqlx over pgx, intended for RDS/Aurora Postgres or local Postgres testing), while any other value including empty falls back to SQLiteStore (sqlx over modernc.org/sqlite, intended for local dev/test, defaulting to a local trusted_actions.db file and limited to a single pooled connection); both run dialect-specific migrations from internal/store/migrations/postgres and internal/store/migrations/sqlite on startup.",
+      "statement": "Postgres URLs select PostgresStore; other database settings select SQLiteStore. Each backend initializes its own migrations.",
       "evidence": [
-        {
-          "resource": "repo://components/trusted-actions/internal/store/migrations.go#L31-L31",
-          "version": "repo-lines-v1:sha256:4b28177d27d957e657f593f563249c2cf9a935c6c30c57540fe25c4cc6eae933:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNGIyODE3N2QyN2Q5NTdlNjU3ZjU5M2Y1NjMyNDljMmNmOWE5MzVjNmMzMGM1NzU0MGZlMjVjNGNjNmVhZTkzMyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNGIyODE3N2QyN2Q5NTdlNjU3ZjU5M2Y1NjMyNDljMmNmOWE5MzVjNmMzMGM1NzU0MGZlMjVjNGNjNmVhZTkzMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTgxMjc5MDQ3MDkyNGI5NmQwMTFiN2Q3ZmEwYjU4MWY5NTAyYTYyODhhOGFjZDYxYWE4YjY5ZjZjMzFjZjZmMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYTcyMzdkYTBmZWNjODljOGY5NWY1ZmI3ZDQxYjZhZjcxOTlmZmFhZGJjYjAzZjM3YWNkYmVmMTY2NmM4MWZlYiJ9"
-        },
         {
           "resource": "repo://components/trusted-actions/internal/store/postgres.go#L20-L70",
           "version": "repo-lines-v1:sha256:4c8bbda7ba787a82c5faa8599a7a136a3d5e2449ee3ffe04dde9fcd9603f9271:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxZjk5NjNjNmIzOWYzZjcwNWYwMWFkY2E5MmZlYjJlNzVmNDhjMzM1ZGY0ZDg5NTFmNTQyNGU2ZGUwOGZjZjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4ZjM5ZTA3ZTRmOWZjODNjNWZmNzg4ODQ2YWIwMzI5NzMwNDBhMDI3NDA1NGQyNGRiYTZmNjg3MmE5YzUzYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiNWJiZWE1ZWRiYzFkYWMxZmJlMWUxYjNmOThlMTM5MmE5YjU1YTRiMzBlYTMwZDJmMmQyY2Q1NjNjNDY5NGEifQ"
@@ -149,38 +137,22 @@
           "version": "repo-lines-v1:sha256:7dc25c93c855da8646ef1d69a6f2eb59f7c674b6cf783fc76647a5786865daba:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdlN2EwMDQ5Mzg4MDJjY2NjOGFkZjdmMTgzZGVkMmM2NmY1Njc2MDdiYWVhOTdmNTYzZTVhNWIzMjFmYTk1MTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhYjJkOGNjOWJmMzlhZjEzOGU3ODgyZmYwNmU1ODg5YTMzMDVjYWYzMGU5Y2ZjOTI4OGU1ZDlkYmZmOTk0YjAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA4ODRkYzE0NWE5ZjIxZmYyNWYxNTJhOTNjNmFiNDhlMDNjNzJjNjQ2MDNkZjhkNDM3MDc5NDZmMTA3ZDY3N2IifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/store/store.go#L57-L82",
-          "version": "repo-lines-v1:sha256:b082c639eb3daa65bdb9db56389ac9569301887a01436a2120a5223bbab956bf:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUxOTlhMTNhYzcyNDQ2YWVmNjAxNWE2NDQ1ZTgxNGRlNzY3NzkyNDc4NTBlN2NhYzIxMjA2MTJlMWVhNmQ2MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMTIxOTYwZmVkMjc3ODNjNTkwZmJmMmJlNTVhNTMxMTFlMDBlMzBmNDUzZjZkZGI4N2Q2NjcyZDY3NjM5MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://components/trusted-actions/internal/store/store.go#L57-L66",
+          "version": "repo-lines-v1:sha256:838b11b3ce17b4c461906b0e43e915e62a83cd3e709891372e2589730ac15d0f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUxOTlhMTNhYzcyNDQ2YWVmNjAxNWE2NDQ1ZTgxNGRlNzY3NzkyNDc4NTBlN2NhYzIxMjA2MTJlMWVhNmQ2MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMTIxOTYwZmVkMjc3ODNjNTkwZmJmMmJlNTVhNTMxMTFlMDBlMzBmNDUzZjZkZGI4N2Q2NjcyZDY3NjM5MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQyMjk0MmU2YTZhNzk2MGVkOGQ4NDgxZDNlNzkxYTFjOWY4NjNiNzkxYjU1NTFmOWM2OWZkMzg4MGEyMzZlNDAifQ"
         }
       ]
     },
     {
       "id": "claim_39e0eb0db55e4b64a058657d1195784a",
-      "statement": "Despite the Aurora PostgreSQL datastore shown in Trusted Actions' architecture diagram, Phase-2 placeholder variables (db_username, db_name), and now-live (uncommented) Phase-2 scaffold security groups for a future Fargate ecs_task and for Aurora inbound Postgres access in terraform/regional/security_groups.tf, the currently applied regional Terraform runs SQLiteStore in production: the ECS task definition hardcodes DATABASE_URL to the file-backed path /data/trusted_actions.db mounted from a dedicated encrypted EBS volume attached to a single EC2 host, the ALB target group remains target_type = \"instance\" rather than Fargate awsvpc networking, and no aurora.tf file or aws_rds_cluster/Aurora resource of any kind exists in the regional root yet despite the aurora security group's comment claiming one is referenced.",
+      "statement": "The regional task definition selects file-backed SQLite at /data/trusted_actions.db on the EC2 host's EBS-backed storage rather than provisioning Aurora.",
       "evidence": [
-        {
-          "resource": "repo://components/trusted-actions/ARCHITECTURE.md#L16-L21",
-          "version": "repo-lines-v1:sha256:b7fdd88be70ce40814eb5e0722d838bf7dc94ffc4214373e41d32df420aa03a0:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMmMzN2QyNWUzYWIwMTMwM2EwOGM5MTE3MmNiNDViNzEyMDQ5YTJmZGFkNzE2NzJkMzMxYjI4NTI5MjAxMTk4ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTRkMzg5N2EwZjlkNjljOWRiODFiYzk3NzQxNWU0MGI3MjJhNWQ0NGRkZTViZDhmNzI2NDUxYmFlZDI0OGE0MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDczODE4YWI1YzM4ODI3ZWY4OWFlZjBlYzUwMzFjOWE3NjQ1Nzk0NzhhMGMxMzc0MzMyZDdmNzliNzE3ODA1ZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZWMxMmNmNzE3MTMxN2QwODAwMmJhNWRlOGNjZTVmNDg5MDI5MzI1ZTZiZTRjOWFmNDMwYTJhNmI2NDBkZjcwMyJ9"
-        },
-        {
-          "resource": "repo://components/trusted-actions/terraform/regional/alb.tf#L14-L19",
-          "version": "repo-lines-v1:sha256:aa6472b9a9fb39fe77aefea544b24c5ec7ae146591141386e70cf77b0722e2e1:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjM0MTQ4MGM2N2FmMTQxZGEzNmM2MmVhNmI2Njk1YjczODc1MTc0MmRhNDgzMjM5MmMwN2M1N2FiY2JhODgxOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTg0MTIxYjc3NmRiNDQxNmY3ZTNlZTI1MzJjZTJhZWI2MDMyYWY5ZDcyNzdiMDY2MGY0NzY4YTZhYThmNWQyZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMmY4MDU4Y2M5NzlhNTQzMTRkMWQyOGQ4MWI3MjQ5ZWE4NjUxMzRmNTkzMTlmNmE4NThjODIwZmEyM2E3NWMzMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGY0ZWJiNGVkNjdlZTQzOTViYzgzYTE0OGMzMzhmYzk3YzJmNzI5NTc4NGVhOWQ0MGE1MTViZTM1YjhjZDc5NCJ9"
-        },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/ebs.tf",
           "version": "repo-file-v1:sha256:62eb6508e410b5ae2d46af823f5e1d790037ce9ca17e15cbadaec2b98987820a"
         },
         {
-          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34",
-          "version": "repo-lines-v1:sha256:de0b93843cca42f7a24ce169f1c7d6d026b90ed54837bca40c2eee7db344d769:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxYjgyNDI4YTkwMjk3MmE4MzY1ZTc0ODBlNzAyMzZhOWE3MGRjMGQ4NWY5N2Q0NWMzYmU4ZDg5NzM1ZDg0NWIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NDgzMDBmOTZmM2EyNDNmNWIwY2ZiNmY0Nzk3YzZkMTQ5YTczMjY1Njg1YjU3MmVlZjBjY2Y3YTcxMjBjNTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIxM2I2OGI0OTIxYmY0M2JkZGZiOWEwNDhjYWRmNWU3OTRlZTY4YzYzOWI4NzkxMjc1Y2IxYzc2ODI3OWY4YWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhjMzFkYWNjYWNlMWQyYjZkZDZiNWY5ZDcwYTEwMjJlOTY2YmU4MzQwZDczNmM5MmQwZWJmYzY4ZGQ1ODJkY2YifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/terraform/regional/security_groups.tf#L55-L91",
-          "version": "repo-lines-v1:sha256:124b0614b537a3b5602525f2c1f8ebebf11c8ea552f475977f389f6777fe014d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIxOWIwMzQ2Y2E0MDVjZWYzNzg0NWM4YTkwNTljZDQwZjFkYjBhNzFlZTc2ZDQ3YjEzNWZkYTVlNmJjYzc5NjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjhjZGIyZWJkNWRjNTNiODNhYWI0NDhkYzg1Yzc4MzA5NTlhNTA4NzMzZGQ4MWZlMWMyMGJkZGQxMTVkMTczNmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        },
-        {
-          "resource": "repo://components/trusted-actions/terraform/regional/variables.tf#L244-L256",
-          "version": "repo-lines-v1:sha256:bc29b7e6f547727e86d19c7d1567860de856c41f04aa9fb6148d676543c41f0a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZlZjM1MmNmOTMxZDA4Zjg0YjI2YjlmNDM0OTM5OTZlZDc2YzVmZmUyZDQ2OGY4MThjNTlhM2RmZTA3YWNlMzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZhM2NmNTE5MjM1NGY3MTYxNWFjNTEwMzRiM2U5N2MyMGVkYTk5NjQzZmNhZjViYmU2ZDQxYWQ1OWJkMTIxNjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf",
+          "version": "repo-file-v1:sha256:53a7ea6a50847b1db1e7f4292202ef79b532e7c40e83b01accf8056c4b046eab"
         }
       ]
     },
@@ -190,7 +162,7 @@
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L10-L61",
-          "version": "repo-lines-v1:sha256:41e0065f47a14fe7a60f9e00ce00059326c700fb83be35396ea9e65d7aaad31c:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY3OGIyNjE2NmI5Mjg4ZmU3NDljMWIxZWRjZjUzM2VlMDA0YTExYmQxMmQ5NzFmYzljZDdmMzBiNjNlN2M4N2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE0MzZjOTZhNDQ4M2ExM2ZhYzU0ZmExY2RkZTM2NzVkMjEyMThlNmFjYTE5YTk5NTI0ZWQ2NDJiMjc0YmM4YjgifQ"
+          "version": "repo-lines-v1:sha256:a06637725fd1a53b9146a2abc4d60c28bd52a0a93a63095847fb90e72f866f59:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3ZTU3ODhkNWQ5ZDczZDI0YTgxZGJjMGE1YTc0YmZhODJjOWMzYjNhZjk5ZTUyYWY3OTZlOTBiNDY4YThhM2QiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY3OGIyNjE2NmI5Mjg4ZmU3NDljMWIxZWRjZjUzM2VlMDA0YTExYmQxMmQ5NzFmYzljZDdmMzBiNjNlN2M4N2YiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImE0MzZjOTZhNDQ4M2ExM2ZhYzU0ZmExY2RkZTM2NzVkMjEyMThlNmFjYTE5YTk5NTI0ZWQ2NDJiMjc0YmM4YjgifQ"
         },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/variables.tf#L158-L222",
@@ -200,7 +172,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.1",
-    "at": "2026-11-19T16:04:15.171Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

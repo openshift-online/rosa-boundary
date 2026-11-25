@@ -4,8 +4,8 @@ title: Trusted Actions testing and CI
 description: Describes the Trusted Actions component's unit, integration, and mock-dependency testing strategy, its Make targets, Postgres test tooling, and its Codecov patch-coverage gate, plus the Konflux Tekton pipelines that build and push its image on PR and push events in this monorepo.
 tags: [trusted-actions, testing, ci, codecov, coverage, integration-tests, backplane, postgres, tekton, go]
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-19T16:04:15.171Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 sources:
   - id: openwiki-source-eebdf2baefd63a03b1cb3b5e
     resource: repo://.tekton/rosa-trusted-actions-pull-request.yaml
@@ -25,14 +25,12 @@ sources:
     resource: repo://components/trusted-actions/docs/adding-a-trusted-action.md
   - id: openwiki-source-56c54c10348f1e72daffc214
     resource: repo://components/trusted-actions/go.mod
-  - id: openwiki-source-01f41ebb3a6fce788680a5cc
-    resource: repo://components/trusted-actions/integration/itest-down.sh
   - id: openwiki-source-54625ad7b6d11a03282fee57
     resource: repo://components/trusted-actions/integration/itest-run.sh
   - id: openwiki-source-3c3562d58ce85865e73956fe
     resource: repo://components/trusted-actions/integration/itest-up.sh
-  - id: openwiki-source-642a30c5f33a9f636dc1436a
-    resource: repo://components/trusted-actions/integration/README.md
+  - id: openwiki-source-4d7e1795787385e81691a866
+    resource: repo://components/trusted-actions/integration/podman-compose.yml
   - id: openwiki-source-f31219609de20fbaee6c658e
     resource: repo://components/trusted-actions/internal/config/config_test.go
   - id: openwiki-source-6fa73d968628eb0b312bf0ee
@@ -49,9 +47,7 @@ sources:
     resource: repo://components/trusted-actions/tests/mock-backplane/README.md
   - id: openwiki-source-9ba09077ca542d7f7f8c02fd
     resource: repo://components/trusted-actions/tests/proxy-backplane/README.md
-  - id: openwiki-source-202f5239bfb095a7cbbf7f0f
-    resource: repo://docs/trusted-actions-monorepo-migration.md
-generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 ---
 
 ## Scope and where these tests live
@@ -228,7 +224,9 @@ Two representative packages illustrate these conventions in practice:
 
 ## Integration tests
 
-### `integration/`: podman-compose end-to-end harness
+### `integration/`: kind and podman-compose end-to-end harness
+
+The integration run restarts the server with an allowlist excluding the test cluster's region, then checks both scopes for a denied execution rather than treating any failure as a passing test.
 
 [`components/trusted-actions/integration/`](../../components/trusted-actions/integration/README.md)
 is a disposable, podman-compose-based end-to-end harness that proves a real

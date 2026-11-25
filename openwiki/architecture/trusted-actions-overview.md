@@ -4,12 +4,12 @@ title: Trusted Actions architecture
 description: Explains Trusted Actions' two-layer architecture (HTTP request handling vs. asynchronous action execution across both a Kubernetes/Backplane scope and an AWS scope), its Go module/CLI layout, its own container image, OpenAPI-first code generation, and the plugin model for adding new actions.
 tags: [trusted-actions, architecture, openapi, oapi-codegen, backplane, worker-pool, plugin, catalog, rta, containerfile, aws]
 sources:
+  - id: openwiki-source-3db1579fbd49f2551d63cdce
+    resource: repo://components/trusted-actions/.goreleaser.yaml
   - id: openwiki-source-1907132ec84c53dc704aba84
     resource: repo://components/trusted-actions/ARCHITECTURE.md
   - id: openwiki-source-24686d7a4469971452a0c7ec
     resource: repo://components/trusted-actions/cmd/action-cli/README.md
-  - id: openwiki-source-af30aa67a4a02a87c5864aa4
-    resource: repo://components/trusted-actions/cmd/rta/main.go
   - id: openwiki-source-11418ec52755ac005ca19730
     resource: repo://components/trusted-actions/cmd/server/main.go
   - id: openwiki-source-94aa552eeee5287e6a76ff19
@@ -32,22 +32,20 @@ sources:
     resource: repo://components/trusted-actions/internal/middleware/middleware.go
   - id: openwiki-source-f710c4d6aa9327fd7bfc55c4
     resource: repo://components/trusted-actions/internal/openapi/api.go
+  - id: openwiki-source-a3e72d493525ffc9456be3d3
+    resource: repo://components/trusted-actions/internal/rta/auth.go
   - id: openwiki-source-a6c0f8d599d4aca7d9811870
     resource: repo://components/trusted-actions/internal/rta/client.go
-  - id: openwiki-source-2acf8cecbee106a6b2feb9d9
-    resource: repo://components/trusted-actions/internal/rta/command.go
-  - id: openwiki-source-fea1c4c690d64395b484bcdb
-    resource: repo://components/trusted-actions/internal/worker/pool.go
   - id: openwiki-source-4c833b02bf6d5fc7a2476dea
     resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
-  - id: openwiki-source-7a5e071b6b6192c80a6918aa
-    resource: repo://internal/cmd/root.go
-generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+  - id: openwiki-source-f1bd1e0a9201f149b775a09c
+    resource: repo://deploy/regional/ecs.tf
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-19T16:04:15.171Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 Trusted Actions is an OpenAPI-based HTTP API that executes a fixed catalog of
@@ -64,7 +62,7 @@ for how that co-location works.
 ## Context: who calls Trusted Actions, and what it can reach
 
 Trusted Actions runs on ECS behind an ALB, co-located in the rosa-boundary AWS
-account. Its intended callers are the `rosa-boundary` CLI running inside an
+account. Its intended callers are operators using `rta` inside an
 SRE's investigation container, plus two external consumers: Configuration
 Anomaly Detection (CAD) and the ROSA AI agent. All three reach Trusted Actions
 over HTTP. Trusted Actions never trusts a caller's identity directly: every
@@ -79,7 +77,7 @@ standing account credential.
 ```mermaid
 flowchart LR
     subgraph vpc["rosa-boundary AWS account"]
-        CLI["rosa-boundary CLI investigation container"] --> TA["Trusted Actions: ECS + ALB"]
+        CLI["rta client in Boundary investigation container"] --> TA["Trusted Actions: ECS + ALB"]
         TA --> DB[("Aurora")]
     end
 
@@ -107,17 +105,7 @@ different, more permissive operation, and every AWS write is additionally
 checked against a per-cluster infrastructure-ID tag before it is allowed to
 touch an instance.
 
-**The investigation-container edge is architectural, not yet wired in code.**
-Nothing in the Boundary root `Containerfile` (the multi-stage SRE-tools image
-that builds the investigation container; see below) or in `internal/cmd` (the
-`rosa-boundary` CLI's command package) currently calls the Trusted Actions API
-or links an `rta` client — there is no HTTP client code, SDK import, or
-command in this repository that issues a Trusted Actions request today.
-Treat the CLI-to-Trusted-Actions edge in the diagram above as the intended
-target topology, not as a currently exercised code path. A human SRE inside
-that container can still reach Trusted Actions manually with the standalone
-`rta` CLI described below; what is missing is automatic invocation from the
-`rosa-boundary` CLI's own command tree.
+Boundary packages the `rta` client from the same checkout and can set `RTA_SERVER` in the investigation task. Operators invoke this client from the shell; creating a Boundary task does not itself submit a Trusted Actions execution.
 
 For how identity and role resolution actually work on the wire, see
 [Trusted Actions authorization model](trusted-actions-authorization.md). For
@@ -218,8 +206,8 @@ built with the same `spf13/cobra`/`spf13/viper` stack as `cmd/server`.
 later be re-hosted as a `rosactl` plugin without rewriting its command logic.
 The client enforces a basic transport invariant: it refuses to send a bearer
 token over plain HTTP unless the target host is `localhost`/loopback, and it
-rejects HTTP→HTTPS-downgrading redirects, so a misconfigured `--server` value
-cannot silently leak a caller's token.
+rejects HTTPS-to-HTTP downgrade redirects, so a misconfigured `--server` value
+cannot silently leak a caller's token. An explicit `--token` takes precedence. Otherwise `rta` loads OCM configuration and uses the SDK token provider to obtain an access token at request time, including refresh when credentials permit.
 
 Two other `cmd/` entries exist purely as development tools and are **not**
 part of the `rta` CLI, the shipped server image, or the GoReleaser release

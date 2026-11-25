@@ -22,8 +22,6 @@ sources:
     resource: repo://components/trusted-actions/internal/middleware/logging.go
   - id: openwiki-source-fa9f309e7fc236ae68cbe6fa
     resource: repo://components/trusted-actions/internal/models/audit.go
-  - id: openwiki-source-0a4dbcd3f9f3b6e51a1a5f7a
-    resource: repo://components/trusted-actions/internal/store/sqlite.go
   - id: openwiki-source-1c3bf184f6289c69968a14d7
     resource: repo://components/trusted-actions/internal/store/store.go
   - id: openwiki-source-4f6d0f20d8e4f1405213641f
@@ -34,10 +32,10 @@ sources:
     resource: repo://components/trusted-actions/terraform/regional/cloudwatch.tf
   - id: openwiki-source-6955d983b4d48fea403e850a
     resource: repo://components/trusted-actions/terraform/regional/ecs.tf
-generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-19T16:04:15.171Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 # Trusted Actions audit and logging
@@ -52,6 +50,8 @@ Trusted Actions layers two audit mechanisms:
 Both ultimately surface as structured log lines that the regional Terraform pipeline ships out of CloudWatch into S3.
 
 ## The `audit.Record` shape
+
+When the cluster-region gate runs, the executor includes the resolved region in the audit record. A region mismatch is denied/skipped; a resolution error is a failure.
 
 `internal/audit/audit.go` defines the canonical per-execution audit record:
 
@@ -170,7 +170,7 @@ The global IAM comment documents a known, accepted limitation: AWS ARN wildcards
 
 Trusted Actions' `ARCHITECTURE.md` lists exactly two controls under its Security section: account allowlisting and audit logging of all API calls with caller identity. In practice:
 
-- **Account allowlisting** is enforced via the `ROSA_TA_ALLOWED_ACCOUNTS` environment variable (comma-separated AWS account IDs), read into `config.Config.AllowedAccounts` and set per regional deployment through `terraform/regional/ecs.tf`'s `var.allowed_accounts`, which sits in the same `container_environment` block as the `ROSA_TA_S3_BUCKET`/`ROSA_TA_S3_KEY_PREFIX`/`DATABASE_URL` entries discussed above. It gates which calling AWS accounts may use the API at all, independent of the audit pipeline.
+- `ROSA_TA_ALLOWED_ACCOUNTS` is loaded into configuration, but loading it is not an account authorization check. The executor instead enforces its configured cluster-region and scope policies.
 - **Audit logging** is the two-layer mechanism described above: the per-request `AuditEntry` store (persisted in the SQLite file described in [From request to persisted record](#from-request-to-persisted-record-the-database-behind-auditentry)) and the per-execution `audit.Record` / CloudWatch → Firehose → S3 pipeline.
 
 The two controls are complementary, not interchangeable: allowlisting is a preventive control decided before a request is authorized, while the audit record set is a detective control recording what was attempted and its outcome — including attempts an allowlisted but unauthorized caller made and that were denied or skipped.

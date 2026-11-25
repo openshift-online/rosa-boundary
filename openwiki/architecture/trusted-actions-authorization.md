@@ -24,8 +24,6 @@ sources:
     resource: repo://components/trusted-actions/internal/catalog/catalog.go
   - id: openwiki-source-25960f1da7fae36f9a10e870
     resource: repo://components/trusted-actions/internal/config/config.go
-  - id: openwiki-source-f617c80d88140492d3c932a7
-    resource: repo://components/trusted-actions/internal/executor/aws.go
   - id: openwiki-source-65433781c88c8141f580330f
     resource: repo://components/trusted-actions/internal/executor/executor.go
   - id: openwiki-source-5a6f1bb2cecd9f22a1dfaf79
@@ -34,10 +32,10 @@ sources:
     resource: repo://components/trusted-actions/internal/ocm/authorization.go
   - id: openwiki-source-f710c4d6aa9327fd7bfc55c4
     resource: repo://components/trusted-actions/internal/openapi/api.go
-generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 # Trusted Actions Authentication and Authorization
@@ -142,9 +140,9 @@ flowchart TD
 
 `KubeScope.DeriveTarget` always marks a target derived from request params as namespaced (never cluster-scoped), specifically because trusting a caller-supplied or absent namespace to imply cluster scope previously let a caller bypass the namespace allowlist by never supplying one.
 
-### AWS region/operation allowlist (`internal/authorization/aws.go`)
+### Cluster region and AWS operation checks
 
-A separate `AWSAuthorizer`, constructed with `authorization.NewAWS(logger, AWSPolicy{AllowedRegions, AllowedOperations})`, is wired into `AWSScope`. It is intentionally not the same type as the Kubernetes `Authorizer` — `AWSRequest` has no namespace or secret concept, so a shared type could let an AWS request be silently judged by Kubernetes rules. Unlike the Kubernetes authorizer, the AWS authorizer has **no permissive mode**: an empty region allowlist denies every request rather than allowing it, and the server refuses to start at all if `ROSA_TA_AWS_ALLOWED_REGIONS` (or `actions.aws_allowed_regions` in the config file) resolves to empty, since reaching that state silently would mean a server that starts cleanly but fails every AWS execution. `AWSAuthorizer.Authorize` checks, in order: the resource is named; the region is in `AllowedRegions`; and, only for actions that declare a write `Operation` (`aws-reboot`'s `"reboot"`, `aws-terminate`'s `"terminate"`), that the operation is in `AllowedOperations`. `AllowedOperations` has no default — leaving `ROSA_TA_AWS_ALLOWED_OPERATIONS` unset permits every AWS read but denies every AWS write.
+The optional cluster-region gate applies to all scopes before target authorization. An empty list skips it; when enabled, a lookup error fails execution and a region mismatch records a denied, skipped execution. The executor records the resolved cluster region. The AWS authorizer requires a named resource and nonempty region. A read needs no write permission; a named mutation must be explicitly allowed.
 
 ## Configuration
 
@@ -154,8 +152,8 @@ A separate `AWSAuthorizer`, constructed with `authorization.NewAWS(logger, AWSPo
 | `ROSA_TA_ALLOWED_ACCOUNTS` | Loaded into `Config.AllowedAccounts` as a comma-separated list, but as of the current codebase it is not read by any authorization check (`RoleAuthzMiddleware`, `ActionAuthzMiddleware`, or the `internal/authorization` allowlists) — it is a declared, unenforced configuration knob. |
 | `ROSA_TA_ALLOWED_NAMESPACES` | Comma-separated Kubernetes namespace allowlist enforced by `KubeScope.Authorize` via `internal/authorization.Authorizer`. Unset means permissive mode (every namespace allowed) — acceptable for local dev only; production deployments must set this. |
 | `ROSA_TA_ALLOWED_SECRETS` | Comma-separated `namespace/secretName` allowlist checked in addition to the namespace allowlist whenever a `get`/`patch`/`delete` action targets the `secrets` resource type. A secret not listed here is denied even when its namespace is allowed. |
-| `ROSA_TA_AWS_ALLOWED_REGIONS` | Comma-separated AWS region allowlist for `AWSScope`/`AWSAuthorizer`. Falls back to `authorization.DefaultAllowedRegions` (empty) if unset via config file either; an empty result stops the server at startup rather than denying every AWS request at runtime. |
-| `ROSA_TA_AWS_ALLOWED_OPERATIONS` | Comma-separated AWS write-operation allowlist (`reboot`, `terminate`). No default: unset means empty, which permits AWS reads but denies every AWS write. Configuring any value is logged as a warning at startup because it widens what the server can do to a customer's cloud infrastructure. |
+| `ROSA_TA_ALLOWED_CLUSTER_REGIONS` | ROSA_TA_ALLOWED_CLUSTER_REGIONS overrides actions.allowed_cluster_regions; an override that parses empty cannot discard a restrictive file setting. |
+| `ROSA_TA_AWS_ALLOWED_OPERATIONS` | Write operations allowed by AWS policy. Reads still need to pass the other authorization checks. Enabling writes emits a startup warning. |
 
 Role-to-AMS-resource mappings (`roles` key, e.g. `SREP` → `BackplaneOsdSrepResource`) live in the YAML config file rather than an environment variable, and are required (non-empty) whenever `ROSA_TA_AUTH` is `enabled` or `ocmconfig`.
 
@@ -164,5 +162,5 @@ Role-to-AMS-resource mappings (`roles` key, e.g. `SREP` → `BackplaneOsdSrepRes
 - Layer 1 and layer 2 are independent: passing role/action authorization only permits enqueuing the execution request; it does not imply the specific namespace/secret/region/operation the request resolves to will be allowed once a worker picks it up.
 - `RoleAuthzMiddleware` fails closed only when every AMS call for every configured role returns an error (`500`); if calls succeed but none report `allowed=true`, the result is `403`, not `500` — the two cases are deliberately distinguished in the response and in logs.
 - `ActionAuthzMiddleware` only runs when the route carries an `{action}` URL parameter, so action-independent endpoints (catalog listing) rely solely on layer 1.
-- `authorization.Authorizer` (Kubernetes) fails open when unconfigured (permissive mode); `authorization.AWSAuthorizer` fails closed when unconfigured (empty allowlist denies). This asymmetry is deliberate per authorizer and documented in-line in `aws.go` and `authorization.go` — do not assume the two allowlists share failure behavior.
+- The cluster-region gate and AWS write gate have different empty-list semantics: no cluster filter, but no write permissions.
 - `AWSRequest`/`AWSPolicy` are kept as distinct types from the Kubernetes `Request`/namespace-secret allowlists specifically so an AWS action can never be judged by Kubernetes rules (or vice versa) by passing through a shared type.

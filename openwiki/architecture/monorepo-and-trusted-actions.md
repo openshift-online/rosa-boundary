@@ -16,6 +16,8 @@ sources:
     resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-dffd350b4b1dbb8f4cfef35f
     resource: repo://components/trusted-actions/OWNERS
+  - id: openwiki-source-8ea12a05c67ed54e49e49437
+    resource: repo://Containerfile
   - id: openwiki-source-202f5239bfb095a7cbbf7f0f
     resource: repo://docs/trusted-actions-monorepo-migration.md
   - id: openwiki-source-7bd911fdd3026b7b031a01e3
@@ -24,14 +26,12 @@ sources:
     resource: repo://hcp-terraform/rosa-trusted-actions/main.tf
   - id: openwiki-source-98f104d67e8bcf4fc6cd3f1a
     resource: repo://hcp-terraform/rosa-trusted-actions/OWNERS
-  - id: openwiki-source-012f2c78e3b1446dfc35803f
-    resource: repo://Makefile
   - id: openwiki-source-b22643f9c083ba8127bcda92
     resource: repo://OWNERS
-generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-19T16:04:15.171Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 ## Why this page exists
@@ -129,11 +129,7 @@ Consequences of this split:
   `github.com/openshift-online/rosa-trusted-actions` under the component),
   there is no repository-wide `go.work`, and neither file contains a
   `replace` directive pointing at the other — Go tooling resolves each
-  module's dependency graph independently. Both currently declare `go
-  1.26.0`, but only the root `go.mod` pins a `toolchain go1.27.4` directive;
-  the component `go.mod` has no `toolchain` line, so building it relies on
-  whatever toolchain satisfies `go 1.26.0` in the local/CI environment
-  rather than the root's pinned 1.27.4 toolchain.
+  module's dependency graph independently. Both declare `go 1.27.4`. The separate module boundary does not prevent packaging the client: Boundary builds `cmd/rta` from the same checkout and installs it as `/usr/local/bin/rta`, not as a TA server.
 - The handful of third-party dependencies the two modules share (for
   example `golang.org/x/oauth2`, `golang.org/x/sys`, `golang.org/x/term`,
   and `github.com/spf13/pflag`) are pinned to independently resolved
@@ -172,10 +168,7 @@ equivalent) exclusion in any of these files today:
 
 - [`components/trusted-actions/OWNERS`](../../components/trusted-actions/OWNERS)
   and [`hcp-terraform/rosa-trusted-actions/OWNERS`](../../hcp-terraform/rosa-trusted-actions/OWNERS)
-  each list the same TA maintainer/approver/reviewer set (`bergmannf`,
-  `Makdaam`, `Nikokolas3270`, `RaphaelBut`, `rolandmkunkel`, `petrkotas`,
-  `zmird-r`, `gvnnn`, `xiaoyu74`) and a `component/trusted-actions` label,
-  with no `options` block restricting inheritance.
+  both apply the `component/trusted-actions` label and inherit root ownership. Their local approver lists differ; approval for a component source change does not by itself establish approval for its HCP workspace change.
 - The [root `OWNERS`](../../OWNERS) file applies a catch-all `'.*'` filter
   listing Boundary's approvers/reviewers (`tiwillia`, `jhjaggars`,
   `kseiter-rh`, `xiaoyu74`, `bergmannf`, `RaphaelBut`, `geowa4`,

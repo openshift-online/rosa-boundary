@@ -1,25 +1,25 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:54f8e3e3235e64e0dddc9dc662d20ebd09d34cfd5814755c0303642033159ef8",
+  "pageVersion": "sha256:a8495924fe7903f1d5c43e587fc8bdf4e025b28cf4063ea37f78e8f9e4ca4787",
   "claims": [
     {
       "id": "claim_7ea425ebadf04e7894f3f138062be6b4",
       "statement": "The Boundary meta-workspace declares six VCS-connected staging L3 workspaces in the rosa-boundary project: credentials, account, two networks and two regional runtimes, all pinned to Terraform 1.16.0. Each network pair and runtime pair reuses a source working directory (deploy/network, deploy/regional) while retaining separate workspace state.",
       "evidence": [
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L162-L181",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L166-L185",
           "version": "repo-lines-v1:sha256:d6268047bb16c6295d2d99f1ca758fac4b3f7c317ea7609ae3dd41a4b7cda905:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiN2Q3YjY5ODM1ZTMzZDJiZTA4NGU2Y2UxNWZmMzQ3ODFmN2Q0NzViMGZkNmMzMzQ3ZDg5NDkzODU3YjVhMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiY2Y5ZDZmZGQ2YjRiNGMwMmMwZGZlMGU5YjE3ZTE5NWFkNmZiMDE4MmIyNWQxYzM3Y2MxMjRlMGFkYTUxMzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4ZTQ4NmQyNGRlYWRjZjRiYWU0MzNjYjE2OTA2OGYwMTkzODM4OTRjMTUxYTRhZTRhYmU3NzE5MTYxNGMxNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2N2FmYmVjMjg2ZTE4YmQ4YWMxYTViMGY4MWQ4NjY4Yjc5Yzk1MDU4YmMwZDFlYjhjMWVmMGZlYTkwMzA1ZjIifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L353-L359",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L357-L363",
           "version": "repo-lines-v1:sha256:3e9e5c530e0aa3c8c6589f906d9b21eeeb98abc8d48766561a1ad49c0064d72b:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDZlOGUzZjY1ZjBmYWUxYjVjZTI5OWFmYjE1YTA4NjZmMWIwMDM2MTc0NjEwYmM5MzgxZjZjMmUwNDc0OWU2ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY5MjhjNDE1YTc2MDBlYzU4ZTY0NzE2NTNkZmIxY2IwN2JhMjdkNDg4YmIyZDgyYmZhMGJjMmRjNTZlYWExMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMThlNDg2ZDI0ZGVhZGNmNGJhZTQzM2NiMTY5MDY4ZjAxOTM4Mzg5NGMxNTFhNGFlNGFiZTc3MTkxNjE0YzE2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMGZiYjMwMWQ4ZDkwZmY5YTQzOTljNjNmMzA4NTVlZmM4NDM2ZjZiMjg2OGI3MmJiMzEyNjg5MWExNmUzMWU2MSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L54-L105",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L58-L109",
           "version": "repo-lines-v1:sha256:aaf69bb3f22d7c085bf232fac714e88e70a2e2002fb9864624df6f868534ab1b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZWI0NjFhMDAzMmQ5YWRiZTZiMTUxNmZiOTdkMjFhZmEzOWM5NTM5MDYwN2FjODYzMmVkMGNiNDM3N2YxZDcifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L565-L571",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L574-L580",
           "version": "repo-lines-v1:sha256:b752e04c1a11fe0156f004775ea3bbe5c13b6af984e1401c1a3f2c580d3f6514:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjA0ZmI3YzJjOWViODM5MmIwNzk1M2Q3ZTcyNWIxYWZlNzczM2M4MGUwMzM1MDU1NDZkYjQyYzg1N2JmOWRjOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY5MjhjNDE1YTc2MDBlYzU4ZTY0NzE2NTNkZmIxY2IwN2JhMjdkNDg4YmIyZDgyYmZhMGJjMmRjNTZlYWExMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMThlNDg2ZDI0ZGVhZGNmNGJhZTQzM2NiMTY5MDY4ZjAxOTM4Mzg5NGMxNTFhNGFlNGFiZTc3MTkxNjE0YzE2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMGZiYjMwMWQ4ZDkwZmY5YTQzOTljNjNmMzA4NTVlZmM4NDM2ZjZiMjg2OGI3MmJiMzEyNjg5MWExNmUzMWU2MSJ9"
         }
       ]
@@ -33,27 +33,27 @@
           "version": "repo-lines-v1:sha256:3ad4526c3849c96671115463a5f7f842d7ad1557946853aa8a31a14803d0171b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkOTc1NmIxZGQ0OTBhZjdmYjkxOGVhZTkxYjczMjY5MmIzNjA3NWVmNzcwN2UxZTVhNDVkNDg0MTkwODRlMTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjcxOWUzZWJmOGFlNmRjMjJkYzIwMzk2MjdlYzY0OTYyMGFhODRkOTE2OTNiNTk5MDQxZDcxMDc1Y2M4MzdiNGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFmYjkyMjQzMWRhYWMzNGRlZmEzZmE3MDNkNWVhNjcwZWMxMjFhYWExZGEwY2Y3OTc2NTVjMzFlZDFhZmM5NWUifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L169-L172",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L173-L176",
           "version": "repo-lines-v1:sha256:013cd1f8224939f6b96ff428edc5040157fa64511a7b394838577e9afc8e5930:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZDdiNDg3OGU4MjJmMzdlNDA3Mzc5OWMwZmNjMTk3N2Y2MGE5MDVkM2JkNmQxNDQ2MWU5ODFkN2MxNzc2OWRkNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjQyMjM5YjFiZDgyYjg1ZWQ1MGMxOGFiZTZiOGU5OTc4NzU1ZGFjNmZkODA0MDkyNGM4YTg4MGM1MmYwNjVkMiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiM2JlNDI3MGVjOWUyYzEwNjczNGY2Zjc0MTFiOTRjN2UxOTQ2ZDk1YzNlN2JkN2UxOTRmZDU4MjYwNzgyZGI1NyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZWY0NTkyNGQ4NDUwMjZlMWM3ODk0YzA3YjYxYWFjM2Q2ZmJhZDM0MTFmNjc0NzVkMzIyYWFhZjJjYzZjZjlmZSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L183-L183",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L187-L187",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDM2OWYyZjNkMmM0YTBjM2JiYjI1M2UzOWVmODZiOTU3ZTE0MDNmYWUwZTI4N2E5NDcxZjM3ODA0ZmU5NTI2YSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L360-L360",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L364-L364",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODEzNzRjZjRhOTlkZjFiYTIzNDhkNWRjYmE3N2EyYjAxNWNlMGFmYjYyY2Y1MDg4MjYxM2I1YjkyNWM5NGZiMCJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L572-L572",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L581-L581",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDU1ZjA2NDU1MGRhMzg4MzhiZTYwYjhlMTkwMThlNTllN2NhYzQ4YjFjNTI4MjViNmU2OTY1NWUzZWUzZWUzMSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L62-L62",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L66-L66",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiM2JlNDI3MGVjOWUyYzEwNjczNGY2Zjc0MTFiOTRjN2UxOTQ2ZDk1YzNlN2JkN2UxOTRmZDU4MjYwNzgyZGI1NyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjc1MjE4NDNhYzRlZjc1Zjc4MzgwYTJjY2I4NGExYzY4YjExOTRiZmQ4Mjk1Zjk2ODU0ZTUyZWU1ZDI5Mjk1ZCJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L99-L99",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L103-L103",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDAyNTlmZWRlZDQ3MDAzY2M0NTgxNGU5ZmYwNGIzZTRjMmE5YjdlMTYwZGMxMTAxMTYzZTRhNjg3MGM5MTg1ZSJ9"
         }
       ]
@@ -63,27 +63,27 @@
       "statement": "The AWS-credentials workspace binds a project-scoped TFE-token set alongside its generated AWS dynamic credentials set; the network, account and regional workspaces bind only the generated AWS set.",
       "evidence": [
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L162-L174",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L166-L178",
           "version": "repo-lines-v1:sha256:92990c2f61be13274d654a85b2ed2852d3776080ba2cf3f2c9cbdaec4c7da8b6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhiN2Q3YjY5ODM1ZTMzZDJiZTA4NGU2Y2UxNWZmMzQ3ODFmN2Q0NzViMGZkNmMzMzQ3ZDg5NDkzODU3YjVhMDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4ZTQ4NmQyNGRlYWRjZjRiYWU0MzNjYjE2OTA2OGYwMTkzODM4OTRjMTUxYTRhZTRhYmU3NzE5MTYxNGMxNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk4MzhjODJmMDQzMjRhNDk4ZjA1YmQzZWFlZjFiYTc1ZDQzNDEzNjZlMjUyYmU4YTIyZDRjNzc4ZGViOTc3YmIifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L183-L183",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L187-L187",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDM2OWYyZjNkMmM0YTBjM2JiYjI1M2UzOWVmODZiOTU3ZTE0MDNmYWUwZTI4N2E5NDcxZjM3ODA0ZmU5NTI2YSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L360-L360",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L364-L364",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODEzNzRjZjRhOTlkZjFiYTIzNDhkNWRjYmE3N2EyYjAxNWNlMGFmYjYyY2Y1MDg4MjYxM2I1YjkyNWM5NGZiMCJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L572-L572",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L581-L581",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDU1ZjA2NDU1MGRhMzg4MzhiZTYwYjhlMTkwMThlNTllN2NhYzQ4YjFjNTI4MjViNmU2OTY1NWUzZWUzZWUzMSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L62-L62",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L66-L66",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiM2JlNDI3MGVjOWUyYzEwNjczNGY2Zjc0MTFiOTRjN2UxOTQ2ZDk1YzNlN2JkN2UxOTRmZDU4MjYwNzgyZGI1NyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMjc1MjE4NDNhYzRlZjc1Zjc4MzgwYTJjY2I4NGExYzY4YjExOTRiZmQ4Mjk1Zjk2ODU0ZTUyZWU1ZDI5Mjk1ZCJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L99-L99",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L103-L103",
           "version": "repo-lines-v1:sha256:5fa56e60a134472d7a722856a709f682cfed255c0d29dcf9efb69b20a585e750:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOWM2NWMzNzJkMDY1NjgyZDZhYTcyYmNkZDViNzhlZGU2YTg4NDNmMzQ1NDJiMjMyOWZiODcyYzlmZTg5ZWQ2MyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDAyNTlmZWRlZDQ3MDAzY2M0NTgxNGU5ZmYwNGIzZTRjMmE5YjdlMTYwZGMxMTAxMTYzZTRhNjg3MGM5MTg1ZSJ9"
         }
       ]
@@ -93,23 +93,23 @@
       "statement": "Nine of the twelve Boundary L3 workspaces declare auto_apply and auto_apply_run_trigger true; stage credentials, stage east network and prod credentials disable both. All six prod workspaces declare remote execution and only prod credentials disables auto-apply; the two staging manual-gated workspaces do not explicitly set execution_mode.",
       "evidence": [
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1180-L1290",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1199-L1309",
           "version": "repo-lines-v1:sha256:69752fd883ba90f5137817e30da67a13fff42c5ac325071c47cd635df2d93269:eyJzZWxlY3RlZExpbmVDb3VudCI6MTExLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwZTZmMmFmMDRmMTdlOWQzYWMxNTlmNjU3ZGRkNThhOTgxZGM2ZWMxNjY0ZDdjNTFlNDYxMjc3YzhjMjRiZGUxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJjMzEwZjg1ZDBkOGZhOTBkMWM0MTI3ZDc3NDU3YzAwZjk1ZWU5MDYzZDc3MzE4NmU2OTYyODc2MzMyMjc3MTYwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYzBkMjc1MzdiMjU0MjYzYjBlOTYxOThlNDFmODI3ZjVhM2Q3ZmExYzI2Y2EwNzdlNGU4YzIyZTNlM2JiNmM4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJkMjg1ZmVjMDQ4Yzg1MmJmOGIzZGI4ODkxZWI4ZjU0Yjk2ZWJhNDYzODA4ODlhYWZiMjcwOGZmYmI3ZjE2NjkxIn0"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L160-L183",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L164-L187",
           "version": "repo-lines-v1:sha256:407649b9535a61c01aa851fb8d5d34d9e9062f45d8bdf1df7e9afda67c352279:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVmYTU2ZTYwYTEzNDQ3MmQ3YTcyMjg1NmE3MDlmNjgyY2ZlZDI1NWMwZDI5ZGNmOWVmYjY5YjIwYTU4NWU3NTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBlNGU5ZjljMTNmZTkwZmFkM2Q2MmVlNGNjNmJiZjkyODY1M2ZkZmQ3ODdlNTVlMGY0NjU3NjIwNjkwYTkzMGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAzNjlmMmYzZDJjNGEwYzNiYmIyNTNlMzllZjg2Yjk1N2UxNDAzZmFlMGUyODdhOTQ3MWYzNzgwNGZlOTUyNmEifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L54-L105",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L58-L109",
           "version": "repo-lines-v1:sha256:aaf69bb3f22d7c085bf232fac714e88e70a2e2002fb9864624df6f868534ab1b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyZjk5NTFiMzE2ZGExNzQ2NTg5ZDllYzIwOTBmYzVhYzNkN2I1NzEyOWQzMmFmMjkwMDU1MThmYmIyYWVhZGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjAxZWI0NjFhMDAzMmQ5YWRiZTZiMTUxNmZiOTdkMjFhZmEzOWM5NTM5MDYwN2FjODYzMmVkMGNiNDM3N2YxZDcifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L748-L779",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L762-L793",
           "version": "repo-lines-v1:sha256:a19584b4f8b0d784d70d7e9a812aa0ac3d214dbd1e6f05532f19c3a5732bfc54:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0MjIzOWIxYmQ4MmI4NWVkNTBjMThhYmU2YjhlOTk3ODc1NWRhYzZmZDgwNDA5MjRjOGE4ODBjNTJmMDY1ZDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRmZjg1ZTkwMzFkYjY5MmY3MWVjYTA5MzYxODExMGJhMzQzYTc4NDlkOTkzMWMzMGVkMzAzZThlMGZmNzBjMzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg5Y2U2ZTljZTViZWMyNTk1MDE2MTE4ZGUyMDg4MzU0YTJiOTMxNjRhODYyYWM1MWJjM2I4N2VmNDI4ZGNhYzEifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L950-L1016",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L964-L1030",
           "version": "repo-lines-v1:sha256:1a73556c93c298eef364f65b41828ff51871540a84f81df94a4dc62cb3609edb:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyOWVmNDFkMGMyYjIyODRhYjhkNzRmMDg3NDNjOTc0OTU2NjY2NTk5YWI5NTBmNjcyYWVjMTk0NDFkYjBjOWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRlZDg1YWFlZDI4OGY5MzEwNDYzNTA2YzhjNTM5MGZlZDM2N2FkODBkMTcwMjU3YzYyODcyNTIwODVkZTRiNWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4ZTQ4NmQyNGRlYWRjZjRiYWU0MzNjYjE2OTA2OGYwMTkzODM4OTRjMTUxYTRhZTRhYmU3NzE5MTYxNGMxNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxMzc0Y2Y0YTk5ZGYxYmEyMzQ4ZDVkY2JhNzdhMmIwMTVjZTBhZmI2MmNmNTA4ODI2MTNiNWI5MjVjOTRmYjAifQ"
         }
       ]
@@ -123,11 +123,11 @@
           "version": "repo-lines-v1:sha256:159a555ca7c46513bc11e075d56d4ee6955e750078a379bbc4c64196d30ea37d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxNzRkYWI2YzA2Mjc0MTM5OTk4OTg2ZDQyN2UzZWYxZWEyYzliYjc2NDlhZTcwMjg0Zjg3ZGRmODkxZGYwMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiMGRmZjBjNDMyMGI1MWU2NjFmMDljODlkMDM0MWVkNTA2NTUzMWM5NjQ3NzYyZmUzNjYwYmJhNjg5Njc3YjYifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L440-L450",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L444-L454",
           "version": "repo-lines-v1:sha256:ec26ed0e458a4d9dc98b7ef5427574262b2590b9f13235542853006f30362649:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ0YWFiOGFmOGE2MWFkNjcyODY3ZjlhODIwNGJhYTQ2NDhiZjNkM2QwYjZkNTYyNWI4ZGRhMzM3MDhmY2FhY2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyOTg5MTEwYjg0YjFkOTNhZjVjY2JmZGI0ZTE0NmRhYWY2OThmMTUzZDVmZGYyYTAyNzA5MjY1N2Y5OTYzZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVlNWY1MGFkMzNkN2M1OGY2MzY5ZTdhMjc3N2E4NWJjNzU4MDgxY2VhNTgxMWE0ODJkNWIxODliNDNkMDg1NGYifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L647-L659",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L656-L668",
           "version": "repo-lines-v1:sha256:13856fda43d44290bd0422f976f8de7cf69974d85cb02e54f4b0194402c28746:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM0ODA1YmU0NmVkNjRmMDRmMWI1Mjg5MDY0NzM1YjA2NzU4ZmZlODJjMmQ2YzczYzhkYzNhYzFhMmI3ODhkNGEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2M2JkNTA1NGM3M2ZmMTYwZDNiODhlZmFhMmQyMjZmMWRhMmQwMThiMzc2NWYwMDBmNTdmZmUzMzEzNGFjYjUifQ"
         }
       ]
@@ -137,28 +137,12 @@
       "statement": "The Boundary meta-workspace calls version 0.0.23 of the private TFE workspaces module with a notification block, Git-managed variables and variable-set bindings; its map defines six staging and six production L3 workspaces (credentials, account, two networks and two regional runtime stacks per account).",
       "evidence": [
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1180-L1290",
-          "version": "repo-lines-v1:sha256:69752fd883ba90f5137817e30da67a13fff42c5ac325071c47cd635df2d93269:eyJzZWxlY3RlZExpbmVDb3VudCI6MTExLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwZTZmMmFmMDRmMTdlOWQzYWMxNTlmNjU3ZGRkNThhOTgxZGM2ZWMxNjY0ZDdjNTFlNDYxMjc3YzhjMjRiZGUxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJjMzEwZjg1ZDBkOGZhOTBkMWM0MTI3ZDc3NDU3YzAwZjk1ZWU5MDYzZDc3MzE4NmU2OTYyODc2MzMyMjc3MTYwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJiYzBkMjc1MzdiMjU0MjYzYjBlOTYxOThlNDFmODI3ZjVhM2Q3ZmExYzI2Y2EwNzdlNGU4YzIyZTNlM2JiNmM4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJkMjg1ZmVjMDQ4Yzg1MmJmOGIzZGI4ODkxZWI4ZjU0Yjk2ZWJhNDYzODA4ODlhYWZiMjcwOGZmYmI3ZjE2NjkxIn0"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf",
+          "version": "repo-file-v1:sha256:41d7cff3aecfa2acec2019bcbe9ded187a590d7a7b9ef44eb2f8cd41c8123652"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L35-L54",
-          "version": "repo-lines-v1:sha256:c6c3744b7b52074f2b63d6d778625ebe479ecfd2c2cedc58568a36c261e0fe7d:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA1NDJjODY1MTBmMzlmOGQzZTgzYTIxMjNkZTUwODhmYTg2OGI3MTJmZmZlZjk3MTg1ODNjM2U1ZTQxZmYwZDYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlmNjU3OGFjOTg4NjBiNjcwMTA3MmM2YTQyYmVjNGJlYTBiNTAyNTRmNzkwM2RjNDk0OTZlMDI3NDk1MjEwYWUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZiNTgwZTk2NGY4M2E0NzNmNDNkNDQzODQ2Mjk0OWQ2OGI1NjAwZmRhNzg3ZjE2Mzc0NWQwMGRlODljYmYzNmEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZkNDU5OTNlZWVhNzc5ZGE3ZWYzMzhjMDk0YjRlZmVkNzk1MTAzYjJlZWJmYmM3YjU1ZjJiZThiNTg3YjdmYTAifQ"
-        },
-        {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L353-L571",
-          "version": "repo-lines-v1:sha256:1e93bd98a7a821f68111792e1dd008a9bc1df0e30e83f9ed23795cfd8f2c710c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjE5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkNmU4ZTNmNjVmMGZhZTFiNWNlMjk5YWZiMTVhMDg2NmYxYjAwMzYxNzQ2MTBiYzkzODFmNmMyZTA0NzQ5ZTZkIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIzNjkyOGM0MTVhNzYwMGVjNThlNjQ3MTY1M2RmYjFjYjA3YmEyN2Q0ODhiYjJkODJiZmEwYmMyZGM1NmVhYTEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIxOGU0ODZkMjRkZWFkY2Y0YmFlNDMzY2IxNjkwNjhmMDE5MzgzODk0YzE1MWE0YWU0YWJlNzcxOTE2MTRjMTYzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIwZmJiMzAxZDhkOTBmZjlhNDM5OWM2M2YzMDg1NWVmYzg0MzZmNmIyODY4YjcyYmIzMTI2ODkxYTE2ZTMxZTYxIn0"
-        },
-        {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L55-L181",
-          "version": "repo-lines-v1:sha256:4978cb3fc7f6a1485b50ed330c520aeb9a21056e505e44caafb0ed2f501772d5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI4ZTU2N2JiOTZhZmIxOTVhY2JlOTk4NDEzZGRmMTVhMTY3MzE0NDIzZTJlNWFjN2ZkZDNkYmEzZjcyMDVlZjc1IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3YmNmOWQ2ZmRkNmI0YjRjMDJjMGRmZTBlOWIxN2UxOTVhZDZmYjAxODJiMjVkMWMzN2NjMTI0ZTBhZGE1MTM3IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI2NTNkNzk0YjQwOWEyOWU2YmU4MmNlMTc3OWE3ZGU2NzMxZGRiMTYwMjU2YjNhM2Q4NWQ1ZTI4ODliNGI4Njc0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIxNjdhZmJlYzI4NmUxOGJkOGFjMWE1YjBmODFkODY2OGI3OWM5NTA1OGJjMGQxZWI4YzFlZjBmZWE5MDMwNWYyIn0"
-        },
-        {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L750-L779",
-          "version": "repo-lines-v1:sha256:2712089626337628520f51769940f9f999cc2c3806e4aa6f7c74f7f6ef8b5bb4:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ2MjcwNGNmMTJkZTg4MDIzYzY4MGU2Y2JiMTAzNjgzZWFkZTExOThjMThmMDNmYWI3N2VkNzdmMTFlMGZkZTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg5Y2U2ZTljZTViZWMyNTk1MDE2MTE4ZGUyMDg4MzU0YTJiOTMxNjRhODYyYWM1MWJjM2I4N2VmNDI4ZGNhYzEifQ"
-        },
-        {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L950-L1016",
-          "version": "repo-lines-v1:sha256:1a73556c93c298eef364f65b41828ff51871540a84f81df94a4dc62cb3609edb:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMyOWVmNDFkMGMyYjIyODRhYjhkNzRmMDg3NDNjOTc0OTU2NjY2NTk5YWI5NTBmNjcyYWVjMTk0NDFkYjBjOWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRlZDg1YWFlZDI4OGY5MzEwNDYzNTA2YzhjNTM5MGZlZDM2N2FkODBkMTcwMjU3YzYyODcyNTIwODVkZTRiNWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE4ZTQ4NmQyNGRlYWRjZjRiYWU0MzNjYjE2OTA2OGYwMTkzODM4OTRjMTUxYTRhZTRhYmU3NzE5MTYxNGMxNjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxMzc0Y2Y0YTk5ZGYxYmEyMzQ4ZDVkY2JhNzdhMmIwMTVjZTBhZmI2MmNmNTA4ODI2MTNiNWI5MjVjOTRmYjAifQ"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L35-L61",
+          "version": "repo-lines-v1:sha256:8f6b69b922f497dc86c9daaf0bdf362ce45879a0a0af3fef1d66acadce21e8d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwMTJlMDNlYWYwOWMyNjI1YTVjMjA2Nzc2MzllNWEyODljYzM2YjFiMzdjNWQ5MGIwNGE1NzEyNTY0YjJiYWYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc4OWZmMzg1ZDQ1ZTg2MDg0N2M4ZGMxMjAyNzY0NmM5YWJjMzEyYmZjNWI5OTU3NTU2NDM2ZjAzMGIzZjg0YzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJjNjFjMTViODE0OGJhOGIyYzgyNDVmZjM4OTEwODZiNDU0NGZkMTRjYmY3YmJiNGUzOTUyMzkxZGM5YzcxZWYifQ"
         }
       ]
     },
@@ -205,7 +189,7 @@
           "version": "repo-lines-v1:sha256:e6e94d6fedf53417fae87c255f5383c417f9a8cdd4116b19d9586bce52d7cc8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNzI4NDkzMzJkODc2MjEzZGFhNTM2ZGI2NWQwN2NlMjNkZjEzOGI3NTVkYWIxN2UwNDQ2OGI1M2M2OGU0NDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L176-L183",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L180-L187",
           "version": "repo-lines-v1:sha256:3995e632ce83773e06a6007389db5fba3bcaf71c0d292f468bd3653f5e035ab1:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNGUwOWIzZDAwNmJjMGUxNmE3MDA1NjQ3NjBkYzFlZmJiMTU5ODVlY2Y4NWQ3ZWE0Y2VmMWE3MzIwNGRkZTJlZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNWZhNTZlNjBhMTM0NDcyZDdhNzIyODU2YTcwOWY2ODJjZmVkMjU1YzBkMjlkY2Y5ZWZiNjliMjBhNTg1ZTc1MCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZWY0NTkyNGQ4NDUwMjZlMWM3ODk0YzA3YjYxYWFjM2Q2ZmJhZDM0MTFmNjc0NzVkMzIyYWFhZjJjYzZjZjlmZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDM2OWYyZjNkMmM0YTBjM2JiYjI1M2UzOWVmODZiOTU3ZTE0MDNmYWUwZTI4N2E5NDcxZjM3ODA0ZmU5NTI2YSJ9"
         }
       ]
@@ -233,11 +217,11 @@
           "version": "repo-lines-v1:sha256:193c999f897bcdd815397d1c3615f1fab6806ca08f662ee0065225a22e00c38e:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjUwM2I3YjA5OTNiMDc1NzM3ZTc5NmJjYWVkYzM3NTc3ZDA0MTYwZGFjYWZkNjVkYjY3ZjBhMGYyZDQ4YzIyZSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNWQyMzIyMmJkMGExZDllNzdhYjNmMDQ5NGI3MzI3YzY4OTRlNTU0NmNmNDljMTQ0NjljOTFmYTc3Y2I1M2IyNyJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L381-L392",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L385-L396",
           "version": "repo-lines-v1:sha256:5cf314c3ef35a2d23666c1e8a20d90b8aecdb8716b701f1c26831a907dffe83e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY4NTAzODJmMDYwODhiNmVjOTQ4Mzc2MTA3ZTFjOTg1YzFmZmNiNTc2MjEwN2QwNDZmMWFhMWFhMGNjN2M4MmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ1YWYwNDU0N2NjMTAyMjZhMWIwNTgyY2VhMTZlNGMzZTQ0MDIyN2U0MmJjZWRkNWJmOTA3ZDM2ZjhhYjFiYTcifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L586-L600",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L595-L609",
           "version": "repo-lines-v1:sha256:07a51506ffde8d7a91155292795b772dc421183ddf2477a360547d9bc88a3ebd:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY2M2MxN2I5MmFhNTI4ZjAwZDRhYmFiNTcwYmY1MGZjODgwMGZkMDY0NGExMzJlNzJjZjMxOTA4NzQ2ZTZjYWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ1YWYwNDU0N2NjMTAyMjZhMWIwNTgyY2VhMTZlNGMzZTQ0MDIyN2U0MmJjZWRkNWJmOTA3ZDM2ZjhhYjFiYTcifQ"
         }
       ]
@@ -255,7 +239,7 @@
           "version": "repo-lines-v1:sha256:619dc480fdd0bef786da414c2c9f77b0c6986391a83f15b6ba40e0fb7d7c9f06:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY4MTY3MDVmNDlkYzFkNWI2NDEyYzQ2ZDVjNDY3MzI5ODFlNzBiN2E3YmE2YjVlNWIxYjNkNjZjYzM1NDFlOWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMwOTc4MjFhMTc5NzQ5NzQ4ZjM5MzJiOGFhODNiZmU2NzQyNTE4ZWU0OGYxNzUzYjZiMDNhZmJkOGMxZTcyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L229-L239",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L233-L243",
           "version": "repo-lines-v1:sha256:5e36e00ebc35295244deaea36e06e6c786500ed31b1e3081b58e53b55027f941:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQyOWQ4MTRhOGQwMTM3MzBiOTZkYzQ0Y2FlY2RhYjk1NTI1NmFmYzA4MWRmMWFmMDFiYTVhMzhiMmU5NmE1MTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjA2ZDYzZTdmMDAwMWUzZDEyMDM2YjlhNjVhNzE2ZjBkZmRiOGYxM2Y2ZDhjODdjZDUxMmNjYjZkZTBiNmFiYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFkNzMwZjhjZDA2MGNmNjA1YzJmYjA4YWJkY2IyMDJhN2MwZDQ0OWZjNjc2YmM4ZTFhODFhNzkyOGNjNjcwM2YifQ"
         }
       ]
@@ -277,11 +261,11 @@
           "version": "repo-lines-v1:sha256:a07088a85cdf75263a1f5c01a92cf09c2fb47dc18634bdb42210d746a7263517:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjEzNDdkODcwYzkwZTBiOGJiZTQ5ZDRhYWNjNWZhMTNkZDNhNDJiMjQyMWViZWU3MzViM2Y2Zjc0MDU0ODdhMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZmI1ODBlOTY0ZjgzYTQ3M2Y0M2Q0NDM4NDYyOTQ5ZDY4YjU2MDBmZGE3ODdmMTYzNzQ1ZDAwZGU4OWNiZjM2YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGVjOTM0NTQ3M2E0ZGZiMDE4ZWI5ZWViZjc4OGQyZmE5YTVjZGJmOTNhZWZjOWFmY2U4OGRkYjNjYjI1Yzg4MSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L752-L765",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L766-L779",
           "version": "repo-lines-v1:sha256:389937a7c2faf0cd3a943e70d4974d2b273e66e718eb634762e2840fb30ee465:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwY2Q2ZjJmOGVhZjI2OTMwNjgzNmFlYmJhYWZhMzQ4OGI0NzEyNjhiOTQ0MTZmNTE3ZGViOTU2MjliODcyZjEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjEyODg3YmY0Zjk5ZWRiYzNlZTA4YmI0NzYzY2NkYTIzNDlhOWEwMjIwYWRjMGZjNDQwY2FlYWU0MTY4MTFhMGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBjNGE0Mzg4ZjllODBjODJiOGZiMzJkNDgxNGQwMGU5YTJiNTRkNjk5ZTk3MzExNTEyOTVmODIwNjJjZTFiZTcifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L769-L778",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L783-L792",
           "version": "repo-lines-v1:sha256:e2af0ac677fd4a645267bed9543c7037b37c3f244f9ffc7ec5ed1d8d5ddbf629:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU0ODc1NWE4YTBlZjJmMzJlNWMwYWM2NWM0NWEzM2VkOWYzMzI0ZDIyNWQ2M2JkMWRlMDg1ZTMxZTc1M2ZjNTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI2NTM3NTdkMjZmNjI0OGEyNGFkYjcwNTM2ODZmNWU3ODczNzcyMDQxZWZjNmQ4NGQzOGJjZWZkZGM4ZTgzNTAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBjNGE0Mzg4ZjllODBjODJiOGZiMzJkNDgxNGQwMGU5YTJiNTRkNjk5ZTk3MzExNTEyOTVmODIwNjJjZTFiZTciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJlZWFhNGM1NjY5ZTBjZGQzNGE3N2EzM2EwNjgzMmVmOTJlZmM5Yzc4MzYyOGJhMjFjNjZhNjFlOWJhNGIzYWYifQ"
         }
       ]
@@ -295,19 +279,19 @@
           "version": "repo-lines-v1:sha256:565c59780050f02a5f6f5326a5231a4560d99b81192e8322284d5c1daae8bfba:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIzODU0Mzg5NTI3ZDMyOTNiMGFjNjU1NTNmMjQwOWUwZWUzZmU2YjdlYjIwNDRkODc3NDI3ZTU1OGU0MGI5NzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU2YjA0NDkxNDY5NzIyZTgzNjNhOTRlNDA0NDUzOGUwMTNhMmEyMTdlMzZiMWU1NjhiYTYwYWNiN2I0YzhmMmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyOTQyZWFkZmRjMmRiM2ExNzI1OTRjY2Q3NjdlNzY4ZGEzNzViYzRlZjk2MDU0OWEwZmNjNWE0YWNlM2JjZjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjMDhjYjdiODU0OTI2NGYxNWIyNGMyM2EzOTJiOTQ2YjM0ODM1ZTMyMDg1NGUwYWM1YTA1MzNjNTZjOWMzNmQifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1193-L1200",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1212-L1219",
           "version": "repo-lines-v1:sha256:42edef844c810d0e46b29326a77b1f9b15a2ce1b46086bdefa00fb556f427858:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTMwODQyZjI3NDY4YWMyY2ExMjA0ZDEzMmIxN2VlOTYzMTcxMmY0ZWMwN2YwY2I5ZWNkN2QxZTcxODZkZmMwMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY5MjhjNDE1YTc2MDBlYzU4ZTY0NzE2NTNkZmIxY2IwN2JhMjdkNDg4YmIyZDgyYmZhMGJjMmRjNTZlYWExMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMDNiMzQ3NzEyNmMyZDZhYTJlMGZmM2M2MTFiZjRhODkzNjFkYmVjMjczMjBlNmYzOWZiZDEzMmQ2Yzg4ZTE3YSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmE3MTNlMzY5ZGU3MzUyYjgzOWRlYzM0ZjIzODNiNTQ0MzYxN2Y1MTE5ZGZjYjA3ODQwMjgwNmM2NzcyNWI3NSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1276-L1283",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1295-L1302",
           "version": "repo-lines-v1:sha256:8e95a21bc28b5447b08182902b25cdd523ae13fcf4164e3159d5458a4c069477:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTQyZTk3YTFhYTZlODgxNzNkNjAyZGM0N2QyNTYyMTcyNzA4ODQ3MzI4MmY0ZmMwYjViNmVjYzg0ODM3MWM1MyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY5MjhjNDE1YTc2MDBlYzU4ZTY0NzE2NTNkZmIxY2IwN2JhMjdkNDg4YmIyZDgyYmZhMGJjMmRjNTZlYWExMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYjliYmM4NzNmYzU5NDZjNWMwN2MyYWQ2Y2U3MDMxZDkyMmEyYjYxNDZjZmYzMzdkYjg5OWY5ZWM2ODI2NzhiMCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmE3MTNlMzY5ZGU3MzUyYjgzOWRlYzM0ZjIzODNiNTQ0MzYxN2Y1MTE5ZGZjYjA3ODQwMjgwNmM2NzcyNWI3NSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L952-L1004",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L966-L1018",
           "version": "repo-lines-v1:sha256:2fc0af1cee06ca87858a5bc0ade8d392ed53f654c07bce0af66c5f71a1453827:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViMWQxMjhiNmMzZWIzNDY1MGQ5NjA4Y2FlYzE2YjcxMjBiNDVlYjQ3ZGEzY2RiNTlhYTc2YTgwN2RkNzc4MjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3YmM3MWY0OGE0ZmM3MDBiMTZhYjA3Njk4ZGE5Mjg2MzY3NmYxYmQ2YWYxZGMyOGNiZDNhZTdlY2QzMTkzYmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY3NmJkOTJkNDQ2MzMwODg4YWRlOTEzOWY4Y2QyZWFhNzYwZjYzYmE4NjY2Yjk0MDU3MDkyYmRiNTIzZDhkNGIifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1008-L1015",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1022-L1029",
           "version": "repo-lines-v1:sha256:28fd061edf31c90720df369ddc62bd48533871c3648aacaee0fa9f6284c18298:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmI2MDVhZTIwMzM4ODMyNDkxNjI2YmIyMzZjN2RhY2MxZTdlNTZjNDU2ZjRjMTJhNzk3MzA4ODkzOTU3MTMwZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY5MjhjNDE1YTc2MDBlYzU4ZTY0NzE2NTNkZmIxY2IwN2JhMjdkNDg4YmIyZDgyYmZhMGJjMmRjNTZlYWExMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjc2YmQ5MmQ0NDYzMzA4ODhhZGU5MTM5ZjhjZDJlYWE3NjBmNjNiYTg2NjZiOTQwNTcwOTJiZGI1MjNkOGQ0YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmE3MTNlMzY5ZGU3MzUyYjgzOWRlYzM0ZjIzODNiNTQ0MzYxN2Y1MTE5ZGZjYjA3ODQwMjgwNmM2NzcyNWI3NSJ9"
         }
       ]
@@ -317,23 +301,23 @@
       "statement": "rosa-boundary-prod-account reuses the deploy/account working directory with production-specific Git-managed variables: role_name_prefix = \"rosa-boundary-prod\", stage = \"prod\", aws_account_id = \"514903006123\", legacy_policy_region/legacy_role_tag_region both \"us-east-1\", bedrock_logging_source_regions set to [\"us-east-1\", \"us-west-2\"] for both now-live production regions, and adopt_existing_resources = false reflecting a greenfield account. This workspace sets execution_mode = \"remote\" and, unlike rosa-boundary-prod-aws-creds, sets auto_apply = true and auto_apply_run_trigger = true.",
       "evidence": [
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L769-L776",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L783-L790",
           "version": "repo-lines-v1:sha256:7b76ececc1920dcdcde5183d57f5780430a20c03e3679d8fb4e74b52a436c088:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTQ4NzU1YThhMGVmMmYzMmU1YzBhYzY1YzQ1YTMzZWQ5ZjMzMjRkMjI1ZDYzYmQxZGUwODVlMzFlNzUzZmM1OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY5MjhjNDE1YTc2MDBlYzU4ZTY0NzE2NTNkZmIxY2IwN2JhMjdkNDg4YmIyZDgyYmZhMGJjMmRjNTZlYWExMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMGM0YTQzODhmOWU4MGM4MmI4ZmIzMmQ0ODE0ZDAwZTlhMmI1NGQ2OTllOTczMTE1MTI5NWY4MjA2MmNlMWJlNyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmE3MTNlMzY5ZGU3MzUyYjgzOWRlYzM0ZjIzODNiNTQ0MzYxN2Y1MTE5ZGZjYjA3ODQwMjgwNmM2NzcyNWI3NSJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L795-L798",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L809-L812",
           "version": "repo-lines-v1:sha256:954d985a3d594a29f4cb12f0c10b73c715917dc87384bcb1bfd7d1a6f7781a93:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOTYzOTYxODFiMjMxYjg5YWUwYjU5NzA2YzhlOWFkZjA2MGEzYjgxMTZlODZmNWUwMWVlZmNhZDhkZjA1ODQ2OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMWU2NzNhYmQ0NTdhOTdlZWExN2E2MDA2MmViMGZhZWE2YmRmMDk0ODY4Y2M2YjhmOGMwZWJkYTJmNjFlZDQyZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzNmNTZjOTYwYmRjZjUxNGFmYjMxYjIyYzM1ZTczYzU1OGVhMjdmZWM5ZjY5Njk3N2JkOWQ0NDM0NTdmYzhiYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzUxNWMzNWU4NmMyOGRjZjgyYzZmNDMwMDY4OTFhMGMxZDkzYmUxMDBhYjk5ZTRhMDQ0NzhkZWQ4ODA1NTc3YiJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L809-L825",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L823-L839",
           "version": "repo-lines-v1:sha256:32487d2cd0ee847f498dad5d17dd6de2fa76e6895388b1f6b6c954787ba47dd7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZkODk5ZTZkMWFhMTlmNmRiNDlkOWRjNmZiMjZhYTI0NTdkMGVhYjYyMTRiNWZhMWY4MDZjMzBjNDBmMTVhMmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgyY2RiZjQ5NzYxNTc5MGQ3OGI2NzU2ZTQ2OTNmYWZmNGYwMTE2MTFjY2Y0MTZkYmNjZDkxYzBhZjcwZjQwYjEifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L826-L833",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L840-L847",
           "version": "repo-lines-v1:sha256:29f1751ba4af5dfde4d575e27756bda92c2de5ac7500332a1cb041f545d6e2bf:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTkzZmM5Nzg5NDE0MDYyMzA5NmNhOWRiNzE1NDQyMmQ0MDQ0Y2RkYmZjOTVhZDQwZGFhNzg1ZjliOTM0MmNmYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMWU2NzNhYmQ0NTdhOTdlZWExN2E2MDA2MmViMGZhZWE2YmRmMDk0ODY4Y2M2YjhmOGMwZWJkYTJmNjFlZDQyZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjE0NjY3OWJmZWExMDM0NTJkZTcxYjRlODRlZjIzZDA0ZmNkNDU1YWUyNTBlY2I2ZmI2ZjExYmYxZDBlM2JlNyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGZiMjUyYmQ3NjliMzYyODczYWRkMzkzMzUyNWQyMmY3ZGFhZWJkZWQ3MzU1MjIwNmZmMTViMDc5NThhZjZlOCJ9"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L916-L921",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L930-L935",
           "version": "repo-lines-v1:sha256:aba38a0e67be5739adc2c2efc1aab53ddf181aef9601a0301a912eb988f6495f:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiN2UzN2VkYzViMDIyZTkxZjg3OGEyZTU1NmNiN2NkNmVjYTA2MjdhYzkxZmY3ODA3OGQyNWY4OWM1ZDUxYzk3MCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMWU2NzNhYmQ0NTdhOTdlZWExN2E2MDA2MmViMGZhZWE2YmRmMDk0ODY4Y2M2YjhmOGMwZWJkYTJmNjFlZDQyZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODI5ODkxMTBiODRiMWQ5M2FmNWNjYmZkYjRlMTQ2ZGFhZjY5OGYxNTNkNWZkZjJhMDI3MDkyNjU3Zjk5NjNkMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNzY3OGNiYmE3OTVkMjhjZDczZTVmNmI2MTU4ZjIwNzM3MWNjMzQ2ZmQ0ZDYxNzM3ZjFlMDUwOWJiMjMxMmEwMCJ9"
         }
       ]
@@ -343,19 +327,19 @@
       "statement": "The production account's rosa-boundary-prod-network-us-east-1 and rosa-boundary-prod-regional-us-east-1 workspaces reuse deploy/network and deploy/regional respectively: the network workspace uses us-east-1a/b defaults matching staging's east region, and the regional workspace sets account_role_name_prefix=\"rosa-boundary-prod\" and legacy_policy_region=\"us-east-1\" as its own legacy-naming owner, with concrete vpc_id/subnet_ids values annotated as a \"T3-PR6 (#408)\" network-apply output. Both workspaces set auto_apply = true and auto_apply_run_trigger = true (unlike rosa-boundary-prod-aws-creds), and a mirrored us-west-2 network/regional pair (rosa-boundary-prod-network-us-west-2, rosa-boundary-prod-regional-us-west-2) now completes the same two-region topology staging already has.",
       "evidence": [
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1090-L1102",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1104-L1116",
           "version": "repo-lines-v1:sha256:7d3bb9ea88e7ef9aff8b007e1e7f2978f774c73cd5de14d69f81814afa374c4f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFlNjczYWJkNDU3YTk3ZWVhMTdhNjAwNjJlYjBmYWVhNmJkZjA5NDg2OGNjNmI4ZjhjMGViZGEyZjYxZWQ0MmYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZkODk5ZTZkMWFhMTlmNmRiNDlkOWRjNmZiMjZhYTI0NTdkMGVhYjYyMTRiNWZhMWY4MDZjMzBjNDBmMTVhMmIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU2M2JkNTA1NGM3M2ZmMTYwZDNiODhlZmFhMmQyMjZmMWRhMmQwMThiMzc2NWYwMDBmNTdmZmUzMzEzNGFjYjUifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1193-L1283",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1212-L1302",
           "version": "repo-lines-v1:sha256:7b48d41f74cefaf3f0b8e4a68d54afc1b35ad77dcc74ec9eec01f41c1cf7652a:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUzMDg0MmYyNzQ2OGFjMmNhMTIwNGQxMzJiMTdlZTk2MzE3MTJmNGVjMDdmMGNiOWVjZDdkMWU3MTg2ZGZjMDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM2OTI4YzQxNWE3NjAwZWM1OGU2NDcxNjUzZGZiMWNiMDdiYTI3ZDQ4OGJiMmQ4MmJmYTBiYzJkYzU2ZWFhMTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjAzYjM0NzcxMjZjMmQ2YWEyZTBmZjNjNjExYmY0YTg5MzYxZGJlYzI3MzIwZTZmMzlmYmQxMzJkNmM4OGUxN2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZhNzEzZTM2OWRlNzM1MmI4MzlkZWMzNGYyMzgzYjU0NDM2MTdmNTExOWRmY2IwNzg0MDI4MDZjNjc3MjViNzUifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L952-L1004",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L966-L1018",
           "version": "repo-lines-v1:sha256:2fc0af1cee06ca87858a5bc0ade8d392ed53f654c07bce0af66c5f71a1453827:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViMWQxMjhiNmMzZWIzNDY1MGQ5NjA4Y2FlYzE2YjcxMjBiNDVlYjQ3ZGEzY2RiNTlhYTc2YTgwN2RkNzc4MjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ4OTNmNDBlMzc4MWViODk2YzgyZDA0NmEwODA2N2ExMWUzNWNkZjJmMWRmYWYyNmZlYTkwYjhkYjY2NzY0MTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3YmM3MWY0OGE0ZmM3MDBiMTZhYjA3Njk4ZGE5Mjg2MzY3NmYxYmQ2YWYxZGMyOGNiZDNhZTdlY2QzMTkzYmQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY3NmJkOTJkNDQ2MzMwODg4YWRlOTEzOWY4Y2QyZWFhNzYwZjYzYmE4NjY2Yjk0MDU3MDkyYmRiNTIzZDhkNGIifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1008-L1015",
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1022-L1029",
           "version": "repo-lines-v1:sha256:28fd061edf31c90720df369ddc62bd48533871c3648aacaee0fa9f6284c18298:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmI2MDVhZTIwMzM4ODMyNDkxNjI2YmIyMzZjN2RhY2MxZTdlNTZjNDU2ZjRjMTJhNzk3MzA4ODkzOTU3MTMwZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzY5MjhjNDE1YTc2MDBlYzU4ZTY0NzE2NTNkZmIxY2IwN2JhMjdkNDg4YmIyZDgyYmZhMGJjMmRjNTZlYWExMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjc2YmQ5MmQ0NDYzMzA4ODhhZGU5MTM5ZjhjZDJlYWE3NjBmNjNiYTg2NjZiOTQwNTcwOTJiZGI1MjNkOGQ0YiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNmE3MTNlMzY5ZGU3MzUyYjgzOWRlYzM0ZjIzODNiNTQ0MzYxN2Y1MTE5ZGZjYjA3ODQwMjgwNmM2NzcyNWI3NSJ9"
         }
       ]
@@ -365,16 +349,8 @@
       "statement": "The production west regional workspace keeps east as its legacy-policy Region and declares its own account role prefix, VPC/subnets from the west network apply, model agreements, image pins and 90-day log retention, with auto-apply enabled; it does not designate a second legacy-policy owner.",
       "evidence": [
         {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1277-L1308",
-          "version": "repo-lines-v1:sha256:4749b165dde8852b10e26152b84076c53230fdd555aefe6d05d0a6d8e3d01c32:eyJzZWxlY3RlZExpbmVDb3VudCI6MzIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVmMWJkMTAwMjY2NTA1NjViYzYxM2FiZjA5ODY5OGQzMjI2YTFhNzE5Y2I5N2MyNTdhYmM1YjdjNzZjZmFmMzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjMmM5NzQ3YWVhZTlhNDJmOGNhZjExYWM0MjIwZjQ2NGNlZWY3OTAxODA4NDM2YjRkYzNiYjYyOWE5ZGY5ZTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQwOGFkMTNhNGNjN2IwODVhZGM1YjQ2NjU2MTI0OTg4ZGFjZmZlZjM5MTAzYzFiY2VmYThlODUzNzcyNTQwYTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYxNDY2NzliZmVhMTAzNDUyZGU3MWI0ZTg0ZWYyM2QwNGZjZDQ1NWFlMjUwZWNiNmZiNmYxMWJmMWQwZTNiZTcifQ"
-        },
-        {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1320-L1367",
-          "version": "repo-lines-v1:sha256:483990385038fa2b232c46a0bbf8965b5fd9f6c0677b06796709fb55ef9a74bc:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBlNmYyYWYwNGYxN2U5ZDNhYzE1OWY2NTdkZGQ1OGE5ODFkYzZlYzE2NjRkN2M1MWU0NjEyNzdjOGMyNGJkZTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjllMGE2ZmNmNzQwNzA4M2I0OGY5NDQwZGZmOGEyYmFiZTk1OTc1YWE2ZTQ0Njk2ZGNlMWIxMTUwYjA2OGY3NzEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkzNWM4ZTM4Y2FiM2IyNzdhNDk3ZGUzOWNjZWM2MzkxZWM1Mzc2ODI5MTJmZjI0YjQ4YTRkMTA0MjdkYzJlZDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgyOTg5MTEwYjg0YjFkOTNhZjVjY2JmZGI0ZTE0NmRhYWY2OThmMTUzZDVmZGYyYTAyNzA5MjY1N2Y5OTYzZDMifQ"
-        },
-        {
-          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1400-L1454",
-          "version": "repo-lines-v1:sha256:1c449429fac7f456195e81eb24f9a774a75a3ff6de54063479c770b8bcdc0bf8:eyJzZWxlY3RlZExpbmVDb3VudCI6NTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUzNDI1MWRhNmE4ODA3NjY0NzczYWNlNmMwOTU5M2MwYzZkNGY0OGMwZGZmZTVlODBhZmU3ZjAzZGI0YTgxYWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyOTg5MTEwYjg0YjFkOTNhZjVjY2JmZGI0ZTE0NmRhYWY2OThmMTUzZDVmZGYyYTAyNzA5MjY1N2Y5OTYzZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+          "resource": "repo://hcp-terraform/rosa-boundary/main.tf#L1293-L1476",
+          "version": "repo-lines-v1:sha256:0ef52eab24365ba76255cf562b57113d33edc887b008ae4aecd62c6a8e37c78a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTg0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0ODkzZjQwZTM3ODFlYjg5NmM4MmQwNDZhMDgwNjdhMTFlMzVjZGYyZjFkZmFmMjZmZWE5MGI4ZGI2Njc2NDEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0NjI3MDRjZjEyZGU4ODAyM2M2ODBlNmNiYjEwMzY4M2VhZGUxMTk4YzE4ZjAzZmFiNzdlZDc3ZjExZTBmZGU4IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MiwiZm9sbG93aW5nQ29udGV4dEhhc2giOiJkZjczOWEwNmMxY2JiMTI0NGUzMzYzZDM4YmNmOWZhNTBjZTg0ZmVkMzk5YzIxOTNhM2M3ZjA4ZDU5OTE4YjJhIn0"
         }
       ]
     },
@@ -391,7 +367,7 @@
           "version": "repo-lines-v1:sha256:e6c6afa9ba793eb95e21535518f753a4d6b7d8f4952caeb6b269b9b8c5cc41b0:eyJzZWxlY3RlZExpbmVDb3VudCI6MzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFhODE1NGM4NWVkZDk3NzdjNzFiZGFhMjI2ZjMwZTZiZDI4ZjUyZGIxMDJmYjI0ZDczNmM3YzI5ZWMzZDk1NjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5M2ZjOTc4OTQxNDA2MjMwOTZjYTlkYjcxNTQ0MjJkNDA0NGNkZGJmYzk1YWQ0MGRhYTc4NWY5YjkzNDJjZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImYwNDMyYmZjZjQ1YjZkYjUwYjIwNDQxZjExYmQxMGE0MGUzMGU3NzA3ZDcwYjYxMzYwZTIyNDEwZmU2MGNhZmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcwMWRiYjllNzY4MGNiMjdiYTc1YTY1NTA4N2Y0MjYyYWI2ZjlmYmIzODQ0M2QyZWRmZWI3OWRhOGQ3MjNiZTQifQ"
         },
         {
-          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L196-L207",
+          "resource": "repo://hcp-terraform/rosa-trusted-actions/main.tf#L200-L211",
           "version": "repo-lines-v1:sha256:a9d42d5bcee01e4a5c8be8eb03c5956c30436e9381c5413714b091af03030585:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVhY2VmNTlmZmI4ZjBmMWUzZGM1MGZkOWY2YzQ4NWY0N2MyODcwOTQ4MTg3NTYyZmFlZWU0YWQ0N2JiZjA1OGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ5OThhYjUyZTFiMzQyYmFjOWVmMWI0YmU4NTRhNWQ5MjIzZjUxNzYwNzliNDhmMGFiMDhkNzMxYTA5NGI3ZDUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImQwZTgwNDZlN2M1ZGZiNGU5OWU4YTRmYTM3ZDFiYmI5MTFmNjlmOGEzMzY2MGU2ZTBiYTRjMmFmYTQwMjlhYTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY3ODVjZDM2OTFkMDdkOTdkY2I4ZGIxOTAxNWI1Yjc0NGY0YzkwYWVkMWUwMDg3N2FiMmIwNTQwMTQxMmNlYjcifQ"
         },
         {
@@ -402,7 +378,7 @@
     }
   ],
   "verification": {
-    "by": "openwiki/0.7.0",
-    "at": "2026-11-13T18:18:24.408Z"
+    "by": "openwiki/0.9.0",
+    "at": "2026-11-25T19:00:35.491Z"
   }
 }

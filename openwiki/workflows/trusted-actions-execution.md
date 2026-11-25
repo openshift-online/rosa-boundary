@@ -30,8 +30,6 @@ sources:
     resource: repo://components/trusted-actions/internal/handlers/api.go
   - id: openwiki-source-2bb25a479cdb484130174f18
     resource: repo://components/trusted-actions/internal/models/execution.go
-  - id: openwiki-source-5a4146c9a5a48ac93d1b9b68
-    resource: repo://components/trusted-actions/internal/models/output.go
   - id: openwiki-source-f710c4d6aa9327fd7bfc55c4
     resource: repo://components/trusted-actions/internal/openapi/api.go
   - id: openwiki-source-ed6c0498a7148fe3a6bfdec0
@@ -40,8 +38,8 @@ sources:
     resource: repo://components/trusted-actions/internal/rta/auth.go
   - id: openwiki-source-a6c0f8d599d4aca7d9811870
     resource: repo://components/trusted-actions/internal/rta/client.go
-  - id: openwiki-source-2acf8cecbee106a6b2feb9d9
-    resource: repo://components/trusted-actions/internal/rta/command.go
+  - id: openwiki-source-158e293176d67a42040c7d2e
+    resource: repo://components/trusted-actions/internal/rta/execution.go
   - id: openwiki-source-824369b5e1742f66c9b0ba61
     resource: repo://components/trusted-actions/internal/store/postgres.go
   - id: openwiki-source-0a4dbcd3f9f3b6e51a1a5f7a
@@ -50,10 +48,12 @@ sources:
     resource: repo://components/trusted-actions/internal/worker/executor_runner.go
   - id: openwiki-source-fea1c4c690d64395b484bcdb
     resource: repo://components/trusted-actions/internal/worker/pool.go
-generated: { by: "opencode", at: "2026-11-13T18:18:24.408Z" }
+  - id: openwiki-source-e056de31ce09903fbdcfa041
+    resource: repo://components/trusted-actions/openapi/components/schemas/Execution.yaml
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-12T16:02:44.301Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 # Trusted Actions execution pipeline
@@ -153,7 +153,7 @@ three subcommand groups wired to the same `internal/rta.Client`
 
 `Client` (`internal/rta/client.go`) prefixes every call with
 `/api/v0/trusted-actions`, resolves its bearer token from `--token` or
-(`internal/rta/auth.go`) an OCM CLI config file's access token, refuses to
+(`internal/rta/auth.go`) an OCM SDK token provider using the CLI configuration and refresh credentials, refuses to
 send that token over a non-HTTPS, non-loopback server URL, and rejects any
 redirect that would downgrade HTTPS to plain HTTP — the CLI itself enforces
 transport security for the credential that the server-side authentication
@@ -236,18 +236,7 @@ or a row inserted by some other path, is still picked up on the next poll.
 (`internal/config/config.go`), overridable via `ROSA_TA_WORKER_CONCURRENCY` /
 `ROSA_TA_WORKER_POLL_INTERVAL` / `ROSA_TA_WORKER_EXECUTION_TIMEOUT`.
 
-Once claimed, the worker calls `Runner.Run(ctx, exec)` — `ExecutorRunner` is
-the only production implementation — and then `Pool.process` persists the
-outcome: it converts the `RunResult` into a terminal status and an
-`ExecutionOutput` (via `models.OutputFromActionResult`; a conversion error
-forces `status = "failed"`), then calls `store.UpdateExecutionWithResult`
-with a timeout detached from the worker's own context
-(`context.WithoutCancel`) so a shutdown-time cancellation that races the end
-of `Run` still lets the terminal status be written rather than leaving the
-row stuck at `running` forever. `result.Reason` (a human-readable failure
-reason) is only logged today — the executions table and the OpenAPI
-`Execution` schema have no column/field to persist it, so it does not survive
-past the worker's own logs.
+The worker converts action output and persists terminal status, completion time, reason and output with a five-second timeout detached from worker cancellation. The optional failure reason is returned in the API execution and printed by `rta` when present.
 
 On process shutdown (`cmd/server/main.go`), `SIGINT`/`SIGTERM` cancels the
 worker pool's context first, then the HTTP server is given 30s to drain, then
@@ -408,12 +397,7 @@ Two concrete scopes are registered today in both `cmd/server/main.go` and
   caller-supplied `resource` param that disagrees with what the write action
   actually acts on, and resolves the cluster's infrastructure ID from OCM so
   the action can check an EC2 instance's ownership tag before mutating it.
-  `Authorize` delegates to `authorization.AWSAuthorizer`, checking the
-  resolved region against a region allowlist and, for writes, the action's
-  self-declared `Operation()` against a separately configured write
-  allowlist (`ROSA_TA_AWS_ALLOWED_OPERATIONS` / `actions.aws_allowed_operations`;
-  both allowlists default to empty, so a deployment that configures neither
-  can read nothing and write nothing). `Run` asks
+  The executor optionally checks cluster region before either scope. The AWS authorizer requires a resolved region and named resource, and writes need a permitted operation. An empty region filter does not disable reads; an empty write allowlist denies writes. `Run` asks
   `awsapi.ClientProvider.GetClients` only for the AWS service clients the
   action's `RequiredServices(target)` names.
 

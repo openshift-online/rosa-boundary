@@ -34,10 +34,10 @@ sources:
     resource: repo://scripts/test_all.py
   - id: openwiki-source-38fbf433aefe6645b985c0ac
     resource: repo://tests/localstack/ci-run.sh
-generated: { by: "openwiki/0.7.1", at: "2026-11-17T16:03:58.857Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-17T16:03:58.857Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 # Repository CI/CD configuration and quality gates
@@ -57,7 +57,7 @@ This page covers **only what is defined or directly observable in this repositor
 
 | Component | PR and push definitions | Configured build and trigger |
 | --- | --- | --- |
-| Boundary ECS container | [PR](../../.tekton/rosa-boundary-pull-request.yaml) / [push](../../.tekton/rosa-boundary-push.yaml) | Root `Containerfile`, root context, `REQUIRE_GITHUB_TOKEN=true`, **linux/x86_64**. The `files.all.exists` CEL expression requires *every* changed path to match its allowlist (`Containerfile`, `entrypoint.sh`, `.containerignore`, `build/`, `skel/`, `.tekton/rosa-boundary-*`). A mixed PR with a nonmatching file does not satisfy this expression. |
+| Boundary ECS container | [PR](../../.tekton/rosa-boundary-pull-request.yaml) / [push](../../.tekton/rosa-boundary-push.yaml) | Root `Containerfile`, root context, `REQUIRE_GITHUB_TOKEN=true`, **linux/x86_64**. The CEL predicate tests whether *any* changed path matches the image inputs, including the bundled helpers and TA CLI sources. Unrelated changes in the same PR do not suppress the build. |
 | Create-investigation Lambda image | [PR](../../.tekton/create-investigation-lambda-pull-request.yaml) / [push](../../.tekton/create-investigation-lambda-push.yaml) | `lambda/create-investigation/Containerfile` and component context; changes under `lambda/create-investigation/***` or the corresponding pipeline file satisfy its trigger. |
 | Trusted Actions image | [PR](../../.tekton/rosa-trusted-actions-pull-request.yaml) / [push](../../.tekton/rosa-trusted-actions-push.yaml) | `components/trusted-actions/Containerfile` and component context, **linux/x86_64**; changes under `components/trusted-actions/***` or the corresponding pipeline file satisfy its trigger. |
 
@@ -72,7 +72,7 @@ The deployment variables pin images separately from these PipelineRuns: see `con
 - Root `make test` runs root Go coverage, the three Lambda Python unit suites (create-investigation, reap-tasks and reap-investigations), Python build-helper tests and Bats shell regressions. Root `go test ./...` does **not** enter the independent TA Go module. `make check` runs `test`, `lint`, `staticcheck` and `pre-commit` sequentially. `make lint` uses `golangci-lint` when available, otherwise `go vet`, plus required ShellCheck; `staticcheck` fails if its tool is absent. `make codecov` uploads root Go coverage in addition to generating it: use `make test-coverage` for local coverage without uploading.
 - `make test-localstack-ci` invokes [`tests/localstack/ci-run.sh`](../../tests/localstack/ci-run.sh), which requires `LOCALSTACK_AUTH_TOKEN` and `ARTIFACT_DIR`, starts a Podman-backed LocalStack Pro ECS task executor, writes a JUnit artifact and rejects missing/all-skipped test results. Its comments describe a Prow caller, but **this script does not define the external Prow job or its trigger**. LocalStack is not live AWS.
 - Root `make test-all` runs [`scripts/test_all.py`](../../scripts/test_all.py): local suites, formatting/lint, a disposable Terraform snapshot with mocked-provider tests, LocalStack integration, Boundary multi-architecture and Lambda image builds, pre-commit and per-check logs. It requires an available LocalStack endpoint; `--require-complete` rejects skipped JUnit cases. It does **not** deploy, publish images, upload coverage/SARIF, run external scanners or verify live AWS. Neither `make test-all` nor `make check` is automatically a CI gate just because it exists.
-- [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) configures always-run `skillsaw lint .`, whitespace/EOF/YAML/large-file/merge-conflict hooks, root `golangci-lint` **excluding TA**, `gitleaks` **limited to TA**, and TA `go build ./...` on changed TA Go/module files. `make pre-commit` runs those hooks on all files through `uv` and may rewrite files. This is not a full unit suite, root-wide secret scan or TA lint gate.
+- [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) configures always-run `skillsaw lint .`, a dashboard manifest check, whitespace/EOF/YAML/large-file/merge-conflict hooks, root `golangci-lint` **excluding TA**, `gitleaks` **limited to TA**, and TA `go build ./...` on changed TA Go/module files. `make pre-commit` runs those hooks on all files through `uv` and may rewrite files. This is not a full unit suite, root-wide secret scan or TA lint gate.
 - TA [`make test`](../../components/trusted-actions/Makefile) regenerates its bundled OpenAPI/Go code, compiles integration-tagged tests without running them, then executes `go test -v ./...` in the TA module. Its race, coverage, Postgres, API, full integration and kind/ministack checks are separate targets, as is `make lint` and OpenAPI validation; no root Makefile target covers them all by default. Boundary account/regional `.tftest.hcl` suites use mocked AWS; the account Python replication-topology check is a separate Python test. See [Terraform verification](../testing/verification.md) and [TA testing](../testing/trusted-actions-testing.md) for scope and limitations.
 
 ## What this checkout cannot prove

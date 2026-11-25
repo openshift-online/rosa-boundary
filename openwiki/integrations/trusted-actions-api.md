@@ -6,10 +6,6 @@ tags: [trusted-actions, openapi, http-api, ocm, backplane, cli, rta, jwt, access
 sources:
   - id: openwiki-source-b4d4b45d5e0381ad76cf80b7
     resource: repo://components/trusted-actions/cmd/action-cli/main.go
-  - id: openwiki-source-24686d7a4469971452a0c7ec
-    resource: repo://components/trusted-actions/cmd/action-cli/README.md
-  - id: openwiki-source-af30aa67a4a02a87c5864aa4
-    resource: repo://components/trusted-actions/cmd/rta/main.go
   - id: openwiki-source-11418ec52755ac005ca19730
     resource: repo://components/trusted-actions/cmd/server/main.go
   - id: openwiki-source-94aa552eeee5287e6a76ff19
@@ -18,12 +14,6 @@ sources:
     resource: repo://components/trusted-actions/Containerfile
   - id: openwiki-source-187b428e5f23dada318540f3
     resource: repo://components/trusted-actions/internal/auth/authn.go
-  - id: openwiki-source-183e5cfc1bc61537c23c9460
-    resource: repo://components/trusted-actions/internal/backplane/backplane.go
-  - id: openwiki-source-a5fefaaad39f3c947faa173b
-    resource: repo://components/trusted-actions/internal/backplane/client.go
-  - id: openwiki-source-0eeac8553550b09754800702
-    resource: repo://components/trusted-actions/internal/backplane/kubeconfig.go
   - id: openwiki-source-aaf6086dd1fdf7ae406890e7
     resource: repo://components/trusted-actions/internal/ocm/authorization.go
   - id: openwiki-source-a3e72d493525ffc9456be3d3
@@ -64,10 +54,10 @@ sources:
     resource: repo://components/trusted-actions/tests/proxy-backplane/main.go
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
-generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-19T16:04:15.171Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 ---
 
 Trusted Actions exposes a single HTTP API, defined OpenAPI-first under
@@ -268,10 +258,7 @@ flowchart LR
   Actions server over HTTP, prefixing every request with
   `/api/v0/trusted-actions`. Its `Client` type refuses to send a bearer token
   over plain HTTP unless the target is `localhost`/loopback, and rejects
-  HTTP-downgrade redirects outright. Token resolution follows `--token` flag
-  first, then an OCM CLI config file's access token (`internal/rta/auth.go`),
-  failing with a clear "not authenticated" error rather than silently sending
-  an expired or empty token. Subcommands mirror the API surface: `rta action
+  HTTP-downgrade redirects outright. An explicit `--token` wins. Otherwise the CLI asks the OCM SDK for an access token using the local OCM configuration, including refresh credentials when available. Subcommands mirror the API surface: `rta action
   list|describe|run`, `rta execution ...`, and `rta audit ...`.
 - **`cmd/action-cli`** does **not** talk to the HTTP API at all. Per its
   `README.md`, it is a standalone test CLI that wires up the full
@@ -291,17 +278,9 @@ flowchart LR
   equivalent, curling `/health`, the catalog, describe, run, `/runs`, and
   `/audit` in sequence to smoke-test a locally running server.
 
-## No current Boundary CLI call site
+## Calling from Boundary
 
-Unlike the `rosa-boundary` CLI's investigation-container role sketched in
-architectural diagrams, no code in this repository currently calls the
-Trusted Actions API from that CLI. At this import, there is no HTTP client
-code, SDK import, or `rta`/Trusted-Actions reference in `internal/cmd` (the
-Boundary CLI's command package) or in the repository-root `Containerfile`
-(which, as noted above, builds the unrelated Boundary SRE-tools investigation
-image, not Trusted Actions). Treat any Boundary-CLI-to-Trusted-Actions edge as
-an intended future integration, not a call path that exists in code today;
-re-verify against current source before relying on this absence.
+Boundary ships the standalone `rta` HTTP client inside the operator image; it does not embed the TA server in the Boundary CLI.
 
 ## Test harnesses that exercise the API without live dependencies
 

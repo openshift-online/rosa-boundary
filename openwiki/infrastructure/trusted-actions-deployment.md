@@ -4,8 +4,8 @@ title: Trusted Actions deployment and infrastructure
 description: Explains Trusted Actions' two-tier Terraform deployment (global account-wide IAM/secrets/ACM-validation vs. regional VPC/ALB/ECS/DNS), its ECS+ALB runtime co-located in the rosa-boundary AWS account, its Postgres-or-SQLite store, its private per-region DNS model, the container_environment compatibility shim for in-flight image upgrades, and how its HCP Terraform workspaces (now rebound into this monorepo) apply those roots.
 tags: [trusted-actions, terraform, aws, ecs, alb, hcp-terraform, dns, postgres, sqlite]
 verified:
-  - by: openwiki/0.7.1
-    at: 2026-11-19T16:04:15.171Z
+  - by: openwiki/0.9.0
+    at: 2026-11-25T19:00:35.491Z
 sources:
   - id: openwiki-source-1907132ec84c53dc704aba84
     resource: repo://components/trusted-actions/ARCHITECTURE.md
@@ -13,8 +13,6 @@ sources:
     resource: repo://components/trusted-actions/docs/deployment.md
   - id: openwiki-source-12ba3e5863bd8587de57d784
     resource: repo://components/trusted-actions/docs/networking.md
-  - id: openwiki-source-3c02331f46854608e2f03d39
-    resource: repo://components/trusted-actions/internal/store/migrations.go
   - id: openwiki-source-824369b5e1742f66c9b0ba61
     resource: repo://components/trusted-actions/internal/store/postgres.go
   - id: openwiki-source-0a4dbcd3f9f3b6e51a1a5f7a
@@ -25,14 +23,14 @@ sources:
     resource: repo://components/trusted-actions/terraform/global/dns.tf
   - id: openwiki-source-4f6d0f20d8e4f1405213641f
     resource: repo://components/trusted-actions/terraform/global/iam.tf
-  - id: openwiki-source-6278264e014b3f1b80505e27
-    resource: repo://components/trusted-actions/terraform/global/secrets.tf
-  - id: openwiki-source-ddf8c0ff0c0bb3583d8316e1
-    resource: repo://components/trusted-actions/terraform/global/variables.tf
+  - id: openwiki-source-e27185fc889452b301b31728
+    resource: repo://components/trusted-actions/terraform/global/outputs.tf
   - id: openwiki-source-021894d351b0f9e2d81b1bbe
     resource: repo://components/trusted-actions/terraform/regional/acm.tf
   - id: openwiki-source-c3a3cc5a01d6f55e78542562
     resource: repo://components/trusted-actions/terraform/regional/alb.tf
+  - id: openwiki-source-822962ecabbb3b7359bc985b
+    resource: repo://components/trusted-actions/terraform/regional/audit_logs.tf
   - id: openwiki-source-31f6d8566115551c535d1670
     resource: repo://components/trusted-actions/terraform/regional/ebs.tf
   - id: openwiki-source-6955d983b4d48fea403e850a
@@ -43,15 +41,13 @@ sources:
     resource: repo://components/trusted-actions/terraform/regional/route53-private.tf
   - id: openwiki-source-ace668ed087bccedb260d8da
     resource: repo://components/trusted-actions/terraform/regional/s3.tf
-  - id: openwiki-source-0508115aa3b2cfbcc0ddee76
-    resource: repo://components/trusted-actions/terraform/regional/security_groups.tf
   - id: openwiki-source-c48777a67449605c22edaff5
     resource: repo://components/trusted-actions/terraform/regional/variables.tf
   - id: openwiki-source-202f5239bfb095a7cbbf7f0f
     resource: repo://docs/trusted-actions-monorepo-migration.md
   - id: openwiki-source-37ce5ca787d481a0d0fc0453
     resource: repo://hcp-terraform/rosa-trusted-actions/main.tf
-generated: { by: "openwiki/0.7.1", at: "2026-11-19T16:04:15.171Z" }
+generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 ---
 
 ## Overview
@@ -402,6 +398,8 @@ global workspace and a new entry in `remote_state_consumer_workspaces` — the
 global workspace itself is never re-applied.
 
 ## Data store: PostgresStore vs. SQLiteStore
+
+The regional task definition selects SQLite. This describes the checked-in configuration, not a live inspection of the running service.
 
 The server abstracts persistence behind a `Store` interface
 (`CreateExecution`, `GetExecution`, `ListExecutions`,

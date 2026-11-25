@@ -48,6 +48,47 @@ Approval prompts and failure warnings still go to local stderr and may interrupt
 the shell display. Use one-shot configuration if uninterrupted full-screen
 terminal output is required.
 
+## Configure and refresh OCM credentials without joining
+
+```sh
+rosa-boundary session credentials configure ocm --local /path/to/private/staging-ocm.json --ocm-url staging
+```
+
+`--local` signs into OCM, writes the file once, and exits. It does not need a
+Boundary profile, AWS credentials, or a remote session. Do not pass a session
+ID with `--local`. The OCM environment comes from `--ocm-url` or the `url` field
+of the workstation’s `${XDG_CONFIG_HOME:-$HOME/.config}/ocm/ocm.json`. If that
+file doesn’t supply an approved URL, pass `--ocm-url` explicitly. No credentials
+are reused from the file. For device approval, use `--auth-flow device` or
+`--use-device-code`.
+
+This replaces the specified file with an owner-only (`0600`), `OCM_CONFIG`-
+compatible file containing an access token and an online refresh token. Use
+an existing private local directory outside Git, shared storage, and synced
+workspaces. If you need to transfer an access token manually, keep the refresh
+token and the full config on your workstation. For normal remote updates,
+omit `--local` and specify the running session ID instead.
+
+Add `--refresh` to either form to keep the command running in the foreground:
+
+```sh
+rosa-boundary session credentials configure ocm --local /path/to/private/staging-ocm.json --ocm-url staging --refresh
+rosa-boundary session credentials configure ocm <session-id> --refresh
+```
+
+The local form updates the file before expiry. Run one refresher per file; if
+using `ocm` with that file while Boundary is refreshing it, use `--opaque-token`
+so `ocm` doesn't compete for the refresh grant. The session form uses the same
+renewal worker and task-image requirements as `session join --renew-ocm`, but
+opens no shell and sends only access tokens to the session. It stops if it
+can't confirm a replacement, including if another operation changed or cleared
+the credentials. If renewal can't be scheduled, the command reports a failure
+even if it installed a one-shot token.
+
+Press Ctrl+C to stop. The last file or session credentials remain in place, and
+the command does not stop the task. It won't prompt for another OCM login on
+refresh rejection; rerun the command to sign in again.
+
 ## Human-approved authentication and JSON output
 
 Every auth-bearing leaf offers `-o json` / `--output json`. Authentication guidance is human-readable **stderr**, not a machine-readable event API. Device approvals display the verification URL and user code on stderr even with `-o json`; browser authorization guidance remains on stderr. Tokens, OAuth `device_code`, PKCE verifiers, and raw token responses are not printed. Monitor stderr **while the process runs** to approve each challenge, including an STS retry. Treat URLs/codes as sensitive operational output and share them privately, never in shared CI logs. Check the process exit status before acting on any result: completing authentication does not mean the command succeeded. See the [script-driven example](../runbooks/user-access-guide.md#script-driven-human-approved-login).
@@ -58,6 +99,6 @@ Interactive `session join -o json` and `session create -o json` require a contro
 
 ## Timeouts and audit access
 
-Without a controlling terminal, commands have a default five-minute whole-command deadline; with a terminal there is no default deadline. Explicit `--timeout <duration>` applies to the whole invocation (including human approval and interactive ECS Exec). On expiry the local Exec plugin/connection is canceled, **not** the underlying task. ECS RUNNING/STOPPED waiters cap at ten minutes. `session create --session-timeout` is a separate requested task lifetime: CLI default **1h**, not Terraform's **8h** omitted-request default. CLI accepts whole seconds from 0 through 24h, but Lambda's default 30-second minimum rejects zero. Explicit global `--timeout 0s` is invalid. See the [CLI/Terraform/Lambda/SSM timeout matrix](session-lifecycle.md#timeout-matrix) for zero, minimum, reaper and connection semantics; [strict-deadline and active-session policies remain unresolved](session-lifecycle.md#unresolved-policy-decisions). After a task is created, later failures return its ID and a profile-qualified cleanup command; no implicit stop or audit success is implied.
+Without a controlling terminal, commands have a default five-minute whole-command deadline, except `session credentials configure ocm --refresh`, which has no default deadline. With a terminal there is no default deadline. Explicit `--timeout <duration>` applies to the whole invocation (including human approval and interactive ECS Exec). On expiry the local Exec plugin/connection is canceled, **not** the underlying task. ECS RUNNING/STOPPED waiters cap at ten minutes. `session create --session-timeout` is a separate requested task lifetime: CLI default **1h**, not Terraform's **8h** omitted-request default. CLI accepts whole seconds from 0 through 24h, but Lambda's default 30-second minimum rejects zero. Explicit global `--timeout 0s` is invalid. See the [CLI/Terraform/Lambda/SSM timeout matrix](session-lifecycle.md#timeout-matrix) for zero, minimum, reaper and connection semantics; [strict-deadline and active-session policies remain unresolved](session-lifecycle.md#unresolved-policy-decisions). After a task is created, later failures return its ID and a profile-qualified cleanup command; no implicit stop or audit success is implied.
 
 Independent `aws logs` and `aws s3` retrieval requires an AWS CLI and a separately authorized operator/audit-reader identity in the correct account and region. Neither is required for ordinary Boundary CLI operations. See [Verify Audit Evidence](../runbooks/investigation-workflow.md#verify-audit-evidence).

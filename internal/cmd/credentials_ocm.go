@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/spf13/cobra"
 
+	"github.com/openshift-online/rosa-boundary/internal/auth"
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
 	"github.com/openshift-online/rosa-boundary/internal/config"
 	ocmcredentials "github.com/openshift-online/rosa-boundary/internal/credentials/ocm"
@@ -147,6 +149,44 @@ func guideCredentialSession(cmd *cobra.Command, action string) error {
 	return err
 }
 
+func runCredentialsConfigureOCMLocal(cmd *cobra.Command) error {
+	path, err := filepath.Abs(flagString(cmd, "local"))
+	if err != nil {
+		return err
+	}
+	environment, err := ocmcredentials.ResolveEnvironment(flagString(cmd, "ocm-url"))
+	if err != nil {
+		return err
+	}
+	flow := defaultOCMFlow(flagBool(cmd, "use-device-code"))
+	if cmd.Flags().Changed("auth-flow") {
+		flow, err = parseOCMFlow(flagString(cmd, "auth-flow"))
+		if err != nil {
+			return err
+		}
+	}
+	a := ocmcredentials.NewAuthenticator(func(format string, args ...any) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), format+"\n", args...)
+	})
+	a.Debug = credentialDebugf
+	writeConfig := a.SaveLocalConfig
+	if flagBool(cmd, "refresh") {
+		writeConfig = a.MaintainLocalConfig
+	}
+	if err := writeConfig(cmd.Context(), path, environment, flow); err != nil {
+		return err
+	}
+	if flagString(cmd, "output") == "json" {
+		return output.JSONTo(cmd.OutOrStdout(), map[string]string{"status": "configured", "path": path, "ocm_environment": environment.Name})
+	}
+	if flagBool(cmd, "refresh") {
+		_, err = fmt.Fprintf(cmd.OutOrStdout(), "Stopped refreshing %s OCM config at %s\n", environment.Name, path)
+		return err
+	}
+	_, err = fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s OCM config to %s\n", environment.Name, path)
+	return err
+}
+
 func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		return guideCredentialSession(cmd, "configure")
@@ -164,10 +204,46 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 		}
 	}
 	ecsClient := newCredentialECSClient(authResult)
+	if flagBool(cmd, "refresh") {
+		if err := maintainOCMForSession(cmd.Context(), ecsClient, authResult, args[0], ocmSetup{environment: environment, flow: flow}); err != nil {
+			return err
+		}
+		return credentialActionResult(cmd, "configured", args[0], environment.Name)
+	}
 	if err := configureOCMForSession(cmd.Context(), ecsClient, authResult.Config.AWSRegion, authResult.Credentials, args[0], environment, flow); err != nil {
 		return err
 	}
 	return credentialActionResult(cmd, "configured", args[0], environment.Name)
+}
+
+func maintainOCMForSession(ctx context.Context, ecs *awsclient.ECSClient, authResult *AuthResult, sessionID string, setup ocmSetup) error {
+	if err := prepareCredentialSession(ctx, ecs, sessionID); err != nil {
+		return err
+	}
+	cfg := authResult.Config
+	a := newAttachmentOCMAuth()
+	token, grant, err := acquireOCM(ctx, setup.environment, setup.flow, a)
+	if err != nil {
+		return err
+	}
+	// Approval can outlast task readiness. Check the target again before upload.
+	if err := prepareCredentialSession(ctx, ecs, sessionID); err != nil {
+		grant.Release()
+		return err
+	}
+	authorization := newRenewalAWS(cfg, authResult.Credentials, cfg.SRERoleARN, "rosa-boundary-session", authResult.IDToken, auth.Options{UseDeviceCode: cfg.OIDCUseDeviceCode})
+	renewal, err := installAttachmentOCM(ctx, ecs, cfg.AWSRegion, authResult.Credentials, cfg.ClusterName, sessionID, setup, token, grant, a, authorization)
+	if err != nil {
+		return err
+	}
+	if renewal == nil {
+		return errors.New("OCM access was configured once, but renewal could not be scheduled")
+	}
+	output.Status("Keeping OCM credentials refreshed for session %s; press Ctrl+C to stop renewal", sessionID)
+	if err := renewal.runUntilStopped(ctx, time.Now, waitRenewal); err != nil && !errors.Is(err, context.Canceled) {
+		return fmt.Errorf("OCM renewal stopped: %w; to configure fresh credentials once, run: %s", err, renewal.fallback)
+	}
+	return nil
 }
 
 func runCredentialsClearOCM(cmd *cobra.Command, args []string) error {

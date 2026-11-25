@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/openshift-online/rosa-boundary/internal/auth"
@@ -68,10 +70,10 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 	}
 	if deadline == 0 && !cmd.Flags().Changed("timeout") {
 		tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-		if err != nil {
-			deadline = 5 * time.Minute
-		} else {
+		if err == nil {
 			_ = tty.Close()
+		} else if !flagBool(cmd, "refresh") {
+			deadline = 5 * time.Minute
 		}
 	} else if deadline == 0 {
 		return inputError(cmd, fmt.Errorf("--timeout must be greater than zero"))
@@ -81,7 +83,9 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		commandCancel = cancel
 		cmd.SetContext(ctx)
 	}
-	if cmd.Parent() != nil && cmd.Parent().Name() == "config" || cmd.Name() == "login" {
+	// --local is only registered on session credentials configure ocm.
+	// Its argument validation has already ruled out remote targeting.
+	if cmd.Flags().Changed("local") || cmd.Parent() != nil && cmd.Parent().Name() == "config" || cmd.Name() == "login" {
 		return nil
 	}
 	flags := map[string]string{}
@@ -480,15 +484,46 @@ func buildSessionCommand() *cobra.Command {
 	configure := commandGroup("configure", "Obtain and configure credentials")
 	clear := commandGroup("clear", "Remove session credentials")
 	configureOCM := commandLeaf("ocm [session-id]", "Obtain fresh OCM access for a session", optionalCredentialSessionID, func(cmd *cobra.Command, args []string) error {
+		if flagBool(cmd, "refresh") {
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			cmd.SetContext(ctx)
+		}
+		if cmd.Flags().Changed("local") {
+			return runCredentialsConfigureOCMLocal(cmd)
+		}
 		credentialsOCMFlow = flagString(cmd, "auth-flow")
 		return runCredentialsConfigureOCM(cmd, args)
 	})
-	configureOCM.Long = "Obtain fresh OCM access for a session. Without a session ID, discover your RUNNING sessions and suggest a command without changing credentials."
+	configureOCM.Long = `Obtain fresh OCM access for a running session. Without a session ID or --local,
+discover your RUNNING sessions and suggest a command without changing credentials.
+With --local, sign in once and replace the specified local OCM config file (0600).
+Use --ocm-url or the URL from your workstation's OCM config. No Boundary profile
+or session is needed. The file includes a refresh token: keep it on your
+workstation, and never copy the whole file into a session.
+Add --refresh with a session ID or --local to keep renewing in the foreground.
+Press Ctrl+C to stop; this does not clear credentials or stop the session.`
+	configureOCM.Flags().Bool("refresh", false, "Keep renewing credentials until stopped (no default deadline)")
+	configureOCM.Flags().String("local", "", "Write OCM config to this local path instead of a session")
 	configureOCM.Flags().String("ocm-url", "", "OCM environment or approved canonical URL")
 	configureOCM.Flags().String("auth-flow", "", "OCM-only override: auth-code or device")
 	configureOCM.Args = commandArgs(func(cmd *cobra.Command, args []string) error {
 		if err := optionalCredentialSessionID(cmd, args); err != nil {
 			return err
+		}
+		if cmd.Flags().Changed("local") {
+			if strings.TrimSpace(flagString(cmd, "local")) == "" {
+				return errors.New("--local requires a non-empty config path")
+			}
+			if len(args) != 0 || cmd.Flags().Changed("region") || cmd.Flags().Changed("ecs-cluster") {
+				return errors.New("--local cannot be combined with a session ID, --region, or --ecs-cluster")
+			}
+			if cmd.Flags().Changed("ocm-url") && strings.TrimSpace(flagString(cmd, "ocm-url")) == "" {
+				return errors.New("--ocm-url must not be empty with --local")
+			}
+		}
+		if flagBool(cmd, "refresh") && len(args) == 0 && !cmd.Flags().Changed("local") {
+			return errors.New("--refresh requires a session ID or --local <config-path>")
 		}
 		if flow := flagString(cmd, "auth-flow"); cmd.Flags().Changed("auth-flow") && flow != "auth-code" && flow != "device" {
 			return fmt.Errorf("invalid --auth-flow %q: use auth-code or device", flow)

@@ -82,47 +82,56 @@ func waitRenewal(ctx context.Context, delay time.Duration) bool {
 // run stops permanently on an unconfirmed commit, including a generation
 // conflict. Retrying could obscure an intentional clear or newer configure.
 func (r *ocmRenewal) run(ctx context.Context, now func() time.Time, wait func(context.Context, time.Duration) bool) {
+	if err := r.runUntilStopped(ctx, now, wait); err != nil {
+		r.warn(ctx, err.Error())
+	}
+}
+
+// runUntilStopped returns failures to the standalone configure command. An
+// attached shell instead reports them as warnings and remains open.
+func (r *ocmRenewal) runUntilStopped(ctx context.Context, now func() time.Time, wait func(context.Context, time.Duration) bool) error {
 	defer r.grant.Release()
 	for {
 		delay, ok := r.delay(r.expiry, now())
 		if !ok {
-			r.warn(ctx, "expiry is missing or too near")
-			return
+			return errors.New("expiry is missing or too near")
 		}
 		if !wait(ctx, delay) || ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		var creds *awsclient.TemporaryCredentials
 		if r.authorization != nil {
 			var err error
 			creds, err = r.authorization.credentials(ctx, now)
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			if err != nil {
-				r.warn(ctx, "Boundary authorization could not be refreshed")
-				return
+				return errors.New("could not refresh Boundary authorization")
 			}
 		}
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		token, err := r.refresh(ctx, r.grant)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
-			r.warn(ctx, "online refresh failed; fresh OCM approval may be required")
-			return
+			return errors.New("online refresh failed; fresh OCM approval may be required")
 		}
 		if token.Expiry.IsZero() || ocmTokenNearExpiry(token, now()) {
-			r.warn(ctx, "refreshed token expiry is missing or too near")
-			return
+			return errors.New("refreshed token expiry is missing or too near")
 		}
 		generation, err := credentialGeneration()
 		if err == nil && ctx.Err() == nil {
 			err = r.install(ctx, creds, token, generation, r.generation)
 		}
 		if ctx.Err() != nil {
-			return
+			return ctx.Err()
 		}
 		if err != nil {
-			r.warn(ctx, "replacement was not confirmed (Boundary authorization, transfer failure, or credentials changed)")
-			return
+			return errors.New("replacement was not confirmed (Boundary authorization, transfer failure, or credentials changed)")
 		}
 		r.expiry = token.Expiry
 		r.generation = generation

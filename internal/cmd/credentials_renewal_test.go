@@ -94,6 +94,24 @@ func TestRenewalStopsOnConflictAndUsesConfirmedGeneration(t *testing.T) {
 	}
 }
 
+func TestStandaloneRenewalReturnsRefreshFailure(t *testing.T) {
+	now := time.Unix(1000, 0)
+	r := ocmRenewal{
+		expiry: now.Add(15 * time.Minute),
+		refresh: func(context.Context, *ocm.AttachmentGrant) (ocm.Token, error) {
+			return ocm.Token{}, errors.New("secret canary in provider error")
+		},
+		install: func(context.Context, *awsclient.TemporaryCredentials, ocm.Token, string, string) error {
+			t.Fatal("installed after a failed refresh")
+			return nil
+		},
+	}
+	err := r.runUntilStopped(context.Background(), func() time.Time { return now }, func(context.Context, time.Duration) bool { return true })
+	if err == nil || !strings.Contains(err.Error(), "online refresh failed") || strings.Contains(err.Error(), "secret canary") {
+		t.Fatalf("expected a sanitized failure, got %v", err)
+	}
+}
+
 func TestRenewalDoesNotInstallMissingExpiryOrOnCancellation(t *testing.T) {
 	for _, cancelDuringRefresh := range []bool{false, true} {
 		ctx, cancel := context.WithCancel(context.Background())

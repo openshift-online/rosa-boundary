@@ -70,7 +70,7 @@ func TestAttachmentOnlineDeviceGrantRotatesAndErrorsAreSanitized(t *testing.T) {
 
 func TestAttachmentGrantIsOptional(t *testing.T) {
 	grant := &AttachmentGrant{}
-	access, err := attachmentToken(&oauth2.Token{AccessToken: "canary"}, grant)
+	access, err := retainOnlineGrant(&oauth2.Token{AccessToken: "canary"}, &grant.grant)
 	if err != nil || access.AccessToken != "canary" || grant.Available() || !access.Expiry.IsZero() {
 		t.Fatal("must preserve an access-only result without inventing expiry or a refresh grant")
 	}

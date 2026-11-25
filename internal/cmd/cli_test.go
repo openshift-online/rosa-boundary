@@ -202,6 +202,29 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 	}
 }
 
+func TestConfigureOCMLocalValidatesWithoutBoundaryProfile(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--refresh"}, "--refresh requires a session ID or --local <config-path>"},
+		{[]string{"--local", ""}, "--local requires a non-empty config path"},
+		{[]string{"test-session", "--local", "out.json"}, "--local cannot be combined"},
+		{[]string{"--local", "out.json", "--region", "us-east-1"}, "--local cannot be combined"},
+		{[]string{"--local", "out.json", "--ocm-url="}, "--ocm-url must not be empty with --local"},
+		{[]string{"--local", "out.json", "--ocm-url", "https://example.invalid"}, "unsupported OCM environment"},
+		{[]string{"--local", t.TempDir()}, "set --ocm-url"},
+		{[]string{"--local", t.TempDir(), "--ocm-url", "staging"}, "must be a regular file"},
+		{[]string{"--refresh", "--local", t.TempDir(), "--ocm-url", "integration", "--auth-flow", "device"}, "must be a regular file"},
+	} {
+		args := append([]string{"--profile", "does-not-exist", "session", "credentials", "configure", "ocm"}, tc.args...)
+		if _, err := runTestCLI(t, args...); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%v: expected %q, got %v", tc.args, tc.want, err)
+		}
+	}
+}
+
 func TestSessionOldVerbsRejectedWithMigrationGuidance(t *testing.T) {
 	for _, tc := range []struct{ old, replacement string }{
 		{"start", "create"},

@@ -61,13 +61,17 @@ func (a *Authenticator) Acquire(ctx context.Context, flow Flow) (Token, error) {
 // AttachmentGrant is an online refresh grant held only by the attached CLI.
 // It must never be serialized or passed to the credential transfer layer.
 type AttachmentGrant struct {
+	grant onlineGrant
+}
+
+type onlineGrant struct {
 	refresh string
 }
 
-func (g *AttachmentGrant) Available() bool { return g != nil && g.refresh != "" }
+func (g *AttachmentGrant) Available() bool { return g != nil && g.grant.refresh != "" }
 func (g *AttachmentGrant) Release() {
 	if g != nil {
-		g.refresh = ""
+		g.grant.refresh = ""
 	}
 }
 
@@ -75,7 +79,7 @@ func (g *AttachmentGrant) Release() {
 // retains a refresh grant if the provider supplies one.
 func (a *Authenticator) AcquireForAttachment(ctx context.Context, flow Flow) (Token, *AttachmentGrant, error) {
 	grant := &AttachmentGrant{}
-	token, err := a.acquire(ctx, flow, grant)
+	token, err := a.acquire(ctx, flow, &grant.grant)
 	if err != nil {
 		grant.Release()
 		return Token{}, nil, err
@@ -92,6 +96,10 @@ func (a *Authenticator) Refresh(ctx context.Context, grant *AttachmentGrant) (To
 	if !grant.Available() {
 		return Token{}, errors.New("OCM did not issue an online refresh grant")
 	}
+	return a.refreshOnline(ctx, &grant.grant)
+}
+
+func (a *Authenticator) refreshOnline(ctx context.Context, grant *onlineGrant) (Token, error) {
 	ctx, cancel := context.WithTimeout(ctx, RefreshTimeout)
 	defer cancel()
 	client := a.HTTPClient
@@ -107,10 +115,10 @@ func (a *Authenticator) Refresh(ctx context.Context, grant *AttachmentGrant) (To
 	if err != nil {
 		return Token{}, ocmAuthError("OCM online refresh failed", err, ctx, time.Time{})
 	}
-	return attachmentToken(response, grant)
+	return retainOnlineGrant(response, grant)
 }
 
-func (a *Authenticator) acquire(ctx context.Context, flow Flow, grant *AttachmentGrant) (Token, error) {
+func (a *Authenticator) acquire(ctx context.Context, flow Flow, grant *onlineGrant) (Token, error) {
 	timeout := a.Timeout
 	if timeout <= 0 {
 		timeout = 5 * time.Minute
@@ -149,7 +157,7 @@ func (a *Authenticator) oauthContext(ctx context.Context) context.Context {
 	return context.WithValue(ctx, oauth2.HTTPClient, client)
 }
 
-func (a *Authenticator) acquireDevice(ctx context.Context, grant *AttachmentGrant) (Token, error) {
+func (a *Authenticator) acquireDevice(ctx context.Context, grant *onlineGrant) (Token, error) {
 	ctx = a.oauthContext(ctx)
 	config := a.oauthConfig()
 	verifier := oauth2.GenerateVerifier()
@@ -188,7 +196,7 @@ func (a *Authenticator) acquireDevice(ctx context.Context, grant *AttachmentGran
 		}
 		return Token{}, ocmAuthError("complete OCM device authorization failed", err, ctx, device.Expiry)
 	}
-	result, err := attachmentToken(token, grant)
+	result, err := retainOnlineGrant(token, grant)
 	if err != nil {
 		return Token{}, authFailure{message: "OCM authentication returned no access token", reason: "invalid_response"}
 	}
@@ -204,7 +212,7 @@ type authCodeResult struct {
 	err   error
 }
 
-func (a *Authenticator) acquireAuthCode(ctx context.Context, grant *AttachmentGrant) (Token, error) {
+func (a *Authenticator) acquireAuthCode(ctx context.Context, grant *onlineGrant) (Token, error) {
 	listen := a.Listen
 	if listen == nil {
 		listen = net.Listen
@@ -267,7 +275,7 @@ func (a *Authenticator) acquireAuthCode(ctx context.Context, grant *AttachmentGr
 		if completed.err != nil {
 			return Token{}, completed.err
 		}
-		token, err := attachmentToken(completed.token, grant)
+		token, err := retainOnlineGrant(completed.token, grant)
 		if err != nil {
 			return Token{}, authFailure{message: "OCM authentication returned no access token", reason: "invalid_response"}
 		}
@@ -383,7 +391,7 @@ func deviceVerificationURL(device *oauth2.DeviceAuthResponse) (string, error) {
 	return ssoBaseURL + "/device?user_code=" + url.QueryEscape(device.UserCode), nil
 }
 
-func attachmentToken(token *oauth2.Token, grant *AttachmentGrant) (Token, error) {
+func retainOnlineGrant(token *oauth2.Token, grant *onlineGrant) (Token, error) {
 	if grant != nil && token != nil && token.AccessToken != "" && token.RefreshToken != "" {
 		grant.refresh = token.RefreshToken
 	}

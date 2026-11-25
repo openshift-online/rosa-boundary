@@ -15,21 +15,34 @@ import (
 
 const basePath = "/api/v0/trusted-actions"
 
+type TokenProvider func(ctx context.Context) (string, error)
+
 type Client struct {
-	base      string
-	token     string
-	http      *http.Client
-	userAgent string
+	base          string
+	tokenProvider TokenProvider
+	http          *http.Client
+	userAgent     string
+	cleaner       func()
 }
 
 type ClientOption func(*Client)
 
+func WithTokenProvider(tokenProvider TokenProvider) ClientOption {
+	return func(c *Client) { c.tokenProvider = tokenProvider }
+}
+
 func WithToken(token string) ClientOption {
-	return func(c *Client) { c.token = token }
+	return WithTokenProvider(func(ctx context.Context) (string, error) {
+		return token, nil
+	})
 }
 
 func WithHTTPClient(hc *http.Client) ClientOption {
 	return func(c *Client) { c.http = hc }
+}
+
+func WithCleaner(cleaner func()) ClientOption {
+	return func(c *Client) { c.cleaner = cleaner }
 }
 
 func NewClient(serverURL string, opts ...ClientOption) (*Client, error) {
@@ -46,7 +59,7 @@ func NewClient(serverURL string, opts ...ClientOption) (*Client, error) {
 	for _, o := range opts {
 		o(c)
 	}
-	if c.token != "" && !isSecureOrLoopback(serverURL) {
+	if c.tokenProvider != nil && !isSecureOrLoopback(serverURL) {
 		return nil, fmt.Errorf("refusing to send credentials over plain HTTP to %s; use HTTPS or a loopback address", serverURL)
 	}
 	return c, nil
@@ -163,8 +176,12 @@ func (c *Client) post(ctx context.Context, path string, body any, out any) error
 func (c *Client) do(req *http.Request, out any) error {
 	req.Header.Set("User-Agent", c.userAgent)
 	req.Header.Set("Accept", "application/json")
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.tokenProvider != nil {
+		token, err := c.tokenProvider(req.Context())
+		if err != nil {
+			return fmt.Errorf("get token: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	resp, err := c.http.Do(req)
@@ -188,6 +205,12 @@ func (c *Client) do(req *http.Request, out any) error {
 		}
 	}
 	return nil
+}
+
+func (c *Client) Close() {
+	if c.cleaner != nil {
+		c.cleaner()
+	}
 }
 
 type APIError struct {

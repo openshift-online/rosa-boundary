@@ -41,8 +41,12 @@ func TestNewClient_WithToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.token != "tok123" {
-		t.Errorf("token = %q, want tok123", c.token)
+	token, err := c.tokenProvider(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "tok123" {
+		t.Errorf("token = %q, want tok123", token)
 	}
 }
 
@@ -61,8 +65,12 @@ func TestNewClient_AllowsTokenOverHTTPS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.token != "tok123" {
-		t.Errorf("token = %q", c.token)
+	token, err := c.tokenProvider(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token != "tok123" {
+		t.Errorf("token = %q", token)
 	}
 }
 

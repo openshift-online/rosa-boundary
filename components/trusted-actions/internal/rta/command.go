@@ -76,11 +76,11 @@ type commandGroup struct {
 func (g *commandGroup) newClient(cmd *cobra.Command, requireAuth bool) (*Client, error) {
 	var opts []ClientOption
 	if requireAuth {
-		token, err := g.resolveToken(cmd)
+		options, err := g.resolveToken(cmd)
 		if err != nil {
 			return nil, err
 		}
-		opts = append(opts, WithToken(token))
+		opts = append(opts, options...)
 	} else if t := fromFlag(cmd, "token"); t != "" {
 		opts = append(opts, WithToken(t))
 	}

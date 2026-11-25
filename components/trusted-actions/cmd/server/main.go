@@ -226,14 +226,16 @@ func runServer(cmd *cobra.Command, args []string) error {
 		if u, err := url.Parse(cfg.BackplaneURL); err != nil || u.Scheme != "https" {
 			logger.Fatalf("ROSA_TA_BACKPLANE_URL must use HTTPS: %s", cfg.BackplaneURL)
 		}
-		bpConnBuilder := sdk.NewConnectionBuilder().
-			URL(cfg.OCMBaseURL)
+		bpConnBuilder := sdk.NewConnectionBuilder()
 
 		switch cfg.AuthPolicy {
 		case config.EnabledAuthPolicy:
-			bpConnBuilder = bpConnBuilder.Client(cfg.BackplaneClientID, cfg.BackplaneClientSecret)
+			bpConnBuilder = bpConnBuilder.URL(cfg.OCMBaseURL).
+				Client(cfg.BackplaneClientID, cfg.BackplaneClientSecret)
 		case config.OcmConfigAuthPolicy:
-			bpConnBuilder = bpConnBuilder.Client(defaultOcmConfig.ClientID, defaultOcmConfig.ClientSecret)
+			bpConnBuilder = bpConnBuilder.URL(defaultOcmConfig.URL).
+				TokenURL(defaultOcmConfig.TokenURL).
+				Client(defaultOcmConfig.ClientID, defaultOcmConfig.ClientSecret)
 			if defaultOcmConfig.AccessToken != "" {
 				bpConnBuilder = bpConnBuilder.Tokens(defaultOcmConfig.AccessToken)
 			}

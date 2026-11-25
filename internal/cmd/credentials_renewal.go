@@ -46,6 +46,7 @@ type ocmRenewal struct {
 	refresh       func(context.Context, *ocm.AttachmentGrant) (ocm.Token, error)
 	authorization *renewalAWS
 	install       func(context.Context, *awsclient.TemporaryCredentials, ocm.Token, string, string) error
+	afterInstall  func(context.Context, *awsclient.TemporaryCredentials) error
 }
 
 func credentialGeneration() (string, error) {
@@ -133,6 +134,15 @@ func (r *ocmRenewal) runUntilStopped(ctx context.Context, now func() time.Time, 
 		if err != nil {
 			return errors.New("replacement was not confirmed (Boundary authorization, transfer failure, or credentials changed)")
 		}
+		if r.afterInstall != nil {
+			err := r.afterInstall(ctx, creds)
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err != nil {
+				return fmt.Errorf("OCM was renewed but Backplane login failed: %w", err)
+			}
+		}
 		r.expiry = token.Expiry
 		r.generation = generation
 		_ = output.Debug("Renewed OCM access; expires at %s", r.expiry.Format(time.RFC3339))
@@ -184,8 +194,12 @@ func installAttachmentOCM(ctx context.Context, ecs *awsclient.ECSClient, region 
 }
 
 func (s ocmSetup) configureCommand(region, clusterName, sessionID string) string {
-	command := fmt.Sprintf("rosa-boundary --profile %s session credentials configure ocm %s --region %s --ecs-cluster %s",
-		shellArgument(selectedProfile), shellArgument(sessionID), shellArgument(region), shellArgument(clusterName))
+	return s.configureProviderCommand("ocm", region, clusterName, sessionID)
+}
+
+func (s ocmSetup) configureProviderCommand(provider, region, clusterName, sessionID string) string {
+	command := fmt.Sprintf("rosa-boundary --profile %s session credentials configure %s %s --region %s --ecs-cluster %s",
+		shellArgument(selectedProfile), provider, shellArgument(sessionID), shellArgument(region), shellArgument(clusterName))
 	if s.environment.URL != "" {
 		command += " --ocm-url " + shellArgument(s.environment.URL)
 	}

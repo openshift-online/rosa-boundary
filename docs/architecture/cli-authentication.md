@@ -89,6 +89,41 @@ Press Ctrl+C to stop. The last file or session credentials remain in place, and
 the command does not stop the task. It won't prompt for another OCM login on
 refresh rejection; rerun the command to sign in again.
 
+## Configure and refresh Backplane access
+
+```sh
+# Configure fresh OCM access and log in to Backplane for the session's cluster.
+rosa-boundary --profile <profile> session credentials configure backplane <session-id>
+
+# Keep that session's OCM access and Backplane kubeconfig refreshed without joining.
+rosa-boundary --profile <profile> session credentials configure backplane <session-id> --refresh
+
+# Write a standalone workstation kubeconfig instead. Omit --refresh for a one-shot login.
+rosa-boundary session credentials configure backplane \
+  --local /path/to/private/backplane.kubeconfig --cluster-id <cluster-id> --refresh
+```
+
+The session form uses the running task's `cluster_id` tag, not a caller-supplied
+cluster override. It requires a task image with the Backplane login helper; the
+refresh form also requires OCM renewal support. Renewal uploads only the OCM
+access token, then reruns Backplane login in the task to update its kubeconfig.
+A Backplane login failure can leave OCM already configured and the task still
+running. Run only one renewer per session; repeated login can reset the active
+Kubernetes context.
+
+Local mode requires `ocm-backplane` on `PATH`, but no Boundary profile or AWS
+credentials. OCM environment selection and `--auth-flow` work the same way as
+with local OCM configuration. The destination is replaced, not merged, with an
+owner-only (`0600`) kubeconfig. Use a dedicated path in an existing private
+local directory and select it with `KUBECONFIG`. Keep it out of Git and shared
+storage. The refresh grant stays in the foreground process; each Backplane login
+receives only its current access token. A failed local login does not replace
+the last successfully written file.
+
+Press Ctrl+C to stop refreshing. This does not clear credentials or stop the
+session. If renewal fails, the command exits rather than prompting for another
+OCM login; rerun it to sign in again.
+
 ## Human-approved authentication and JSON output
 
 Every auth-bearing leaf offers `-o json` / `--output json`. Authentication guidance is human-readable **stderr**, not a machine-readable event API. Device approvals display the verification URL and user code on stderr even with `-o json`; browser authorization guidance remains on stderr. Tokens, OAuth `device_code`, PKCE verifiers, and raw token responses are not printed. Monitor stderr **while the process runs** to approve each challenge, including an STS retry. Treat URLs/codes as sensitive operational output and share them privately, never in shared CI logs. Check the process exit status before acting on any result: completing authentication does not mean the command succeeded. See the [script-driven example](../runbooks/user-access-guide.md#script-driven-human-approved-login).

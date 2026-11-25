@@ -83,7 +83,7 @@ func commandPreRun(cmd *cobra.Command, _ []string) error {
 		commandCancel = cancel
 		cmd.SetContext(ctx)
 	}
-	// --local is only registered on session credentials configure ocm.
+	// --local is only registered on session credential configure leaves.
 	// Its argument validation has already ruled out remote targeting.
 	if cmd.Flags().Changed("local") || cmd.Parent() != nil && cmd.Parent().Name() == "config" || cmd.Name() == "login" {
 		return nil
@@ -540,7 +540,7 @@ Press Ctrl+C to stop; this does not clear credentials or stop the session.`
 	clearOCM := commandLeaf("ocm [session-id]", "Remove OCM credentials and derived kubeconfig", optionalCredentialSessionID, runCredentialsClearOCM)
 	clearOCM.Long = "Remove OCM credentials and derived kubeconfig. Without a session ID, discover your RUNNING sessions and suggest a command without changing credentials."
 	deploymentFlags(clearOCM, true, false)
-	configure.AddCommand(configureOCM)
+	configure.AddCommand(configureOCM, configureBackplaneCommand())
 	clear.AddCommand(clearOCM)
 	credentials.AddCommand(configure, clear)
 	group.AddCommand(start, list, join, stop, credentials)

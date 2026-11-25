@@ -180,7 +180,7 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 		"session": map[string]any{
 			"create": nil, "list": nil, "join": nil, "close": nil,
 			"credentials": map[string]any{
-				"configure": map[string]any{"ocm": nil},
+				"configure": map[string]any{"ocm": nil, "backplane": nil},
 				"clear":     map[string]any{"ocm": nil},
 			},
 		},

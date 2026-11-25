@@ -205,7 +205,7 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	}
 	ecsClient := newCredentialECSClient(authResult)
 	if flagBool(cmd, "refresh") {
-		if err := maintainOCMForSession(cmd.Context(), ecsClient, authResult, args[0], ocmSetup{environment: environment, flow: flow}); err != nil {
+		if err := maintainOCMForSession(cmd.Context(), ecsClient, authResult, args[0], ocmSetup{environment: environment, flow: flow}, nil); err != nil {
 			return err
 		}
 		return credentialActionResult(cmd, "configured", args[0], environment.Name)
@@ -216,7 +216,7 @@ func runCredentialsConfigureOCM(cmd *cobra.Command, args []string) error {
 	return credentialActionResult(cmd, "configured", args[0], environment.Name)
 }
 
-func maintainOCMForSession(ctx context.Context, ecs *awsclient.ECSClient, authResult *AuthResult, sessionID string, setup ocmSetup) error {
+func maintainOCMForSession(ctx context.Context, ecs *awsclient.ECSClient, authResult *AuthResult, sessionID string, setup ocmSetup, afterInstall func(context.Context, *awsclient.ECSClient, *awsclient.TemporaryCredentials) error) error {
 	if err := prepareCredentialSession(ctx, ecs, sessionID); err != nil {
 		return err
 	}
@@ -239,9 +239,22 @@ func maintainOCMForSession(ctx context.Context, ecs *awsclient.ECSClient, authRe
 	if renewal == nil {
 		return errors.New("OCM access was configured once, but renewal could not be scheduled")
 	}
-	output.Status("Keeping OCM credentials refreshed for session %s; press Ctrl+C to stop renewal", sessionID)
+	provider := "OCM"
+	if afterInstall != nil {
+		if err := afterInstall(ctx, ecs, authResult.Credentials); err != nil {
+			renewal.grant.Release()
+			return err
+		}
+		provider = "Backplane"
+		renewal.fallback = setup.configureProviderCommand("backplane", cfg.AWSRegion, cfg.ClusterName, sessionID)
+		renewal.afterInstall = func(ctx context.Context, fresh *awsclient.TemporaryCredentials) error {
+			ecs := awsclient.NewECSClient(cfg.AWSRegion, cfg.ClusterName, awsclient.StaticCredentialsProvider(fresh))
+			return afterInstall(ctx, ecs, fresh)
+		}
+	}
+	output.Status("Keeping %s credentials refreshed for session %s; press Ctrl+C to stop renewal", provider, sessionID)
 	if err := renewal.runUntilStopped(ctx, time.Now, waitRenewal); err != nil && !errors.Is(err, context.Canceled) {
-		return fmt.Errorf("OCM renewal stopped: %w; to configure fresh credentials once, run: %s", err, renewal.fallback)
+		return fmt.Errorf("%s renewal stopped: %w; to configure fresh credentials once, run: %s", provider, err, renewal.fallback)
 	}
 	return nil
 }

@@ -23,7 +23,7 @@ rta --help
 # List actions, describe parameters, run against a cluster
 rta action list
 rta action describe get
-rta action run get --cluster <id> --jira OHSS-1234 --param resource=pods --param version=v1 --param namespace=openshift-monitoring
+rta action run get --cluster <id> --jira OHSS-1234 --param resource=pods --param namespace=openshift-monitoring
 ```
 
 Use `rta <command> --help` for details on any command. All commands support `-o json` for machine-readable output.
@@ -209,7 +209,10 @@ You should see:
 ### Execute a GET action against a cluster
 
 The `get` action lists or fetches Kubernetes resources. `resource`, `version`, and
-`namespace` parameters are all required — nothing is defaulted server-side.
+`namespace` parameters are all required — nothing is defaulted server-side. The
+`rta` CLI sends `version=v1` for `get`, `patch`, and `delete` on core resources
+(no `group`) when you omit it or leave it empty; resources in a named group, and
+the `curl` requests below, must set it explicitly.
 
 > In below commands: replace `<cluster-id>` with the internal cluster ID of the cluster you intend to target or with `local` if the mode is `ROSA_TA_AUTH=disabled`
 
@@ -222,21 +225,18 @@ The `get` action lists or fetches Kubernetes resources. `resource`, `version`, a
 ./dist/<platform>/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
   action run get --cluster <cluster-id> --jira TEST-1234 -o json \
     --param resource=pods \
-    --param version=v1 \
     --param namespace=default
 
 # List pods in a different namespace
 ./dist/<platform>/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
   action run get --cluster <cluster-id> --jira TEST-1234 -o json \
     --param resource=pods \
-    --param version=v1 \
     --param namespace=kube-system
 
 # Get a specific pod
 ./dist/<platform>/rta --server=http://127.0.0.1:8080 --token "$(ocm token)" \
   action run get --cluster <cluster-id> --jira TEST-1234 -o json \
     --param resource=pods \
-    --param version=v1 \
     --param namespace=openshift-monitoring \
     --param name=prometheus-k8s-0
 ```
@@ -440,7 +440,7 @@ curl -s -X POST $BASE/aws-reboot/run \
 
 # rta CLI equivalent (preferred for humans)
 export RTA_SERVER=https://rosa-trusted-actions.dev0.rosav1.devshift.net
-rta action run get --cluster $CLUSTER --jira $JIRA --param resource=pods --param version=v1 --param namespace=default
+rta action run get --cluster $CLUSTER --jira $JIRA --param resource=pods --param namespace=default
 ```
 
 > Missing `target_cluster` → `400 missing-target-cluster`, bad `jira` → `400 invalid-jira`, no entitlement → `403`, write cooldown → `429 write-cooldown` (retry with `"force":true`).

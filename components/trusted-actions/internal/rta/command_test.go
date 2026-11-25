@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/openshift-online/rosa-trusted-actions/internal/catalog"
 	"github.com/openshift-online/rosa-trusted-actions/internal/openapi"
 )
 
@@ -307,6 +308,143 @@ func TestActionRun_BadParam(t *testing.T) {
 	}
 }
 
+func TestActionRun_DefaultsVersion(t *testing.T) {
+	for _, action := range []string{"get", "patch", "delete"} {
+		t.Run(action, func(t *testing.T) {
+			srv, requests := serveRunCapture(t, makeExecution("pending"))
+			defer srv.Close()
+
+			_, err := execute(t, "action", "run", action,
+				"--server", srv.URL, "--token", "tok",
+				"--cluster", "c1", "--jira", "OHSS-1", "--no-wait",
+				"--param", "resource=pods", "--param", "namespace=default")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := paramsFromRequest(t, requests)["version"]; got != "v1" {
+				t.Errorf("version param = %q, want %q", got, "v1")
+			}
+		})
+	}
+}
+
+func TestActionRun_DefaultsVersionWithNoParams(t *testing.T) {
+	srv, requests := serveRunCapture(t, makeExecution("pending"))
+	defer srv.Close()
+
+	_, err := execute(t, "action", "run", "get",
+		"--server", srv.URL, "--token", "tok",
+		"--cluster", "c1", "--jira", "OHSS-1", "--no-wait")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := paramsFromRequest(t, requests)["version"]; got != "v1" {
+		t.Errorf("version param = %q, want %q", got, "v1")
+	}
+}
+
+func TestActionRun_ExplicitVersionWins(t *testing.T) {
+	srv, requests := serveRunCapture(t, makeExecution("pending"))
+	defer srv.Close()
+
+	_, err := execute(t, "action", "run", "get",
+		"--server", srv.URL, "--token", "tok",
+		"--cluster", "c1", "--jira", "OHSS-1", "--no-wait",
+		"--param", "resource=pods", "--param", "version=v1beta1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := paramsFromRequest(t, requests)["version"]; got != "v1beta1" {
+		t.Errorf("version param = %q, want %q", got, "v1beta1")
+	}
+}
+
+func TestActionRun_EmptyVersionDefaults(t *testing.T) {
+	srv, requests := serveRunCapture(t, makeExecution("pending"))
+	defer srv.Close()
+
+	_, err := execute(t, "action", "run", "get",
+		"--server", srv.URL, "--token", "tok",
+		"--cluster", "c1", "--jira", "OHSS-1", "--no-wait",
+		"--param", "resource=pods", "--param", "version=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := paramsFromRequest(t, requests)["version"]; got != "v1" {
+		t.Errorf("version param = %q, want %q", got, "v1")
+	}
+}
+
+func TestActionRun_NoVersionDefaultWithGroup(t *testing.T) {
+	srv, requests := serveRunCapture(t, makeExecution("pending"))
+	defer srv.Close()
+
+	_, err := execute(t, "action", "run", "get",
+		"--server", srv.URL, "--token", "tok",
+		"--cluster", "c1", "--jira", "OHSS-1", "--no-wait",
+		"--param", "group=apps", "--param", "resource=deployments")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := paramsFromRequest(t, requests)["version"]; ok {
+		t.Errorf("version param = %q, want none: named groups must not be defaulted", got)
+	}
+}
+
+func TestActionRun_EmptyGroupDefaultsVersion(t *testing.T) {
+	srv, requests := serveRunCapture(t, makeExecution("pending"))
+	defer srv.Close()
+
+	_, err := execute(t, "action", "run", "get",
+		"--server", srv.URL, "--token", "tok",
+		"--cluster", "c1", "--jira", "OHSS-1", "--no-wait",
+		"--param", "group=", "--param", "resource=pods")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := paramsFromRequest(t, requests)["version"]; got != "v1" {
+		t.Errorf("version param = %q, want %q", got, "v1")
+	}
+}
+
+func TestActionRun_NoVersionDefaultForAWS(t *testing.T) {
+	srv, requests := serveRunCapture(t, makeExecution("pending"))
+	defer srv.Close()
+
+	_, err := execute(t, "action", "run", "aws-get",
+		"--server", srv.URL, "--token", "tok",
+		"--cluster", "c1", "--jira", "OHSS-1", "--no-wait",
+		"--param", "resource=ec2-instances")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := paramsFromRequest(t, requests)["version"]; ok {
+		t.Error("aws-get must not receive a version default: it rejects unknown params")
+	}
+}
+
+// TestTakesDefaultVersion_MatchesCatalog keeps the CLI's hardcoded version
+// default in step with the catalog, which the server publishes but never
+// applies.
+func TestTakesDefaultVersion_MatchesCatalog(t *testing.T) {
+	for _, a := range catalog.New().All() {
+		catalogDefault := ""
+		for _, p := range a.Params {
+			if p.Name == "version" {
+				catalogDefault = p.Default
+			}
+		}
+
+		if got, want := takesDefaultVersion(a.Name), catalogDefault != ""; got != want {
+			t.Errorf("takesDefaultVersion(%q) = %v, but catalog version default is %q", a.Name, got, catalogDefault)
+			continue
+		}
+		if catalogDefault != "" && catalogDefault != defaultKubeAPIVersion {
+			t.Errorf("catalog version default for %q = %q, want %q", a.Name, catalogDefault, defaultKubeAPIVersion)
+		}
+	}
+}
+
 func TestActionRun_MissingServer(t *testing.T) {
 	_, err := execute(t, "action", "run", "get",
 		"--server", "", "--token", "tok",
@@ -531,6 +669,37 @@ func serveRunNoWait(t *testing.T, exec openapi.Execution) *httptest.Server {
 		}
 		w.WriteHeader(http.StatusNotFound)
 	}))
+}
+
+// serveRunCapture records the submitted execution request. The channel is
+// buffered so the handler never blocks, and receiving from it in the test
+// gives the race detector a happens-before edge.
+func serveRunCapture(t *testing.T, exec openapi.Execution) (*httptest.Server, <-chan openapi.ExecutionRequest) {
+	t.Helper()
+	requests := make(chan openapi.ExecutionRequest, 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/run") {
+			var req openapi.ExecutionRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				t.Errorf("decode execution request: %v", err)
+			}
+			requests <- req
+			w.WriteHeader(http.StatusAccepted)
+			_ = json.NewEncoder(w).Encode(exec)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	return srv, requests
+}
+
+func paramsFromRequest(t *testing.T, requests <-chan openapi.ExecutionRequest) map[string]string {
+	t.Helper()
+	req := <-requests
+	if req.Params == nil {
+		return nil
+	}
+	return *req.Params
 }
 
 func serveJSON(t *testing.T, path string, v any) *httptest.Server {

@@ -220,7 +220,16 @@ run "legacy_policy_names_ownership_and_original_scopes" {
       jsondecode(aws_iam_role_policy.create_investigation_lambda_efs.policy).Statement[0].Resource == aws_efs_file_system.sre_home.arn &&
       jsondecode(aws_iam_role_policy.reap_tasks_lambda_ecs.policy).Statement[0].Condition.StringEquals["ecs:cluster"] == aws_ecs_cluster.main.arn &&
       jsondecode(aws_iam_role_policy.reap_tasks_lambda_ecs.policy).Statement[1].Resource == "arn:aws:ecs:us-east-1:123456789012:task/${aws_ecs_cluster.main.name}/*" &&
-      jsondecode(aws_iam_role_policy.reap_tasks_lambda_ecs.policy).Statement[2].Condition["ForAnyValue:StringLike"]["ecs:ResourceTag/deadline"] == "*"
+      jsondecode(aws_iam_role_policy.reap_tasks_lambda_ecs.policy).Statement[2].Condition["ForAnyValue:StringLike"]["ecs:ResourceTag/deadline"] == "*" &&
+      jsondecode(aws_iam_role_policy.reap_tasks_lambda_ecs.policy).Statement[3] == {
+        Effect   = "Allow"
+        Action   = ["ecs:StopTask"]
+        Resource = "arn:aws:ecs:us-east-1:123456789012:task/${aws_ecs_cluster.main.name}/*"
+        Condition = { StringLike = {
+          "ecs:ResourceTag/investigation_id" = "?*"
+          "ecs:ResourceTag/oidc_sub"         = "?*"
+        } }
+      }
     )
     error_message = "Preserve exact Lambda invocation, PassRole, filesystem and deadline-reaper scopes."
   }

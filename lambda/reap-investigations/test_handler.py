@@ -17,7 +17,7 @@ from unittest.mock import MagicMock, patch
 os.environ['AWS_DEFAULT_REGION'] = os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
 os.environ['ECS_CLUSTER'] = 'test-cluster'
 os.environ['EFS_FILESYSTEM_ID'] = 'fs-12345678'
-os.environ['GRACE_PERIOD_HOURS'] = '72'
+os.environ['INVESTIGATION_EXPIRY_HOURS'] = '168'
 
 # Mock client construction before import: unit tests must not resolve workstation
 # AWS regions/credentials or contact AWS. Tests replace these clients per case.
@@ -143,38 +143,39 @@ class TestReaperDiscovery(unittest.TestCase):
                 self.assertEqual(result['errors'], 1)
                 self.reap.assert_not_called()
 
-    def test_skip_investigation_with_running_tasks(self):
-        task_arn = 'arn:aws:ecs:us-east-1:123456789012:task/test-cluster/abc123'
-        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
-        self.mock_ecs.list_tasks.return_value = {'taskArns': [task_arn]}
-        self.mock_ecs.describe_tasks.return_value = {'tasks': [{
-            'taskArn': task_arn,
-            'tags': [{'key': 'cluster_id', 'value': 'test-cluster'},
-                     {'key': 'investigation_id', 'value': 'inv-123'}]}]}
-        result = self.run_handler()
-        self.assertEqual((result['checked'], result['reaped'], result['skipped']), (1, 0, 1))
-        self.reap.assert_not_called()
-
     def test_legacy_access_point_goes_to_verified_cleanup_without_grace(self):
         ap = access_point(age_hours=0)
         ap['Tags'] = [tag for tag in ap['Tags'] if tag['Key'] != 'CreatedAt']
         self.mock_efs.describe_access_points.return_value = {'AccessPoints': [ap]}
         result = self.run_handler()
         self.assertEqual(result['reaped'], 1)
-        self.reap.assert_called_once_with('test-cluster', 'inv-123', ap['AccessPointId'], None)
+        self.assertTrue(self.reap.call_args.kwargs['expired'])
 
     def test_skip_investigation_within_grace_period(self):
         self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point(age_hours=24)]}
+            'AccessPoints': [access_point(age_hours=7)]}
         result = self.run_handler()
         self.assertEqual((result['checked'], result['reaped'], result['skipped']), (1, 0, 1))
         self.reap.assert_not_called()
+
+    def test_expiry_is_inclusive_and_independent_of_idle_window(self):
+        with patch.object(handler, 'EXPIRY_HOURS', 2):
+            self.mock_efs.describe_access_points.return_value = {
+                'AccessPoints': [access_point(age_hours=2), access_point(age_hours=1)]}
+            result = self.run_handler()
+        self.assertEqual((result['skipped'], result['reaped']), (1, 1))
+        self.assertTrue(self.reap.call_args.kwargs['expired'])
+
+    def test_missing_task_inventory_never_proves_drain(self):
+        self.mock_ecs.get_paginator.return_value.paginate.return_value = [{}]
+        observed = handler.sessions.observe_investigation(self.mock_ecs, MagicMock(), 'ecs', 'id')
+        self.assertEqual(observed['state'], records.STATE_UNKNOWN)
 
     def test_stale_investigation_goes_through_the_shared_gate(self):
         self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
         result = self.run_handler()
         self.assertEqual((result['checked'], result['reaped'], result['errors']), (1, 1, 0))
-        self.reap.assert_called_once_with('test-cluster', 'inv-123', 'fsap-123456', None)
+        self.assertFalse(self.reap.call_args.kwargs['expired'])
 
     def test_reap_multiple_investigations(self):
         self.mock_efs.describe_access_points.return_value = {'AccessPoints': [
@@ -189,16 +190,6 @@ class TestReaperDiscovery(unittest.TestCase):
         result = self.run_handler()
         self.assertEqual((result['reaped'], result['errors']), (0, 1))
 
-    def test_task_reappearing_before_reap_cancels_it(self):
-        """The refresh immediately before reaping is a real gate, not a log line."""
-        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
-        paginator = MagicMock()
-        paginator.paginate.return_value = [{'taskArns': ['arn:aws:ecs:::task/x/late']}]
-        self.mock_ecs.get_paginator.return_value = paginator
-        result = self.run_handler()
-        self.assertEqual((result['reaped'], result['skipped']), (0, 1))
-        self.reap.assert_not_called()
-
     def test_access_point_pagination(self):
         pages = [
             {'AccessPoints': [access_point(ap_id='fsap-1', investigation='inv-1')],
@@ -210,69 +201,12 @@ class TestReaperDiscovery(unittest.TestCase):
         self.assertEqual(result['checked'], 2)
         self.assertEqual(self.mock_efs.describe_access_points.call_count, 2)
 
-    def test_running_task_pagination(self):
-        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
-        self.mock_ecs.list_tasks.side_effect = [
-            {'taskArns': ['arn:aws:ecs:::task/c/one'], 'nextToken': 'next'},
-            {'taskArns': ['arn:aws:ecs:::task/c/two']},
-        ]
-        self.mock_ecs.describe_tasks.side_effect = lambda **kwargs: {'tasks': [{
-            'taskArn': kwargs['tasks'][0],
-            'tags': [{'key': 'cluster_id', 'value': 'test-cluster'},
-                     {'key': 'investigation_id', 'value': 'inv-123'}]}]}
-        result = self.run_handler()
-        self.assertEqual(self.mock_ecs.list_tasks.call_count, 2)
-        self.assertEqual(result['skipped'], 1)
-
-    def test_describe_tasks_failure_stops_the_run(self):
-        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
-        self.mock_ecs.list_tasks.return_value = {'taskArns': ['arn:aws:ecs:::task/c/one']}
-        self.mock_ecs.describe_tasks.side_effect = ClientError(
-            {'Error': {'Code': 'AccessDenied', 'Message': 'denied'}}, 'DescribeTasks')
-        with self.assertRaises(ClientError):
-            self.run_handler()
-        self.reap.assert_not_called()
-
-    def test_sole_failed_task_refresh_is_a_record_error(self):
-        self.mock_efs.describe_access_points.return_value = {
-            'AccessPoints': [access_point(), access_point(age_hours=1)]}
-        self.mock_ecs.get_paginator.side_effect = ClientError(
-            {'Error': {'Code': 'AccessDenied'}}, 'ListTasks')
-        result = self.run_handler()
-        self.assertEqual((result['errors'], result['skipped']), (1, 1))
-        self.reap.assert_not_called()
-
-    def test_incomplete_task_inventory_is_not_idle(self):
-        self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
-        self.mock_ecs.list_tasks.return_value = {'taskArns': ['task']}
-        for response in ({'tasks': [], 'failures': [{'arn': 'task'}]}, {'tasks': []}):
-            with self.subTest(response=response):
-                self.mock_ecs.describe_tasks.return_value = response
-                with self.assertRaisesRegex(RuntimeError, 'inventory'):
-                    self.run_handler()
-                self.reap.assert_not_called()
-
     def test_efs_discovery_failure_propagates(self):
         self.mock_efs.describe_access_points.side_effect = ClientError(
             {'Error': {'Code': 'AccessDenied'}}, 'DescribeAccessPoints')
         with self.assertRaises(ClientError):
             self.run_handler()
         self.reap.assert_not_called()
-
-    def test_later_discovery_page_failure_discards_partial_inventory(self):
-        for operation, page in (
-            (self.mock_efs.describe_access_points, {'AccessPoints': [access_point()], 'NextToken': 'next'}),
-            (self.mock_ecs.list_tasks, {'taskArns': [], 'nextToken': 'next'}),
-        ):
-            with self.subTest(page=page):
-                error = ClientError({'Error': {'Code': 'ThrottlingException'}}, 'Discovery')
-                self.mock_efs.describe_access_points.return_value = {'AccessPoints': [access_point()]}
-                operation.side_effect = [page, error]
-                with self.assertRaises(ClientError) as raised:
-                    self.run_handler()
-                self.assertIs(raised.exception, error)
-                self.reap.assert_not_called()
-                operation.side_effect = None
 
     def test_one_failed_stale_pass_does_not_block_next(self):
         self.mock_efs.describe_access_points.return_value = {'AccessPoints': [
@@ -288,46 +222,6 @@ class TestReaperDiscovery(unittest.TestCase):
                     handler.lambda_handler({}, None)
                 self.close_work.assert_not_called()
                 self.reap.assert_not_called()
-
-
-class TestStaleness(unittest.TestCase):
-    """Creation-age versus inactivity semantics are unchanged by close work."""
-
-    def setUp(self):
-        self.now = datetime.now(timezone.utc)
-
-    def test_running_task_is_never_stale(self):
-        tasks = [{'cluster_id': 'c', 'investigation_id': 'i'}]
-        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(days=30),
-                                                self.now, tasks)
-        self.assertFalse(result['is_stale'])
-        self.assertEqual(result['running_tasks'], 1)
-
-    def test_idle_and_old_is_stale(self):
-        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(hours=100),
-                                                self.now, [])
-        self.assertTrue(result['is_stale'])
-
-    def test_idle_and_recent_is_not_stale(self):
-        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(hours=1),
-                                                self.now, [])
-        self.assertFalse(result['is_stale'])
-
-    def test_exactly_at_grace_period_is_not_stale(self):
-        result = handler.is_investigation_stale(
-            'c', 'i', self.now - timedelta(hours=handler.GRACE_PERIOD_HOURS), self.now, [])
-        self.assertFalse(result['is_stale'])
-
-    def test_missing_creation_tag_backfills(self):
-        result = handler.is_investigation_stale('c', 'i', None, self.now, [])
-        self.assertTrue(result['is_stale'])
-        self.assertIn('legacy', result['reason'])
-
-    def test_other_investigations_tasks_are_ignored(self):
-        tasks = [{'cluster_id': 'other', 'investigation_id': 'i'}]
-        result = handler.is_investigation_stale('c', 'i', self.now - timedelta(hours=100),
-                                                self.now, tasks)
-        self.assertTrue(result['is_stale'])
 
 
 class TestIdentifierValidation(unittest.TestCase):
@@ -419,8 +313,6 @@ class TestCloseWorkOrchestration(unittest.TestCase):
         self.enterContext(patch.object(handler, 'AWS_ACCOUNT_ID', '000000000000'))
         self.enterContext(patch.object(handler, 'list_investigation_access_points',
                                       return_value=[access_point()]))
-        self.enterContext(patch.object(handler, 'list_all_running_tasks', return_value=[]))
-        self.enterContext(patch.object(handler, 'list_tasks_by_investigation', return_value=[]))
         reap = self.enterContext(patch.object(handler, 'reap_investigation', return_value=True))
         for phase in ('intents', 'requests'):
             with self.subTest(phase=phase):
@@ -443,12 +335,10 @@ class TestCloseWorkOrchestration(unittest.TestCase):
 
     def test_multiple_discovery_failures_keep_causes_and_block_unsafe_reap(self):
         self.enterContext(patch.object(handler, 'AWS_ACCOUNT_ID', '000000000000'))
-        self.enterContext(patch.object(handler, 'list_investigation_access_points',
-                                      return_value=[access_point()]))
         failures = [ClientError({'Error': {'Code': 'AccessDenied'}}, operation)
-                    for operation in ('ListObjectsV2', 'ListObjectsV2', 'ListTasks')]
+                    for operation in ('ListObjectsV2', 'ListObjectsV2', 'DescribeAccessPoints')]
         self.finalizer.list_keys.side_effect = failures[:2]
-        self.enterContext(patch.object(handler, 'list_all_running_tasks', side_effect=failures[2]))
+        self.enterContext(patch.object(handler, 'list_investigation_access_points', side_effect=failures[2]))
         reap = self.enterContext(patch.object(handler, 'reap_investigation'))
         with self.assertRaises(ExceptionGroup) as raised:
             handler.lambda_handler({}, self.context)
@@ -688,20 +578,35 @@ class TestStaleReapRoute(unittest.TestCase):
         self.enterContext(patch.object(handler, 'S3_AUDIT_BUCKET', 'audit-bucket'))
 
         self.finalizer.observe.return_value = {'state': records.STATE_IDLE, 'tasks': []}
+        self.finalizer.latest_session_deadline.return_value = None
+        self.now = datetime.now(timezone.utc)
+        self.finalizer.list_keys.return_value = []
 
-    def test_a_stopping_task_with_a_shell_blocks_the_stale_request_itself(self):
-        self.finalizer.observe.return_value = {
-            'state': records.STATE_ACTIVE,
-            'tasks': [{'task_id': 'a' * 32, 'last_status': 'STOPPING'}],
-        }
-        self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
-                                                    self.context))
+    def reap(self, *, expired=False):
+        return handler.reap_investigation('cluster', 'inv', 'fsap-00000000', self.context,
+                                          now=self.now, created=self.now - timedelta(days=1),
+                                          expired=expired)
+
+    def test_idle_timer_uses_latest_launch_deadline(self):
+        self.finalizer.latest_session_deadline.return_value = self.now - timedelta(hours=7)
+        self.assertIsNone(self.reap())
         self.finalizer.put_json.assert_not_called()
-        self.finalizer.finalize.assert_not_called()
+        self.finalizer.latest_session_deadline.return_value -= timedelta(hours=1)
+        self.assertTrue(self.reap())
+
+    def test_shell_observation_required_for_idle_but_not_expiry_intent(self):
+        for state in (records.STATE_ACTIVE, records.STATE_UNKNOWN):
+            self.finalizer.observe.return_value = {'state': state}
+            self.assertIsNone(self.reap())
+            self.finalizer.put_json.assert_not_called()
+        self.reap(expired=True)
+        key, record = self.finalizer.put_json.call_args.args
+        self.finalizer.list_keys.return_value = [key]
+        self.assertIsNone(self.reap(expired=True))
+        self.finalizer.put_json.assert_called_once()
 
     def test_the_stale_route_carries_no_stop_consent(self):
-        self.assertTrue(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
-                                                   self.context))
+        self.assertTrue(self.reap())
         request = self.finalizer.finalize.call_args.kwargs['request']
         self.assertEqual(self.finalizer.finalize.call_args.kwargs['mode'], 'stale')
         self.assertEqual(request['stop_scope'], records.STOP_NONE)
@@ -712,7 +617,7 @@ class TestStaleReapRoute(unittest.TestCase):
     def test_the_stale_request_is_recorded_before_the_pass_begins(self):
         """Sealing happens early and the sweep skips sealed access points, so
         an unrecorded pass that stops halfway would strand the workspace."""
-        handler.reap_investigation('cluster', 'inv', 'fsap-00000000', self.context)
+        self.reap()
         key, record = self.finalizer.put_json.call_args.args
         records.validate_request(record)
         self.assertEqual(key, records.request_key('cluster', 'inv', record['request_token'],
@@ -723,20 +628,17 @@ class TestStaleReapRoute(unittest.TestCase):
     def test_a_request_that_cannot_be_recorded_defers_the_pass(self):
         self.finalizer.put_json.side_effect = ClientError(
             {'Error': {'Code': 'AccessDenied'}}, 'PutObject')
-        self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
-                                                    self.context))
+        self.assertFalse(self.reap())
         self.finalizer.finalize.assert_not_called()
 
     def test_too_little_runtime_defers_the_pass(self):
         self.context.get_remaining_time_in_millis.return_value = 31000
-        self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
-                                                    self.context))
+        self.assertFalse(self.reap())
         self.finalizer.finalize.assert_not_called()
 
     def test_without_an_audit_bucket_nothing_is_reaped(self):
         with patch.object(handler, 'S3_AUDIT_BUCKET', ''):
-            self.assertFalse(handler.reap_investigation('cluster', 'inv', 'fsap-00000000',
-                                                        self.context))
+            self.assertFalse(self.reap())
         self.finalizer.finalize.assert_not_called()
 
 

@@ -236,8 +236,10 @@ main() {
 
     # Display task timeout if configured (informational only - enforced by periodic reaper Lambda)
     if [ -n "${TASK_TIMEOUT}" ] && [ "${TASK_TIMEOUT}" != "0" ]; then
-        echo "Task will be automatically stopped after ${TASK_TIMEOUT} seconds (enforced by periodic reaper)"
+        echo "Session is eligible for reaping at age ${TASK_TIMEOUT}s without an attached shell."
     fi
+
+    echo "At 8 hours of age, the periodic reaper can stop this session even with an attached shell."
 
     # Run the command as the sre user in the background and wait for it.
     # This allows the root shell to remain and handle signals (cleanup/S3 sync).

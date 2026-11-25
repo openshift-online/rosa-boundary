@@ -32,6 +32,36 @@ func sentBody(t *testing.T, invoker *recordingInvoker) map[string]any {
 	return body
 }
 
+func TestIdleSessionCloseWireContract(t *testing.T) {
+	for _, tc := range []struct {
+		supported    bool
+		responseTask string
+		ok           bool
+	}{
+		{false, "", false}, {true, "different", false}, {true, "task", true},
+	} {
+		// Return both response shapes in one fixture. Each method must read
+		// only its corresponding proof from the service response.
+		r := &recordingInvoker{payload: buildLambdaResponse(http.StatusOK, map[string]any{
+			"config": map[string]bool{"supports_close_session": tc.supported},
+			"action": "close_session", "status": "stop_requested", "task_id": tc.responseTask,
+		})}
+		c := &Client{functionName: "function", sdk: r}
+		err := c.CloseIdleSession(context.Background(), "token", CloseActionRequest{ClusterID: "cluster", InvestigationID: "inv", TaskID: "task"})
+		if (err == nil) != tc.ok {
+			t.Fatalf("unexpected result: %v", err)
+		}
+		body := sentBody(t, r)
+		if !tc.supported {
+			if body["action"] != "get_config" {
+				t.Fatal("sent unknown action to old service")
+			}
+		} else if body["action"] != "close_session" || body["task_id"] != "task" || r.sent.Headers["x-oidc-token"] != "token" {
+			t.Fatalf("wrong close request: %v", body)
+		}
+	}
+}
+
 func TestRequestCloseSendsTheAuthenticatedAction(t *testing.T) {
 	invoker := &recordingInvoker{payload: buildLambdaResponse(http.StatusOK, map[string]any{
 		"action": "request_close", "request_token": "token-1", "status": "accepted",

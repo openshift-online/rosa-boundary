@@ -212,6 +212,7 @@ Access points are created at:
 - Permissions: `0755`
 
 **Tags:**
+- `BoundaryResource`: `investigation` (display label; not an authorization tag)
 - `Name`: `{cluster_id}-{investigation_id}`
 - `ClusterID`: Cluster identifier
 - `InvestigationID`: Investigation identifier
@@ -221,12 +222,16 @@ Access points are created at:
 
 ## ECS Task Configuration
 
-### Task Tags
+### Session tags
 
-All tasks are tagged with:
+Each session is an ECS task. A shell is the interactive ECS Exec connection to it, not a second task. See the [lifecycle contract](../../docs/architecture/session-lifecycle.md).
+
+New session tasks are tagged with:
+
+- `BoundaryResource`: `session` (display label; not an authorization tag)
 
 - `oidc_sub`: OIDC subject claim (audit)
-- `username`: Human-readable username (ABAC key)
+- Configured ABAC key (for example, `uuid`): creator’s matching principal tag value
 - `investigation_id`: Investigation identifier
 - `cluster_id`: ROSA cluster identifier
 - `access_point_id`: Associated EFS access point

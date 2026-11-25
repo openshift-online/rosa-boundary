@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -56,6 +58,34 @@ func captureStopSessionOutput(t *testing.T, format string, waited bool) (string,
 		t.Fatal(err)
 	}
 	return string(out), string(diagnostics)
+}
+
+func TestSessionStopActorRouting(t *testing.T) {
+	token := credentialGuidanceToken("user-1")
+	for _, tc := range []struct {
+		owner            string
+		direct, mediated bool
+		denied           bool
+	}{
+		{"user-1", true, false, false}, {"other", false, true, false},
+		{"other", false, true, true}, {"", false, false, true},
+	} {
+		service := &fakeCloseService{}
+		if tc.denied {
+			service.acceptErr = errors.New("session is not idle")
+		}
+		direct := false
+		task := &awsclient.TaskSummary{TaskID: "task", Tags: map[string]string{"oidc_sub": tc.owner, "cluster_id": "cluster", "investigation_id": "inv"}}
+		err := stopOneSession(context.Background(), token, task,
+			func(context.Context, string, string) error { direct = true; return nil },
+			func() (closeService, error) { return service.service(), nil })
+		if (err != nil) != tc.denied || direct != tc.direct || (len(service.requests) == 1) != tc.mediated {
+			t.Fatalf("owner=%q direct=%v requests=%v err=%v", tc.owner, direct, service.requests, err)
+		}
+		if tc.mediated && (service.requests[0].TaskID != task.TaskID || service.requests[0].InvestigationID != "inv" || service.requests[0].ClusterID != "cluster") {
+			t.Fatalf("wrong target: %+v", service.requests[0])
+		}
+	}
 }
 
 func TestStopSessionConfirmationTarget(t *testing.T) {

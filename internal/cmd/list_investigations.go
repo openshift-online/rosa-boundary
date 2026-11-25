@@ -77,7 +77,7 @@ func runListInvestigations(cmd *cobra.Command, args []string) error {
 		return output.JSON(map[string]any{"profile": selectedProfile, "investigations": rows})
 	}
 
-	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "OWNER", "ACCESS POINT", "STATE")
+	tbl := output.NewTable("INVESTIGATION", "CLUSTER", "CREATOR", "ACCESS POINT", "EFS STATE")
 	tbl.PrintHeader()
 	for _, inv := range investigations {
 		owner := inv.Tags["uuid"]

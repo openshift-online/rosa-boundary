@@ -10,6 +10,20 @@ import (
 	"github.com/openshift-online/rosa-boundary/internal/lambda"
 )
 
+func TestOnlyCreatorMayJoin(t *testing.T) {
+	token := credentialGuidanceToken("user-1")
+	for _, tc := range []struct {
+		token, creator string
+		ok             bool
+	}{
+		{token, "user-1", true}, {token, "other", false}, {token, "", false}, {"", "", false},
+	} {
+		if err := requireSessionCreator(tc.token, tc.creator); (err == nil) != tc.ok {
+			t.Errorf("creator %q: %v", tc.creator, err)
+		}
+	}
+}
+
 func hookTarget() sessionCloseTarget {
 	return sessionCloseTarget{ClusterID: "cluster", InvestigationID: "inv", SessionID: "task-1", AccessPointID: "fsap-1"}
 }

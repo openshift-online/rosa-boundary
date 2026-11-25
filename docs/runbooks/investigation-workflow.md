@@ -120,7 +120,7 @@ auth-bearing command, not just a preceding `login`. See the
 
 Optional flags:
 ```
-  --session-timeout 1h    # task lifetime; must meet the deployment's policy
+  --session-timeout 1h    # shell-less task age threshold; must meet the deployment's policy
   --with-credentials none # opt out of default fresh OCM token injection
   --ocm-url production    # production, staging, integration, or canonical URL
   --ocm-auth-flow device  # explicit OCM-only override; otherwise follows global device preference
@@ -207,8 +207,9 @@ The CLI defaults `--session-timeout` to **1h** and sends it explicitly; Terrafor
 `0s`, but the deployed default minimum of 30 seconds rejects it. Global
 `--timeout` is a separate local command deadline, and explicit `--timeout 0s`
 is invalid. Read the [timeout matrix](../architecture/session-lifecycle.md#timeout-matrix)
-before selecting a value. A deadline is not a guaranteed stop time:
-[strict-deadline policy remains unresolved](../architecture/session-lifecycle.md#unresolved-policy-decisions).
+before selecting a value. The CLI maximum is 8h. At the requested age, a task
+without a shell is eligible for reaping; at 8h even an attached shell can be
+stopped. Neither threshold promises an exact stop time.
 
 To hand over a workspace, coordinate with its current SRE and have them disconnect
 Exec. The successor uses their own profile/identity to request a replacement:
@@ -219,18 +220,17 @@ Exec. The successor uses their own profile/identity to request a replacement:
 ```
 
 Lambda stops and replaces existing tasks only when every candidate has a known
-different owner and no active SSM sessions. An active session returns HTTP 409;
+different owner and no attached shells. An attached shell returns HTTP 409;
 unknown ownership or session state blocks replacement. Lambda waits for tasks to
 stop before launching the replacement. Verify predecessor audit evidence
 independently. The new task belongs to the caller, but the access point keeps its
 original creator tags and creation time.
 
 If you already have a task, repeat create returns HTTP 409 and leaves it unchanged.
-When the task matches your current ABAC identity, the CLI prints a copy-pasteable
+When both the task's creator subject and its ABAC tag match your identity, the CLI prints a copy-pasteable
 [`session join`](#phase-4-connect-to-container) command with the existing session ID
 and the current profile, region, and ECS cluster. If no command is shown, use
-[`session list`](#phase-3-list-tasks) to find the task; joining still requires matching
-ABAC identity. Credential mounts do not persist across replacement: configure fresh
+[`session list`](#phase-3-list-tasks) to find the task; joining still requires both matches. Credential mounts do not persist across replacement: configure fresh
 OCM credentials on the new task. See [actual task/AP tags](../architecture/session-lifecycle.md#actual-resource-tags-creator-versus-actor).
 
 ## Phase 3: List Tasks
@@ -399,6 +399,11 @@ What it does:
 2. Container entrypoint attempts to sync non-credential `/home/sre/` content to S3
 3. S3 path is auto-generated: `s3://<bucket>/<cluster-id>/<investigation-id>/<YYYYMMDD>/<task-id>/`
 
+Only the session creator can Join. Any Boundary-authorized user may close an
+IDLE session (no attached shell and the configured timeout reached). Do not
+confuse this with requesting investigation close: a shell-less investigation
+may be idle even while its session is younger than its timeout.
+
 `--wait` confirms the task reached STOPPED, **not** that S3 sync succeeded.
 Closing the session does not close its investigation or delete the reusable workspace.
 Without a terminal, `session close` requires `--yes`; `-o json` returns a
@@ -501,6 +506,13 @@ Who may ask:
 | Shell observed after acceptance | The accepted explicit request waits. A handover to another active SRE supersedes session-bound callbacks and intents. |
 | No active sessions | any authenticated SRE authorized to use Boundary |
 | Unclear or unavailable | No new request is recorded; retry when the service can confirm no shells are attached. The reaper defers an already accepted request. |
+
+Expiry (default seven days from creation) or a recorded close request blocks both
+new sessions and new shells immediately, not just after the finalization seal.
+An already attached shell is not disconnected by expiry. An open investigation
+can also become eligible after eight idle hours: see the [launch-plus-timeout
+approximation](../architecture/session-lifecycle.md#how-investigation-idle-time-is-estimated).
+Do not use a new Join as a status probe: use `investigation close ... --status`.
 
 After rechecking that no shell is attached, the reaper will apply a managed close marker, stop only
 the tasks the request consented to stop, observe the workspace quiet twice with

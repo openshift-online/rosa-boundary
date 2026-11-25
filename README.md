@@ -214,7 +214,7 @@ investigation and its reusable workspace open until `investigation close`.
 
 **`session create <cluster-id>`**:
 - `--investigation-id` — auto-generated if omitted (e.g., `swift-dance-party`)
-- `--session-timeout` — session lifetime (default: `1h`); the deployment's Lambda enforces its own minimum and maximum
+- `--session-timeout` — shell-less session age threshold (default `1h`, maximum `8h`; the deployed minimum also applies). At eight hours of task age a session is eligible for reaping even with an attached shell. See the [session and investigation lifecycle](docs/architecture/session-lifecycle.md)
 - `--no-connect` — skip automatically joining the task (joining is the default; `--no-wait` also skips joining)
 - `--no-wait` — return immediately without waiting for RUNNING
 - `--with-credentials ocm` — configure OCM before returning or connecting; incompatible with `--no-wait`

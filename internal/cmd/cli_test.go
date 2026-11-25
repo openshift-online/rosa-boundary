@@ -186,7 +186,7 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 		},
 		"login": nil, "version": nil,
 	})
-	for _, args := range [][]string{{"session", "create"}, {"session", "create", "cluster", "--no-wait", "--connect"}, {"session", "create", "cluster", "--no-wait", "--with-credentials", "ocm"}, {"session", "create", "cluster", "--session-timeout", "-1s"}, {"session", "create", "cluster", "--session-timeout", "24h1s"}, {"session", "create", "cluster", "--with-credentials", "bogus"}, {"session", "list", "--status", "bad"}, {"investigation", "close", "cluster"}} {
+	for _, args := range [][]string{{"session", "create"}, {"session", "create", "cluster", "--no-wait", "--connect"}, {"session", "create", "cluster", "--no-wait", "--with-credentials", "ocm"}, {"session", "create", "cluster", "--session-timeout", "-1s"}, {"session", "create", "cluster", "--session-timeout", "8h1s"}, {"session", "create", "cluster", "--with-credentials", "bogus"}, {"session", "list", "--status", "bad"}, {"investigation", "close", "cluster"}} {
 		if _, err := runTestCLI(t, args...); err == nil {
 			t.Errorf("%v should be rejected", args)
 		}
@@ -199,6 +199,21 @@ func TestCLINoLegacyCommandsAndValidatesBeforeAuth(t *testing.T) {
 	}
 	if _, err := runTestCLI(t, "investigation", "close", "cluster", "incident", "--dry-run", "--timeout", "-1s"); err == nil || !strings.Contains(err.Error(), "--timeout") {
 		t.Fatalf("dry-run should pass terminal validation: %v", err)
+	}
+}
+
+func TestSessionTimeoutCap(t *testing.T) {
+	for _, tc := range []struct {
+		value string
+		valid bool
+	}{{"8h", true}, {"8h1s", false}} {
+		cmd := commandAtPath(t, buildRootCommand(), "session", "create")
+		if err := cmd.ParseFlags([]string{"--no-wait", "--session-timeout", tc.value}); err != nil {
+			t.Fatal(err)
+		}
+		if err := cmd.ValidateArgs([]string{"cluster"}); (err == nil) != tc.valid {
+			t.Errorf("%s: %v", tc.value, err)
+		}
 	}
 }
 

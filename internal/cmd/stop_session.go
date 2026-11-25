@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	awsclient "github.com/openshift-online/rosa-boundary/internal/aws"
+	"github.com/openshift-online/rosa-boundary/internal/lambda"
 	"github.com/openshift-online/rosa-boundary/internal/output"
 )
 
@@ -54,9 +56,8 @@ func runStopSession(cmd *cobra.Command, args []string) error {
 	output.Status("Stopping session...")
 	output.Status("  Session: %s", sessionID)
 	output.Status("  ECS Cluster: %s", clusterName)
-	output.Status("  Reason:  %s", stopReason)
 
-	if err := ecsClient.StopTask(cmd.Context(), sessionID, stopReason); err != nil {
+	if err := stopOneSession(cmd.Context(), authRes.IDToken, task, ecsClient.StopTask, func() (closeService, error) { return newCloseService(cmd, authRes) }); err != nil {
 		return fmt.Errorf("stop session failed: %w", err)
 	}
 
@@ -85,6 +86,30 @@ func runStopSession(cmd *cobra.Command, args []string) error {
 	output.Status("  3. Exit gracefully")
 
 	return nil
+}
+
+// The direct ECS permission remains owner-scoped. A cross-user stop requires
+// the service to revalidate the task, workspace, timeout and shell evidence.
+func stopOneSession(ctx context.Context, token string, task *awsclient.TaskSummary,
+	ownedStop func(context.Context, string, string) error, serviceFor closeServiceFactory) error {
+	subject, err := authenticatedSubject(token)
+	if err != nil || !validOwnerSubject(subject) || !validOwnerSubject(task.Tags["oidc_sub"]) || task.TaskID == "" {
+		return fmt.Errorf("cannot verify session identity")
+	}
+	if task.Tags["oidc_sub"] == subject {
+		output.Status("  Reason:  %s", stopReason)
+		return ownedStop(ctx, task.TaskID, stopReason)
+	}
+	req := lambda.CloseActionRequest{ClusterID: task.Tags["cluster_id"], InvestigationID: task.Tags["investigation_id"], TaskID: task.TaskID}
+	if req.ClusterID == "" || req.InvestigationID == "" {
+		return fmt.Errorf("session does not identify its investigation")
+	}
+	service, err := serviceFor()
+	if err != nil {
+		return err
+	}
+	output.Status("Requesting an idle-session stop; the service records the authenticated requester.")
+	return service.client.CloseIdleSession(ctx, service.idToken, req)
 }
 
 func printStopSessionTarget(profile, account, region, sessionID string, task *awsclient.TaskSummary) {

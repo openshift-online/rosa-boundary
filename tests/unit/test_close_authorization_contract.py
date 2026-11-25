@@ -110,6 +110,13 @@ def clients(tasks=(), sessions_active=0, sessions_by_task=None, describe_error=F
 
 
 @pytest.mark.parametrize('module', [requests, sessions])
+def test_incomplete_ecs_inventory_cannot_establish_idle(module):
+    ecs, ssm = clients()
+    ecs.get_paginator.return_value.paginate.return_value = [{}]
+    assert module.observe_investigation(ecs, ssm, CLUSTER, 'marker')['state'] == 'unknown'
+
+
+@pytest.mark.parametrize('module', [requests, sessions])
 def test_tasks_stopping_are_checked_without_combining_ecs_filters(module):
     ours = dict(task(TASK_A, HOLDER), desiredStatus='STOPPED', startedBy='marker')
     other = dict(task(TASK_B, OTHER), desiredStatus='STOPPED', startedBy='other')
@@ -298,6 +305,12 @@ class TestExplicitCloseLifecycle(reaper_fixture.FinalizerCase):
         assert record['request_token'] == response['request_token']
         reaper_fixture.records.validate_request(record)
 
+        # Task discovery and final workspace-definition cleanup use different ECS APIs.
+        tasks_page = ecs.get_paginator('list_tasks')
+        definitions_page = MagicMock()
+        definitions_page.paginate.return_value = [{'taskDefinitionArns': []}]
+        ecs.get_paginator.side_effect = {'list_tasks': tasks_page,
+                                         'list_task_definitions': definitions_page}.__getitem__
         del self.finalizer.observe  # use the real ECS/SSM observer against the same clients
         self.finalizer.ecs, self.finalizer.ssm = ecs, ssm
         # A shell can reattach after admission. Finalization still rechecks.

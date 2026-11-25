@@ -8,7 +8,7 @@ import os
 import json
 import unittest
 from botocore.exceptions import ClientError
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch, call
 
 # Set environment variables before importing handler
@@ -59,6 +59,56 @@ class TestReaperLambda(unittest.TestCase):
             'containers': containers,
             'tags': [{'key': 'deadline', 'value': deadline}]
         }
+
+    def test_independent_age_limit(self):
+        now = datetime.now(timezone.utc)
+        task = self._exec_task('task-1', (now + timedelta(hours=1)).isoformat())
+        task['tags'] += [{'key': 'investigation_id', 'value': 'inv'},
+                         {'key': 'oidc_sub', 'value': 'creator'}]
+        task['createdAt'] = now - timedelta(hours=8) + timedelta(seconds=1)
+        self.assertEqual(handler.reap_reason(task, now), (None, False))
+        task['createdAt'] -= timedelta(seconds=1)
+        self.assertTrue(handler.reap_reason(task, now)[1])
+        # No configured deadline and an attached shell cannot defer this timer.
+        task['tags'].pop(0)
+        self.mock_ssm.describe_sessions.return_value = {'Sessions': [{'SessionId': 'shell'}]}
+        self.mock_ecs.list_tasks.return_value = {'taskArns': ['task-1']}
+        self.mock_ecs.describe_tasks.return_value = {'tasks': [task]}
+        self.assertEqual(handler.lambda_handler({}, None)['stopped'], 1)
+        self.mock_ssm.describe_sessions.assert_not_called()
+
+    def test_configured_timer_uses_task_age_not_prelaunch_deadline(self):
+        now = datetime.now(timezone.utc)
+        task = self._exec_task('task-1', (now - timedelta(minutes=1)).isoformat())
+        task['tags'] += [{'key': 'investigation_id', 'value': 'inv'},
+                         {'key': 'oidc_sub', 'value': 'creator'},
+                         {'key': 'task_timeout', 'value': '3600'}]
+        self.assertEqual(handler.reap_reason(task, now), (None, False))  # Unknown task age.
+        task['createdAt'] = now - timedelta(seconds=3599)
+        self.assertEqual(handler.reap_reason(task, now), (None, False))
+        task['createdAt'] -= timedelta(seconds=1)
+        self.assertEqual(handler.reap_reason(task, now), (
+            'IDLE session reached configured timeout (3600s)', False))
+        task['tags'][-1]['value'] = '0'
+        self.assertEqual(handler.reap_reason(task, now), (None, False))
+
+    def test_incomplete_session_page_does_not_establish_idle(self):
+        task = self._exec_task('task-1', '2000-01-01')
+        self.mock_ecs.list_tasks.return_value = {'taskArns': ['task-1']}
+        self.mock_ecs.describe_tasks.return_value = {'tasks': [task]}
+        for page in ({}, {'Sessions': [], 'NextToken': ''}, {'Sessions': [], 'NextToken': 'repeated'}):
+            with self.subTest(page=page):
+                self.mock_ssm.describe_sessions.return_value = page
+                result = handler.lambda_handler({}, None)
+                self.assertEqual(result['errors'], 1)
+                self.mock_ecs.stop_task.assert_not_called()
+
+    def test_deadline_equality(self):
+        now = datetime.now(timezone.utc)
+        task = self._exec_task('task-1', now.isoformat())
+        reason, hard = handler.reap_reason(task, now)
+        self.assertTrue(reason)
+        self.assertFalse(hard)
 
     def test_no_running_tasks(self):
         """Test reaper with no running tasks"""

@@ -25,6 +25,7 @@ only when the same verified gate passed; if reclamation cannot be justified the
 directory stays with its reason recorded.
 """
 
+from datetime import timedelta
 import hashlib
 import json
 import logging
@@ -430,7 +431,7 @@ class Finalizer:
             raise Retained(records.STATUS_RETAINED,
                            f'recheck inconclusive: {observation["reason"]}', 'quiet',
                            retryable=True)
-        if sessions.nonterminal_task_ids(observation):
+        if observation['state'] != records.STATE_IDLE or sessions.nonterminal_task_ids(observation):
             raise Retained(records.STATUS_WAITING_FOR_TASKS,
                            'a task was observed after the workspace appeared quiet', 'quiet',
                            retryable=True)
@@ -506,7 +507,7 @@ class Finalizer:
                          investigation_id, invalid)
             return self._write_outcome(cluster_id, investigation_id, access_point,
                                        request_token, records.STATUS_RETAINED, 'record',
-                                       str(invalid), False)
+                                       str(invalid), True)
         except (ClientError, BotoCoreError, OSError) as error:
             logger.error('Close for %s/%s could not continue: %s', cluster_id,
                          investigation_id, type(error).__name__, exc_info=True)
@@ -555,7 +556,9 @@ class Finalizer:
                                f'revalidation inconclusive: {initial["reason"]}', 'authorize',
                                retryable=True)
             superseded = sessions.request_superseded(request, initial)
-            if superseded:
+            pending = (access_point['tags'].get(records.TAG_SEAL)
+                       and access_point['tags'].get(records.TAG_MANAGED) == records.MANAGED_BY)
+            if superseded and not (pending and initial['state'] == records.STATE_ACTIVE):
                 # A handover is a real answer: this requester is no longer
                 # eligible and an eligible SRE has to ask again.
                 raise Retained(records.STATUS_RETAINED, superseded, 'authorize')
@@ -568,14 +571,6 @@ class Finalizer:
         elif initial['state'] != records.STATE_IDLE:
             raise Retained(records.STATUS_WAITING_FOR_TASKS,
                            f'stale candidate is not idle: {initial["reason"]}', 'authorize',
-                           retryable=True)
-        elif sessions.nonterminal_task_ids(initial):
-            # Idle now means "no attached session", which a RUNNING task no
-            # longer contradicts. The scheduled sweep has no human consent
-            # behind it, so it waits for the task instead of sealing an
-            # investigation somebody may still be running work in.
-            raise Retained(records.STATUS_WAITING_FOR_TASKS,
-                           'stale candidate still has a running task', 'authorize',
                            retryable=True)
 
         # 2. Seal (never replacing a manual hold), then drain with consent only.
@@ -598,7 +593,7 @@ class Finalizer:
         directory_path = os.path.join(self.mount_path, cluster_id, investigation_id)
         if not os.path.ismount(self.mount_path):
             raise Retained(records.STATUS_RETAINED, 'the control filesystem is not mounted',
-                           'measure')
+                           'measure', retryable=True)
         real_path = os.path.realpath(directory_path)
         if real_path != os.path.join(os.path.realpath(self.mount_path), cluster_id,
                                      investigation_id):
@@ -610,7 +605,7 @@ class Finalizer:
                                'workspace is not a directory; cleanup refused', 'measure')
         except FileNotFoundError:
             raise Retained(records.STATUS_RETAINED,
-                           'workspace directory is missing; cannot verify its contents', 'measure')
+                           'workspace directory is missing; cannot verify its contents', 'measure', retryable=True)
 
         attempt_id = str(uuid.uuid4())
         self._attempt_id = attempt_id
@@ -652,7 +647,7 @@ class Finalizer:
         final_observation = self.observe(cluster_id, investigation_id)
         if final_observation['state'] == records.STATE_UNKNOWN:
             raise AttemptInvalid(f'final recheck inconclusive: {final_observation["reason"]}')
-        if sessions.nonterminal_task_ids(final_observation):
+        if final_observation['state'] != records.STATE_IDLE or sessions.nonterminal_task_ids(final_observation):
             raise AttemptInvalid('a task was observed after the workspace was copied')
         recheck, _ = build_source_manifest(directory_path, context)
         if recheck != manifest:
@@ -886,7 +881,7 @@ class Finalizer:
             result['reason'] = '; '.join(reasons)
         return result
 
-    def deregister_task_definitions(self, cluster_id, investigation_id, access_point_id):
+    def workspace_definitions(self, cluster_id, investigation_id, access_point_id):
         if not self.task_definition_family:
             raise TaskDefinitionCleanupError('Missing task definition family')
         prefix = f'{self.task_definition_family}-{cluster_id}-{investigation_id}'
@@ -895,7 +890,9 @@ class Finalizer:
         candidates = []
         paginator = self.ecs.get_paginator('list_task_definitions')
         for page in paginator.paginate(status='ACTIVE'):
-            for arn in page.get('taskDefinitionArns', []):
+            if not isinstance(page.get('taskDefinitionArns'), list):
+                raise TaskDefinitionCleanupError('Incomplete task definition inventory')
+            for arn in page['taskDefinitionArns']:
                 name = arn.split(':task-definition/', 1)[-1]
                 family, separator, revision = name.rpartition(':')
                 if not separator or not revision.isdigit():
@@ -905,7 +902,6 @@ class Finalizer:
                     continue
                 candidates.append(arn)
 
-        removed = 0
         for arn in candidates:
             td = self.ecs.describe_task_definition(taskDefinition=arn).get('taskDefinition', {})
             if td.get('taskDefinitionArn') != arn or td.get('status') not in ('ACTIVE', 'INACTIVE'):
@@ -919,6 +915,27 @@ class Finalizer:
             if (home.get('fileSystemId') != self.efs_filesystem_id or
                     home.get('authorizationConfig', {}).get('accessPointId') != access_point_id):
                 continue
+            yield td
+
+    def latest_session_deadline(self, cluster_id, investigation_id, access_point_id):
+        """Approximate last detach using the latest launch's registration and timeout."""
+        latest = None
+        for td in self.workspace_definitions(cluster_id, investigation_id, access_point_id):
+            values = [env['value'] for container in td['containerDefinitions']
+                      if container['name'] == 'rosa-boundary' for env in container['environment']
+                      if env['name'] == 'TASK_TIMEOUT']
+            launch = td['registeredAt']
+            if len(values) != 1 or not values[0].isdigit() or launch.tzinfo is None:
+                raise ValueError('Incomplete investigation task timing')
+            timeout = int(values[0]) or 8 * 3600  # Legacy tasks without a deadline.
+            candidate = (launch, launch + timedelta(seconds=timeout))
+            latest = max(latest, candidate) if latest else candidate
+        return latest[1] if latest else None
+
+    def deregister_task_definitions(self, cluster_id, investigation_id, access_point_id):
+        removed = 0
+        for td in self.workspace_definitions(cluster_id, investigation_id, access_point_id):
+            arn = td['taskDefinitionArn']
             result = self.ecs.deregister_task_definition(taskDefinition=arn).get('taskDefinition', {})
             if result.get('taskDefinitionArn') != arn or result.get('status') != 'INACTIVE':
                 raise TaskDefinitionCleanupError(f'Deregistration not confirmed for {arn}')

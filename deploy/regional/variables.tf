@@ -354,13 +354,13 @@ variable "required_groups" {
 }
 
 variable "task_timeout_default" {
-  description = "Default task timeout in seconds (0 = no timeout)"
+  description = "Default shell-less session timeout in seconds (0 disables this timer, not the independent 8-hour age limit)"
   type        = number
   default     = 28800 # 8 hours
 
   validation {
-    condition     = var.task_timeout_default >= 0 && var.task_timeout_default <= 86400
-    error_message = "Task timeout must be between 0 and 86400 seconds (24 hours)"
+    condition     = var.task_timeout_default >= 0 && var.task_timeout_default <= 28800 && floor(var.task_timeout_default) == var.task_timeout_default
+    error_message = "Task timeout must be whole seconds between 0 and 28800 (8 hours)"
   }
 }
 
@@ -370,8 +370,8 @@ variable "task_timeout_minimum" {
   default     = 30
 
   validation {
-    condition     = var.task_timeout_minimum >= 0 && var.task_timeout_minimum <= 86400
-    error_message = "task_timeout_minimum must be between 0 and 86400 seconds"
+    condition     = var.task_timeout_minimum >= 0 && var.task_timeout_minimum <= 28800 && floor(var.task_timeout_minimum) == var.task_timeout_minimum
+    error_message = "task_timeout_minimum must be whole seconds between 0 and 28800"
   }
 }
 
@@ -473,7 +473,7 @@ variable "investigation_reaper_schedule_hours" {
 }
 
 variable "investigation_grace_period_hours" {
-  description = "Maximum investigation lifetime (hours) before automatic cleanup when idle. An investigation is reaped if it has no running tasks AND was created more than this many hours ago. This is measured from creation time, not idle duration. Default 168h (7 days) allows for multi-day investigations with task timeouts."
+  description = "Maximum investigation lifetime in hours from creation. Expiry closes admission without terminating attached shells; workspace finalization waits for drain and verified backup. Independent of the eight-hour idle window."
   type        = number
   default     = 168 # 7 days
 

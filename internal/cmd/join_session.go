@@ -74,6 +74,9 @@ func joinSession(cmd *cobra.Command, args []string,
 	if err != nil {
 		return err
 	}
+	if err := requireSessionCreator(authRes.IDToken, target.CreatorSubject); err != nil {
+		return err
+	}
 	newService := func() (closeService, error) { return serviceFor(cmd, authRes) }
 	service, err := newService()
 	if err != nil {
@@ -98,6 +101,16 @@ func joinSession(cmd *cobra.Command, args []string,
 	format, _ := commandOutput(cmd)
 	outcome := afterAttachedSession(cmd.Context(), newService, func() (sessionCloseTarget, error) { return target, nil }, format == "json")
 	return disconnectedSessionResult(cmd, sessionID, outcome)
+}
+
+// IAM still enforces ECS Exec ABAC. Check the immutable subject too: a
+// display name or configurable principal tag alone is not a creator identity.
+func requireSessionCreator(token, creator string) error {
+	subject, err := authenticatedSubject(token)
+	if err != nil || !validOwnerSubject(subject) || subject != creator {
+		return fmt.Errorf("only the session creator may join; session was not joined")
+	}
+	return nil
 }
 
 // disconnectedSessionResult is only printed after the ECS Exec shell exits
@@ -200,7 +213,7 @@ func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, regio
 		return fmt.Errorf("cannot describe session %s; check the session ID, selected profile and ECS cluster with 'rosa-boundary session list --status all': %w", sessionID, err)
 	}
 
-	output.Status("Session status: %s", task.Status)
+	output.Status("ECS task status: %s", task.Status)
 	if task.DesiredStatus != "RUNNING" {
 		return fmt.Errorf("session %s is not intended to run (desired status: %q); session was not joined", sessionID, task.DesiredStatus)
 	}
@@ -253,7 +266,7 @@ func connectToSession(ctx context.Context, ecsClient *awsclient.ECSClient, regio
 		return fmt.Errorf("ECS ExecuteCommand failed; verify the session is RUNNING and ask the deployment operator to check ECS Exec permissions if it persists: %w", err)
 	}
 
-	if err := debugf("Session ID: %s", session.SessionID); err != nil {
+	if err := debugf("SSM shell connection ID: %s", session.SessionID); err != nil {
 		output.Warning("could not write debug output: %v", err)
 	}
 

@@ -382,21 +382,34 @@ class TestAuthorization(FinalizerCase):
         # The sweep comes back to it; nothing here needs a person.
         self.assertTrue(status['retryable'])
 
-    def test_a_stale_candidate_with_a_running_task_is_not_sealed_by_the_sweep(self):
-        """Idle now means "nobody attached", which a RUNNING task allows.
-
-        The scheduled sweep carries no human consent, so it must still wait
-        for the task rather than sealing an investigation that is running
-        work. Only an SRE's own request can seal past a live task, and only
-        with the stop consent that request carried.
-        """
+    def test_shell_free_scheduled_close_seals_then_waits_for_task_stop(self):
         self.observations = [observation(records.STATE_IDLE, tasks=[running_task()])]
         status = self.finalize(mode='stale')
         self.assertEqual(status['status'], records.STATUS_WAITING_FOR_TASKS)
-        self.assertIn('running task', status['reason'])
-        self.efs.tag_resource.assert_not_called()
+        self.efs.tag_resource.assert_called_once()
         self.ecs.stop_task.assert_not_called()
+        self.efs.delete_access_point.assert_not_called()
         self.assertTrue(status['retryable'])
+
+    def test_late_shell_after_pending_does_not_supersede_or_unseal(self):
+        ap = self.access_point()
+        request = self.request(trigger='auto_close')
+        self.observations = [observation(records.STATE_IDLE, tasks=[running_task()])]
+        self.assertEqual(self.finalize(access_point=ap, request=request)['status'],
+                         records.STATUS_WAITING_FOR_TASKS)
+        seal = ap['tags'][records.TAG_SEAL]
+        self.observations = [observation(records.STATE_ACTIVE, OTHER_SRE,
+                                         [attached_task(sub=OTHER_SRE)])]
+        waiting = self.finalize(access_point=ap, request=request)
+        self.assertTrue(waiting['retryable'])
+        self.assertEqual(waiting['status'], records.STATUS_WAITING_FOR_TASKS)
+        self.efs.delete_access_point.assert_not_called()
+        self.ecs.stop_task.assert_not_called()
+        self.observations = [observation(records.STATE_IDLE)]
+        self.assertEqual(self.finalize(access_point=ap, request=request)['status'],
+                         records.STATUS_COMPLETED)
+        self.assertEqual(ap['tags'][records.TAG_SEAL], seal)
+        self.efs.tag_resource.assert_called_once()
 
     def test_a_detached_task_does_not_reserve_the_investigation_for_its_owner(self):
         """The regression: a RUNNING task used to report ACTIVE/held by its tag.

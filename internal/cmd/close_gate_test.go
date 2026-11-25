@@ -152,6 +152,11 @@ func (f *fakeCloseService) service() closeService {
 	return closeService{client: f, idToken: "fresh-token"}
 }
 
+func (f *fakeCloseService) CloseIdleSession(_ context.Context, _ string, req lambda.CloseActionRequest) error {
+	f.requests = append(f.requests, req)
+	return f.acceptErr
+}
+
 func (f *fakeCloseService) CancelAutoClose(_ context.Context, _ string, req lambda.CloseActionRequest) (*lambda.CloseActionResponse, error) {
 	f.cancellation = append(f.cancellation, req)
 	if f.cancelErr != nil {

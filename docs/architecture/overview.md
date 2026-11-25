@@ -83,11 +83,11 @@ The create-investigation Lambda computes a deadline at task creation time:
 deadline = created_at + task_timeout  (ISO 8601 UTC)
 ```
 
-This deadline is stored as an ECS task tag (`deadline=2026-02-16T12:34:56`). ECS task tags are only modifiable via the ECS API, which requires IAM permissions not granted to the task role. The task role cannot change that tag. This is not a hard session-duration guarantee: active Exec sessions currently defer reaping.
+This deadline is stored as an ECS task tag (`deadline=2026-02-16T12:34:56`). ECS task tags are only modifiable via the ECS API, which requires IAM permissions not granted to the task role. The task role cannot change that tag. This is not a hard session-duration guarantee: an attached shell defers deadline reaping only before eight hours of task age.
 
-The reap-tasks Lambda runs on an EventBridge schedule (default: every 15 minutes). It lists RUNNING tasks and reads their deadline tags. When `now > deadline`, it stops the task only after confirming no active SSM session; active or uncertain session state defers reaping. Tasks without a deadline tag are skipped. See the [timeout matrix](session-lifecycle.md#timeout-matrix) and [unresolved strict-deadline and active-session policy](session-lifecycle.md#unresolved-policy-decisions).
+The reap-tasks Lambda runs on an EventBridge schedule (default: every 15 minutes). It checks RUNNING tasks against the [two reaping thresholds](session-lifecycle.md#timeout-matrix).
 
-The reaper's `ecs:StopTask` permission is conditioned on the task having a `deadline` tag (`ForAnyValue:StringLike`), preventing it from stopping tasks it does not manage.
+Review the deployed reaper role when validating task stops; a successful eligibility check alone does not prove permission to stop a task.
 
 ### 2.5 Audit Trail
 
@@ -128,7 +128,7 @@ On TERM, INT, HUP, or workload exit the entrypoint attempts a bounded transfer t
 | Component | Role | Terraform |
 |-----------|------|-----------|
 | `create-investigation` | Validates OIDC token (JWKS), checks group membership, creates EFS access point, registers per-investigation task definition, runs ECS task with ABAC tags and deadline | `lambda-create-investigation.tf` |
-| `reap-tasks` | Runs on EventBridge schedule; stops expired tasks only when no active SSM session is confirmed | `lambda-reap-tasks.tf` |
+| `reap-tasks` | Runs on EventBridge schedule; stops shell-less tasks at their configured timeout or any managed task at eight hours of age | `lambda-reap-tasks.tf` |
 | EventBridge Rule | Triggers reap-tasks Lambda on a configurable schedule (default: 15 min) | `lambda-reap-tasks.tf` |
 
 ### ECS / VPC
@@ -256,8 +256,8 @@ cleanup because it destroys both credential volumes.
 
 ### Step 4: Task Expiry (Automatic)
 
-The reap-tasks Lambda runs every 15 minutes by default. When `now > deadline` tag:
-1. Lambda checks SSM session state and defers reaping if active or uncertain. Only when no active session is confirmed does it call `ecs:StopTask` with reason `Task deadline exceeded (deadline: {deadline_str})`
+The reap-tasks Lambda runs every 15 minutes by default. On each sweep:
+1. A managed task that has reached eight hours of age is eligible even with a shell attached. Before then, stop at or beyond the configured timeout only when no shell is attached.
 2. ECS sends SIGTERM to the container
 3. `entrypoint.sh` catches SIGTERM and calls `sync_to_s3()` before exiting
 
@@ -266,7 +266,7 @@ The deadline is computed by the create-investigation Lambda as:
 deadline = datetime.utcnow() + timedelta(seconds=task_timeout)
 ```
 
-The task role cannot edit this tag (`ecs:TagResource` is not granted). It is not a strict stop deadline; see the [unresolved policy work](session-lifecycle.md#unresolved-policy-decisions).
+The task role cannot edit this tag (`ecs:TagResource` is not granted). It is not a strict stop deadline; see the [timeout matrix](session-lifecycle.md#timeout-matrix).
 
 ### Step 5: Stop a Task Manually
 

@@ -123,6 +123,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.warning("Missing OIDC token: no x-oidc-token header or Authorization: Bearer")
             return response(401, {'error': 'Missing OIDC token. Provide X-OIDC-Token header.'})
 
+        if 'action' in body and body['action'] not in close_requests.ACTIONS:
+            return response(400, {'error': 'Unsupported action'})
+
         token = oidc_token
 
         # Validate environment configuration
@@ -143,25 +146,29 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         investigation_id = body.get('investigation_id')
         cluster_id = body.get('cluster_id')
-        task_timeout = body.get('task_timeout', int(os.environ.get('TASK_TIMEOUT_DEFAULT', '3600')))
         skip_task = body.get('skip_task', False)
 
         if not investigation_id or not cluster_id:
             logger.warning("Missing required fields: investigation_id or cluster_id")
             return response(400, {'error': 'Missing required fields: investigation_id, cluster_id'})
 
-        # Validate task_timeout
-        try:
-            task_timeout = int(task_timeout)
-            if task_timeout < 0 or task_timeout > 86400:
-                raise ValueError("Task timeout out of range")
-            if TASK_TIMEOUT_MINIMUM > 0 and task_timeout < TASK_TIMEOUT_MINIMUM:
-                raise ValueError(f"task_timeout below minimum ({TASK_TIMEOUT_MINIMUM}s)")
-        except (ValueError, TypeError) as e:
-            logger.warning(f"Invalid task_timeout: {task_timeout} — {str(e)}")
-            return response(400, {
-                'error': f'task_timeout must be an integer between {TASK_TIMEOUT_MINIMUM} and 86400'
-            })
+        # A close/status action does not create a task. Its availability must
+        # not depend on the configured default satisfying the launch minimum.
+        if 'action' not in body:
+            task_timeout = body.get('task_timeout', os.environ.get('TASK_TIMEOUT_DEFAULT', '3600'))
+            try:
+                if isinstance(task_timeout, (float, bool)):
+                    raise ValueError("Expected a whole number of seconds")
+                task_timeout = int(task_timeout)
+                if task_timeout < 0 or task_timeout > 28800:
+                    raise ValueError("Task timeout out of range")
+                if TASK_TIMEOUT_MINIMUM > 0 and task_timeout < TASK_TIMEOUT_MINIMUM:
+                    raise ValueError(f"task_timeout below minimum ({TASK_TIMEOUT_MINIMUM}s)")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Invalid task_timeout: {task_timeout} — {str(e)}")
+                return response(400, {
+                    'error': f'task_timeout must be an integer between {TASK_TIMEOUT_MINIMUM} and 28800'
+                })
 
         # Validate identifiers for safe characters
         try:
@@ -181,6 +188,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Extract user info from claims
         user_sub = claims.get('sub')
+        if not isinstance(user_sub, str) or not user_sub.strip():
+            return response(401, {'error': 'Missing OIDC subject'})
         user_email = claims.get('email', 'unknown')
         username = claims.get('preferred_username', user_email)
 
@@ -234,8 +243,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"User {username} authorized via group(s): {matched_groups}")
 
         # Close request/status actions reuse this authenticated front door but
-        # share none of the creation path: they only record a request the
-        # reaper must revalidate, and they never seal, stop, verify or delete.
+        # share none of the creation path. Only close_session may stop a task.
         action = body.get('action')
         if action in close_requests.ACTIONS:
             return handle_close_action(action, body, user_sub, username)
@@ -399,13 +407,6 @@ def require_durable_admission(client, cluster_id: str, investigation_id: str) ->
         raise HandoverFailedError('Cannot verify durable close state', status_code=503) from error
 
 
-def retiring_legacy_access_point(tags):
-    return tags.get('ManagedBy') == 'rosa-boundary-lambda' and not tags.get('CreatedAt')
-
-
-LEGACY_RETIREMENT = 'Legacy investigation workspace is retiring; start a new investigation ID'
-
-
 def close_marker(efs_filesystem_id: str, cluster_id: str, investigation_id: str) -> Optional[str]:
     """Return a reason when a close marker is observed on the workspace path.
 
@@ -420,14 +421,9 @@ def close_marker(efs_filesystem_id: str, cluster_id: str, investigation_id: str)
             if (access_point.get('RootDirectory', {}).get('Path') or '') != expected_path:
                 continue
             tags = {t['Key']: t['Value'] for t in access_point.get('Tags', [])}
-            if close_requests.TAG_SEAL not in tags:
-                if retiring_legacy_access_point(tags):
-                    return LEGACY_RETIREMENT
-                continue
-            if tags.get(close_requests.TAG_MANAGED) == close_requests.MANAGED_BY:
-                return ('Workspace is closing: an automated close is in progress for audit '
-                        'finalization')
-            return 'Workspace sealed for audit verification; contact the operator'
+            reason = close_requests.workspace_admission_block(tags)
+            if reason:
+                return reason
     return None
 
 
@@ -617,12 +613,10 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                 tags = {t['Key']: t['Value'] for t in ap.get('Tags', [])}
                 # A seal applies to the workspace, not just this mount handle. Scan
                 # all pages so an older, duplicate AP cannot hide a sealed one.
-                if ap.get('RootDirectory', {}).get('Path') == expected_path and 'AuditCloseSeal' in tags:
-                    if tags.get(close_requests.TAG_MANAGED) == close_requests.MANAGED_BY:
-                        raise HandoverFailedError(
-                            'Workspace is closing: an automated close is in progress for '
-                            'audit finalization', status_code=409)
-                    raise HandoverFailedError('Workspace sealed for audit verification; contact the operator', status_code=409)
+                if ap.get('RootDirectory', {}).get('Path') == expected_path:
+                    reason = close_requests.workspace_admission_block(tags)
+                    if reason:
+                        raise HandoverFailedError(reason, status_code=409)
                 if ap.get('LifeCycleState') != 'available':
                     continue
                 if tags.get('ClusterID') != cluster_id or tags.get('InvestigationID') != investigation_id:
@@ -636,8 +630,6 @@ def find_existing_access_point(efs_filesystem_id: str, cluster_id: str, investig
                         f"expected {expected_path!r}, got {actual_path!r}; skipping"
                     )
                     continue
-                if retiring_legacy_access_point(tags):
-                    raise HandoverFailedError(LEGACY_RETIREMENT, status_code=409)
                 if match is not None:
                     raise HandoverFailedError('Multiple access points match the workspace; contact the operator', status_code=409)
                 match = ap
@@ -839,15 +831,20 @@ def verify_handover(cluster, investigation_id, task_arns, oidc_sub, abac_tag_key
         tags = {tag['key']: tag.get('value') for tag in task.get('tags', [])}
         owner = tags.get(abac_tag_key)
         subject = tags.get('oidc_sub')
-        # The configured ABAC tag determines who can join. A matching subject
-        # also rules out replacement if the same caller's ABAC value changed.
+        # Either match blocks replacement, but Join requires both identities.
         if owner == abac_tag_value or subject == oidc_sub:
+            if owner != abac_tag_value or subject != oidc_sub:
+                raise HandoverFailedError(
+                    "Existing session identity only partially matches; replacement refused. "
+                    "Check the selected profile and contact the operator.",
+                    failed_tasks=[arn], status_code=409
+                )
             raise HandoverFailedError(
                 f"You already have a task for investigation '{investigation_id}'. "
                 "Use 'rosa-boundary session list' to find it, then "
                 "'rosa-boundary session join <session-id>' with the same profile.",
                 failed_tasks=[arn], status_code=409,
-                existing_session_id=arn.rsplit('/', 1)[-1] if owner == abac_tag_value else None
+                existing_session_id=arn.rsplit('/', 1)[-1]
             )
         candidates.append((arn, task, owner, subject))
 
@@ -934,6 +931,9 @@ def create_investigation_task(
             for existing_task in existing_tasks:
                 try:
                     check_admission()
+                    reason = close_marker(efs_filesystem_id, cluster_id, investigation_id)
+                    if reason:
+                        raise HandoverFailedError(reason, status_code=409)
                     ecs.stop_task(
                         cluster=cluster,
                         task=existing_task,
@@ -990,6 +990,7 @@ def create_investigation_task(
                 },
                 Tags=[
                     {'Key': 'Name', 'Value': f"{cluster_id}-{investigation_id}"},
+                    {'Key': 'BoundaryResource', 'Value': 'investigation'},
                     {'Key': 'ClusterID', 'Value': cluster_id},
                     {'Key': 'InvestigationID', 'Value': investigation_id},
                     {'Key': 'oidc_sub', 'Value': oidc_sub},
@@ -1066,6 +1067,7 @@ def create_investigation_task(
     # The 'oidc_sub' tag stores the immutable OIDC subject UUID for audit purposes.
     created_at = datetime.utcnow()
     task_tags = [
+        {'key': 'BoundaryResource', 'value': 'session'},
         {'key': 'oidc_sub', 'value': oidc_sub},
         {'key': abac_tag_key, 'value': abac_tag_value},
         {'key': 'investigation_id', 'value': investigation_id},
@@ -1324,6 +1326,7 @@ def get_config_response() -> Dict[str, Any]:
     return response(200, {
         'action': 'get_config',
         'config': {
+            'supports_close_session': True,
             'lambda_function_name': os.environ.get('AWS_LAMBDA_FUNCTION_NAME', ''),
             'invoker_role_arn': os.environ.get('INVOKER_ROLE_ARN', ''),
             'sre_role_arn': os.environ.get('SHARED_ROLE_ARN', ''),

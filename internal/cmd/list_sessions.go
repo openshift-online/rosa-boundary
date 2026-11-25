@@ -81,7 +81,7 @@ func runListSessions(cmd *cobra.Command, args []string) error {
 		return output.JSON(map[string]any{"profile": selectedProfile, "sessions": rows})
 	}
 
-	tbl := output.NewTable("SESSION ID", "STATUS", "CLUSTER", "INVESTIGATION", "OWNER", "STARTED")
+	tbl := output.NewTable("SESSION ID", "ECS STATUS", "CLUSTER", "INVESTIGATION", "CREATOR", "STARTED")
 	tbl.PrintHeader()
 
 	for _, t := range tasks {

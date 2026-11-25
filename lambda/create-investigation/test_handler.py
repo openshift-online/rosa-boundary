@@ -79,6 +79,30 @@ class TestTaskCreationMetrics:
             }),
         }
 
+    def test_authorized_caller_can_launch_at_eight_hour_cap(self, metric_event):
+        metric_event['body'] = json.dumps({**json.loads(metric_event['body']), 'task_timeout': 28800})
+        result = handler.lambda_handler(metric_event, None)
+        assert result['statusCode'] == 200
+        assert handler.create_investigation_task.call_args.kwargs['task_timeout'] == 28800
+
+    @pytest.mark.parametrize('action', ['close_session', 'close_status'])
+    def test_close_action_independent_of_launch_timeout(self, metric_event, monkeypatch, action):
+        monkeypatch.setenv('TASK_TIMEOUT_DEFAULT', '0')  # Below the configured minimum.
+        metric_event['body'] = json.dumps({**json.loads(metric_event['body']), 'action': action})
+        with patch.object(handler, 'handle_close_action') as dispatch:
+            assert handler.lambda_handler(metric_event, None) is dispatch.return_value
+        dispatch.assert_called_once()
+        handler.create_investigation_task.assert_not_called()
+
+    def test_close_session_requires_authorized_group(self, metric_event):
+        handler.validate_oidc_token.return_value['groups'] = ['unrelated-group']
+        metric_event['body'] = json.dumps({**json.loads(metric_event['body']), 'action': 'close_session'})
+        with patch.object(handler, 'handle_close_action') as dispatch:
+            result = handler.lambda_handler(metric_event, None)
+        assert result['statusCode'] == 403
+        dispatch.assert_not_called()
+        handler.create_investigation_task.assert_not_called()
+
     @pytest.mark.parametrize('error,status,outcome', [
         (None, 200, 'success'),
         (RuntimeError('private-error'), 500, 'failure'),
@@ -1377,7 +1401,8 @@ class TestDuplicateInvestigationDetection:
                     ecs_paginator.paginate.return_value = [{'taskArns': [existing_task_arn]}]
                     mock_ecs.get_paginator.return_value = ecs_paginator
                     mock_ecs.describe_tasks.return_value = described_handover_task(
-                        existing_task_arn, owner='sre-user' if same_user else 'previous-user')
+                        existing_task_arn, subject='user-uuid' if same_user else 'previous-sub',
+                        owner='sre-user' if same_user else 'previous-user')
 
                     mock_ecs.run_task.return_value = {
                         'tasks': [{'taskArn': 'arn:aws:ecs:us-east-1:123:task/test-cluster/new-task-id'}]
@@ -1604,8 +1629,8 @@ class TestDuplicateInvestigationDetection:
         ('sre-user', 'sub-123', 'runtime-2', 'active', 409, 'rosa-boundary session list'),
         ('sre-user', 'sub-123', 'runtime-2', 'inactive', 409, 'rosa-boundary session list'),
         ('sre-user', 'sub-123', None, 'unknown', 409, 'rosa-boundary session list'),
-        ('sre-user', 'other-issuer-sub', 'runtime-2', 'inactive', 409, 'session join'),
-        ('changed-user', 'sub-123', 'runtime-2', 'inactive', 409, 'session join'),
+        ('sre-user', 'other-issuer-sub', 'runtime-2', 'inactive', 409, 'partially matches'),
+        ('changed-user', 'sub-123', 'runtime-2', 'inactive', 409, 'partially matches'),
         (None, 'other-sub', 'runtime-2', 'inactive', 500, 'Cannot verify existing task ownership'),
         ('other-user', None, 'runtime-2', 'inactive', 500, 'Cannot verify existing task ownership'),
         ('other-user', 'other-sub', None, 'unknown', 500, 'incomplete session evidence'),
@@ -1664,7 +1689,8 @@ class TestDuplicateInvestigationDetection:
                     assert exc_info.value.failed_tasks == [task_2_arn]
                     assert exc_info.value.status_code == status
                     assert message in str(exc_info.value)
-                    assert exc_info.value.existing_session_id == ('task-2' if owner == 'sre-user' else None)
+                    can_join = owner == 'sre-user' and subject == 'sub-123'
+                    assert exc_info.value.existing_session_id == ('task-2' if can_join else None)
                     if owner == 'sre-user' or subject == 'sub-123':
                         mock_ssm.describe_sessions.assert_not_called()
                     mock_ecs.describe_tasks.assert_called_with(
@@ -2668,6 +2694,7 @@ class TestTaskTagging:
 
         assert tags.get('investigation_id') == 'inv-001'
         assert tags.get('cluster_id') == 'rosa-dev'
+        assert tags.get('BoundaryResource') == 'session'
         assert tags.get('access_point_id') == 'fsap-test'
         assert tags.get('task_timeout') == '3600'
         assert 'created_at' in tags, "created_at tag must be present"
@@ -2735,6 +2762,7 @@ class TestTaskTagging:
         assert tags.get('username') == 'alice'
         assert tags.get('oidc_sub') == 'sub-abc-123'
         assert tags.get('ManagedBy') == 'rosa-boundary-lambda'
+        assert tags.get('BoundaryResource') == 'investigation'
         assert 'Name' in tags, "Name tag must be present on EFS access point"
 
     def test_username_tag_matches_preferred_username_not_sub(self):
@@ -2872,6 +2900,10 @@ class TestMinimumTaskTimeout:
         result = self._call(task_timeout=3600, minimum=30)
         assert result['statusCode'] == 401
 
+    @pytest.mark.parametrize('seconds,expected', [(28800, 401), (28801, 400), (28800.5, 400)])
+    def test_eight_hour_cap_before_authentication(self, seconds, expected):
+        assert self._call(task_timeout=seconds)['statusCode'] == expected
+
     def test_minimum_zero_allows_any_nonnegative(self):
         """When TASK_TIMEOUT_MINIMUM=0, zero and small values are accepted."""
         result = self._call(task_timeout=0, minimum=0)
@@ -2879,6 +2911,14 @@ class TestMinimumTaskTimeout:
 
         result = self._call(task_timeout=1, minimum=0)
         assert result['statusCode'] == 401
+
+
+def test_unknown_action_never_falls_through_to_create():
+    with patch.object(handler, 'create_investigation_task') as create:
+        result = handler.lambda_handler({'headers': {'x-oidc-token': 'token'},
+                                         'body': json.dumps({'action': 'future_action'})}, None)
+    assert result['statusCode'] == 400
+    create.assert_not_called()
 
 
 class TestGetConfig:
@@ -2923,7 +2963,9 @@ class TestGetConfig:
         assert body['action'] == 'get_config'
         assert 'synthetic-not-for-disclosure' not in json.dumps(result)
         config = body['config']
+        assert config['supports_close_session'] is True
         assert set(config) == {
+            'supports_close_session',
             'lambda_function_name', 'invoker_role_arn', 'sre_role_arn', 'efs_filesystem_id',
             'ecs_cluster_name', 'aws_region', 'keycloak_url', 'keycloak_realm', 'oidc_client_id',
         }

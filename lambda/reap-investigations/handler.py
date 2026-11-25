@@ -6,7 +6,7 @@ component that finalizes an investigation. Each invocation:
 
 1. Finishes explicit close requests recorded by authenticated SREs
 2. Activates auto-close intents whose session task has stopped
-3. Reaps stale investigations (no running tasks + grace period elapsed)
+3. Records scheduled closure at expiry or after the investigation idle window
 
 All three routes run through one bounded pipeline — seal, drain, copy, verify,
 publish, clean up — so there is no alternative, less-verified way to reach
@@ -21,7 +21,7 @@ creation or against any other EFS client.
 Environment Variables:
 - ECS_CLUSTER: ECS cluster name
 - EFS_FILESYSTEM_ID: EFS filesystem ID
-- GRACE_PERIOD_HOURS: Staleness threshold (default: 72)
+- INVESTIGATION_EXPIRY_HOURS: Maximum investigation age (default: 168)
 - S3_AUDIT_BUCKET: Audit bucket holding close requests, evidence and receipts
 - AWS_ACCOUNT_ID: Expected audit bucket owner
 - TASK_DEFINITION_FAMILY: Task definition family prefix for cleanup
@@ -71,7 +71,8 @@ ssm = boto3.client(
 
 ECS_CLUSTER = os.environ.get('ECS_CLUSTER')
 EFS_FILESYSTEM_ID = os.environ.get('EFS_FILESYSTEM_ID')
-GRACE_PERIOD_HOURS = int(os.environ.get('GRACE_PERIOD_HOURS', '72'))
+EXPIRY_HOURS = float(os.environ.get('INVESTIGATION_EXPIRY_HOURS', '168'))
+IDLE_WINDOW = timedelta(hours=8)
 S3_AUDIT_BUCKET = os.environ.get('S3_AUDIT_BUCKET', '')
 AWS_ACCOUNT_ID = os.environ.get('AWS_ACCOUNT_ID', '')
 TASK_DEFINITION_FAMILY = os.environ.get('TASK_DEFINITION_FAMILY', '')
@@ -146,7 +147,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     if not S3_AUDIT_BUCKET or not AWS_ACCOUNT_ID:
         raise ValueError("Lambda configuration error: S3_AUDIT_BUCKET and AWS_ACCOUNT_ID are required")
 
-    logger.info("Checking for stale investigations (grace period: %dh)", GRACE_PERIOD_HOURS)
+    logger.info("Checking investigation idle and expiry thresholds (expiry: %gh)", EXPIRY_HOURS)
 
     checked = 0
     reaped = 0
@@ -165,14 +166,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     close_summary = process_close_work(context, discovery_errors)
 
     try:
-        # Do not enter the stale loop unless both shared inventories completed.
-        # A partial task list is not evidence that a workspace is idle.
         access_points = list_investigation_access_points()
-        logger.info("Found %d investigation access point(s)", len(access_points))
-
-        # Build running tasks set once to avoid repeated cluster-wide pagination
-        running_tasks = list_all_running_tasks()
-        logger.info("Found %d running task(s) in cluster", len(running_tasks))
 
         for ap in access_points:
             # Check deadline before processing each investigation
@@ -228,51 +222,24 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                        cluster_id, investigation_id, ap_id)
 
             try:
-                # Read creation timestamp from CreatedAt tag (EFS API doesn't provide CreationTime)
-                created_at_str = tags.get('CreatedAt')
-                if not created_at_str:
-                    logger.warning("Access point %s missing CreatedAt tag, checking tasks only", ap_id)
-                    staleness = is_investigation_stale(cluster_id, investigation_id, None, now, running_tasks)
-                else:
-                    # Parse ISO 8601 timestamp from tag
-                    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
-                    staleness = is_investigation_stale(cluster_id, investigation_id, created_at, now, running_tasks)
-
-                if not staleness['is_stale']:
-                    logger.info("Skipping %s/%s: %s",
-                               cluster_id, investigation_id, staleness['reason'])
+                # Missing CreatedAt identifies a retired legacy investigation.
+                stamp = tags.get('CreatedAt')
+                created = datetime.fromisoformat(stamp.replace('Z', '+00:00')) if stamp else None
+                expired = created is None or now - created >= timedelta(hours=EXPIRY_HOURS)
+                if not expired and now - created < IDLE_WINDOW:
                     skipped += 1
                     continue
-            except (ValueError, TypeError) as e:
-                logger.error("Error checking staleness for %s/%s: %s",
-                            cluster_id, investigation_id, e, exc_info=True)
+                reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context,
+                                                 created=created, now=now, expired=expired)
+            except (ValueError, TypeError, KeyError, close_finalization.TaskDefinitionCleanupError,
+                    ClientError, BotoCoreError):
+                logger.exception("Scheduled close failed for %s/%s", cluster_id, investigation_id)
                 errors += 1
                 continue
 
-            logger.info("Reaping stale investigation: %s/%s (%s)",
-                       cluster_id, investigation_id, staleness['reason'])
-
-            # Refresh task state before deletion to ensure current
-            try:
-                current_tasks = list_tasks_by_investigation(cluster_id, investigation_id)
-                if current_tasks:
-                    logger.info("Investigation %s/%s now has running tasks, skipping reap",
-                               cluster_id, investigation_id)
-                    skipped += 1
-                    continue
-            except (ClientError, BotoCoreError) as e:
-                logger.error("Failed to refresh task state for %s/%s: %s",
-                            cluster_id, investigation_id, e, exc_info=True)
-                errors += 1
+            if reap_success is None:
+                skipped += 1
                 continue
-
-            try:
-                reap_success = reap_investigation(cluster_id, investigation_id, ap_id, context)
-            except (ValueError, ClientError, BotoCoreError):
-                logger.exception("Stale close failed for %s/%s", cluster_id, investigation_id)
-                errors += 1
-                continue
-
             if reap_success:
                 reaped += 1
             else:
@@ -532,7 +499,7 @@ def finalize_one(finalizer, cluster_id: str, investigation_id: str,
     if access_point is None:
         finalizer.write_status(
             cluster_id, investigation_id, records.STATUS_RETAINED, phase='resolve',
-            reason='no managed access point exists for this workspace',
+            reason='no managed access point exists for this workspace', retryable=True,
             request_token=request['request_token'])
         return False
     if access_point['id'] != request['access_point_id']:
@@ -639,156 +606,6 @@ def activate_one_intent(finalizer, key, cluster_id, investigation_id) -> bool:
     return True
 
 
-def is_investigation_stale(cluster_id: str, investigation_id: str,
-                          access_point_created_at: Optional[datetime], now: datetime,
-                          running_tasks: List[Dict[str, str]]) -> Dict[str, Any]:
-    """
-    Determine if an investigation is stale using hybrid criteria.
-
-    Hybrid approach prevents premature deletion:
-    1. Active tasks (RUNNING status) → not stale (regardless of age)
-    2. No tasks + age > grace period → stale and safe to delete
-    3. No tasks + missing CreatedAt tag → stale (legacy backfill)
-
-    This ensures investigations with long-running debug sessions are never
-    reaped while the task is active, while cleaning up abandoned investigations
-    after the grace period expires.
-
-    Investigations without a CreatedAt tag were created before PR #300 (2026-10-12)
-    and are treated as stale when idle to enable one-time backfill cleanup.
-
-    Args:
-        cluster_id: Cluster identifier
-        investigation_id: Investigation identifier
-        access_point_created_at: Access point creation timestamp (None for legacy investigations)
-        now: Current UTC timestamp
-        running_tasks: Pre-fetched list of all running tasks with their tags
-
-    Returns:
-        dict with 'is_stale' (bool), 'reason' (str), 'running_tasks' (int)
-    """
-    # Filter running tasks for this investigation
-    investigation_tasks = [
-        task for task in running_tasks
-        if task['cluster_id'] == cluster_id and task['investigation_id'] == investigation_id
-    ]
-
-    if investigation_tasks:
-        return {
-            'is_stale': False,
-            'reason': f'{len(investigation_tasks)} running task(s)',
-            'running_tasks': len(investigation_tasks)
-        }
-
-    if access_point_created_at is None:
-        # Legacy backfill: investigations created before CreatedAt tag was added (PR #300, 2026-10-12)
-        # lack this tag. Since all such investigations are necessarily old (>11 days), treat them
-        # as stale when idle. The task check above already prevents deletion of active work.
-        # New investigations always have CreatedAt (verified in create-investigation handler),
-        # so this only affects the one-time backfill of pre-tag investigations.
-        return {
-            'is_stale': True,
-            'reason': 'no tasks, legacy investigation (missing CreatedAt tag)',
-            'running_tasks': 0
-        }
-
-    grace_period = timedelta(hours=GRACE_PERIOD_HOURS)
-    age = now - access_point_created_at
-
-    if age > grace_period:
-        hours_old = int(age.total_seconds() / 3600)
-        return {
-            'is_stale': True,
-            'reason': f'no tasks, {hours_old}h old (grace: {GRACE_PERIOD_HOURS}h)',
-            'running_tasks': 0
-        }
-    else:
-        hours_remaining = int((grace_period - age).total_seconds() / 3600)
-        return {
-            'is_stale': False,
-            'reason': f'no tasks but within grace period ({hours_remaining}h remaining)',
-            'running_tasks': 0
-        }
-
-
-def list_all_running_tasks() -> List[Dict[str, str]]:
-    """
-    List all RUNNING tasks in the cluster with their tags.
-    Returns list of dicts with 'arn', 'cluster_id', and 'investigation_id'.
-    """
-    tasks = []
-    next_token = None
-
-    while True:
-        try:
-            kwargs = {
-                'cluster': ECS_CLUSTER,
-                'desiredStatus': 'RUNNING'
-            }
-
-            if next_token:
-                kwargs['nextToken'] = next_token
-
-            response = ecs.list_tasks(**kwargs)
-
-            if response.get('taskArns'):
-                described = ecs.describe_tasks(
-                    cluster=ECS_CLUSTER,
-                    tasks=response['taskArns'],
-                    include=['TAGS']
-                )
-
-                if (described.get('failures') or
-                        {task['taskArn'] for task in described['tasks']} != set(response['taskArns'])):
-                    raise RuntimeError("Incomplete ECS task inventory")
-                for task in described['tasks']:
-                    tags = {tag['key']: tag['value'] for tag in task.get('tags', [])}
-                    tasks.append({
-                        'arn': task['taskArn'],
-                        'cluster_id': tags.get('cluster_id', ''),
-                        'investigation_id': tags.get('investigation_id', '')
-                    })
-
-            next_token = response.get('nextToken')
-            if not next_token:
-                break
-
-        except (ClientError, BotoCoreError) as e:
-            logger.error("Failed to list running tasks: %s", e, exc_info=True)
-            raise
-
-    return tasks
-
-
-def list_tasks_by_investigation(cluster_id: str, investigation_id: str) -> List[str]:
-    """
-    List RUNNING tasks for the given investigation.
-
-    Filters by the deterministic startedBy value set at task launch rather than
-    by tags. This avoids the tag-propagation delay and eliminates the need to
-    describe every running task in the cluster.
-
-    Returns:
-        List of task ARNs that are RUNNING for this investigation
-    """
-    started_by = investigation_started_by(cluster_id, investigation_id)
-    task_arns = []
-
-    try:
-        paginator = ecs.get_paginator('list_tasks')
-        for page in paginator.paginate(
-            cluster=ECS_CLUSTER,
-            startedBy=started_by
-        ):
-            task_arns.extend(page.get('taskArns', []))
-    except (ClientError, BotoCoreError) as e:
-        logger.error("Failed to list tasks for %s/%s: %s",
-                    cluster_id, investigation_id, e, exc_info=True)
-        raise
-
-    return task_arns
-
-
 def list_investigation_access_points() -> List[Dict[str, Any]]:
     """
     List all EFS access points (caller will filter by investigation tags).
@@ -822,14 +639,14 @@ def list_investigation_access_points() -> List[Dict[str, Any]]:
 
 
 def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: str,
-                       context: Any) -> bool:
-    """Reap one stale investigation through the shared verified gate.
+                       context: Any, *, created, now, expired) -> Optional[bool]:
+    """Record scheduled closure intent and attempt the shared verified gate.
 
     Stale reaping has no separate, backup-only destructive path. It runs the
     same pipeline an explicit close runs — seal, observe, copy, independently
     verify, publish, then clean up — and reclaims the directory only when that
     gate passed. It carries no stop consent: a scheduled, unattended job never
-    stops a task, and the idle precondition above is what makes that safe.
+    stops a task. Expiry closes admission even if shells still need to drain.
 
     The request is recorded before the pass begins. Sealing happens early, and
     the stale sweep skips sealed access points, so without a persisted request
@@ -844,13 +661,27 @@ def reap_investigation(cluster_id: str, investigation_id: str, access_point_id: 
         logger.error("S3_AUDIT_BUCKET is not configured; refusing to reap %s", access_point_id)
         return False
     finalizer = build_finalizer()
-    # The stale scan lists desired-RUNNING tasks. A task already asked to
-    # stop can still host a shell; do not retire the ID on that scan alone.
-    observation = finalizer.observe(cluster_id, investigation_id)
-    if observation['state'] != records.STATE_IDLE or sessions.nonterminal_task_ids(observation):
-        logger.info("Workspace %s is not confirmed quiet; deferring stale close", access_point_id)
-        return False
+    # A durable immutable request closes admission, even before it is safe to
+    # seal. Don't queue another scheduled request on every pass while draining.
+    keys = finalizer.list_keys(records.requests_prefix(cluster_id, investigation_id))
+    if keys:
+        status = finalizer.get_json(records.status_key(cluster_id, investigation_id),
+                                    records.KIND_STATUS)
+        if status and status.get('status') == records.STATUS_COMPLETED:
+            return None
+        for key in keys:
+            identity = _request_identity(key)
+            if identity and not _answered(status, identity[3], identity[2]):
+                return None
     request_token = str(uuid.uuid4())
+    if not expired:
+        # A detach is not durably observable. Launch-specific task definitions
+        # outlive stopped-task history; registration immediately precedes launch.
+        deadline = finalizer.latest_session_deadline(cluster_id, investigation_id, access_point_id)
+        if now - max(created, deadline or created) < IDLE_WINDOW:
+            return None
+        if finalizer.observe(cluster_id, investigation_id)['state'] != records.STATE_IDLE:
+            return None
     requested_at = records.now_iso()
     request = {
         'schema_version': records.REQUEST_SCHEMA_VERSION,

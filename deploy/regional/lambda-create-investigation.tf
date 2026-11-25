@@ -78,6 +78,8 @@ locals {
     STAGE_OIDC_CLIENT_ID      = var.stage_keycloak_issuer_url != "" ? var.stage_oidc_client_id : ""
     PROD_KEYCLOAK_ISSUER_URL  = var.prod_keycloak_issuer_url
     PROD_OIDC_CLIENT_ID       = var.prod_keycloak_issuer_url != "" ? var.prod_oidc_client_id : ""
+
+    INVESTIGATION_EXPIRY_HOURS = tostring(var.investigation_grace_period_hours)
   }
 
 }
@@ -88,6 +90,7 @@ resource "aws_lambda_function" "create_investigation_zip" {
 
   filename         = data.archive_file.create_investigation_lambda[0].output_path
   function_name    = "${var.project}-${var.stage}-create-investigation"
+  description      = "Boundary investigation and session admission and close requests."
   role             = data.aws_iam_role.create_investigation_lambda.arn
   handler          = "handler.lambda_handler"
   source_code_hash = data.archive_file.create_investigation_lambda[0].output_base64sha256
@@ -113,6 +116,7 @@ resource "aws_lambda_function" "create_investigation_image" {
   count = local.lambda_use_image ? 1 : 0
 
   function_name = "${var.project}-${var.stage}-create-investigation"
+  description   = "Boundary investigation and session admission and close requests."
   role          = data.aws_iam_role.create_investigation_lambda.arn
   package_type  = "Image"
   image_uri     = local.lambda_ecr_image_uri

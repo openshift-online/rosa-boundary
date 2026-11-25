@@ -20,7 +20,7 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 		openInteractiveSession, cachedAuthResult, selectedProfile = previousOpen, previousAuth, previousProfile
 	})
 	selectedProfile = "stage"
-	cachedAuthResult = &AuthResult{Config: testJoinConfig(), Credentials: &awsclient.TemporaryCredentials{}}
+	cachedAuthResult = &AuthResult{IDToken: credentialGuidanceToken("user-1"), Config: testJoinConfig(), Credentials: &awsclient.TemporaryCredentials{}}
 	joinContainer, joinCommand, joinNoWait = "rosa-boundary", defaultExecCommand, false
 	for _, tc := range []struct {
 		name  string
@@ -52,6 +52,7 @@ func TestJoinJSONOnlyAfterSuccessfulShellExit(t *testing.T) {
 				return tc.err
 			}
 			target := hookTarget()
+			target.CreatorSubject = "user-1"
 			service := &fakeCloseService{statuses: []*lambda.CloseStatusResponse{{ClusterID: target.ClusterID, InvestigationID: target.InvestigationID, Status: lambda.CloseStatusNone, Seal: "none", AccessPointPresent: true, JoinAccessPointID: target.AccessPointID}}}
 			err := joinSession(cmd, []string{target.SessionID},
 				func(context.Context, *awsclient.ECSClient, string) (sessionCloseTarget, error) { return target, nil },

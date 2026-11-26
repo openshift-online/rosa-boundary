@@ -1,11 +1,11 @@
 ---
 type: testing-guide
 title: Trusted Actions testing and CI
-description: Describes the Trusted Actions component's unit, integration, and mock-dependency testing strategy, its Make targets, Postgres test tooling, and its Codecov patch-coverage gate, plus the Konflux Tekton pipelines that build and push its image on PR and push events in this monorepo.
-tags: [trusted-actions, testing, ci, codecov, coverage, integration-tests, backplane, postgres, tekton, go]
+description: Describes the Trusted Actions component's unit, integration, and mock-dependency testing strategy, its Make targets, Postgres/LocalStack-RDS IAM-token test tooling, and its Codecov patch-coverage gate, plus the Konflux Tekton pipelines that build and push its image on PR and push events in this monorepo.
+tags: [trusted-actions, testing, ci, codecov, coverage, integration-tests, backplane, postgres, iam-auth, tekton, go]
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 sources:
   - id: openwiki-source-eebdf2baefd63a03b1cb3b5e
     resource: repo://.tekton/rosa-trusted-actions-pull-request.yaml
@@ -15,6 +15,8 @@ sources:
     resource: repo://codecov.yml
   - id: openwiki-source-3051f255965c31db61eae3a3
     resource: repo://components/trusted-actions/codecov.yml
+  - id: openwiki-source-3171b915c13566ad7c807787
+    resource: repo://components/trusted-actions/compose.localstack-db.yml
   - id: openwiki-source-da2b59baf4fcefd99282d06d
     resource: repo://components/trusted-actions/compose.postgres.yml
   - id: openwiki-source-c62a53560e154d1649f9a5b2
@@ -33,10 +35,16 @@ sources:
     resource: repo://components/trusted-actions/integration/podman-compose.yml
   - id: openwiki-source-f31219609de20fbaee6c658e
     resource: repo://components/trusted-actions/internal/config/config_test.go
+  - id: openwiki-source-25960f1da7fae36f9a10e870
+    resource: repo://components/trusted-actions/internal/config/config.go
   - id: openwiki-source-6fa73d968628eb0b312bf0ee
     resource: repo://components/trusted-actions/internal/rta/command_test.go
+  - id: openwiki-source-8be4fe66d49e4dbda11c48b0
+    resource: repo://components/trusted-actions/internal/store/postgres_iam_test.go
   - id: openwiki-source-4c833b02bf6d5fc7a2476dea
     resource: repo://components/trusted-actions/Makefile
+  - id: openwiki-source-3a13739b5848ad6b59fbe22d
+    resource: repo://components/trusted-actions/scripts/localstack-db.sh
   - id: openwiki-source-48302ab227b3652ec0a8dd2d
     resource: repo://components/trusted-actions/scripts/test-api.sh
   - id: openwiki-source-27ba9c102f3ba85a206dd83d
@@ -47,7 +55,7 @@ sources:
     resource: repo://components/trusted-actions/tests/mock-backplane/README.md
   - id: openwiki-source-9ba09077ca542d7f7f8c02fd
     resource: repo://components/trusted-actions/tests/proxy-backplane/README.md
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 ---
 
 ## Scope and where these tests live
@@ -134,6 +142,50 @@ harness never touches Postgres (the server runs SQLite-backed during
 `itest-run.sh`) and uses its own, separate `podman-compose.yml` solely to run
 the `localstack` AWS emulator.
 
+### LocalStack RDS Postgres (IAM-token) manual integration path
+
+Neither `docker-compose.test.yml` nor `compose.postgres.yml` exercises the
+IAM-token database-authentication connector in
+`internal/store/postgres_iam.go`: both stacks are plain Postgres containers
+reached with a static username/password DSN. A third, separate tier exists
+specifically to exercise that connector against something that behaves like
+a real AWS RDS instance: `compose.localstack-db.yml` runs a **licensed**
+LocalStack Pro container (RDS is a Pro-only LocalStack service) on
+`127.0.0.1:4567`, and `scripts/localstack-db.sh` drives it end-to-end:
+
+- **`make localstack-db`** (`scripts/localstack-db.sh up`) starts or reuses
+  the LocalStack container; creates an `rds create-db-instance` with
+  `--enable-iam-database-authentication` (on a rerun it deletes and
+  re-creates the instance with a freshly generated master password instead
+  of trying to modify it in place, since LocalStack does not apply
+  master-password changes — the dev database and any rows in it are
+  disposable, while the schema is rebuilt every run); discovers the
+  instance's container-network endpoint; runs `go run ./cmd/server
+  bootstrap` against it over a one-shot master-user DSN to create the
+  `trusted_actions_app` IAM-auth database role and schema; and writes a
+  gitignored `.env.localstack-db` containing only
+  `ROSA_TA_DB_HOST`/`PORT`/`NAME`/`USER`/`SSLMODE`, `AWS_REGION`, and static
+  LocalStack AWS credentials — no password or master DSN is persisted to
+  disk, matching the IAM-token contract itself. It requires
+  `LOCALSTACK_AUTH_TOKEN` (a Pro license) in the environment and `jq`,
+  `openssl`, `curl`, and `go` on `PATH`.
+- **`make run-localstack-db`** sources `.env.localstack-db` over the
+  caller's environment and runs the server, so it connects to the LocalStack
+  RDS instance by minting per-connection IAM tokens exactly as it would
+  against real AWS RDS, instead of a static password.
+- **`make localstack-db-down`** stops and removes the LocalStack container,
+  its volume, and `.env.localstack-db`.
+
+This is a **manual, local** path only — there is no automated
+`test-localstack-db` Make target or CI gate wired to it — distinct from both
+the SQLite-backed default of plain `make test` and the password-DSN Postgres
+path exercised by `make test-postgres`/`docker-compose.test.yml`. The
+unit-level correctness of the IAM-token DSN/connector logic itself (token
+shape, validity window, DSN assembly, and loud failure on a partial
+`ROSA_TA_DB_*` contract) is pinned separately by
+`internal/store/postgres_iam_test.go`, covered below, which runs under plain
+`make test` with no LocalStack or network dependency at all.
+
 ## Coverage: Codecov patch-coverage gate
 
 Per `TESTING.md`, `CONTRIBUTING.md`, and
@@ -199,7 +251,7 @@ Tests live alongside the code they exercise (Go convention), e.g.
 `internal/handlers/api_test.go` next to `internal/handlers/api.go`, and
 `internal/config/config_test.go` next to `internal/config/config.go`.
 
-Two representative packages illustrate these conventions in practice:
+Three representative packages illustrate these conventions in practice:
 
 - **`internal/config/config_test.go`** table-tests the small environment-
   variable helpers (`getEnv`, `getBoolEnv`, `getIntEnv`, `getDurationEnv`,
@@ -208,19 +260,43 @@ Two representative packages illustrate these conventions in practice:
   `"true"`, `"false"`, `"1"`, `"0"`, unset, and an unparseable `"yes"`), then
   exercises the full `Load` path — `TestLoad_Defaults`,
   `TestLoad_AWSAllowedRegionsFromEnv`/`FromFile`, `TestLoad_OCMBackplaneFromFile`,
-  `TestLoad_OCMBackplaneEnvOverridesFile`, `TestLoad_AuthPolicy`, and
-  `TestLoad_EnvOverrides` — to pin down config-file vs. environment-variable
-  precedence for every settable value, plus file-read and parse error paths
-  (`TestReadConfigFile_ReadError`, `TestReadConfigFile_UnmarshalError`).
+  `TestLoad_OCMBackplaneEnvOverridesFile`, `TestLoad_AuthPolicy`,
+  `TestLoad_EnvOverrides`, and `TestLoad_IAMDatabaseEnv` — to pin down
+  config-file vs. environment-variable precedence for every settable value,
+  plus file-read and parse error paths (`TestReadConfigFile_ReadError`,
+  `TestReadConfigFile_UnmarshalError`). `TestLoad_IAMDatabaseEnv` specifically
+  pins the IAM-token database contract: `ROSA_TA_DB_HOST`/`PORT`/`NAME`/`USER`
+  arrive as separate environment variables (no URL, no password anywhere),
+  `DBSSLMode` defaults to `verify-full`, and `ROSA_TA_DB_SSLMODE` can lower it
+  (used only by the LocalStack development env file, described below).
 - **`internal/rta/command_test.go`** drives the `rta` CLI's Cobra command
   tree end-to-end through `NewCommand()`, capturing stdout/stderr buffers
   rather than mocking Cobra, and asserts on rendered text and JSON output
-  (`TestVersion_Text`/`TestVersion_JSON`, `TestActionList_Text`/`_JSON`) as
-  well as user-facing error paths: an unknown subcommand with a "did you
-  mean" suggestion (`TestRoot_UnknownSubcommand_Suggestion`), an unknown
-  flag, missing required arguments, and a missing server
-  (`TestActionRun_MissingServer`). This is the same stdlib-only,
-  table/subtest style applied to a CLI surface instead of an HTTP handler.
+  across the version, action list/describe/run, execution list/get/output,
+  and audit list subcommands (`TestVersion_Text`/`TestVersion_JSON`,
+  `TestActionList_Text`/`_JSON`, `TestExecutionList_Text`,
+  `TestAuditList_Text`) as well as user-facing error paths: an unknown
+  subcommand with a "did you mean" suggestion
+  (`TestRoot_UnknownSubcommand_Suggestion`), an unknown flag, missing
+  required arguments, and a missing server (`TestActionRun_MissingServer`).
+  This is the same stdlib-only, table/subtest style applied to a CLI surface
+  instead of an HTTP handler, and it requires no running server, Backplane,
+  or cluster — a missing `--server` is itself one of the asserted error
+  cases.
+- **`internal/store/postgres_iam_test.go`** unit-tests the IAM-token
+  database-authentication connector in isolation, with no real Postgres,
+  LocalStack, or network dependency: `TestMintAuthToken_PresignedShape`
+  asserts the minted RDS auth token is a SigV4-signed
+  `host:port?Action=connect&DBUser=...` query string carrying no password or
+  user-info component; `TestMintAuthToken_ValidityWindow` checks that its
+  `X-Amz-Expires` is positive and within the 15-minute RDS maximum;
+  `TestBuildIAMTokenDSN` checks that the assembled `pgx` connection URL
+  carries the minted token only in the password slot, with `sslmode` taken
+  from config; and `TestNewIAMStore_MissingContract` /
+  `TestNewWithIAM_PartialContractFailsLoudly` assert that an incomplete or
+  partial `ROSA_TA_DB_HOST`/`PORT`/`NAME`/`USER`/`AWS_REGION` contract fails
+  loudly, naming the missing variable, instead of silently falling back to
+  the password-DSN or SQLite path.
 
 ## Integration tests
 
@@ -394,6 +470,7 @@ than assuming either one is authoritative.
 
 - [Monorepo components: Boundary and Trusted Actions](../architecture/monorepo-and-trusted-actions.md)
 - [Trusted Actions deployment](../infrastructure/trusted-actions-deployment.md)
+- [CI/CD and quality gates](../operations/ci-cd-and-quality-gates.md)
 - [Trusted Actions API](../integrations/trusted-actions-api.md)
 - [Verification](verification.md)
 - [Trusted Actions execution workflow](../workflows/trusted-actions-execution.md)

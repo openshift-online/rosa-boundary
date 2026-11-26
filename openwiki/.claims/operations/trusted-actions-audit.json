@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:8815db36de4a181b1dbd2e0d798ee4a095d8b432d601794ce6d373b3d2dc6068",
+  "pageVersion": "sha256:347b5b66b1d9c996a80c413e1364da1a0faa2f5b983fbf69cfe0b9e329edc103",
   "claims": [
     {
       "id": "claim_7edddde747824182be3063aaf40fc1e9",
@@ -113,7 +113,7 @@
       "statement": "The configured account list is loaded, not enforced by the executor. It is distinct from the cluster-region gate.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L239-L246",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L253-L260",
           "version": "repo-lines-v1:sha256:67af9c90e4be4442b02ef509f5dcc9c4db4d1ae75252f9b882bc769c6407015c:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzA2MWZkNzQyN2Y3NzU3YWU5N2RiZTkwYTE0MDk1OWJkNTYyMjdjZGIxMzZlODJmZTFiMDNiMDBlOTg2NmZjNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiYjg0NTc4MjA1MjQ1OTY5ZGEzNDZkNTM4YTY3M2FlYmU5YzAwODc3NmU2ZjdhODY2ZGVjMTM5NDNhYzMzZmE0ZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZjRiYTg0ZjQ0OTM4Yjk5YjM0YmE5YmY5MTJmNWYzOTM5NzlhMTA1YmVlYTdmZDJlOWMyYzQ2ODVkMDEzZjA5OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzQ4MGE1YTM5OTA5MmE4OWEyZjZjYzAzMzQxMzhlOWRkZmYyOGM3NjIxNmZmM2IxNGViMzdiOTYyZTNhZTg5MCJ9"
         },
         {
@@ -138,11 +138,11 @@
     },
     {
       "id": "claim_00822a374808446cbb9b1c58cf32b897",
-      "statement": "The checked-in ECS configuration selects SQLite at /data/trusted_actions.db for the application store.",
+      "statement": "The checked-in regional ECS configuration (terraform/regional/ecs.tf) sets only DATABASE_URL to the literal SQLite path /data/trusted_actions.db and defines no ROSA_TA_DB_* IAM-token environment variables, so store.NewWithIAM's selection logic resolves every regional deployment to the SQLiteStore backend even though the codebase also supports an IAM-authenticated Postgres backend and a password-DSN Postgres backend.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/store/store.go#L57-L66",
-          "version": "repo-lines-v1:sha256:838b11b3ce17b4c461906b0e43e915e62a83cd3e709891372e2589730ac15d0f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUxOTlhMTNhYzcyNDQ2YWVmNjAxNWE2NDQ1ZTgxNGRlNzY3NzkyNDc4NTBlN2NhYzIxMjA2MTJlMWVhNmQ2MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMTIxOTYwZmVkMjc3ODNjNTkwZmJmMmJlNTVhNTMxMTFlMDBlMzBmNDUzZjZkZGI4N2Q2NjcyZDY3NjM5MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQyMjk0MmU2YTZhNzk2MGVkOGQ4NDgxZDNlNzkxYTFjOWY4NjNiNzkxYjU1NTFmOWM2OWZkMzg4MGEyMzZlNDAifQ"
+          "resource": "repo://components/trusted-actions/internal/store/store.go#L57-L69",
+          "version": "repo-lines-v1:sha256:db7487160b11d9d52963c6e90233185b8c55afb1651cc287cf1a5b20ca4326f2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2NWRiYTM5MjU4MDZhYTA4Y2M5MjkyMGM2NThjNWQ1OGU2ZjZhODJlZmJkOTFmNTE2NTY1ZWM5NGMxMTgzMjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYzNDQ0ZDNjNDViNDM1NGQzY2JiNWQ3OWZmZTYzOTdhMThhZWRjZjk4ZjBiNDg3YTg3YTI0Zjg0OGU0N2E2YmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMTIxOTYwZmVkMjc3ODNjNTkwZmJmMmJlNTVhNTMxMTFlMDBlMzBmNDUzZjZkZGI4N2Q2NjcyZDY3NjM5MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM4MzEwNDNiMjhjMGZhOGVhNDcxMzAzNTU0ZDdhZDNjZTk3OWQyMGQyNzUyZWZjNjBjZDRiMGYzNDczNGUzMTIifQ"
         },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L36",
@@ -169,8 +169,8 @@
       "statement": "The ROSA_TA_S3_BUCKET and ROSA_TA_S3_KEY_PREFIX environment variables set in terraform/regional/ecs.tf's container_environment populate config.Config.S3Bucket/S3KeyPrefix, but no other application code path reads those fields back out; the bucket they name is the same per-region aws_s3_bucket.app bucket that the separate Firehose audit pipeline writes to under audit-logs/ and that Terraform uses to distribute config.yaml under config/, reached through entirely unrelated code paths rather than through the app's own S3 config.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go",
-          "version": "repo-file-v1:sha256:f72237551439457d9f8b574f1d3c8c572f58c3de854d553d7a36957cfa0554f0"
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L48-L52",
+          "version": "repo-lines-v1:sha256:cd0c75f48f9620b7f10c0b7299adf57f0f5846f0c1b259ce126dbc451e1f405d:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNmZiZmI2OTMzN2ExZjg4Y2YyYzI5MzQ3MzdkZjAwMWNmMzI3MTY1OGUyZDMxOTViOGFiODg3MTc2YTNlNWJjYSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOGE5MTZmNDNiMDMxNmFlZmE5ZGViZWNmNmQ5NmU2ZTU0MWFmM2I1N2Y5N2Q5ZGRmZWU5MTczOGViNmE0ZTlkZSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMmYyZDk3ZGIxOGQ5MmJjODg1ZmUwNDc1MTdkMjA2MzEzNzk5NTUwNmJjYzhkYTU5NWM2NjIyODI3YWQ1ODNkNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNDY4ZmZiYjk5MGU0NjdkNjQxNjllNmE0ZWEwNTQ3YzFiOTNlMjBhMjJhNzY0NGYzYWY1NGFlZTBjYTc4M2E5NSJ9"
         },
         {
           "resource": "repo://components/trusted-actions/terraform/regional/audit_logs.tf#L31-L51",
@@ -187,7 +187,7 @@
       "statement": "The executor's audit.Logger is wired in cmd/server/main.go as audit.NewMockLogger(logger), the codebase's only production audit.Logger implementation, which keeps audit.Record values only in an in-process slice for tests and otherwise relies solely on its logrus line (tagged \"audit record\") reaching the CloudWatch-to-Firehose-to-S3 pipeline for durability; a comment in main.go documents that this per-action audit.Logger and the request-level AuditEntry store predate each other and were never unified into one persisted trail.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L208-L220",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L219-L231",
           "version": "repo-lines-v1:sha256:e0d1515cc07e9c95e4da2f99e9797315f73c0a8628bc32b035ed6a22aa1d8e82:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4NmQyYmQ1MjIzNTlkOGQzMTdkMTdkYzg1Y2Y1NjNkM2Q0YTk0N2EwNTFjZGExMzk4MDhlODY1ZDk1ODBjNjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3YmM0ODBlZjQ1N2FjNDU5NGI3Y2NjY2UyYzllZGU5YzhhYjNkZmY1OWJjODVjMDg3ZjJhNTM4YjI3OGYzMWIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc5ODQyMmJjNWU5MTI0NjJhODk1MTBkYWQ2MzQ2MzYwMTA3Yzg1MTZlN2Y5YzU1NjZmZjlhZmE5YjMzY2NjMTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM0MGY4MWNiMjVjMWY4ZTk0OWQyZjc5N2Q3MTI4ZTgzNGQzMDA0YzVmODIxMTQ3M2Q4ZmIyMmE2NWJmYWQ2ZjUifQ"
         },
         {
@@ -201,7 +201,7 @@
       "statement": "NewAuditLogger is mounted inside the authenticated /api/v0/trusted-actions chi route group between authnMiddleware.AuthenticateAccountJWT and authzMiddleware.AuthorizeAPI, so its deferred CreateAuditEntry write captures the final response status (including a 403 from AuthorizeAPI denying the call) and the username authentication already resolved, for every request that reaches that route group.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L402-L414",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L413-L425",
           "version": "repo-lines-v1:sha256:ee4aa30ed6e093f9ede9868761e66f51b51031fb055f8145fddb9d27f46b9020:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYTVhMWVkOTg1MzFkODc5Y2NhNzBjYjMyZWZlZDM3Yjg0ODk4Y2YwNzlhOTVlZDM1NmFjMzMwNjBkOWVkZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmODA5MmZmZjllOGM3YmUyZTE5OTg3ZGU1NDEyOTg1ODNkNTM4Mzc1MzM2ZjJkMWQyMzlmODZhYTQwYTM0YjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1OTczNTcyY2Y0ZjEwZWVjNjcxYTNmZDhjZTJiOGViN2RiODRmOTllZTllMmY5YWY2N2E4NjE0M2FmMWJhMmYifQ"
         },
         {
@@ -215,7 +215,7 @@
       "statement": "internal/middleware/logging.go's NewLogger is a general-purpose, global chi HTTP access-log middleware (registered via router.Use before the /api/v0/trusted-actions route group) that logs one \"Request completed\" line per request for every route including /health; because its log message is not \"audit record\", it is excluded from the CloudWatch subscription filter that feeds the Firehose/S3 audit pipeline even though it writes to the same /ecs/${var.app_name} log group, making it distinct from both the AuditEntry middleware and the audit.Record executor trail.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L378-L383",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L389-L394",
           "version": "repo-lines-v1:sha256:0c9565e0398d87a8bca82c0be4caf6f2d0236d1190af3bdb3d8aa6bdd50664b9:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODc3MDgwYjhjMGJkMWI5ZmU2MzJhMTM0OTFjM2UxNzNlOGVhYzQ5YTg5OWQ4Y2VmZTRkNGY4NWU4MmNhYzM4YiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZmRjM2E4ZDgxM2QxM2YzYjU4ZGRlN2RiNDVjMDlkOWRhM2I4NDFkMGViODJlNzg2OTMyNWE2OTNhOWVlMjNjMiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDI3OTJlMzlmM2U2MTMyM2JlMzU2MmM2ZWRlYjJjNjEyNzYwOGI5ZTk1ZDY0MTU3M2JiNzgzOGU5ZTk3NjZmZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYzJmMzQxZWI5ZWM2ZGJlNjU3YjAyMTE4OWI2ODY4ZTYzZjUxMGNiOGY5YzYzZTQ4MmM1OTY0NDEyZDBiMjU0YiJ9"
         },
         {
@@ -231,10 +231,74 @@
           "version": "repo-file-v1:sha256:15679afd7afaf36af26ea27b3e390be0b512ab24a2f3ceb475534a44a6c795ff"
         }
       ]
+    },
+    {
+      "id": "claim_49f02cfb5f6c46749f96d41dcdf2e78a",
+      "statement": "Config carries two parallel database contracts resolved by store.NewWithIAM: the legacy DatabaseURL password-DSN/SQLite-path field, and an IAM-token contract (DBHost, DBPort, DBName, DBUser, DBSSLMode) with no password field, plus pool-tuning fields (DBMaxOpenConns, DBMaxIdleConns, DBConnMaxLifetime) shared by both paths and passed through as store.PostgresConfig.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L99-L117",
+          "version": "repo-lines-v1:sha256:e7a77504dd2d2710bf0b941dd298cb39d74a7e99fb92d886d104f6e4ca947f13:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjEzOTI1ZWFmODI0ZjFiYmMzMzc0OGFkNTg5NWIxMmU5Y2RjZmQyNDVkYzMyNDExNjA1MGNkMGE0YTYyNGEwNGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkYWYyMTRhN2MxNGM5MGU2YmNhODRlNDAwYWIyN2Y2MjY3OGVhNmU5YTA5NzU1YzM2YjdkYmZlOGNmNzFiYzkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc4MDNiMDBjODUyNjA2OWU0OWZlMTQ1NzI3YzgwZjNjZmNhZGZhYzE3MjZkZTZhNGQ5NjJmM2IxY2I4MmJhMDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjNTFjMWJlMDgxNDk2NjA0NzlmMGFiNTBmY2FiYzQ1ZmJlZDhjYzY2NGJjNzcxYjMzZGUwODJjYTllZDI2MWIifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L270-L278",
+          "version": "repo-lines-v1:sha256:e6444b353d48c0bfd80606ed7ef7ff8f376a1728e584c01ec7fae8c126822050:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMGYyOTYxMzJhOWE5NTNlYjE0NTk0NjgxMjAwYTE3ZmMxNGI4MjFkMDdjMDU1Njk1NTAwMDYxMDcwZGQxYzlhMCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNTRlODcyNzQ2MTAxODNhZmRiNjllZWYxODYwNTA1NDg5OWU3NDY2YTMxZjQ2ODM3NTM5M2I5MjZjMTEzZWRhZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZGU1ODdkOWE4MjhiMTA1MmU5NjAyZjFiZjAzNGJhZmVjMWU0MmYzZDk0MmFlMjYxMzIxNWQzZjk5MWI2NDExYyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNGE4YWE0Y2NlN2ZjOTk3MmJjNjA5NmRlZWQ5ZTJkNTdiNTU2ZGYwYWZhZDg1NWRlNGU2MGM1ZDljMTJjYmRkMSJ9"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L63-L81",
+          "version": "repo-lines-v1:sha256:5f3b365947b325b0f51524aa492306f1a21f7752e60a6ae8bb666bfef4e7683f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE4YjExMGZjMWNlOGUyMzJkMDc4MzE3YzJiNjQ5OTNiMzUxMTEzZWU5NDgwNmM5ZDJkYjZlMDQxMzM0NTM5OTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjBiMjQ1ZWUwNGVhZDA3MzE1NGUwNjEwOWVhY2ZiN2YyMzY4NTI4NjdkOTBjM2UwZTA3OTEzYThlN2FjMTg0YTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYzYzNlNjE2NmNlMzllMzdjMDIyYzMzMWYxMmUwZTliNWMxZjg5M2RlODc5ZmM2YTJhOTE0M2I4ODU0ZjYyZTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5db88d919e154e5d8b7b0c8620b77ef2",
+      "statement": "store.NewWithIAM picks one of three Store backends in priority order: IAM-Postgres (newIAMPostgresStore) if any IAM-token field is set, requiring the full host/port/name/user/region contract and failing loudly on a partial one; otherwise password-DSN Postgres (NewPostgresStore) if DatabaseURL has a postgres:// or postgresql:// prefix; otherwise SQLite (NewSQLiteStore) as the fallback, including when DatabaseURL is empty.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/postgres_iam.go#L96-L111",
+          "version": "repo-lines-v1:sha256:715f61b50667989c0b0a1be2570430544d79a5d07ab3e53a23551f6af5f9a7e6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYWY5NGMzYzRkYWY3MzFkYzI5ODk2OGU0MzMzYmRiNDJmYmM3MWZlM2NjZDg0M2RmNmYzNTk3OTFhZTIzYzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVmMTgzM2M1ZWQxNTc0N2M0MzlkYTU0NTQyOWQ3MWY3ZTQxMGI1NTNlM2FjZmRiMzBkOTY3NmIyYmRmZjFhNjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiYjVjOWQ1ZGJjMDU5YmE4ZjJhYjI3MDNmZTE1NTk1OGFlNDI5YzM5OGQ4NjdmNWE4N2Q4MTBkMmFmM2FiNGUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/store.go#L57-L69",
+          "version": "repo-lines-v1:sha256:db7487160b11d9d52963c6e90233185b8c55afb1651cc287cf1a5b20ca4326f2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2NWRiYTM5MjU4MDZhYTA4Y2M5MjkyMGM2NThjNWQ1OGU2ZjZhODJlZmJkOTFmNTE2NTY1ZWM5NGMxMTgzMjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYzNDQ0ZDNjNDViNDM1NGQzY2JiNWQ3OWZmZTYzOTdhMThhZWRjZjk4ZjBiNDg3YTg3YTI0Zjg0OGU0N2E2YmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMTIxOTYwZmVkMjc3ODNjNTkwZmJmMmJlNTVhNTMxMTFlMDBlMzBmNDUzZjZkZGI4N2Q2NjcyZDY3NjM5MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM4MzEwNDNiMjhjMGZhOGVhNDcxMzAzNTU0ZDdhZDNjZTk3OWQyMGQyNzUyZWZjNjBjZDRiMGYzNDczNGUzMTIifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_0a802e4495c94258a04e37b77f1b7884",
+      "statement": "newIAMPostgresStore authenticates by minting a fresh short-lived RDS IAM database token per physical connection via a custom tokenConnector, and caps the pool's ConnMaxLifetime at 10 minutes so no pooled connection can outlive its token's roughly 15-minute validity; it otherwise returns the same *PostgresStore type as the password-DSN path and runs the same Postgres schema migrations.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/postgres_iam.go#L33-L45",
+          "version": "repo-lines-v1:sha256:3baa0cb6d4b916466c845cdefe6849041318384fbb6e8ddb65a87e692a301264:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM4MDRmYWIwMmM0ZmFhYTY0ODc0MzFkOGM0YzFjNDk2NDcyZjgzNzEzNWZmYTE1MDFiZTc3NThiNDVlMzI0ZWYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIwYmI5Mzc5MTg4ZGU5OTliNDIyODM1NTI2NTU2ODAyYWFjODUxYTc5NTE0NzQxYTc5NGYxMTU0YzlhYzcwZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhlNTg2ZjIxZjcyMjEzY2M2YzIxN2QyYjZjMzY4NmFlOTk5NmRiNTI3NDllMTNiMzAyNTQ3MzJhYTFlZmY3OTgifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/postgres_iam.go#L91-L153",
+          "version": "repo-lines-v1:sha256:1235af1dacd823594fa9bc41099ade279254b084a1c80e98a470039e43a2e768:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkMDgwYTllMjBmZjk5ODJkMTc3MWVjNWYzMTlmZTIxMGUyM2VmZGZkMTIzOGI1ZjJiZWU2MjczZTUwODU4MzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIyNjA3NWRkZjIxMGNmMWMyMGJiZGFhOTdiMGYzZGZhYzE2NDIyOTVmYzFkOTk4NmM5YTIzYjQ1NWI4NzU1OWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1MzJlNWQzMDllNzg4YWZjMGFhMWIzYTYwMGJiYzIxODkwNjViNjZlNGNjNzg2MTBlNTllNWE4MDgxYWJkYjEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijg1ZTRkZjRjMjU4YzUzZDRmMDUyNDk1ODdlNjBmNTRiNjFhNDU3NDIzYWY5MDk5MDMyZjQ3YzA5ZDc5MjAzMmUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_6190fe7ca8874b7c9950b357670f0467",
+      "statement": "AuditEntry persistence is identical in shape across all three store backends: SQLiteStore, password-DSN PostgresStore, and IAM-token PostgresStore all implement the same store.Store interface against the same audit_entries column set defined once in internal/store/shared.go, and the choice of backend has no effect on the separate audit.Record / CloudWatch-Firehose-S3 execution-log path, which never touches the application database.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/shared.go#L1-L13",
+          "version": "repo-lines-v1:sha256:d3da6e209d0ebcf0b00b3070ebb08910a12a8e2a9724737189ad2b86709cbc3d:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY5Mzk4ZjQwZWMzMWIxMTc2NjA5Yzk3MmI0ODMzNDBhYmY0NjI1OTA0NTFkMjgwZTIxMjIxNzZhYzFiYTY1ZTIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkxNWJkZDMzNjZkOGYxMDkyZWE0ZGY0OGZlNGU3NGQzOTVlZTlkYjBhZjQxN2M2Zjk5MDUwY2QxNTE3MmRlMGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUwZDYyZDgyYjBiNTA2ODcyY2ZkMjMzOTg4MTQwMDRmZTg0NGY3Nzc2YzU5MWM1YjU5NWY5NzFhNzQzYTAyZTIifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/shared.go#L64-L92",
+          "version": "repo-lines-v1:sha256:b540ca2da1df2497339dbbba62a63d21a819adf3e9ebac6809257c84218eb619:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjVmMTIyNjFlNzQxNjUxMmQxNjg3MmQwYWY3Mzg5N2NlNDFlZTFmMDY4MzZkNTJmMjk5YzgyOGVmMTc4MDJkNTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoyLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM3YTg0ZGNjYjMxZThiZTI0MTFlYzA5YjJlYmQzZWFjNGRhZTkxZTQ5MjllM2YxMjIzNDVmNmY5NDhhYTdiMjYifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/store.go#L71-L86",
+          "version": "repo-lines-v1:sha256:f2c6eeb12bcd7cf724e542983512502e3a1970fa56c536439695e66971ac799b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlYzJiMDRjN2M5ZjFmNDEzYWU4MGJiNzgzOTIwYjJjNjcyMDEyYTE4YjdkNjA2YzExNTBjNmZkODE3YTI0MTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY1ZTNjNTFlNjZkOWYyNDc2OWZhMGZmMzBhNjNiNWFlODRhNzc3YzNiOTBkNGMwYzM5YTllNjg0YmExYmRiMzAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

@@ -1,24 +1,40 @@
 ---
 type: infrastructure
 title: Trusted Actions deployment and infrastructure
-description: Explains Trusted Actions' two-tier Terraform deployment (global account-wide IAM/secrets/ACM-validation vs. regional VPC/ALB/ECS/DNS), its ECS+ALB runtime co-located in the rosa-boundary AWS account, its Postgres-or-SQLite store, its private per-region DNS model, the container_environment compatibility shim for in-flight image upgrades, and how its HCP Terraform workspaces (now rebound into this monorepo) apply those roots.
-tags: [trusted-actions, terraform, aws, ecs, alb, hcp-terraform, dns, postgres, sqlite]
+description: Explains Trusted Actions' two-tier Terraform deployment (global account-wide IAM/secrets/ACM-validation vs. regional VPC/ALB/ECS/DNS), its ECS+ALB runtime co-located in the rosa-boundary AWS account, its three-way IAM-token-Postgres/legacy-Postgres/SQLite store selection, its LocalStack-backed local development path for exercising RDS IAM auth, its private per-region DNS model, the container_environment compatibility shim for in-flight image upgrades, and how its HCP Terraform workspaces (now rebound into this monorepo) apply those roots.
+tags: [trusted-actions, terraform, aws, ecs, alb, hcp-terraform, dns, postgres, sqlite, rds, iam-auth, localstack]
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 sources:
   - id: openwiki-source-1907132ec84c53dc704aba84
     resource: repo://components/trusted-actions/ARCHITECTURE.md
+  - id: openwiki-source-126b6b80f89e0dac5839d3bb
+    resource: repo://components/trusted-actions/cmd/server/bootstrap.go
+  - id: openwiki-source-11418ec52755ac005ca19730
+    resource: repo://components/trusted-actions/cmd/server/main.go
+  - id: openwiki-source-3171b915c13566ad7c807787
+    resource: repo://components/trusted-actions/compose.localstack-db.yml
+  - id: openwiki-source-5fa124f7889680ae07631610
+    resource: repo://components/trusted-actions/DEVELOPMENT.md
   - id: openwiki-source-3f647b0ca633eceee749d813
     resource: repo://components/trusted-actions/docs/deployment.md
   - id: openwiki-source-12ba3e5863bd8587de57d784
     resource: repo://components/trusted-actions/docs/networking.md
+  - id: openwiki-source-c8e29df261edf0edc34c92f3
+    resource: repo://components/trusted-actions/internal/store/bootstrap.go
+  - id: openwiki-source-291900d792f9d852cf898b49
+    resource: repo://components/trusted-actions/internal/store/postgres_iam.go
   - id: openwiki-source-824369b5e1742f66c9b0ba61
     resource: repo://components/trusted-actions/internal/store/postgres.go
   - id: openwiki-source-0a4dbcd3f9f3b6e51a1a5f7a
     resource: repo://components/trusted-actions/internal/store/sqlite.go
   - id: openwiki-source-1c3bf184f6289c69968a14d7
     resource: repo://components/trusted-actions/internal/store/store.go
+  - id: openwiki-source-4c833b02bf6d5fc7a2476dea
+    resource: repo://components/trusted-actions/Makefile
+  - id: openwiki-source-3a13739b5848ad6b59fbe22d
+    resource: repo://components/trusted-actions/scripts/localstack-db.sh
   - id: openwiki-source-5a3ad82cc6835944f105e5fb
     resource: repo://components/trusted-actions/terraform/global/dns.tf
   - id: openwiki-source-4f6d0f20d8e4f1405213641f
@@ -47,7 +63,7 @@ sources:
     resource: repo://docs/trusted-actions-monorepo-migration.md
   - id: openwiki-source-37ce5ca787d481a0d0fc0453
     resource: repo://hcp-terraform/rosa-trusted-actions/main.tf
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 ---
 
 ## Overview
@@ -76,31 +92,30 @@ See [deployment.md](../../components/trusted-actions/docs/deployment.md) for
 the full operator runbook (local testing, verification commands, and the
 step-by-step procedure for adding a region).
 
-<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
-```text
+```mermaid
 flowchart LR
-    subgraph GLOBAL["terraform/global — once per account"]
+    subgraph GLOBAL["terraform/global - once per account"]
         IAM["IAM roles and policies\n(ecs_instance, task, task_execution,\ncwl_to_firehose, firehose_audit_logs)"]
         SECRETS["Secrets Manager secret\nAPP_NAME/ta\n(ocm_client_secret, ocm_token,\nbackplane_client_secret)"]
         DNSG["ACM DNS-01 validation CNAME\n(public zone)"]
     end
 
-    subgraph R1["terraform/regional — region 1"]
+    subgraph R1["terraform/regional - region 1"]
         NET1["VPC, subnets, security groups"]
-        ALB1["Internal ALB + target group"]
-        ECS1["ECS cluster, EC2 host + EBS,\ntask definition, service"]
+        ALB1["Internal ALB plus target group"]
+        ECS1["ECS cluster, EC2 host plus EBS,\ntask definition, service"]
         S31["Per-region S3 bucket"]
-        AUDIT1["CloudWatch log group -> Firehose -> S3"]
-        DNS1["Private Hosted Zone +\nregional ACM certificate"]
+        AUDIT1["CloudWatch log group to Firehose to S3"]
+        DNS1["Private Hosted Zone plus\nregional ACM certificate"]
     end
 
-    subgraph R2["terraform/regional — region N"]
+    subgraph R2["terraform/regional - region N"]
         NET2["VPC, subnets, security groups"]
-        ALB2["Internal ALB + target group"]
-        ECS2["ECS cluster, EC2 host + EBS,\ntask definition, service"]
+        ALB2["Internal ALB plus target group"]
+        ECS2["ECS cluster, EC2 host plus EBS,\ntask definition, service"]
         S32["Per-region S3 bucket"]
-        AUDIT2["CloudWatch log group -> Firehose -> S3"]
-        DNS2["Private Hosted Zone +\nregional ACM certificate"]
+        AUDIT2["CloudWatch log group to Firehose to S3"]
+        DNS2["Private Hosted Zone plus\nregional ACM certificate"]
     end
 
     GLOBAL -. "terraform_remote_state\n(IAM ARNs, secret ARN)" .-> R1
@@ -171,6 +186,7 @@ independently-applied regional stacks.*
   The `aurora` security group's own comment says it is "referenced in
   aurora.tf", but no `aurora.tf` file — and no `aws_rds_cluster`/Aurora
   resource of any kind — exists in the regional root yet; see
+<!-- openwiki: broken internal link [#data-store-postgresstore-vs-sqlitestore] heading anchor "data-store-postgresstore-vs-sqlitestore" does not exist in /openwiki/infrastructure/trusted-actions-deployment.md. Fix the href or restore the target, then delete this comment. -->
   [Data store](#data-store-postgresstore-vs-sqlitestore) below.
 
 ### The ECS task definition: config-init, SQLite, and the `compat_env` compatibility shim
@@ -317,12 +333,11 @@ diagrams of per-VPC resolution and cross-region isolation.
   ordering constraints between regions, and only the global→regional apply
   order (global first) still matters.
 
-<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
-```text
+```mermaid
 flowchart TD
     G["global workspace\nterraform/global/dns.tf"] -->|"writes once"| CNAME["Public zone:\n_acme-challenge CNAME\n(validation_anchor cert, never attached to an ALB)"]
-    CNAME -->|"ACM resolves CNAME\n(validates every region)"| C1["regional cert — region 1\naws_acm_certificate_validation polls -> ISSUED"]
-    CNAME -->|"ACM resolves CNAME\n(validates every region)"| C2["regional cert — region N\naws_acm_certificate_validation polls -> ISSUED"]
+    CNAME -->|"ACM resolves CNAME\n(validates every region)"| C1["regional cert, region 1\naws_acm_certificate_validation polls until ISSUED"]
+    CNAME -->|"ACM resolves CNAME\n(validates every region)"| C2["regional cert, region N\naws_acm_certificate_validation polls until ISSUED"]
 ```
 
 *Global writes the shared validation CNAME once; every region's certificate validates against it independently and in parallel.*
@@ -336,8 +351,7 @@ HCP project from Boundary's own `hcp-terraform/rosa-boundary/main.tf`
 topology. For the full workspace-level detail — project/meta-project
 structure, AWS dynamic-credential role groups, variable sets, and
 deletion-protection variables — see
-<!-- openwiki: broken internal link [hcp-terraform-workspaces.md#rosa-trusted-actions-is-a-separate-meta-workspace-not-part-of-this-topology] heading anchor "rosa-trusted-actions-is-a-separate-meta-workspace-not-part-of-this-topology" does not exist in "hcp-terraform-workspaces.md". Fix the href or restore the target, then delete this comment. -->
-[HCP Terraform workspaces](hcp-terraform-workspaces.md#rosa-trusted-actions-is-a-separate-meta-workspace-not-part-of-this-topology);
+[HCP Terraform workspaces](hcp-terraform-workspaces.md#rosa-trusted-actions-is-a-separate-meta-workspace-with-its-own-two-workspace-topology);
 this section summarizes only what is operationally relevant to applying
 these two Terraform roots.
 
@@ -397,45 +411,75 @@ including the region's `app_config`) plus a new run trigger pointing at the
 global workspace and a new entry in `remote_state_consumer_workspaces` — the
 global workspace itself is never re-applied.
 
-## Data store: PostgresStore vs. SQLiteStore
+## Data store: IAM-token Postgres, legacy Postgres, or SQLite
 
-The regional task definition selects SQLite. This describes the checked-in configuration, not a live inspection of the running service.
+The regional task definition currently selects SQLite. This describes the checked-in configuration, not a live inspection of the running service.
 
 The server abstracts persistence behind a `Store` interface
 (`CreateExecution`, `GetExecution`, `ListExecutions`,
 `UpdateExecutionWithResult`, `ClaimNextExecution`, `CreateAuditEntry`,
-`ListAuditEntries`, `Close`) and picks an implementation at startup purely by
-inspecting the `DATABASE_URL` scheme
-([`internal/store/store.go`](../../components/trusted-actions/internal/store/store.go)):
+`ListAuditEntries`, `Close`) and picks one of **three** implementations at
+startup via `store.NewWithIAM`
+([`internal/store/store.go`](../../components/trusted-actions/internal/store/store.go#L57-L66)),
+called from `cmd/server/main.go` with the IAM contract and the legacy
+`DATABASE_URL` passed in side by side:
 
-- A URL beginning with `postgres://` or `postgresql://` selects
-  **`PostgresStore`**, built on `sqlx` over `pgx`, intended for local testing
-  against a real Postgres instance and for production deployments on AWS RDS
-  or Aurora PostgreSQL
-  ([`internal/store/postgres.go`](../../components/trusted-actions/internal/store/postgres.go)).
-- Any other value — including an empty string — falls back to
-  **`SQLiteStore`**, built on `sqlx` over `modernc.org/sqlite`, intended for
-  local development and testing. An empty `DATABASE_URL` defaults to the
-  local file `trusted_actions.db` with a logged warning that data will be
-  lost in ephemeral environments; the SQLite connection pool is pinned to a
-  single connection (`SetMaxOpenConns(1)`) to avoid "database is locked"
-  errors on a file-backed database and to keep `:memory:` databases from
-  splitting across pooled connections
-  ([`internal/store/sqlite.go`](../../components/trusted-actions/internal/store/sqlite.go)).
+1. **IAM-token Postgres** — selected whenever *any* of
+   `ROSA_TA_DB_HOST`, `ROSA_TA_DB_PORT`, `ROSA_TA_DB_NAME`, or
+   `ROSA_TA_DB_USER` is set. `newIAMPostgresStore` then requires the full
+   contract — all four plus `AWS_REGION` — and fails loudly with an error
+   naming the missing variable if even one is absent, rather than silently
+   falling through to `DATABASE_URL` or SQLite: a truncated or mistyped
+   `ROSA_TA_DB_*` environment must not quietly run the server against the
+   wrong database
+   ([`internal/store/postgres_iam.go`](../../components/trusted-actions/internal/store/postgres_iam.go#L93-L115)).
+2. **Legacy password-DSN Postgres** — only reached when none of the
+   `ROSA_TA_DB_*` variables are set; a `DATABASE_URL` beginning with
+   `postgres://` or `postgresql://` selects `NewPostgresStore`
+   ([`internal/store/postgres.go`](../../components/trusted-actions/internal/store/postgres.go#L20-L70)).
+3. **SQLite fallback** — any other `DATABASE_URL` value, including an empty
+   string, falls back to `SQLiteStore`, built on `sqlx` over
+   `modernc.org/sqlite`, intended for local development and testing. An
+   empty `DATABASE_URL` defaults to the local file `trusted_actions.db` with
+   a logged warning that data will be lost in ephemeral environments; the
+   SQLite connection pool is pinned to a single connection
+   (`SetMaxOpenConns(1)`) to avoid "database is locked" errors on a
+   file-backed database and to keep `:memory:` databases from splitting
+   across pooled connections
+   ([`internal/store/sqlite.go`](../../components/trusted-actions/internal/store/sqlite.go#L24-L69)).
 
-Both implementations run their own migration set on startup via
-`runMigrations(ctx, db, dialect)`, with dialect-specific SQL under
-`internal/store/migrations/postgres/` and `internal/store/migrations/sqlite/`
-respectively; a failed migration closes the freshly opened connection and
-aborts startup rather than running against a partially-migrated schema.
+**IAM-token Postgres is the production-intended path and supersedes the
+legacy `DATABASE_URL` path**, per the comments in `internal/store/store.go`
+and `internal/config/config.go`: `main.go` notes that `NewWithIAM` gives the
+IAM-token path "precedence over the legacy DATABASE_URL schemes during the
+expand phase," i.e. both paths are supported together while the fleet
+migrates. Under the IAM path, `newIAMPostgresStore` never handles a
+password: each physical connection mints a fresh, short-lived (15-minute)
+RDS IAM authentication token from ambient AWS credentials via
+`aws-sdk-go-v2`'s `rds/auth` package, rebuilds the connection DSN with that
+token in the password slot, and connects — a `database/sql` `Connector`
+mints a new token per dial rather than caching one
+([`internal/store/postgres_iam.go`](../../components/trusted-actions/internal/store/postgres_iam.go#L34-L93)).
+The pool's `ConnMaxLifetime` is capped at 10 minutes regardless of
+configuration so a pooled connection can never outlive its minting token's
+15-minute validity. `SSLMode` defaults to `verify-full`. Once established,
+`newIAMPostgresStore` returns the same `*PostgresStore` type as the legacy
+path and runs the identical `internal/store/migrations/postgres/*.sql`
+migration set via `runMigrations(ctx, db, "postgres")` — the two Postgres
+paths differ only in how the connection authenticates, not in schema or
+query code. `SQLiteStore` runs its own separate migration set under
+`internal/store/migrations/sqlite/`. In both cases a failed migration closes
+the freshly opened connection and aborts startup rather than running
+against a partially-migrated schema.
 
-**Current regional Terraform deploys SQLite, not Postgres or Aurora.** The
+**Current regional Terraform deploys SQLite, not either Postgres path.** The
 ECS task definition hardcodes `DATABASE_URL = "/data/trusted_actions.db"`
 against the file-backed EBS volume attached to the single EC2 host
 ([`terraform/regional/ecs.tf`](../../components/trusted-actions/terraform/regional/ecs.tf),
-[`ebs.tf`](../../components/trusted-actions/terraform/regional/ebs.tf)). An
-Aurora PostgreSQL store is architecturally anticipated and partially
-scaffolded ahead of time, but not yet built:
+[`ebs.tf`](../../components/trusted-actions/terraform/regional/ebs.tf)); it
+sets none of the `ROSA_TA_DB_*` variables today. An RDS/Aurora Postgres store
+is architecturally anticipated and partially scaffolded ahead of time, but
+not yet wired into the regional Terraform:
 
 - The service's own architecture diagram shows an `Aurora` datastore, and
   `terraform/regional/variables.tf` carries placeholder `db_username` /
@@ -452,22 +496,97 @@ scaffolded ahead of time, but not yet built:
   EC2 host ([`terraform/regional/alb.tf`](../../components/trusted-actions/terraform/regional/alb.tf)),
   not the `"ip"` target type Fargate `awsvpc` networking would require.
 
-Treat the Postgres path in `internal/store/postgres.go` as implemented and
-ready, and the Aurora Terraform resources as not-yet-created — the two live
-security groups are pre-provisioned scaffolding for that future work, not
-evidence that Aurora is wired up.
+Treat the IAM-token and legacy Postgres code paths in
+`internal/store/postgres_iam.go` and `internal/store/postgres.go` as
+implemented and ready, and the Aurora/RDS Terraform resources as
+not-yet-created — the two live security groups are pre-provisioned
+scaffolding for that future work, not evidence that an RDS/Aurora instance
+is wired up. When that Terraform work lands, the expected production
+mechanism is the same IAM-token code path described above and in
+[Local development: LocalStack RDS with IAM auth](#local-development-localstack-rds-with-iam-auth)
+below, pointed at a real AWS RDS or Aurora Postgres instance and a real
+ambient AWS identity (e.g. an ECS task role) instead of the legacy
+`DATABASE_URL` password path.
 
 ```mermaid
 flowchart LR
-    ENV["DATABASE_URL"] -->|"postgres:// or postgresql://"| PG["PostgresStore\n(sqlx + pgx)"]
-    ENV -->|"anything else, incl. empty"| SQ["SQLiteStore\n(sqlx + modernc.org/sqlite)"]
-    PG --> MIGP["migrations/postgres/*.sql"]
+    HOSTVARS["ROSA_TA_DB_HOST/PORT/NAME/USER"] -->|"any one set"| IAMPG["IAM-token Postgres\nnewIAMPostgresStore"]
+    HOSTVARS -->|"none set"| URLCHECK["DATABASE_URL"]
+    URLCHECK -->|"postgres:// or postgresql://"| LEGACYPG["Legacy password-DSN Postgres\nNewPostgresStore"]
+    URLCHECK -->|"anything else, incl. empty"| SQ["SQLiteStore\n(sqlx + modernc.org/sqlite)"]
+    IAMPG --> MIGP["migrations/postgres/*.sql"]
+    LEGACYPG --> MIGP
     SQ --> MIGS["migrations/sqlite/*.sql"]
+    PARTIAL["Partial ROSA_TA_DB_* contract\n(one set, another missing)"] -.->|"fails loudly,\nno fallback"| IAMPG
     DEPLOY["Current regional Terraform"] -.->|"sets DATABASE_URL to\n/data/trusted_actions.db on EBS"| SQ
-    SCAFFOLD["Phase-2 scaffolding:\necs_task + aurora security groups,\ndb_username/db_name variables"] -.->|"not yet wired to any\nrunning resource"| PG
 ```
 
-*`store.New` dispatches purely on the `DATABASE_URL` scheme; today's deployed Terraform exercises only the SQLite path, with unused Phase-2 scaffolding already in place for an eventual Aurora cutover.*
+*`store.NewWithIAM` tries the IAM-token Postgres contract first, then the legacy `DATABASE_URL` scheme, then falls back to SQLite; a partially set IAM contract errors instead of silently falling through. Today's deployed Terraform exercises only the SQLite path.*
+
+### Local development: LocalStack RDS with IAM auth
+
+A separate local-dev path exercises the exact IAM-token code path above
+against a licensed LocalStack Pro RDS emulator instead of real AWS, so the
+IAM-auth integration can be developed and tested without an AWS account.
+This is a developer convenience distinct from production RDS IAM auth — the
+*mechanism* (`store.NewWithIAM` → `newIAMPostgresStore`, the same
+`ROSA_TA_DB_*` contract) is identical; only the credentials and the RDS
+instance underneath are swapped for LocalStack's static test credentials and
+emulated RDS.
+
+- [`compose.localstack-db.yml`](../../components/trusted-actions/compose.localstack-db.yml)
+  runs a single `localstack-db` service from a **digest-pinned** licensed
+  image, `docker.io/localstack/localstack-pro@sha256:...`, because RDS
+  emulation is a LocalStack Pro feature. `LOCALSTACK_AUTH_TOKEN` is supplied
+  only through the environment and never committed; the gateway is bound to
+  `127.0.0.1:4567` and a named volume persists LocalStack's own state across
+  restarts.
+- [`scripts/localstack-db.sh`](../../components/trusted-actions/scripts/localstack-db.sh)
+  provisions the dev database end to end: it starts or reuses the
+  LocalStack container, then creates an RDS PostgreSQL instance
+  (`--engine postgres --enable-iam-database-authentication`) named
+  `trusted-actions`. Re-running the script **replaces** the instance and its
+  data — LocalStack does not apply master-password modifications, and the
+  script generates a fresh random master password on every run — so the dev
+  database is disposable by design; only schema (via bootstrap plus
+  migrations) is rebuilt, not row data. Once the instance is available, the
+  script invokes the server's `bootstrap` subcommand with the master DSN,
+  then writes `.env.localstack-db` (gitignored) with the discovered
+  `ROSA_TA_DB_HOST/PORT/NAME/USER`, `ROSA_TA_DB_SSLMODE=disable`, static
+  LocalStack AWS test credentials, the region, and the local-dev auth
+  contract (`ROSA_TA_AUTH=disabled`, `ROSA_TA_AWS_ENDPOINT_URL`, a loopback
+  `ROSA_TA_LISTEN_ADDR`) — no password or master DSN is ever written to that
+  file.
+- The `bootstrap` server subcommand
+  ([`cmd/server/bootstrap.go`](../../components/trusted-actions/cmd/server/bootstrap.go))
+  takes master credentials via `--dsn` or the `ROSA_TA_DB_MASTER_DSN`
+  environment variable (the flag wins if both are set; neither set is an
+  error) and calls `store.BootstrapDatabase`
+  ([`internal/store/bootstrap.go`](../../components/trusted-actions/internal/store/bootstrap.go)),
+  which applies **idempotent** bootstrap SQL over that one master-credentials
+  connection: it creates the `trusted_actions_app` role with `LOGIN`, grants
+  it `rds_iam` and `CREATEDB`, transfers database ownership (via a `DO`
+  block using `format()`'s `%I` server-side identifier quoting, since
+  `ALTER DATABASE` cannot take `CURRENT_DATABASE()` or a bind parameter),
+  and finally transfers schema and legacy-object ownership — covering
+  objects created through the legacy `DATABASE_URL` path too. The command
+  rejects positional arguments outright (a pasted DSN as an argument would
+  be silently ignored while the env DSN bootstrapped a different database)
+  and never logs the DSN or driver error text, since both can carry master
+  credentials. Post-conditions (role exists, can log in, holds `rds_iam` and
+  `CREATEDB`, owns the database) are asserted after applying the SQL so a
+  partial bootstrap fails loudly rather than leaving a half-prepared
+  database behind. Re-running `bootstrap` against an already-bootstrapped
+  database is a no-op.
+- Three Makefile targets drive this flow: **`make localstack-db`** runs
+  `scripts/localstack-db.sh` (provision plus bootstrap); **`make
+  run-localstack-db`** sources `.env.localstack-db` over the caller's
+  environment and runs the server, so it connects through the real
+  `ROSA_TA_DB_*`/IAM-token path exactly as production would, just against
+  LocalStack; **`make localstack-db-down`** runs
+  `scripts/localstack-db.sh down`, tearing down the compose stack (`down
+  -v`) and deleting `.env.localstack-db` — teardown does not require the
+  Pro license token.
 
 ## Related pages
 

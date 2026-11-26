@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:a6cfea2c650d641791f3c7d6214f1531fd4e980c29416776b2019e44e3ab5b25",
+  "pageVersion": "sha256:cf8e9f0e14156ba36674edda4479917629b169db5113beac24fb6dd69583c60f",
   "claims": [
     {
       "id": "claim_4088cba25812498fa6bea3623690d8b6",
@@ -76,21 +76,25 @@
     },
     {
       "id": "claim_b87f0e13df2d4475b97c9336a9cb3698",
-      "statement": "An investigation workspace can outlive its last task. Closing the investigation is a request to the close service, not direct CLI deletion.",
+      "statement": "An investigation workspace can outlive its last task, so closing it is a request to the close service, not direct CLI deletion: `runCloseInvestigation` only previews and submits the request; the CLI no longer stops tasks, deregisters task definitions, or deletes the access point itself, so an 'accepted' close is not yet a 'closed' one.",
       "evidence": [
         {
-          "resource": "repo://internal/cmd/close_investigation.go#L63-L98",
-          "version": "repo-lines-v1:sha256:f9d42fe8a8d894cd2501f0f524f434782dd1f50a3934c76bccb8ff78790bacc5:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmNzM2NjBmZjU5ZGFhMDBhMGMwZmFjOWU1ZWM1MWNlYzJlZDMwZGY5Yjk0MGRkNzc5YTY5ZmNiMTYyMzRiZmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY1Mjc0MGRhZWNmMWUxNWM1YzFjYzcyMjg0ZGJmNTU0OGU3NmE1ZWIyNmM5ZmQ2ODA3MGQ4YmNhMmNmM2Y4ZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyNzlmNTA4MTJmODE4NzJiZGRmNzVjM2ZiZGRkZTlmYzJkY2E5MzBmZDhlZWFiZTFlNjBjMjczYjA3YjU0NjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjNjNlNTE1NjI1NDk3ZmQwOTJlY2M2NzI3MzUxNzRiNjE0NDkxNTEzMGQxN2E5YTkwOTY1MzFiMjQ5MGRiZDkifQ"
+          "resource": "repo://internal/cmd/close_investigation.go#L74-L98",
+          "version": "repo-lines-v1:sha256:b58ef38f59066d62c4f4ebb94e9276534da3ad818b2426776b9bdd11c123a974:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkZGZjMmY1NGNjZWI2Njc4NTcwYThiOTdmYTJkZTM5NWM1MTgzNGE3ZmY2NjY1ZjRlYzMwOWFlNDY0Y2ViOGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc0NjAxZjQwODQwYTI3YjNiNmZmODY1OGIxN2QwYzUwNmRhZjM4YWM5MjFjMmJiM2JkNDFmODIyZWZjZTg4NDEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI5ODc4NDgyNzE4MGNiNWE3MTc3ZmMzZDBjZjZhZThlNGFmNTJiNWUwMmMxMWU4NzJmYjc1ZDBjYjA2N2NhZTkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImM5YjhhOWJiMjFlNmJlN2JmMDA1MTA5MmRhOWJhZTRjNmNlNDFmYmI0MjA1ZjExMjk0Nzc3ZjBkNWE2NGRkMjAifQ"
         }
       ]
     },
     {
       "id": "claim_87bf9c76d9ba4c9bac5927f9db77fb29",
-      "statement": "Session create and join share the connection path that checks admission and ECS Exec readiness.",
+      "statement": "`session create`'s auto-connect step and `session join` share the same `connectToSession` helper, which waits for the task to reach RUNNING, polls the container's ECS Exec agent for up to 30 seconds, and only then opens the SSM session; `session join` additionally requires the authenticated ID token's subject to match the task's recorded creator subject before admission is checked.",
       "evidence": [
         {
-          "resource": "repo://internal/cmd/join_session.go",
-          "version": "repo-file-v1:sha256:2c4183c695b0e71466550c278125b93be7cf0b41dc2f293108b5dddf4f47fda9"
+          "resource": "repo://internal/cmd/join_session.go#L208-L271",
+          "version": "repo-lines-v1:sha256:6c0bf9b746f12deb8b1d18e4af2e1eda609552110c4e871db87fab97b3a15554:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxOGIyYWIxZjJmNGY4Nzk0ZjFkMGZiYjJmNDY1YTlmNzY2YWVkOGVhOGQxZmEwNWM0YjkyZTIyODUwYWEyODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0ZTY3MTczOTVmYjU1MGRkZGY5ODBhZjA4YTUwNzM2Y2QxOTBhNGJkMTAyYjQ5MzA3NzRlYmY5YzY5YTI5ZmEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY4N2I5MDA5ZmUxN2E4Y2RhYzg5N2YwNTVhNTZjZDNjNDY1YzZlZDgxNmMxMTEyZThiZDFkZWRhYTgwNTQ4YWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImVhMTM4ZjBhMjZiMzQ1YjQwMjM2MDhiYzg0MjcxZjk2NDNhMjkwYWU2ZjE0MTIwNWE4ZDdjOWQ2MzNjN2UyOWIifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/join_session.go#L27-L122",
+          "version": "repo-lines-v1:sha256:ecdc8518ff4eb4016ed9cf866f7959aa2d333c75101385cb309476a9556640da:eyJzZWxlY3RlZExpbmVDb3VudCI6OTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZiMGY1N2I2ZWMxYmU5NjBlZWJkOWU3ZmZmNmM1ZmYwNzY4NWU1NDM3Yzk5ZDgwMTRmZWJiOWY4OTRiZjg1YjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc1NjRhMTY3MWU4ZThlMjhmODMxMDVkNmE3YWE0NDBkZTA2N2RiYmZlODA1MTE1M2ZjNTQ2MjgzY2I2ZjJlNWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5Mjc3ZjY2OGVhMDQ3YTY0NjZhOTM5ODJmNTI3ZTJlYWE4YTcyMmNhNDM4ZmFhMWQ2NDMzOGMyODEyMzI0MTIifQ"
         }
       ]
     },
@@ -109,26 +113,12 @@
       ]
     },
     {
-      "id": "claim_674ed09888e443068f3b3a028d80cebd",
-      "statement": "The finalizer copies and independently verifies workspace evidence before cleanup. A missing source is not evidence of an empty workspace.",
-      "evidence": [
-        {
-          "resource": "repo://lambda/reap-investigations/close_finalization.py#L541-L695",
-          "version": "repo-lines-v1:sha256:a5481cf334f1ba70bdce9080867aa7a62b97cc8a14af5a9c8e75a9936e1c2bdf:eyJzZWxlY3RlZExpbmVDb3VudCI6MTU1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI0MDY0NDBlYTVjN2M5MGNjNTczZGVlMjczOGViMTc3N2RjZGMyZTFmYjdkNjUwMDllNDYyZDQ4ZmUzMGZlNzU4IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJkY2ZiZDNjNjNlYjIyYmNkNWVmMGFiNDQ1ZjEwM2VjM2RjNTJlOWRjYWY4OGJiY2U5MmU0OTQyNGUwMDI4MTdmIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI0NDY0OGYwMTA1Yjk5Zjg0NmFhODZlMWQ5NjM3NWI5Mjk0ODU5YzVkNjY3NzVhZjMwYjQ3MjA1YTFlODNhODc0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyN2U5NTRmMDE2MmMwMTRkMDA4ODNhZmQ1MDVmM2U2NTkwNTkyM2QyNTRkNzU5MWM5MWRiYzViYzVlNjFmNGFkIn0"
-        },
-        {
-          "resource": "repo://lambda/reap-investigations/test_close_finalization.py#L287-L309",
-          "version": "repo-lines-v1:sha256:0106d58a6516a8a32f996eb98ed7e18b846555f961d581ade8a54287f71e59c1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlhZTYzMDc1ZTc5ZmNmNWRiZDAwOTUwNzc2ZDBhOGY0MzZlYmM2ZWEyZDhmZWZkNjY1NmZhOTBlZmJjZTY2MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjVjYjAyYzI1NzFlYWRmZTFhMDhkNGNhZWNkYzkyOGU2YzhhMmM2NzQ2ZDc0Zjg3YTFhOTQxMTZmYzU5MjEwODUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjY4YjgyZmFkNzcyNmMyNTRiYzFkMjE5ODkyYjVkMTAzY2FiNGQwYWU4ZmYxODE2OWVkY2I3MWY1MGY3NWMxZWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNmODkyOGIxYTFiMjgyYTU4OTU4NmYwYWU4MTFlMTEwMjczMmEzZGJmZGZhYWIxMmRiNTc2ZjI3NTFiYjU4YmYifQ"
-        }
-      ]
-    },
-    {
       "id": "claim_c8e0b525c76a47cca4f3a36fa121a3dc",
-      "statement": "Operator close requests and scheduled investigation cleanup use the same finalizer; stopping a session task is a separate operation.",
+      "statement": "Operator-submitted close requests and scheduled stale-investigation cleanup route through the same finalizer pipeline (seal, drain, copy, verify, publish, clean up) in lambda/reap-investigations/handler.py; the stale path alone carries no stop consent, since a scheduled job never stops a task on its own authority. Stopping a session's ECS task remains a separate CLI operation that never consults this finalizer, and the reaper performs its own authorization recheck rather than trusting the CLI's preview.",
       "evidence": [
         {
-          "resource": "repo://internal/cmd/close_investigation.go#L63-L98",
-          "version": "repo-lines-v1:sha256:f9d42fe8a8d894cd2501f0f524f434782dd1f50a3934c76bccb8ff78790bacc5:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmNzM2NjBmZjU5ZGFhMDBhMGMwZmFjOWU1ZWM1MWNlYzJlZDMwZGY5Yjk0MGRkNzc5YTY5ZmNiMTYyMzRiZmUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY1Mjc0MGRhZWNmMWUxNWM1YzFjYzcyMjg0ZGJmNTU0OGU3NmE1ZWIyNmM5ZmQ2ODA3MGQ4YmNhMmNmM2Y4ZTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjYyNzlmNTA4MTJmODE4NzJiZGRmNzVjM2ZiZGRkZTlmYzJkY2E5MzBmZDhlZWFiZTFlNjBjMjczYjA3YjU0NjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjRjNjNlNTE1NjI1NDk3ZmQwOTJlY2M2NzI3MzUxNzRiNjE0NDkxNTEzMGQxN2E5YTkwOTY1MzFiMjQ5MGRiZDkifQ"
+          "resource": "repo://internal/cmd/close_investigation.go#L74-L81",
+          "version": "repo-lines-v1:sha256:a9387f65c96a616133e1451f9c5b9a97fe4ef230622f2438a6e5276253057e1a:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZGRkZmMyZjU0Y2NlYjY2Nzg1NzBhOGI5N2ZhMmRlMzk1YzUxODM0YTdmZjY2NjVmNGVjMzA5YWU0NjRjZWI4ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMzU1YmE4MTg1ZGNlYmYzODViNjM3M2Q3MmFhODVhZDA4ODM2Nzk4OGJlZmIwNTllNGM0ZGQzMTc3YWZlNTVjYSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjk4Nzg0ODI3MTgwY2I1YTcxNzdmYzNkMGNmNmFlOGU0YWY1MmI1ZTAyYzExZTg3MmZiNzVkMGNiMDY3Y2FlOSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMDBlMmZhN2I5NGZmNGY3NGMyYWNkNjQ2MTBiMGU2ZjUyMTYzNzg3MDI5MWE5ODBjYjI5NmJiNTExMjJiZmY4ZSJ9"
         },
         {
           "resource": "repo://lambda/reap-investigations/handler.py#L275-L314",
@@ -162,39 +152,15 @@
     },
     {
       "id": "claim_185991272b044614a1f5b9a803cd73d9",
-      "statement": "The CLI previews and submits a close request. --status reads progress without requesting work; --wait observes completion and ending that wait does not cancel the request.",
+      "statement": "`investigation close` previews the workspace then gates submission via `closeSubmissionGate`: `--dry-run` never submits, `--yes` skips interactive confirmation, and otherwise an interactive terminal must confirm; `--force` only sets the request's stop-consent scope and does not bypass the close service's refusal while a shell is attached. `--status` reads recorded progress without requesting work, and `--wait` only polls until an end state, the wait limit, or credential expiry, never cancelling the request when the wait ends.",
       "evidence": [
         {
           "resource": "repo://internal/cmd/cli.go#L288-L318",
-          "version": "repo-lines-v1:sha256:4879eca6dcd2253d6c11e727bf66048b466883a6e5a79cc1d697eabb62d1b4bd:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZjMGRkNTE4MTNiOGZkYmRkZjhkOTYwMGIyNzFkODgxOGJmMmE1ODlkOWMyYzc3ZWUwZjE2ZjNjNjdhNTYxZDUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJhZGM0MWUxZTkwM2I4ZTM3MzM3MWI4OWZlMzZhMDA1YjE0MjU2ZDQ5MzY2Njc2NjRiOTA0NjY2ZGM1MWFlMWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI0MDM5MWQxZjIxM2MxMDBhYjY5OTIwNDUzNDUxMjkxYzBmOWQ4NTQ2MTA2ODczNDcwYTVmMjExYTIwZjFmMWIifQ"
+          "version": "repo-lines-v1:sha256:16818cf1ccb8fa08e5b9749c51bb8b51ab77337b1781e6b00fa12e89fd230d05:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk5YjE5NWIwNGExOWY3MTA3ZjQ0MDYyZTc5NTQ0MmFmOTBhMmY1OGMwZGM4NGI1MzhiODE2ZTQ3Y2U3MDUwODIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4MTk1ZDQxNWMwMTY3ZjlkODkwNWFlZDEyMWE1N2VjNTQ1MWY2OGY2OTYwMzI2YjJmZDgxM2ZiMzBhYzAwYzIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNlYmYwMzZlOTIwODFkMmU4ODI0ODg4YzAzMWUyN2RmNjI4YmFiZWRlZTNiN2IxMjBkMGRiMDdhMDI2NzYyYWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU1ZTEwMDQyOTYyZDk4M2M4MzFiNjBhYTA3YTA1NDhjYjA3YzUzZTRlMzkzOTA1NDllNWE5NmQ2ZmE4NWQxNTMifQ"
         },
         {
-          "resource": "repo://internal/cmd/close_investigation.go#L70-L174",
-          "version": "repo-lines-v1:sha256:b768ae4b897336057f509b9d971c9de535d20a905e4499c2dea7e3038f7eef69:eyJzZWxlY3RlZExpbmVDb3VudCI6MTA1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJjNDFiOTA3N2U5MDE2M2JlOGU3NzE4OWRjOTZkYjYyOGFiOGI3OTY1MTY1NjFjZjA0NzI0NjJjNTA4NWVlMjQzIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2N2NkYTgyZGE2MDYyMzhlMDVlNjIzOTk1NjljNWVlMDM5OTM0MTk2NDhhZTVkNDNhMmJmOGNkNjM0N2Y4MjYzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJjMWFlNzNjYmEwYzQxYTUxMDU5ZDQxYTA5ZWVhNTM1ZWI3ZGQ1NTNlMjI0NTExZGY4MmE4ZTJhZTA0Yjk0ZTFiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJmMDlkZmI4YjhmNWNiYjAwMjZlMTY2Y2ExNDZiYTUwNDVhZDM1OWQwNGM2MzdjZDdmZDkxNWU1YzkwMzA1NjJjIn0"
-        }
-      ]
-    },
-    {
-      "id": "claim_0e3eb57d7b4b418db06703321d4c8da4",
-      "statement": "Finalizer tests distinguish empty from missing workspaces, bind receipts to attempts, and block sealing while shells are attached.",
-      "evidence": [
-        {
-          "resource": "repo://lambda/reap-investigations/test_close_finalization.py#L248-L335",
-          "version": "repo-lines-v1:sha256:b88f8f7a51307c5fa05a33a2e9cf552624b653c838697542da8ba59fe901b06f:eyJzZWxlY3RlZExpbmVDb3VudCI6ODgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM0NjQ0MGNkOTI2NWFiNGFmNzg0M2QzMTVlNzVlN2E1MWYxNmRjMDZmNDJlY2M4NmU4YTAyYzcxZDJlOGMyMjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0ZTYzMjRkMjRkNWNjYmE1ZmYwYmNjMThjOGYyODU4OTZkNDM4OTQ2MTQwMDg3NWQ4N2M2YjZjOTQ1YzRmY2UiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNhNzdhYTE2NTQwMTI4YmJhYTQwY2IzMzViOGJiNDNkYmYzZWFlY2ViM2QxZDc4ZjIyNzk5M2YxOTcwYWNkZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZlZjg4ZDlmMjM2MmFjMWFiOTdlNWFjYjM4Nzg1ZjEzZjI1MmFkYmY5MzYzNzdjOTBhNjU1YWQyMmFmNzcwNTMifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_f21b480977b24d0095902d087b6cb79b",
-      "statement": "Finalization reserves Lambda time before mutation and checks the remaining budget during copy; exhausting the budget is not proof of verification.",
-      "evidence": [
-        {
-          "resource": "repo://lambda/reap-investigations/close_finalization.py#L342-L425",
-          "version": "repo-lines-v1:sha256:91076ce335adb1a9744b82a78ce9feb7a25ed5ef6ed5004c19f6175acbd053d2:eyJzZWxlY3RlZExpbmVDb3VudCI6ODQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZjNzRhYjM0MDRlNmFjNjg3YmM3ZmU4NmQ4OGUwMDgyNjFkNzlkYTdmMjVkMTFhOWIwMTEwZTdkZDEwMmY0NGIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZiM2EwYjVlZTc4OGY0OGJlMTQxMjQyYTdhZDgxYzdjMmQzYmQxZWIzMTY1OTk0ZjYzMjFjZDViY2QwNTIzYzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjliMDE4NWM4ODQ4Y2FhNDk5MGEwMzAyNmE2MTA0MTI1NDZkYmY3NDY5YWUwZWQxZGRjMWU5MTMxMjNlM2JmM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY2OWUyNDUxMWQwMjFkMTE1Y2E2NDBmMWRjNmQwYmFjNGZjNzczNzBhNTE2MDgzZGVjOTU1MDdkMWU3MDJkYjkifQ"
-        },
-        {
-          "resource": "repo://lambda/reap-investigations/close_finalization.py#L440-L464",
-          "version": "repo-lines-v1:sha256:bb252fe9363394dfec094b9c93af90bd6a0be48c349fa186c8478be9cd322c78:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNlNGMyZmQ2YmYxODE4ZGE3MmU5N2MwNmQ4NWQxZGRlY2QxMGJiOGE4ZTViYjQ4Mzg3NjNlM2UzNWFlMDgxYTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkNTA2M2Q4MjlhMTYwN2Q1OGQzMjQ2ZWE4ZjY4MDQ3Mjg4NDk2Y2FmYjI5MjQ5NGVhYjcwZWY1OWYzMmYwYTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImMxNDAwNmY0Y2ZkZGM4NzYzZWIxNTYxYTY0NzA1ZTQ0YTMxZWY0YzFmMzdmNjlmZDM3OTc2MDk3Zjc1N2QxZDciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjViNGU1NTVlY2Q2ZGRhYWM3ZmE1YTBmZjAzNmMxYjBjNjE4YWYwY2ZlNDlkZTNlM2ZkNGZiOWM0YTA3ZmE4OTgifQ"
+          "resource": "repo://internal/cmd/close_investigation.go#L129-L174",
+          "version": "repo-lines-v1:sha256:365257b202372da956b9ac7a48c520ba0f955974268bee8556af391d61e762f5:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZlOGMyMzkxM2VkYjg1NzdjM2YwNWNhMDZhOGE2ZWUxN2RkNGJiOTQzNjAwYmRkZGE1ZjliNTFkZGEwMGVkNWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImY2M2RlNWQwZDZkMTljMTczN2Q4MzA2NDIyYTUzYTMyMTZlZjkzNWZjMTFmMzhjYmM4NTI3YzRmOTJjZTQzMTgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgzODQ3ZjE5N2QyMTYxMDY2NzllNGIzYjRmNmE5NzgwM2ViMzQ2ZTdmOGU2ZmZmNWU4OWU4YTQ4NDhjODk4YjUifQ"
         }
       ]
     },
@@ -298,21 +264,11 @@
       "evidence": [
         {
           "resource": "repo://internal/cmd/start_session.go#L199-L226",
-          "version": "repo-lines-v1:sha256:c087ee8ff78b0671720b12d98a63107a1f30673077c0814ca60943a019e3bba3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0NGI2N2MzZGZmYTYzYjA4ZGE0ZDEyNGRiZmFmYzVkZGQxYTQzMWFjNGUwY2M5YTAwMjI1YTRlNWVkYzE2MGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2Zjk3MjZkOGQ4ODI2MjdlODJmMjE5OTY3MDVlMjk5YjUwZTBjMjIwODFiMzQwZTNjMjVlYzk2OTU5N2RkYmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiNjRlMGJmOWE4NjMwZTNkZGU5MmZiMTY2YTQyZWFiYTY3NmFmOTY2NjU1MjgyOGQ5ZDEyMjExM2VkY2FkNTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNmZGZlNGY1ZTk3ZTBlNjI3OWVmYzkxMzZiZjdlMjJhNDI4NDRmYWE3MmRlNjc2OWIwNDVmYWNkMmEzYzU5MzcifQ"
+          "version": "repo-lines-v1:sha256:8b8e1890d1e77df9c75da86112f26d9f104dd8ac3421d27976fef7864ec4de09:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY0NGI2N2MzZGZmYTYzYjA4ZGE0ZDEyNGRiZmFmYzVkZGQxYTQzMWFjNGUwY2M5YTAwMjI1YTRlNWVkYzE2MGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2Zjk3MjZkOGQ4ODI2MjdlODJmMjE5OTY3MDVlMjk5YjUwZTBjMjIwODFiMzQwZTNjMjVlYzk2OTU5N2RkYmMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJiNjRlMGJmOWE4NjMwZTNkZGU5MmZiMTY2YTQyZWFiYTY3NmFmOTY2NjU1MjgyOGQ5ZDEyMjExM2VkY2FkNTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNmZGZlNGY1ZTk3ZTBlNjI3OWVmYzkxMzZiZjdlMjJhNDI4NDRmYWE3MmRlNjc2OWIwNDVmYWNkMmEzYzU5MzcifQ"
         },
         {
           "resource": "repo://internal/cmd/start_session.go#L286-L299",
           "version": "repo-lines-v1:sha256:a9b34bd454966a920d406d92bcafe422bc55ed93ff7b6ebb06939ae8f5aa5b46:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhYmY1OWU5OGZhNmYxYzEyYTRkNDRjOTlmNjYxNGY1ZjM1ZGVkNTg4NzgxMjljMTA5YzRmNzE4MmE1MzVkYmYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE0Yjg3ZDdkNDk1ZjAzMjZlZDYyZTc5ODcwZGM1ZjRmMjhkODQ2ZmU5Zjg5ZjNiYzQzZWY5YmQ5NTk3M2Q2ZWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJiMzBlYTk4ODg0Njk4ZDEyZjMyYTllYWVmYWZiODZjMjhjMzdlMTY4NDczODYwYzAxMDg0YTI3ZGZiOWFhY2MifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_ff691506ae7648fba9478c0211f4fc24",
-      "statement": "The service publishes an attempt-bound receipt only for verified evidence. The operator does not author this receipt.",
-      "evidence": [
-        {
-          "resource": "repo://lambda/reap-investigations/close_finalization.py#L945-L994",
-          "version": "repo-lines-v1:sha256:fd016ecb863129725ad47721b1458437055beeb1529165c209c4efce26ef24c9:eyJzZWxlY3RlZExpbmVDb3VudCI6NTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg5NzUzMjIxYmFiNGJmNDE1YjMwNTY2ODMxMzVmMmYzMTg4MDg5NDljYzMxMTUyODY1N2NhMjZkZmZjYzczMWQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0YjhjMjU0MDM0NjFhNjBmMWU2ZmI4MWNjZGJhMTM4NzlkOWNjZWMzYzZhOTA5ODg2Y2I0OTc0YTM0ODhhZTMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImFhZTI3MGU2ZjU5NzhmZDAzMTI5M2M1M2MzOWE4N2M0MWVmMDJhNTEzYjJjN2ZmMWYzMWFkMjlmMTRhNGNiN2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY3NjI5NGM3MTM0ODk2MWMxNWJjYjNjMTFlODlmYzMwMGNlOWRkMDYzYmZhNzE0ZThhYTA4OGYyMGQ1NWVhYzEifQ"
         }
       ]
     },
@@ -333,6 +289,6 @@
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

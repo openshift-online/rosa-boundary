@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:0be14bc499136e3a4d469f113cb3a4de223e2bc27499465e11991efb09f78aa8",
+  "pageVersion": "sha256:acb7ffd8cfaef0ba16f17a75ad97a9041c07fcdd589ab3f1e0833fd0df170f6e",
   "claims": [
     {
       "id": "claim_bfda53ee15084ef38184e1ea60230f9d",
       "statement": "Every request under /api/v0/trusted-actions passes through an ordered middleware chain: OCM JWKS signature validation, JWT authentication (auth.Middleware.AuthenticateAccountJWT), request-level audit middleware, RoleAuthzMiddleware.AuthorizeAPI, then ActionAuthzMiddleware.CheckActionAccess.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L402-L414",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L413-L425",
           "version": "repo-lines-v1:sha256:ee4aa30ed6e093f9ede9868761e66f51b51031fb055f8145fddb9d27f46b9020:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYTVhMWVkOTg1MzFkODc5Y2NhNzBjYjMyZWZlZDM3Yjg0ODk4Y2YwNzlhOTVlZDM1NmFjMzMwNjBkOWVkZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmODA5MmZmZjllOGM3YmUyZTE5OTg3ZGU1NDEyOTg1ODNkNTM4Mzc1MzM2ZjJkMWQyMzlmODZhYTQwYTM0YjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1OTczNTcyY2Y0ZjEwZWVjNjcxYTNmZDhjZTJiOGViN2RiODRmOTllZTllMmY5YWY2N2E4NjE0M2FmMWJhMmYifQ"
         },
         {
@@ -25,7 +25,7 @@
       "statement": "The OCM JWKS validation wrapper (authentication.NewHandler) is only applied to the router when the auth policy is not disabled, and is skipped entirely under ROSA_TA_AUTH=disabled to avoid a network call and a startup failure in mock mode.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L416-L446",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L427-L457",
           "version": "repo-lines-v1:sha256:be6b22db053cf421a2c49201097b68eef8dc02ae06aacc10242c6044439719c9:eyJzZWxlY3RlZExpbmVDb3VudCI6MzEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3OTRlMjE0YTAyY2Q4NTY1NTgwNGQ5MTUwNWQ5ZGVjOTQzOWUyNmVjZGM0MmE2MjJjZDUwNDEyNzViZjkzZTkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjUyYWIzMmVlYzU2YWNhM2U3MWJjMWIxZmQzNGFmZTU2NTg0ZDlkYmU4YTA5NTUxMGJkNDEzOTUxYmUzZGE2OGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxZjY3MTVhYjQwMTE4OWNlY2I0YmE1ZWIzZmFmYjZhOWRjYTQzNDc2ZDM2YmY4Y2MxM2JjMTY3MTYyYmRkMTMifQ"
         }
       ]
@@ -117,11 +117,11 @@
       "statement": "Role-to-AMS-resource mappings are loaded from the 'roles' key of the server's YAML config file (config.RoleMapping{ID, AMSResource}); the server fatally refuses to start under enabled/ocmconfig auth policy if no roles are configured or if any role entry has an empty id or amsResource, and the legacy ROSA_TA_ROLES_CONFIG environment variable is no longer read (only triggers a startup warning).",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L129-L136",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L140-L147",
           "version": "repo-lines-v1:sha256:33b8e37f9e9f2b00a947ddbf2aaa7ba5ebd13157ff8e94e7afc7377f1dc53d82:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiY2ExZjNkNjdjMjU3M2RmNWQ2NTNhMTU2NjYwOTVkYjY5MzBiMGM4Y2VmMTkzNWYxZTJiYmU3NGFkZTNmOWYyMiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNjRlZmM0OTQxOGQyNmRjZjEyOWIyMmE2YWEyMTEwOGNlZWMzNzY3N2EzMmQwOGU5ZDVmZWUzNWRkYTY2YmI5ZCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMjQ4Y2IxOWFmZTI0ODlhYzhlNjkxNjVhNWVlNjljMjY0M2M3ODk5ODAzZDcyMjVlN2E1YzJhNzc2ZTRkN2Y4YyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOWI2YWFmYjE0ZWU0NmIzYWZlMjBmOTFjODJhM2RiN2VkZTdmMDdlZjU5NTkwOWY2YTIzZDhlZjgzZTU2OWM4ZiJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L186-L190",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L200-L204",
           "version": "repo-lines-v1:sha256:8f6e99e3bf945e0eb114c7d177249368f1813d97c2678251ef8c0e73d483a093:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNjhlOGM2MGZhMDczYTM0NmFkMGJmZjE1NTU2YzY5ZDRlMDcyMDJmMzczMjkxNzMxNmMyZGExZjZiZmM0M2I3MiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzk3NjczY2Q1OWNiMzUxNWM3ZmRmZDkyYjJmMGU2ZGIxNzY0MDM3OGM2YjZkYjNiMmEwYzZjYmQ5NDA3YTNmNiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiYTNkMDcyYzY5OWFjZDhlNGZiYjQxMWEyNDllZGVmMmI4MjVmNDIxM2U5YWIyMTkyOWRiOTU5MjAwOTE4MzNmYSJ9"
         },
         {
@@ -229,7 +229,7 @@
       "statement": "ROSA_TA_AUTH selects the auth policy (disabled/enabled/ocmconfig); disabled uses a hardcoded mock identity (dev-user) and unconditionally grants the SREP role, skipping JWKS validation, JWT parsing, and AMS calls, and the server refuses to start under this mode unless ROSA_TA_KUBECONFIG and ROSA_TA_AWS_ENDPOINT_URL are both also set, preventing the mock role from reaching real backplane or AWS infrastructure.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L178-L202",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L189-L213",
           "version": "repo-lines-v1:sha256:725db4fcdd15b9ac5a7197e1fc68fd0fc1d34d8807b95d6db9596502858dde69:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk0YWRkMTdlY2Y0OTkxYzNiNTFhNTdjNzZjYjVkYmIyZTc4NTNmOTlmNDQ1OGVkMDg5NDUwNjNjM2EzMzUyODEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImJiMTliMDEzZTNmMWRmYzdmMzM5ODUzMTA2OWZjNjZjMGY1ZWI4YTE1OGUwYzk4ZTBhNzA4ZDkzZjk0ZmEyZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImIzYmZmYzRiMDI0NjUxNmYyYjBjN2M3YWVmYjE5MzQyNmJkZmI1YzY4MzRhNDA2Mzc1ZjcwN2Q3Mjc1Yzc4MGMifQ"
         },
         {
@@ -241,7 +241,7 @@
           "version": "repo-lines-v1:sha256:a507f02c0f9489513537bc64728235c027ae5ced1c76f5532f68d91065c759c2:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiZTZlMTBhMzY3ZWQzMWFiY2M5NWRiZmFkYTA3Mjg2MjFmODJkZjMwNTU5YTQyZjRmMDczMzRjODlmYTc4YTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L196-L213",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L210-L227",
           "version": "repo-lines-v1:sha256:9a0501a66843bde66acdd935d116946ffc71826538d9380420aaab984459dd00:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE5MWJkODFhYTcxYzk5Njg3OGI2YWFjOWI3YThhOGU4ZjMyMjY0ZGQ5ODIzOTAzNTc2MzlkMDI5YWI3OThkZDEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVhZDM3N2EwMGE1YjdjNmU4YmMyNDU0ZmMwNWJiYzQ4OWJjNGFmYTY2NmRlZDQ1ODMwZmFkMDU0MzdhZWZhNWIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjNWJiZjRmZGUwNTFjMmRiZmYyZDZjMTcyY2JlN2I3Mzk2NmRiOTg0MTJkZGRlZDc1NGNhMGY0ODNjY2I5YmUifQ"
         }
       ]
@@ -251,7 +251,7 @@
       "statement": "ROSA_TA_ALLOWED_ACCOUNTS is parsed into Config.AllowedAccounts as a comma-separated list but, in the current codebase, is not read by any authorization check (RoleAuthzMiddleware, ActionAuthzMiddleware, or the internal/authorization allowlists) — it is a declared but currently unenforced configuration field.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L243-L243",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L257-L257",
           "version": "repo-lines-v1:sha256:9baf45e91f31d5e06ae8505d535e0fe952e57679caec1eaf95662f52db28fc75:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiOWJhZjQ1ZTkxZjMxZDVlMDZhZTg1MDVkNTM1ZTBmZTk1MmU1NzY3OWNhZWMxZWFmOTU2NjJmNTJkYjI4ZmM3NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOWJhZjQ1ZTkxZjMxZDVlMDZhZTg1MDVkNTM1ZTBmZTk1MmU1NzY3OWNhZWMxZWFmOTU2NjJmNTJkYjI4ZmM3NSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNmU2N2QwYTU2MmRkZGRlYmE5YTMwNmFkYzFlNWM5ZDY3ZmE3OWZlNjA2YTFmMDcyMWJmMmY4MzcxN2U2ZGJmOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMWMwM2EyMTYyYTJkYzcyM2U5Y2M1NDRiMmE5YmY4NDFjYTJhNzlmMjg0NmU4YWNhM2RjY2UzMDEyYThkNTllNSJ9"
         },
         {
@@ -265,15 +265,15 @@
       "statement": "ROSA_TA_ALLOWED_NAMESPACES and ROSA_TA_ALLOWED_SECRETS are comma-separated environment variables parsed by getStringSliceEnv and passed into authorization.New to construct the Kubernetes resource-level allowlist used by KubeScope.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L219-L219",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L230-L230",
           "version": "repo-lines-v1:sha256:078a2faff3587f0adf0012857c8eb54a376e43e00b33e574cc1f3489966c87b7:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDc4YTJmYWZmMzU4N2YwYWRmMDAxMjg1N2M4ZWI1NGEzNzZlNDNlMDBiMzNlNTc0Y2MxZjM0ODk5NjZjODdiNyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDc4YTJmYWZmMzU4N2YwYWRmMDAxMjg1N2M4ZWI1NGEzNzZlNDNlMDBiMzNlNTc0Y2MxZjM0ODk5NjZjODdiNyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYmU4ZGEwMTJjZWI4OWUyNzU4ZDQ0NDhjZThkNDY1NjhhMjJlYWE3NDk3YTdmMmI5ZWUwZTFlMmJhYTVkZDMxZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMTUxYmJlYzNmMTRjODM4Mzk1NjY1YWUzNzlhMTAyMTFhOTU4NWQ5M2RlODNmYjA1YmUwNzIzM2QyYmY2MGI0MiJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L279-L280",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L298-L299",
           "version": "repo-lines-v1:sha256:39817af85ed9b0d88de8833fea3a08021c87305d0d4d842991ff3c28464c1638:eyJzZWxlY3RlZExpbmVDb3VudCI6MiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNzljZDZhNGVjZGU3MDQ3MDVkOWIzMjU5ZjM2Y2Y5MWZhMjQ2M2Q0NzM5MTI0NDVjMDA2Yzg4ZjJhNjI0ZDIxNiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjJkOThiYmI3M2Y4MTQyMDI2Njg2ZmE0YmRlYzg5M2NjZGNiMmMwOTQ1NjAzNjZmMzhmMDFmNDlhNjZhODE1ZiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOTAyYmE4Njk1OTY0ZjkwYmEyM2MyOGEyYjYyNzdiZmI2NTU2NTMyYTUyYmE5MzhmNDc0ZDQ1N2RkOWM0Yzc4ZSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZGYxY2QzYjJiMGM2MGI1MTY1ZDcxZTkxYTNiN2UzMTFkMDY0ZWMzMWZiYWQxZGMwMmM4MDZjODQ5NWYyODYzMCJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L362-L375",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L381-L394",
           "version": "repo-lines-v1:sha256:5ecdcba84e151a3eb461e9eda41402b00f31fcf28b37263072c751c8203de497:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhNzhmZjVlN2E5MDlmNmI0MjRlNTc4YTdiYmIxOTJhZTFlZTQ3MWQyZGZjMmMyNDA5MjJjZWIyZWZkNGUzZDgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImViMzk2Y2FlMzAyM2FkZjM4ZTFiYjgyMTg2YmY5YWFlZjFkODAwYmY3OTNmZmYyZjJkZDliMDVjOWQ0N2JhM2IiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
@@ -283,15 +283,15 @@
       "statement": "ROSA_TA_ALLOWED_CLUSTER_REGIONS overrides the config file but an empty parsed override cannot discard a restrictive file setting. AWS write operations are independently configured and enabling them emits a startup warning.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L266-L278",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L277-L289",
           "version": "repo-lines-v1:sha256:35707c7e5bf3b4ff3906d4fed5581b86fb969b23f05ec6e879df7e0b9415c45a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg0ZjdkMzVjMGFkNDQ2YTNiNjBlMmE5MmJjNDI2MGFiZDk4OGQ1ZjRmYWY5ZDgzMzBjNGFkMzc0NmRkMGFlMDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjIzMzhlMjIxZDNlYTdhYzUyYzM4NzRkY2Y5N2U2OGIxZGU1ZTY1YTI4OTk1YTk2ZjMxYjFlZjZiYzFmN2RkNzUifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L215-L224",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L229-L238",
           "version": "repo-lines-v1:sha256:96ffaeb80df07c4e725089fa8244486c8f5cab73980da670f01547bc1c1a54a5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUwNTA1YTE0MThiYzQ2MmNmMGE3M2RjZDZjOGQ5OWYwMWU2YmU4NjY4Mzg5NDE2NzQ3M2MzZDY3MTI0ZTgyYjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQ0MTE2MDg3Mzk5OWIyNTU4YWQyNmRmYzIwNDE0OTgzNDE3YmNjMzU4ZWM5OThkZWZhYzRhYzE2MGEyZTBiNDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIyZjJmZjVmZWVjNjBmNTg3YzhmYWU0ZTg3ZjgwOWE2NjFjZmZlZDZiNDdhYWU1ZjZkNmEyNjUzYWE4OTUyZWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJkOGE0ZjBiZjM5NzA1MmYwOTkwOTYyNmM3YzM5YzYwZmVkNDNkYzU1OGZmNzA2OTFjOWEyNzRmMjc0ZmU0NTMifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L280-L288",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L299-L307",
           "version": "repo-lines-v1:sha256:695c459a226877d89b8a7acaf9d1fe4e690e585c611d1404df0bae2d8462a10b:eyJzZWxlY3RlZExpbmVDb3VudCI6OSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjJkOThiYmI3M2Y4MTQyMDI2Njg2ZmE0YmRlYzg5M2NjZGNiMmMwOTQ1NjAzNjZmMzhmMDFmNDlhNjZhODE1ZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiN2YwYWU3M2FkZWEyYjM3ODg4ZWM4NDA0YWRiZTFjODc0Yjk2NGY3ZDczNmVlNTY0MDEzMmUyM2U0NjVlNGYxNyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzBiZjM3OGNkNTY4MmYyMWVhMWRkYzVhYzE3ZWQyZTE2Y2MwNTdlZWFjNzVjMjFkZmIwMTM4ZTY3ZGM0OWNjNCJ9"
         }
       ]
@@ -301,12 +301,12 @@
       "statement": "openapi.HandlerWithOptions is invoked with ChiServerOptions.BaseRouter set to the same chi.Router created by router.Route(\"/api/v0/trusted-actions\", ...), so it registers the generated OpenAPI routes directly via r.Get/r.Post on that router instead of returning a new router to be mounted with r.Mount(\"/\", ...); mounting the returned router (which is the same r) back onto itself would make r route into itself and recurse forever, so BaseRouter is used specifically to avoid that infinite routing loop.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L402-L414",
-          "version": "repo-lines-v1:sha256:ee4aa30ed6e093f9ede9868761e66f51b51031fb055f8145fddb9d27f46b9020:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJhYTVhMWVkOTg1MzFkODc5Y2NhNzBjYjMyZWZlZDM3Yjg0ODk4Y2YwNzlhOTVlZDM1NmFjMzMwNjBkOWVkZGUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRmODA5MmZmZjllOGM3YmUyZTE5OTg3ZGU1NDEyOTg1ODNkNTM4Mzc1MzM2ZjJkMWQyMzlmODZhYTQwYTM0YjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY1OTczNTcyY2Y0ZjEwZWVjNjcxYTNmZDhjZTJiOGViN2RiODRmOTllZTllMmY5YWY2N2E4NjE0M2FmMWJhMmYifQ"
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L411-L424",
+          "version": "repo-lines-v1:sha256:9ae1d7c769fc545854f4b907c44a9b2b9e60113a8770217304d3d27a584ff973:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc3YTliNWU5MDE5YzhkYjg3ODNlYzljM2ZlYmIwYTJjOTg2MmY2MWEwNWMzMDhmZTg5NWU0YTliZWQwM2VkYjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3ZTFjN2VhM2M3MDYyNDk5ZTcyMzQ1N2UzZTA2MzAyMmEzM2MwOWEwMDhlZGU3OGRhMmU4NTBhMGIwOWRjMjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjNlZjkxMmQ5ZTk3OTc0NjI3YmI2Zjk5ZTlmMTEyNGNjNmY3NmNiZDljOTE5MzBiN2M1ODIwZDk1YjRkYWMwNjkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjBmMjA1YmMzYjQwY2IyNjRlNjQ4NzBiOTQ1OGQ1NzdlNjNhY2IyNTJhOTc1MzUwZGZjMjlmZTJhOGRiZjJmYzcifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/openapi/api.go#L1268-L1307",
-          "version": "repo-lines-v1:sha256:501abb81c6574b5037fb8128f04601fa6c41556de783af398185f44b6ef7e989:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhZmFlNTdkZTM5YjllYTgzMDg1NzhiMDMyYjIyZjQyYzA3NDI1MmJjYjhlOTFhNjk3ZDBmNTgxN2U2MjAxYWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFhOTUwMTc1MWE0ZWFiNzVmYTEyZmZiZWNkMzc3NzAzZDZlMGYwN2RiYjc3MDYzOWM2MzJkZjJjNTk4NTBiMWYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzMDI2MmM5Zjg4ZGEwMzIxYTlhNTRkMWYyMjE2ZTBhYzZmOGVkZjA2NzdmOGE1YTYzYjVjNWU5OWM3MDEwOTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+          "resource": "repo://components/trusted-actions/internal/openapi/api.go#L1267-L1308",
+          "version": "repo-lines-v1:sha256:df6231aeb291e3ed78c89d78f67e59f351dd5beba432ba30bd40baa546ae09f5:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdhZmFlNTdkZTM5YjllYTgzMDg1NzhiMDMyYjIyZjQyYzA3NDI1MmJjYjhlOTFhNjk3ZDBmNTgxN2U2MjAxYWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzMDI2MmM5Zjg4ZGEwMzIxYTlhNTRkMWYyMjE2ZTBhYzZmOGVkZjA2NzdmOGE1YTYzYjVjNWU5OWM3MDEwOTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
     },
@@ -315,7 +315,7 @@
       "statement": "The /health endpoint is registered on the top-level chi.Router before the /api/v0/trusted-actions sub-route and is declared Public(\"^/health$\") to the outer OCM JWKS authentication.Handler, so it bypasses authentication and authorization entirely; the outer JWKS wrapper itself is only constructed and applied when cfg.AuthPolicy != config.DisabledAuthPolicy, so under ROSA_TA_AUTH=disabled (mock mode) the JWKS validation step, and the real JWT-authentication and AMS-backed role-authorization middleware, are replaced by MockMiddleware.AuthenticateAccountJWT (hardcoded dev-user identity) and MockAuthzMiddleware.AuthorizeAPI (unconditional SREP role) with no network calls.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L395-L446",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L406-L457",
           "version": "repo-lines-v1:sha256:0d434d80bf3cba6527212c0a2a55d262815ab0f40bc49225527153bd935e906b:eyJzZWxlY3RlZExpbmVDb3VudCI6NTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg0NWUxZGM0YjJlMzJiMmE4YWMyMGJlMzZkNDc0MDY0OWY0NzRiNTNiMmY4ODlhNmNjODc3ZDBiOGYyYjJkZDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc3NWE4ZjBiZmUxMjU4MjdlZTBjMmU2YzA3NTNmNzc0NTVjYWYzZDI2YTkyODc3Yzg1ZmRkODU4NWNlZTAwMjgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxZjY3MTVhYjQwMTE4OWNlY2I0YmE1ZWIzZmFmYjZhOWRjYTQzNDc2ZDM2YmY4Y2MxM2JjMTY3MTYyYmRkMTMifQ"
         },
         {
@@ -331,6 +331,6 @@
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

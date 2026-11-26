@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:354cc81c9b6dd772da9cd1c98883248b85d213e1875732415eb4667d63315669",
+  "pageVersion": "sha256:bbb0ea58eca22db96854c9bb799e3bf4f018216fadee1b42d59a80fa5bcd20a0",
   "claims": [
     {
       "id": "claim_6aa30656a4c94ab4928d40011e47bd4e",
@@ -15,152 +15,26 @@
           "version": "repo-lines-v1:sha256:9afc711d462c82dc48f7cd30da49e6d8dca88f4923201a36faa9d03a7f80e04f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMDljN2ExMWU4Y2YxNjc0MmFjOTY2NTkzMmFiYjFjMjkzMzBjZTBhN2ZhOGIwM2U3YTVmNjEwOWUyOTVkZjEwIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI3ODMyYmVlNzlmNGJiMmZjM2ZhOTQ0YmYyM2E2ZGIxMjFlZWY1MzhiMzkxMDQyY2UzNzE3ZmUzODgwZDUxY2UzIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJjNGMxNjFkMmQ3Y2JhNTYzZjdiOTNmMDdlZWRhNTkxMTYzZGRhYTFhYzRiNzRjN2MxOTJhYTNkNmZhMjBjZjE4In0"
         },
         {
-          "resource": "repo://internal/auth/token.go#L16-L138",
-          "version": "repo-lines-v1:sha256:2be45ff383220b1061b929658217fd894a56c63eefce0e050c99bc0a02dee4af:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkMGQ5ODZiMGRmN2U5YzQ3YWE3ODJiMDY2MDk0NjliYzhlZWNhNDc2MTJiODM4Y2Y4MjlkZGE0YmNkZGQzMzI5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2RjMzY1ZDAwMWVmNWFjMjc3M2YwYTI4YzQ5MjNjZTM4Mjc3ZWQwZTY3NDAwYWQ5ZTI0OTljODU2YzA4NmUyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhYzQzYzI4MmI5MGI3ZWI0Zjg0M2E0YzFjMjY0ZTExOTU1OTcwZWU1NzkxN2YzNzdjZjgzODVkMWIzM2Q4ODdkIn0"
+          "resource": "repo://internal/auth/token.go#L16-L136",
+          "version": "repo-lines-v1:sha256:492c3ea2523936bb0069d43dc04bd46490f405c33bfae75d2d815462fa3b3676:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIxLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJkMGQ5ODZiMGRmN2U5YzQ3YWE3ODJiMDY2MDk0NjliYzhlZWNhNDc2MTJiODM4Y2Y4MjlkZGE0YmNkZGQzMzI5IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJlM2RjMzY1ZDAwMWVmNWFjMjc3M2YwYTI4YzQ5MjNjZTM4Mjc3ZWQwZTY3NDAwYWQ5ZTI0OTljODU2YzA4NmUyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhYzQzYzI4MmI5MGI3ZWI0Zjg0M2E0YzFjMjY0ZTExOTU1OTcwZWU1NzkxN2YzNzdjZjgzODVkMWIzM2Q4ODdkIn0"
         }
       ]
     },
     {
       "id": "claim_5b9359a9ceed4258bc9292683b25daca",
-      "statement": "Both create commands and investigation close --status start with invoker credentials. Session creation then assumes the account-validated SRE role for task access; ordinary close previews with SRE credentials and submits through the invoker.",
+      "statement": "commandPreRun resolves exactly one of two AWS roles per command: the invoker role (session rosa-boundary-invoker, 900s STS duration; requires invoker_role_arn and lambda_function_name, plus ecs_cluster_name under session) for investigation/session create and for investigation close --status; the shared SRE role (session rosa-boundary-session, 3600s; requires sre_role_arn) for every other authenticated command, with investigation list requiring efs_filesystem_id instead of ecs_cluster_name, session join --auto-close additionally requiring invoker_role_arn/lambda_function_name before interactive sign-in, and investigation close (non-status) requiring efs_filesystem_id plus invoker_role_arn/lambda_function_name unless --dry-run. A non-dry-run close therefore previews the workspace with SRE credentials from commandPreRun and separately assumes the invoker role inside the close command itself to submit the request.",
       "evidence": [
         {
-          "resource": "repo://internal/cmd/cli.go#L100-L147",
-          "version": "repo-lines-v1:sha256:25aeb3d2deb180cc7e6f1fd1cb1d208bc35fce8b0c2d9abf75c701f35bf96ce1:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNkOGExOTNmMmI1OTM3MWNhZGViNjcyNjNhYzFlNTJlZjVkOTBhZTdkNzQ4YjI4MTIxOTE5MWU0NWM5NDE2MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRjNjNlNTE1NjI1NDk3ZmQwOTJlY2M2NzI3MzUxNzRiNjE0NDkxNTEzMGQxN2E5YTkwOTY1MzFiMjQ5MGRiZDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNTdlMmNiOGNjMTkyYjJkNmRlYTU4YzY1NDM3OWRiMDUwMzVjYjRiY2U4MzAwYjg4MzZjNmI5YTYzZGZlOWUifQ"
+          "resource": "repo://internal/cmd/cli.go#L96-L146",
+          "version": "repo-lines-v1:sha256:569c750384d391131211e9585f453cc0a3522ce99799cf778e2a5e511e8f1ac7:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlkNGY0MjUzMGRjZjRkMzA5YmNmOTZiZGY1ZGRmMTBmMzNiMThiN2JkZDQ0NTFlNzdjMDJjN2ZmMTRjNjY0NzgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI3NmVhYTMzMzY0NzQ2ZGIzM2FmOWI2MWQ5NjE2YWJjZjUxNDQwODgzZGYzZjdlOGQ5Y2UyZDRjYjRlYTRkY2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU3MjFmMDhjYjI5YjQyY2JlMjhjNzYyMzE0NWFhNzAyMjljNDcxYzBjYjU0NWFjYjRlZTk1YTQyZmVkMjk0N2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2MzFiNmUyY2EwN2Q4YmFmMGViNDRlNzQ5ZGJmNDkwYjM5MmUzYTUzNGVmNjEwMjI3NzExNDZjZGY5YWYxYTIifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/close_investigation.go#L185-L195",
+          "version": "repo-lines-v1:sha256:7e3f040c357831dabdf62b082ac293f7306d08cd405dd138a5643d4fe6eee99c:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBkMTRmZDUyMDhjZWY4MTZhZTA5NDMzNzM2Y2JjODlkZWFlZDRhMGRkNTg2OGFjOTFmNDU5M2QzMTZhNzViZWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImVjODhmNzZjM2FhNDdiOGMwZjczYzFlMTVjNDFjOGJhNGZlOGNhOWZjMGNkZTQ5OTA2MzczMzk3NzIyMzIyYWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNlNzE1OGU2ZDc1OGQ1ZDUzYmI0NWVlOTgxNjE2YjQ0MjgzODgwMGVmZDQxMDI5OTI2OWVhYWQwYjgzMGRmZDIifQ"
         },
         {
           "resource": "repo://internal/cmd/start_session.go#L107-L148",
-          "version": "repo-lines-v1:sha256:e503ef957fd8a8553732195e168e42d30c98b81ea4dd421d90e1959a6d75ac9b:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYzYTNjY2ExZWVhODk3YmEyYjI3NDVlYWU1YjAzM2Y5NzFlMDE2OGJlN2ExYTYxOWVkMTgxZmVkNmZkZGRiMjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkwMTg0ZjEyNDMzMzYwY2IyMDAxNjc1Y2Q0NjEzZTNiZTBmYzBmMzBkODVhYzljYjYzODNjZDE2MTA5MmFkYmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZkMWQwMWQxNzg4Y2U5ZWFkYzRiZDBmZjIxN2U2ZTNhNjIzYTkwYzdkZjJiMjM5NDVjNWQ4OWMwNzBlMDc5MDEifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_0220313d34a246c5af77102c1e5522dc",
-      "statement": "The create-investigation Lambda validates OIDC issuer signature, expiry, and audience by routing on the unverified iss claim to the matching issuer's JWKS endpoint, checks required group/role membership, and derives the task ABAC tag from the token claims before resource creation.",
-      "evidence": [
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L125-L247",
-          "version": "repo-lines-v1:sha256:de0dfafb339696178d22fcd6fbc6ca1af88138dd99ea3525ef0f4ae379e01fe6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI3MWQ1ZmUwYmQ2YzY2Y2I4MmJkMDcxOTcxYTc0MzA4MTk1MGU4YzQ1MWU3YjhmZmQ3MzEzNzg2NWI2MDExNWIyIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI1NTZhMDMwMmNjYWNhZTE2NWVlMTFkNmY2ZGE2NzkyNWE0ZTk2MmM5YWQzODRmYTAzNmI4NDA1N2YxOTdhMDY0IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI1MTg2NmVhODAwMTQzOGNkYWI0NjRlMTNkZjAyODZiMTg4OTA3NGU5YjM0NTVmMWY4ZDg0N2I0MDFiY2EyZmM0In0"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L485-L570",
-          "version": "repo-lines-v1:sha256:d4e36e82d48c3fe114d3d7304b61c5ce07ded85112dd51e2b2ecf6ee30d76e54:eyJzZWxlY3RlZExpbmVDb3VudCI6ODYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmOTRjYzY3NGQ0ZWJhMjhiNjQ1ZmVmYTVlMTVlMGQ3NGJhNDJjMDQ0YmYzMzkyNWYyMGZhNDBkOTg5ODRiYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNzU3NWMzYjc3NzZjZjJmOWMyYmZiY2E0NGYyMTQ4MTNhNzgyN2VhYTljMzg0NTRjNzAzYjY4OWE3NDQzODYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjgxMzAwZjA2NTkyZmUyNGViNjM2NjU2ZTBjNjVjZjIwNDNhNGFiZjYxYTlkZGExYzk0NjRmZjQ2YzdkNGVjMDEifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_ad1edbc412bb483299acf8f82cb23576",
-      "statement": "The account-owned shared SRE role requires OIDC session tagging and the regional inline policy limits ECS ExecuteCommand on tasks by comparing the configured ECS resource tag with the caller principal session tag.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/account/modules/shared-iam/oidc.tf#L12-L85",
-          "version": "repo-lines-v1:sha256:833d8938644ec5cc109d37ef0dac53963a920be920d6a235a204fea5ca5ec58b:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjViN2JhNjY5OWIwZTNkZDhhMmM2YTk5M2M3OWQ4Mjk5YmE4MDg0MmY2YTlmNThiNDdmYzUwZWQ3NzhiNDU1MDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIwZWY0ZDE1ODU3OTc0MDc4Y2YzYTBhNDY4M2M4N2Y1ZDMzZjc5YmMyYThjYWViZjk4NTg4NTM1NDJiMmJkNTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU1MGE4NDZhZTI1ZWY4OTQ0ZTdjYWY1MTU0YWVlM2YzM2Q1ZDNhZmY0MGRiMWYxMzJmZWQyZDczYjM5OTQ5YmUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjcyYmI3ZDIzMTM0ZmZjNjhmOGJmZmNkMGYxMDVjYjVkODg5NzFiMzRiZmUyN2U3ZGJjMTNjYTE1MzQ5YjY2ZTkifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/iam.tf#L199-L224",
-          "version": "repo-lines-v1:sha256:3f73c54ab1f7f52177fa6df7113142529cca0cc1d4ceb93d96e00ee5c59e36aa:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImViNmE2ZTZkNGE1YTY4NjYyMGUyMzRiM2ExZTMxZTNkNzdlNzA0ZTYzM2I3ODM5OWNjYWM3YjU5Mzg1OTZhYmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIwOTliOGM1OWNjMDkwNWFiODZlYjU3YmNhOTcyOWM1NTQ4NjQzZmI3Yzk5MWM1ZWVmNDU0MzY0MmIzNWJmNTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5MjljZjQ3Y2Y2YWMzZTdiNDZlODIzN2Y2YmZkN2I1MTVlYTk0NTRiZjM2NzVmMWIyY2FhOGI2ODRjMDM3MDEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA3ZGE5NzQ5NTdhMGMxMTlhZGM0ZmUwNWNiYzU5Mjc1Yzc4ZDBkMDFmMWM4ZGUzYzU3ZmYwZDdlMDZjODlkNTcifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_fe30c94e7f4d484fbce00e4c701ed338",
-      "statement": "Lambda Function URL uses AWS IAM authorization, the regional invoker policy allows direct lambda:InvokeFunction, and the Lambda validates the caller OIDC token independently.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/regional/iam.tf#L283-L298",
-          "version": "repo-lines-v1:sha256:96ef5f8c93d3c1d65a225b2bf1c1349edf604d1402307e34351e01fba96d43e7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUwMzg4ZWUzMGYwMDM2ZGYxMzIzYzI3OTE1NDUyYjE0MTRjMzE1MTRjZDcxZWQwOWI1N2Y2ZmUxZWRlNzI3ZjEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImI4OWI3MmEzYTc5Y2MyOGMxNDk4MjJkOTJkNzA2YmEwMTMxNjRhOGUzYmQ0NWEzMDlkNmFhNzA2YzFiNGQ4ZGUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJiZDk1YjE4NDViZmMyNzA4YWU1ZjYyNTUxYTE1MzU5NWZiNDZlZGVjNDJkZDkyYTRjY2QxMzE5ZWMzZTQ2Y2EifQ"
-        },
-        {
-          "resource": "repo://deploy/regional/lambda-create-investigation.tf#L164-L170",
-          "version": "repo-lines-v1:sha256:acdfd091d506c6af3e86ebc4e10a3dd555285567a0ceed1e0d1618fac888f459:eyJzZWxlY3RlZExpbmVDb3VudCI6NywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMmUxODhiZjJjNWQ0YzBlNjcwYjI0Y2ExMGU1ZDc5NzZmMTAyYTc1NWE4ZjZkM2U2Njk4YWY2ZTljY2IzMWFhYiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMTE2OTcyYzFlODU1ODhkMjZmYzg0MjYxNmZiMDM1MmQ2NjQwN2RmNmFjZDcxZDAzMjg3ZmFhZTI4NDA5N2JmMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzQwYzVkM2RjM2E3NzMwNzkzYzg5Mjc5NDhiNTU5NjY0MjA3Zjc5YmE4Nzc3M2MyMTUwMDQ0MzE5NjJmZDQ4OCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzYwNDVkNTI3NTUwY2ZiNjA2NWIzMjU1NTc4ZDJkNTRkNGFmYjcwNmJjOTJhODhkMzMwOGViMjgzNDZmZGI0NSJ9"
-        },
-        {
-          "resource": "repo://lambda/create-investigation/handler.py#L114-L146",
-          "version": "repo-lines-v1:sha256:5ef3c5e56fd5b80bf38643f853af0404cb7bdaa89964ec61073d4b5f6b8ff620:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE2MWEwMDJhM2VmN2JmM2FhMTQyMThjN2VmNWZjYzAwOWEzNWQ1YjhlYjBlNWEyNjUyM2JiMTA2ZmNjMzA0MmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNjNzFjZjNjMTE3ZDJhZDdlNmJjNjViMTFiYzU2NGU1NzE5YmU1NjkxNDE3OWZjNTU0ZDQ1Y2RiMjBhOWE4NWUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFkODg2ODYyOGRjYzA5Y2QxMTE1OTA4Y2YzYTY5Zjk0ZWQzMDM3M2NjYTEyZTUwOWRiZTVjNzM1MzY0ZDQ0M2MifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_459d8e0498934d5b97fa712dbff94ac2",
-      "statement": "deploy/account/github-oidc.tf manages the GitHub Actions OIDC provider in three mutually exclusive modes (create, reference-only via data lookup, or adopt via a declarative import block) selected by create_github_actions_oidc_provider and adopt_existing_resources, pins the client audience to the fixed local sts.amazonaws.com rather than exposing it as a variable, and omits a thumbprint because the AWS provider computes it.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/account/github-oidc.tf#L1-L63",
-          "version": "repo-lines-v1:sha256:0d1403e788eacf041036d9e8035773c6824818818c2b6bad13b76f2885255644:eyJzZWxlY3RlZExpbmVDb3VudCI6NjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjljN2ZlYjA2ZWEzNDYzYWY3ZGE3YWZmMWY5ZThlZWU0ODBiYjI0MDc2ZTRkMDFlNjc1NWIwN2JlMjA3MmIxYTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ5MDJlYTIxNDMxN2U5Nzk0MWM5NDdkMDkzNjBhYjllNTIxYjUzMWYyZjIyZGQ5OTg3Y2JiYTRmMTU4ZjMwYTYifQ"
-        },
-        {
-          "resource": "repo://deploy/account/github-oidc.tf#L65-L72",
-          "version": "repo-lines-v1:sha256:375d187b78aea17b19b054a10dd236409f85fc2bb242a3a1568df64d00cb7240:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODM3NzgyNGZlYzFjZGZiN2E1NzE0YzA0NjRiMWRiNDA3YzAzZDgyN2NhYmFjYzU2ZWY2NTgzMTk5NjIzOWI1OSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTYwZGFmNDgzYmY4ZGU0NTljMTdjOWYzNDllNWU1MjBhMDc4OWYxM2YwYWE1ZDdmZjJkNWFlYmU4NGU2OTc0NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjAsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSJ9"
-        },
-        {
-          "resource": "repo://deploy/account/variables.tf#L170-L174",
-          "version": "repo-lines-v1:sha256:11616a8c9d548d5dbdff0aedc841631878af236e442d84ed60b944df41e13086:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZTYyOGFlMWY0ZDk5NGU0ZjIxYjI1NDNjNjZhNTIzNzEzMDQxNmM5ZTNjZmU2NTEzYzgzNzJlMDZlNjliMmRhOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNDEyY2EzNDVjY2Y3NWJmOWMwODA2YmNlNjk1YmU4ZGU4MDhiNzk5ODQyNTFhN2E1NGQyMDJjZjYxMDFkZDQ1MSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDljZjI5MDc4YzlkNzYxNzIwNjU1ZDE1M2VkMWFlODUzYmQxOGZiMDAyYWUzNjU0MDBjMWJjN2NhNTJhMTBlZiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiY2Y3ZWY4NTcwZDIyMWRmYjQyMDQ5MjE2YWNjY2ZiNGUwNDZiZGI1OTljOTQ0Y2M4OWI1MmJmNWRjNjhmZmIyZiJ9"
-        }
-      ]
-    },
-    {
-      "id": "claim_fefa8cd1c83a485289b17448eddcc47d",
-      "statement": "The shared-iam module creates one dedicated IAM role per configured GitHub content-publisher source (never a single shared publisher role), trusting GitHub Actions OIDC via StringEquals on a fixed repo:<repository>:ref:refs/heads/<branch> subject and the pinned audience; validation on content_publisher_sources rejects wildcards, colons, and full refs so no configured value can widen the trust subject to a pull request, merge ref, or GitHub Actions environment.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/account/modules/shared-iam/content-publishing.tf#L18-L70",
-          "version": "repo-lines-v1:sha256:bbf2b39574412f8e58d2e73fe88d011ca12750337d8345fc38fd7421348e44cc:eyJzZWxlY3RlZExpbmVDb3VudCI6NTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwYjM4M2IxNTQzYjkxYWRlNzI1MmMwOTZjZjBlNDQ5MDEwODQ5NzczMGVhNmNkMTAyM2FjZjAyZjI3ZmY0ZmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgwYWUyZTkxOGI5MmU3NzdkN2I4Y2Q1ZTgyOGIxN2JlYjUwOTZhZWJmZWRkOTBlZWJjN2QwNWYyODE0ZmYzNTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjY0MjdkOTkwNjI4YzMyZTI2YmUzYjMyMWQ0OWY1MzVlMDRlM2JlZGJiYzc5OTRmODg1NGI3NzAzMzg2N2FhYTIifQ"
-        },
-        {
-          "resource": "repo://deploy/account/modules/shared-iam/variables.tf#L72-L113",
-          "version": "repo-lines-v1:sha256:3a08dd6d5a6558c5f8cf90b58bc34584fafce6db8c9a3fc3a88b974535ea939d:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwNjE4YTYxNTM5MzA5Yzg1ZTA1ZDYyN2RlMGZlYTBlM2IwMjk0NDE1Zjg1OWRiM2E0NDEyMjlhNTYzMjIyMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjljNTVlYjc5NDQ0MTk3MTVhNTQwYWYyMTQyNmFjM2FlMTEyZDZiYjRiNjdiNzQ1OGQ2Nzg2ZDk3ODMzNTdlNmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImMzZDkzNThhOWNhNzU4YzlkMTg0NWM3NTZmNTQ4MDliYzk0ZGJkZDliM2EyNWZjYTc3MzhhYzIxNzkzY2RjYTAifQ"
-        },
-        {
-          "resource": "repo://deploy/account/variables.tf#L176-L187",
-          "version": "repo-lines-v1:sha256:dbd0b1322ad05b12cd49a823cc58b465a853814dacc0472b8aa0e37a5e154e25:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQwNjE4YTYxNTM5MzA5Yzg1ZTA1ZDYyN2RlMGZlYTBlM2IwMjk0NDE1Zjg1OWRiM2E0NDEyMjlhNTYzMjIyMDIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRlNjhlMmIzOTU1MzU3MzkyNDUxOWVhYzVkYTM0YzExMTdhMzZmNTQ0YmE3YmIxODc4NjhlZWU0NGRlZGE5ZjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk3ZWFhNjhmZmQ1ODQ0YzVjYjhiYzZiN2Y0Mjk0ZWQ0NjYxZjkxOTA5MmY3NTBhNTJlNzhkNjc1MGYzNzhhN2IifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_b6bf8e2a9d734a579e07ff19fcba8aee",
-      "statement": "A dedicated content-replication IAM role, separate from the account's pre-existing audit replication role, trusts the S3 service principal with no condition and is always created alongside the GitHub content-publisher roles, independent of whether audit replication is enabled.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/account/modules/shared-iam/content-publishing.tf#L72-L89",
-          "version": "repo-lines-v1:sha256:391f1f136a27cf7f61c3b7e292026057d8981b2bbe265cc62033ffe3e70a900e:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM5MTA4MjAzMzQzZTM3NDM0ZTU5N2I1ODBmYmExYTMzMGFmOGEzYjkyMjkwYTc5MDRkYTRiMzY4NzljZDJlOGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRjZjk1ZjJhMmZmNDU0NDJlMTM1ZDA0ZjY2ZmIyNTRiYTcwMTBlZTMyYmU4YjNhY2EwMDI3M2UxNzdkMDlmMjMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_62228a8589db427992f2f0bef47b2a17",
-      "statement": "The GitHub content-publishing and content-replication roles grant identity and trust only: the shared-iam module's content-publishing.tf references no bucket, KMS key, or region, so a publisher role is assumable but holds no content access until a separate regional Terraform change attaches S3/KMS permissions.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/account/modules/shared-iam/content-publishing.tf#L1-L16",
-          "version": "repo-lines-v1:sha256:e1cb5573fc7ce43964404b061064648b0e8b2e880f4d9df8ebed950146f4424a:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAzZWJjNmJmYzkwMzAzZGRkYjJhOWZjYzY2OTYwNGVmZTBiZWUwYzJjODRlMDY1M2E2NDY4MjdmOTg2YjQwMzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjIzZmExODY0NmQ0M2M1MzEyYTgzOTIwNDRmMzY0NDg1ZWUxMjkyOTBkYzExZWEwMWY5NTk0OWQ5ZmNmNzZjYjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ1M2E2MmU3MjZiYmUxYTgwOWEyN2FmZGVmZWY1MGE1NmEyZGJkOWY5OThhOWM2NTE4OWMxOGY2MTUxNjJmNTcifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_0bf43d255dfd465d87e5f76577be76b2",
-      "statement": "deploy/account/main.tf instantiates the shared_iam module exactly once as the sole creator of every account-global identity (SRE/invoker/Lambda roles, metrics-read, S3 replication, and the GitHub Actions publisher/replication roles), resolving the Keycloak and GitHub Actions OIDC provider ARNs in the account root beforehand and passing them into the module as inputs; regional Terraform roots only attach grants to these identities and never define their own.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/account/main.tf#L42-L77",
-          "version": "repo-lines-v1:sha256:6a9db877db55bb20eb240b652b869b881f7ef1bfbfde455000e568bf01c8fde7:eyJzZWxlY3RlZExpbmVDb3VudCI6MzYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImE3NTkwZDdlYjI4M2U1YmUwZWQ2NmQyYTRjNjBmMTI2ZWE2NjZmZDI1NDRlOWUyYmE3MGNlZmU3YmMzYjg2MjQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5YTYzNzhkOTBiYzA5NzEyNWFkZTAyYWU0YTEwY2IyYWRiZmNiYmE1NzMzMjNhYjRhODBjZjQyOTBlOWJkYTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        },
-        {
-          "resource": "repo://deploy/account/oidc.tf#L1-L51",
-          "version": "repo-lines-v1:sha256:e6e94d6fedf53417fae87c255f5383c417f9a8cdd4116b19d9586bce52d7cc8e:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImRkNzI4NDkzMzJkODc2MjEzZGFhNTM2ZGI2NWQwN2NlMjNkZjEzOGI3NTVkYWIxN2UwNDQ2OGI1M2M2OGU0NDMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        }
-      ]
-    },
-    {
-      "id": "claim_fcd0296bd2314fbd84a609ab226a34fb",
-      "statement": "The shared-iam module's outputs separate a fixed-shape roles map of core operational identities from a configuration-dependent content_publisher_roles map keyed by source (name, ARN, repository, branch, trust subject) and a distinct content_replication_role, and the account root re-exports these alongside github_actions_oidc_provider_arn so the identity contract stays stable regardless of how many publisher sources or OIDC providers are configured.",
-      "evidence": [
-        {
-          "resource": "repo://deploy/account/modules/shared-iam/outputs.tf#L1-L35",
-          "version": "repo-lines-v1:sha256:11ae92b9f13a4f962582ab9589b6b4d8856a479fba049820749e5522c4c314d1:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJjNWY5NWQyMmY1MTRlYjUyZTI1ZjcwYjEwM2Q2NDgxZWNhNzJkOWFmYWMzYzFlNTkwYmQ2NDQwMjBiNGQ0ODAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
-        },
-        {
-          "resource": "repo://deploy/account/outputs.tf#L22-L41",
-          "version": "repo-lines-v1:sha256:714d5cccd7d2e7b410649c5f2459580d8f02e4f2b9ce39b0eb1c885c1fe289a7:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1NmUxNzM2NGJkOTUxMzZmNTdkZDE3NmVlNzI5MTlhYjM4MjkyOWU5N2VlM2VhM2U2YmU3NTBiOTk5MmExMTgiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzYTFlMjY4ZGY0ZDEwYTJkNTcwYzdkYTVhYmE2MThlZTlmNzc2YjJmNGQzMDM3Mzc4OTk0MmFjOGExYWY0OWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZhY2JlZjg0NmQzZDcwOThmZTg3MmViNDhhMWNjZTU1Mzk2ZTI4Y2FjN2U1MTZjNDQyNjI2NjVlZjg5ODJhZDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjoxLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEifQ"
+          "version": "repo-lines-v1:sha256:e9681d35cae29e367a0244cd5e401147e71831a6f7ecea9b037fd40da80da9f2:eyJzZWxlY3RlZExpbmVDb3VudCI6NDIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjYzYTNjY2ExZWVhODk3YmEyYjI3NDVlYWU1YjAzM2Y5NzFlMDE2OGJlN2ExYTYxOWVkMTgxZmVkNmZkZGRiMjMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkwMTg0ZjEyNDMzMzYwY2IyMDAxNjc1Y2Q0NjEzZTNiZTBmYzBmMzBkODVhYzljYjYzODNjZDE2MTA5MmFkYmYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjZkMWQwMWQxNzg4Y2U5ZWFkYzRiZDBmZjIxN2U2ZTNhNjIzYTkwYzdkZjJiMjM5NDVjNWQ4OWMwNzBlMDc5MDEifQ"
         }
       ]
     },
@@ -176,19 +50,19 @@
     },
     {
       "id": "claim_23da56bbe30a421cb998505103dce9f4",
-      "statement": "All PKCE and device-code token acquisition, caching, and clearing is owned by the internal/auth package (oidc.go, device.go, callback.go, token.go); internal/cmd/root.go's assumeRoleWithRetryOptions and isAuthError orchestrate retries by calling into that package (CachedTokenForConfig, GetTokenWithOptions, ClearToken) rather than implementing the flows, and internal/cmd/cli.go's commandPreRun only resolves configuration and selects which role to assume before delegating to assumeRoleWithRetryOptions.",
+      "statement": "All PKCE and device-code token acquisition, caching, and clearing is owned by the internal/auth package (oidc.go, device.go, callback.go, token.go); internal/cmd/root.go's assumeRoleWithRetryOptions and isAuthError orchestrate retries by calling into that package (CachedTokenForConfig, GetTokenWithOptions, ClearToken) rather than implementing the flows, and internal/cmd/cli.go's commandPreRun only resolves configuration and selects which role, session name, and STS duration to use before delegating to assumeRoleWithRetryOptions.",
       "evidence": [
         {
           "resource": "repo://internal/auth/oidc.go#L57-L103",
           "version": "repo-lines-v1:sha256:889ec4a9ad2730aa55ec8e767c33bda163d29dd949a0ca4d66afdb36d949a7ff:eyJzZWxlY3RlZExpbmVDb3VudCI6NDcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAwOWM3YTExZThjZjE2NzQyYWM5NjY1OTMyYWJiMWMyOTMzMGNlMGE3ZmE4YjAzZTdhNWY2MTA5ZTI5NWRmMTAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijc4MzJiZWU3OWY0YmIyZmMzZmE5NDRiZjIzYTZkYjEyMWVlZjUzOGIzOTEwNDJjZTM3MTdmZTM4ODBkNTFjZTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjM3NzE5MWJmNzAwMGVhODM0NzFhMDBkODZmYjYzYjc3ZjZlZjZiYWU0MGY4YmYzYjM3NDMyZTc5MDAzNmQ4MWEifQ"
         },
         {
-          "resource": "repo://internal/cmd/cli.go#L57-L147",
-          "version": "repo-lines-v1:sha256:107dc94e067bf953a0d890876ab22ef8ae7f27da66a1da992a4f511993497263:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkYzUyMzJkN2MwZmJjZGY5YWRkNzQ1Yjk4MGIxNDk0MWE5M2I2ZjY3Y2IyMjk5ZWQ1MGE0MDM1YjkzOTVmN2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhZjY4NWU5MTQ4ZDUzMjk4MGVlM2JmNGM1OGYyOTVhZjVkMWMyMTY4ODJkZGFiYmNhMjJiNDUzMWZhYzdkNzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNTdlMmNiOGNjMTkyYjJkNmRlYTU4YzY1NDM3OWRiMDUwMzVjYjRiY2U4MzAwYjg4MzZjNmI5YTYzZGZlOWUifQ"
+          "resource": "repo://internal/cmd/cli.go#L57-L149",
+          "version": "repo-lines-v1:sha256:8282d59f0f79bdb80a8b5c56a81b46bccab95cc65691ef50c4f5674335111046:eyJzZWxlY3RlZExpbmVDb3VudCI6OTMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkYzUyMzJkN2MwZmJjZGY5YWRkNzQ1Yjk4MGIxNDk0MWE5M2I2ZjY3Y2IyMjk5ZWQ1MGE0MDM1YjkzOTVmN2QiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdhZjY4NWU5MTQ4ZDUzMjk4MGVlM2JmNGM1OGYyOTVhZjVkMWMyMTY4ODJkZGFiYmNhMjJiNDUzMWZhYzdkNzkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjkwMTdlODE2ZjE5OGVhYTNhMmUzMDQ5ZDhhMDhjZDNjMjEwZDU4M2Y0OWU5MmNmNTZhY2MyYTJkZmM2NmI5OTUifQ"
         },
         {
-          "resource": "repo://internal/cmd/root.go#L100-L139",
-          "version": "repo-lines-v1:sha256:3cb7b8686528aaed13e2a5d18f969e705bf988751a5a7221e77ae5d3c83a5f54:eyJzZWxlY3RlZExpbmVDb3VudCI6NDAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjExYWEzYjdiMDA2ZjhhNGIzY2U1ZDgzY2NmOWI5NThmYzQ4MDFmMWUyYmVjMWJiOWRhZTJkMDQyNmE5MDU2NDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdjMzk3Y2U2ZWQ0MGUyNjQzZmQ5MzY2NmZhZjNkMWY0ZDQ0ZjRlYWZmODA4NzA2NDUzMWViZjYwMzIxNjZiYjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
+          "resource": "repo://internal/cmd/root.go#L100-L145",
+          "version": "repo-lines-v1:sha256:01c2545eb7ba27ac6a4d445658eed97ad7594a630e16f3ebc6da16bd29592fb3:eyJzZWxlY3RlZExpbmVDb3VudCI6NDYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijk4YTNkYWJhNzZkNmE0OTBlNWJiMTI0ZjNjMTlmYWZjY2JiNGM1NTY0YTIwNTU3ODBkOTllZDNkMDg4YmI0NDAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdjMzk3Y2U2ZWQ0MGUyNjQzZmQ5MzY2NmZhZjNkMWY0ZDQ0ZjRlYWZmODA4NzA2NDUzMWViZjYwMzIxNjZiYjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2ZTQzNzlmODhjYTAxYWU0MjRiMDAyOGM3ODEzNTIyMDUxOTc4ZWIzZTIwNDE3ZjdlMDlmOTE4MWIwMDI2MDAifQ"
         }
       ]
     },
@@ -225,8 +99,8 @@
       "statement": "The ID token cache in internal/auth/token.go is scoped per OIDC issuer and client ID (CachedTokenForConfig/SaveTokenForConfig), so switching profiles or issuers never reuses another deployment's cached token and a legacy unscoped cache is not trusted once a profile is configured; the cache file is written mode 0600 with permissions re-applied via os.Chmod on every write.",
       "evidence": [
         {
-          "resource": "repo://internal/auth/token.go#L23-L138",
-          "version": "repo-lines-v1:sha256:44f99fcfc9a1c40efb5c814c37f57aa161ac528663791c84926c03298cd0fc06:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE2LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzY2MyNmI2MTM3MWM2YzJkZWY3YTEwNjFjYjRmZDg2NzNjYTA2ZjA0ZjVmMDk1ODEwMmIzYmFlMWZmM2EzZGNjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmNTA0YWE5ZDYxNTMxOGVmNmUzZjc0NGFmZmRlOTdiZjI3YmNlMGIwY2NiZTE3Yjg3YTVlYjg3M2RhNDNlMjczIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhYzQzYzI4MmI5MGI3ZWI0Zjg0M2E0YzFjMjY0ZTExOTU1OTcwZWU1NzkxN2YzNzdjZjgzODVkMWIzM2Q4ODdkIn0"
+          "resource": "repo://internal/auth/token.go#L23-L136",
+          "version": "repo-lines-v1:sha256:9e87ccba8a1acce6f986e936cac07045dcce8d292487e3712572a282461f9c18:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE0LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIzY2MyNmI2MTM3MWM2YzJkZWY3YTEwNjFjYjRmZDg2NzNjYTA2ZjA0ZjVmMDk1ODEwMmIzYmFlMWZmM2EzZGNjIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmNTA0YWE5ZDYxNTMxOGVmNmUzZjc0NGFmZmRlOTdiZjI3YmNlMGIwY2NiZTE3Yjg3YTVlYjg3M2RhNDNlMjczIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJhYzQzYzI4MmI5MGI3ZWI0Zjg0M2E0YzFjMjY0ZTExOTU1OTcwZWU1NzkxN2YzNzdjZjgzODVkMWIzM2Q4ODdkIn0"
         }
       ]
     },
@@ -239,10 +113,20 @@
           "version": "repo-lines-v1:sha256:926eb45435b3a9bb218e89521f895ddd1c0a1ea30ec29d508b8064f4039ab440:eyJzZWxlY3RlZExpbmVDb3VudCI6MjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdkYjZmNTA3YjJmY2RmZTk4NWNlM2IwM2JmMGQ1MmNmNjIwNzNiMGQ5ZjlhYzk1ZDFmMjkzZThmMjIyNjRiMTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1N2QzMTBlZTg3NWJiMGM2MDFkM2Y2YThhYjA5NDlkY2UwYTZjODZjMjI4YTMzNDhiNWE5ODhhMGEyYjcwZTYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
+    },
+    {
+      "id": "claim_f69cb4b9d677482daca73980ffaf3abd",
+      "statement": "assumeRoleWithRetryOptions retries a failed AssumeRoleWithWebIdentity call exactly once, and only when the token used came from the cache and the STS error matches isAuthError (ExpiredToken, InvalidClientTokenId, or an InvalidIdentityToken whose message does not also mention a claim, principal, or tag failure); SignatureDoesNotMatch is deliberately excluded since it indicates clock skew or request-signing issues a retry cannot fix, and the retry clears the cache via auth.ClearToken and forces a fresh login through the same OIDC flow rather than switching between browser and device mode.",
+      "evidence": [
+        {
+          "resource": "repo://internal/cmd/root.go#L108-L163",
+          "version": "repo-lines-v1:sha256:3e7be0af6ea87007716e05be4b3b8b130d001b15a7ae5e4e907757e61877bb71:eyJzZWxlY3RlZExpbmVDb3VudCI6NTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQwY2U3NTdlZjZkNzU1OWRkMmE1ZWQyOTYxMzgzOTRhMmYyOTM2M2JiNjEzMDcyM2U3M2I0NDM2NTQxNzNhY2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI0NTA0MmFmNjVkNjY3OTgwZTQyMGYxMzY1NDE0MjRhNWQ4MzQ0OWZmZWQxMWM4MDQzZTkyOGQ4ZDM5Mjg1M2IiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIwMmFlMmJkNGQzNWIwMjkwMTIxNTI5NDFiYzhmZTE0OWVhNTU1NjEyMTc1NGQ3M2ExN2ZlYWU0MDkyZjFlNTQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjU2OTQ1OThlZjQ2MDA1M2M0M2IzZWNkYWFiZjFjODUzZWEwYWQ0ZjVkMzQzOTVhMDNmYjM5YTQyZDNjMDI1MDQifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

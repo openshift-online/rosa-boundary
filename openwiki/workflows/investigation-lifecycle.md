@@ -5,7 +5,7 @@ description: Traces investigation workspace creation, session launch/handover, o
 tags: [investigations, lifecycle, ecs, efs, workflow, garbage-collection, lambda, container-build, audit-escrow]
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 sources:
   - id: openwiki-source-d26615a0354c146aa6f23c2c
     resource: repo://deploy/account/ecr-lambda.tf
@@ -39,11 +39,9 @@ sources:
     resource: repo://lambda/reap-investigations/close_finalization.py
   - id: openwiki-source-d796a031add13f67891a2f24
     resource: repo://lambda/reap-investigations/handler.py
-  - id: openwiki-source-13a9df7e50feb98129809599
-    resource: repo://lambda/reap-investigations/test_close_finalization.py
   - id: openwiki-source-6e447421bb9d1456afb165d9
     resource: repo://lambda/reap-tasks/handler.py
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 ---
 
 # Investigation lifecycle
@@ -54,11 +52,17 @@ Workspace-only creation returns the access point without registering or launchin
 
 ## Connect and inspect
 
-Session create and join share the connection path that checks admission and ECS Exec readiness. After task launch, optional OCM setup and Backplane login can report warnings. Backplane login failure does not mean the task vanished; JSON can carry the warning with the session result.
+`session create`'s auto-connect step and `session join` both end up in the same shared `connectToSession` helper: it checks the task's desired status, waits for the task itself to reach `RUNNING` (unless `--no-wait`), then polls the container's ECS Exec agent for up to 30 seconds before attempting the SSM data channel — opening that channel any earlier fails because the agent has not registered yet. `session join` additionally checks durable close state and requires the authenticated ID token's subject to match the task's recorded creator subject before admission is granted; a different identity is refused even with otherwise-valid shared-role credentials. Only after exec-agent readiness and admission does either path run its optional OCM credential setup. After task launch, that optional OCM configuration and the Backplane login that follows it can each fail independently and only report a warning: a Backplane login failure does not mean the task vanished, and in JSON output the warning travels inside the same session result (alongside a `backplane_login` boolean) rather than failing the command.
 
 ## Close a session versus an investigation
 
-The session reaper applies an eight-hour cap to identified, dated investigation tasks. The configurable shorter timeout protects attached sessions; older tasks can use deadline tags. An investigation workspace can outlive its last task. Closing the investigation is a request to the close service, not direct CLI deletion. Scheduled discovery checks workspace identifiers and paths and distinguishes idle eligibility from expiry. Expiry closes admission, not a live shell. The finalizer copies and independently verifies workspace evidence before cleanup. A missing source is not evidence of an empty workspace. Operator close requests and scheduled investigation cleanup use the same finalizer; stopping a session task is a separate operation. CreatedAt belongs to the access point, not to a replacement session: reusing a workspace does not reset its creation time. Normal verified close retains the EFS directory. Only stale reclamation can remove it, subject to its own controls. The CLI previews and submits a close request. --status reads progress without requesting work; --wait observes completion and ending that wait does not cancel the request. Finalizer tests distinguish empty from missing workspaces, bind receipts to attempts, and block sealing while shells are attached. Finalization reserves Lambda time before mutation and checks the remaining budget during copy; exhausting the budget is not proof of verification. The service publishes an attempt-bound receipt only for verified evidence. The operator does not author this receipt. IAM distinguishes the shared role's verified-seal deletion condition from the reaper's separately scoped cleanup permissions. See [verified closure](verified-closure.md) for interpreting request status and cleanup.
+The session reaper applies an eight-hour cap to identified, dated investigation tasks. A configurable shorter idle timeout protects attached sessions; older tasks can carry their own deadline tags. `session stop` stops one ECS task — directly, when the caller owns it, or by asking the close service's idle-session route when it does not — and leaves the investigation workspace open; an investigation workspace can outlive its last task.
+
+Closing the investigation is a separate request to the close service, not direct CLI deletion. `investigation close` first builds a read-only preview (visible tasks, task definitions, close-seal/receipt state) and prints it, then gates submission: `--dry-run` never submits, `--yes` skips the interactive confirmation, and otherwise the command requires an interactive terminal to confirm. `--force` does not push a close through unconditionally — it only sets the request's stop-consent scope, and the close service still refuses an explicit close request outright while any ECS Exec shell is attached, `--force` or not. As the CLI's own source comment puts it, the CLI no longer stops tasks, deregisters task definitions, or deletes the access point itself: a request is recorded, and the scheduled reaper performs sealing, verification and cleanup under its own authorization recheck, so an "accepted" close is never yet a "closed" one.
+
+Operator-submitted close requests and scheduled stale-investigation cleanup route through that same finalizer pipeline — seal, drain within the consented scope, copy, independently verify, publish a receipt, then clean up — with the stale, unattended sweep alone carrying no stop consent of its own, since a scheduled job never stops a task on its own authority. Stopping a session's task remains its own separate operation (`session stop`) that never goes through this finalizer. Scheduled discovery checks workspace identifiers and paths and distinguishes idle eligibility from expiry; expiry closes admission, not a live shell. CreatedAt belongs to the access point, not to a replacement session: reusing a workspace does not reset its creation time. Normal verified close retains the EFS directory; only stale reclamation can remove it, subject to its own controls.
+
+`investigation close --status` reads the recorded status without requesting any work, and `--wait` only observes that status until it reaches an end state, the wait limit, or credential expiry — ending the wait never cancels the underlying request. IAM distinguishes the shared role's verified-seal deletion condition from the reaper's separately scoped cleanup permissions. See [verified closure](verified-closure.md) for how the reaper interprets request status, drains tasks, verifies the copy, and reports cleanup; that detail is intentionally not repeated here.
 
 ## How the Lambda itself reaches ECS: packaging and container build
 

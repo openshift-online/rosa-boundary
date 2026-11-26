@@ -36,16 +36,20 @@ sources:
     resource: repo://components/trusted-actions/internal/rta/auth.go
   - id: openwiki-source-a6c0f8d599d4aca7d9811870
     resource: repo://components/trusted-actions/internal/rta/client.go
+  - id: openwiki-source-291900d792f9d852cf898b49
+    resource: repo://components/trusted-actions/internal/store/postgres_iam.go
+  - id: openwiki-source-1c3bf184f6289c69968a14d7
+    resource: repo://components/trusted-actions/internal/store/store.go
   - id: openwiki-source-4c833b02bf6d5fc7a2476dea
     resource: repo://components/trusted-actions/Makefile
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
   - id: openwiki-source-f1bd1e0a9201f149b775a09c
     resource: repo://deploy/regional/ecs.tf
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 ---
 
 Trusted Actions is an OpenAPI-based HTTP API that executes a fixed catalog of
@@ -160,7 +164,7 @@ components/trusted-actions/
 │   ├── audit               # per-execution decision/outcome audit logging (mock today)
 │   ├── models              # Execution, Audit, Output domain types shared by store/worker/handlers
 │   ├── ocm                 # OCM SDK client
-│   ├── store               # SQLite + Postgres, migrations
+│   ├── store               # SQLite, password-DSN Postgres, or IAM-token Postgres; migrations
 │   ├── middleware          # request ID, recovery, logging, request-level audit
 │   └── config              # env + optional YAML config file
 ├── openapi/                # OpenAPI 3.0 specification source files
@@ -236,6 +240,48 @@ and catalog lookups. See
 [Trusted Actions authorization model](trusted-actions-authorization.md) for
 exactly how the authn/authz portion of this chain resolves a caller's role
 and checks it against an action's allowlist.
+
+## Storage layer: three selectable backends
+
+Both layers share a single `Store` interface (`internal/store/store.go`):
+the HTTP handlers use it for `CreateExecution`, `ListExecutions`,
+`GetExecutionOutput`, and `ListAuditEntries`; the worker pool uses it for
+`ClaimNextExecution` and `UpdateExecutionWithResult`. Which concrete backend
+implements that interface is resolved by a single function,
+`store.NewWithIAM`, from three options:
+
+- **SQLite** (`NewSQLiteStore`) — a local, file- or memory-backed store used
+  for development and tests. Selected when neither an IAM database contract
+  nor a `postgres://`/`postgresql://` `DatabaseURL` is present.
+- **Password-DSN Postgres** (`NewPostgresStore`, legacy) — selected when
+  `DatabaseURL` is a `postgres://`/`postgresql://` URL carrying embedded
+  credentials. This was the original production path and remains supported
+  unchanged.
+- **IAM-token-authenticated Postgres** (`newIAMPostgresStore`, RDS IAM
+  auth) — selected when the `IAMDBConfig` contract
+  (`ROSA_TA_DB_HOST`/`_PORT`/`_NAME`/`_USER`, plus region and SSL mode) is
+  present. No password ever appears in configuration or at rest: a
+  `tokenConnector` mints a fresh, short-lived RDS IAM authentication token
+  per physical connection via the AWS SDK's `auth.BuildAuthToken`, and
+  embeds it as the password of a connection URL built only at `Connect`
+  time (`buildIAMTokenDSN`). Because each minted token is valid for roughly
+  15 minutes, the pool's connection lifetime is capped below that window
+  (`maxConnLifetime`, 10 minutes) so a pooled connection can never outlive
+  the token that opened it.
+
+`NewWithIAM` treats a *partial* IAM contract (some but not all of
+host/port/name/user set) as a hard error rather than silently falling back
+to `DatabaseURL` or SQLite — a truncated or mistyped `ROSA_TA_DB_*`
+environment must fail loudly rather than quietly run the server against the
+wrong database.
+
+For how each backend is provisioned per environment and which one a given
+deployment actually runs, see
+[Trusted Actions deployment and infrastructure](../infrastructure/trusted-actions-deployment.md).
+For the specific config fields involved (`DatabaseURL`,
+`DBHost`/`DBPort`/`DBName`/`DBUser`/`DBSSLMode`, connection-pool tuning) and
+how they relate to the audit rows this same store persists, see
+[Trusted Actions audit and logging](../operations/trusted-actions-audit.md).
 
 ## OpenAPI-first code generation
 
@@ -382,3 +428,9 @@ Actions is built or deployed should edit
 - [Monorepo components: Boundary and Trusted Actions](monorepo-and-trusted-actions.md) —
   how Trusted Actions coexists with Boundary as a separately owned component
   in this repository.
+- [Trusted Actions deployment and infrastructure](../infrastructure/trusted-actions-deployment.md) —
+  how the SQLite, password-DSN Postgres, and IAM-token Postgres store
+  backends are provisioned, and which one each environment runs.
+- [Trusted Actions audit and logging](../operations/trusted-actions-audit.md) —
+  the audit rows the store persists and the config fields that control the
+  store's database connection.

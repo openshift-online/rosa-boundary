@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:8cd0c2ddae792392f7f1ce0aa2772acb9cd47adcf2558c17cd00aeece4ef3a49",
+  "pageVersion": "sha256:4e4d66e403b85fbc698f51119e1ec43359add02cb8603b65d617edf41cb19924",
   "claims": [
     {
       "id": "claim_dcc0df2d8d304d71876fefca31c6744e",
-      "statement": "The root image has ten stages, including a Go builder for the bundled rta client; only the final operator image ships.",
+      "statement": "The root Containerfile has ten stages (tools-base, sre-tools, four coding-agent builders, search-builder, tmux-builder, rta-builder, and final); rta-builder is independent of BASE_IMAGE/tools-base, building from its own digest-pinned Go base image, and only the final production stage is shipped.",
       "evidence": [
         {
           "resource": "repo://Containerfile#L1-L28",
           "version": "repo-lines-v1:sha256:2c1b3014b55f26d0609eadeb078b2eb810bc1799883567f3b369aa3c6a40f0e8:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkMjk0NWQ0NTJmN2NkNDJkNmU4N2EwMWQ1NmM1MmYyYWRiYWRiMTJkMjFjNzAzYWE1ZTk4NDlhNGYzNTU5MGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJkYmI5MzgzODE4ODczMjk4NjFiMzZkNTEwODk0YTEzNDhkNTkzNWZlMzk1MzkwNTQwM2E4MzI4YWI4ZjFjYTQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI2NzNkZDFlMGQ0ZDMxNmNiOTQzNzA5NzMzNTM3NGYzNWM0YjhmYTQ3Njk2ZDJhZmM0Njc2ZWY1YTBlM2RkY2EifQ"
         },
         {
-          "resource": "repo://Containerfile#L354-L387",
-          "version": "repo-lines-v1:sha256:24a7c3859b12cb7d3dd59f08f0a7387fdf0106f4cad11ec3a05f89a3b912f174:eyJzZWxlY3RlZExpbmVDb3VudCI6MzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU3ZjgyNjFkYzQwYzI2YTFmMjBiZjExOTlmNmYyNjY1Y2Q2ZTBhZDg2YWUxN2I1ZWZhZjM2NTZiZjI3YWQ3Y2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY0M2E2ZGMzMDE3NjZhMjU0NGIyMTAyOTZmN2YxNzY0OTI4MDllYTUyN2U0MWNmZmMyMWI0OGVmNTZjNzg3ZTYifQ"
+          "resource": "repo://Containerfile#L354-L417",
+          "version": "repo-lines-v1:sha256:25bdbf7b83aae8e08d10027e125957201116a65fdbea755dfc61364d70fa4907:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA3ZTkzOTYzYWU3ZjkxYTM0M2YyOTIxNzg1YWExOGU1MTNhOTdlNGFlZDc2OGJkZmNiMzRiN2RiNWYwNWUyNjEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA0NTExZWMyNzQwYmE5NTAwYjNjYzgzZDNjYTcxZTI1OGNjNGVhYjIzZDViMTlhYmU4MThjMDMwZDE2NjJmMGMifQ"
         },
         {
           "resource": "repo://Containerfile#L440-L452",
@@ -109,10 +109,56 @@
           "version": "repo-lines-v1:sha256:603f9122efce4fe0e9a94e6c975a65f5712f88e772ff4970db6e86b29e4bfc4f:eyJzZWxlY3RlZExpbmVDb3VudCI6NDUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhmYThiNzQ0NTRmZDc5ZmFiNmIyZjI3YTRhZjkzMmRhYTkyNzFlYTRjZTlhNmJmMTlkMzU5ODA2YzJhYzkwZGMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM3NjlkMjM3Y2Q0MjBiOWQzOGI5ODFhMGE0ZjY3NzAxOTBhNGE4M2RjYTFmZTU2YzRmNWJhMWUyY2JjMGVmNzYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNiODliYzg3NjY4MWY5MzllMjQ1NTZmN2FjZGI0MmRiOTA0YmRiNWYyNjE3NzMzNWY0NDA5MjQ2ZWU1NjgxOTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
         }
       ]
+    },
+    {
+      "id": "claim_a5ea6993a6354870afdcb7bb5f3ad369",
+      "statement": "rta-builder compiles the rta CLI from the nested components/trusted-actions Go module using go.mod/go.sum caching (go mod download before copying application source), a GOARCH==TARGETARCH assertion, and a go build invoked with -mod=readonly -trimpath and -ldflags that strip symbols (-s -w) and inject Version (from the component's VERSION file), Commit (RTA_COMMIT build arg), and BuildDate (RTA_BUILD_DATE build arg) via -X; only the static /out/rta binary is copied into the final stage.",
+      "evidence": [
+        {
+          "resource": "repo://Containerfile#L354-L383",
+          "version": "repo-lines-v1:sha256:8fbf5746b28b15452116aaf9d2bcd5d1f4e3750bf99d83ace4973cddf214cf88:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyNzdkNjA3ZDdjN2UxMjdlZDc3YmY5MTE3ZTE3OTg5MGJkNjllZDlhYWYzZjU1ZjJmMzU4YTcxOWYwNWM4YTUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_d2f0ad781438481687f5126ac36bf4d9",
+      "statement": "The root Makefile's build-amd64/build-arm64 targets supply RTA_COMMIT as `git rev-parse HEAD` (with a -dirty suffix for an unclean checkout) and RTA_BUILD_DATE as that commit's author timestamp as --build-arg values passed to podman build; the Containerfile excludes .git from the build context, relying on these build args (or Konflux-supplied equivalents) for version provenance instead.",
+      "evidence": [
+        {
+          "resource": "repo://Containerfile#L374-L377",
+          "version": "repo-lines-v1:sha256:4dc2900a9734c557bf3020fddaf963c360d065ad1a6a83342610055dd8d350a4:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMjczYWIxM2FmZGUwZTdhOWZkZDJkNzljOWEzNzk5MzcwMWZkY2MwMWY5NjJjZWFlNWRkMDhlNDA2N2M1YTBkMSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiODg3NjRmODg1MjAwNThhNjc4Y2ExYzYxMTNhZjk0NzFhZTVhODQyYTkxNzg3ZDk1ZWZiOGEyZmVlN2Q2NWI1YSIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNTkyZTBhZDc0ZGI4YjZiNGZkMTUxN2YxMWFjZmE3MmRiNDgzZmFlZjgzYTlmZGE4YjlhY2Y2OTYzODExYTNiYiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmIzMWY4YjVhN2I2NDYwOTAyOWYyZTA2YTA0NTIyZjdlNjAzYzIwYWExYmQ5NzU5NzMzYmE1Mjk4NWUzMDJmOSJ9"
+        },
+        {
+          "resource": "repo://Makefile#L12-L16",
+          "version": "repo-lines-v1:sha256:4ee7fb7491984d2d2d1367653b78fe91aadc6bbfcbabd79fe81c621aa95387ad:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiODBmOTQxZjRkYWE1YmQwODc1NWY4ZDAyYTBiN2E0ZWI1NzQzMjc3MDZkZGM2MGQ1ZDhiZDI4MmFhM2I0ODQzZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMjkyODljYjBhMjExMWE2ZGRjYzEzODNkNjg4ZjI1YmUzZGNhYTM2NjM5MTBjOGZjYmUxOTg5N2Q1MzBiN2VhMCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZDUyM2U4YjMzM2MwZWU5NTQ3NTQyNDFlODE3MTQxMWU5Zjk0NWQ0MTUyODUyMGEzYzNmZTVjY2UwNWQ4ODEwMiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOTU1MWRhZmU1OWNlMTFlYzZmMmU0YjJhOTgxNzAwMWMxZWJiN2E5NjU4M2MxZTEzNDU3OTZkYzI0NDFhZjFhYiJ9"
+        },
+        {
+          "resource": "repo://Makefile#L30-L40",
+          "version": "repo-lines-v1:sha256:105a19a6ae8fc33917c29e4aad06da78fb6f7975a08d2507975f7df2b5d031de:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlMzljMDk0MDkxZWQwMmY1ZDdkY2IyM2I3MjgxZTI4OTM2MjdiZTA0YTQxZDQ2NDVkMjQyNzlkMDRiZGJiMGYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFhMjU1NDlhYmU0MTA1ZTJkMjQ0YTMxZmE2MDI4ZDVkNzhiOGE2ZDMzNzZhY2FmZTZkMmQzMDI0MDQzZDk5OWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImNlMmFhZWZjNDJhYzAyOGRlYjg3ZDdlOTQxYTc2YzQ0MjkxOGI1MmQ0MmJhYjE3YjQ0OTk4ZDlhNDM5NTM2YzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk3MDM3NjMwM2I4YWI5YWIwOGI5ZmYwNjQ0OTFhMzQ4ZjU2NzYxOWZmN2YzMTNmMDc3NTg3OWVlYzBhNWMwOWMifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ad33fbbca8f240e284e5f9aabed03e69",
+      "statement": "The final stage re-declares ARG RTA_COMMIT to set the image's org.opencontainers.image.revision OCI label, and its offline verify_sre_tools.py runtime check also validates the shipped rta binary: static ELF, correct architecture, no setuid/writable bits, absence of any Go toolchain/module cache/Trusted Actions source on disk, and that `rta version -o json` reports the expected version, linux/<arch> platform, a commit matching RTA_COMMIT, and a non-empty build date.",
+      "evidence": [
+        {
+          "resource": "repo://Containerfile#L387-L392",
+          "version": "repo-lines-v1:sha256:dbed5757ef42e6ee6e343bd4cce4b4ac28ffa31653ad61a8c07d1ac12c17b6af:eyJzZWxlY3RlZExpbmVDb3VudCI6NiwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTdmODI2MWRjNDBjMjZhMWYyMGJmMTE5OWY2ZjI2NjVjZDZlMGFkODZhZTE3YjVlZmFmMzY1NmJmMjdhZDdjZiIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOGMwMWQ3NmNjMjQyOWM4YTkyMWU1MWU2NzRlZjM2OGRiNDU1MDY4Mzk0YjQ0OTE4NDllYTQwN2U2MmZhMzJlOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMzI3N2Q2MDdkN2M3ZTEyN2VkNzdiZjkxMTdlMTc5ODkwYmQ2OWVkOWFhZjNmNTVmMmYzNThhNzE5ZjA1YzhhNSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjNjYjg5YjAxMGJmYzQ5MjUyNTE5ZmEyM2NhMTY2Y2E1YTEyNjUyZmExM2RhNGY0MzgyMTBkNmY3ZjRiOWQ5ZiJ9"
+        },
+        {
+          "resource": "repo://Containerfile#L484-L497",
+          "version": "repo-lines-v1:sha256:8431973cddfa288ddc23a4fb4b6c99ee27b5b8746a013d2feebc2785aecadfd7:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkzNGUxYTk3YmVkMjAzZGZhMDFkYzViOTBiYjVmNjQ1ZGRiNTZlMjFhNGE1NmJkNjNjYmJlMWJlNDQ3ZjI3OWMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFlMDZjZTZmNWIyOWEzMjBiY2I0NWU2MTJlZmE3N2U4MTg3NzdhZmZhN2IzNzBiZDNmMTliNjNjY2MwM2YzMTYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjE1YzY2ZWE4MWJjOWRmNmIzODNmZGI5NWE5NWMzYTE1ZmEzODdmYzhkNjJiZjAwNTRlODZmNGQ3NGQ5YmI1MTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjdmZjc5MGIxYTNiYzY2MWI2MzYxYWYwYjk3MjVkNzAxNzcwOTRkZWFjN2JiODVkYmVjMmU4NTU2MjFmM2RkODkifQ"
+        },
+        {
+          "resource": "repo://build/verify_sre_tools.py#L179-L213",
+          "version": "repo-lines-v1:sha256:c670a75d29efa4cc2f9e71c8ae4f742c14c40f7b9545a752b8ee7c142f217d66:eyJzZWxlY3RlZExpbmVDb3VudCI6MzUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc5YTNjMGMzMGNhNGNhNjQ2OTY0OWVjOTJmYjJlN2Y3NzcyNzcyYTdiOTVmMTM3ZThiMjI1YjhmZmVhOWVlZTQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg2ZGEwMTk4NWU5ZTE2ZDk2ZDJkYTkyZjAxMzRmMjI2ZDM3YWNiMmZiZWU1Y2ZkYmZlMjU2Mzc4MTk4MzAyZDgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU0YmIwMTVhZjRiYjYxZmI0NmNkZDQ4MTVmM2M3YjQyZWMxOGM4M2Q1MmFmYTMyYjVhMDdiMGU4OGJmYzEyMzIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjEzZTkyYzNkOWEwNDNlZjQxMGU0YjgwZWIxMGY2ODhlN2E2ZmIxZmQxODNjOGQ5NDhhMThhMjE4YmI2N2JhMzIifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

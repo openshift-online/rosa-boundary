@@ -28,10 +28,10 @@ sources:
     resource: repo://hcp-terraform/rosa-trusted-actions/OWNERS
   - id: openwiki-source-b22643f9c083ba8127bcda92
     resource: repo://OWNERS
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 ---
 
 ## Why this page exists
@@ -124,12 +124,42 @@ Consequences of this split:
   and root Makefile targets, which build the `github.com/openshift-online/rosa-boundary`
   module, do **not** exercise the nested `github.com/openshift-online/rosa-trusted-actions`
   module.
+- [`components/trusted-actions/Makefile`](../../components/trusted-actions/Makefile)
+  is TA's own build/dev entry point, independent of the root Makefile: it
+  wraps `goreleaser` for the `rosa-trusted-actions-server` and `rta` release
+  binaries, drives OpenAPI code generation, and offers several local-run
+  modes against different backing stores (`run-sqlite`, `run-postgres` with
+  a composed Postgres, and `run-localstack-db`). The `localstack-db`,
+  `run-localstack-db`, and `localstack-db-down` targets provision, run
+  against, and tear down a LocalStack-backed RDS Postgres instance via
+  `scripts/localstack-db.sh` for local development — this is TA-only
+  developer tooling for a database that exists solely for Trusted Actions;
+  Boundary has no database and does not use or share this LocalStack
+  instance.
 - The two `go.mod` files declare separate module paths
   (`github.com/openshift-online/rosa-boundary` at the root versus
   `github.com/openshift-online/rosa-trusted-actions` under the component),
   there is no repository-wide `go.work`, and neither file contains a
   `replace` directive pointing at the other — Go tooling resolves each
-  module's dependency graph independently. Both declare `go 1.27.4`. The separate module boundary does not prevent packaging the client: Boundary builds `cmd/rta` from the same checkout and installs it as `/usr/local/bin/rta`, not as a TA server.
+  module's dependency graph independently. Both declare `go 1.27.4`.
+  Boundary's and Trusted Actions' Go modules, container build stages, and
+  Terraform roots remain independent of one another: Boundary's root
+  `go.mod`, root `Containerfile`, and `deploy/` Terraform roots are built
+  and applied separately from Trusted Actions' `components/trusted-actions/go.mod`,
+  `components/trusted-actions/Containerfile` (which builds and packages the
+  TA server image, used by TA's own deployment — see
+  [Trusted Actions deployment](../infrastructure/trusted-actions-deployment.md)),
+  and `components/trusted-actions/terraform/` roots. The one deliberate
+  exception is a one-way build-time artifact copy, not a shared module or
+  deploy dependency: Boundary's root `Containerfile`'s
+  [`rta-builder` build stage](../../Containerfile#L354-L383) compiles only
+  `cmd/rta` from the TA module source (`go.mod`/`go.sum`, `cmd/rta/`,
+  `internal/`, `VERSION`) copied into that stage's own build context in
+  this same checkout, producing a stripped, statically linked `/out/rta`
+  binary; no TA server code or dependency enters this stage. The
+  [final image stage](../../Containerfile#L446) then copies only that
+  binary in as `/usr/local/bin/rta` — a CLI client packaged into the SRE
+  container, not a TA server process.
 - The handful of third-party dependencies the two modules share (for
   example `golang.org/x/oauth2`, `golang.org/x/sys`, `golang.org/x/term`,
   and `github.com/spf13/pflag`) are pinned to independently resolved

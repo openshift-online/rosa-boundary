@@ -50,10 +50,10 @@ sources:
     resource: repo://components/trusted-actions/internal/worker/pool.go
   - id: openwiki-source-e056de31ce09903fbdcfa041
     resource: repo://components/trusted-actions/openapi/components/schemas/Execution.yaml
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 ---
 
 # Trusted Actions execution pipeline
@@ -82,10 +82,9 @@ For how results are surfaced in the audit log, see
 
 ## End-to-end flow
 
-<!-- openwiki: mermaid parse failed and this diagram was converted to a text fence so it does not break rendering. Fix the diagram source and restore the mermaid fence. Parser error: Heuristic: an unescaped angle bracket inside a label breaks rendering; rephrase the label. -->
-```text
+```mermaid
 flowchart TD
-    Z["rta action run <action><br/>(internal/rta.Client)"] -->|"POST /{action}/run<br/>(authenticated + role-checked)"| A
+    Z["rta action run ACTION<br/>(internal/rta.Client)"] -->|"POST /{action}/run<br/>(authenticated + role-checked)"| A
     A["Any ocm_jwt-authenticated client"] --> B["APIHandler.CreateExecution<br/>internal/handlers/api.go"]
     B --> C["store.CreateExecution<br/>status = pending"]
     C --> D["APIHandler calls notifier.Notify()"]
@@ -114,6 +113,8 @@ flowchart TD
     T --> U["GET /runs/{id}<br/>GET /runs/{exec_id}/output"]
     U -.->|"rta polls every 2s<br/>until terminal status"| Z
 ```
+
+*End-to-end path of a trusted action, from `rta action run` through persistence, worker-pool claiming, scope authorization/execution, audit logging, and result retrieval.*
 
 ## 1. Discovery and request: the `rta` CLI
 

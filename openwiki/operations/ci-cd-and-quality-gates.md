@@ -3,6 +3,9 @@ type: delivery-and-verification
 title: Repository CI/CD configuration and quality gates
 description: Documents only ROSA Boundary repository-owned image pipelines, local test and lint entrypoints, pre-commit hooks and HCP workspace declarations; explains which external CI and release behavior cannot be verified from this checkout.
 tags: [ci, cd, prow, konflux, github, pre-commit, testing]
+verified:
+  - by: openwiki/0.9.0
+    at: 2026-11-26T16:03:02.488Z
 sources:
   - id: openwiki-source-4d1645cb6317345817452838
     resource: repo://.pre-commit-config.yaml
@@ -18,10 +21,14 @@ sources:
     resource: repo://.tekton/rosa-trusted-actions-pull-request.yaml
   - id: openwiki-source-12238a6f88dc834f61553058
     resource: repo://.tekton/rosa-trusted-actions-push.yaml
+  - id: openwiki-source-3171b915c13566ad7c807787
+    resource: repo://components/trusted-actions/compose.localstack-db.yml
   - id: openwiki-source-56c54c10348f1e72daffc214
     resource: repo://components/trusted-actions/go.mod
   - id: openwiki-source-4c833b02bf6d5fc7a2476dea
     resource: repo://components/trusted-actions/Makefile
+  - id: openwiki-source-3a13739b5848ad6b59fbe22d
+    resource: repo://components/trusted-actions/scripts/localstack-db.sh
   - id: openwiki-source-527b127f4d59725c0085dfbf
     resource: repo://docs/staging-deployment.md
   - id: openwiki-source-81722021d767635aca673ab8
@@ -34,10 +41,7 @@ sources:
     resource: repo://scripts/test_all.py
   - id: openwiki-source-38fbf433aefe6645b985c0ac
     resource: repo://tests/localstack/ci-run.sh
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
-verified:
-  - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 ---
 
 # Repository CI/CD configuration and quality gates
@@ -73,7 +77,8 @@ The deployment variables pin images separately from these PipelineRuns: see `con
 - `make test-localstack-ci` invokes [`tests/localstack/ci-run.sh`](../../tests/localstack/ci-run.sh), which requires `LOCALSTACK_AUTH_TOKEN` and `ARTIFACT_DIR`, starts a Podman-backed LocalStack Pro ECS task executor, writes a JUnit artifact and rejects missing/all-skipped test results. Its comments describe a Prow caller, but **this script does not define the external Prow job or its trigger**. LocalStack is not live AWS.
 - Root `make test-all` runs [`scripts/test_all.py`](../../scripts/test_all.py): local suites, formatting/lint, a disposable Terraform snapshot with mocked-provider tests, LocalStack integration, Boundary multi-architecture and Lambda image builds, pre-commit and per-check logs. It requires an available LocalStack endpoint; `--require-complete` rejects skipped JUnit cases. It does **not** deploy, publish images, upload coverage/SARIF, run external scanners or verify live AWS. Neither `make test-all` nor `make check` is automatically a CI gate just because it exists.
 - [`.pre-commit-config.yaml`](../../.pre-commit-config.yaml) configures always-run `skillsaw lint .`, a dashboard manifest check, whitespace/EOF/YAML/large-file/merge-conflict hooks, root `golangci-lint` **excluding TA**, `gitleaks` **limited to TA**, and TA `go build ./...` on changed TA Go/module files. `make pre-commit` runs those hooks on all files through `uv` and may rewrite files. This is not a full unit suite, root-wide secret scan or TA lint gate.
-- TA [`make test`](../../components/trusted-actions/Makefile) regenerates its bundled OpenAPI/Go code, compiles integration-tagged tests without running them, then executes `go test -v ./...` in the TA module. Its race, coverage, Postgres, API, full integration and kind/ministack checks are separate targets, as is `make lint` and OpenAPI validation; no root Makefile target covers them all by default. Boundary account/regional `.tftest.hcl` suites use mocked AWS; the account Python replication-topology check is a separate Python test. See [Terraform verification](../testing/verification.md) and [TA testing](../testing/trusted-actions-testing.md) for scope and limitations.
+- TA [`make test`](../../components/trusted-actions/Makefile#L144-L148) regenerates its bundled OpenAPI/Go code, compiles integration-tagged tests without running them, then executes `go test -v ./...` in the TA module. Its race (`test-race`), coverage (`test-coverage`), Postgres (`test-postgres`), API (`test-api`/`test-integration`), action-backplane (`test-actions`, `test-actions-proxy`) and kind/ministack (`itest-up`/`itest-run`/`itest-down`) checks are separate targets, as is `make lint` and `make validate-spec`; no root Makefile target covers them all by default. Boundary account/regional `.tftest.hcl` suites use mocked AWS; the account Python replication-topology check is a separate Python test. See [Terraform verification](../testing/verification.md) and [TA testing](../testing/trusted-actions-testing.md) for scope and limitations.
+- TA's [`make localstack-db`](../../components/trusted-actions/Makefile#L130-L132) provisions a disposable, licensed LocalStack RDS PostgreSQL instance via [`scripts/localstack-db.sh`](../../components/trusted-actions/scripts/localstack-db.sh) and [`compose.localstack-db.yml`](../../components/trusted-actions/compose.localstack-db.yml), bootstraps the application schema and IAM-auth role through the server's `bootstrap` subcommand, and writes a gitignored `.env.localstack-db` that [`make run-localstack-db`](../../components/trusted-actions/Makefile#L114-L117) sources to run the server against it (also requires a `ROSA_TA_KUBECONFIG`, e.g. from `make itest-up`). [`make localstack-db-down`](../../components/trusted-actions/Makefile#L134-L136) stops and removes the container, its volume and the env file. All three require `LOCALSTACK_AUTH_TOKEN` in the environment because RDS is a **LocalStack Pro** feature; the token is passed only to the container (never written to the env file, the repo or logs). Each `localstack-db` run regenerates the master password and, if an instance already exists, deletes and recreates it, so the dev database is intentionally disposable — rebuilt schema, not persisted rows.
 
 ## What this checkout cannot prove
 

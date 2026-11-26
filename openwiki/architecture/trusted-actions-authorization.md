@@ -1,7 +1,7 @@
 ---
 type: architecture
-title: Trusted Actions Authentication and Authorization
-description: Explains the Trusted Actions request pipeline's auth chain — JWKS-backed OCM JWT authentication, account-JWT middleware, audit logging middleware, API-level role authorization, and per-action access checks — plus the separate resource-level authorization performed inside the executor, and how auth is skipped for health checks and mock/dev mode.
+title: Trusted Actions authorization model
+description: Explains the Trusted Actions request pipeline's auth chain — JWKS-backed OCM JWT authentication, account-JWT middleware, audit logging middleware, API-level AMS role authorization, and per-action access checks — plus the separate resource-level authorization performed inside the executor (Kubernetes namespace/secret allowlists, the cluster-region deployment boundary, and the AWS operation allowlist), and how auth is skipped for health checks and mock/dev mode.
 tags: [trusted-actions, authorization, authentication, ocm, ams, rbac, allowlist]
 sources:
   - id: openwiki-source-11418ec52755ac005ca19730
@@ -35,7 +35,7 @@ sources:
 generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 ---
 
 # Trusted Actions Authentication and Authorization

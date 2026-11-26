@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:7b3f8cdf96578125fed916bb39c6549f71a80cd09eaccd7202aa93acf479267d",
+  "pageVersion": "sha256:280a87560e506f12ea229d70324ac7ba5e1666226bdb6a429682f3d36f1265bd",
   "claims": [
     {
       "id": "claim_3cdf4a9b1fee4625859a5a2ef10e5ef9",
@@ -63,15 +63,15 @@
       "statement": "worker.Pool.New clamps concurrency to at least 1 and a non-positive pollInterval to a 5s default; production defaults are WorkerConcurrency=4, WorkerPollInterval=5s, WorkerExecutionTimeout=2m, each overridable via ROSA_TA_WORKER_CONCURRENCY / ROSA_TA_WORKER_POLL_INTERVAL / ROSA_TA_WORKER_EXECUTION_TIMEOUT.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L168-L170",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L182-L184",
           "version": "repo-lines-v1:sha256:e79a1d00d562a14bd9e80ad3ed4356595724041f8d2023f99da4b16d30b58420:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjI3MDg0NzZhMWFhOWVmYmU3YzcyNDYzZjFjMGU5NDkyNTdjODUwMmM4MjRlZWZiY2U2MWQ2OTA1OTc0OTA3ZCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZDU5NGI5MzJjYTI4NTQ0ZGU4Y2YzMWZkOWM0NjEwYmIyNmNiMDA0YjRmMTIzYzAwZTdlMzc2NGJhNzNkMmJkMyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiOGQ0NGVlZjQ5YjZlODgzYTdjODUzNmI0MTZjZWUyNGRjNTJmOWM2YzdiYTk4Y2JhOWVkNzkzYWI5MGY1MTMwOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMzY5Y2UxYWRkMmRjNTBjZmMzOThiYTRmYmVlZGI5ODg3NjIzNGY0MTNkOWZhZGJiMjNjOTNiYWEwNjc2YmQ5MSJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L262-L265",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L281-L284",
           "version": "repo-lines-v1:sha256:67b0f47f42cd5d194a8cd431331e635d773e156526ac1d7be7fbc5ad713c1735:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiYTgxMTVkYTk4ZWNkYzI0ZDRiNzFhMDgyNGNiN2QzODhmMTk0YzYwODllMTEzNjhiNDY3Yzg2Y2RmZjhlYzkwNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiZTYyNDhiZDI3MmE0YjkzNWIwYTUwMWMxZTM3NTUzZWYyZmJhZjcyMzFiYTZjOGJiNDZiNzZjMGJlZWE1M2Y0NiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNzg2Y2VkMjk2NzMyMzlhZDkyNTEyNTAwZWViZTAzMDBkOTRkMmNiMzA1NTZjYTcwMGZhOTM3MTI5NDNmZTcyYSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTFhZjcwMzZkMTNlMmZlNzdiYjViOWYyZTcwM2UyNWJmMWU1YzI5MTk5MTgzZGJkY2VjNWFiZDQ0NWZiNmY5NCJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/config/config.go#L70-L80",
+          "resource": "repo://components/trusted-actions/internal/config/config.go#L84-L94",
           "version": "repo-lines-v1:sha256:12eb46962cda147c8c59b7541a0774655577ad814fb2a639e42231a521646581:eyJzZWxlY3RlZExpbmVDb3VudCI6MTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE1MTAxMDM5ZmU3ODBhNmVhZTNhMDJiMGM4NzdlNzA2MDA5NmY3ZGM3OWQyYTJhMWE2YTk1OTM0ZTRhZWMzNDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAyNmY1NmQzYWJmMTYxNzk3MTliOWQwMmQ4N2FlYWM4ZDRmMWQ5MmNkZmQ4MDk3ZjRmNmQ3OGQzYmRmYzRmYzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU1MjlmODczNjE0MDIzMjI3ZmMxNzNmZTRiOWNlM2RkYzg4OWM4Mjk5M2VmYzEzNjg5N2ZjYjQxYjU1ODMzNGIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQ2YTUwMzNmNDA1MDEzZjcxODc2YmE5OGU4YmE0MGRmYjk2NWUwZTI0MmQ5NGZlMjY1NWU3OTQ5MzdiYjU5ZjgifQ"
         },
         {
@@ -113,7 +113,7 @@
       "statement": "On SIGINT/SIGTERM, cmd/server cancels the worker pool's context, gives the HTTP server up to 30s to drain, then waits up to the remainder of that same 30s window for in-flight worker executions (Pool.Wait) before exiting, warning if that wait times out.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L468-L493",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L479-L504",
           "version": "repo-lines-v1:sha256:0b5e75814d34f0bebaf895c054f5d303be213a01e3d13a6cae1acb50d72186d3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFiNzJlYTZkYWZhM2QzNTE4NTA4ZTdmN2RlOTg1YWUzYTU2ODg5YjA1MjI3OGI5MTgxMGQ1ZTZkNzY2Yzg1MzEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3Y2RhODJkYTYwNjIzOGUwNWU2MjM5OTU2OWM1ZWUwMzk5MzQxOTY0OGFlNWQ0M2EyYmY4Y2Q2MzQ3ZjgyNjMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjIzMzZjNWZiYTNlZjNmYmQ0ODRmMGQwODAxNDBjZTgyMjkzMjJmYWQzNDY2Y2E0ZDliOGRiYjA1YmJkYWI0ZjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJhNDI2NWEyY2JiYmU2NzFjNjBlZjYyMzFiYmMzYjZjNzE2MTE0OGNmNDkxNmUzZDYyMDI3ZTM5OWIwNDRhNDkifQ"
         }
       ]
@@ -221,7 +221,7 @@
           "version": "repo-lines-v1:sha256:10b7abe5e254ed7c510107183b6bc2e4dde44aafcdca950cf98fa1110c5cedb4:eyJzZWxlY3RlZExpbmVDb3VudCI6NTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBhMTQzNjE0OTYzYTQxMDE2YWE1NjVlYzM4YThjYWIyYjI2MzkxMmZhYTkzMzRkYjkwOWQzNzk0ZDllYmMzNGEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI4OGUzMzQ4ZDljOTJjMTkxZGRmMzg4NzdmMTNmMGNhOTVkNzRjNjdlZTUwMjU5MmY2NWNjNjhkMWJlYTBlZjQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRkZTY3NGZlYWM3YTQ0ODFmNjdkNTc4NTc3ZWIxMDdiY2FkNDE5MDAyZjhjNWQ5YmIwOTZlMjZkOGVkMjJmMTMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE5MmMxYjE4Y2EyYzE3NWM2MjQyMzM3YzEyNzE3MmVkZmE2MTA4ZDc2ODE5NWY4N2FlMTExODM5YWEzYjQyOTAifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L350-L357",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L361-L368",
           "version": "repo-lines-v1:sha256:9c714e8c0d679a41702e4348c07d177f9644f0d7ff2892638b8f677f0ec03f17:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNTAzZmExNjRhYjc3YWUzMDgwZTljNDVmODhjZmZmNTI4M2Y1MjQ2YjBiOGVhNWY2NTRkNjNkODU5NmIzMjBlOCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiY2ZhYzE4YTNiNTQ5ODY5MDRjMjc3OGE0MGNmNWRlYzRmZWJjNTYyY2U1ZGE5OGU1NjcyYzFlYzY3NjlhYjYxOCIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYTEwYjNhZWM0ZGFkNTZhMGRmODNmYThhYjQxMzdiYzA5ODJmZTRmMWEwOTA0MWFjYmY5OTdiNjc2MmUwZDFkNCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiOGZjZWNmNTMyM2I5YTQ3Y2NmYTUwZDc3YzZkOWUyOTc1M2JhMWM4ZWU1YmVjNTQ2NGNmOWM1YTZkZjgxM2M4NCJ9"
         }
       ]
@@ -315,8 +315,8 @@
       "statement": "The rta CLI discovers actions and submits HTTP execution requests; resource authorization is server-side.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/rta/action.go#L145-L195",
-          "version": "repo-lines-v1:sha256:5cbf970b701bae0430493706754d00643626cdf0819b42dcae30ac78069459d6:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjE0ZTgyY2IwMTEyN2ZlM2Q4MWMzZmEzYmFhOTk0ZTNjZmU0ZGE4ODNlMjliOTNhZGU5ODVjZThlMTU4NWMxNTUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU0MTRjOTMxMTBmNmEzZmYyZjkxNWQ3ZmJiMjcxYWViNTZkMWNkMzc4OGZkYmI4NWIxNmJiODRmZWMzZDhiZmUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI0NjBhNTkwYTYxOWRlYTJkZTg3ODc5YjU2ZTVmYTI5YjNjZjU2N2Q3Mjk2MjM5NThmZTBkNTI3ODA3N2E2NGQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNmMzViM2I4Mzc0MGQxOTZhNTliZmIzMTBmYzJhZGQzZTdkMDRkN2U2ODQ2MDQ4NzI3MmUyNDc1Nzc0YmIyMGUifQ"
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L135-L267",
+          "version": "repo-lines-v1:sha256:f2d46f1bff62dd32f980bb32ad833dfad640d27b046657173186dbc311e1cd30:eyJzZWxlY3RlZExpbmVDb3VudCI6MTMzLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJmOWJiYWIwOTk0Y2JjZWE5OTc4NjZmZDhjOGNhOWQ3MjFmMWRhZjFiMTY0YzIwOTYzOGRmY2YxZGY0NTZlNDkxIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyZjViZmEwZmYzMmU0OTQwNzA2ZTBkNmY3MDcxMTI2MmI3YWM5MzYyNDkzN2E3YzAxNWM1YWFlMTJmMGVhMTFiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYWExOGJjYjQxN2UyZGU1ZjExZjkxMzRmOTRjYmYxMWZkMjcyNjA2MzlkNGU4ODU2YmQ3NTU2NTk4ODU2Y2FkIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4MTQzM2FkMDVhNmYxMzgzYWQ0ZGI0ZWIxODBlYTM1NjMyMDEzZGQzOTA5ZDJmZGRiYWQ5MzRlZjZmZDc1YzNkIn0"
         },
         {
           "resource": "repo://components/trusted-actions/internal/rta/client.go#L95-L119",
@@ -329,11 +329,11 @@
       "statement": "Without --no-wait the client polls for completion on a two-second ticker and can fetch output separately.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/internal/rta/action.go#L182-L248",
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L185-L251",
           "version": "repo-lines-v1:sha256:b98b9de800f5e9a4481b2c3264c66c20e1b7552ae1e09c868d3b711ac16a74ad:eyJzZWxlY3RlZExpbmVDb3VudCI6NjcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjA1MGEyYmE0ODNjMDVhODhiOWFkMGE3YzRiMzg1ODM0ZDc1OGRjZmRlYjhlM2FlMDc4NTY1OTk1ZTA0OWU1YjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkYzc2MDIwYmFlNzA1NzdlNjRiMzMwZGNhODNmZGYyNGYzZDc1OTNhMDE1NGQ4YWJlYzZkYzYzZjU4OTdmZDkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg4ZjQ0NTZjM2NkNjE2NTJlZGQ3Yzg4MDUyNDYxZDNiZmQ4ZjQ4MWE1NjkwZDc3NjI4NjFiZWYxZmMwNTMyNWYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjllZGNjNjE4ZDMwNGZmYzk5Mjc3ODBiY2VkZmJkYzRhNjQ0MWZmYzI5ZTkxYTc1MmIxZDJmNzQ1MmNhYjg5YzcifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/internal/rta/action.go#L289-L312",
+          "resource": "repo://components/trusted-actions/internal/rta/action.go#L318-L341",
           "version": "repo-lines-v1:sha256:3f2a21999a8011c26afbed78920cc079241c961b50236d2b085da013ca63f93c:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjM1Y2ZkODQzOTNhYjNmYmU2Y2Q5M2ZlNzc4NzM5NzE3NzA1ODJhYjJhYjhiZDU0ZDE5ZDAwYTdjYmMxNTNjM2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjU5Y2VkN2U1MWQ3YWIyYjM4OWJiNGM4MTA3MTk0NDQxMDc0NzU2Yzc4NDc0OTM0NmU4NDM5NDZmYzEyMTIyNWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImIzNGY0NDYwZTk0MTg3Y2JjYWQwZTgwNjAyNDU3YzdmMzU4YWJmYjc4ODAxNDBiOWFhZjA1ZmMxYjg4ZGE5ZDgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImY5OWFiM2VkMzZhZjRhZTQ1NjhiY2IzMzkxNWRmNTNmOGFjZjJiMTA5YzkzNTA0ZDU5NzlhZDY5Zjg1ZGM1MzkifQ"
         }
       ]
@@ -379,6 +379,6 @@
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

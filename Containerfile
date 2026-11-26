@@ -160,7 +160,7 @@ RUN mkdir --parents /opt/claude \
 FROM tools-base AS opencode-builder
 
 # renovate: datasource=github-releases depName=anomalyco/opencode
-ENV OPENCODE_VERSION="2.3.2"
+ENV OPENCODE_VERSION="2.4.0"
 ENV OPENCODE_URL_SLUG="anomalyco/opencode"
 ENV OPENCODE_URL="https://api.github.com/repos/${OPENCODE_URL_SLUG}/releases/tags/v${OPENCODE_VERSION}"
 ENV OPENCODE_CHECKSUM_FILE="SHA256SUMS"

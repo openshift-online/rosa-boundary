@@ -88,7 +88,7 @@ func TestMintAuthToken_ValidityWindow(t *testing.T) {
 // token rides in the password slot at connect time only, sslmode comes from
 // config, and no static password exists anywhere.
 func TestBuildIAMTokenDSN(t *testing.T) {
-	dsn := buildIAMTokenDSN("db.example.com", "5432", "trusted_actions", "trusted_actions_app", "the-token", "verify-full")
+	dsn := buildIAMTokenDSN("db.example.com", "5432", "trusted_actions", "trusted_actions_app", "the-token", "verify-full", "/etc/ssl/rds/global-bundle.pem")
 
 	u, err := url.Parse(dsn)
 	if err != nil {
@@ -106,8 +106,25 @@ func TestBuildIAMTokenDSN(t *testing.T) {
 	if pw, _ := u.User.Password(); pw != "the-token" {
 		t.Errorf("password slot = %q, want the minted token", pw)
 	}
-	if u.Query().Get("sslmode") != "verify-full" {
-		t.Errorf("sslmode = %q, want verify-full", u.Query().Get("sslmode"))
+	if got := u.Query().Get("sslmode"); got != "verify-full" {
+		t.Errorf("sslmode = %q, want verify-full", got)
+	}
+	if got := u.Query().Get("sslrootcert"); got != "/etc/ssl/rds/global-bundle.pem" {
+		t.Errorf("sslrootcert = %q, want the RDS CA bundle path", got)
+	}
+}
+
+// An empty sslrootcert must stay absent from the DSN: an empty query value
+// would make pgx look for a file named "" and fail the connection.
+func TestBuildIAMTokenDSN_NoRootCert(t *testing.T) {
+	dsn := buildIAMTokenDSN("db.example.com", "5432", "trusted_actions", "trusted_actions_app", "the-token", "verify-full", "")
+
+	u, err := url.Parse(dsn)
+	if err != nil {
+		t.Fatalf("DSN is not a URL: %v", err)
+	}
+	if _, ok := u.Query()["sslrootcert"]; ok {
+		t.Errorf("sslrootcert present with empty value: %q", u.Query().Get("sslrootcert"))
 	}
 }
 

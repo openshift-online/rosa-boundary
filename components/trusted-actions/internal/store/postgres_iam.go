@@ -28,6 +28,10 @@ type IAMDBConfig struct {
 	User    string
 	Region  string
 	SSLMode string
+	// SSLRootCert is the PEM file of the RDS CA bundle used to verify the
+	// server certificate under sslmode=verify-full (RDS CAs are not in
+	// system trust stores). Empty leaves the driver's default trust.
+	SSLRootCert string
 }
 
 // iamAuth mints RDS IAM authentication tokens.
@@ -46,7 +50,7 @@ func (a *iamAuth) mintAuthToken(ctx context.Context, host, port, user string) (s
 
 // buildIAMTokenDSN composes the pgx connection URL for one connection: the
 // minted token occupies the password slot of the URL only at connect time.
-func buildIAMTokenDSN(host, port, dbname, user, token, sslmode string) string {
+func buildIAMTokenDSN(host, port, dbname, user, token, sslmode, sslrootcert string) string {
 	u := url.URL{
 		Scheme: "postgres",
 		Host:   net.JoinHostPort(host, port),
@@ -55,6 +59,9 @@ func buildIAMTokenDSN(host, port, dbname, user, token, sslmode string) string {
 	}
 	q := u.Query()
 	q.Set("sslmode", sslmode)
+	if sslrootcert != "" {
+		q.Set("sslrootcert", sslrootcert)
+	}
 	u.RawQuery = q.Encode()
 	return u.String()
 }
@@ -74,7 +81,7 @@ func (c *tokenConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	if err != nil {
 		return nil, fmt.Errorf("minting IAM database token: %w", err)
 	}
-	dsn := buildIAMTokenDSN(c.cfg.Host, c.cfg.Port, c.cfg.DBName, c.cfg.User, token, c.cfg.SSLMode)
+	dsn := buildIAMTokenDSN(c.cfg.Host, c.cfg.Port, c.cfg.DBName, c.cfg.User, token, c.cfg.SSLMode, c.cfg.SSLRootCert)
 	pgxDriver, ok := pgxstdlib.GetDefaultDriver().(driver.DriverContext)
 	if !ok {
 		return nil, fmt.Errorf("pgx driver does not support OpenConnector")

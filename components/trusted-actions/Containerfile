@@ -13,6 +13,15 @@ FROM registry.access.redhat.com/hi/core-runtime:latest@sha256:fe49c1e94db2743f99
 
 COPY --from=builder /opt/app-root/src/bin/rosa-trusted-actions-server /usr/local/bin/
 
+# AWS RDS CA bundle — the RDS server certificates are signed by Amazon's
+# private CAs, absent from system trust stores. Required for the mandatory
+# TLS of IAM database authentication (sslmode=verify-full) and for the
+# break-glass psql path. AWS rotates the CAs on a published schedule; the
+# bundle is fetched at build time rather than committed so a rebuild picks
+# up renewals.
+ADD https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/rds/global-bundle.pem
+RUN chmod 0644 /etc/ssl/rds/global-bundle.pem
+
 EXPOSE 8080
 
 USER 1001

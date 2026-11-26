@@ -15,7 +15,7 @@ data "terraform_remote_state" "global" {
   config = {
     organization = "hp-platform-engineering"
     workspaces = {
-      name = "rosa-trusted-actions-global"
+      name = var.global_workspace_name
     }
   }
 }

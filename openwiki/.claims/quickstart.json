@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:20c19121fdb0ae37ae4ccd3d241adc42cc1487307c2a42854aa9ce27c52a2b7f",
+  "pageVersion": "sha256:f88a83b8ce4567aec6230957c92dba4f4f856d2dd4942dc2f17d2b3c0d1088f2",
   "claims": [
     {
       "id": "claim_7f2dfd61cb3e4d3eb4577088e2e0533e",
       "statement": "Investigation creation requests workspace-only provisioning; session creation also launches a Fargate task and derives its session ID from the returned ARN.",
       "evidence": [
         {
-          "resource": "repo://internal/cmd/create_investigation.go",
-          "version": "repo-file-v1:sha256:bfd1a85594065da5542742bdfb68a0bdf7572c37a1404c16fe4036fe1f9c65f3"
+          "resource": "repo://internal/cmd/create_investigation.go#L40-L60",
+          "version": "repo-lines-v1:sha256:b8505651efd14353be09e15d8b886c2f02da94be8938b88557035a4681eaef92:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRkOGI2ZGVlNjEzMTU3ZjIxZDMyNWVmNGZkY2JmZTI2NzM4NGZmODgyZTc4MDNlZTNhYTc1MWJhMDM4OWE1N2YiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY1N2JjZGM1NTFiNDU5MDY3ODM3NDZkZTg1NWRkODQwMjJmMWZhOGYxMzM3MzUzOGE3NTc1ZjY4ZjRjZjY2NDIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4NzE1YzkyMmRlM2U2OWJkMWM3YWY2OTA1NmE5MDI1YjI0ZjY5MmZiZGEzMzFlN2I5MzBiZjlhNjU3MzhiMzgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkYjk1YTA1MTk4NzM0OTA1NWM3NGVlMzY4NTYzNTNkMmYxMDBhM2I1MWE2NmYzYTM4ZjkyY2UxZGI1YjZhNTMifQ"
         },
         {
-          "resource": "repo://internal/cmd/start_session.go#L80-L147",
-          "version": "repo-lines-v1:sha256:3ffab4599d526fdbe20595ed83b40c37e20731cc0d4918533986ab3fe632a78a:eyJzZWxlY3RlZExpbmVDb3VudCI6NjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImJlODM5NGRjMDA0MzJmYTc4MDZlYzA1NDc4ZWY5YjlmYjE4NmI5MTBhZTJhODljZTY3MGY3NDE0MDQ2MjJkYzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI5NDI1YWRjZWY2NTg4MzFiNjU0ZWViNjlkMzkyMTg4MmRkMjlhZWU0MTA0YjcwOTg2MTlmOTBjMTM0NjE0NzAiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijg1MmQ2MjljYzVkYWQ3YjMzZWQwY2M2NGY0NTQ4ZTdkZWYxNDgwZWJiYmFjOThjNzlhYjQwMTU2YzExYWU4MWQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImJjNjJlNTlhZDdlNmFkZjBjYzhlM2IwMGQ0NjBmYTk5MzdkYTEwODcyNTlhZjJkNTkzYWEyMzc5ZmRjNzZhNDcifQ"
+          "resource": "repo://internal/cmd/start_session.go#L46-L109",
+          "version": "repo-lines-v1:sha256:25246e19aef277f27a9c5a335085b3d910308989f524ff18a5e4d6697d21a831:eyJzZWxlY3RlZExpbmVDb3VudCI6NjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU1MTFhZmMzYzI5MTg2MTJkODcwMGQ4ZTNlOWM0OWY3MTEwMmMzMzk1OWZlOTM3MDM3MWFhMjA5MDYwNDk2ZDQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ3MWQ1ZjBhNmNlZmI4ZjdhY2E0YTA0YmFhOTc1NGJlNGU4NDJmOGNiNzNiMWQyYjk0MjA4NThhODVlMWY5ZTgiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjI0N2YxZjIyNTM2MjQ2YmFiMDVmODhmMmQ0NGMyYzg1YTE1OGVmMzcyZWNkMGZhMDZlYmNmZjZlMGQ0ZWU0NjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjI1NTVmOThiMDhmNWY5NGE5MjE1OTU0ZWY2ZDBhNDI1ZTdlYTMyNmE2N2U4MTRmYWQwMTkxMWMyZjlhNjc0YjkifQ"
         },
         {
           "resource": "repo://lambda/create-investigation/handler.py#L976-L1029",
@@ -85,14 +85,28 @@
           "version": "repo-lines-v1:sha256:5b2e64193fdc48772057e1dd08b4493ba4ed1466fb5250071cdf87fbe1d37427:eyJzZWxlY3RlZExpbmVDb3VudCI6MjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwNTYyNDdjMjM2OWQyOThkNmIxNTg3OTIzYWY3NDMyZWRhMjViZTUzODI4NTkzMjQ2NjNjYmYyMDc3MmRkN2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRhZmQ3YzQ3ZmE0NGQwMDgwZWJhNjhjOWUzMjAyZjUzN2UwODNhZGYzYzU2ZmVjZTNiNWRiZmZkOTI4YWMyYzUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3Y2ExMzNmODRhNDA5YTcwODhiNThlMDdiZDAwZjZiYzU4MzEyYWI5YjVmYzJjZDkzYmUxZGZkMzI5YWMyODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjFjYzI0MzliNmEyZjQxNGRjMjY3ZjVhYTBhYTg1Y2FjYWEyMDRjMTJlZWZkNGZkODRhOWVlNGYzMzhlOTM2ZjcifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/Makefile",
-          "version": "repo-file-v1:sha256:8d746e8b2f531255adc11d6ae5ac23fa6ea149335c913c9525bb3b079f7b616f"
+          "resource": "repo://components/trusted-actions/Makefile#L144-L157",
+          "version": "repo-lines-v1:sha256:89232ee7f82d4d5d2a6ad3ec0349d5f037a7c94fb81d2fce4ae28c4e722a8924:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjNkMWY4OWFhOGYwNWMzMDg2MDk0MzZiNjkwNGEwNmY1N2ZiYjViYzc5MDRiZDg2OGZjOThkYmIyODg5NWY1NzUiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImY2MWNjOTVjNTY3ZTU0ZjM1NTkxODU3Y2Q0N2RmZjQ5NGQ2NGZlNjUzOWU5MjU2NzcyN2U3MGFiZDFjYzYwZWMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyYWE2ZGNmNTUzMDM1ZTFhMjJkZTVkOTIyMGIwOTk2NWU1ZGY5ODE4MmU3ODJiN2Y3OGE2YzhmMTI0ZDkzNjciLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjllZGNiYzU3MTM4NmQwMTI0OTMyMTYwZDMzNTdlZGJhZTM3MTdlNzQwMGJkZDgzODEwMWQzNDk1ZGIzMjQ3NTgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_dab9a6310a6544bfafc5e06b095e47ea",
+      "statement": "Alongside SQLite-file and composed-Postgres dev modes, Trusted Actions' `make localstack-db` / `make run-localstack-db` / `make localstack-db-down` targets provision, run against, and tear down a licensed LocalStack RDS PostgreSQL instance with IAM database authentication for local development, mirroring the production IAM-auth Postgres setup without requiring a real AWS account.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L104-L136",
+          "version": "repo-lines-v1:sha256:ef07714beeeca11fec85050728fe1d7210910aa5de6477cfe43df7708f16fc4d:eyJzZWxlY3RlZExpbmVDb3VudCI6MzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyYzQ3Yzc4MDczMTM1M2RjYTAyNzdiODZkZTRiNzQ1MjE5YTNmN2FlNzNjY2YzZTI0OGUwMmY2OGE1MzY5NWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjkyZTE0NTI5NzYyYTZmNjRkMGVmYjE5YmY1ZjMxM2IxZWZiNTUzOWQyMWFjYjE3ZDE1MmU3YmM0ZDk0YjFhZDMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2YTgxYWMzMzk0ZGRiMGMzNzY5YTMxZmRkMjRiZTI5NjA5ZDY1OWUzZTUwMWY4MjIxZjYxMWQzNTc3YWYwNmMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/scripts/localstack-db.sh#L1-L17",
+          "version": "repo-lines-v1:sha256:a9b4400a7f05b75160e64b68ac8fe82b14780f740207e80a5531946654c97a3b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NzVmOTI4NTQ2YWVlNzg1NWNiMWRiOWFmYzhhYjNmMWE4YTM0ZDQzZGU1YmJkNjJmNzA3NmQ3YmE5ZjM5MTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZkYmZlZjk1YTlkYmM0NjYyOWQ1MDIxMTY3NGEwYWRmMWMyY2EyYWY0ZGU3OWIwMGJhNzdmYjI3ZDE5NDZlMDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwZWRlMDAwZmM5YzUyZTA1NTNhMDNhMGFjZDM4OTMyNTU3MjUyNjA4NjZmZWU4OWQ0YmFhOWY4YzkzNWYyMGMifQ"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

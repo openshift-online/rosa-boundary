@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:40d2839dac13c4f80e0899465dd7a283ee96766bc28bab4f30d3371c0af15cc0",
+  "pageVersion": "sha256:5c1cb7f74eea86aaeb3a4f7f446f91683821c0b4f0f7c49c77fbcdcb21437cf9",
   "claims": [
     {
       "id": "claim_4275808ba78f45a3a7efb3aa5a6a2cfe",
@@ -11,7 +11,7 @@
           "version": "repo-lines-v1:sha256:10b08b2615c554899303ef063189fe5bbd63af0087574ddd36c6aec99b420e25:eyJzZWxlY3RlZExpbmVDb3VudCI6OCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZmFlMzlhNTMzNjc4MjE2OTAxNjFmZmFlYmJiYThjODU0OTBjN2UzN2FlMjk2OGU1YzgxMjQ1MWJjZmEzYTg2NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiYWYxOGI5MTRiZjE0NWUzN2YyNDQ0OThhYzAzNTRlNjQzM2FmMzg1YTRjNGQ3MDJiZWUwZGZhZDJhZTg3NWVlOCIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTdiNjU1MzhkZGZiMDlkMGIyMTFiMzgxZWE2M2JlYmZlYzVkYWVlNDQzNzk2NWE1ZjQ1MjEwNzc2ZjA2Mjk3NSJ9"
         },
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L284-L356",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L295-L367",
           "version": "repo-lines-v1:sha256:b7f66b96251da2d2cc341a8e9c11eb5e7c593dd2db5a66d0df9b7b5273b5310f:eyJzZWxlY3RlZExpbmVDb3VudCI6NzMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjdiZTI5ZmJjZjlmODUwN2MzOGRhMzkyNjJkYTEzN2Y4NWE3N2E1N2ZkYzM1MzVjOGVlOGVlYjI0MTQyOGIwY2IiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNkNDBlNWY2ZGM2YzM3NThlNWZjMmUyOGQxOWZlMzc0YjU2NGQ3NzE4ZDE1ZTQ5YTE2MThiODU0ZDI4MGE5MTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImE0NjI4ZTU2YmVhM2NjYTcxNDRjNzMwMjg4YjZiYTc2MTlhZjM2MmRjNmVlMWY2MmY0YmZiYjc3NWIzMDNlZGMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc2OGQwZWM5ODBiMmIwOGQxMDgzNjU2MDA2OTgwN2MxY2Y3YzExZWFiZjZmNjdkNzAyNTA0MGFmMWNmMWNlOTAifQ"
         }
       ]
@@ -21,8 +21,8 @@
       "statement": "Boundary packages the `rta` client from the same checkout and can set `RTA_SERVER` in the investigation task. Operators invoke this client from the shell; creating a Boundary task does not itself submit a Trusted Actions execution.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L354-L377",
-          "version": "repo-lines-v1:sha256:0ce8f56a1d117e0a1bc94b3808b584002cf5808b2c8de3a02b6cdc9571122c25:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4NzY0Zjg4NTIwMDU4YTY3OGNhMWM2MTEzYWY5NDcxYWU1YTg0MmE5MTc4N2Q5NWVmYjhhMmZlZTdkNjViNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJiMzFmOGI1YTdiNjQ2MDkwMjlmMmUwNmEwNDUyMmY3ZTYwM2MyMGFhMWJkOTc1OTczM2JhNTI5ODVlMzAyZjkifQ"
+          "resource": "repo://Containerfile#L354-L383",
+          "version": "repo-lines-v1:sha256:8fbf5746b28b15452116aaf9d2bcd5d1f4e3750bf99d83ace4973cddf214cf88:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyNzdkNjA3ZDdjN2UxMjdlZDc3YmY5MTE3ZTE3OTg5MGJkNjllZDlhYWYzZjU1ZjJmMzU4YTcxOWYwNWM4YTUifQ"
         },
         {
           "resource": "repo://deploy/regional/ecs.tf#L168-L179",
@@ -45,11 +45,11 @@
       "statement": "cmd/server/main.go is the composition root: it loads config, wires authn/authz middleware (real OCM-backed or mock depending on ROSA_TA_AUTH), constructs the Backplane client provider (real Backplane-CLI-backed or kubeconfig-backed for local dev), builds the catalog, and starts the HTTP server and worker pool together.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L248-L376",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L259-L387",
           "version": "repo-lines-v1:sha256:41ccbfcfcabef42022f68e68fdfa7c673b2f8f367d786afa773117728e736fff:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI5LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2ZDkyMmQ2ZGZlOWNiZDRjZTdhZmIyODliNWQwOGZkMGYyZmVjMWZjODBmYWMxM2JhZTY5ZTA5NjQyNzVjYzI3IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyYWRmYTQxYzlmOThjYmY3OTU2ZDM0YjUzM2I3Mjk3Y2YwN2IyN2Y2YWY1NzU4MzViMThiMTRjMDMxZTRmYjQ3IiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJlNzUxZmE5NTlhNDlmOTVkM2QwMDk2YTM3ZjY2OTllZGZiYjJkMGJhMTdkNTU0ZjAwYjI0OGIzMDg4OGEwZjhmIn0"
         },
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L376-L466",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L387-L477",
           "version": "repo-lines-v1:sha256:9029947ed06bc660a472b3b06530c17dd7392c7afbe993ec98aa94a9747a4a29:eyJzZWxlY3RlZExpbmVDb3VudCI6OTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZkOTIyZDZkZmU5Y2JkNGNlN2FmYjI4OWI1ZDA4ZmQwZjJmZWMxZmM4MGZhYzEzYmFlNjllMDk2NDI3NWNjMjciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImM4MzBkNTRhMGJmYjE5ZjFkZTRjYThhOTBiZjFjYmM5YTBhMzMzNDZlM2U0ZjFhMWU5MjYwOWNmZjc4ZGJiZjciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjdlMWY3MThlZjMxN2NjZTA5MjViODUxMjRiZjQ4NDYzYzU4YTQ5NzIyMThkOTA2NzYxNWU0OTNiMTk1MzZlM2MiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijk0OWRlZmJiZTIwMjA2NjczYThjNzAwOGE4NWY4MDZlM2M1YWY4Yjg5NTBmYjAzYjhhN2FiYTdmNmJmMzczZWEifQ"
         }
       ]
@@ -82,7 +82,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/internal/openapi/api.go#L1-L4",
-          "version": "repo-lines-v1:sha256:906d5af2260f53f6b5a1dbe4f7d08f88be044b6c73fc7456f6e6b12813a6ce0a:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzlmNjdkNWZlMWY0MDJmODI3NjMzYzNkNjUyZDIwYjgwNTA3ODdmOWMxNzQ5ODdhYzEyM2QwM2EzNDlmZWM3NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNmM1MmVlZmNiMDFmYzM4ZGRhZTAzMzU1NjY3MWY4N2RlMWFkYzRhYWIyNDllYjA2YWNjYzE0ZmM5YjBjMTRkYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDI3YmRmNzA1ODQyNWUxYjFiNGZkMDk5MDkxODIwNzdjMTJlZDIzZTBhNTc5MTJjOTc4Y2JkOWM0YmMzMDg3MCJ9"
+          "version": "repo-lines-v1:sha256:407092bd17c4f9980dbfae5cab57a4cbcbae5aedbbd5e1a2232e604744cb4423:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMzlmNjdkNWZlMWY0MDJmODI3NjMzYzNkNjUyZDIwYjgwNTA3ODdmOWMxNzQ5ODdhYzEyM2QwM2EzNDlmZWM3NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiNmM1MmVlZmNiMDFmYzM4ZGRhZTAzMzU1NjY3MWY4N2RlMWFkYzRhYWIyNDllYjA2YWNjYzE0ZmM5YjBjMTRkYyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZDI3YmRmNzA1ODQyNWUxYjFiNGZkMDk5MDkxODIwNzdjMTJlZDIzZTBhNTc5MTJjOTc4Y2JkOWM0YmMzMDg3MCJ9"
         }
       ]
     },
@@ -207,7 +207,7 @@
       "statement": "Among Trusted Actions' internal packages, openapi, handlers, catalog, auth, middleware, store, and config sit on the synchronous HTTP request path (router -> middleware -> handlers -> store), while worker, executor, actions, backplane, awsapi, authorization, and audit sit on the asynchronous execution path that a worker drives after claiming a pending execution; models supplies domain types (Execution, Audit, Output) shared by both paths, ocm is a shared OCM SDK client used by authentication and by both the Backplane and AWS credential providers, and rta is a standalone client CLI outside the server process entirely.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/cmd/server/main.go#L284-L421",
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L295-L432",
           "version": "repo-lines-v1:sha256:7db57bfc90bad05d5a3389a30f790a4ae2b86e4d365a05a41b1befc6f1c406d8:eyJzZWxlY3RlZExpbmVDb3VudCI6MTM4LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI3YmUyOWZiY2Y5Zjg1MDdjMzhkYTM5MjYyZGExMzdmODVhNzdhNTdmZGMzNTM1YzhlZThlZWIyNDE0MjhiMGNiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIyNzk0ZTIxNGEwMmNkODU2NTU4MDRkOTE1MDVkOWRlYzk0MzllMjZlY2RjNDJhNjIyY2Q1MDQxMjc1YmY5M2U5IiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJhNDYyOGU1NmJlYTNjY2E3MTQ0YzczMDI4OGI2YmE3NjE5YWYzNjJkYzZlZTFmNjJmNGJmYmI3NzViMzAzZWRjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI3ODcyZDBlMTFlOWVjZDZkMTlmYzJkZTU0MTNhMzNkNjU4Njc5ZmE2NjE1Nzc4ZTliMGRlZWEzZDY0OWRjZTAwIn0"
         },
         {
@@ -229,10 +229,44 @@
           "version": "repo-lines-v1:sha256:d023d5eef662d700bf18267e742faa5ec6cfd475fcde0becf482f3efb7edfc62:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQ0MjI5YjliZmU1ZTA5N2IxMzBiZWEyM2Y1ZjhmNDU5M2VmNDkyYjNlNWI4M2I1ZWY5ZTFkMzNhYTY3NGQ2N2MiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRiNTUzYWFiYzlmYmNmMGU4ODIwNDNjNDZiN2NmZGY4MTEzNzVlMDQ5NDg5YjFhODk4ZWVlODg5OWY1ZjdkMGUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImRmOWVkYmI5ZTkyOGM3OWU0YTM1YzUxNTFkOTJkMDc2NDgyOGRhOWU1MzdmZjhlMjk4OWUyYmFjNmEzY2YwZGYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU0NTBlOGVlYTQxYjg5NGJlMmU4NWZjOTgxZmI1MjIyZmUwMTJiZDU2NDc4MGExNjBiMTY1ZWZiZWY1YTAwODkifQ"
         }
       ]
+    },
+    {
+      "id": "claim_b3858da31feb4045af90895346dfbce8",
+      "statement": "Trusted Actions' store is abstracted behind a single `Store` interface shared by the HTTP handlers and the worker pool, and `store.NewWithIAM` selects among three concrete backends: an in-process SQLite store for development/tests (`NewSQLiteStore`), a legacy password-DSN Postgres store (`NewPostgresStore`, selected when `DatabaseURL` is a `postgres://`/`postgresql://` URL), and an RDS-IAM-authenticated Postgres store (`newIAMPostgresStore`, selected when the `IAMDBConfig` host/port/name/user contract is present).",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L98-L113",
+          "version": "repo-lines-v1:sha256:d3fe118a4311e0489ad1ef164407a5ddd115ba49c92709506e77f5839d29651f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImQzZmI2ZWJlMTA1NDVkYjIzYWEwNTgxYzAxNzEzN2Q0ZTI4ZDBlZWU5Mzc0YTgwMTlhNWIzNThhMmQ4YjZlMGUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJmZjc2NzFmZDE2NDA2MjQ0MTE5ZWQ1OTU1Y2UzNWQ4NDZmZmRkOGUwYjgzZDQwYmM2MWJmY2RlMzJlYzlhODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQ1NDkyNzEzY2NkMGU5NWU3NjE3YTJjYTI1Y2Y5ZmMzMGE4MDViNmMxZjQ3M2Y4NWVlMDk0ZTdiYWRhYWQ1MWQifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/store.go#L58-L71",
+          "version": "repo-lines-v1:sha256:6b29d20c10f4438ded0e44b3099a3f0b2142741d6efcb08bd0d58dd0709ad289:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVjN2RlMDVmMjNlOWVhOGY5NmNiMDQyNWY3YTRhOWZkNmU0MTJkOTZjN2U3NjY2ZWY1OTNiYjMxZDEyZmE4MzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM2MTE4ZDUyNzgxZDE3MGZjOTFiMDQ5MTY2ZTJmZmJiZDI3ZjRkYjViMjdkZTkzZjg0MzZkYWU0Zjk0M2IyZWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQyMjk0MmU2YTZhNzk2MGVkOGQ4NDgxZDNlNzkxYTFjOWY4NjNiNzkxYjU1NTFmOWM2OWZkMzg4MGEyMzZlNDAifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5a3162478bf64ebf9c3636f035012eb0",
+      "statement": "The IAM-authenticated Postgres store never stores or configures a password: a `tokenConnector` mints a fresh, short-lived RDS IAM authentication token per physical database connection via the AWS SDK's `auth.BuildAuthToken` and embeds it as the password of a connection URL built only at connect time, and the pool's maximum connection lifetime (10 minutes) is capped below the roughly 15-minute token validity window so a pooled connection can never outlive its token.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/postgres_iam.go#L20-L93",
+          "version": "repo-lines-v1:sha256:8309efae707ef4b01af2c8350bd18f3f010ea7edb4fa84b6d6b5932045e9e3e3:eyJzZWxlY3RlZExpbmVDb3VudCI6NzQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjhlNzNkYTQ0MDZlMWEyMDdmYmVlNmI3Y2I1OGQzNDY4NDMxZjQ0ZTJhZGNlYWI2YWFkNmI0MzIxZTNmZmI5MmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMzMmQwNzM5MWVlMGUzNTg2NTFmYzkyZDlmZDRmMmM4ZDFhZTIwMDQ1NTE5OTJmNGRjNzJhNjY3MzUxNzY5NzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFjODZkNmYzMGYyNzc0Y2M1YTg2ZjM0ZmYxODUzMWM3YjExZTEzOTM1ODcxM2UzYTY5ZDhjMWUwOGE2NWZhYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI0YTM3ZTczM2MzZTdkZDI5YjlkZTBjMWY3ZmY3ZDk0OWY5MTUwZGRlOTQ2OTllZTI1MDViMzAxNGFhYWYyYjgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_915f5c5bdfe04330a6c96ecafe810fe4",
+      "statement": "`store.NewWithIAM` treats a partial IAM database contract (some but not all of host/port/name/user set) as a hard error instead of silently falling back to the legacy `DatabaseURL` or SQLite paths, so a truncated or mistyped `ROSA_TA_DB_*` configuration fails loudly rather than quietly pointing the server at the wrong database.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/store.go#L58-L71",
+          "version": "repo-lines-v1:sha256:6b29d20c10f4438ded0e44b3099a3f0b2142741d6efcb08bd0d58dd0709ad289:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVjN2RlMDVmMjNlOWVhOGY5NmNiMDQyNWY3YTRhOWZkNmU0MTJkOTZjN2U3NjY2ZWY1OTNiYjMxZDEyZmE4MzkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM2MTE4ZDUyNzgxZDE3MGZjOTFiMDQ5MTY2ZTJmZmJiZDI3ZjRkYjViMjdkZTkzZjg0MzZkYWU0Zjk0M2IyZWMiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQyMjk0MmU2YTZhNzk2MGVkOGQ4NDgxZDNlNzkxYTFjOWY4NjNiNzkxYjU1NTFmOWM2OWZkMzg4MGEyMzZlNDAifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

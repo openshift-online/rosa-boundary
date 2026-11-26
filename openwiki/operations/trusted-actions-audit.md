@@ -1,7 +1,7 @@
 ---
 type: operational-reference
 title: Trusted Actions audit and logging
-description: Explains Trusted Actions' two audit mechanisms — the per-request AuditEntry row written by middleware.NewAuditLogger into its SQLite-backed store, and the per-execution audit.Record the executor logs through the regional CloudWatch-to-Firehose-to-S3 pipeline — and how each is actually persisted, distinct from ROSA Boundary's own audit flows.
+description: Explains Trusted Actions' two audit mechanisms — the per-request AuditEntry row written by middleware.NewAuditLogger into whichever store.Store backend (SQLite, password-DSN Postgres, or IAM-token Postgres) is configured, and the per-execution audit.Record the executor logs through the regional CloudWatch-to-Firehose-to-S3 pipeline — and how each is actually persisted, distinct from ROSA Boundary's own audit flows.
 tags: [audit, logging, operations, trusted-actions, cloudwatch, firehose, s3]
 sources:
   - id: openwiki-source-1907132ec84c53dc704aba84
@@ -22,6 +22,10 @@ sources:
     resource: repo://components/trusted-actions/internal/middleware/logging.go
   - id: openwiki-source-fa9f309e7fc236ae68cbe6fa
     resource: repo://components/trusted-actions/internal/models/audit.go
+  - id: openwiki-source-291900d792f9d852cf898b49
+    resource: repo://components/trusted-actions/internal/store/postgres_iam.go
+  - id: openwiki-source-57d2b1361ea439c3a9d8828b
+    resource: repo://components/trusted-actions/internal/store/shared.go
   - id: openwiki-source-1c3bf184f6289c69968a14d7
     resource: repo://components/trusted-actions/internal/store/store.go
   - id: openwiki-source-4f6d0f20d8e4f1405213641f
@@ -32,10 +36,10 @@ sources:
     resource: repo://components/trusted-actions/terraform/regional/cloudwatch.tf
   - id: openwiki-source-6955d983b4d48fea403e850a
     resource: repo://components/trusted-actions/terraform/regional/ecs.tf
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 ---
 
 # Trusted Actions audit and logging
@@ -124,17 +128,29 @@ A `Scope.Run` failure is wrapped in `executor.Failure`, which separates the call
 
 ## From request to persisted record: the database behind `AuditEntry`
 
-The per-request `AuditEntry` rows written by `NewAuditLogger` land in whichever `store.Store` implementation `cmd/server/main.go` opens at startup via `store.New(ctx, cfg.DatabaseURL, …)`. `store.New` picks the backend purely from the `DATABASE_URL` scheme: a `postgres://` or `postgresql://` prefix selects `PostgresStore`; anything else — including an empty string — falls back to `SQLiteStore`, whose own doc comment calls it "intended for local development and testing" and recommends `PostgresStore` "for production deployments."
+The per-request `AuditEntry` rows written by `NewAuditLogger` land in whichever `store.Store` implementation `cmd/server/main.go` opens at startup via `store.NewWithIAM(ctx, cfg.DatabaseURL, store.IAMDBConfig{...}, store.PostgresConfig{...}, logger)`. `Config` (`internal/config/config.go`) carries two parallel database contracts that `NewWithIAM` chooses between:
 
-`terraform/regional/ecs.tf`'s `container_environment` sets `DATABASE_URL` to the literal path `/data/trusted_actions.db` (not a `postgres://` DSN), so every regional deployment of this service runs on the SQLite backend despite that guidance. That file is not ephemeral container storage: the task definition declares a `sqlite-data` volume bound to host path `/mnt/ecs-data` and mounts it at `/data` in the app container, and the ECS service runs with `launch_type = "EC2"` and `desired_count = 1`. In practice this means:
+- **Legacy password-DSN path** — `DatabaseURL` (env `DATABASE_URL`), a `postgres://`/`postgresql://` URL with embedded credentials, or a SQLite file path. This is the original, still-supported contract.
+- **IAM-token path** — `DBHost`, `DBPort`, `DBName`, `DBUser` (env `ROSA_TA_DB_HOST`/`ROSA_TA_DB_PORT`/`ROSA_TA_DB_NAME`/`ROSA_TA_DB_USER`), plus `DBSSLMode` (env `ROSA_TA_DB_SSLMODE`, defaulting to `verify-full`). No password field exists here: the server mints a short-lived RDS IAM authentication token per physical connection from ambient AWS credentials instead of storing a credential.
+- **Pool tuning**, shared by both paths — `DBMaxOpenConns`, `DBMaxIdleConns`, `DBConnMaxLifetime` (env `ROSA_TA_DB_MAX_OPEN_CONNS` / `ROSA_TA_DB_MAX_IDLE_CONNS` / `ROSA_TA_DB_CONN_MAX_LIFETIME`, defaulting to 10/5/5m), passed through as `store.PostgresConfig`.
+
+`store.NewWithIAM` (`internal/store/store.go`) resolves these into one of three backends, in priority order:
+
+1. **IAM-Postgres** — if any of `DBHost`/`DBPort`/`DBName`/`DBUser` is non-empty, `newIAMPostgresStore` (`internal/store/postgres_iam.go`) runs. It requires the *full* contract (host, port, name, user, and `AWS_REGION`) and fails loudly on a partial one, rather than silently falling back to the password path — a truncated or mistyped `ROSA_TA_DB_*` environment must not quietly point the server at the wrong database. It opens a `database/sql` pool through a custom `tokenConnector` that mints a fresh RDS IAM token (via `rds/auth.BuildAuthToken`) for every new physical connection, and caps `ConnMaxLifetime` at 10 minutes so no connection can outlive its token's ~15-minute validity.
+2. **Password-DSN Postgres** — if the IAM contract is entirely empty and `DatabaseURL` starts with `postgres://`/`postgresql://`, `NewPostgresStore` opens a pool against that DSN directly.
+3. **SQLite** — the fallback when neither of the above matches (including an empty `DatabaseURL`), via `NewSQLiteStore`. Its own doc comment calls it "intended for local development and testing" and recommends Postgres "for production deployments."
+
+Despite returning different concrete backends, `newIAMPostgresStore` and `NewPostgresStore` both hand back the exact same `*PostgresStore` type, differing only in how the underlying `*sql.DB` authenticates its connections; both run the same `runMigrations(ctx, db, "postgres")` schema. **The store backend choice changes only how (and whether) a password reaches the database — it does not change the shape of persisted audit data.** All three backends implement the identical `store.Store` interface (`CreateAuditEntry`, `ListAuditEntries`, …) against the identical `audit_entries` column set defined once in `internal/store/shared.go`'s `auditColumns`/`buildAuditWhere`, and `models.AuditEntry` is serialized the same way regardless of backend. Likewise, the backend choice has no bearing on the separate `audit.Record` / CloudWatch → Firehose → S3 execution-log path described below: that path never touches the application database at all.
+
+`terraform/regional/ecs.tf`'s `container_environment` currently sets only `DATABASE_URL` (to the literal path `/data/trusted_actions.db`, not a `postgres://` DSN) and defines no `ROSA_TA_DB_*` variables, so every regional deployment still resolves to the **SQLite** branch above despite the IAM-Postgres and password-DSN Postgres code paths both being available. That file is not ephemeral container storage: the task definition declares a `sqlite-data` volume bound to host path `/mnt/ecs-data` and mounts it at `/data` in the app container, and the ECS service runs with `launch_type = "EC2"` and `desired_count = 1`. In practice this means:
 
 - The `audit_entries` table (written by `NewAuditLogger`) and the `executions` table both live in one SQLite file on the local disk of the single EC2 container instance backing the service — there is no managed database, replication, or automated backup in this Terraform for that file.
 - `SQLiteStore` additionally forces a single open connection (`db.SetMaxOpenConns(1)`) to avoid "database is locked" errors on the file, so all audit-entry and execution writes on a given task are serialized through that one connection.
 - Losing the EC2 instance or its host volume loses the full `AuditEntry` history and all `Execution` rows kept in the application database. The CloudWatch → Firehose → S3 copy of `audit.Record` log lines (below) is unaffected by this, since it is shipped continuously out of the container and never depends on the SQLite file — the two audit layers therefore have independent durability stories.
 
-The same `container_environment` block also sets `ROSA_TA_S3_BUCKET` (to the region's own `aws_s3_bucket.app`) and `ROSA_TA_S3_KEY_PREFIX` (`"trusted-actions"`), which populate `config.Config.S3Bucket`/`S3KeyPrefix`. As of this review no other application code path reads those two config fields back out — they are not where `AuditEntry` or `audit.Record` data is persisted. The bucket they name is, however, the same bucket the Firehose pipeline below writes audit log lines into (under `audit-logs/`) and that Terraform itself uses to distribute `config.yaml` (under `config/`) — one physical S3 bucket serves three unrelated purposes (an unused app-level storage slot, the Firehose audit-log sink, and Terraform's config object), reached through entirely different code paths.
+The same `container_environment` block also sets `ROSA_TA_S3_BUCKET` (to the region's own `aws_s3_bucket.app`) and `ROSA_TA_S3_KEY_PREFIX` (`"trusted-actions"`), which populate `config.Config.S3Bucket`/`S3KeyPrefix`. No other application code path reads those two config fields back out — they are not where `AuditEntry` or `audit.Record` data is persisted. The bucket they name is, however, the same bucket the Firehose pipeline below writes audit log lines into (under `audit-logs/`) and that Terraform itself uses to distribute `config.yaml` (under `config/`) — one physical S3 bucket serves three unrelated purposes (an unused app-level storage slot, the Firehose audit-log sink, and Terraform's config object), reached through entirely different code paths.
 
-(repo://components/trusted-actions/internal/store/store.go#L57-L65, repo://components/trusted-actions/internal/store/sqlite.go#L24-L57, repo://components/trusted-actions/internal/store/postgres.go#L20-L22, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34, repo://components/trusted-actions/terraform/regional/ecs.tf#L78-L145, repo://components/trusted-actions/terraform/regional/ecs.tf#L151-L163, repo://components/trusted-actions/internal/config/config.go#L50-L52, repo://components/trusted-actions/internal/config/config.go#L238-L240, repo://components/trusted-actions/terraform/regional/audit_logs.tf#L41-L44)
+(repo://components/trusted-actions/internal/store/store.go#L57-L69, repo://components/trusted-actions/internal/store/postgres_iam.go#L19-L153, repo://components/trusted-actions/internal/store/postgres.go#L30-L35, repo://components/trusted-actions/internal/store/sqlite.go#L24-L57, repo://components/trusted-actions/internal/store/shared.go#L1-L13, repo://components/trusted-actions/internal/store/shared.go#L64-L92, repo://components/trusted-actions/internal/config/config.go#L63-L81, repo://components/trusted-actions/internal/config/config.go#L270-L278, repo://components/trusted-actions/cmd/server/main.go#L99-L117, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34, repo://components/trusted-actions/terraform/regional/ecs.tf#L78-L145, repo://components/trusted-actions/terraform/regional/ecs.tf#L151-L163, repo://components/trusted-actions/terraform/regional/audit_logs.tf#L31-L51)
 
 ## Regional CloudWatch → Firehose → S3 pipeline
 
@@ -171,11 +187,11 @@ The global IAM comment documents a known, accepted limitation: AWS ARN wildcards
 Trusted Actions' `ARCHITECTURE.md` lists exactly two controls under its Security section: account allowlisting and audit logging of all API calls with caller identity. In practice:
 
 - `ROSA_TA_ALLOWED_ACCOUNTS` is loaded into configuration, but loading it is not an account authorization check. The executor instead enforces its configured cluster-region and scope policies.
-- **Audit logging** is the two-layer mechanism described above: the per-request `AuditEntry` store (persisted in the SQLite file described in [From request to persisted record](#from-request-to-persisted-record-the-database-behind-auditentry)) and the per-execution `audit.Record` / CloudWatch → Firehose → S3 pipeline.
+- **Audit logging** is the two-layer mechanism described above: the per-request `AuditEntry` store (persisted through whichever `store.Store` backend is configured — SQLite in the current regional deployment, as described in [From request to persisted record](#from-request-to-persisted-record-the-database-behind-auditentry)) and the per-execution `audit.Record` / CloudWatch → Firehose → S3 pipeline.
 
 The two controls are complementary, not interchangeable: allowlisting is a preventive control decided before a request is authorized, while the audit record set is a detective control recording what was attempted and its outcome — including attempts an allowlisted but unauthorized caller made and that were denied or skipped.
 
-(repo://components/trusted-actions/ARCHITECTURE.md#L179-L182, repo://components/trusted-actions/internal/config/config.go#L55-L55, repo://components/trusted-actions/internal/config/config.go#L242-L243, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34)
+(repo://components/trusted-actions/ARCHITECTURE.md#L179-L182, repo://components/trusted-actions/internal/config/config.go#L53-L53, repo://components/trusted-actions/internal/config/config.go#L257-L257, repo://components/trusted-actions/terraform/regional/ecs.tf#L21-L34)
 
 ## Relationship to other pages
 

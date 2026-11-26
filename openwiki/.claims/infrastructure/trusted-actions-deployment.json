@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:79ef36a05309912674a4328381745d889b26377ef86a76fe323c0077703eaa33",
+  "pageVersion": "sha256:a5b61a41319bc20c5cca93e4665eae4f7e6fa47afbefa41a43086b1124cf8f9b",
   "claims": [
     {
       "id": "claim_c181865b5dad40e786ee778b4d6833b8",
@@ -126,11 +126,15 @@
     },
     {
       "id": "claim_97bdb3d2e08044b0b426e852d87afb90",
-      "statement": "Postgres URLs select PostgresStore; other database settings select SQLiteStore. Each backend initializes its own migrations.",
+      "statement": "store.NewWithIAM selects among three Store implementations in order: IAM-token Postgres when any of ROSA_TA_DB_HOST/PORT/NAME/USER is set (requiring the full host/port/name/user/region contract or failing loudly rather than falling back silently), legacy password-DSN Postgres when DATABASE_URL has a postgres:// or postgresql:// prefix, and SQLiteStore otherwise; both Postgres paths share the same postgres migration set while SQLite runs its own.",
       "evidence": [
         {
           "resource": "repo://components/trusted-actions/internal/store/postgres.go#L20-L70",
           "version": "repo-lines-v1:sha256:4c8bbda7ba787a82c5faa8599a7a136a3d5e2449ee3ffe04dde9fcd9603f9271:eyJzZWxlY3RlZExpbmVDb3VudCI6NTEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxZjk5NjNjNmIzOWYzZjcwNWYwMWFkY2E5MmZlYjJlNzVmNDhjMzM1ZGY0ZDg5NTFmNTQyNGU2ZGUwOGZjZjAiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImU4ZjM5ZTA3ZTRmOWZjODNjNWZmNzg4ODQ2YWIwMzI5NzMwNDBhMDI3NDA1NGQyNGRiYTZmNjg3MmE5YzUzYTAiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjhiNWJiZWE1ZWRiYzFkYWMxZmJlMWUxYjNmOThlMTM5MmE5YjU1YTRiMzBlYTMwZDJmMmQyY2Q1NjNjNDY5NGEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/postgres_iam.go#L93-L115",
+          "version": "repo-lines-v1:sha256:8ec386d143781f092772afbff6f567d72a1ad914af6d9f95f0dfdc7124c98ac3:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMzMmQwNzM5MWVlMGUzNTg2NTFmYzkyZDlmZDRmMmM4ZDFhZTIwMDQ1NTE5OTJmNGRjNzJhNjY3MzUxNzY5NzciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJhODM1Mjc3MDJmNzBkZTQ3NmFmYzRmYjI1NzI4MjRlMzI5OWUzOGQ5MWZiMWZkNWY4MzQ4N2RiNGY5MWYyNjYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImYxNjNkMGJhMjVkNDFmY2ZhY2QzYWExNDhiNDQ4MDliMzU3OGZlN2YzZTg3Y2UzMGM2ZmJmZmQ3NTA4ZDMxNTkifQ"
         },
         {
           "resource": "repo://components/trusted-actions/internal/store/sqlite.go#L24-L69",
@@ -138,7 +142,7 @@
         },
         {
           "resource": "repo://components/trusted-actions/internal/store/store.go#L57-L66",
-          "version": "repo-lines-v1:sha256:838b11b3ce17b4c461906b0e43e915e62a83cd3e709891372e2589730ac15d0f:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImUxOTlhMTNhYzcyNDQ2YWVmNjAxNWE2NDQ1ZTgxNGRlNzY3NzkyNDc4NTBlN2NhYzIxMjA2MTJlMWVhNmQ2MzYiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMTIxOTYwZmVkMjc3ODNjNTkwZmJmMmJlNTVhNTMxMTFlMDBlMzBmNDUzZjZkZGI4N2Q2NjcyZDY3NjM5MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQyMjk0MmU2YTZhNzk2MGVkOGQ4NDgxZDNlNzkxYTFjOWY4NjNiNzkxYjU1NTFmOWM2OWZkMzg4MGEyMzZlNDAifQ"
+          "version": "repo-lines-v1:sha256:ab1aac9a70c6ac047b04a573fee233e5d2461411acc2bf92ed69df3b0d43fc53:eyJzZWxlY3RlZExpbmVDb3VudCI6MTAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijc2NWRiYTM5MjU4MDZhYTA4Y2M5MjkyMGM2NThjNWQ1OGU2ZjZhODJlZmJkOTFmNTE2NTY1ZWM5NGMxMTgzMjIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhYjE4MTRiMmE4YjE4YzVhYWFjYTJjMWZiNDU2NTRkZGE3ZGYxODFiNmE4NTkwZTBmOTI2OGM1NDJmZWY5NGQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjExMTIxOTYwZmVkMjc3ODNjNTkwZmJmMmJlNTVhNTMxMTFlMDBlMzBmNDUzZjZkZGI4N2Q2NjcyZDY3NjM5MjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImU3OTliNTRmNjhkMDQzZTkzMzlhZDkxZGZiZWMzMzY0N2I0ZDFkMmZlMTVhMGRmYjE4ZTE2NjBmYTA5ZDk3YmMifQ"
         }
       ]
     },
@@ -169,10 +173,84 @@
           "version": "repo-lines-v1:sha256:3cf4e77a69018c54b2acc1a6cd9ccfa48e84a7f797005bbc06dec2ca483c64e7:eyJzZWxlY3RlZExpbmVDb3VudCI6NjUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjBjNWYxZjkxOGM4MjlkMjZlOWE1YWJkMDQxNGFmMWI2MTgzNjM3NTZkYjE4OGI5YWYyYWRiMWE5MGNjMzIzYWEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjMyYTRjMmNlN2MzNzZmM2Q1YjIxMDQ4ZGYxYmQ0MmRiM2RlNGJjZGQ0OTQwOWM5ZGU1MWRhZmI5NDk3NDE4ZTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjVkZDIwNGY2NmM4MGJjNmNjM2YyNzVmYzg2ZjVlYTljOTNiMjgwODNlODFhODZiYzU5Y2QwOWNkMGNlM2JiY2YifQ"
         }
       ]
+    },
+    {
+      "id": "claim_40e8666964fa4d66b2b6cdd3a53f168c",
+      "statement": "newIAMPostgresStore authenticates to Postgres with per-physical-connection RDS IAM tokens minted from ambient AWS credentials (never a static password): a database/sql Connector mints a fresh token per dial via aws-sdk-go-v2's rds/auth package, and the pool's ConnMaxLifetime is capped at 10 minutes so a pooled connection cannot outlive the token's 15-minute validity.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/internal/store/postgres_iam.go#L34-L93",
+          "version": "repo-lines-v1:sha256:dfd8c9ad17dbc5b643fc77f7a846b9f3f06a158c6b4d5b080af5022efad3ddeb:eyJzZWxlY3RlZExpbmVDb3VudCI6NjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjlkYzBmMTBkMTU5MjkwNzQ1Njk1ZGRiY2M2ZjA5YTIwZGE3OGE5M2MyMmQxM2ZhYzc0NTdkYzJjNzgyZWYxMDkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjMzMmQwNzM5MWVlMGUzNTg2NTFmYzkyZDlmZDRmMmM4ZDFhZTIwMDQ1NTE5OTJmNGRjNzJhNjY3MzUxNzY5NzciLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjQ5ZTNmOTdmM2Y5MGI5ZTgyMGEwZWVlMDc4NGFhMWQ1NWRlMGMyNzM1MTU3OGExNzQ1N2I0YzFjYjVmZjk2NWEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI0YTM3ZTczM2MzZTdkZDI5YjlkZTBjMWY3ZmY3ZDk0OWY5MTUwZGRlOTQ2OTllZTI1MDViMzAxNGFhYWYyYjgifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_86e3dfb933ab4e908ffa8ebde0bb594f",
+      "statement": "IAM-token Postgres is the production-intended data store path superseding the legacy DATABASE_URL Postgres path: cmd/server/main.go documents that NewWithIAM gives the IAM-token path precedence over legacy DATABASE_URL schemes during an expand phase, while current regional Terraform (terraform/regional/ecs.tf) still hardcodes DATABASE_URL to a file-backed SQLite path and sets none of the ROSA_TA_DB_* variables, so a production RDS/Aurora cutover would adopt the IAM-token path rather than the legacy DSN path.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/main.go#L98-L111",
+          "version": "repo-lines-v1:sha256:07732e72cf0f6962ab42e2a561341de1445e6fdb97024376282e1db6a44aa3ef:eyJzZWxlY3RlZExpbmVDb3VudCI6MTQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI3MDUyYjdlOGI2MTQ5YzEwMzJhMWFjY2FkMzc0MDA3MDFmOGY1YjJmYzIxNTRhMjZjMmE5MGRhODNhZTQ0ZDkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjJmZjc2NzFmZDE2NDA2MjQ0MTE5ZWQ1OTU1Y2UzNWQ4NDZmZmRkOGUwYjgzZDQwYmM2MWJmY2RlMzJlYzlhODgiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNhMzgzNzIxYmMyNWFhMjcyNGZmODMyOGU1M2JkZjgwMjI0ZjIyYTM0NzAwODUwODgwZjVjNzBlZjZhOTBhNTEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/terraform/regional/ecs.tf",
+          "version": "repo-file-v1:sha256:53a7ea6a50847b1db1e7f4292202ef79b532e7c40e83b01accf8056c4b046eab"
+        }
+      ]
+    },
+    {
+      "id": "claim_c22f0ebe73984e2b891f04b36876acc9",
+      "statement": "compose.localstack-db.yml runs a digest-pinned licensed LocalStack Pro image with RDS IAM database authentication enabled (RDS emulation is a Pro feature), and scripts/localstack-db.sh provisions a LocalStack RDS PostgreSQL instance each run, replacing it and its data on rerun because LocalStack does not apply master-password modifications and the script generates a fresh master password per run.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/compose.localstack-db.yml",
+          "version": "repo-file-v1:sha256:6c980b9047b5033444b72fdd8dc3eacef82193b18ec02adbc52f973d4e8f0895"
+        },
+        {
+          "resource": "repo://components/trusted-actions/scripts/localstack-db.sh#L1-L17",
+          "version": "repo-lines-v1:sha256:a9b4400a7f05b75160e64b68ac8fe82b14780f740207e80a5531946654c97a3b:eyJzZWxlY3RlZExpbmVDb3VudCI6MTcsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NzVmOTI4NTQ2YWVlNzg1NWNiMWRiOWFmYzhhYjNmMWE4YTM0ZDQzZGU1YmJkNjJmNzA3NmQ3YmE5ZjM5MTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZkYmZlZjk1YTlkYmM0NjYyOWQ1MDIxMTY3NGEwYWRmMWMyY2EyYWY0ZGU3OWIwMGJhNzdmYjI3ZDE5NDZlMDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwZWRlMDAwZmM5YzUyZTA1NTNhMDNhMGFjZDM4OTMyNTU3MjUyNjA4NjZmZWU4OWQ0YmFhOWY4YzkzNWYyMGMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/scripts/localstack-db.sh#L170-L230",
+          "version": "repo-lines-v1:sha256:3b4554bc951ee1ee51dad77a2dabfb95c28da5a3b2e087c3af3edc4b9d05ddf2:eyJzZWxlY3RlZExpbmVDb3VudCI6NjEsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJiOTQwOTI3Njk0OTE5MmFjYjVlOTE5MDJkY2MzMTNiZTE4NzNmNzg2NDQzNGUyZTIwNTNlMjcxZjU4M2JlM2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImYzNzA5MmNlMjUwNGMwZTc5YzQzMmEwNTA5OTljNGFlOWMzOWQyZDVlY2YzMjc0YmFkNGI5OWIyZGJiYTkzOGEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk0MmY3ZWZjM2NmNmM3MmI2YTk4OGIxNDk1MzY0YTRlZjY0M2I2NjZhZmY4MGFhNjkwZDA0OWQ5MmY1MmE1ZjIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImI4ZjRjNDZkODYyMmQ4MmQyYjUxNDhmNzVlNDdkOTRkY2JhYmFmMmQyMDI2NDcwN2YwNmIwY2Y5N2Y3ZGM2N2IifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_5496c406365e4a19a0a5cddedb9558ee",
+      "statement": "The server's `bootstrap` subcommand (cmd/server/bootstrap.go) takes master database credentials via --dsn or ROSA_TA_DB_MASTER_DSN and calls store.BootstrapDatabase, which applies idempotent SQL creating the trusted_actions_app role with rds_iam and CREATEDB grants and transferring database and schema ownership to it, asserting post-conditions so a partial bootstrap fails loudly; scripts/localstack-db.sh invokes this subcommand against the LocalStack-provisioned instance using master credentials, then writes ROSA_TA_DB_* variables (no password) to .env.localstack-db for `make run-localstack-db`.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/cmd/server/bootstrap.go",
+          "version": "repo-file-v1:sha256:98586114a2dff535f930c5ed9bc86dcb811a8aff94c448b450a11da97be2c92b"
+        },
+        {
+          "resource": "repo://components/trusted-actions/internal/store/bootstrap.go",
+          "version": "repo-file-v1:sha256:f7979c927d8c33d36a641415bcc633220d05b2e3d5dc54b1315b908201e23381"
+        },
+        {
+          "resource": "repo://components/trusted-actions/scripts/localstack-db.sh#L238-L265",
+          "version": "repo-lines-v1:sha256:45bb36bf68243befddb298891c450a4c32cbde242b157e3a0f36818b3de4dd9f:eyJzZWxlY3RlZExpbmVDb3VudCI6MjgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjJhNzQ1NTRjZDllMzViYzVmMjdjYmQwZGIzNzhiZjc2YzUxZDczZGRmMTAwZTM0MzQ4YTNjY2M5MzNmOWRjMmQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgyMmY4YmEyYmJmMjg0NTZkMWVkNmQwMTdiMTc2YTk2ODA5ZjY3YTJiMjJiMmIxZTA4NzU2MGRkNTZlMWFhOTIiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImRkZTY0NDVlYjEzY2UwMmI2MzAwNmI4Nzc3N2YwZTNlOWE1MDNkYmY4ZTA3YzJlYWNjMTI4YTk1MmFlOWMwNWUifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_ce4bf468721a48c1bb45711a99206814",
+      "statement": "`make localstack-db`, `make run-localstack-db`, and `make localstack-db-down` form a dev/test convenience workflow distinct from production RDS IAM auth: the same store.NewWithIAM/newIAMPostgresStore code and ROSA_TA_DB_* contract is exercised locally against LocalStack's emulated RDS and static test AWS credentials, whereas production applies the identical mechanism against a real AWS RDS/Aurora instance with real ambient AWS credentials.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/DEVELOPMENT.md#L68-L93",
+          "version": "repo-lines-v1:sha256:acfbb2aa0f3b443f290e4b7fbbff640bcd638305b49644e808c0513427beffa1:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg3Zjk1MjhiMGYxYjFhOTYxNGMzM2Y1YWEwNDJhYzRhNjUyMDM2ZmNhMzg2ZmMyZjQxODNlOTk4Y2I3YjZkMGMiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImM5OWJkYmZlYmYwNTk2ZGU0MWU0MGVkNmFlNzBhZTYzZDVlNDBmODBkZTZlOGM2MGY1Njc5MTYzYjM2ZmY4NzYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6Ijc1MzkyYzJiMDllOTA5YmE2ZGYzMTc5OGYxM2NmZDAyY2NkMmZmNGQ1Mzk1OTAyNjZlN2Y4MzVjNTc4ODVjYjEifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L114-L136",
+          "version": "repo-lines-v1:sha256:7b69b052440d043ac23b3da6b6cf91e7821aeff75e6dbc01a7498337faf7aaa6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMwZWJhM2JlZjU5MmJkMTNlMjU2OWE4NzhjMWQyMGJlOGM4NWI3Y2E1NzM1MDQwN2QxNTUzMjRhZTAxMThkZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyYzQ3Yzc4MDczMTM1M2RjYTAyNzdiODZkZTRiNzQ1MjE5YTNmN2FlNzNjY2YzZTI0OGUwMmY2OGE1MzY5NWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZhMmRlMDliYTY2MGZiODliMTE2YzJhNGZlZDJkNGQ4ZmY5YWQ1N2FiNmVjYzIxOTY5NzA3MWZmNmU1ZGI2NDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2YTgxYWMzMzk0ZGRiMGMzNzY5YTMxZmRkMjRiZTI5NjA5ZDY1OWUzZTUwMWY4MjIxZjYxMWQzNTc3YWYwNmMifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

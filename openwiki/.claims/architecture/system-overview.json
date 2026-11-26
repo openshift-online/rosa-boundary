@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:757596a1346988019b5f6dec08e6eb316ad61c5f167a8f30496cfc64a291b464",
+  "pageVersion": "sha256:f5866a48ae8599268b29af5a318a5bfed51c1a4d4b3eaa687a7a08568daf360d",
   "claims": [
     {
       "id": "claim_aa4b01f857934a6dbcc398aa0c3355c0",
@@ -8,7 +8,11 @@
       "evidence": [
         {
           "resource": "repo://internal/cmd/cli.go#L100-L147",
-          "version": "repo-lines-v1:sha256:25aeb3d2deb180cc7e6f1fd1cb1d208bc35fce8b0c2d9abf75c701f35bf96ce1:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNkOGExOTNmMmI1OTM3MWNhZGViNjcyNjNhYzFlNTJlZjVkOTBhZTdkNzQ4YjI4MTIxOTE5MWU0NWM5NDE2MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjQxMmNhMzQ1Y2NmNzViZjljMDgwNmJjZTY5NWJlOGRlODA4Yjc5OTg0MjUxYTdhNTRkMjAyY2Y2MTAxZGQ0NTEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRjNjNlNTE1NjI1NDk3ZmQwOTJlY2M2NzI3MzUxNzRiNjE0NDkxNTEzMGQxN2E5YTkwOTY1MzFiMjQ5MGRiZDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjNhNTdlMmNiOGNjMTkyYjJkNmRlYTU4YzY1NDM3OWRiMDUwMzVjYjRiY2U4MzAwYjg4MzZjNmI5YTYzZGZlOWUifQ"
+          "version": "repo-lines-v1:sha256:e7db234bc173f85b9ecb6e3cc9a58f0b2d42743197148157a0a907b4b686bcb4:eyJzZWxlY3RlZExpbmVDb3VudCI6NDgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNkOGExOTNmMmI1OTM3MWNhZGViNjcyNjNhYzFlNTJlZjVkOTBhZTdkNzQ4YjI4MTIxOTE5MWU0NWM5NDE2MzIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImFkYTFkNzkxNDgwOWUzNDk5ZDQ1NzNlOGJmZTU4MjZhZTA4MmVhMmUyYTE0ZGI3Y2MxNDE3MjU3N2M2YTczNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjRjNjNlNTE1NjI1NDk3ZmQwOTJlY2M2NzI3MzUxNzRiNjE0NDkxNTEzMGQxN2E5YTkwOTY1MzFiMjQ5MGRiZDkiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImFmODlmZDAxM2FmZmQ1MTBkZWUxMDlmYTViMTMyYjAwYzM0YmQ4M2Y5Yjg5NTllYTkwNjhmOGQxNmQ2NDEyYTIifQ"
+        },
+        {
+          "resource": "repo://internal/cmd/close_investigation.go#L178-L192",
+          "version": "repo-lines-v1:sha256:daeb95e61f1ad4452515e00626579cbf57d1918b1e1a65ff31058959ce7283ed:eyJzZWxlY3RlZExpbmVDb3VudCI6MTUsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjZlMjBhMzAxZmRmOTRjN2E4NjI0MzY4ODdkZmYzZWVhYThlOTg3YWYwMzVmYTQ1NzA1N2ZiMGU2NTUyOGIyMTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZlMWI0OWRjNzJmNjMyNjNkYzRmODFkZDIxZGYzZWRiZmU2NWU5NjVlN2FmMjhjNDM4OGFmMjc0NThlZTYwY2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjgzODQ3ZjE5N2QyMTYxMDY2NzllNGIzYjRmNmE5NzgwM2ViMzQ2ZTdmOGU2ZmZmNWU4OWU4YTQ4NDhjODk4YjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImZkOWRhNDAxMmRjOWQ1ZDE0OTZhZDkyZDdhZTkyODZiZWYwYzJjOGYyY2ZhNmIwMDk3ZDI4NWU1NDc3YjQzMWEifQ"
         }
       ]
     },
@@ -182,19 +186,19 @@
     },
     {
       "id": "claim_b159a891353348cfafddedc4eeff0dac",
-      "statement": "The command tree and authentication pre-run live in cli.go, dispatch and STS retry in root.go, and session launch and connection orchestration in start_session.go.",
+      "statement": "The command tree and authentication pre-run live in cli.go, dispatch and STS retry in root.go, and session launch (Lambda invocation, SRE role assumption, OCM credential setup) and post-launch connection orchestration (interactive attach, auto-close registration, close outcome reporting) in start_session.go.",
       "evidence": [
         {
           "resource": "repo://internal/cmd/cli.go#L24-L148",
-          "version": "repo-lines-v1:sha256:6ac553a70f799186898e964657ab196e369ba38b046fba6dedfb2d8197517b87:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmOTE3NGI4OWVkNGFlNjkwMzg5ZWM4OTlkYTg2YjQzOTkzNWY1OTE5NTM3ODEyODVkZGFlMDExNzZmMjQ5ODNiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI5MDE3ZTgxNmYxOThlYWEzYTJlMzA0OWQ4YTA4Y2QzYzIxMGQ1ODNmNDllOTJjZjU2YWNjMmEyZGZjNjZiOTk1In0"
+          "version": "repo-lines-v1:sha256:5827230126ba8ab26f4a9b9e41f36fcf2dc4d794503bc3906f8aa29307cd7774:eyJzZWxlY3RlZExpbmVDb3VudCI6MTI1LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI0MTJjYTM0NWNjZjc1YmY5YzA4MDZiY2U2OTViZThkZTgwOGI3OTk4NDI1MWE3YTU0ZDIwMmNmNjEwMWRkNDUxIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiJmOTE3NGI4OWVkNGFlNjkwMzg5ZWM4OTlkYTg2YjQzOTkzNWY1OTE5NTM3ODEyODVkZGFlMDExNzZmMjQ5ODNiIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzYTU3ZTJjYjhjYzE5MmIyZDZkZWE1OGM2NTQzNzlkYjA1MDM1Y2I0YmNlODMwMGI4ODM2YzZiOWE2M2RmZTllIn0"
         },
         {
           "resource": "repo://internal/cmd/root.go#L44-L160",
-          "version": "repo-lines-v1:sha256:cf9a0241529552b7de9d8b76dcb9a897a758806a83891d616a36eb39193d9da1:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5N2JiNjJjZTQyY2U0ZDg5MTViMWJmODhkMTZhZWZlMjdjMjY0NTBhYzA0NGUzZWM4OGQ2YmNlOWIwYWVhZjExIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJlODkyNTAyMTBlNjhhM2QzYmIyMmVmOWYwOTRhNjU0ODA1OWYyNjA3ZWJiZjIyMWY2NjFhODY4N2JkNjJmOTEzIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4YTY0MDM5YTBmNmM3OTI5NTg1NjI2NDU0NGMxNDE4OTU5ZmM1YjQ3NmQyZWNiMTBhNjI1ZTUzM2U2NGQ5NDVjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiI4MzZlZTJlOWE3ZjAzOGRhMmJkNGY0ODhjMzBkZDg0MjM0YTQwNWY0Yzg2NTc2OWUxMjdiOGFlN2ZkNjJiMjVlIn0"
+          "version": "repo-lines-v1:sha256:a5b6674f31ce9b2381dec1e7b4cd94156eabd5cc979a8a8ebf8f3910cbab34e2:eyJzZWxlY3RlZExpbmVDb3VudCI6MTE3LCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiI5N2JiNjJjZTQyY2U0ZDg5MTViMWJmODhkMTZhZWZlMjdjMjY0NTBhYzA0NGUzZWM4OGQ2YmNlOWIwYWVhZjExIiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiI2NzkwMmFhNzkwZjE1NDQxZGEwNjg2NzZlZjM5MjM4ODFjMDVlOGQyODEwMDNkNjA3YmZjMzNmZDU5YzkyMjdiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiI4YTY0MDM5YTBmNmM3OTI5NTg1NjI2NDU0NGMxNDE4OTU5ZmM1YjQ3NmQyZWNiMTBhNjI1ZTUzM2U2NGQ5NDVjIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiJiN2E2YTNkMDVlNzFkYjhlNDAxMGYyYWY2NTFkODI0ODc3OWExZTI1ZWUwYTY3MTFmYjdmMGEzM2I1NGIwNjEzIn0"
         },
         {
-          "resource": "repo://internal/cmd/start_session.go#L46-L218",
-          "version": "repo-lines-v1:sha256:6e96ea78fc35cd2cf2aaa7bcff90add4070e5677a2ba5502d1cec92eada6cae6:eyJzZWxlY3RlZExpbmVDb3VudCI6MTczLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNTExYWZjM2MyOTE4NjEyZDg3MDBkOGUzZTljNDlmNzExMDJjMzM5NTlmZTkzNzAzNzFhYTIwOTA2MDQ5NmQ0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiJjOGFkOGUyY2EzY2Q0YjBlMDU5MGFmYzAzMWIwOWU2ODRhY2JiZjRlMTVmYTExNGUwN2VjMmFjZTZhYjdjYjAwIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNDdmMWYyMjUzNjI0NmJhYjA1Zjg4ZjJkNDRjMmM4NWExNThlZjM3MmVjZDBmYTA2ZWJjZmY2ZTBkNGVlNDYyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIyMmYyZmY1ZmVlYzYwZjU4N2M4ZmFlNGU4N2Y4MDlhNjYxY2ZmZWQ2YjQ3YWFlNWY2ZDZhMjY1M2FhODk1MmVmIn0"
+          "resource": "repo://internal/cmd/start_session.go#L46-L305",
+          "version": "repo-lines-v1:sha256:e3b4d35af9807949fbd07c98d8cf26e6f2f200ab63a0986271042a0b171778b6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYwLCJmaXJzdFNlbGVjdGVkTGluZUhhc2giOiJlNTExYWZjM2MyOTE4NjEyZDg3MDBkOGUzZTljNDlmNzExMDJjMzM5NTlmZTkzNzAzNzFhYTIwOTA2MDQ5NmQ0IiwibGFzdFNlbGVjdGVkTGluZUhhc2giOiIwMWJhNDcxOWM4MGI2ZmU5MTFiMDkxYTdjMDUxMjRiNjRlZWVjZTk2NGUwOWMwNThlZjhmOTgwNWRhY2E1NDZiIiwicHJlY2VkaW5nQ29udGV4dExpbmVDb3VudCI6MywicHJlY2VkaW5nQ29udGV4dEhhc2giOiIyNDdmMWYyMjUzNjI0NmJhYjA1Zjg4ZjJkNDRjMmM4NWExNThlZjM3MmVjZDBmYTA2ZWJjZmY2ZTBkNGVlNDYyIiwiZm9sbG93aW5nQ29udGV4dExpbmVDb3VudCI6MywiZm9sbG93aW5nQ29udGV4dEhhc2giOiIzYmQyMTM2YWQyYTkzYTgxYTY1M2JkMDY3NmI0ZGJhMmM5ZDdkMDAxZWE1NDZiMDg4YjQ4NTcxY2ZkOTM4OTY3In0"
         }
       ]
     },
@@ -232,11 +236,11 @@
     },
     {
       "id": "claim_b55af256c8184effa2d84cfb2373b4ad",
-      "statement": "The root container build includes a dedicated rta-builder stage; the final operator image installs its binary and runs entrypoint.sh with sleep infinity as the default command.",
+      "statement": "The root container build includes a dedicated rta-builder stage that compiles only the nested components/trusted-actions module's CLI into a stripped static binary; the final operator image copies that binary in (not the builder toolchain) and runs entrypoint.sh with sleep infinity as the default command.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L354-L377",
-          "version": "repo-lines-v1:sha256:0ce8f56a1d117e0a1bc94b3808b584002cf5808b2c8de3a02b6cdc9571122c25:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4NzY0Zjg4NTIwMDU4YTY3OGNhMWM2MTEzYWY5NDcxYWU1YTg0MmE5MTc4N2Q5NWVmYjhhMmZlZTdkNjViNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJiMzFmOGI1YTdiNjQ2MDkwMjlmMmUwNmEwNDUyMmY3ZTYwM2MyMGFhMWJkOTc1OTczM2JhNTI5ODVlMzAyZjkifQ"
+          "resource": "repo://Containerfile#L354-L382",
+          "version": "repo-lines-v1:sha256:e06cb9f0114bd727bb0ed019d6370baaac35ce028e1a60b2f5513f49ddfaae4e:eyJzZWxlY3RlZExpbmVDb3VudCI6MjksImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRhODMxYThhNTNlYjZiZTgxMWQzNWJiMGIwMzRiMTY3MzIyZTkwMGNmYWIyZmU0NzZhODEwOTk5ZGExMWEwMGUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImViMDA0Y2NlMTkzYWI0ZTg0YmY2NmE4ZGJlYTVmMWNjNWEyZDI4ODIyYWU4ZWUxZDdmNjZkYjc5N2MyYTQ1NjAifQ"
         },
         {
           "resource": "repo://Containerfile#L440-L447",
@@ -261,6 +265,6 @@
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

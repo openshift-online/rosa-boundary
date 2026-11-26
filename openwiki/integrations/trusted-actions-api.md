@@ -54,10 +54,10 @@ sources:
     resource: repo://components/trusted-actions/tests/proxy-backplane/main.go
   - id: openwiki-source-8ea12a05c67ed54e49e49437
     resource: repo://Containerfile
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 ---
 
 Trusted Actions exposes a single HTTP API, defined OpenAPI-first under
@@ -280,7 +280,16 @@ flowchart LR
 
 ## Calling from Boundary
 
-Boundary ships the standalone `rta` HTTP client inside the operator image; it does not embed the TA server in the Boundary CLI.
+Boundary ships the standalone `rta` HTTP client inside the operator image; it
+does not embed the TA server in the Boundary CLI. The repository-root
+[`Containerfile`](../../Containerfile) builds `rta` from this same-checkout
+`components/trusted-actions` source in its own `rta-builder` stage — a
+`registry.access.redhat.com/hi/go` image that runs `go build` against
+`cmd/rta` and `internal/` with `CGO_ENABLED=0` and `-trimpath`, embedding
+version/commit/build-date via `-ldflags -X` — and the final `rosa-boundary`
+image copies only the resulting stripped, static `/out/rta` binary into
+`/usr/local/bin/rta`; the Go toolchain, source, and module cache never enter
+the final image.
 
 ## Test harnesses that exercise the API without live dependencies
 

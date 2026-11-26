@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:3efaef57de4d377d13034bde7cfcbcc35fe327e1bb1d270c5d49360ff8d0d09c",
+  "pageVersion": "sha256:29c0ad108e4aac46e750a80c3e808fffa036d2bd2879c24728497374922f8164",
   "claims": [
     {
       "id": "claim_e1c46fdd6d9345088a725c8edbc61d9c",
@@ -11,8 +11,8 @@
           "version": "repo-lines-v1:sha256:44f5cd246bccbb012d15cee0e49499f13e3e894fd35d3dd86515fdcacf74bc38:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkwNTYyNDdjMjM2OWQyOThkNmIxNTg3OTIzYWY3NDMyZWRhMjViZTUzODI4NTkzMjQ2NjNjYmYyMDc3MmRkN2UiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImNmYWVlZmVmN2Y0MGNmOWMwNWY0NGQ3NzE5MWJmY2ViOGE5MmE1ZjI2NGMyYzhiZjkyZmU2MGIyOWYwNGQ2OTUiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6Ijk3Y2ExMzNmODRhNDA5YTcwODhiNThlMDdiZDAwZjZiYzU4MzEyYWI5YjVmYzJjZDkzYmUxZGZkMzI5YWMyODQiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNhMjhhNzhmMzcxYTAzYTJiYzk0YmIxMjgwNDk2N2I1ZmJlYzhhN2RmMjYyOWUyZWZjOTdkMzk4NzFkMmQwY2IifQ"
         },
         {
-          "resource": "repo://components/trusted-actions/Makefile",
-          "version": "repo-file-v1:sha256:8d746e8b2f531255adc11d6ae5ac23fa6ea149335c913c9525bb3b079f7b616f"
+          "resource": "repo://components/trusted-actions/Makefile#L144-L148",
+          "version": "repo-lines-v1:sha256:9e5d52caff899bf1a3c6dc366cbb0039ccb9912ecf080b184d866aade63cbb87:eyJzZWxlY3RlZExpbmVDb3VudCI6NSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiM2QxZjg5YWE4ZjA1YzMwODYwOTQzNmI2OTA0YTA2ZjU3ZmJiNWJjNzkwNGJkODY4ZmM5OGRiYjI4ODk1ZjU3NSIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiOWJhNGJlMjUyYjNlMDZhNmI5MTM2OTQ2NjEwNjExN2MyNWVhODIxNzdhYTkzMjI1Y2M0OTZkNWM1Njk1MmVmMiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiODJhYTZkY2Y1NTMwMzVlMWEyMmRlNWQ5MjIwYjA5OTY1ZTVkZjk4MTgyZTc4MmI3Zjc4YTZjOGYxMjRkOTM2NyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiODkyMWZmODY5MjM3Y2VhNWE2NDRmNWJiMzU5NzdmNDZmZDlhOTYzNWJlYTc2NmE3OWMzMmNjNTI0Zjg1MzJjZSJ9"
         },
         {
           "resource": "repo://components/trusted-actions/go.mod#L1-L4",
@@ -103,7 +103,7 @@
       "statement": "TA make test generates OpenAPI code, compiles an integration-tagged package without running it, then runs module Go tests; Postgres, race, API and kind integration are separate targets.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile#L128-L205",
+          "resource": "repo://components/trusted-actions/Makefile#L142-L219",
           "version": "repo-lines-v1:sha256:f1fd976f8eec0d126308b9e8f8c42d56f4779c29f12b3ae05a9806eada8ad345:eyJzZWxlY3RlZExpbmVDb3VudCI6NzgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImIwMzU3NGQ0OGY4M2MyNzA5OTJmYWZmZjE2NmVmMzk3MzY5NGJkMGZiYzA0ZWJjMmI2MDQyNjI1YzlmMDM3OTkiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjM4NDVjMzIwMzE4NTc4OTYwMGRlZjI3YmQ2YmQ3MTI2MTJlOWFiMzc1YTI5YTM1OWJiMDQ4YWI5ZDA0NTE3MTEiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjA4MGI0NGE0N2EzZTQ0MmVlOWE0NzhkYTNjMWVhNzRjMDc5Y2Y0NTRkMmNkNGZhY2ZiODQ3MjZmMDRlYjJkMzAifQ"
         },
         {
@@ -161,10 +161,42 @@
           "version": "repo-lines-v1:sha256:bc8f258ad408759b4ed84c410fce19f7f52443646f6a941892976ef01e149663:eyJzZWxlY3RlZExpbmVDb3VudCI6MjAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjY3YWM3NzA1OTk1NjJlNTdhNGI5ZWYxMjU0MWVlYTM3NTcwZjBiNjNlODc1YTVjZThkMzI1NjczNTk2NzUzOTMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImVlOTFlNTFjZTUzOGVmMTIwZWUyMGNiZGY5NDE1OGJhY2UxY2MxMTc5MDZmODY0ZmVkMmQ5NGUzNzExMGNiMjYiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjQzY2Q3MDEzZWEwNjUyMWE4NWIzNTEyM2Y0ZTcxMWZiNjU3MGYyYmI0ODg3NjJkZGQxNjU2ZmE4MmRlYzIwZTYifQ"
         }
       ]
+    },
+    {
+      "id": "claim_135e065f2fb640619c8af4a6e7a11b28",
+      "statement": "TA's make localstack-db provisions a disposable, licensed LocalStack RDS PostgreSQL instance (via scripts/localstack-db.sh and compose.localstack-db.yml), bootstraps the schema and an IAM-auth application role through the server's bootstrap subcommand, and writes a gitignored .env.localstack-db consumed by make run-localstack-db; make localstack-db-down tears down the container, its volume and the env file. All three require LOCALSTACK_AUTH_TOKEN because RDS is a LocalStack Pro feature.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/Makefile#L114-L136",
+          "version": "repo-lines-v1:sha256:7b69b052440d043ac23b3da6b6cf91e7821aeff75e6dbc01a7498337faf7aaa6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMwZWJhM2JlZjU5MmJkMTNlMjU2OWE4NzhjMWQyMGJlOGM4NWI3Y2E1NzM1MDQwN2QxNTUzMjRhZTAxMThkZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyYzQ3Yzc4MDczMTM1M2RjYTAyNzdiODZkZTRiNzQ1MjE5YTNmN2FlNzNjY2YzZTI0OGUwMmY2OGE1MzY5NWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZhMmRlMDliYTY2MGZiODliMTE2YzJhNGZlZDJkNGQ4ZmY5YWQ1N2FiNmVjYzIxOTY5NzA3MWZmNmU1ZGI2NDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2YTgxYWMzMzk0ZGRiMGMzNzY5YTMxZmRkMjRiZTI5NjA5ZDY1OWUzZTUwMWY4MjIxZjYxMWQzNTc3YWYwNmMifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/compose.localstack-db.yml#L1-L26",
+          "version": "repo-lines-v1:sha256:6c980b9047b5033444b72fdd8dc3eacef82193b18ec02adbc52f973d4e8f0895:eyJzZWxlY3RlZExpbmVDb3VudCI6MjYsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjFkMDQ5ZTY1MDliMDU5YmZjOWVlZTk4MGM1NWZiMWYwMDNmY2ZkNjVlNjg0NjlmMjMxZDU0NzM2YjQwY2EyNzQiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImExZmFhZDVhMWU0YTQ0YjRjNDNlZTI1OTgzNjkyNTc5NzU0OWZhMGNmNzQyNDdhZWQxM2EzNDZjN2RmMjNkM2YiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjowLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/scripts/localstack-db.sh#L1-L18",
+          "version": "repo-lines-v1:sha256:805361bdb07f8c2c22f08daa9939cf9f90d523c6eb45598e00143d3beb7fea63:eyJzZWxlY3RlZExpbmVDb3VudCI6MTgsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImI4NzVmOTI4NTQ2YWVlNzg1NWNiMWRiOWFmYzhhYjNmMWE4YTM0ZDQzZGU1YmJkNjJmNzA3NmQ3YmE5ZjM5MTciLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjowLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImUzYjBjNDQyOThmYzFjMTQ5YWZiZjRjODk5NmZiOTI0MjdhZTQxZTQ2NDliOTM0Y2E0OTU5OTFiNzg1MmI4NTUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwM2Y0ZjE2MWYwNjkyODNlZTRlNDYzYjgwZjk0MDRkMTcwYTIzNjNkMWQzYzQyZTA1MzAxOGMyODIyZDVlMjYifQ"
+        }
+      ]
+    },
+    {
+      "id": "claim_f5a5ee8943c046eca2f6f00c065ad23d",
+      "statement": "Each make localstack-db run is disposable by design: it generates a fresh master password and, if an RDS instance already exists, deletes and recreates it because LocalStack does not apply master-password changes via modify-db-instance, so prior row data is discarded while schema is rebuilt via bootstrap and migrations.",
+      "evidence": [
+        {
+          "resource": "repo://components/trusted-actions/scripts/localstack-db.sh#L163-L206",
+          "version": "repo-lines-v1:sha256:a7b5468492119fa0489d34bb536017a0b7f5bb4c4a4b172fa0014a11d4efe0f3:eyJzZWxlY3RlZExpbmVDb3VudCI6NDQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjRlNDQ4MzYzMTllMzNkMjJmNzQ0YmVmYTlmNmU3NmQyMGJjNjVjMjMzMmRmYTEyNGFhZGIwMTA4NjIxY2JhZmMiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjI0ZDVmZDA2MGZmZDZkMjVhM2FlYWFhOTExNmU5Mzc0NjVlYjI4Y2U5MDliYjA3YjkwMjE5OTBhMWUzY2M2ZWQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjU4NmI1ZjRjYzJlY2YyN2YwZTMzMGIwNzEzMDVjYTE2ZGIxNmEyZGYwMWNjZTI5MDhhOTNiOWY3NTU0OTM1Y2EiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImNhM2Q0ZTgwMjUzY2IwN2M4OTUwNTYzYWQwZDFjNjlkMGE0NmUyMmNjYTQ4ZTFjYzkxYTlkYTgyMTdiZTY1OTgifQ"
+        },
+        {
+          "resource": "repo://components/trusted-actions/scripts/localstack-db.sh#L6-L17",
+          "version": "repo-lines-v1:sha256:4ae7bfe3c3fe3b61259b7803cecc615762c5f6d2dbb582ae29ff672b7b4281e5:eyJzZWxlY3RlZExpbmVDb3VudCI6MTIsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6IjUxZDA4NTg4YTQwMGY1NzIyOTQ5NjE4ZTdkOGNiYjVjNGFiMjkyYzQyMmQxZGNlNjlhMzc5MTdiNDBjZGVkMjkiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6ImZkYmZlZjk1YTlkYmM0NjYyOWQ1MDIxMTY3NGEwYWRmMWMyY2EyYWY0ZGU3OWIwMGJhNzdmYjI3ZDE5NDZlMDQiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6ImZkOWYxMGQ5MDBlM2MwNTYxZDZjNzdhZDkzZDIyNDE1MTYyMWY5YTkxZTkzZjRkMGYwNjk2NGZjOGU2ZWUwNjUiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6ImQwZWRlMDAwZmM5YzUyZTA1NTNhMDNhMGFjZDM4OTMyNTU3MjUyNjA4NjZmZWU4OWQ0YmFhOWY4YzkzNWYyMGMifQ"
+        }
+      ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

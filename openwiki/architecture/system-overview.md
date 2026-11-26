@@ -30,6 +30,8 @@ sources:
     resource: repo://go.mod
   - id: openwiki-source-d2f66eb6a0ccf1ed7a35e866
     resource: repo://internal/cmd/cli.go
+  - id: openwiki-source-3eb89a64c83d3140ea6ba8c4
+    resource: repo://internal/cmd/close_investigation.go
   - id: openwiki-source-7a5e071b6b6192c80a6918aa
     resource: repo://internal/cmd/root.go
   - id: openwiki-source-2452fe2ff931e1490d573519
@@ -44,10 +46,10 @@ sources:
     resource: repo://lambda/reap-tasks/handler.py
   - id: openwiki-source-30a9bbeef6a7c1bda59eab80
     resource: repo://tests/localstack/integration/test_full_workflow.py
-generated: { by: "pi", at: "2026-11-25T19:00:35.491Z" }
+generated: { by: "openwiki/0.9.0", at: "2026-11-26T16:03:02.488Z" }
 verified:
   - by: openwiki/0.9.0
-    at: 2026-11-25T19:00:35.491Z
+    at: 2026-11-26T16:03:02.488Z
 ---
 
 # ROSA Boundary system overview
@@ -68,7 +70,7 @@ Normal close verifies the workspace copy before cleanup and retains the EFS dire
 
 ## Build and deployment boundaries
 
-The root container build includes a dedicated rta-builder stage; the final operator image installs its binary and runs entrypoint.sh with sleep infinity as the default command. Trusted Actions has a separate module and server deployment. The Boundary image includes its rta client, and regional task configuration can supply RTA_SERVER; this is client integration, not a shared authorization or audit service.
+The root container build includes a dedicated `rta-builder` stage that compiles only the nested `components/trusted-actions` Go module's CLI (`cmd/rta`) into a stripped, static binary; the final operator image copies that binary in, never the builder's toolchain or module cache, and runs `entrypoint.sh` with `sleep infinity` as the default command so ECS Exec sessions attach into an already-running container. Trusted Actions has a separate module and server deployment — see [Trusted Actions overview](trusted-actions-overview.md) and [Monorepo and Trusted Actions](monorepo-and-trusted-actions.md) for its build, deployment, and authorization model. The Boundary image includes its `rta` client, and regional task configuration can supply `RTA_SERVER`; this is client integration, not a shared authorization or audit service.
 
 Boundary's Lambda handlers and Terraform roots remain at the repository root. Account Terraform owns shared identities and managed-policy attachments; regional roots add region-specific inline grants on those roles and own the runtime resources.
 

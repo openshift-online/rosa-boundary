@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "pageVersion": "sha256:6719b711c1fae8eeda9d5888efc3994668559a263e7f58b6ea73256bf83f213b",
+  "pageVersion": "sha256:3a22bd5f8cf12817ba5bba83bdd896026b53236e6af3ae24e5b13fd8ac5bb8af",
   "claims": [
     {
       "id": "claim_bb99a71168ed4f4ba678e9a32dbd25fd",
@@ -14,11 +14,11 @@
     },
     {
       "id": "claim_7a6b9007f2514ffc9fb60c2eccf4c86d",
-      "statement": "Boundary and TA are separate Go modules declaring Go 1.27.4. Root Go tests do not traverse the nested module; run TA tests from its own module.",
+      "statement": "Boundary and Trusted Actions are separate Go modules (github.com/openshift-online/rosa-boundary at root and github.com/openshift-online/rosa-trusted-actions under components/trusted-actions) both declaring go 1.27.4, with no shared go.work or replace directive. Root `go test ./...` and root Makefile targets do not exercise the nested TA module; TA has its own Makefile (components/trusted-actions/Makefile) with independent build/dev targets, including goreleaser-driven release builds and LocalStack-backed Postgres dev targets (localstack-db, run-localstack-db, localstack-db-down) that provision a database used solely by Trusted Actions, not shared with Boundary.",
       "evidence": [
         {
-          "resource": "repo://components/trusted-actions/Makefile",
-          "version": "repo-file-v1:sha256:8d746e8b2f531255adc11d6ae5ac23fa6ea149335c913c9525bb3b079f7b616f"
+          "resource": "repo://components/trusted-actions/Makefile#L114-L136",
+          "version": "repo-lines-v1:sha256:7b69b052440d043ac23b3da6b6cf91e7821aeff75e6dbc01a7498337faf7aaa6:eyJzZWxlY3RlZExpbmVDb3VudCI6MjMsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImMwZWJhM2JlZjU5MmJkMTNlMjU2OWE4NzhjMWQyMGJlOGM4NWI3Y2E1NzM1MDQwN2QxNTUzMjRhZTAxMThkZmEiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjkyYzQ3Yzc4MDczMTM1M2RjYTAyNzdiODZkZTRiNzQ1MjE5YTNmN2FlNzNjY2YzZTI0OGUwMmY2OGE1MzY5NWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjZhMmRlMDliYTY2MGZiODliMTE2YzJhNGZlZDJkNGQ4ZmY5YWQ1N2FiNmVjYzIxOTY5NzA3MWZmNmU1ZGI2NDYiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjE2YTgxYWMzMzk0ZGRiMGMzNzY5YTMxZmRkMjRiZTI5NjA5ZDY1OWUzZTUwMWY4MjIxZjYxMWQzNTc3YWYwNmMifQ"
         },
         {
           "resource": "repo://components/trusted-actions/go.mod#L1-L4",
@@ -26,7 +26,7 @@
         },
         {
           "resource": "repo://go.mod#L1-L4",
-          "version": "repo-lines-v1:sha256:86d48356dd3a561142697d06954c6fc6c844340a75d1ae167b7026d8f17d7449:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjQxOTI0MGUxMjZjZTNlMDRmOWZiNTAzMjdmYzBmMDk0ZWU3YzRhN2ZlYmZkNTQzZjgxYTRjYmNjZmUyNTQyYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZjczNzBhN2JiMjU3NjZhYjY5MjMwMzA1OGZkN2YxOGRhNjk5YmVjNjUyZDY2OGMyN2ViZDBjZGQzZGRhNGJiZCJ9"
+          "version": "repo-lines-v1:sha256:86d48356dd3a561142697d06954c6fc6c844340a75d1ae167b7026d8f17d7449:eyJzZWxlY3RlZExpbmVDb3VudCI6NCwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiZjQxOTI0MGUxMjZjZTNlMDRmOWZiNTAzMjdmYzBmMDk0ZWU3YzRhN2ZlYmZkNTQzZjgxYTRjYmNjZmUyNTQyYyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjAsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiZTNiMGM0NDI5OGZjMWMxNDlhZmJmNGM4OTk2ZmI5MjQyN2FlNDFlNDY0OWI5MzRjYTQ5NTk5MWI3ODUyYjg1NSIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiZTg2N2M5MTJkMmY2OTY2ZTAzNjIyZDI3NjQ3ODQ5Njc0N2I4ZDQ3YTNkOWYyMjNlMTA1N2FiZTg5MzQ4ZTAwMiJ9"
         }
       ]
     },
@@ -132,21 +132,21 @@
     },
     {
       "id": "claim_6d855bab23564c79b4f999d5eb2d51c8",
-      "statement": "Boundary builds the rta client from component sources in the same checkout and installs the binary in its runtime image.",
+      "statement": "Boundary's root Containerfile defines an rta-builder build stage (lines 354-383) that compiles only cmd/rta from the Trusted Actions module source (go.mod/go.sum, cmd/rta/, internal/, VERSION) copied into that stage's own build context from the same checkout, producing a stripped static /out/rta binary; the final image stage copies only that binary in as /usr/local/bin/rta (line 446), a CLI client bundled into the SRE container rather than a TA server process or shared build/module dependency.",
       "evidence": [
         {
-          "resource": "repo://Containerfile#L354-L377",
-          "version": "repo-lines-v1:sha256:0ce8f56a1d117e0a1bc94b3808b584002cf5808b2c8de3a02b6cdc9571122c25:eyJzZWxlY3RlZExpbmVDb3VudCI6MjQsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6Ijg4NzY0Zjg4NTIwMDU4YTY3OGNhMWM2MTEzYWY5NDcxYWU1YTg0MmE5MTc4N2Q5NWVmYjhhMmZlZTdkNjViNWEiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjJiMzFmOGI1YTdiNjQ2MDkwMjlmMmUwNmEwNDUyMmY3ZTYwM2MyMGFhMWJkOTc1OTczM2JhNTI5ODVlMzAyZjkifQ"
+          "resource": "repo://Containerfile#L354-L383",
+          "version": "repo-lines-v1:sha256:8fbf5746b28b15452116aaf9d2bcd5d1f4e3750bf99d83ace4973cddf214cf88:eyJzZWxlY3RlZExpbmVDb3VudCI6MzAsImZpcnN0U2VsZWN0ZWRMaW5lSGFzaCI6ImU3NzNiZjlmNjdmODRkNTc5Zjc4MDM5NmIwNWI0N2NmNTdlOTg5MjUzZWMwNWVjYWZjYmUwMDEyM2QzOWFmM2EiLCJsYXN0U2VsZWN0ZWRMaW5lSGFzaCI6IjAxYmE0NzE5YzgwYjZmZTkxMWIwOTFhN2MwNTEyNGI2NGVlZWNlOTY0ZTA5YzA1OGVmOGY5ODA1ZGFjYTU0NmIiLCJwcmVjZWRpbmdDb250ZXh0TGluZUNvdW50IjozLCJwcmVjZWRpbmdDb250ZXh0SGFzaCI6IjFlOGRjMDZlZjNlNWI4YWNmMGNjZGE5ZGIzM2NkYTVkZjk3MTllYmVhMzBmMTQ2ODQ4ZDQ1MjA1OGU5MWUyM2UiLCJmb2xsb3dpbmdDb250ZXh0TGluZUNvdW50IjozLCJmb2xsb3dpbmdDb250ZXh0SGFzaCI6IjMyNzdkNjA3ZDdjN2UxMjdlZDc3YmY5MTE3ZTE3OTg5MGJkNjllZDlhYWYzZjU1ZjJmMzU4YTcxOWYwNWM4YTUifQ"
         },
         {
-          "resource": "repo://Containerfile#L445-L447",
-          "version": "repo-lines-v1:sha256:bda4faed335eba0ca552f4f0340927c7abedaa6dcc137d958c76250df3810ee0:eyJzZWxlY3RlZExpbmVDb3VudCI6MywiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiNmQyN2ZlY2EzMDUxZmIwNWZlNTQ0NWE2N2QxMGZhZDljZDI4NTUwMzE5OTZmODlkYTc5MmRhZDBlZDBjNThiNCIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDFiYTQ3MTljODBiNmZlOTExYjA5MWE3YzA1MTI0YjY0ZWVlY2U5NjRlMDljMDU4ZWY4Zjk4MDVkYWNhNTQ2YiIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiNjg0NTc2MjAyM2ZjYjZlOGU5YTg1NjU4YTQ1YzQ2OWU0MDM2NTUwNDY2ZjVkZTlmMTYxODBjZTU5OGNmOTg1MiIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiNTdiNjU1MzhkZGZiMDlkMGIyMTFiMzgxZWE2M2JlYmZlYzVkYWVlNDQzNzk2NWE1ZjQ1MjEwNzc2ZjA2Mjk3NSJ9"
+          "resource": "repo://Containerfile#L446-L446",
+          "version": "repo-lines-v1:sha256:04566f3abc65ae6f8685102bd05c0e34eaa2be811e06bed56b69ea223a73a297:eyJzZWxlY3RlZExpbmVDb3VudCI6MSwiZmlyc3RTZWxlY3RlZExpbmVIYXNoIjoiMDQ1NjZmM2FiYzY1YWU2Zjg2ODUxMDJiZDA1YzBlMzRlYWEyYmU4MTFlMDZiZWQ1NmI2OWVhMjIzYTczYTI5NyIsImxhc3RTZWxlY3RlZExpbmVIYXNoIjoiMDQ1NjZmM2FiYzY1YWU2Zjg2ODUxMDJiZDA1YzBlMzRlYWEyYmU4MTFlMDZiZWQ1NmI2OWVhMjIzYTczYTI5NyIsInByZWNlZGluZ0NvbnRleHRMaW5lQ291bnQiOjMsInByZWNlZGluZ0NvbnRleHRIYXNoIjoiMTVhMDc5MmU1ZjE1NWIyOTgwYTg2ZjlhMGY2ZDI0ZDZlMDAyZjc4ZTMwM2ZiZTc3MWI3Y2IxZTI4NWQyNDMxMyIsImZvbGxvd2luZ0NvbnRleHRMaW5lQ291bnQiOjMsImZvbGxvd2luZ0NvbnRleHRIYXNoIjoiMmU1ODk4NmI0YzE3MWU4MzJkZThiMTg3OWMxZWNkMmQ5MTA0NTYwN2JiZThmNWNmOWMzZTAyNDBjNzRlNTA3YyJ9"
         }
       ]
     }
   ],
   "verification": {
     "by": "openwiki/0.9.0",
-    "at": "2026-11-25T19:00:35.491Z"
+    "at": "2026-11-26T16:03:02.488Z"
   }
 }

@@ -24,16 +24,6 @@ variable "vpc_id" {
   default     = ""
 }
 
-variable "public_subnet_ids" {
-  description = "IDs of two existing public subnets (used for NAT gateway when create_vpc = true). Required when vpc_id is set and a managed VPC is not created."
-  type        = list(string)
-  default     = []
-  validation {
-    condition     = length(var.public_subnet_ids) == 0 || length(var.public_subnet_ids) >= 2
-    error_message = "public_subnet_ids must contain at least two subnet IDs."
-  }
-}
-
 variable "private_subnet_ids" {
   description = "IDs of two existing private subnets in different AZs. [0] hosts the ECS EC2 instance; both are used by the internal ALB."
   type        = list(string)

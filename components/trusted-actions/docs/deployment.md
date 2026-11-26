@@ -212,7 +212,6 @@ terraform apply \
   -var="s3_bucket_name_suffix=rosa-trusted-actions" \
   -var="vpc_id=vpc-008ef33919b443f10" \
   -var='private_subnet_ids=["subnet-0042826174855e520","subnet-0f9392e3159168d6f"]' \
-  -var='public_subnet_ids=["subnet-01821c41d92b0f8b1","subnet-0f52e06526c080dfa"]' \
   -var="container_image=quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:<digest>" \
   -var="internal_fqdn=rosa-trusted-actions.internal.company.com" \
   -var='app_config=actions:
@@ -238,7 +237,6 @@ environment           = "stage"
 s3_bucket_name_suffix = "rosa-trusted-actions"
 vpc_id                = "vpc-008ef33919b443f10"
 private_subnet_ids    = ["subnet-0042826174855e520", "subnet-0f9392e3159168d6f"]
-public_subnet_ids     = ["subnet-01821c41d92b0f8b1", "subnet-0f52e06526c080dfa"]
 container_image       = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:<digest>"
 internal_fqdn         = "rosa-trusted-actions.internal.company.com"
 app_config            = <<-YAML

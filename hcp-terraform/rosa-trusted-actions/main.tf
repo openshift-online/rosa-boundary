@@ -153,12 +153,6 @@ module "rosa_trusted_actions" {
           category = "terraform"
         },
         {
-          key      = "public_subnet_ids"
-          value    = jsonencode(["subnet-01821c41d92b0f8b1", "subnet-0f52e06526c080dfa"])
-          category = "terraform"
-          hcl      = true
-        },
-        {
           key      = "private_subnet_ids"
           value    = jsonencode(["subnet-0042826174855e520", "subnet-0f9392e3159168d6f"])
           category = "terraform"
@@ -283,12 +277,6 @@ module "rosa_trusted_actions" {
           key      = "vpc_id"
           value    = "vpc-0542b778bebc15361"
           category = "terraform"
-        },
-        {
-          key      = "public_subnet_ids"
-          value    = jsonencode(["REPLACE_WITH_STAGE_US_WEST_2_PUBLIC_SUBNET_A", "REPLACE_WITH_STAGE_US_WEST_2_PUBLIC_SUBNET_B"])
-          category = "terraform"
-          hcl      = true
         },
         {
           key      = "private_subnet_ids"

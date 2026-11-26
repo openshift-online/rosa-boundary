@@ -60,6 +60,7 @@ module "aws_dynamic_creds" {
           workspace_names = [
             "rosa-trusted-actions-global",
             "rosa-trusted-actions-stage",
+            "rosa-trusted-actions-stage-us-west-2",
           ]
         }
       }

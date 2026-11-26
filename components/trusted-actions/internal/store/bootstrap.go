@@ -3,8 +3,9 @@ package store
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
-	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/sirupsen/logrus"
@@ -17,21 +18,35 @@ var bootstrapSQL string
 // It matches the role the SQL file creates.
 const appRoleName = "trusted_actions_app"
 
+// bootstrapConnectTimeout bounds the initial connection check so a stalled
+// PostgreSQL cannot hold the CLI indefinitely; the caller's context still
+// governs cancellation.
+const bootstrapConnectTimeout = 30 * time.Second
+
+// errMasterDSNInvalid wraps connection setup failures without the
+// underlying driver text: pgx parse errors echo the raw keyword DSN
+// best-effort-redacted at most, and the DSN carries master credentials
+// that must not reach stderr.
+var errMasterDSNInvalid = errors.New("connecting with master credentials: invalid or unreachable DSN (details suppressed — the DSN carries master credentials)")
+
 // BootstrapDatabase applies the idempotent bootstrap SQL to the database the
 // DSN points at, using master credentials. It creates the trusted_actions_app
 // role (LOGIN, IAM-token authentication, CREATEDB), grants it rds_iam, and
 // transfers database and schema ownership to it. Re-running is a no-op.
 //
-// The DSN is used for this one connection only and never logged.
+// The DSN is used for this one connection only and never logged; connection
+// setup errors are reported without driver text for the same reason.
 func BootstrapDatabase(ctx context.Context, dsn string, logger *logrus.Logger) error {
 	if dsn == "" {
 		return fmt.Errorf("bootstrap requires a master-credentials DSN")
 	}
 
 	// Single connection, no pool tuning: a one-shot administrative command.
-	db, err := sqlx.Connect("pgx", dsn)
+	// Open (not Connect) plus PingContext so the bootstrap context governs
+	// the connection attempt rather than a driver-internal background one.
+	db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
-		return fmt.Errorf("connecting with master credentials: %w", err)
+		return errMasterDSNInvalid
 	}
 	defer func() {
 		if closeErr := db.Close(); closeErr != nil {
@@ -39,16 +54,24 @@ func BootstrapDatabase(ctx context.Context, dsn string, logger *logrus.Logger) e
 		}
 	}()
 
+	pingCtx, cancel := context.WithTimeout(ctx, bootstrapConnectTimeout)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
+		return errMasterDSNInvalid
+	}
+
 	if _, err := db.ExecContext(ctx, bootstrapSQL); err != nil {
 		return fmt.Errorf("applying bootstrap SQL: %w", err)
 	}
 
-	// ALTER DATABASE cannot take CURRENT_DATABASE(), so the database-level
-	// ownership transfer is issued separately, quoted for the database the
-	// DSN selected. Idempotent like the SQL file.
-	if _, err := db.ExecContext(ctx,
-		fmt.Sprintf(`ALTER DATABASE %s OWNER TO %s`,
-			quoteIdent(currentDatabaseName(ctx, db)), appRoleName)); err != nil {
+	// ALTER DATABASE cannot take CURRENT_DATABASE() and a bind parameter
+	// cannot stand in for an identifier, so the database-level ownership
+	// transfer runs a DO block that builds the statement with format()'s
+	// %I (server-side identifier quoting, exactly what PostgreSQL itself
+	// uses) and executes it. Idempotent like the SQL file.
+	if _, err := db.ExecContext(ctx, `DO $$BEGIN
+		EXECUTE format('ALTER DATABASE %I OWNER TO `+appRoleName+`', current_database());
+	END$$;`); err != nil {
 		return fmt.Errorf("transferring database ownership: %w", err)
 	}
 
@@ -76,18 +99,4 @@ func BootstrapDatabase(ctx context.Context, dsn string, logger *logrus.Logger) e
 	}
 
 	return nil
-}
-
-// currentDatabaseName resolves the database the DSN selected. On query
-// error it returns the empty string, which makes the ownership ALTER fail
-// loudly rather than guess.
-func currentDatabaseName(ctx context.Context, db *sqlx.DB) string {
-	var name string
-	_ = db.GetContext(ctx, &name, `SELECT current_database()`)
-	return name
-}
-
-// quoteIdent double-quotes a SQL identifier, escaping embedded quotes.
-func quoteIdent(name string) string {
-	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }

@@ -32,7 +32,15 @@ func newBootstrapCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBootstrap(cmd.Context(), dsnFlag)
 		},
-		SilenceUsage: true,
+		// No positional arguments: a pasted DSN as an argument would be
+		// silently ignored while the env DSN bootstrapped a different
+		// database. Reject without echoing the argument (it may be a DSN).
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("bootstrap takes no positional arguments — pass the DSN via --dsn or ROSA_TA_DB_MASTER_DSN")
+			}
+			return nil
+		},
 	}
 
 	cmd.Flags().StringVar(&dsnFlag, "dsn", "",

@@ -78,22 +78,23 @@ tokens — no password exists on this path anywhere.
 export LOCALSTACK_AUTH_TOKEN=...
 
 make localstack-db      # Provision LocalStack + RDS, bootstrap, write .env.localstack-db
-make run                # Run the server (sources .env.localstack-db when present)
-make localstack-db-down # Tear down LocalStack and its volume
+make run-localstack-db  # Run the server against it (sources .env.localstack-db; needs ROSA_TA_KUBECONFIG)
+make localstack-db-down # Tear down LocalStack, its volume, and the env file
 ```
 
 `make localstack-db` reuses a running LocalStack container but replaces the
-RDS instance each run (a fresh master password is generated per run and
- LocalStack does not apply password modifications). The embedded bootstrap
-SQL is idempotent, and the server's migrations re-apply, so the replacement
-rebuilds the state that matters automatically. The generated
-`.env.localstack-db` (gitignored) carries `ROSA_TA_DB_HOST/PORT/NAME/USER`,
-`ROSA_TA_DB_SSLMODE=disable`, static LocalStack AWS credentials, the region,
-and the local-dev contract (`ROSA_TA_AUTH=disabled` +
-`ROSA_TA_AWS_ENDPOINT_URL` pointing at LocalStack) — no password and no
-master credentials. `make run` sources it automatically when present, so a
-bare `make run` starts a fully working dev server. Set `ROSA_TA_KUBECONFIG`
-(e.g. from `make itest-up`) to also execute actions against a kind cluster.
+RDS instance and its data each run (a fresh master password is generated per
+run and LocalStack does not apply password modifications) — treat the dev
+database as disposable: schema is rebuilt by bootstrap + migrations, row data
+is not. The generated `.env.localstack-db` (gitignored) carries
+`ROSA_TA_DB_HOST/PORT/NAME/USER`, `ROSA_TA_DB_SSLMODE=disable`, static
+LocalStack AWS credentials, the region, and the local-dev contract
+(`ROSA_TA_AUTH=disabled`, `ROSA_TA_AWS_ENDPOINT_URL` pointing at LocalStack,
+loopback `ROSA_TA_LISTEN_ADDR`) — no password and no master credentials.
+Only `make run-localstack-db` sources it; plain `make run` never does, so
+the LocalStack env can never shadow a caller's own environment. The server
+refuses to start with auth disabled unless `ROSA_TA_KUBECONFIG` is set
+(e.g. from `make itest-up`, or your own kubeconfig).
 
 ### Code Generation
 

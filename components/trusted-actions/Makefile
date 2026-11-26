@@ -108,10 +108,13 @@ build-server: generate download-goreleaser ## Build only the server binary (snap
 
 # Run
 .PHONY: run
-run: generate ## Run the server; sources .env.localstack-db (make localstack-db) when present
-	@if [ -f .env.localstack-db ]; then \
-		set -a; . ./.env.localstack-db; set +a; \
-	fi; \
+run: generate ## Run the server using DATABASE_URL from the environment
+	go run $(MAIN_PATH)
+
+.PHONY: run-localstack-db
+run-localstack-db: generate ## Run the server against the LocalStack RDS database (sources .env.localstack-db)
+	@test -f .env.localstack-db || (echo ".env.localstack-db not found — run 'make localstack-db' first" && exit 1)
+	@set -a; . ./.env.localstack-db; set +a; \
 	go run $(MAIN_PATH)
 
 .PHONY: run-postgres
@@ -129,11 +132,8 @@ localstack-db: ## Provision the LocalStack RDS Postgres dev database (needs LOCA
 	./scripts/localstack-db.sh
 
 .PHONY: localstack-db-down
-localstack-db-down: ## Stop and remove the LocalStack RDS dev database and its volume
-	$(COMPOSE) -p rosa-ta-localstack-db -f compose.localstack-db.yml down -v
-
-.PHONY: run-localstack-db
-run-localstack-db: run ## Alias of run; the env file already carries the local-dev contract
+localstack-db-down: ## Stop and remove the LocalStack RDS dev database, its volume, and the env file
+	./scripts/localstack-db.sh down
 
 .PHONY: dev
 dev: ## Run in development mode with auto-reload (requires air)

@@ -63,9 +63,8 @@ func buildIAMTokenDSN(host, port, dbname, user, token, sslmode string) string {
 // database/sql pool opens. The pool's DSN is rebuilt with a fresh token
 // before the driver dials, so no token is ever reused across connections.
 type tokenConnector struct {
-	driver driver.Driver
-	auth   *iamAuth
-	cfg    IAMDBConfig
+	auth *iamAuth
+	cfg  IAMDBConfig
 }
 
 var _ driver.Connector = (*tokenConnector)(nil)
@@ -76,10 +75,18 @@ func (c *tokenConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		return nil, fmt.Errorf("minting IAM database token: %w", err)
 	}
 	dsn := buildIAMTokenDSN(c.cfg.Host, c.cfg.Port, c.cfg.DBName, c.cfg.User, token, c.cfg.SSLMode)
-	return c.driver.Open(dsn)
+	pgxDriver, ok := pgxstdlib.GetDefaultDriver().(driver.DriverContext)
+	if !ok {
+		return nil, fmt.Errorf("pgx driver does not support OpenConnector")
+	}
+	connector, err := pgxDriver.OpenConnector(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("parsing IAM token DSN: %w", err)
+	}
+	return connector.Connect(ctx)
 }
 
-func (c *tokenConnector) Driver() driver.Driver { return c.driver }
+func (c *tokenConnector) Driver() driver.Driver { return pgxstdlib.GetDefaultDriver() }
 
 // maxConnLifetime caps the pool's connection lifetime so a connection never
 // outlives its 15-minute IAM token. Defaults and configured values above
@@ -112,9 +119,8 @@ func newIAMPostgresStore(ctx context.Context, dbCfg IAMDBConfig, poolCfg Postgre
 	}
 
 	db := sqlx.NewDb(sql.OpenDB(&tokenConnector{
-		driver: pgxstdlib.GetDefaultDriver(),
-		auth:   &iamAuth{region: dbCfg.Region, credentials: awsCfg.Credentials},
-		cfg:    dbCfg,
+		auth: &iamAuth{region: dbCfg.Region, credentials: awsCfg.Credentials},
+		cfg:  dbCfg,
 	}), "pgx")
 
 	if poolCfg.MaxOpenConns > 0 {

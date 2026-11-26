@@ -1,12 +1,15 @@
 # Licensed LocalStack with RDS (a Pro feature). The auth token is supplied
 # via the LOCALSTACK_AUTH_TOKEN environment variable and never committed —
-# see the localstack-db target in the Makefile.
+# the required-variable check lives in the provisioning script so teardown
+# works in a fresh shell without the token.
+#
+# Image pinned to the digest verified with RDS + IAM database auth.
 services:
   localstack-db:
-    image: docker.io/localstack/localstack-pro:latest
+    image: docker.io/localstack/localstack-pro@sha256:4442ad61e208b475a95b70d5fdd0f15e2dda83c3fc33d60f85521702180b11f6
     container_name: rosa-ta-localstack-db
     environment:
-      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:?set LOCALSTACK_AUTH_TOKEN (Pro license required for RDS)}
+      - LOCALSTACK_AUTH_TOKEN=${LOCALSTACK_AUTH_TOKEN:-}
       - LOCALSTACK_ACCOUNT_ID=123456789012
       - ENFORCE_IAM=0
     ports:

@@ -14,6 +14,9 @@ import (
 //go:embed migrations/postgres/bootstrap.sql
 var bootstrapSQL string
 
+//go:embed migrations/postgres/bootstrap2.sql
+var bootstrapSQL2 string
+
 // appRoleName is the single database role the application authenticates as.
 // It matches the role the SQL file creates.
 const appRoleName = "trusted_actions_app"
@@ -60,19 +63,31 @@ func BootstrapDatabase(ctx context.Context, dsn string, logger *logrus.Logger) e
 		return errMasterDSNInvalid
 	}
 
+	// Phase order (all idempotent, safe to re-run in this sequence):
+	//   1. bootstrapSQL — create the application role, grant rds_iam,
+	//      CREATEDB, and master membership (the later transfers need both).
+	//   2. database-level ownership transfer — must come before the schema
+	//      transfer: ALTER SCHEMA ... OWNER requires the new owner to hold
+	//      CREATE on the database, which database ownership confers and a
+	//      fresh role lacks. ALTER DATABASE cannot take CURRENT_DATABASE()
+	//      and a bind parameter cannot stand in for an identifier, so this
+	//      runs a DO block with format()'s %I — server-side identifier
+	//      quoting, exactly what PostgreSQL itself uses.
+	//   3. bootstrapSQL2 — schema and legacy-object ownership transfers,
+	//      which also cover a database initialized through the legacy
+	//      DATABASE_URL path (schema_migrations et al.).
 	if _, err := db.ExecContext(ctx, bootstrapSQL); err != nil {
-		return fmt.Errorf("applying bootstrap SQL: %w", err)
+		return fmt.Errorf("applying bootstrap SQL (roles and grants): %w", err)
 	}
 
-	// ALTER DATABASE cannot take CURRENT_DATABASE() and a bind parameter
-	// cannot stand in for an identifier, so the database-level ownership
-	// transfer runs a DO block that builds the statement with format()'s
-	// %I (server-side identifier quoting, exactly what PostgreSQL itself
-	// uses) and executes it. Idempotent like the SQL file.
 	if _, err := db.ExecContext(ctx, `DO $$BEGIN
 		EXECUTE format('ALTER DATABASE %I OWNER TO `+appRoleName+`', current_database());
 	END$$;`); err != nil {
 		return fmt.Errorf("transferring database ownership: %w", err)
+	}
+
+	if _, err := db.ExecContext(ctx, bootstrapSQL2); err != nil {
+		return fmt.Errorf("applying bootstrap SQL (ownership transfers): %w", err)
 	}
 
 	// Post-conditions: the role exists, can log in, holds rds_iam and

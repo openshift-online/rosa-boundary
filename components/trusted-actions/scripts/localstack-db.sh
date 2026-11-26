@@ -73,20 +73,22 @@ for bin in jq openssl curl go; do
 done
 
 # Container runtime: honor the caller's COMPOSE selection (same variable the
-# Makefile uses) so setup and teardown agree on one runtime; otherwise
-# podman when present, docker otherwise.
+# Makefile uses) so setup and teardown agree on one runtime. The default
+# mirrors the Makefile's COMPOSE detection exactly: Podman only when a
+# compose backend is also present, otherwise Docker.
 if [ -n "${COMPOSE:-}" ]; then
     case "$COMPOSE" in
         podman*) RUNTIME="podman" ;;
         docker*) RUNTIME="docker" ;;
         *) fail "unsupported COMPOSE value: $COMPOSE (use 'podman compose' or 'docker compose')" ;;
     esac
-elif command -v podman >/dev/null 2>&1; then
+elif command -v podman >/dev/null 2>&1 \
+      && { command -v podman-compose >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1; }; then
     RUNTIME="podman"
 elif command -v docker >/dev/null 2>&1; then
     RUNTIME="docker"
 else
-    fail "neither podman nor docker is on PATH"
+    fail "neither podman (with a compose backend) nor docker is on PATH"
 fi
 if [ "$RUNTIME" = "docker" ]; then
     docker info >/dev/null 2>&1 || fail "docker daemon is not reachable"
@@ -158,7 +160,7 @@ done
 curl -sf "$ENDPOINT/_localstack/health" >/dev/null 2>&1 || fail "LocalStack did not become healthy"
 ok "LocalStack is healthy"
 
-# --- 2. Create (or reuse) the RDS PostgreSQL instance ---
+# --- 2. Create (or replace) the RDS PostgreSQL instance ---
 # Dynamic port: LocalStack assigns a random host port for the DB instance;
 # it is discovered from the describe output and written to the env file.
 if ! aws_local rds describe-db-instances --db-instance-identifier "$DB_IDENTIFIER" \
@@ -179,9 +181,9 @@ if ! aws_local rds describe-db-instances --db-instance-identifier "$DB_IDENTIFIE
 else
     # The development database is disposable: LocalStack does not apply
     # master-password changes via modify-db-instance, and each run
-    # generates a fresh password, so the existing instance is replaced.
-    # The bootstrap SQL is idempotent and the server's migrations re-apply,
-    # so the state that matters is rebuilt automatically.
+    # generates a fresh password, so the existing instance — and any rows
+    # in it — is discarded. Only the schema is rebuilt (bootstrap SQL +
+    # migrations); row data is not restored.
     log "Replacing existing RDS instance '$DB_IDENTIFIER' (fresh master password per run)"
     aws_local rds delete-db-instance \
         --db-instance-identifier "$DB_IDENTIFIER" \

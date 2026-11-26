@@ -112,7 +112,7 @@ run: generate ## Run the server using DATABASE_URL from the environment
 	go run $(MAIN_PATH)
 
 .PHONY: run-localstack-db
-run-localstack-db: generate ## Run the server against the LocalStack RDS database (sources .env.localstack-db)
+run-localstack-db: generate ## Run the server against LocalStack RDS (sources .env.localstack-db over caller env)
 	@test -f .env.localstack-db || (echo ".env.localstack-db not found — run 'make localstack-db' first" && exit 1)
 	@set -a; . ./.env.localstack-db; set +a; \
 	go run $(MAIN_PATH)

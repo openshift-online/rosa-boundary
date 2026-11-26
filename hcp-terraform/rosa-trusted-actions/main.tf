@@ -166,7 +166,7 @@ module "rosa_trusted_actions" {
         },
         {
           key      = "container_image"
-          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:4a250167997e2bd64479ccf31a0e756f79cf2eede4d83e5de09e0a6594c79526"
+          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:d51a737176307ee43f92c0667688a39d191dc656396bcaa3294dd9fbc649c331"
           category = "terraform"
         },
         {

@@ -66,6 +66,36 @@ make run                # Starts on :8080
 go run ./cmd/server --listen-addr=":3000" --log-level="debug" --log-json
 ```
 
+### Running Against the LocalStack RDS Database (IAM token auth)
+
+The development database is a LocalStack RDS PostgreSQL instance with IAM
+database authentication enabled. The server connects with per-connection IAM
+tokens — no password exists on this path anywhere.
+
+```bash
+# Requires a LocalStack Pro license token in the environment (RDS is a pro
+# feature). The token is passed to the container only, never committed.
+export LOCALSTACK_AUTH_TOKEN=...
+
+make localstack-db      # Provision LocalStack + RDS, bootstrap, write .env.localstack-db
+make run-localstack-db  # Run the server against it (sources .env.localstack-db; needs ROSA_TA_KUBECONFIG)
+make localstack-db-down # Tear down LocalStack, its volume, and the env file
+```
+
+`make localstack-db` reuses a running LocalStack container but replaces the
+RDS instance and its data each run (a fresh master password is generated per
+run and LocalStack does not apply password modifications) — treat the dev
+database as disposable: schema is rebuilt by bootstrap + migrations, row data
+is not. The generated `.env.localstack-db` (gitignored) carries
+`ROSA_TA_DB_HOST/PORT/NAME/USER`, `ROSA_TA_DB_SSLMODE=disable`, static
+LocalStack AWS credentials, the region, and the local-dev contract
+(`ROSA_TA_AUTH=disabled`, `ROSA_TA_AWS_ENDPOINT_URL` pointing at LocalStack,
+loopback `ROSA_TA_LISTEN_ADDR`) — no password and no master credentials.
+Only `make run-localstack-db` sources it; plain `make run` never does, so
+the LocalStack env can never shadow a caller's own environment. The server
+refuses to start with auth disabled unless `ROSA_TA_KUBECONFIG` is set
+(e.g. from `make itest-up`, or your own kubeconfig).
+
 ### Code Generation
 
 The API server code is generated from OpenAPI specifications:

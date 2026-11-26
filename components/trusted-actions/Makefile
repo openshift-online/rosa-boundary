@@ -111,6 +111,12 @@ build-server: generate download-goreleaser ## Build only the server binary (snap
 run: generate ## Run the server using DATABASE_URL from the environment
 	go run $(MAIN_PATH)
 
+.PHONY: run-localstack-db
+run-localstack-db: generate ## Run the server against LocalStack RDS (sources .env.localstack-db over caller env)
+	@test -f .env.localstack-db || (echo ".env.localstack-db not found — run 'make localstack-db' first" && exit 1)
+	@set -a; . ./.env.localstack-db; set +a; \
+	go run $(MAIN_PATH)
+
 .PHONY: run-postgres
 run-postgres: generate postgres-up ## Run the server backed by the local composed Postgres instance
 	DATABASE_URL="postgres://postgres:postgres@localhost:5432/trusted_actions?sslmode=disable" \
@@ -120,6 +126,14 @@ run-postgres: generate postgres-up ## Run the server backed by the local compose
 run-sqlite: generate ## Run the server backed by a local SQLite file (trusted_actions.db)
 	DATABASE_URL="trusted_actions.db" \
 		go run $(MAIN_PATH)
+
+.PHONY: localstack-db
+localstack-db: ## Provision the LocalStack RDS Postgres dev database (needs LOCALSTACK_AUTH_TOKEN)
+	./scripts/localstack-db.sh
+
+.PHONY: localstack-db-down
+localstack-db-down: ## Stop and remove the LocalStack RDS dev database, its volume, and the env file
+	./scripts/localstack-db.sh down
 
 .PHONY: dev
 dev: ## Run in development mode with auto-reload (requires air)

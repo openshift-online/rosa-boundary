@@ -54,10 +54,15 @@ type AuditListResult struct {
 	Offset int
 }
 
-// New opens the correct Store implementation based on the DATABASE_URL scheme.
-// URLs starting with "postgres://" or "postgresql://" use PostgresStore;
-// everything else (including an empty string) falls back to SQLiteStore.
-func New(ctx context.Context, databaseURL string, cfg PostgresConfig, logger *logrus.Logger) (Store, error) {
+// NewWithIAM selects the store, taking the IAM database contract as an
+// explicit argument. A partial IAM contract (some of host/port/name/user
+// set, host missing) fails loudly rather than silently falling back to
+// DATABASE_URL/SQLite: a truncated or mistyped ROSA_TA_DB_* environment
+// would otherwise quietly run the server against the wrong database.
+func NewWithIAM(ctx context.Context, databaseURL string, iamDB IAMDBConfig, cfg PostgresConfig, logger *logrus.Logger) (Store, error) {
+	if iamDB.Host != "" || iamDB.Port != "" || iamDB.DBName != "" || iamDB.User != "" {
+		return newIAMPostgresStore(ctx, iamDB, cfg, logger)
+	}
 	if strings.HasPrefix(databaseURL, "postgres://") || strings.HasPrefix(databaseURL, "postgresql://") {
 		return NewPostgresStore(ctx, databaseURL, cfg, logger)
 	}

@@ -321,6 +321,11 @@ func clearLoadEnv(t *testing.T) {
 		"ROSA_TA_AWS_PROXY_URL",
 		"ROSA_TA_BACKPLANE_ASSUME_INITIAL_ARN",
 		"ROSA_TA_BACKPLANE_PROXY_URL",
+		"ROSA_TA_DB_HOST",
+		"ROSA_TA_DB_PORT",
+		"ROSA_TA_DB_NAME",
+		"ROSA_TA_DB_USER",
+		"ROSA_TA_DB_SSLMODE",
 	}
 	for _, v := range vars {
 		t.Setenv(v, "")
@@ -377,6 +382,49 @@ func TestLoad_Defaults(t *testing.T) {
 	// responsible for can still act on clusters in all of them.
 	if len(cfg.AllowedClusterRegions) != 0 {
 		t.Errorf("AllowedClusterRegions = %v, want none", cfg.AllowedClusterRegions)
+	}
+}
+
+// The IAM-token database contract: host, port, name and user arrive as
+// separate env vars (no URL, no password anywhere), with an sslmode that
+// defaults to verify-full for real deployments and is lowered to disable
+// only by the LocalStack env file.
+func TestLoad_IAMDatabaseEnv(t *testing.T) {
+	clearLoadEnv(t)
+
+	t.Setenv("ROSA_TA_DB_HOST", "db.example.com")
+	t.Setenv("ROSA_TA_DB_PORT", "5432")
+	t.Setenv("ROSA_TA_DB_NAME", "trusted_actions")
+	t.Setenv("ROSA_TA_DB_USER", "trusted_actions_app")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.DBHost != "db.example.com" {
+		t.Errorf("DBHost = %q, want %q", cfg.DBHost, "db.example.com")
+	}
+	if cfg.DBPort != "5432" {
+		t.Errorf("DBPort = %q, want %q", cfg.DBPort, "5432")
+	}
+	if cfg.DBName != "trusted_actions" {
+		t.Errorf("DBName = %q, want %q", cfg.DBName, "trusted_actions")
+	}
+	if cfg.DBUser != "trusted_actions_app" {
+		t.Errorf("DBUser = %q, want %q", cfg.DBUser, "trusted_actions_app")
+	}
+	if cfg.DBSSLMode != "verify-full" {
+		t.Errorf("DBSSLMode = %q, want %q", cfg.DBSSLMode, "verify-full")
+	}
+
+	t.Setenv("ROSA_TA_DB_SSLMODE", "disable")
+	cfg, err = Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if cfg.DBSSLMode != "disable" {
+		t.Errorf("DBSSLMode with override = %q, want %q", cfg.DBSSLMode, "disable")
 	}
 }
 

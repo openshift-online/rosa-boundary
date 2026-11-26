@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.48.0
 	github.com/aws/aws-sdk-go-v2/config v1.33.21
 	github.com/aws/aws-sdk-go-v2/credentials v1.21.3
-	github.com/aws/aws-sdk-go-v2/feature/rds/auth v1.5.12
+	github.com/aws/aws-sdk-go-v2/feature/rds/auth v1.7.12
 	github.com/aws/aws-sdk-go-v2/service/cloudtrail v1.65.12
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.350.0
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancing v1.42.0
@@ -33,7 +33,7 @@ require (
 	k8s.io/api v0.37.2
 	k8s.io/apimachinery v0.37.2
 	k8s.io/client-go v0.37.2
-	modernc.org/sqlite v1.62.0
+	modernc.org/sqlite v1.63.0
 )
 
 require (

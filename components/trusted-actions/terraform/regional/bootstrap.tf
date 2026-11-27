@@ -35,31 +35,31 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
       essential = true
 
       # The image's ENTRYPOINT is the server binary; a task-definition
-      # command is appended to it, so running a shell requires overriding
-      # the entrypoint explicitly.
-      entryPoint = ["/bin/sh", "-c"]
+      # command is appended to it, so running the subcommand requires
+      # overriding the entrypoint explicitly.
+      entryPoint = ["/usr/local/bin/rosa-trusted-actions-server"]
+      command    = ["bootstrap"]
 
-      # The bootstrap subcommand reads ROSA_TA_DB_MASTER_DSN. The DSN is
-      # assembled here from the cluster endpoint and the injected master
-      # credentials; every part is connection metadata except the password
-      # env var, which ECS resolves from the master secret at task start and
-      # which never appears in Terraform state, plans, or logs. Keyword/value
-      # form, not a URL: the RDS-generated password may contain characters
-      # that are special in a URL, and the single-quoted value keeps the
-      # shell from touching anything.
-      command = [join(" && ", [
-        "export ROSA_TA_DB_MASTER_DSN='host=${aws_rds_cluster.main.endpoint} port=${aws_rds_cluster.main.port} dbname=${var.db_name} user=${var.db_username} password=$$ROSA_TA_DB_MASTER_PASSWORD sslmode=verify-full sslrootcert=/etc/ssl/certs/rds-global-bundle.pem'",
-        "exec /usr/local/bin/rosa-trusted-actions-server bootstrap",
-      ])]
-
+      # The bootstrap subcommand composes the master DSN in Go from these
+      # connection coordinates plus ROSA_TA_DB_MASTER_SECRET (the raw JSON of
+      # the RDS-managed master secret, injected by ECS below). Composing the
+      # DSN in the task-definition shell is not viable twice over: the
+      # secret's value is a JSON object rather than a bare password, and the
+      # RDS-generated password may contain quotes, backslashes, or spaces
+      # that no shell quoting survives. In Go the value lands in
+      # pgx keyword arguments with proper escaping.
       environment = [
         { name = "AWS_REGION", value = var.aws_region },
+        { name = "ROSA_TA_DB_HOST", value = aws_rds_cluster.main.endpoint },
+        { name = "ROSA_TA_DB_PORT", value = tostring(aws_rds_cluster.main.port) },
+        { name = "ROSA_TA_DB_NAME", value = var.db_name },
         { name = "ROSA_TA_DB_SSLMODE", value = "verify-full" },
+        { name = "ROSA_TA_DB_SSLROOTCERT", value = "/etc/ssl/certs/rds-global-bundle.pem" },
       ]
 
       secrets = [
         {
-          name      = "ROSA_TA_DB_MASTER_PASSWORD"
+          name      = "ROSA_TA_DB_MASTER_SECRET"
           valueFrom = local.db_master_secret_arn
         },
       ]

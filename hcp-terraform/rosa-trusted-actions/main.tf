@@ -242,6 +242,24 @@ module "rosa_trusted_actions" {
           value     = var.backplane_client_secret
           category  = "terraform"
           sensitive = true
+        },
+        {
+          key         = "db_engine_version"
+          value       = "16.15"
+          category    = "terraform"
+          description = "Aurora PostgreSQL engine version, pinned. Must match a version the regional root's default db_instance_class supports."
+        },
+        {
+          key         = "db_instance_class"
+          value       = "db.t4g.medium"
+          category    = "terraform"
+          description = "Aurora instance class for each cluster instance."
+        },
+        {
+          key         = "db_bootstrap_enabled"
+          value       = "false"
+          category    = "terraform"
+          description = "Run the database bootstrap task on apply. Flip to true once to bootstrap a fresh cluster (or after a cluster rebuild); the bootstrap SQL is idempotent so re-runs are safe. Leave false otherwise — rotation of the RDS-managed master secret must not trigger bootstrap runs."
         }
       ]
     }

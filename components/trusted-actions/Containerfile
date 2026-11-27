@@ -11,7 +11,19 @@ RUN go build -o bin/rosa-trusted-actions-server ./cmd/server
 
 FROM registry.access.redhat.com/hi/core-runtime:latest@sha256:fe49c1e94db2743f99ea08d7bec7b7326595130463f76dd32308e6e122361149
 
-COPY --from=builder /opt/app-root/src/bin/rosa-trusted-actions-server /usr/local/bin/
+COPY --from=builder --chmod=0755 /opt/app-root/src/bin/rosa-trusted-actions-server /usr/local/bin/
+
+# AWS RDS CA bundle — the RDS server certificates are signed by Amazon's
+# private CAs, absent from system trust stores. Required for the mandatory
+# TLS of IAM database authentication (sslmode=verify-full) and for the
+# break-glass psql path. AWS rotates the CAs on a published schedule; the
+# bundle is fetched at build time rather than committed so a rebuild picks
+# up renewals. --chmod=0644 is required (not a plain ADD): remote-ADDed
+# files land 0600 root-owned while the image runs as UID 1001, and the
+# target must be an existing directory — under rootless builders the
+# auto-created parent directory gets a mode without the execute bit, which
+# makes the file unreachable for every user.
+ADD --chmod=0644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/certs/rds-global-bundle.pem
 
 EXPOSE 8080
 

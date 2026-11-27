@@ -6,8 +6,8 @@ Infrastructure is split into two Terraform roots that must be applied in order:
 
 | Root         | Path                  | Scope                                                                                                      | Apply cadence    |
 |--------------|-----------------------|------------------------------------------------------------------------------------------------------------|------------------|
-| **global**   | `terraform/global/`   | Account-wide: IAM, Secrets Manager, ACM validation CNAME                                                   | Once per account |
-| **regional** | `terraform/regional/` | One deployment per AWS region: VPC, ALB, ECS, EC2, EBS, S3 bucket, CloudWatch, Route 53 PHZ, regional ACM certificate | Once per region  |
+| **global**   | `terraform/global/`   | Account-wide: IAM (task execution role, audit-log roles), Secrets Manager app secret, ACM validation CNAME | Once per account |
+| **regional** | `terraform/regional/` | One deployment per AWS region: VPC, ALB, ECS Fargate, Aurora PostgreSQL, S3 bucket, CloudWatch, Route 53 PHZ, regional ACM certificate | Once per region  |
 
 The regional root reads IAM ARNs, the Secrets Manager ARN, and the public
 hosted zone ID directly from the global workspace's Terraform state via
@@ -22,8 +22,8 @@ the bucket.
 flowchart LR
     subgraph GLOBAL["terraform/global — apply ONCE per AWS account"]
         direction TB
-        IAM["IAM roles & policies<br/>ecs_instance, task, task_execution,<br/>cwl_to_firehose, firehose_audit_logs<br/><i>(task_app / firehose policies grant S3 access<br/>via wildcard ARN ACCOUNT-ENV-SUFFIX-*)</i>"]
-        SECRETS["Secrets Manager secret<br/>ocm_client_secret, ocm_token,<br/>backplane_client_secret"]
+        IAM["IAM roles & policies<br/>task_execution, cwl_to_firehose,<br/>firehose_audit_logs<br/><i>(read_secrets: app secret only;<br/>firehose policy grants S3 access<br/>via wildcard ARN ACCOUNT-ENV-SUFFIX-*)</i>"]
+        SECRETS["Secrets Manager app secret<br/>ocm_client_secret, ocm_token,<br/>backplane_client_secret"]
         DNSG["ACM validation CNAME<br/>(public hosted zone, optional)"]
     end
     style GLOBAL fill:#e8f0fe,stroke:#4285f4
@@ -32,7 +32,7 @@ flowchart LR
         direction TB
         NET1["VPC, subnets, IGW, NAT,<br/>route tables, security groups"]
         ALB1["ALB + listeners + target group"]
-        ECS1["ECS cluster, EC2 host + EBS volume,<br/>task definition, service"]
+        ECS1["ECS cluster, Fargate task + service,<br/>regional task role (rds-db:connect),<br/>Aurora cluster + bootstrap task"]
         S31["S3 bucket<br/>ACCOUNT-ENV-SUFFIX-us-east-1"]
         AUDIT1["CloudWatch log group → Firehose<br/>→ S3 (audit-logs/)"]
         DNS1["Private Hosted Zone +<br/>regional ACM certificate"]
@@ -43,7 +43,7 @@ flowchart LR
         direction TB
         NET2["VPC, subnets, IGW, NAT,<br/>route tables, security groups"]
         ALB2["ALB + listeners + target group"]
-        ECS2["ECS cluster, EC2 host + EBS volume,<br/>task definition, service"]
+        ECS2["ECS cluster, Fargate task + service,<br/>regional task role (rds-db:connect),<br/>Aurora cluster + bootstrap task"]
         S32["S3 bucket<br/>ACCOUNT-ENV-SUFFIX-eu-central-1"]
         AUDIT2["CloudWatch log group → Firehose<br/>→ S3 (audit-logs/)"]
         DNS2["Private Hosted Zone +<br/>regional ACM certificate"]
@@ -60,14 +60,17 @@ flowchart LR
     IAM -. "wildcard ARN covers<br/>every region's bucket" .-> S32
 ```
 
-- **Blue (global)** — created once, shared by every region: IAM roles/policies,
-  the app secret, and (optionally) the ACM validation CNAME.
-- **Green (regional)** — created per region: networking, ALB, ECS compute, the
-  region's own S3 bucket, the Firehose audit-log pipeline, and DNS/TLS.
+- **Blue (global)** — created once, shared by every region: the task
+  execution role, audit-log roles/policies, the app secret, and (optionally)
+  the ACM validation CNAME.
+- **Green (regional)** — created per region: networking, ALB, ECS Fargate
+  compute, the region's Aurora cluster and task role, the region's own S3
+  bucket, the Firehose audit-log pipeline, and DNS/TLS.
 - **Yellow** — adding region N+1 only touches `terraform/regional`: a new
-  tfvars file / HCP Terraform workspace. `global` is never re-applied — its
-  IAM wildcard ARN (`ACCOUNT-ENVIRONMENT-SUFFIX-*`) already covers any
-  region's bucket by construction.
+  tfvars file / HCP Terraform workspace. `global` is never re-applied — the
+  firehose policy's S3 wildcard ARN (`ACCOUNT-ENVIRONMENT-SUFFIX-*`) already
+  covers any region's bucket by construction, and each region creates its own
+  task role and Aurora cluster.
 
 See [docs/networking.md](networking.md) for the DNS and TLS architecture.
 
@@ -76,9 +79,10 @@ See [docs/networking.md](networking.md) for the DNS and TLS architecture.
 ## Table of Contents
 
 1. [HCP Terraform (CI/CD)](#hcp-terraform-cicd)
-2. [Local Testing](#local-testing)
-3. [Verification](#verification)
-4. [Adding a New Region](#adding-a-new-region)
+2. [Database (Aurora + IAM authentication)](#database-aurora--iam-authentication)
+3. [Local Testing](#local-testing)
+4. [Verification](#verification)
+5. [Adding a New Region](#adding-a-new-region)
 
 ---
 
@@ -129,6 +133,110 @@ credentials in approved sensitive variables/variable sets; never commit them
 or edit the Git-managed workspace variables directly in HCP. Regional IAM
 ARNs and the Secrets Manager ARN come from global remote state. The regional
 workspace owns its own S3 bucket.
+
+---
+
+## Database (Aurora + IAM authentication)
+
+Each regional root provisions an Aurora PostgreSQL cluster
+(`terraform/regional/rds.tf`) with IAM database authentication enabled. The
+service runs on Fargate and connects as the `trusted_actions_app` database
+user, authenticating with a 15-minute RDS IAM token minted per connection —
+**no database password exists anywhere in the application's runtime**. TLS is
+mandatory (`sslmode=verify-full`) and verifies the Aurora certificate against
+the RDS CA bundle baked into the image at `/etc/ssl/certs/rds-global-bundle.pem`.
+
+### Roles and secrets
+
+| Principal | What it holds |
+|---|---|
+| `APP_NAME-task-REGION` (regional task role) | Runtime grants (S3, CloudWatch, ECS Exec) plus an inline `rds-db:connect` policy scoped to `dbuser:<this cluster's resource ID>/trusted_actions_app` only — structural cross-region isolation |
+| `APP_NAME-bootstrap-execution-REGION` | The sole reader of this cluster's exact master-secret ARN; nothing else |
+| `trusted_actions` (Aurora master user) | Password fully RDS-managed (`manage_master_user_password = true`): RDS creates the secret, rotates it every 7 days, and deletes it with the cluster. Reserved for bootstrap and break-glass |
+| `trusted_actions_app` (application user) | Created by the bootstrap; owns the database and schema, holds `rds_iam` and `CREATEDB` |
+
+The master password never enters Terraform state, the task definition, or any
+log: the only consumer is the bootstrap task, where ECS injects the secret as
+an environment variable at task start.
+
+**Never create `aws_secretsmanager_secret_rotation` with `rotation_enabled =
+false`** for the master secret. The documented disable path is a parking
+resource with a known gotcha: if it is ever introduced, it must
+`depends_on` the cluster *instance* or AWS silently re-enables rotation after
+the instance provisions. RDS-managed rotation is the design; there is nothing
+to park.
+
+### `rds:ModifyDBCluster` caveat
+
+Anyone holding `rds:ModifyDBCluster` (plus `secretsmanager:RotateSecret`) can
+force an immediate master-secret rotation out of band. That is harmless to
+the service — it never uses the master secret — but it rotates the credential
+break-glass would use. Watch CloudTrail for `ModifyDBCluster` events touching
+`APP_NAME` clusters outside planned applies if that matters to your threat
+model.
+
+### `db_*` variables
+
+`db_engine_version`, `db_instance_class`, `db_instance_count`, `db_username`,
+`db_name`, `db_backup_retention_period`, `db_preferred_backup_window`,
+`db_deletion_protection`, `db_skip_final_snapshot`,
+`db_performance_insights_enabled`, `db_kms_key_id` configure the cluster
+(defaults in `terraform/regional/variables.tf`; the stage workspace sets
+`db_engine_version`, `db_instance_class`, and `db_bootstrap_enabled`). There
+is deliberately **no `db_password` variable**.
+
+### `db_bootstrap_enabled`
+
+The bootstrap task (`terraform/regional/bootstrap.tf`) runs the image's
+`bootstrap` subcommand with the master secret: it creates `trusted_actions_app`,
+grants it `rds_iam` and `CREATEDB`, and transfers database/schema ownership.
+The SQL is idempotent — re-running is a no-op.
+
+Gated off by default (`db_bootstrap_enabled = false`). On a greenfield
+apply:
+
+1. Apply with `db_bootstrap_enabled = true` once. The `null_resource`
+   run-task executes and the apply fails loudly if the bootstrap task fails.
+2. Set it back to `false`. The resource's triggers (cluster resource ID,
+   username, db name, image) deliberately exclude the master-secret ARN so
+   RDS's 7-day rotation never re-triggers a bootstrap run. A post-rotation
+   bootstrap run succeeds anyway — the subcommand reads the current secret
+   value and every statement is idempotent.
+
+### Break-glass runbook
+
+When the application user path is broken and master-level database access is
+needed, run the bootstrap task definition with a `psql` entrypoint. The
+master secret is fetched at task start by the bootstrap execution role; the
+password exists only in that task's environment.
+
+```bash
+# 1. Fetch the master secret (readable only by the bootstrap execution role's
+#    policy — an admin with secretsmanager:GetSecretValue on the ARN, or an
+#    assume-role into it). Get the exact ARN from the cluster:
+SECRET_ARN="$(aws rds describe-db-clusters --db-cluster-identifier rosa-trusted-actions \
+  --query 'DBClusters[0].MasterUserSecret[0].SecretArn' --output text)"
+SECRET="$(aws secretsmanager get-secret-value --secret-id "$SECRET_ARN" \
+  --query SecretString --output text)"
+MASTER_USER="$(echo "$SECRET" | jq -r .username)"
+MASTER_PASSWORD="$(echo "$SECRET" | jq -r .password)"
+
+# 2. Connect with verify-full and the image's CA bundle (adjust host from
+#    describe-db-clusters Endpoint):
+psql "postgres://${MASTER_USER}:${MASTER_PASSWORD}@<cluster-endpoint>:5432/trusted_actions?sslmode=verify-full&sslrootcert=/etc/ssl/certs/rds-global-bundle.pem"
+```
+
+The `psql` client is not part of the deployed image; run it from an operator
+environment with VPC reachability to the cluster endpoint (the Aurora SG
+admits 5432 from the Fargate task SG only, so this requires a bastion, SSM
+session, or a temporary SG rule — an audited, deliberate act). The master
+user is *not* a permanent member of `trusted_actions_app`: the bootstrap
+grants that membership only for its own ownership transfers and revokes it
+at the end, because RDS forces IAM-token authentication on every `rds_iam`
+member (directly or through a role chain) and a lasting membership would
+break the master's password login. If break-glass needs the application
+role's privileges, grant it for the session and revoke it afterwards
+(`GRANT trusted_actions_app TO trusted_actions; SET ROLE …; …; REVOKE`).
 
 ---
 

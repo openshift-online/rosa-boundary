@@ -100,12 +100,13 @@ func runServer(cmd *cobra.Command, args []string) error {
 	// password — ROSA_TA_DB_HOST et al.) precedence over the legacy
 	// DATABASE_URL schemes during the expand phase.
 	dataStore, err := store.NewWithIAM(cmd.Context(), cfg.DatabaseURL, store.IAMDBConfig{
-		Host:    cfg.DBHost,
-		Port:    cfg.DBPort,
-		DBName:  cfg.DBName,
-		User:    cfg.DBUser,
-		Region:  cfg.AWSRegion,
-		SSLMode: cfg.DBSSLMode,
+		Host:        cfg.DBHost,
+		Port:        cfg.DBPort,
+		DBName:      cfg.DBName,
+		User:        cfg.DBUser,
+		Region:      cfg.AWSRegion,
+		SSLMode:     cfg.DBSSLMode,
+		SSLRootCert: cfg.DBSSLRootCert,
 	}, store.PostgresConfig{
 		MaxOpenConns:    cfg.DBMaxOpenConns,
 		MaxIdleConns:    cfg.DBMaxIdleConns,

@@ -71,11 +71,12 @@ type Config struct {
 	// URL and no password — the server mints a short-lived RDS IAM token
 	// per physical connection instead. DBSSLMode defaults to verify-full;
 	// only the LocalStack development env file lowers it to disable.
-	DBHost    string
-	DBPort    string
-	DBName    string
-	DBUser    string
-	DBSSLMode string
+	DBHost        string
+	DBPort        string
+	DBName        string
+	DBUser        string
+	DBSSLMode     string
+	DBSSLRootCert string
 	// Pool tuning applies to both database paths.
 	DBMaxOpenConns    int
 	DBMaxIdleConns    int
@@ -274,6 +275,7 @@ func Load(configFilePath string) (*Config, error) {
 		DBName:            getEnv("ROSA_TA_DB_NAME", ""),
 		DBUser:            getEnv("ROSA_TA_DB_USER", ""),
 		DBSSLMode:         getEnv("ROSA_TA_DB_SSLMODE", "verify-full"),
+		DBSSLRootCert:     getEnv("ROSA_TA_DB_SSLROOTCERT", ""),
 		DBMaxOpenConns:    getPositiveIntEnv("ROSA_TA_DB_MAX_OPEN_CONNS", 10),
 		DBMaxIdleConns:    getPositiveIntEnv("ROSA_TA_DB_MAX_IDLE_CONNS", 5),
 		DBConnMaxLifetime: getPositiveDurationEnv("ROSA_TA_DB_CONN_MAX_LIFETIME", 5*time.Minute),

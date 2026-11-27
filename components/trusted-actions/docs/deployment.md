@@ -230,8 +230,13 @@ The `psql` client is not part of the deployed image; run it from an operator
 environment with VPC reachability to the cluster endpoint (the Aurora SG
 admits 5432 from the Fargate task SG only, so this requires a bastion, SSM
 session, or a temporary SG rule — an audited, deliberate act). The master
-user remains a member of `trusted_actions_app` after the ownership transfer,
-so break-glass retains full privileges on the application database.
+user is *not* a permanent member of `trusted_actions_app`: the bootstrap
+grants that membership only for its own ownership transfers and revokes it
+at the end, because RDS forces IAM-token authentication on every `rds_iam`
+member (directly or through a role chain) and a lasting membership would
+break the master's password login. If break-glass needs the application
+role's privileges, grant it for the session and revoke it afterwards
+(`GRANT trusted_actions_app TO trusted_actions; SET ROLE …; …; REVOKE`).
 
 ---
 

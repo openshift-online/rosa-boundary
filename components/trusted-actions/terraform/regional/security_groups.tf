@@ -15,8 +15,22 @@ resource "aws_security_group" "alb" {
     protocol    = "tcp"
     cidr_blocks = [data.aws_vpc.current.cidr_block]
   }
-
   tags = { Name = "${var.app_name}-alb-sg" }
+}
+
+# ALB egress to the tasks' 8080. A separate rule, not an egress block on
+# aws_security_group.alb: that would create an alb↔ecs_task reference cycle,
+# because ecs_task's ingress already references alb. Without any egress the
+# ALB cannot reach its targets — health checks time out and ECS churns tasks
+# (observed live: declaring the SG in Terraform removes the default
+# allow-all egress).
+resource "aws_security_group_rule" "alb_egress_tasks" {
+  type                     = "egress"
+  from_port                = 8080
+  to_port                  = 8080
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.alb.id
+  source_security_group_id = aws_security_group.ecs_task.id
 }
 
 # Fargate task SG: inbound from ALB, outbound to Aurora and internet.

@@ -36,3 +36,12 @@ BEGIN
     END LOOP;
 END
 $$;
+
+-- Drop the master user's membership in the application role again: it
+-- existed only to carry SET ROLE for the ownership transfers above. RDS
+-- forces IAM-token authentication on every member of rds_iam, directly or
+-- through a role chain, so leaving the master inside trusted_actions_app
+-- breaks its password login for break-glass and for a later re-run of this
+-- bootstrap (observed live: "PAM authentication failed"). Idempotent:
+-- phase 1 re-grants on a re-run and this revokes it again at the end.
+REVOKE trusted_actions_app FROM CURRENT_USER;

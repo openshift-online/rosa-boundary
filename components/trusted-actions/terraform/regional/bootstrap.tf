@@ -34,6 +34,11 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
       image     = var.container_image
       essential = true
 
+      # The image's ENTRYPOINT is the server binary; a task-definition
+      # command is appended to it, so running a shell requires overriding
+      # the entrypoint explicitly.
+      entryPoint = ["/bin/sh", "-c"]
+
       # The bootstrap subcommand reads ROSA_TA_DB_MASTER_DSN. The DSN is
       # assembled here from the cluster endpoint and the injected master
       # credentials; every part is connection metadata except the password
@@ -42,7 +47,7 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
       # form, not a URL: the RDS-generated password may contain characters
       # that are special in a URL, and the single-quoted value keeps the
       # shell from touching anything.
-      command = ["/bin/sh", "-c", join(" && ", [
+      command = [join(" && ", [
         "export ROSA_TA_DB_MASTER_DSN='host=${aws_rds_cluster.main.endpoint} port=${aws_rds_cluster.main.port} dbname=${var.db_name} user=${var.db_username} password=$$ROSA_TA_DB_MASTER_PASSWORD sslmode=verify-full sslrootcert=/etc/ssl/certs/rds-global-bundle.pem'",
         "exec /usr/local/bin/rosa-trusted-actions-server bootstrap",
       ])]

@@ -276,9 +276,9 @@ variable "db_instance_count" {
 }
 
 variable "db_engine_version" {
-  description = "Aurora PostgreSQL engine version, pinned explicitly (never a floating major-only prefix)."
+  description = "Aurora PostgreSQL engine version, pinned explicitly (never a floating major-only prefix). Must be a version still creatable in the region — AWS removes deprecated minors from CreateDBCluster (16.4 was removed; verified creatable 2026-11-27: 16.15)."
   type        = string
-  default     = "16.4"
+  default     = "16.15"
 }
 
 variable "db_backup_retention_period" {

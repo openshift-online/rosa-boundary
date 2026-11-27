@@ -245,7 +245,7 @@ module "rosa_trusted_actions" {
         },
         {
           key         = "db_engine_version"
-          value       = "16.4"
+          value       = "16.15"
           category    = "terraform"
           description = "Aurora PostgreSQL engine version, pinned. Must match a version the regional root's default db_instance_class supports."
         },

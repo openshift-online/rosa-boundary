@@ -37,7 +37,7 @@ locals {
     { name = "ROSA_TA_DB_NAME", value = var.db_name },
     { name = "ROSA_TA_DB_USER", value = local.db_app_username },
     { name = "ROSA_TA_DB_SSLMODE", value = "verify-full" },
-    { name = "ROSA_TA_DB_SSLROOTCERT", value = "/etc/ssl/rds/global-bundle.pem" },
+    { name = "ROSA_TA_DB_SSLROOTCERT", value = "/etc/ssl/certs/rds-global-bundle.pem" },
     { name = "ROSA_TA_CONFIG_HASH", value = sha256(local.app_config_effective) },
     ],
     [for name, value in local.compat_env : { name = name, value = value } if value != ""],

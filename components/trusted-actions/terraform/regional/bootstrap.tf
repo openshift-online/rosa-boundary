@@ -43,7 +43,7 @@ resource "aws_ecs_task_definition" "db_bootstrap" {
       # that are special in a URL, and the single-quoted value keeps the
       # shell from touching anything.
       command = ["/bin/sh", "-c", join(" && ", [
-        "export ROSA_TA_DB_MASTER_DSN='host=${aws_rds_cluster.main.endpoint} port=${aws_rds_cluster.main.port} dbname=${var.db_name} user=${var.db_username} password=$$ROSA_TA_DB_MASTER_PASSWORD sslmode=verify-full sslrootcert=/etc/ssl/rds/global-bundle.pem'",
+        "export ROSA_TA_DB_MASTER_DSN='host=${aws_rds_cluster.main.endpoint} port=${aws_rds_cluster.main.port} dbname=${var.db_name} user=${var.db_username} password=$$ROSA_TA_DB_MASTER_PASSWORD sslmode=verify-full sslrootcert=/etc/ssl/certs/rds-global-bundle.pem'",
         "exec /usr/local/bin/rosa-trusted-actions-server bootstrap",
       ])]
 

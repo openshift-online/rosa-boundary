@@ -144,7 +144,7 @@ service runs on Fargate and connects as the `trusted_actions_app` database
 user, authenticating with a 15-minute RDS IAM token minted per connection —
 **no database password exists anywhere in the application's runtime**. TLS is
 mandatory (`sslmode=verify-full`) and verifies the Aurora certificate against
-the RDS CA bundle baked into the image at `/etc/ssl/rds/global-bundle.pem`.
+the RDS CA bundle baked into the image at `/etc/ssl/certs/rds-global-bundle.pem`.
 
 ### Roles and secrets
 
@@ -223,7 +223,7 @@ MASTER_PASSWORD="$(echo "$SECRET" | jq -r .password)"
 
 # 2. Connect with verify-full and the image's CA bundle (adjust host from
 #    describe-db-clusters Endpoint):
-psql "postgres://${MASTER_USER}:${MASTER_PASSWORD}@<cluster-endpoint>:5432/trusted_actions?sslmode=verify-full&sslrootcert=/etc/ssl/rds/global-bundle.pem"
+psql "postgres://${MASTER_USER}:${MASTER_PASSWORD}@<cluster-endpoint>:5432/trusted_actions?sslmode=verify-full&sslrootcert=/etc/ssl/certs/rds-global-bundle.pem"
 ```
 
 The `psql` client is not part of the deployed image; run it from an operator

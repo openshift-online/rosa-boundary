@@ -14,7 +14,11 @@ requires manual approval before applying plans. `us-east-1` is the Git-managed w
 `aws_region`, not an independent Lambda source-region variable: changing it also requires
 coordinated app-interface ECR registration and Konflux release-destination and
 credential changes. The repository uses AES256 encryption, immutable tags,
-scan-on-push and a 25-tagged-image retention policy; `force_delete` is disabled.
+and scan-on-push; `force_delete` is disabled. Neither source nor replica has an
+ECR lifecycle expiration policy. Lambda pins a digest, so newer pushes do not
+make older images safe to delete. Retain all images and metadata (including
+separately tagged `.sbom` and `.att` manifests) until releases can be retired
+without deleting a deployed or designated rollback digest in either Region.
 Same-account publication relies on IAM permissions of the generated ECR
 credential's role; no cross-account repository policy is configured.
 

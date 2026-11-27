@@ -7,7 +7,7 @@ Terraform configuration for deploying ROSA Boundary container infrastructure on 
 `lambda_ecr_destination_source_region` is empty by default. Set it to the
 account root's Lambda publication Region only in a *different* Region to create
 `rosa-boundary/create-investigation-lambda` with the same immutable-tag,
-encryption, scanning and 25-tag retention settings as the source. In staging,
+encryption and scanning settings as the source, and no lifecycle expiration. In staging,
 only the `us-west-2` regional workspace enables it; `us-east-1` continues to
 use the account-owned source repository. The account root owns filtered,
 registry-wide image replication, not this state. New source-region pushes after

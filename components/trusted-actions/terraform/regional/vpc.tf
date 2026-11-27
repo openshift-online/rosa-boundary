@@ -6,8 +6,6 @@ locals {
   # reference the resources created below. The [0] index is safe because the resources
   # are created (count = 1) exactly when create_vpc is true.
   vpc_id           = local.create_vpc ? aws_vpc.main[0].id : var.vpc_id
-  public_subnet_a  = local.create_vpc ? aws_subnet.public_a[0].id : var.public_subnet_ids[0]
-  public_subnet_b  = local.create_vpc ? aws_subnet.public_b[0].id : var.public_subnet_ids[1]
   private_subnet_a = local.create_vpc ? aws_subnet.private_a[0].id : var.private_subnet_ids[0]
   # private_subnet_b is only used in Phase 2; fall back to private_subnet_a when only one is supplied.
   private_subnet_b = (

@@ -47,7 +47,7 @@ module "rosa_trusted_actions" {
       # Lets the regional workspace read this workspace's outputs via
       # terraform_remote_state — required for the regional root's
       # terraform_remote_state block to resolve ARNs/bucket names.
-      remote_state_consumer_workspaces = ["rosa-trusted-actions-stage"]
+      remote_state_consumer_workspaces = ["rosa-trusted-actions-stage", "rosa-trusted-actions-stage-us-west-2"]
       variables = [
         {
           key         = "aws_region"
@@ -153,12 +153,6 @@ module "rosa_trusted_actions" {
           category = "terraform"
         },
         {
-          key      = "public_subnet_ids"
-          value    = jsonencode(["subnet-01821c41d92b0f8b1", "subnet-0f52e06526c080dfa"])
-          category = "terraform"
-          hcl      = true
-        },
-        {
           key      = "private_subnet_ids"
           value    = jsonencode(["subnet-0042826174855e520", "subnet-0f9392e3159168d6f"])
           category = "terraform"
@@ -176,6 +170,132 @@ module "rosa_trusted_actions" {
               # allowed_cluster_regions is deliberately unset: actions reach
               # clusters in every region, as they did before the setting
               # existed. Add it (e.g. [${var.aws_region}]) only as a decision
+              # to confine this deployment.
+              allowed_namespaces: []
+              allowed_secrets: []
+            ocm:
+              base_url: https://api.stage.openshift.com
+              client_id: ${var.ocm_client_id}
+            backplane:
+              base_url: https://api.stage.backplane.openshift.com
+              client_id: ${var.backplane_client_id}
+            roles:
+              - id: SREP
+                amsResource: BackplaneOsdSrepResource
+              - id: ConfigurationAnomalyDetection
+                amsResource: BackplaneOsdCadResource
+              - id: ROSAAiAgent
+                amsResource: BackplaneOsdAiAgentResource
+            workers:
+              concurrency: 4
+              poll_interval: 5s
+              execution_timeout: 2m
+          YAML
+          category    = "terraform"
+          description = "Complete application config file (config.yaml) uploaded to S3. The Go loader applies env-over-file precedence, so settings here must not also be env vars on the task definition."
+        },
+        {
+          key         = "internal_fqdn"
+          value       = "rosa-trusted-actions.dev0.rosav1.devshift.net"
+          category    = "terraform"
+          description = "Private FQDN — must match the value in the global workspace."
+        },
+        {
+          key      = "default_tags"
+          value    = <<-EOT
+            {
+              owner         = "app-sre"
+              service-phase = "stage"
+            }
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "ignored_tag_keys"
+          value    = <<-EOT
+            [
+              "app",
+              "app-code",
+              "cost-center",
+              "managed_by_integration",
+              "organization",
+            ]
+          EOT
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key       = "ocm_client_secret"
+          value     = var.ocm_client_secret
+          category  = "terraform"
+          sensitive = true
+        },
+        {
+          key       = "backplane_client_secret"
+          value     = var.backplane_client_secret
+          category  = "terraform"
+          sensitive = true
+        }
+      ]
+    }
+
+    # ── Regional workspace: us-west-2 stage ────────────────────────────────────
+    # ROSAENG-76798: syncs TA stage topology with Boundary's two-region stage
+    # (rosa-boundary-stage-regional-us-west-2). Reuses the stage global
+    # workspace's IAM/Secrets outputs via terraform_remote_state, exactly like
+    # the us-east-1 regional. Networking comes from Boundary's stage us-west-2
+    # network (rosa-boundary-stage-network-us-west-2, vpc-0542b778bebc15361).
+    rosa-trusted-actions-stage-us-west-2 = {
+      terraform_version      = "1.16.0"
+      auto_apply             = true
+      auto_apply_run_trigger = true
+      working_directory      = "components/trusted-actions/terraform/regional"
+      github_repo_org        = "openshift-online"
+      github_repo_name       = "rosa-boundary"
+      source_workspaces      = ["rosa-trusted-actions-global"]
+      variable_set_names     = ["rosa-trusted-actions-rosa-boundary-stage-rosa-trusted-actions-aws-dynamic-creds"]
+      variables = [
+        {
+          key         = "aws_region"
+          value       = "us-west-2"
+          category    = "terraform"
+          description = "AWS region for this deployment."
+        },
+        {
+          key      = "environment"
+          value    = "stage"
+          category = "terraform"
+        },
+        {
+          key         = "s3_bucket_name_suffix"
+          value       = "rosa-trusted-actions"
+          category    = "terraform"
+          description = "Must match the global workspace's s3_bucket_name_suffix — used to build this region's bucket name."
+        },
+        {
+          key      = "vpc_id"
+          value    = "vpc-0542b778bebc15361"
+          category = "terraform"
+        },
+        {
+          key      = "private_subnet_ids"
+          value    = jsonencode(["subnet-0d5fca0e91bca08c4", "subnet-01c983035ca092c38"])
+          category = "terraform"
+          hcl      = true
+        },
+        {
+          key      = "container_image"
+          value    = "quay.io/redhat-user-workloads/rosa-tenant/rosa-trusted-actions@sha256:d51a737176307ee43f92c0667688a39d191dc656396bcaa3294dd9fbc649c331"
+          category = "terraform"
+        },
+        {
+          key         = "app_config"
+          value       = <<-YAML
+            actions:
+              # allowed_cluster_regions is deliberately unset: actions reach
+              # clusters in every region, as they did before the setting
+              # existed. Add it (e.g. [us-west-2]) only as a decision
               # to confine this deployment.
               allowed_namespaces: []
               allowed_secrets: []

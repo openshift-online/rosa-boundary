@@ -355,7 +355,7 @@ RUN curl --silent --location --fail \
 # Build only the CLI from the nested module in this exact source context.
 # The compiler, source and module cache never enter the final image.
 # Go version and multi-arch manifest digest checked 2026-11-19.
-FROM registry.access.redhat.com/hi/go:1.27.4@sha256:45e7e3c75ec28a1dce94e822e6ea0dbe58e2032d81494d5ec244488137088838 AS rta-builder
+FROM registry.access.redhat.com/hi/go:1.27.4@sha256:9ef1943e1b7c6b469316b6d0c8fec027e16a8c35c7a5425066c9b737fe6c5533 AS rta-builder
 
 ENV GOTOOLCHAIN=local CGO_ENABLED=0
 WORKDIR /src/trusted-actions

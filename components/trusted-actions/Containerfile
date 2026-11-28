@@ -9,7 +9,7 @@ COPY . .
 
 RUN go build -o bin/rosa-trusted-actions-server ./cmd/server
 
-FROM registry.access.redhat.com/hi/core-runtime:latest@sha256:fe49c1e94db2743f99ea08d7bec7b7326595130463f76dd32308e6e122361149
+FROM registry.access.redhat.com/hi/core-runtime:latest@sha256:b89211eabec2378de257b754643579aabb9b87bc67ed8411dcef0b9ef8142d68
 
 COPY --from=builder /opt/app-root/src/bin/rosa-trusted-actions-server /usr/local/bin/
 
